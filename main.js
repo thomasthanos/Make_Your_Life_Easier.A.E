@@ -19,6 +19,7 @@ const https = require('https');
 // Initialize auth manager - ΜΟΝΟ ΜΙΑ ΦΟΡΑ
 const documentsPath = require('os').homedir() + '/Documents';
 const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
+const { SimpleUpdater } = require('./simple-updater');
 
 // Δημιουργία του directory αν δεν υπάρχει
 if (!fs.existsSync(pmDirectory)) {
@@ -36,8 +37,9 @@ console.log('Auth manager initialized in main.js');
 function stripAnsiCodes(str) {
   return str.replace(/\u001b\[[0-?]*[ -\/]*[@-~]/g, '');
 }
-
-let mainWindow;
+// IPC hooks που ήδη καλείς από preload/renderer:
+ipcMain.handle('check-for-updates', async () => updater.checkForUpdates());
+ipcMain.handle('get-app-version', () => ({ version: app.getVersion() }));mainWindow;
 const store = new Store();
 const activeDownloads = new Map(); // id -> { response, file, total, received, paused, filePath, finalPath }
 
