@@ -59,11 +59,15 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     autoHideMenuBar: true,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
-    }
+      contextIsolation: true,
+      enableRemoteModule: false,
+      preload: path.join(__dirname, 'preload.js')
+    },
+    icon: path.join(__dirname, 'assets', 'icon.ico'),
+    show: false,
+    titleBarStyle: 'default'
   });
   mainWindow.loadFile('index.html');
   updater = new SimpleUpdater(mainWindow);
@@ -200,7 +204,51 @@ ipcMain.on('download-start', (event, { id, url, dest }) => {
         mainWindow.webContents.send('download-event', { id, status: 'error', error: `HTTP ${res.statusCode}` });
         return;
       }
-
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    
+    // Έλεγχος για updates κατά την εκκίνηση (μόνο μια φορά)
+    setTimeout(() => {
+      checkForUpdates();
+    }, 3000);
+  });
+    autoUpdater.on('checking-for-update', () => {
+    sendStatusToWindow('🔍 Έλεγχος για ενημερώσεις...');
+  });
+autoUpdater.on('update-available', (info) => {
+    sendStatusToWindow(`✅ Βρέθηκε νέα έκδοση: v${info.version}`);
+    
+    // Εμφάνιση dialog για download
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Νέα Έκδοση Διαθέσιμη!',
+      message: `Βρέθηκε νέα έκδοση: v${info.version}`,
+      detail: `Τρέχουσα έκδοση: v${app.getVersion()}\n\n${info.releaseNotes || 'Νέες λειτουργίες και βελτιώσεις.'}\n\nΘέλετε να κατεβάσετε την ενημέρωση τώρα;`,
+      buttons: ['Κατέβασμα Τώρα', 'Αργότερα', 'Προβολή Σελίδας'],
+      defaultId: 0,
+      cancelId: 1
+    }).then((result) => {
+      if (result.response === 0) {
+        // Download update
+        sendStatusToWindow('📥 Κατέβασμα ενημέρωσης...');
+        autoUpdater.downloadUpdate();
+      } else if (result.response === 2) {
+        // Open releases page
+        shell.openExternal('https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases');
+      }
+    });
+  });
+    autoUpdater.on('update-not-available', (info) => {
+    sendStatusToWindow('🎉 Έχετε την τελευταία έκδοση!');
+  });
+    autoUpdater.on('download-progress', (progressObj) => {
+    let log_message = `📥 Λήψη: ${progressObj.percent.toFixed(2)}%`;
+    log_message += ` (${Math.round(progressObj.bytesPerSecond / 1024)} KB/s)`;
+    log_message += ` - ${Math.round(progressObj.transferred / 1048576)}/${Math.round(progressObj.total / 1048576)} MB`;
+    
+    sendStatusToWindow(log_message);
+  });
+  
       // Decide final file name
       const sanitizedDest = sanitizeName(dest || '');
       const cd = res.headers['content-disposition'] || '';
@@ -1550,4 +1598,86 @@ ipcMain.handle('find-exe-files', async (event, directoryPath) => {
       resolve([]);
     }
   });
+    autoUpdater.on('update-downloaded', (info) => {
+    sendStatusToWindow('✅ Η ενημέρωση κατεβήκε! Προετοιμασία εγκατάστασης...');
+    
+    // Εμφάνιση dialog για εγκατάσταση
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Ενημέρωση Έτοιμη',
+      message: 'Η ενημέρωση κατεβήκε και είναι έτοιμη για εγκατάσταση!',
+      detail: `Η εφαρμογή θα κλείσει αυτόματα για να εγκαταστήσει την νέα έκδοση v${info.version}. Αποθηκεύστε όλη σας την εργασία πριν συνεχίσετε.`,
+      buttons: ['Εγκατάσταση Τώρα', 'Εγκατάσταση Μετά'],
+      defaultId: 0,
+      cancelId: 1
+    }).then((result) => {
+      if (result.response === 0) {
+        // Restart and install
+        setImmediate(() => {
+          autoUpdater.quitAndInstall(false, true);
+        });
+      }
+      // Αν επιλέξει "Εγκατάσταση Μετά", το update θα εγκατασταθεί στο επόμενο restart
+    });
+  });
+
+  autoUpdater.on('error', (err) => {
+    sendStatusToWindow(`❌ Σφάλμα: ${err.message}`);
+    console.error('AutoUpdater error:', err);
+  });
+  // Συνάρτηση για έλεγχο updates
+function checkForUpdates() {
+  if (process.env.NODE_ENV === 'development') {
+    sendStatusToWindow('🚧 Developer Mode - Auto updates disabled');
+    return;
+  }
+  
+  // Έλεγχος μόνο μια φορά την ημέρα
+  const lastUpdateCheck = store.get('lastUpdateCheck');
+  const now = Date.now();
+  const oneDay = 24 * 60 * 60 * 1000;
+  
+  if (lastUpdateCheck && (now - lastUpdateCheck < oneDay)) {
+    console.log('Skipping update check - already checked today');
+    return;
+  }
+  
+  store.set('lastUpdateCheck', now);
+  
+  sendStatusToWindow('🔍 Έλεγχος για ενημερώσεις...');
+  autoUpdater.checkForUpdates();
+}
+
+// Manual update check από το renderer
+ipcMain.handle('check-for-updates', async () => {
+  checkForUpdates();
+  return { success: true };
+});
+
+// Get current version
+ipcMain.handle('get-app-version', async () => {
+  return { version: app.getVersion() };
+});
+
+// Send status to renderer
+function sendStatusToWindow(message) {
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send('update-status', message);
+  }
+  console.log('Updater:', message);
+}
+
+app.whenReady().then(createWindow);
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
+});
 });
