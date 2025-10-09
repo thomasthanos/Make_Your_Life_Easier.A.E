@@ -25,10 +25,10 @@ class SimpleUpdater {
             console.log('EXE Path:', exePath);
             console.log('App Path:', appPath);
             
-            // Έλεγχος 1: Αν βρισκόμαστε σε TEMP folder (Portable version)
-            if (exePath.toLowerCase().includes('\\temp\\') && 
-                exePath.match(/[a-z0-9]{16,}/i)) { // Αν έχει τυχαίο string στο path
-                console.log('Detected: Portable version (TEMP folder with random name)');
+            // Έλεγχος 1: Αν το appPath περιέχει "MakeYourLifeEasier" (Portable unpack directory)
+            if (appPath.toLowerCase().includes('makeyourlifeeasier') && 
+                appPath.toLowerCase().includes('temp')) {
+                console.log('Detected: Portable version (MakeYourLifeEasier in TEMP)');
                 return 'portable';
             }
             
@@ -55,8 +55,8 @@ class SimpleUpdater {
             const exeDir = path.dirname(exePath);
             const appDir = path.dirname(appPath);
             
-            if (exeDir === appDir && !exeDir.toLowerCase().includes('temp')) {
-                console.log('Detected: Portable version (same directory, not TEMP)');
+            if (exeDir === appDir && !exeDir.toLowerCase().includes('program files')) {
+                console.log('Detected: Portable version (same directory, not Program Files)');
                 return 'portable';
             }
             
@@ -73,7 +73,9 @@ class SimpleUpdater {
     // Μέθοδος για εύρεση του σωστού asset
     findCorrectAsset(assets) {
         console.log('Looking for asset for installation type:', this.installationType);
+        console.log('Available assets:', assets.map(a => a.name));
         
+        // Πρώτα ψάχνουμε για ακριβή match βασισμένο στον τύπο εγκατάστασης
         if (this.installationType === 'portable') {
             // Ψάχνει για portable version
             const portableAsset = assets.find(asset => 
@@ -86,7 +88,6 @@ class SimpleUpdater {
                 return portableAsset;
             }
             
-            // Fallback για portable: αν δεν βρει portable, πάρε installer
             console.log('No portable asset found, falling back to installer');
         }
         
@@ -102,7 +103,18 @@ class SimpleUpdater {
             return installerAsset;
         }
         
-        // Fallback: οποιοδήποτε exe αρχείο
+        // Fallback: οποιοδήποτε exe αρχείο που περιέχει το όνομα της εφαρμογής
+        const appNameAsset = assets.find(asset => 
+            asset.name.toLowerCase().includes('makeyourlifeeasier') && 
+            asset.name.endsWith('.exe')
+        );
+        
+        if (appNameAsset) {
+            console.log('Found app name asset:', appNameAsset.name);
+            return appNameAsset;
+        }
+        
+        // Ultimate fallback: οποιοδήποτε exe αρχείο
         const anyExe = assets.find(asset => asset.name.endsWith('.exe'));
         if (anyExe) {
             console.log('Found fallback asset:', anyExe.name);
@@ -158,11 +170,14 @@ class SimpleUpdater {
             const isPortableInstallation = this.installationType === 'portable';
             
             let detailMessage;
-            
+            let customButtons = ['Εκτέλεση Τώρα', 'Άνοιγμα Φακέλου', 'Ακύρωση'];
+
             if (isPortableAsset && isPortableInstallation) {
                 detailMessage = `Το portable αρχείο ${asset.name} κατεβήκε. Θέλετε να το ανοίξετε τώρα για να αντικαταστήσετε την τρέχουσα έκδοση;`;
             } else if (!isPortableAsset && isPortableInstallation) {
-                detailMessage = `Το installer ${asset.name} κατεβήκε. Προσοχή: Είστε σε portable έκδοση αλλά κατεβάσατε installer. Θέλετε να το εκτελέσετε;`;
+                detailMessage = `Το installer ${asset.name} κατεβήκε. Προσοχή: Είστε σε portable έκδοση αλλά κατεβάσατε installer. Θέλετε να το εκτελέσετε για εγκατάσταση;`;
+            } else if (isPortableAsset && !isPortableInstallation) {
+                detailMessage = `Το portable αρχείο ${asset.name} κατεβήκε. Προσοχή: Είστε σε εγκατεστημένη έκδοση αλλά κατεβάσατε portable. Θέλετε να το εκτελέσετε;`;
             } else {
                 detailMessage = `Το installer ${asset.name} κατεβήκε. Θέλετε να ανοίξει τώρα ο installer για να εγκαταστήσετε την νέα έκδοση;`;
             }
@@ -172,7 +187,7 @@ class SimpleUpdater {
                 title: 'Ενημέρωση Έτοιμη',
                 message: 'Η λήψη ολοκληρώθηκε!',
                 detail: detailMessage,
-                buttons: ['Εκτέλεση Τώρα', 'Άνοιγμα Φακέλου', 'Ακύρωση'],
+                buttons: customButtons,
                 defaultId: 0,
                 cancelId: 2
             });
@@ -259,7 +274,6 @@ class SimpleUpdater {
         });
     }
 
-    // Οι υπόλοιπες μέθοδοι παραμένουν ίδιες όπως πριν...
     async verifyDownloadedFile(filePath) {
         return new Promise((resolve, reject) => {
             if (!fs.existsSync(filePath)) {
@@ -424,7 +438,7 @@ class SimpleUpdater {
     }
 
     showUpdateDialog(releaseInfo) {
-        const installTypeText = this.installationType === 'portable' ? 'Portable' : 'Installed';
+        const installTypeText = this.installationType === 'portable' ? 'Portable' : 'Εγκατεστημένη';
         
         dialog.showMessageBox(this.mainWindow, {
             type: 'info',

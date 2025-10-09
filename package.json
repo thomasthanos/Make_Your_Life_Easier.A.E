@@ -87,7 +87,8 @@
       "artifactName": "MakeYourLifeEasier-installer.exe"
     },
     "portable": {
-      "artifactName": "MakeYourLifeEasier-Portable.exe"
+      "artifactName": "MakeYourLifeEasier-Portable.exe",
+      "unpackDirName": "MakeYourLifeEasier"
     }
   }
 }
