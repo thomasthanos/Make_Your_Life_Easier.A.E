@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#7c3aed" />
+    <meta name="description" content="Make Your Life Easier - A comprehensive tool for system management and productivity" />
+    <title>Make Your Life Easier</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="styles.css" as="style" />
+    <link rel="preload" href="renderer.js" as="script" />
+    
+    <!-- Main stylesheet -->
+    <link rel="stylesheet" href="styles.css" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  </head>
+  <body>
+    <div id="app">
+      <nav id="sidebar">
+        <div class="app-title">Make Your Life Easier</div>
+        <ul id="menu-list"></ul>
+      </nav>
+      <main id="main">
+        <header id="header"></header>
+        <div id="content" class="content"></div>
+      </main>
+    </div>
+
+    <!-- Renderer script -->
+    <script src="renderer.js"></script>
+    
+    <!-- Loading animation -->
+    <div id="loading" style="position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg-color);display:flex;align-items:center;justify-content:center;z-index:9999;">
+      <div style="text-align:center;">
+        <div class="loading" style="width:40px;height:40px;border-width:4px;margin:0 auto 1rem;"></div>
+        <p>Loading...</p>
+      </div>
+    </div>
+    
+    <script>
+      // Hide loading animation when page is fully loaded
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          document.getElementById('loading').style.display = 'none';
+        }, 500);
+      });
+    </script>
+  </body>
+</html>
