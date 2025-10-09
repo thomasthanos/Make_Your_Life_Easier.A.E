@@ -533,6 +533,152 @@ class SimpleUpdater {
         }
         console.log('Updater:', message);
     }
+    // Προσθήκη μετά την fetchLatestRelease()
+getAssetDownloadUrl(releaseInfo) {
+  // Προτεραιότητα: installer αρχείο
+  const preferredAssets = [
+    'MakeYourLifeEasier-installer.exe',
+    'MakeYourLifeEasier-Portable.exe',
+    '.exe' // Fallback για οποιοδήποτε exe
+  ];
+
+  if (releaseInfo.assets && releaseInfo.assets.length > 0) {
+    for (const pattern of preferredAssets) {
+      const asset = releaseInfo.assets.find(a => 
+        a.name.includes(pattern)
+      );
+      if (asset) {
+        return asset.browser_download_url;
+      }
+    }
+    
+    // Fallback στο πρώτο asset
+    return releaseInfo.assets[0].browser_download_url;
+  }
+  
+  return null;
+}
+
+// Ανανέωση της showUpdateDialog()
+async showUpdateDialog(releaseInfo) {
+  const downloadUrl = this.getAssetDownloadUrl(releaseInfo);
+  
+  if (!downloadUrl) {
+    this.sendStatusToWindow('❌ Δεν βρέθηκαν αρχεία λήψης στο release');
+    return;
+  }
+
+  const result = await dialog.showMessageBox(this.mainWindow, {
+    type: 'info',
+    title: 'Νέα Έκδοση Διαθέσιμη!',
+    message: `Βρέθηκε νέα έκδοση: ${releaseInfo.tag_name}`,
+    detail: `Τρέχουσα έκδοση: v${app.getVersion()}\n\n${releaseInfo.body || 'Νέες λειτουργίες και βελτιώσεις.'}\n\nΘέλετε να κατεβάσετε και να εγκαταστήσετε την ενημέρωση;`,
+    buttons: ['Κατέβασμα & Εγκατάσταση', 'Άκυρο'],
+    defaultId: 0,
+    cancelId: 1
+  });
+
+  if (result.response === 0) {
+    await this.downloadAndInstallUpdate(downloadUrl, releaseInfo.tag_name);
+  }
+}
+
+// Νέα συνάρτηση για κατέβασμα και εγκατάσταση
+async downloadAndInstallUpdate(downloadUrl, version) {
+  try {
+    this.sendStatusToWindow('📦 Κατέβασμα ενημέρωσης...');
+    
+    const downloadsPath = require('electron').app.getPath('downloads');
+    const fileName = `MakeYourLifeEasier-Update-${version}.exe`;
+    const filePath = require('path').join(downloadsPath, fileName);
+
+    // Κατέβασμα του αρχείου
+    await this.downloadFile(downloadUrl, filePath);
+    
+    // Έλεγχος ότι το αρχείο δεν είναι corrupt
+    const stats = require('fs').statSync(filePath);
+    if (stats.size === 0) {
+      throw new Error('Το κατεβασμένο αρχείο είναι κενό (0 bytes)');
+    }
+
+    this.sendStatusToWindow('🚀 Εκκίνηση εγκατάστασης...');
+    
+    // Εκτέλεση του installer
+    const { exec } = require('child_process');
+    exec(`"${filePath}"`, (error) => {
+      if (error) {
+        this.sendStatusToWindow(`❌ Σφάλμα εκκίνησης installer: ${error.message}`);
+      } else {
+        this.sendStatusToWindow('✅ Εγκατάσταση ξεκίνησε! Η εφαρμογή θα κλείσει.');
+        setTimeout(() => {
+          require('electron').app.quit();
+        }, 2000);
+      }
+    });
+
+  } catch (error) {
+    this.sendStatusToWindow(`❌ Σφάλμα: ${error.message}`);
+    
+    // Fallback: Άνοιγμα GitHub releases page
+    const { shell } = require('electron');
+    shell.openExternal(`https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases`);
+  }
+}
+
+// Βοηθητική συνάρτηση για κατέβασμα
+downloadFile(url, filePath) {
+  return new Promise((resolve, reject) => {
+    const fs = require('fs');
+    const https = require('https');
+    const file = fs.createWriteStream(filePath);
+
+    const request = https.get(url, (response) => {
+      // Ανακατεύθυνση
+      if (response.statusCode === 302 || response.statusCode === 301) {
+        this.downloadFile(response.headers.location, filePath)
+          .then(resolve)
+          .catch(reject);
+        return;
+      }
+
+      if (response.statusCode !== 200) {
+        reject(new Error(`HTTP ${response.statusCode}`));
+        return;
+      }
+
+      let receivedBytes = 0;
+      const totalBytes = parseInt(response.headers['content-length'], 10);
+
+      response.on('data', (chunk) => {
+        receivedBytes += chunk.length;
+        if (totalBytes) {
+          const percent = Math.round((receivedBytes / totalBytes) * 100);
+          this.sendStatusToWindow(`📥 Κατέβασμα: ${percent}%`);
+        }
+      });
+
+      response.pipe(file);
+
+      file.on('finish', () => {
+        file.close();
+        resolve();
+      });
+    });
+
+    request.on('error', (err) => {
+      fs.unlink(filePath, () => reject(err));
+    });
+
+    file.on('error', (err) => {
+      fs.unlink(filePath, () => reject(err));
+    });
+
+    request.setTimeout(30000, () => {
+      request.destroy();
+      reject(new Error('Timeout'));
+    });
+  });
+}
 }
 
 module.exports = SimpleUpdater;
