@@ -2309,7 +2309,7 @@ class SimpleUpdater {
             this.mainWindow.webContents.send('update-status', message);
         }
     }
-}
+  }
 
 module.exports = SimpleUpdater;
     const pauseBtn = document.createElement('button');
