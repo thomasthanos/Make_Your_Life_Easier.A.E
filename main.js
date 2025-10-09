@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const os = require('os');
 const { exec, spawn } = require('child_process');
-const AppUpdater = require('./updater');
+const SimpleUpdater = require('./simple-updater');
 
 // Password Manager imports
 const PasswordManagerAuth = require('./password-manager/auth');
@@ -45,7 +45,7 @@ ipcMain.handle('show-file-dialog', async () => {
   
   return result;
 });
-let appUpdater;
+let updater;
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -60,21 +60,20 @@ function createWindow() {
     }
   });
   mainWindow.loadFile('index.html');
-  appUpdater = new AppUpdater(mainWindow);
+  updater = new SimpleUpdater(mainWindow);
+
   mainWindow.webContents.once('did-finish-load', () => {
     setTimeout(() => {
-      if (appUpdater) {
-        appUpdater.checkForUpdates();
-      }
+      updater.checkForUpdates();
     }, 5000);
   });
 }
 
-// Add IPC handlers for manual update control
-ipcMain.handle('check-for-updates', () => {
-  if (appUpdater) {
-    appUpdater.checkForUpdates();
-    return { success: true };
+// IPC handler
+ipcMain.handle('check-for-updates', async () => {
+  if (updater) {
+    const result = await updater.checkForUpdates();
+    return { success: true, updateAvailable: result };
   }
   return { success: false, error: 'Updater not initialized' };
 });
