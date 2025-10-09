@@ -45,7 +45,7 @@ ipcMain.handle('show-file-dialog', async () => {
   
   return result;
 });
-let updater;
+let updater = null;
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -108,8 +108,19 @@ app.whenReady().then(() => {
   });
 });
 
+app.on('before-quit', (event) => {
+    console.log('Cleaning up before quit...');
+    if (updater) {
+        updater.cleanup();
+    }
+});
+
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+    console.log('All windows closed, cleaning up...');
+    if (updater) {
+        updater.cleanup();
+    }
+    app.quit();
 });
 
 // === Utility IPCs kept as-is ===

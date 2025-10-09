@@ -1,6 +1,6 @@
 {
   "name": "make-your-life-easier",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "A modern, user-friendly desktop application for managing system tasks and utilities.",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "main": "main.js",

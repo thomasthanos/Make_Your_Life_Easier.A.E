@@ -217,61 +217,135 @@ class SimpleUpdater {
 
     async runInstaller(filePath, assetName) {
         return new Promise((resolve, reject) => {
-            this.sendStatusToWindow('🚀 Εκκίνηση ενημέρωσης...');
+            this.sendStatusToWindow('🚀 Προετοιμασία ενημέρωσης...');
             
-            const isPortableAsset = assetName.toLowerCase().includes('portable');
-            const isPortableInstallation = this.installationType === 'portable';
+            const tempDir = require('os').tmpdir();
+            const tempFilePath = require('path').join(tempDir, `installer-${Date.now()}-${assetName}`);
             
-            if (isPortableAsset) {
-                this.sendStatusToWindow('🔄 Αντικατάσταση portable έκδοσης...');
-            } else {
-                this.sendStatusToWindow('🔧 Εκκίνηση installer...');
+            console.log('Copying installer to temp location:', tempFilePath);
+            
+            // Κλείσιμο όλων των resources πρώτα
+            this.cleanup();
+            
+            setTimeout(async () => {
+                try {
+                    // Αντιγραφή αρχείου σε temp location για να αποφύγουμε locks
+                    await this.copyFile(filePath, tempFilePath);
+                    console.log('File copied successfully to temp location');
+                    
+                    // Διαγραφή του αρχικού αρχείου (απελευθερώνει το lock)
+                    try {
+                        if (fs.existsSync(filePath)) {
+                            fs.unlinkSync(filePath);
+                            console.log('Original file deleted');
+                        }
+                    } catch (unlinkError) {
+                        console.warn('Could not delete original file:', unlinkError.message);
+                        // Συνεχίζουμε ούτως ή άλλως
+                    }
+                    
+                    // Εκτέλεση από το temp location
+                    this.sendStatusToWindow('🎯 Εκκίνηση installer...');
+                    
+                    const { spawn } = require('child_process');
+                    const installerProcess = spawn(tempFilePath, [], {
+                        detached: true,
+                        stdio: 'ignore',
+                        windowsHide: true
+                    });
+                    
+                    installerProcess.unref();
+                    
+                    console.log('Installer process started, quitting app...');
+                    this.sendStatusToWindow('✅ Εγκατάσταση ξεκίνησε! Η εφαρμογή κλείνει...');
+                    
+                    // Κλείσιμο εφαρμογής μετά από 2 δευτερόλεπτα
+                    setTimeout(() => {
+                        app.quit();
+                    }, 2000);
+                    
+                    resolve();
+                    
+                } catch (error) {
+                    console.error('Error in installer execution:', error);
+                    
+                    // Fallback: άνοιγμα με shell (χωρίς spawn)
+                    this.sendStatusToWindow('🔄 Δοκιμή εναλλακτικής μεθόδου...');
+                    
+                    try {
+                        await shell.openPath(tempFilePath);
+                        this.sendStatusToWindow('✅ Εγκατάσταση ξεκίνησε!');
+                        setTimeout(() => app.quit(), 2000);
+                        resolve();
+                    } catch (shellError) {
+                        console.error('Fallback also failed:', shellError);
+                        this.sendStatusToWindow('❌ Αποτυχία εκκίνησης installer');
+                        reject(shellError);
+                    }
+                }
+            }, 1000); // Μικρή καθυστέρηση για να διασφαλιστεί το κλείσιμο handles
+        });
+    }
+
+    // Βοηθητική function για αντιγραφή αρχείων
+    copyFile(source, target) {
+        return new Promise((resolve, reject) => {
+            console.log(`Copying from ${source} to ${target}`);
+            
+            // Έλεγχος ότι το source αρχείο υπάρχει
+            if (!fs.existsSync(source)) {
+                reject(new Error('Source file does not exist'));
+                return;
+            }
+
+            const readStream = fs.createReadStream(source);
+            const writeStream = fs.createWriteStream(target);
+            
+            let errorOccurred = false;
+            
+            readStream.on('error', (error) => {
+                if (!errorOccurred) {
+                    errorOccurred = true;
+                    console.error('Read stream error:', error);
+                    reject(error);
+                }
+            });
+            
+            writeStream.on('error', (error) => {
+                if (!errorOccurred) {
+                    errorOccurred = true;
+                    console.error('Write stream error:', error);
+                    reject(error);
+                }
+            });
+            
+            writeStream.on('close', () => {
+                if (!errorOccurred) {
+                    console.log('File copy completed successfully');
+                    resolve();
+                }
+            });
+            
+            readStream.pipe(writeStream);
+        });
+    }
+
+    // Μέθοδος cleanup για κλείσιμο handles
+    cleanup() {
+        try {
+            // Κλείσιμο τυχόν ανοιχτών streams ή handles
+            if (this.currentDownload) {
+                this.currentDownload.cancel();
+                this.currentDownload = null;
             }
             
-            shell.openExternal(filePath)
-                .then(() => {
-                    if (isPortableAsset) {
-                        this.sendStatusToWindow('✅ Portable ενημέρωση εκκινήθηκε! Κλείστε αυτή την εφαρμογή και ανοίξτε την νέα.');
-                    } else {
-                        if (isPortableInstallation) {
-                            this.sendStatusToWindow('✅ Installer εκκινήθηκε! Αυτή η portable έκδοση θα παραμείνει ανοιχτή.');
-                        } else {
-                            this.sendStatusToWindow('✅ Installer εκκινήθηκε! Η εφαρμογή θα κλείσει για εγκατάσταση.');
-                            
-                            // Κλείσιμο μόνο για installed versions που χρησιμοποιούν installer
-                            setTimeout(() => {
-                                app.quit();
-                            }, 2000);
-                        }
-                    }
-                    resolve();
-                })
-                .catch((error) => {
-                    this.sendStatusToWindow('❌ Σφάλμα κατά την εκκίνηση');
-                    
-                    // Fallback με exec
-                    exec(`"${filePath}"`, (execError) => {
-                        if (execError) {
-                            this.sendStatusToWindow('❌ Αποτυχία εκκίνησης. Ανοίξτε το χειροκίνητα.');
-                            reject(new Error('Δεν μπορώ να ανοίξω τον installer αυτόματα'));
-                        } else {
-                            if (isPortableAsset) {
-                                this.sendStatusToWindow('✅ Portable ενημέρωση εκκινήθηκε!');
-                            } else {
-                                if (isPortableInstallation) {
-                                    this.sendStatusToWindow('✅ Installer εκκινήθηκε!');
-                                } else {
-                                    this.sendStatusToWindow('✅ Installer εκκινήθηκε! Η εφαρμογή θα κλείσει για εγκατάσταση.');
-                                    setTimeout(() => {
-                                        app.quit();
-                                    }, 2000);
-                                }
-                            }
-                            resolve();
-                        }
-                    });
-                });
-        });
+            // Εξαναγκασμός garbage collection (αν είναι διαθέσιμο)
+            if (global.gc) {
+                global.gc();
+            }
+        } catch (error) {
+            console.warn('Cleanup warning:', error.message);
+        }
     }
 
     async verifyDownloadedFile(filePath) {
@@ -533,152 +607,43 @@ class SimpleUpdater {
         }
         console.log('Updater:', message);
     }
-    // Προσθήκη μετά την fetchLatestRelease()
-getAssetDownloadUrl(releaseInfo) {
-  // Προτεραιότητα: installer αρχείο
-  const preferredAssets = [
-    'MakeYourLifeEasier-installer.exe',
-    'MakeYourLifeEasier-Portable.exe',
-    '.exe' // Fallback για οποιοδήποτε exe
-  ];
 
-  if (releaseInfo.assets && releaseInfo.assets.length > 0) {
-    for (const pattern of preferredAssets) {
-      const asset = releaseInfo.assets.find(a => 
-        a.name.includes(pattern)
-      );
-      if (asset) {
-        return asset.browser_download_url;
-      }
+    // Εναλλακτική μέθοδος με χρήση exec
+    async runInstallerExec(filePath, assetName) {
+        return new Promise((resolve, reject) => {
+            this.sendStatusToWindow('🚀 Εκκίνηση ενημέρωσης...');
+            
+            const tempDir = require('os').tmpdir();
+            const tempFilePath = require('path').join(tempDir, `installer-${Date.now()}.exe`);
+            
+            this.cleanup();
+            
+            setTimeout(async () => {
+                try {
+                    // Αντιγραφή σε temp location
+                    await this.copyFile(filePath, tempFilePath);
+                    
+                    // Χρήση exec αντί για spawn
+                    const { exec } = require('child_process');
+                    exec(`"${tempFilePath}"`, (error, stdout, stderr) => {
+                        if (error) {
+                            console.error('Exec error:', error);
+                            reject(error);
+                        } else {
+                            console.log('Installer completed successfully');
+                            this.sendStatusToWindow('✅ Εγκατάσταση ολοκληρώθηκε!');
+                            setTimeout(() => app.quit(), 1000);
+                            resolve();
+                        }
+                    });
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    reject(error);
+                }
+            }, 1500);
+        });
     }
-    
-    // Fallback στο πρώτο asset
-    return releaseInfo.assets[0].browser_download_url;
-  }
-  
-  return null;
-}
-
-// Ανανέωση της showUpdateDialog()
-async showUpdateDialog(releaseInfo) {
-  const downloadUrl = this.getAssetDownloadUrl(releaseInfo);
-  
-  if (!downloadUrl) {
-    this.sendStatusToWindow('❌ Δεν βρέθηκαν αρχεία λήψης στο release');
-    return;
-  }
-
-  const result = await dialog.showMessageBox(this.mainWindow, {
-    type: 'info',
-    title: 'Νέα Έκδοση Διαθέσιμη!',
-    message: `Βρέθηκε νέα έκδοση: ${releaseInfo.tag_name}`,
-    detail: `Τρέχουσα έκδοση: v${app.getVersion()}\n\n${releaseInfo.body || 'Νέες λειτουργίες και βελτιώσεις.'}\n\nΘέλετε να κατεβάσετε και να εγκαταστήσετε την ενημέρωση;`,
-    buttons: ['Κατέβασμα & Εγκατάσταση', 'Άκυρο'],
-    defaultId: 0,
-    cancelId: 1
-  });
-
-  if (result.response === 0) {
-    await this.downloadAndInstallUpdate(downloadUrl, releaseInfo.tag_name);
-  }
-}
-
-// Νέα συνάρτηση για κατέβασμα και εγκατάσταση
-async downloadAndInstallUpdate(downloadUrl, version) {
-  try {
-    this.sendStatusToWindow('📦 Κατέβασμα ενημέρωσης...');
-    
-    const downloadsPath = require('electron').app.getPath('downloads');
-    const fileName = `MakeYourLifeEasier-Update-${version}.exe`;
-    const filePath = require('path').join(downloadsPath, fileName);
-
-    // Κατέβασμα του αρχείου
-    await this.downloadFile(downloadUrl, filePath);
-    
-    // Έλεγχος ότι το αρχείο δεν είναι corrupt
-    const stats = require('fs').statSync(filePath);
-    if (stats.size === 0) {
-      throw new Error('Το κατεβασμένο αρχείο είναι κενό (0 bytes)');
-    }
-
-    this.sendStatusToWindow('🚀 Εκκίνηση εγκατάστασης...');
-    
-    // Εκτέλεση του installer
-    const { exec } = require('child_process');
-    exec(`"${filePath}"`, (error) => {
-      if (error) {
-        this.sendStatusToWindow(`❌ Σφάλμα εκκίνησης installer: ${error.message}`);
-      } else {
-        this.sendStatusToWindow('✅ Εγκατάσταση ξεκίνησε! Η εφαρμογή θα κλείσει.');
-        setTimeout(() => {
-          require('electron').app.quit();
-        }, 2000);
-      }
-    });
-
-  } catch (error) {
-    this.sendStatusToWindow(`❌ Σφάλμα: ${error.message}`);
-    
-    // Fallback: Άνοιγμα GitHub releases page
-    const { shell } = require('electron');
-    shell.openExternal(`https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases`);
-  }
-}
-
-// Βοηθητική συνάρτηση για κατέβασμα
-downloadFile(url, filePath) {
-  return new Promise((resolve, reject) => {
-    const fs = require('fs');
-    const https = require('https');
-    const file = fs.createWriteStream(filePath);
-
-    const request = https.get(url, (response) => {
-      // Ανακατεύθυνση
-      if (response.statusCode === 302 || response.statusCode === 301) {
-        this.downloadFile(response.headers.location, filePath)
-          .then(resolve)
-          .catch(reject);
-        return;
-      }
-
-      if (response.statusCode !== 200) {
-        reject(new Error(`HTTP ${response.statusCode}`));
-        return;
-      }
-
-      let receivedBytes = 0;
-      const totalBytes = parseInt(response.headers['content-length'], 10);
-
-      response.on('data', (chunk) => {
-        receivedBytes += chunk.length;
-        if (totalBytes) {
-          const percent = Math.round((receivedBytes / totalBytes) * 100);
-          this.sendStatusToWindow(`📥 Κατέβασμα: ${percent}%`);
-        }
-      });
-
-      response.pipe(file);
-
-      file.on('finish', () => {
-        file.close();
-        resolve();
-      });
-    });
-
-    request.on('error', (err) => {
-      fs.unlink(filePath, () => reject(err));
-    });
-
-    file.on('error', (err) => {
-      fs.unlink(filePath, () => reject(err));
-    });
-
-    request.setTimeout(30000, () => {
-      request.destroy();
-      reject(new Error('Timeout'));
-    });
-  });
-}
 }
 
 module.exports = SimpleUpdater;

@@ -1656,39 +1656,44 @@ async function buildUpdaterPage() {
     // Καθαρισμός previous listeners
     if (unsubscribe) {
       unsubscribe();
+      unsubscribe = null;
     }
-    
-    // Ακροατής για status updates
+    // Ακροατής για status updates με throttle
+    let lastMessageTime = 0;
     unsubscribe = window.api.onUpdateStatus((status) => {
-      const timestamp = new Date().toLocaleTimeString();
-      
-      if (typeof status === 'string') {
-        statusElement.textContent += `[${timestamp}] ${status}\n`;
-      } else if (status.status === 'downloading') {
-        statusElement.textContent = 
-          `[${timestamp}] Κατέβασμα ενημέρωσης...\n` +
-          `Πρόοδος: ${status.percent}%\n` +
-          `Μεταφερμένα: ${status.transferred} / ${status.total}\n` +
-          `Ταχύτητα: ${status.bytesPerSecond}\n` +
-          `Υπόλοιπο: ${status.timeRemaining}\n`;
-      }
-      
-      // Auto-scroll to bottom
-      statusElement.scrollTop = statusElement.scrollHeight;
+        const currentTime = Date.now();
+        // Throttle messages to prevent memory leaks
+        if (currentTime - lastMessageTime < 100) return;
+        lastMessageTime = currentTime;
+        
+        const timestamp = new Date().toLocaleTimeString();
+        
+        if (typeof status === 'string') {
+            statusElement.textContent += `[${timestamp}] ${status}\n`;
+        } else if (status.status === 'downloading') {
+            statusElement.textContent = 
+                `[${timestamp}] Κατέβασμα ενημέρωσης...\n` +
+                `Πρόοδος: ${status.percent}%\n` +
+                `Μεταφερμένα: ${status.transferred} / ${status.total}\n` +
+                `Ταχύτητα: ${status.bytesPerSecond}\n` +
+                `Υπόλοιπο: ${status.timeRemaining}\n`;
+        }
+        
+        // Auto-scroll to bottom
+        statusElement.scrollTop = statusElement.scrollHeight;
     });
     
     try {
-      await window.api.checkForUpdates();
+        await window.api.checkForUpdates();
     } catch (error) {
-      statusElement.textContent += `\n[Σφάλμα] ${error.message}\n`;
+        statusElement.textContent += `\n[Σφάλμα] ${error.message}\n`;
     } finally {
-      // Επαναφορά κουμπιού μετά από 3 δευτερόλεπτα
-      setTimeout(() => {
-        checkButton.disabled = false;
-        checkButton.innerHTML = '🔍 Έλεγχος για Ενημερώσεις';
-      }, 3000);
+        setTimeout(() => {
+            checkButton.disabled = false;
+            checkButton.innerHTML = '🔍 Έλεγχος για Ενημερώσεις';
+        }, 3000);
     }
-  });
+});
   
   container.appendChild(checkButton);
   container.appendChild(statusElement);
