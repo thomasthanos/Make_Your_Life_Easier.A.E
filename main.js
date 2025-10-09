@@ -3,6 +3,8 @@ const path = require('path');
 const os = require('os');
 const { exec, spawn } = require('child_process');
 const SimpleUpdater = require('./simple-updater');
+const { autoUpdater } = require('electron-updater');
+const Store = require('electron-store');
 
 // Password Manager imports
 const PasswordManagerAuth = require('./password-manager/auth');
@@ -22,7 +24,10 @@ const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
 if (!fs.existsSync(pmDirectory)) {
     fs.mkdirSync(pmDirectory, { recursive: true });
 }
-
+autoUpdater.autoDownload = false; // Ο χρήστης επιλέγει πότε να κατεβάσει
+autoUpdater.autoInstallOnAppQuit = true; // Αυτόματη εγκατάσταση στο κλείσιμο
+autoUpdater.allowDowngrade = false;
+autoUpdater.fullChangelog = true;
 // Initialize το auth manager
 const pmAuth = new PasswordManagerAuth();
 pmAuth.initialize(pmDirectory);
@@ -33,6 +38,7 @@ function stripAnsiCodes(str) {
 }
 
 let mainWindow;
+const store = new Store();
 const activeDownloads = new Map(); // id -> { response, file, total, received, paused, filePath, finalPath }
 
 ipcMain.handle('show-file-dialog', async () => {

@@ -97,5 +97,4 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('update-status', listener);
     return () => ipcRenderer.removeListener('update-status', listener);
   }
-  
 });

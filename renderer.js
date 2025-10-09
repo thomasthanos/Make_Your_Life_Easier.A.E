@@ -1592,9 +1592,9 @@ async function buildUpdaterPage() {
   container.className = 'card';
   
   const title = document.createElement('h2');
-  title.innerHTML = '🔄 Ενημέρωση Εφαρμογής';
+  title.innerHTML = '🔄 Αυτόματη Ενημέρωση Εφαρμογής';
   container.appendChild(title);
-  
+
   // Πληροφορίες έκδοσης
   const versionContainer = document.createElement('div');
   versionContainer.style.marginBottom = '2rem';
@@ -1644,7 +1644,7 @@ async function buildUpdaterPage() {
   statusElement.style.border = '1px solid var(--border-color)';
   statusElement.style.fontFamily = 'monospace';
   statusElement.style.fontSize = '0.9rem';
-  statusElement.textContent = 'Πατήστε "Έλεγχος για Ενημερώσεις" για να ξεκινήσει ο έλεγχος...';
+  statusElement.textContent = 'Η εφαρμογής ελέγχει αυτόματα για ενημερώσεις κατά την εκκίνηση.\nΠατήστε "Έλεγχος για Ενημερώσεις" για manual έλεγχο.';
   
   let unsubscribe = null;
   
@@ -1653,47 +1653,27 @@ async function buildUpdaterPage() {
     checkButton.innerHTML = '⏳ Ελέγχω...';
     statusElement.textContent = 'Γίνεται έλεγχος για ενημερώσεις...\n';
     
-    // Καθαρισμός previous listeners
     if (unsubscribe) {
       unsubscribe();
-      unsubscribe = null;
     }
-    // Ακροατής για status updates με throttle
-    let lastMessageTime = 0;
+    
     unsubscribe = window.api.onUpdateStatus((status) => {
-        const currentTime = Date.now();
-        // Throttle messages to prevent memory leaks
-        if (currentTime - lastMessageTime < 100) return;
-        lastMessageTime = currentTime;
-        
-        const timestamp = new Date().toLocaleTimeString();
-        
-        if (typeof status === 'string') {
-            statusElement.textContent += `[${timestamp}] ${status}\n`;
-        } else if (status.status === 'downloading') {
-            statusElement.textContent = 
-                `[${timestamp}] Κατέβασμα ενημέρωσης...\n` +
-                `Πρόοδος: ${status.percent}%\n` +
-                `Μεταφερμένα: ${status.transferred} / ${status.total}\n` +
-                `Ταχύτητα: ${status.bytesPerSecond}\n` +
-                `Υπόλοιπο: ${status.timeRemaining}\n`;
-        }
-        
-        // Auto-scroll to bottom
-        statusElement.scrollTop = statusElement.scrollHeight;
+      const timestamp = new Date().toLocaleTimeString();
+      statusElement.textContent += `[${timestamp}] ${status}\n`;
+      statusElement.scrollTop = statusElement.scrollHeight;
     });
     
     try {
-        await window.api.checkForUpdates();
+      await window.api.checkForUpdates();
     } catch (error) {
-        statusElement.textContent += `\n[Σφάλμα] ${error.message}\n`;
+      statusElement.textContent += `\n[Σφάλμα] ${error.message}\n`;
     } finally {
-        setTimeout(() => {
-            checkButton.disabled = false;
-            checkButton.innerHTML = '🔍 Έλεγχος για Ενημερώσεις';
-        }, 3000);
+      setTimeout(() => {
+        checkButton.disabled = false;
+        checkButton.innerHTML = '🔍 Έλεγχος για Ενημερώσεις';
+      }, 3000);
     }
-});
+  });
   
   container.appendChild(checkButton);
   container.appendChild(statusElement);
@@ -1706,11 +1686,12 @@ async function buildUpdaterPage() {
   infoBox.style.borderRadius = '8px';
   infoBox.style.borderLeft = '4px solid var(--accent-color)';
   infoBox.innerHTML = `
-    <strong>💡 Πληροφορίες:</strong>
+    <strong>💡 Πληροφορίες Αυτόματης Ενημέρωσης:</strong>
     <ul style="margin: 0.5rem 0 0 0; padding-left: 1.5rem;">
-      <li>Ο έλεγχος γίνεται αυτόματα κατά την εκκίνηση</li>
-      <li>Οι ενημερώσεις εγκαθίστανται αυτόματα μετά το κατέβασμα</li>
-      <li>Μπορείτε να επανεκκινήσετε χειροκίνητα αν χρειαστεί</li>
+      <li><strong>Αυτόματος Έλεγχος:</strong> Κατά την εκκίνηση (μία φορά την ημέρα)</li>
+      <li><strong>Αυτόματη Εγκατάσταση:</strong> Στο επόμενο restart αν δεν γίνει άμεσα</li>
+      <li><strong>Διαδικασία:</strong> Κατέβασμα → Ειδοποίηση → Εγκατάσταση στο restart</li>
+      <li><strong>Ασφάλεια:</strong> Τα αρχεία επαληθεύονται πριν την εγκατάσταση</li>
     </ul>
   `;
   
