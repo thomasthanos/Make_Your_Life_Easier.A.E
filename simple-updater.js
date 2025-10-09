@@ -12,93 +12,137 @@ class SimpleUpdater {
         this.currentDownload = null; // Για να ελέγχουμε το τρέχον download
     }
 
-    async downloadAndInstall(releaseInfo) {
-        // Cancel any existing download
-        if (this.currentDownload) {
-            this.currentDownload.cancel();
+async downloadAndInstall(releaseInfo) {
+    // Cancel any existing download
+    if (this.currentDownload) {
+        this.currentDownload.cancel();
+    }
+
+    try {
+        this.sendStatusToWindow('📦 Εύρεση αρχείου εγκατάστασης...');
+        
+        // Βρες το installer αρχείο
+        const installerAsset = releaseInfo.assets.find(asset => 
+            asset.name.includes('Setup') && asset.name.includes('.exe')
+        );
+
+        const portableAsset = releaseInfo.assets.find(asset => 
+            asset.name.includes('Portable') && asset.name.includes('.exe')
+        );
+
+        const asset = installerAsset || portableAsset;
+
+        if (!asset) {
+            throw new Error('Δεν βρέθηκε αρχείο εγκατάστασης');
         }
 
-        try {
-            this.sendStatusToWindow('📦 Εύρεση αρχείου εγκατάστασης...');
-            
-            // Βρες το installer αρχείο
-            const installerAsset = releaseInfo.assets.find(asset => 
-                asset.name.includes('Setup') && asset.name.includes('.exe')
-            );
+        this.sendStatusToWindow(`📥 Κατέβασμα: ${asset.name}...`);
+        
+        // Χρησιμοποίησε direct download URL
+        const directUrl = `https://github.com/${this.owner}/${this.repo}/releases/download/${releaseInfo.tag_name}/${asset.name}`;
+        
+        // Κατέβασμα του αρχείου
+        const filePath = await this.downloadFileWithProgress(directUrl, asset.name);
+        
+        // Διπλός έλεγχος ότι το αρχείο υπάρχει και έχει μέγεθος
+        await this.verifyDownloadedFile(filePath);
+        
+        this.sendStatusToWindow('✅ Κατέβασμα ολοκληρώθηκε!');
+        
+        // Μικρή καθυστέρηση για να φανεί το μήνυμα
+        await this.delay(1500);
+        
+        // Ερώτηση για άμεση εγκατάσταση
+        const installResult = await dialog.showMessageBox(this.mainWindow, {
+            type: 'question',
+            title: 'Εγκατάσταση Έτοιμη',
+            message: 'Η λήψη ολοκληρώθηκε!',
+            detail: `Το αρχείο ${asset.name} κατεβήκε στον φάκελο Downloads. Θέλετε να ανοίξει τώρα ο installer για να ολοκληρωθεί η εγκατάσταση;`,
+            buttons: ['Εγκατάσταση Τώρα', 'Άνοιγμα Φακέλου', 'Ακύρωση'],
+            defaultId: 0,
+            cancelId: 2
+        });
 
-            const portableAsset = releaseInfo.assets.find(asset => 
-                asset.name.includes('Portable') && asset.name.includes('.exe')
-            );
+        if (installResult.response === 0) {
+            // Άνοιγμα installer με καλύτερο error handling
+            await this.runInstaller(filePath);
+        } else if (installResult.response === 1) {
+            // Άνοιγμα φακέλου
+            shell.showItemInFolder(filePath);
+            this.sendStatusToWindow('📂 Άνοιξε ο φάκελος Downloads');
+        }
 
-            const asset = installerAsset || portableAsset;
-
-            if (!asset) {
-                throw new Error('Δεν βρέθηκε αρχείο εγκατάστασης');
-            }
-
-            this.sendStatusToWindow(`📥 Κατέβασμα: ${asset.name}...`);
-            
-            // Χρησιμοποίησε direct download URL
-            const directUrl = `https://github.com/${this.owner}/${this.repo}/releases/download/${releaseInfo.tag_name}/${asset.name}`;
-            
-            // Κατέβασμα του αρχείου
-            const filePath = await this.downloadFileWithProgress(directUrl, asset.name);
-            
-            this.sendStatusToWindow('✅ Κατέβασμα ολοκληρώθηκε!');
-            
-            // Καθαρισμός μεταβλητής download
-            this.currentDownload = null;
-            
-            // Μικρή καθυστέρηση για να φανεί το μήνυμα
-            await this.delay(1000);
-            
-            // Ερώτηση για άμεση εγκατάσταση
-            const installResult = await dialog.showMessageBox(this.mainWindow, {
-                type: 'question',
-                title: 'Εγκατάσταση Έτοιμη',
-                message: 'Η λήψη ολοκληρώθηκε!',
-                detail: `Το αρχείο ${asset.name} κατεβήκε στον φάκελο Downloads. Θέλετε να ανοίξει τώρα ο installer για να ολοκληρωθεί η εγκατάσταση;`,
-                buttons: ['Εγκατάσταση Τώρα', 'Άνοιγμα Φακέλου', 'Ακύρωση'],
-                defaultId: 0,
-                cancelId: 2
+    } catch (error) {
+        this.currentDownload = null;
+        this.sendStatusToWindow(`❌ Σφάλμα: ${error.message}`);
+        
+        // Εμφάνιση error dialog μόνο αν δεν ακυρώθηκε
+        if (error.message !== 'Download cancelled') {
+            dialog.showMessageBox(this.mainWindow, {
+                type: 'error',
+                title: 'Σφάλμα Κατεβάσματος',
+                message: 'Αποτυχία αυτόματου κατεβάσματος',
+                detail: error.message,
+                buttons: ['OK']
             });
-
-            if (installResult.response === 0) {
-                // Άνοιγμα installer
-                this.sendStatusToWindow('🚀 Εκκίνηση εγκατάστασης...');
-                exec(`"${filePath}"`, (error) => {
-                    if (error) {
-                        this.sendStatusToWindow('❌ Σφάλμα κατά την εκκίνηση του installer');
-                    } else {
-                        this.sendStatusToWindow('✅ Installer εκκινήθηκε! Η εφαρμογή θα κλείσει για εγκατάσταση.');
-                        // Κλείσιμο της εφαρμογής μετά από 3 δευτερόλεπτα
-                        setTimeout(() => {
-                            app.quit();
-                        }, 3000);
-                    }
-                });
-            } else if (installResult.response === 1) {
-                // Άνοιγμα φακέλου
-                shell.showItemInFolder(filePath);
-                this.sendStatusToWindow('📂 Άνοιξε ο φάκελος Downloads');
-            }
-
-        } catch (error) {
-            this.currentDownload = null;
-            this.sendStatusToWindow(`❌ Σφάλμα: ${error.message}`);
-            
-            // Εμφάνιση error dialog μόνο αν δεν ακυρώθηκε
-            if (error.message !== 'Download cancelled') {
-                dialog.showMessageBox(this.mainWindow, {
-                    type: 'error',
-                    title: 'Σφάλμα Κατεβάσματος',
-                    message: 'Αποτυχία αυτόματου κατεβάσματος',
-                    detail: error.message,
-                    buttons: ['OK']
-                });
-            }
         }
     }
+}
+
+async runInstaller(filePath) {
+    return new Promise((resolve, reject) => {
+        this.sendStatusToWindow('🚀 Εκκίνηση εγκατάστασης...');
+        
+        // Χρησιμοποίησε το shell για πιο αξιόπιστη εκτέλεση
+        shell.openExternal(filePath)
+            .then(() => {
+                this.sendStatusToWindow('✅ Installer εκκινήθηκε! Η εφαρμογή θα κλείσει για εγκατάσταση.');
+                
+                // Μικρή καθυστέρηση πριν το κλείσιμο
+                setTimeout(() => {
+                    app.quit();
+                }, 2000);
+                
+                resolve();
+            })
+            .catch((error) => {
+                this.sendStatusToWindow('❌ Σφάλμα κατά την εκκίνηση του installer');
+                
+                // Fallback: Δοκίμασε με exec
+                exec(`"${filePath}"`, (execError) => {
+                    if (execError) {
+                        this.sendStatusToWindow('❌ Αποτυχία εκκίνησης installer. Ανοίξτε το χειροκίνητα.');
+                        reject(new Error('Δεν μπορώ να ανοίξω τον installer αυτόματα'));
+                    } else {
+                        this.sendStatusToWindow('✅ Installer εκκινήθηκε! Η εφαρμογή θα κλείσει για εγκατάσταση.');
+                        setTimeout(() => {
+                            app.quit();
+                        }, 2000);
+                        resolve();
+                    }
+                });
+            });
+    });
+}
+
+async verifyDownloadedFile(filePath) {
+    return new Promise((resolve, reject) => {
+        // Έλεγχος ύπαρξης αρχείου
+        if (!fs.existsSync(filePath)) {
+            reject(new Error('Το κατεβασμένο αρχείο δεν βρέθηκε'));
+            return;
+        }
+
+        // Έλεγχος μεγέθους αρχείου (τουλάχιστον 1MB)
+        const stats = fs.statSync(filePath);
+        if (stats.size < 1024 * 1024) {
+            reject(new Error('Το κατεβασμένο αρχείο είναι πολύ μικρό (πιθανόν κατεβημένο εσφαλμένα)'));
+            return;
+        }
+
+        resolve();
+    });
+}
 
     downloadFileWithProgress(url, fileName) {
         return new Promise((resolve, reject) => {
