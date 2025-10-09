@@ -2006,6 +2006,312 @@ async function buildCrackInstallerPage() {
     progressFill.style.width = '0%';
     progressFill.style.transition = 'width 0.3s ease';
     progressBar.appendChild(progressFill);
+    const { app, dialog, shell, ipcMain, net } = require('electron');
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+
+class SimpleUpdater {
+    constructor(mainWindow) {
+        this.mainWindow = mainWindow;
+        this.owner = 'thomasthanos';
+        this.repo = 'Make_Your_Life_Easier.A.E';
+        this.downloadsDir = app.getPath('downloads');
+        this.currentDownload = null; // Για να ελέγχουμε το τρέχον download
+    }
+
+    async downloadAndInstall(releaseInfo) {
+        // Cancel any existing download
+        if (this.currentDownload) {
+            this.currentDownload.cancel();
+        }
+
+        try {
+            this.sendStatusToWindow('📦 Εύρεση αρχείου εγκατάστασης...');
+            
+            // Βρες το installer αρχείο
+            const installerAsset = releaseInfo.assets.find(asset => 
+                asset.name.includes('Setup') && asset.name.includes('.exe')
+            );
+
+            const portableAsset = releaseInfo.assets.find(asset => 
+                asset.name.includes('Portable') && asset.name.includes('.exe')
+            );
+
+            const asset = installerAsset || portableAsset;
+
+            if (!asset) {
+                throw new Error('Δεν βρέθηκε αρχείο εγκατάστασης');
+            }
+
+            this.sendStatusToWindow(`📥 Κατέβασμα: ${asset.name}...`);
+            
+            // Χρησιμοποίησε direct download URL
+            const directUrl = `https://github.com/${this.owner}/${this.repo}/releases/download/${releaseInfo.tag_name}/${asset.name}`;
+            
+            // Κατέβασμα του αρχείου
+            const filePath = await this.downloadFileWithProgress(directUrl, asset.name);
+            
+            this.sendStatusToWindow('✅ Κατέβασμα ολοκληρώθηκε!');
+            
+            // Καθαρισμός μεταβλητής download
+            this.currentDownload = null;
+            
+            // Μικρή καθυστέρηση για να φανεί το μήνυμα
+            await this.delay(1000);
+            
+            // Ερώτηση για άμεση εγκατάσταση
+            const installResult = await dialog.showMessageBox(this.mainWindow, {
+                type: 'question',
+                title: 'Εγκατάσταση Έτοιμη',
+                message: 'Η λήψη ολοκληρώθηκε!',
+                detail: `Το αρχείο ${asset.name} κατεβήκε στον φάκελο Downloads. Θέλετε να ανοίξει τώρα ο installer για να ολοκληρωθεί η εγκατάσταση;`,
+                buttons: ['Εγκατάσταση Τώρα', 'Άνοιγμα Φακέλου', 'Ακύρωση'],
+                defaultId: 0,
+                cancelId: 2
+            });
+
+            if (installResult.response === 0) {
+                // Άνοιγμα installer
+                this.sendStatusToWindow('🚀 Εκκίνηση εγκατάστασης...');
+                exec(`"${filePath}"`, (error) => {
+                    if (error) {
+                        this.sendStatusToWindow('❌ Σφάλμα κατά την εκκίνηση του installer');
+                    } else {
+                        this.sendStatusToWindow('✅ Installer εκκινήθηκε! Η εφαρμογή θα κλείσει για εγκατάσταση.');
+                        // Κλείσιμο της εφαρμογής μετά από 3 δευτερόλεπτα
+                        setTimeout(() => {
+                            app.quit();
+                        }, 3000);
+                    }
+                });
+            } else if (installResult.response === 1) {
+                // Άνοιγμα φακέλου
+                shell.showItemInFolder(filePath);
+                this.sendStatusToWindow('📂 Άνοιξε ο φάκελος Downloads');
+            }
+
+        } catch (error) {
+            this.currentDownload = null;
+            this.sendStatusToWindow(`❌ Σφάλμα: ${error.message}`);
+            
+            // Εμφάνιση error dialog μόνο αν δεν ακυρώθηκε
+            if (error.message !== 'Download cancelled') {
+                dialog.showMessageBox(this.mainWindow, {
+                    type: 'error',
+                    title: 'Σφάλμα Κατεβάσματος',
+                    message: 'Αποτυχία αυτόματου κατεβάσματος',
+                    detail: error.message,
+                    buttons: ['OK']
+                });
+            }
+        }
+    }
+
+    downloadFileWithProgress(url, fileName) {
+        return new Promise((resolve, reject) => {
+            const filePath = path.join(this.downloadsDir, fileName);
+            const file = fs.createWriteStream(filePath);
+            
+            let receivedBytes = 0;
+            let totalBytes = 0;
+            let lastUpdateTime = 0;
+            let isCancelled = false;
+
+            const request = net.request({
+                method: 'GET',
+                url: url,
+                redirect: 'follow'
+            });
+
+            // Αποθήκευση για cancellation
+            this.currentDownload = {
+                cancel: () => {
+                    isCancelled = true;
+                    request.abort();
+                    file.destroy();
+                    fs.unlink(filePath, () => {});
+                    reject(new Error('Download cancelled'));
+                }
+            };
+
+            request.on('response', (response) => {
+                if (isCancelled) return;
+
+                totalBytes = parseInt(response.headers['content-length'], 10) || 0;
+                
+                response.on('data', (chunk) => {
+                    if (isCancelled) return;
+
+                    receivedBytes += chunk.length;
+                    
+                    // Throttle updates για να μην γεμίσει το memory
+                    const currentTime = Date.now();
+                    if (currentTime - lastUpdateTime > 200) { // Update κάθε 200ms
+                        if (totalBytes > 0) {
+                            const percent = Math.round((receivedBytes / totalBytes) * 100);
+                            this.sendStatusToWindow(`📥 Κατέβασμα: ${percent}% (${this.formatBytes(receivedBytes)} / ${this.formatBytes(totalBytes)})`);
+                        } else {
+                            this.sendStatusToWindow(`📥 Κατέβασμα: ${this.formatBytes(receivedBytes)}`);
+                        }
+                        lastUpdateTime = currentTime;
+                    }
+                });
+
+                response.pipe(file);
+            });
+
+            request.on('error', (error) => {
+                if (isCancelled) return;
+                file.destroy();
+                fs.unlink(filePath, () => {});
+                reject(error);
+            });
+
+            request.on('finish', () => {
+                if (isCancelled) return;
+                file.close();
+                resolve(filePath);
+            });
+
+            request.end();
+        });
+    }
+
+    // Βοηθητική function για καθυστέρηση
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+
+    async checkForUpdates() {
+        this.sendStatusToWindow('🔍 Έλεγχος για ενημερώσεις...');
+        
+        try {
+            const releaseInfo = await this.fetchLatestRelease();
+            
+            if (!releaseInfo) {
+                this.sendStatusToWindow('❌ Δεν βρέθηκαν releases');
+                return false;
+            }
+
+            const latestVersion = releaseInfo.tag_name.replace('v', '');
+            const currentVersion = app.getVersion();
+
+            this.sendStatusToWindow(`📊 Τρέχουσα: v${currentVersion}, Τελευταία: ${releaseInfo.tag_name}`);
+
+            if (this.compareVersions(latestVersion, currentVersion) > 0) {
+                this.sendStatusToWindow('✅ Βρέθηκε νέα έκδοση!');
+                this.showUpdateDialog(releaseInfo);
+                return true;
+            } else {
+                this.sendStatusToWindow('🎉 Έχετε την τελευταία έκδοση!');
+                return false;
+            }
+        } catch (error) {
+            this.sendStatusToWindow(`❌ Σφάλμα: ${error.message}`);
+            return false;
+        }
+    }
+
+    showUpdateDialog(releaseInfo) {
+        dialog.showMessageBox(this.mainWindow, {
+            type: 'info',
+            title: 'Νέα Έκδοση Διαθέσιμη!',
+            message: `Βρέθηκε νέα έκδοση: ${releaseInfo.tag_name}`,
+            detail: `Τρέχουσα έκδοση: v${app.getVersion()}\n\n${releaseInfo.body || 'Νέες λειτουργίες και βελτιώσεις.'}\n\nΘέλετε να κατεβάσετε και να εγκαταστήσετε αυτόματα;`,
+            buttons: ['Αυτόματη Εγκατάσταση', 'Άνοιγμα Σελίδας', 'Άκυρο'],
+            defaultId: 0,
+            cancelId: 2
+        }).then((result) => {
+            if (result.response === 0) {
+                // Αυτόματη εγκατάσταση
+                this.downloadAndInstall(releaseInfo);
+            } else if (result.response === 1) {
+                // Άνοιγμα σελίδας
+                this.sendStatusToWindow('🌐 Ανοίγει η σελίδα λήψης...');
+                shell.openExternal(releaseInfo.html_url);
+            }
+        });
+    }
+
+    fetchLatestRelease() {
+        return new Promise((resolve, reject) => {
+            const options = {
+                hostname: 'api.github.com',
+                path: `/repos/${this.owner}/${this.repo}/releases/latest`,
+                method: 'GET',
+                headers: {
+                    'User-Agent': 'MakeYourLifeEasier-App',
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            };
+
+            const https = require('https');
+            const req = https.request(options, (res) => {
+                let data = '';
+
+                res.on('data', (chunk) => {
+                    data += chunk;
+                });
+
+                res.on('end', () => {
+                    try {
+                        if (res.statusCode === 200) {
+                            const releaseInfo = JSON.parse(data);
+                            resolve(releaseInfo);
+                        } else {
+                            reject(new Error(`GitHub API error: ${res.statusCode}`));
+                        }
+                    } catch (error) {
+                        reject(new Error('Failed to parse release info'));
+                    }
+                });
+            });
+
+            req.on('error', (error) => {
+                reject(new Error(`Network error: ${error.message}`));
+            });
+
+            req.setTimeout(10000, () => {
+                req.destroy();
+                reject(new Error('Request timeout'));
+            });
+
+            req.end();
+        });
+    }
+
+    compareVersions(v1, v2) {
+        const parts1 = v1.split('.').map(Number);
+        const parts2 = v2.split('.').map(Number);
+        
+        for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+            const part1 = parts1[i] || 0;
+            const part2 = parts2[i] || 0;
+            if (part1 !== part2) {
+                return part1 - part2;
+            }
+        }
+        return 0;
+    }
+
+    sendStatusToWindow(message) {
+        if (this.mainWindow && this.mainWindow.webContents) {
+            this.mainWindow.webContents.send('update-status', message);
+        }
+    }
+}
+
+module.exports = SimpleUpdater;
     const pauseBtn = document.createElement('button');
     pauseBtn.className = 'button button-secondary';
     pauseBtn.textContent = 'Pause';
@@ -2016,6 +2322,7 @@ async function buildCrackInstallerPage() {
     cancelBtn.className = 'button button-secondary';
     cancelBtn.textContent = 'Cancel';
     cancelBtn.style.marginLeft = '0.5rem';
+    
     cancelBtn.style.padding = '0.5rem 1rem';
     cancelBtn.style.display = 'none';
     const controls = document.createElement('div');
