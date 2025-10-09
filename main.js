@@ -19,7 +19,6 @@ const https = require('https');
 // Initialize auth manager - ΜΟΝΟ ΜΙΑ ΦΟΡΑ
 const documentsPath = require('os').homedir() + '/Documents';
 const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
-const { SimpleUpdater } = require('./simple-updater');
 
 // Δημιουργία του directory αν δεν υπάρχει
 if (!fs.existsSync(pmDirectory)) {
