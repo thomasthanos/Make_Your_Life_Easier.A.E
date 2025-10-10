@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - 'v*'
+    branches: [ main ]
+
+permissions:
+  contents: write
 
 jobs:
   release:
@@ -11,20 +15,43 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '18'
+        cache: 'npm'
 
     - name: Install dependencies
-      run: npm install
+      run: |
+        npm install
+        npm run postinstall
 
     - name: Build application
       run: npm run build-all
 
-    - name: Publish release
+    - name: Create Release and Upload Assets
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      run: |
+        # Get the tag name
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        
+        # Create release
+        gh release create "$TAG_NAME" \
+          --title "Release $TAG_NAME" \
+          --notes-file release-notes.md \
+          dist/*.exe \
+          dist/*.blockmap
+        
+        echo "Release $TAG_NAME created successfully!"
+
+    - name: Publish with electron-builder
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      run: npm run publish
+      run: |
+        npx electron-builder --publish=always
