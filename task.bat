@@ -27,7 +27,9 @@ echo ===============================================
 echo [1] npm install
 echo [2] npm start
 echo [3] npm run build-all
-echo [4] Τρέξ’ τα ολα (1 -> 3)
+echo [4] Τρέξ' τα ολα (1 -> 3)
+echo [5] Άνοιγμα Explorer στο project
+echo [6] Άνοιγμα VSCode στο project (κλείνει το παράθυρο)
 echo [Q] Έξοδος
 echo.
 set /p choice=Διάλεξε επιλογή: 
@@ -36,6 +38,8 @@ if /i "%choice%"=="1" goto install
 if /i "%choice%"=="2" goto start
 if /i "%choice%"=="3" goto build
 if /i "%choice%"=="4" goto all
+if /i "%choice%"=="5" goto explorer
+if /i "%choice%"=="6" goto vscode_exit
 if /i "%choice%"=="q" goto end
 goto menu
 
@@ -90,6 +94,61 @@ call :install
 call :start
 call :build
 goto menu
+
+:explorer
+echo.
+echo === Άνοιγμα Explorer ===
+if exist "%PROJECT_DIR%" (
+  explorer "%PROJECT_DIR%"
+  echo [OK] Άνοιξε το Explorer στο: %PROJECT_DIR%
+) else (
+  echo [ERROR] Το directory δεν υπάρχει: %PROJECT_DIR%
+)
+pause
+goto menu
+
+:vscode
+echo.
+echo === Άνοιγμα VSCode ===
+:: Έλεγχος αν το VSCode είναι εγκατεστημένο
+where code >nul 2>&1
+if errorlevel 1 (
+  echo [ERROR] Δεν βρέθηκε το VSCode (code command) στο PATH.
+  echo Βεβαιώσου ότι το VSCode είναι εγκατεστημένο και στο PATH.
+) else (
+  if exist "%PROJECT_DIR%" (
+    code "%PROJECT_DIR%"
+    echo [OK] Άνοιξε το VSCode στο: %PROJECT_DIR%
+  ) else (
+    echo [ERROR] Το directory δεν υπάρχει: %PROJECT_DIR%
+  )
+)
+pause
+goto menu
+
+:vscode_exit
+echo.
+echo === Άνοιγμα VSCode (κλείσιμο παραθύρου) ===
+:: Έλεγχος αν το VSCode είναι εγκατεστημένο
+where code >nul 2>&1
+if errorlevel 1 (
+  echo [ERROR] Δεν βρέθηκε το VSCode (code command) στο PATH.
+  echo Βεβαιώσου ότι το VSCode είναι εγκατεστημένο και στο PATH.
+  pause
+  exit /b 1
+) else (
+  if exist "%PROJECT_DIR%" (
+    code "%PROJECT_DIR%"
+    echo [OK] Άνοιξε το VSCode στο: %PROJECT_DIR%
+    echo Το παράθυρο θα κλείσει τώρα...
+    timeout /t 2 /nobreak >nul
+    exit /b 0
+  ) else (
+    echo [ERROR] Το directory δεν υπάρχει: %PROJECT_DIR%
+    pause
+    exit /b 1
+  )
+)
 
 :end
 echo Έξοδος...

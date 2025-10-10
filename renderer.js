@@ -77,7 +77,8 @@ const processStates = new Map();
     menuKeys.forEach((key) => {
       const li = document.createElement('li');
       const btn = document.createElement('button');
-      btn.textContent = translations.menu[key] || key;
+      // Use safe access for menu translations
+      btn.textContent = (translations.menu && translations.menu[key]) || key;
       btn.dataset.page = key;
       btn.addEventListener('click', () => {
         document.querySelectorAll('#menu-list button').forEach((b) => b.classList.remove('active'));
@@ -261,45 +262,45 @@ function resetReplaceButton(button, status, success) {
     content.innerHTML = '';
     switch (key) {
       case 'settings':
-        setHeader(translations.menu.settings);
+        setHeader((translations.menu && translations.menu.settings) || 'settings');
         content.appendChild(buildSettingsPage());
         break;
       case 'install_apps':
-        setHeader(translations.menu.install_apps);
+        setHeader((translations.menu && translations.menu.install_apps) || 'install_apps');
         content.appendChild(await buildInstallPage());
         break;
       // Στο renderer.js, στην switch statement της loadPage()
       case 'activate_autologin':
-        setHeader(translations.menu.activate_autologin);
+        setHeader((translations.menu && translations.menu.activate_autologin) || 'activate_autologin');
         content.appendChild(await buildActivateAutologinPage());
         break;
       case 'system_maintenance':
-        setHeader(translations.menu.system_maintenance);
+        setHeader((translations.menu && translations.menu.system_maintenance) || 'system_maintenance');
         content.appendChild(await buildMaintenancePage());
         break;
       case 'crack_installer':
-        setHeader(translations.menu.crack_installer);
+        setHeader((translations.menu && translations.menu.crack_installer) || 'crack_installer');
         content.appendChild(await buildCrackInstallerPage());
         break;
       case 'spicetify':
-        setHeader(translations.menu.spicetify);
+        setHeader((translations.menu && translations.menu.spicetify) || 'spicetify');
         content.appendChild(buildSpicetifyPage());
         break;
       case 'password_manager':
-        setHeader(translations.menu.password_manager);
+        setHeader((translations.menu && translations.menu.password_manager) || 'password_manager');
         content.appendChild(buildPasswordManagerPage());
         break;
       case 'christitus':
-        setHeader(translations.menu.christitus);
+        setHeader((translations.menu && translations.menu.christitus) || 'christitus');
         content.appendChild(buildChrisTitusPage());
         break;
       // Στο renderer.js, στην switch statement της loadPage() πρόσθεσε:
       case 'dlc_unlocker':
-        setHeader(translations.menu.dlc_unlocker);
+        setHeader((translations.menu && translations.menu.dlc_unlocker) || 'dlc_unlocker');
         content.appendChild(await buildDlcUnlockerPage());
         break;
       case 'bios':
-        setHeader(translations.menu.bios);
+        setHeader((translations.menu && translations.menu.bios) || 'bios');
         content.innerHTML = '';
         showRestartDialog();
         break;
@@ -1364,7 +1365,8 @@ async function downloadAndRunAutologin(button, statusElement) {
       
       const title = document.createElement('h2');
       title.className = 'settings-title';
-      title.textContent = translations.pages.settings_title || translations.menu.settings;
+      // Use fallbacks if translations are missing
+      title.textContent = (translations.pages && translations.pages.settings_title) || (translations.menu && translations.menu.settings) || 'Settings';
       container.appendChild(title);
 
       // Language selector row
@@ -1373,7 +1375,8 @@ async function downloadAndRunAutologin(button, statusElement) {
       
       const langLabel = document.createElement('label');
       langLabel.className = 'settings-label';
-      langLabel.textContent = translations.general.language + ':';
+      // Fallback for language label if translation is unavailable
+      langLabel.textContent = ((translations.general && translations.general.language) || 'Language') + ':';
       
       const langControl = document.createElement('div');
       langControl.className = 'settings-control';
@@ -1400,7 +1403,8 @@ async function downloadAndRunAutologin(button, statusElement) {
       
       const themeLabel = document.createElement('label');
       themeLabel.className = 'settings-label';
-      themeLabel.textContent = translations.general.theme + ':';
+      // Fallback for theme label
+      themeLabel.textContent = ((translations.general && translations.general.theme) || 'Theme') + ':';
       
       const themeControl = document.createElement('div');
       themeControl.className = 'settings-control';
@@ -1420,7 +1424,8 @@ async function downloadAndRunAutologin(button, statusElement) {
       
       const themeSwitchLabel = document.createElement('span');
       themeSwitchLabel.className = 'switch-label';
-      themeSwitchLabel.textContent = themeInput.checked ? translations.general.dark : translations.general.light;
+      // Fallback for dark/light labels
+      themeSwitchLabel.textContent = themeInput.checked ? ((translations.general && translations.general.dark) || 'Dark') : ((translations.general && translations.general.light) || 'Light');
       
       themeSwitch.appendChild(themeInput);
       themeSwitch.appendChild(themeSlider);
@@ -1428,9 +1433,9 @@ async function downloadAndRunAutologin(button, statusElement) {
       themeSwitchContainer.appendChild(themeSwitchLabel);
       themeControl.appendChild(themeSwitchContainer);
       
-      // Update label when theme changes
+      // Update label when theme changes, using fallbacks
       themeInput.addEventListener('change', () => {
-          themeSwitchLabel.textContent = themeInput.checked ? translations.general.dark : translations.general.light;
+          themeSwitchLabel.textContent = themeInput.checked ? ((translations.general && translations.general.dark) || 'Dark') : ((translations.general && translations.general.light) || 'Light');
       });
       
       themeRow.appendChild(themeLabel);
@@ -1440,7 +1445,8 @@ async function downloadAndRunAutologin(button, statusElement) {
       // Save button
       const saveBtn = document.createElement('button');
       saveBtn.className = 'settings-save-btn';
-      saveBtn.textContent = translations.general.save;
+      // Fallback for save button
+      saveBtn.textContent = (translations.general && translations.general.save) || 'Save';
       saveBtn.addEventListener('click', async () => {
           settings.lang = langSelect.value;
           settings.theme = themeInput.checked ? 'dark' : 'light';
@@ -1452,7 +1458,7 @@ async function downloadAndRunAutologin(button, statusElement) {
           
           // Show success feedback
           const originalText = saveBtn.textContent;
-          saveBtn.textContent = '✓ ' + translations.general.saved;
+          saveBtn.textContent = '✓ ' + ((translations.general && translations.general.saved) || 'Saved');
           saveBtn.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
           
           setTimeout(() => {
@@ -1462,6 +1468,101 @@ async function downloadAndRunAutologin(button, statusElement) {
       });
       
       container.appendChild(saveBtn);
+
+      // Append update section for checking app updates. This should work even in non-Electron environments.
+      {
+        const updateSection = document.createElement('div');
+        updateSection.className = 'settings-row';
+        updateSection.style.cssText = 'border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1rem;';
+
+        const updateLabel = document.createElement('div');
+        updateLabel.className = 'settings-label';
+        // Use translation if available, otherwise fallback to English
+        updateLabel.textContent =
+          (translations && translations.pages && translations.pages.updates) ||
+          'Updates:';
+
+        const updateControl = document.createElement('div');
+        updateControl.className = 'settings-control';
+
+        const updateButton = document.createElement('button');
+        updateButton.className = 'button';
+        const versionInfo = document.createElement('div');
+        versionInfo.style.cssText =
+          'margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.7;';
+
+        // Determine if the Electron API is available. If not, disable the update button.
+        const hasAPI =
+          typeof window !== 'undefined' &&
+          window.api &&
+          typeof window.api.checkForUpdates === 'function' &&
+          typeof window.api.getAppVersion === 'function';
+
+        if (hasAPI) {
+          // When API is available, allow checking for updates
+          updateButton.textContent =
+            (translations && translations.actions &&
+              translations.actions.check_updates) ||
+            'Check for Updates';
+          updateButton.disabled = false;
+          updateButton.onclick = () => {
+            updateButton.disabled = true;
+            updateButton.textContent =
+              (translations?.actions &&
+                translations.actions.checking_updates) ||
+              'Checking...';
+            window.api
+              .checkForUpdates()
+              .finally(() => {
+                setTimeout(() => {
+                  updateButton.disabled = false;
+                  updateButton.textContent =
+                    (translations?.actions &&
+                      translations.actions.check_updates) ||
+                    'Check for Updates';
+                }, 3000);
+              });
+          };
+          versionInfo.textContent =
+            (translations && translations.pages &&
+              translations.pages.current_version_loading) ||
+            'Current version: loading...';
+          window.api
+            .getAppVersion()
+            .then((version) => {
+              const tmpl =
+                translations &&
+                translations.pages &&
+                translations.pages.current_version;
+              if (tmpl && typeof tmpl === 'string') {
+                versionInfo.textContent = tmpl.replace('{version}', version);
+              } else {
+                versionInfo.textContent = `Current version: ${version}`;
+              }
+            })
+            .catch(() => {
+              // ignore errors
+            });
+        } else {
+          // If API is not available, disable the button and show that updates are unavailable
+          updateButton.textContent =
+            (translations && translations.actions &&
+              translations.actions.updates_unavailable) ||
+            'Updates unavailable';
+          updateButton.disabled = true;
+          versionInfo.textContent =
+            (translations && translations.pages &&
+              translations.pages.current_version_unavailable) ||
+            'Current version: unavailable';
+        }
+
+        updateControl.appendChild(updateButton);
+        updateControl.appendChild(versionInfo);
+        updateSection.appendChild(updateLabel);
+        updateSection.appendChild(updateControl);
+        container.appendChild(updateSection);
+      }
+
       return container;
   }
 
@@ -3002,7 +3103,8 @@ function initializeAutoUpdater() {
     }
   }
 
-  // Add update button to settings page
+  // Add update button to settings page (disabled: update section now directly in buildSettingsPage)
+  /*
   const originalBuildSettingsPage = buildSettingsPage;
   buildSettingsPage = function() {
     const container = originalBuildSettingsPage();
@@ -3053,9 +3155,10 @@ function initializeAutoUpdater() {
     
     return container;
   };
+  */
 }
 
 
+// Initialize the application once
 init();
-  init();
 })();
