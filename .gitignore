@@ -4,3 +4,4 @@
 *.zip
 *.7z
 logs/npm-build-all.log
+logs/npm-install.log
