@@ -3,11 +3,116 @@ const path = require('path');
 const os = require('os');
 const { exec, spawn } = require('child_process');
 
+const { autoUpdater } = require('electron-updater');
+
 // Password Manager imports
 const PasswordManagerAuth = require('./password-manager/auth');
 const PasswordManagerDB = require('./password-manager/database');
 
 const { dialog } = require('electron');
+
+// Προσθήκη Auto Updater handlers
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
+
+let updateAvailable = false;
+let updateDownloaded = false;
+
+// Auto Updater events
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for updates...');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { status: 'checking', message: 'Checking for updates...' });
+  }
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('Update available:', info);
+  updateAvailable = true;
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      status: 'available', 
+      message: `Update available: v${info.version}`,
+      version: info.version,
+      releaseNotes: info.releaseNotes
+    });
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('Update not available:', info);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      status: 'not-available', 
+      message: 'You are running the latest version' 
+    });
+  }
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  console.log('Download progress:', progressObj);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      status: 'downloading', 
+      message: `Downloading update: ${Math.round(progressObj.percent)}%`,
+      percent: progressObj.percent
+    });
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('Update downloaded:', info);
+  updateDownloaded = true;
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      status: 'downloaded', 
+      message: 'Update downloaded. Restart to install.',
+      version: info.version
+    });
+  }
+});
+
+autoUpdater.on('error', (err) => {
+  console.log('Update error:', err);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      status: 'error', 
+      message: `Update error: ${err.message}` 
+    });
+  }
+});
+
+// Προσθήκη IPC handlers για auto-updater
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    await autoUpdater.checkForUpdates();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('install-update', async () => {
+  if (updateDownloaded) {
+    autoUpdater.quitAndInstall();
+    return { success: true };
+  }
+  return { success: false, error: 'No update downloaded' };
+});
+
+ipcMain.handle('get-app-version', async () => {
+  return app.getVersion();
+});
+
 
 const fs = require('fs');
 const http = require('http');
@@ -59,6 +164,10 @@ function createWindow() {
     }
   });
   mainWindow.loadFile('index.html');
+    // Auto check for updates after window is ready (wait 3 seconds)
+  setTimeout(() => {
+    autoUpdater.checkForUpdatesAndNotify().catch(console.error);
+  }, 3000);
 }
 
 // Add this function to create password manager window

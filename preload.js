@@ -88,5 +88,17 @@ contextBridge.exposeInMainWorld('api', {
 
     showFileDialog: () => ipcRenderer.invoke('show-file-dialog'),
 
+  // Auto Updater APIs
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  
+  // Listen for update status events
+  onUpdateStatus: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('update-status', listener);
+    return () => ipcRenderer.removeListener('update-status', listener);
+  },
 
 });

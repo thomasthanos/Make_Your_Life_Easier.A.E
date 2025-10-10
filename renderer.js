@@ -2884,7 +2884,178 @@ function showRestartDialog() {
     await loadTranslations();
     applyTheme();
     renderMenu();
+    initializeAutoUpdater();
+  }
+// Auto Updater functionality
+function initializeAutoUpdater() {
+  const updateStatus = document.createElement('div');
+  updateStatus.id = 'update-status';
+  updateStatus.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    z-index: 1000;
+    max-width: 300px;
+    backdrop-filter: blur(10px);
+    display: none;
+  `;
+
+  const updateContent = document.createElement('div');
+  updateStatus.appendChild(updateContent);
+  document.body.appendChild(updateStatus);
+
+  let currentVersion = '';
+
+  // Get current version
+  window.api.getAppVersion().then(version => {
+    currentVersion = version;
+  });
+
+  // Listen for update events
+  window.api.onUpdateStatus((data) => {
+    showUpdateNotification(data);
+  });
+
+  function showUpdateNotification(data) {
+    updateContent.innerHTML = '';
+    
+    const title = document.createElement('div');
+    title.style.cssText = 'font-weight: 600; margin-bottom: 0.5rem; color: var(--accent-color);';
+    title.textContent = '🔔 App Update';
+
+    const message = document.createElement('div');
+    message.style.cssText = 'margin-bottom: 1rem; font-size: 0.9rem; line-height: 1.4;';
+    message.textContent = data.message;
+
+    updateContent.appendChild(title);
+    updateContent.appendChild(message);
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = 'display: flex; gap: 0.5rem; justify-content: flex-end;';
+
+    switch (data.status) {
+      case 'available':
+        const downloadBtn = document.createElement('button');
+        downloadBtn.className = 'button';
+        downloadBtn.textContent = 'Download';
+        downloadBtn.onclick = () => {
+          window.api.downloadUpdate();
+          downloadBtn.disabled = true;
+          downloadBtn.textContent = 'Downloading...';
+        };
+        buttonContainer.appendChild(downloadBtn);
+        break;
+
+      case 'downloading':
+        const progress = document.createElement('div');
+        progress.style.cssText = 'width: 100%; height: 4px; background: var(--border-color); border-radius: 2px; overflow: hidden; margin-bottom: 0.5rem;';
+        const progressBar = document.createElement('div');
+        progressBar.style.cssText = `height: 100%; background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light)); width: ${data.percent || 0}%; transition: width 0.3s ease;`;
+        progress.appendChild(progressBar);
+        updateContent.appendChild(progress);
+        break;
+
+      case 'downloaded':
+        const installBtn = document.createElement('button');
+        installBtn.className = 'button';
+        installBtn.textContent = 'Restart & Install';
+        installBtn.onclick = () => {
+          window.api.installUpdate();
+        };
+        buttonContainer.appendChild(installBtn);
+        break;
+
+      case 'error':
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'button button-secondary';
+        closeBtn.textContent = 'Close';
+        closeBtn.onclick = () => {
+          updateStatus.style.display = 'none';
+        };
+        buttonContainer.appendChild(closeBtn);
+        break;
+    }
+
+    if (data.status !== 'downloading') {
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'button button-secondary';
+      closeBtn.textContent = 'Later';
+      closeBtn.onclick = () => {
+        updateStatus.style.display = 'none';
+      };
+      buttonContainer.appendChild(closeBtn);
+    }
+
+    updateContent.appendChild(buttonContainer);
+    updateStatus.style.display = 'block';
+
+    // Auto-hide "not available" message after 5 seconds
+    if (data.status === 'not-available') {
+      setTimeout(() => {
+        updateStatus.style.display = 'none';
+      }, 5000);
+    }
   }
 
+  // Add update button to settings page
+  const originalBuildSettingsPage = buildSettingsPage;
+  buildSettingsPage = function() {
+    const container = originalBuildSettingsPage();
+    
+    const updateSection = document.createElement('div');
+    updateSection.className = 'settings-row';
+    updateSection.style.cssText = 'border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1rem;';
+    
+    const updateLabel = document.createElement('div');
+    updateLabel.className = 'settings-label';
+    updateLabel.textContent = 'Updates:';
+    
+    const updateControl = document.createElement('div');
+    updateControl.className = 'settings-control';
+    
+    const updateButton = document.createElement('button');
+    updateButton.className = 'button';
+    updateButton.textContent = 'Check for Updates';
+    updateButton.onclick = () => {
+      updateButton.disabled = true;
+      updateButton.textContent = 'Checking...';
+      window.api.checkForUpdates().finally(() => {
+        setTimeout(() => {
+          updateButton.disabled = false;
+          updateButton.textContent = 'Check for Updates';
+        }, 3000);
+      });
+    };
+    
+    const versionInfo = document.createElement('div');
+    versionInfo.style.cssText = 'margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.7;';
+    versionInfo.textContent = `Current version: ${currentVersion || 'loading...'}`;
+    
+    updateControl.appendChild(updateButton);
+    updateControl.appendChild(versionInfo);
+    updateSection.appendChild(updateLabel);
+    updateSection.appendChild(updateControl);
+    
+    container.appendChild(updateSection);
+    
+    // Load current version
+    if (!currentVersion) {
+      window.api.getAppVersion().then(version => {
+        currentVersion = version;
+        versionInfo.textContent = `Current version: ${version}`;
+      });
+    }
+    
+    return container;
+  };
+}
+
+
+init();
   init();
 })();
