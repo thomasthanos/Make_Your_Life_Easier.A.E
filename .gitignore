@@ -3,3 +3,4 @@
 *.exe
 *.zip
 *.7z
+logs/npm-build-all.log
