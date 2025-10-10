@@ -88,13 +88,5 @@ contextBridge.exposeInMainWorld('api', {
 
     showFileDialog: () => ipcRenderer.invoke('show-file-dialog'),
 
- checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
-  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-  
-  // Listen for update events
-  onUpdateStatus: (callback) => {
-    const listener = (event, data) => callback(data);
-    ipcRenderer.on('update-status', listener);
-    return () => ipcRenderer.removeListener('update-status', listener);
-  }
+
 });

@@ -1,0 +1,7 @@
+{
+  "version": "1.0.1",
+  "nsisUrl": "https://www.dropbox.com/scl/fi/ayate2g2s6hk9wt122flb/MakeYourLifeEasier-Setup-1.0.0.exe?dl=1",
+  "portableExeUrl": "https://www.dropbox.com/scl/fi/v4xtdplsme8pjg7nwmj2b/MakeYourLifeEasier-Portable.exe?dl=1",
+  "sha256": "",
+  "installerArgs": "/S"
+}

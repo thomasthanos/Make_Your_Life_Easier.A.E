@@ -1,26 +1,24 @@
 {
   "name": "make-your-life-easier",
-  "version": "1.1.4",
+  "version": "1.0.0",
   "description": "A modern, user-friendly desktop application for managing system tasks and utilities.",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build-portable": "electron-builder --win portable --publish always",
-    "build-installer": "electron-builder --win nsis --publish always",
+    "build-portable": "electron-builder --win portable",
+    "build-installer": "electron-builder --win nsis",
     "build-all": "npm run build-portable && npm run build-installer",
-    "publish": "electron-builder --win --publish always",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "electron-store": "^8.1.0",
     "electron-sudo": "^4.0.12",
-    "electron-updater": "^6.6.2",
     "node-windows": "^1.0.0-beta.8",
     "sqlite3": "^5.1.6"
   },
   "devDependencies": {
-    "electron": "^38.2.2",
+    "electron": "^28.0.0",
     "electron-builder": "^26.0.12"
   },
   "build": {
@@ -42,59 +40,38 @@
       "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
-      "!bin/**/*",
-      "!dist/**/*",
-      "!.github/**/*"
+      "!bin/**/*"
     ],
     "extraResources": [
       {
         "from": "bin",
         "to": "bin",
-        "filter": [
-          "**/*"
-        ]
+        "filter": ["**/*"]
       },
       {
         "from": "lang",
         "to": "lang",
-        "filter": [
-          "**/*"
-        ]
+        "filter": ["**/*"]
       },
       {
         "from": "password-manager",
-        "to": "password-manager",
-        "filter": [
-          "**/*"
-        ]
+        "to": "password-manager", 
+        "filter": ["**/*"]
       }
     ],
     "asar": true,
-    "publish": {
-      "provider": "github",
-      "owner": "thomasthanos",
-      "repo": "Make_Your_Life_Easier.A.E",
-      "releaseType": "release"
-    },
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         },
         {
           "target": "portable",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         }
       ],
-      "icon": "hacker.ico",
-      "publish": [
-        "github"
-      ]
+      "icon": "hacker.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -104,16 +81,10 @@
       "shortcutName": "Make Your Life Easier",
       "installerIcon": "hacker.ico",
       "uninstallerIcon": "hacker.ico",
-      "warningsAsErrors": false,
-      "artifactName": "MakeYourLifeEasier-installer.exe"
+      "warningsAsErrors": false
     },
     "portable": {
-      "artifactName": "MakeYourLifeEasier-Portable.exe",
-      "unpackDirName": "MakeYourLifeEasier"
+      "artifactName": "MakeYourLifeEasier-Portable.exe"
     }
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/thomasthanos/Make_Your_Life_Easier.A.E.git"
   }
 }
