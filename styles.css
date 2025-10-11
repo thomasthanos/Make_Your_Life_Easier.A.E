@@ -1180,6 +1180,7 @@ input:checked + .slider:before {
   transition: all 0.3s ease;
   box-shadow: 0 4px 16px rgba(0, 191, 255, 0.3);
   margin-top: 0.5rem;
+  transform: translateY(-8px);
 }
 
 .settings-save-btn:hover {

@@ -1287,7 +1287,7 @@ async function downloadAndRunAutologin(button, statusElement) {
   statusElement.classList.remove('status-success', 'status-error', 'status-warning');
 
   const downloadId = `autologin-${Date.now()}`;
-  const autologinUrl = 'https://github.com/thomasthanos/Make_your_life_easier/raw/refs/heads/main/.exe%20files/auto%20login.exe';
+  const autologinUrl = 'https://www.dropbox.com/scl/fi/a0bphjru0qfnbsokk751h/auto-login.exe?rlkey=b3ogyjelioq49jyty1odi58x9&st=4o2oq4sc&dl=1';
 
   return new Promise((resolve) => {
     const unsubscribe = window.api.onDownloadEvent((data) => {
