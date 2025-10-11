@@ -366,6 +366,11 @@ class ModernReleaseManager(QMainWindow):
         refresh_btn.clicked.connect(self.refresh_releases)
         header_layout.addWidget(refresh_btn)
         
+        # Test button για debugging
+        test_btn = QPushButton("Test GitHub CLI")
+        test_btn.clicked.connect(self.test_github_cli)
+        header_layout.addWidget(test_btn)
+        
         layout.addWidget(header)
         
         # Releases list
@@ -483,6 +488,7 @@ class ModernReleaseManager(QMainWindow):
             ("📤 Update Latest Release", self.update_release),
             ("🗑️ Delete Latest Release", self.delete_current_tag),
             ("➕ Create Release", self.create_release),
+            ("🔄 Clean & Rebuild", self.clean_and_rebuild),
         ]
         
         for text, command in action_buttons:
@@ -528,6 +534,42 @@ class ModernReleaseManager(QMainWindow):
         self.progress_bar.setVisible(False)
         self.update_status("Stopped")
         self.log("🛑 All commands stopped", "warning")
+
+    def test_github_cli(self):
+        """Test if GitHub CLI is working"""
+        self.log("🧪 Testing GitHub CLI...", "info")
+        
+        def test_cli():
+            try:
+                # Test 1: Check if gh is installed
+                result1 = subprocess.run(["gh", "--version"], capture_output=True, text=True)
+                if result1.returncode != 0:
+                    self.log("❌ GitHub CLI is not installed", "error")
+                    self.log("💡 Install from: https://cli.github.com/", "info")
+                    return
+                
+                self.log("✅ GitHub CLI is installed", "success")
+                
+                # Test 2: Check authentication
+                result2 = subprocess.run(["gh", "auth", "status"], capture_output=True, text=True)
+                if result2.returncode != 0:
+                    self.log("❌ Not authenticated with GitHub CLI", "error")
+                    self.log("💡 Run: gh auth login", "info")
+                    return
+                
+                self.log("✅ Authenticated with GitHub", "success")
+                
+                # Test 3: Try to get releases
+                if self.project_path:
+                    result3 = subprocess.run(["gh", "release", "list"], capture_output=True, text=True, cwd=self.project_path)
+                    self.log(f"GitHub CLI output: {result3.stdout}", "output")
+                    if result3.stderr:
+                        self.log(f"GitHub CLI error: {result3.stderr}", "error")
+                
+            except Exception as e:
+                self.log(f"❌ Error testing GitHub CLI: {e}", "error")
+        
+        threading.Thread(target=test_cli, daemon=True).start()
 
     def check_project_selected(self):
         if not self.project_path:
@@ -626,6 +668,51 @@ class ModernReleaseManager(QMainWindow):
                 self.log(f"⚠️ Delete failed: {str(e)}", "warning")
                 time.sleep(3)
         return False
+
+    def clean_and_rebuild(self):
+        """Clean everything and do a fresh rebuild"""
+        if not self.check_project_selected():
+            return
+            
+        self.log("🧹 Clean and rebuild...", "info")
+        
+        # Clean dist folder
+        if self.safe_delete_dist():
+            self.log("✅ Dist folder cleaned", "success")
+        else:
+            self.log("❌ Failed to clean dist folder", "error")
+            return
+            
+        # Clean node_modules and reinstall
+        def clean_operations():
+            # Remove node_modules
+            node_modules_path = Path(self.project_path) / "node_modules"
+            if node_modules_path.exists():
+                self.log("🧹 Removing node_modules...", "info")
+                shutil.rmtree(node_modules_path)
+                self.log("✅ node_modules removed", "success")
+            
+            # Remove package-lock.json
+            package_lock_path = Path(self.project_path) / "package-lock.json"
+            if package_lock_path.exists():
+                package_lock_path.unlink()
+                self.log("✅ package-lock.json removed", "success")
+            
+            # Reinstall dependencies
+            self.log("📦 Reinstalling dependencies...", "info")
+            if self.run_command_sync("npm install"):
+                self.log("✅ Dependencies installed", "success")
+                
+                # Rebuild
+                self.log("🔨 Rebuilding...", "info")
+                if self.safe_build_single():
+                    self.log("✅ Rebuild completed successfully", "success")
+                else:
+                    self.log("❌ Rebuild failed", "error")
+            else:
+                self.log("❌ Failed to install dependencies", "error")
+        
+        threading.Thread(target=clean_operations, daemon=True).start()
 
     def safe_build_single(self):
         if not self.check_project_selected():
@@ -775,7 +862,7 @@ class ModernReleaseManager(QMainWindow):
                         self.version_display.setText(new_version)
                         self.log(f"🎉 v{new_version} created!", "success")
                         # Αυτόματο refresh των releases μετά από δημιουργία
-                        QTimer.singleShot(2000, self.refresh_releases)
+                        QTimer.singleShot(3000, self.refresh_releases)
                 except Exception as e:
                     self.log(f"❌ Cleanup error: {e}", "error")
             
@@ -797,6 +884,7 @@ class ModernReleaseManager(QMainWindow):
             return "1.0.0"
 
     def update_release(self):
+        """Improved update release that handles checksum issues - THREAD SAFE VERSION"""
         if not self.check_git_repository() or not self.check_dist_files_exist():
             self.log("❌ Checks failed", "error")
             return
@@ -831,13 +919,8 @@ class ModernReleaseManager(QMainWindow):
                         temp_notes_file.unlink()
                     
                     if success:
-                        upload_command = f'gh release upload {latest_tag} ./dist/MakeYourLifeEasier-*.exe ./dist/latest.yml ./dist/*.blockmap --clobber'
-                        self.run_command_async(upload_command, callback=lambda upload_success: (
-                            self.log(f"✅ {latest_tag} updated successfully!", "success") if upload_success else
-                            self.log(f"❌ Upload failed", "error")
-                        ))
-                        # Αυτόματο refresh των releases μετά από update
-                        QTimer.singleShot(2000, self.refresh_releases)
+                        # Use QTimer to avoid threading issues
+                        QTimer.singleShot(0, lambda: self.safe_upload_with_checksum_fix(latest_tag))
                     else:
                         self.log(f"❌ Edit failed", "error")
                 except Exception as e:
@@ -849,6 +932,83 @@ class ModernReleaseManager(QMainWindow):
             if temp_notes_file.exists():
                 temp_notes_file.unlink()
             self.log(f"❌ Error: {e}", "error")
+
+    def safe_upload_with_checksum_fix(self, tag):
+        """Thread-safe version of upload with checksum fix"""
+        self.log("🔄 Uploading files with checksum fix...", "info")
+        
+        # Run the entire upload process in a single thread to avoid threading issues
+        def upload_process():
+            try:
+                self.log("🗑️ Deleting existing release assets...", "warning")
+                
+                # Get existing assets
+                assets_result = subprocess.run(
+                    ["gh", "release", "view", tag, "--json", "assets"],
+                    capture_output=True, text=True, cwd=self.project_path
+                )
+                
+                if assets_result.returncode == 0:
+                    try:
+                        assets_data = json.loads(assets_result.stdout)
+                        for asset in assets_data.get("assets", []):
+                            asset_name = asset.get("name", "")
+                            if asset_name:
+                                delete_cmd = f'gh release delete-asset {tag} "{asset_name}" --yes'
+                                result = subprocess.run(delete_cmd, shell=True, capture_output=True, text=True, cwd=self.project_path)
+                                if result.returncode == 0:
+                                    self.log(f"✅ Deleted: {asset_name}", "warning")
+                                else:
+                                    self.log(f"⚠️ Failed to delete: {asset_name}", "warning")
+                    except Exception as e:
+                        self.log(f"⚠️ Error parsing assets: {e}", "warning")
+                
+                # Wait a bit for GitHub to process deletions
+                time.sleep(2)
+                
+                # Now upload new files using sync method to avoid threading
+                self.log("📤 Uploading new files...", "info")
+                
+                dist_path = Path(self.project_path) / "dist"
+                upload_success = True
+                
+                # Upload files individually to avoid threading issues
+                files_to_upload = []
+                files_to_upload.extend(dist_path.glob("MakeYourLifeEasier-*.exe"))
+                files_to_upload.extend(dist_path.glob("latest.yml"))
+                files_to_upload.extend(dist_path.glob("*.blockmap"))
+                
+                for file_path in files_to_upload:
+                    if file_path.exists():
+                        upload_cmd = f'gh release upload {tag} "{file_path}" --clobber'
+                        self.log(f"📤 Uploading: {file_path.name}", "info")
+                        
+                        result = subprocess.run(upload_cmd, shell=True, capture_output=True, text=True, 
+                                              cwd=self.project_path, timeout=120)
+                        
+                        if result.returncode == 0:
+                            self.log(f"✅ Uploaded: {file_path.name}", "success")
+                        else:
+                            self.log(f"❌ Failed to upload: {file_path.name}", "error")
+                            self.log(f"Error: {result.stderr}", "error")
+                            upload_success = False
+                            break
+                        
+                        time.sleep(1)  # Small delay between uploads
+                
+                # Emit result back to main thread
+                if upload_success:
+                    QTimer.singleShot(0, lambda: self.log(f"✅ {tag} updated successfully!", "success"))
+                    QTimer.singleShot(0, lambda: QTimer.singleShot(3000, self.refresh_releases))
+                else:
+                    QTimer.singleShot(0, lambda: self.log(f"❌ Upload failed", "error"))
+                    
+            except Exception as e:
+                QTimer.singleShot(0, lambda: self.log(f"❌ Upload error: {e}", "error"))
+        
+        # Run the entire upload process in a single thread
+        upload_thread = threading.Thread(target=upload_process, daemon=True)
+        upload_thread.start()
 
     def get_latest_release_tag(self):
         """Get the latest release tag from GitHub"""
@@ -868,21 +1028,34 @@ class ModernReleaseManager(QMainWindow):
             self.log(f"❌ Error getting latest release: {e}", "error")
         return None
 
-    def get_all_releases(self):
-        """Get all releases from GitHub"""
+    def get_releases_alternative_method(self):
+        """Alternative method to get releases using git tags"""
         try:
+            # Method 1: Try git tags
             result = subprocess.run(
-                ["gh", "release", "list"],
+                ["git", "tag", "--list", "v*", "--sort", "-version:refname"],
                 capture_output=True, 
                 text=True, 
                 cwd=self.project_path
             )
-            if result.returncode == 0:
-                return result.stdout.strip()
-            else:
-                self.log(f"❌ Error getting releases: {result.stderr}", "error")
+            if result.returncode == 0 and result.stdout.strip():
+                tags = result.stdout.strip().split('\n')
+                releases_output = ""
+                for tag in tags:
+                    if tag:  # v1.0.0, v1.0.1, etc.
+                        # Get tag date
+                        date_result = subprocess.run(
+                            ["git", "log", "-1", "--format=%ai", tag],
+                            capture_output=True, 
+                            text=True, 
+                            cwd=self.project_path
+                        )
+                        date = date_result.stdout.strip() if date_result.returncode == 0 else "Unknown date"
+                        releases_output += f"{tag}\t{'Latest' if tag == tags[0] else 'Release'}\t{tag}\t{date}\n"
+                return releases_output
         except Exception as e:
-            self.log(f"❌ Error getting releases: {e}", "error")
+            self.log(f"❌ Error getting tags: {e}", "error")
+        
         return ""
 
     def delete_current_tag(self):
@@ -947,7 +1120,7 @@ class ModernReleaseManager(QMainWindow):
         threading.Thread(target=delete_operations, daemon=True).start()
 
     def refresh_releases(self):
-        """Refresh the releases list - FIXED VERSION"""
+        """Refresh the releases list - IMPROVED VERSION"""
         if not self.check_git_repository():
             self.log("❌ Not a git repository", "error")
             return
@@ -956,6 +1129,7 @@ class ModernReleaseManager(QMainWindow):
         
         def get_releases():
             try:
+                # Try GitHub CLI first
                 result = subprocess.run(
                     ["gh", "release", "list"],
                     capture_output=True, 
@@ -964,14 +1138,21 @@ class ModernReleaseManager(QMainWindow):
                     timeout=30
                 )
                 
+                releases_output = ""
+                
                 if result.returncode == 0:
                     releases_output = result.stdout.strip()
-                    QTimer.singleShot(0, lambda: self.display_releases(releases_output))
-                    self.log("✅ Releases refreshed", "success")
+                    self.log(f"✅ Found {len(releases_output.splitlines())} releases via GitHub CLI", "success")
                 else:
-                    error_msg = result.stderr.strip()
-                    QTimer.singleShot(0, lambda: self.display_releases(""))
-                    self.log(f"❌ Failed to get releases: {error_msg}", "error")
+                    self.log("⚠️ GitHub CLI failed, trying alternative method...", "warning")
+                    # Try alternative method
+                    releases_output = self.get_releases_alternative_method()
+                    if releases_output:
+                        self.log(f"✅ Found {len(releases_output.splitlines())} releases via git tags", "success")
+                    else:
+                        self.log("❌ No releases found", "error")
+                
+                QTimer.singleShot(0, lambda: self.display_releases(releases_output))
                     
             except subprocess.TimeoutExpired:
                 QTimer.singleShot(0, lambda: self.display_releases(""))
@@ -983,25 +1164,26 @@ class ModernReleaseManager(QMainWindow):
         threading.Thread(target=get_releases, daemon=True).start()
 
     def display_releases(self, releases_output):
-        """Display releases in the UI - FIXED VERSION"""
+        """Display releases in the UI - IMPROVED VERSION"""
         # Clear existing releases
         while self.releases_layout.count():
             child = self.releases_layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
             
-        if not releases_output.strip():
-            placeholder = QLabel("No releases found")
-            placeholder.setStyleSheet("color: #888888; padding: 20px;")
+        if not releases_output or not releases_output.strip():
+            placeholder = QLabel("No releases found\n\nMake sure:\n• GitHub CLI is installed (gh)\n• You are authenticated (gh auth login)\n• Repository has releases")
+            placeholder.setStyleSheet("color: #888888; padding: 20px; font-size: 12px;")
             placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.releases_layout.addWidget(placeholder)
+            self.releases_layout.addStretch()
             return
             
         try:
             releases = releases_output.strip().split('\n')
             found_releases = False
             
-            for release in releases:
+            for i, release in enumerate(releases):
                 parts = release.split('\t')
                 if len(parts) < 3:
                     continue
@@ -1032,7 +1214,7 @@ class ModernReleaseManager(QMainWindow):
                 title_layout = QHBoxLayout(title_frame)
                 title_layout.setContentsMargins(0, 0, 0, 0)
                 
-                title_label = QLabel(title)
+                title_label = QLabel(title if title else tag)
                 title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
                 title_label.setStyleSheet("color: white;")
                 title_layout.addWidget(title_label)
@@ -1059,13 +1241,15 @@ class ModernReleaseManager(QMainWindow):
                 release_layout.addWidget(title_frame)
                 
                 # Info row
-                info_text = f"Tag: {tag} | Date: {date}"
+                info_text = f"Tag: {tag}"
+                if date:
+                    info_text += f" | Date: {date}"
                 info_label = QLabel(info_text)
                 info_label.setStyleSheet("color: #cccccc; font-size: 10px;")
                 release_layout.addWidget(info_label)
                 
                 # Status badge
-                if type_str == 'Latest':
+                if type_str == 'Latest' or i == 0:
                     latest_label = QLabel("📍 LATEST RELEASE")
                     latest_label.setStyleSheet("""
                         QLabel {
@@ -1095,7 +1279,7 @@ class ModernReleaseManager(QMainWindow):
                 self.releases_layout.addWidget(release_frame)
             
             if not found_releases:
-                placeholder = QLabel("No valid releases found")
+                placeholder = QLabel("No valid releases found in the response")
                 placeholder.setStyleSheet("color: #888888; padding: 20px;")
                 placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.releases_layout.addWidget(placeholder)
