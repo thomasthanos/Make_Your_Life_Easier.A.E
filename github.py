@@ -366,7 +366,7 @@ class ModernReleaseManager(QMainWindow):
         refresh_btn.clicked.connect(self.refresh_releases)
         header_layout.addWidget(refresh_btn)
         
-        # Test button για debugging
+        # Test button for debugging
         test_btn = QPushButton("Test GitHub CLI")
         test_btn.clicked.connect(self.test_github_cli)
         header_layout.addWidget(test_btn)
@@ -457,6 +457,24 @@ class ModernReleaseManager(QMainWindow):
         details_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         details_layout.addWidget(details_label)
         
+        # Version Input - NEW FIELD
+        version_label = QLabel("Version:")
+        details_layout.addWidget(version_label)
+        
+        version_layout = QHBoxLayout()
+        
+        self.version_entry = QLineEdit()
+        self.version_entry.setPlaceholderText("e.g., 1.2.3")
+        version_layout.addWidget(self.version_entry)
+        
+        # Button for suggesting version
+        suggest_btn = QPushButton("Suggest")
+        suggest_btn.clicked.connect(self.suggest_version)
+        suggest_btn.setFixedWidth(80)
+        version_layout.addWidget(suggest_btn)
+        
+        details_layout.addLayout(version_layout)
+        
         # Title
         title_label = QLabel("Release Title:")
         details_layout.addWidget(title_label)
@@ -498,6 +516,13 @@ class ModernReleaseManager(QMainWindow):
         
         layout.addWidget(actions_frame)
         layout.addStretch()
+
+    def suggest_version(self):
+        """Suggests the next version based on release_type"""
+        current_version = self.version
+        suggested_version = self.calculate_new_version(current_version, self.release_type)
+        self.version_entry.setText(suggested_version)
+        self.log(f"💡 Suggested version: {suggested_version}", "info")
 
     def on_release_type_changed(self):
         radio = self.sender()
@@ -565,6 +590,8 @@ class ModernReleaseManager(QMainWindow):
                     self.log(f"GitHub CLI output: {result3.stdout}", "output")
                     if result3.stderr:
                         self.log(f"GitHub CLI error: {result3.stderr}", "error")
+                    # Refresh the panel
+                    QTimer.singleShot(0, self.refresh_releases)
                 
             except Exception as e:
                 self.log(f"❌ Error testing GitHub CLI: {e}", "error")
@@ -838,40 +865,99 @@ class ModernReleaseManager(QMainWindow):
         if not self.check_git_repository() or not self.check_dist_files_exist():
             self.log("❌ Checks failed", "error")
             return
-            
-        current_version = self.version
-        new_version = self.calculate_new_version(current_version, self.release_type)
         
-        release_title = self.title_entry.text().strip() or f"v{new_version} - {self.release_type.capitalize()}"
-        release_notes = self.notes_text.toPlainText().strip() or f"{self.release_type.capitalize()} release"
+        # Use version from input field
+        new_version = self.version_entry.text().strip()
         
-        temp_notes_file = Path(self.project_path) / "temp_release_notes.md"
+        # Validate version
+        if not new_version:
+            self.log("❌ Please enter a version number", "error")
+            return
+        
+        # Validate version format (e.g. 1.2.3)
+        import re
+        if not re.match(r'^\d+\.\d+\.\d+$', new_version):
+            self.log("❌ Version format should be X.Y.Z (e.g., 1.2.3)", "error")
+            return
+        
+        release_title = self.title_entry.text().strip() or f"v{new_version}"
+        release_notes = self.notes_text.toPlainText().strip() or f"Release v{new_version}"
+        
+        self.log(f"📋 Release Details:", "info")
+        self.log(f"   Version: {new_version}", "info")
+        self.log(f"   Title: {release_title}", "info")
+        self.log(f"   Notes: {release_notes[:100]}...", "info")
+        
+        temp_notes_file = Path(self.project_path) / f"release_notes_{new_version}.md"
+        
         try:
+            # Write notes to file
             with open(temp_notes_file, 'w', encoding='utf-8') as f:
                 f.write(release_notes)
             
-            create_command = f'gh release create v{new_version} ./dist/MakeYourLifeEasier-*.exe ./dist/latest.yml ./dist/*.blockmap --title "{release_title}" --notes-file "{temp_notes_file}"'
+            self.log(f"📄 Notes written to: {temp_notes_file}", "info")
             
-            def create_callback(success):
+            # Check if file was created correctly
+            if temp_notes_file.exists():
+                file_size = temp_notes_file.stat().st_size
+                self.log(f"📁 Notes file size: {file_size} bytes", "info")
+            
+            def create_release_sync():
                 try:
+                    # Create release with GitHub CLI
+                    create_command = [
+                        'gh', 'release', 'create', f'v{new_version}',
+                        './dist/MakeYourLifeEasier-*.exe',
+                        './dist/latest.yml',
+                        './dist/*.blockmap',
+                        '--title', release_title,
+                        '--notes-file', str(temp_notes_file)
+                    ]
+                    
+                    self.log(f"▶️ Executing: {' '.join(create_command)}", "info")
+                    
+                    result = subprocess.run(
+                        create_command,
+                        cwd=self.project_path,
+                        capture_output=True,
+                        text=True,
+                        timeout=120
+                    )
+                    
+                    # Cleanup temp file
                     if temp_notes_file.exists():
                         temp_notes_file.unlink()
                     
-                    if success:
-                        self.version = new_version
-                        self.version_display.setText(new_version)
-                        self.log(f"🎉 v{new_version} created!", "success")
-                        # Αυτόματο refresh των releases μετά από δημιουργία
+                    if result.returncode == 0:
+                        QTimer.singleShot(0, lambda: self.log(f"✅ Release v{new_version} created successfully!", "success"))
+                        QTimer.singleShot(0, lambda: self.update_version_display(new_version))
                         QTimer.singleShot(3000, self.refresh_releases)
+                    else:
+                        error_msg = result.stderr if result.stderr else "Unknown error"
+                        QTimer.singleShot(0, lambda: self.log(f"❌ Failed to create release: {error_msg}", "error"))
+                        
+                except subprocess.TimeoutExpired:
+                    if temp_notes_file.exists():
+                        temp_notes_file.unlink()
+                    QTimer.singleShot(0, lambda: self.log("❌ Timeout creating release", "error"))
                 except Exception as e:
-                    self.log(f"❌ Cleanup error: {e}", "error")
+                    if temp_notes_file.exists():
+                        temp_notes_file.unlink()
+                    QTimer.singleShot(0, lambda: self.log(f"❌ Error creating release: {e}", "error"))
             
-            self.run_command_async(create_command, callback=create_callback)
+            # Run in thread to not block UI
+            threading.Thread(target=create_release_sync, daemon=True).start()
             
         except Exception as e:
             if temp_notes_file.exists():
                 temp_notes_file.unlink()
-            self.log(f"❌ Error: {e}", "error")
+            self.log(f"❌ Error preparing release: {e}", "error")
+
+    def update_version_display(self, new_version):
+        """Update version in UI"""
+        self.version = new_version
+        self.version_display.setText(new_version)
+        self.version_entry.clear()  # Clear the field
 
     def calculate_new_version(self, current_version, release_type):
         try:
@@ -1014,49 +1100,67 @@ class ModernReleaseManager(QMainWindow):
         """Get the latest release tag from GitHub"""
         try:
             result = subprocess.run(
-                ["gh", "release", "list", "--limit", "1"],
+                ["gh", "release", "list", "--limit", "1", "--json", "tagName"],
                 capture_output=True, 
                 text=True, 
                 cwd=self.project_path
             )
             if result.returncode == 0 and result.stdout.strip():
-                lines = result.stdout.strip().split('\n')
-                if lines:
-                    parts = lines[0].split('\t')
-                    return parts[2].strip() if len(parts) > 2 else None
+                data = json.loads(result.stdout)
+                if data and isinstance(data, list) and data[0].get("tagName"):
+                    return data[0]["tagName"]
         except Exception as e:
             self.log(f"❌ Error getting latest release: {e}", "error")
+        # Fallback to git tags
+        remote_tags = self.get_remote_tags()
+        if remote_tags:
+            return remote_tags[0]
         return None
+
+    def get_remote_tags(self):
+        """Fetch ALL remote tags, even those without a GitHub release."""
+        try:
+            res = subprocess.run(
+                ["git", "ls-remote", "--tags", "origin"],
+                capture_output=True, text=True, cwd=self.project_path, timeout=45
+            )
+            tags = []
+            if res.returncode == 0 and res.stdout.strip():
+                for line in res.stdout.strip().splitlines():
+                    parts = line.split("\t")
+                    if len(parts) < 2:
+                        continue
+                    ref = parts[1]
+                    if ref.endswith("^{}"):  # skip annotated deref lines
+                        continue
+                    if "refs/tags/" in ref:
+                        tag = ref.split("refs/tags/")[1]
+                        tags.append(tag)
+            # unique & sort desc
+            return sorted(set(tags), reverse=True)
+        except Exception as e:
+            self.log(f"❌ fetch_remote_tags error: {e}", "error")
+            return []
 
     def get_releases_alternative_method(self):
         """Alternative method to get releases using git tags"""
-        try:
-            # Method 1: Try git tags
-            result = subprocess.run(
-                ["git", "tag", "--list", "v*", "--sort", "-version:refname"],
-                capture_output=True, 
-                text=True, 
-                cwd=self.project_path
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                tags = result.stdout.strip().split('\n')
-                releases_output = ""
-                for tag in tags:
-                    if tag:  # v1.0.0, v1.0.1, etc.
-                        # Get tag date
-                        date_result = subprocess.run(
-                            ["git", "log", "-1", "--format=%ai", tag],
-                            capture_output=True, 
-                            text=True, 
-                            cwd=self.project_path
-                        )
-                        date = date_result.stdout.strip() if date_result.returncode == 0 else "Unknown date"
-                        releases_output += f"{tag}\t{'Latest' if tag == tags[0] else 'Release'}\t{tag}\t{date}\n"
-                return releases_output
-        except Exception as e:
-            self.log(f"❌ Error getting tags: {e}", "error")
-        
-        return ""
+        remote_tags = self.get_remote_tags()
+        releases_output = ""
+        for i, tag in enumerate(remote_tags):
+            if tag:  # v1.0.0, v1.0.1, etc.
+                # Get tag date
+                date_result = subprocess.run(
+                    ["git", "log", "-1", "--format=%ai", tag],
+                    capture_output=True, 
+                    text=True, 
+                    cwd=self.project_path
+                )
+                date = date_result.stdout.strip() if date_result.returncode == 0 else "Unknown date"
+                type_str = 'Latest' if i == 0 else 'Release'
+                # Match the gh format: Title\tType\tTag\tDate
+                # Use tag as title if no better info
+                releases_output += f"{tag}\t{type_str}\t{tag}\t{date}\n"
+        return releases_output
 
     def delete_current_tag(self):
         if not self.check_git_repository():
@@ -1068,34 +1172,18 @@ class ModernReleaseManager(QMainWindow):
             self.log("❌ No version", "error")
             return
         
-        reply = QMessageBox.question(self, "Confirm", f"Delete v{version}?",
+        reply = QMessageBox.question(self, "Confirm", f"Delete v{version}?", 
                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply != QMessageBox.StandardButton.Yes:
             return
         
-        def delete_operations():
-            commands = [
-                f'gh release delete v{version} --yes',
-                f'git tag -d v{version}',
-                f'git push origin --delete v{version}'
-            ]
-            
-            for cmd in commands:
-                self.log(f"▶️ {cmd}", "info")
-                success = self.run_command_sync(cmd)
-                if not success:
-                    break
-                time.sleep(1)
-            
-            QTimer.singleShot(1000, self.refresh_releases)
-        
-        threading.Thread(target=delete_operations, daemon=True).start()
+        self.delete_specific_tag(f"v{version}")
 
     def delete_specific_tag(self, tag):
         if not self.check_git_repository():
             return
         
-        reply = QMessageBox.question(self, "Confirm", f"Delete {tag}?",
+        reply = QMessageBox.question(self, "Confirm", f"Delete {tag}?", 
                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply != QMessageBox.StandardButton.Yes:
             return
@@ -1111,8 +1199,8 @@ class ModernReleaseManager(QMainWindow):
             
             for cmd in commands:
                 success = self.run_command_sync(cmd)
-                if not success:
-                    break
+                if not success and 'gh release delete' in cmd:
+                    self.log("⚠️ Release not found – continue with tag deletion", "warning")
                 time.sleep(1)
             
             QTimer.singleShot(1000, self.refresh_releases)
@@ -1129,49 +1217,50 @@ class ModernReleaseManager(QMainWindow):
         
         def get_releases():
             try:
-                # Try GitHub CLI first
+                # Try GitHub CLI JSON first
+                releases = []
                 result = subprocess.run(
-                    ["gh", "release", "list"],
+                    ["gh", "release", "list", "--json", "tagName,name,isDraft,isPrerelease,isLatest,publishedAt", "--limit", "100"],
                     capture_output=True, 
                     text=True, 
                     cwd=self.project_path,
                     timeout=30
                 )
                 
-                releases_output = ""
-                
-                if result.returncode == 0:
-                    releases_output = result.stdout.strip()
-                    self.log(f"✅ Found {len(releases_output.splitlines())} releases via GitHub CLI", "success")
+                if result.returncode == 0 and result.stdout.strip():
+                    releases = json.loads(result.stdout)
+                    if isinstance(releases, list):
+                        self.log(f"✅ Found {len(releases)} releases via GitHub CLI", "success")
+                    else:
+                        releases = []
                 else:
                     self.log("⚠️ GitHub CLI failed, trying alternative method...", "warning")
-                    # Try alternative method
-                    releases_output = self.get_releases_alternative_method()
-                    if releases_output:
-                        self.log(f"✅ Found {len(releases_output.splitlines())} releases via git tags", "success")
-                    else:
-                        self.log("❌ No releases found", "error")
                 
-                QTimer.singleShot(0, lambda: self.display_releases(releases_output))
+                # Always fetch remote tags
+                remote_tags = self.get_remote_tags()
+                release_tags = {r.get("tagName", "") for r in releases}
+                tag_only = [t for t in remote_tags if t and t not in release_tags]
+                
+                QTimer.singleShot(0, lambda: self.display_releases_json(releases, tag_only))
                     
             except subprocess.TimeoutExpired:
-                QTimer.singleShot(0, lambda: self.display_releases(""))
+                QTimer.singleShot(0, lambda: self.display_releases_json([], []))
                 self.log("❌ Timeout getting releases", "error")
             except Exception as e:
-                QTimer.singleShot(0, lambda: self.display_releases(""))
+                QTimer.singleShot(0, lambda: self.display_releases_json([], []))
                 self.log(f"❌ Error refreshing releases: {e}", "error")
         
         threading.Thread(target=get_releases, daemon=True).start()
 
-    def display_releases(self, releases_output):
-        """Display releases in the UI - IMPROVED VERSION"""
+    def display_releases_json(self, releases, tag_only):
+        """Display releases in the UI - IMPROVED ROBUST PARSING"""
         # Clear existing releases
         while self.releases_layout.count():
             child = self.releases_layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
             
-        if not releases_output or not releases_output.strip():
+        if not releases and not tag_only:
             placeholder = QLabel("No releases found\n\nMake sure:\n• GitHub CLI is installed (gh)\n• You are authenticated (gh auth login)\n• Repository has releases")
             placeholder.setStyleSheet("color: #888888; padding: 20px; font-size: 12px;")
             placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -1179,117 +1268,159 @@ class ModernReleaseManager(QMainWindow):
             self.releases_layout.addStretch()
             return
             
-        try:
-            releases = releases_output.strip().split('\n')
-            found_releases = False
+        # Releases
+        for i, r in enumerate(releases):
+            tag = r.get("tagName", "").strip()
+            title = r.get("name", "").strip() or tag
+            date = r.get("publishedAt", "").strip()
+            is_latest = r.get("isLatest", False)
+            is_prerelease = r.get("isPrerelease", False)
+            is_draft = r.get("isDraft", False)
             
-            for i, release in enumerate(releases):
-                parts = release.split('\t')
-                if len(parts) < 3:
-                    continue
-                    
-                title = parts[0].strip()
-                type_str = parts[1].strip() if len(parts) > 1 else ''
-                tag = parts[2].strip()
-                date = parts[3].strip() if len(parts) > 3 else ''
-                
-                if not tag:
-                    continue
-                    
-                found_releases = True
-                
-                release_frame = QFrame()
-                release_frame.setStyleSheet("""
-                    QFrame { 
-                        background-color: #4a4a4a; 
-                        margin: 5px; 
-                        padding: 10px;
-                        border-radius: 5px;
-                    }
-                """)
-                release_layout = QVBoxLayout(release_frame)
-                
-                # Title row
-                title_frame = QFrame()
-                title_layout = QHBoxLayout(title_frame)
-                title_layout.setContentsMargins(0, 0, 0, 0)
-                
-                title_label = QLabel(title if title else tag)
-                title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-                title_label.setStyleSheet("color: white;")
-                title_layout.addWidget(title_label)
-                
-                title_layout.addStretch()
-                
-                # Delete button
-                delete_btn = QPushButton("🗑️")
-                delete_btn.setFixedSize(30, 30)
-                delete_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #e74c3c;
-                        border: none;
+            release_frame = QFrame()
+            release_frame.setStyleSheet("""
+                QFrame { 
+                    background-color: #4a4a4a; 
+                    margin: 5px; 
+                    padding: 10px;
+                    border-radius: 5px;
+                }
+            """)
+            release_layout = QVBoxLayout(release_frame)
+            
+            # Title row
+            title_frame = QFrame()
+            title_layout = QHBoxLayout(title_frame)
+            title_layout.setContentsMargins(0, 0, 0, 0)
+            
+            title_label = QLabel(title)
+            title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+            title_label.setStyleSheet("color: white;")
+            title_layout.addWidget(title_label)
+            
+            title_layout.addStretch()
+            
+            # Delete button
+            delete_btn = QPushButton("🗑️")
+            delete_btn.setFixedSize(30, 30)
+            delete_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #e74c3c;
+                    border: none;
+                    border-radius: 3px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #c0392b;
+                }
+            """)
+            delete_btn.clicked.connect(lambda checked, t=tag: self.delete_specific_tag(t))
+            title_layout.addWidget(delete_btn)
+            
+            release_layout.addWidget(title_frame)
+            
+            # Info row
+            info_text = f"Tag: {tag}"
+            if date:
+                info_text += f" | Date: {date}"
+            info_label = QLabel(info_text)
+            info_label.setStyleSheet("color: #cccccc; font-size: 10px;")
+            release_layout.addWidget(info_label)
+            
+            # Status badge
+            if is_latest or i == 0:
+                latest_label = QLabel("📍 LATEST RELEASE")
+                latest_label.setStyleSheet("""
+                    QLabel {
+                        color: #27ae60; 
+                        font-weight: bold; 
+                        font-size: 9px;
+                        background-color: #2c3e50;
+                        padding: 2px 5px;
                         border-radius: 3px;
-                        font-weight: bold;
-                    }
-                    QPushButton:hover {
-                        background-color: #c0392b;
                     }
                 """)
-                delete_btn.clicked.connect(lambda checked, t=tag: self.delete_specific_tag(t))
-                title_layout.addWidget(delete_btn)
-                
-                release_layout.addWidget(title_frame)
-                
-                # Info row
-                info_text = f"Tag: {tag}"
-                if date:
-                    info_text += f" | Date: {date}"
-                info_label = QLabel(info_text)
-                info_label.setStyleSheet("color: #cccccc; font-size: 10px;")
-                release_layout.addWidget(info_label)
-                
-                # Status badge
-                if type_str == 'Latest' or i == 0:
-                    latest_label = QLabel("📍 LATEST RELEASE")
-                    latest_label.setStyleSheet("""
-                        QLabel {
-                            color: #27ae60; 
-                            font-weight: bold; 
-                            font-size: 9px;
-                            background-color: #2c3e50;
-                            padding: 2px 5px;
-                            border-radius: 3px;
-                        }
-                    """)
-                    release_layout.addWidget(latest_label)
-                elif type_str == 'Pre-release':
-                    pre_label = QLabel("🧪 PRE-RELEASE")
-                    pre_label.setStyleSheet("""
-                        QLabel {
-                            color: #f39c12; 
-                            font-weight: bold; 
-                            font-size: 9px;
-                            background-color: #34495e;
-                            padding: 2px 5px;
-                            border-radius: 3px;
-                        }
-                    """)
-                    release_layout.addWidget(pre_label)
-                
-                self.releases_layout.addWidget(release_frame)
+                release_layout.addWidget(latest_label)
+            if is_prerelease:
+                pre_label = QLabel("🧪 PRE-RELEASE")
+                pre_label.setStyleSheet("""
+                    QLabel {
+                        color: #f39c12; 
+                        font-weight: bold; 
+                        font-size: 9px;
+                        background-color: #34495e;
+                        padding: 2px 5px;
+                        border-radius: 3px;
+                    }
+                """)
+                release_layout.addWidget(pre_label)
+            if is_draft:
+                draft_label = QLabel("📝 DRAFT")
+                draft_label.setStyleSheet("""
+                    QLabel {
+                        color: #8e44ad; 
+                        font-weight: bold; 
+                        font-size: 9px;
+                        background-color: #34495e;
+                        padding: 2px 5px;
+                        border-radius: 3px;
+                    }
+                """)
+                release_layout.addWidget(draft_label)
             
-            if not found_releases:
-                placeholder = QLabel("No valid releases found in the response")
-                placeholder.setStyleSheet("color: #888888; padding: 20px;")
-                placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.releases_layout.addWidget(placeholder)
-                
-        except Exception as e:
-            error_label = QLabel(f"Error displaying releases: {str(e)}")
-            error_label.setStyleSheet("color: #e74c3c; padding: 20px;")
-            error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.releases_layout.addWidget(error_label)
-            self.log(f"❌ Error displaying releases: {e}", "error")
+            self.releases_layout.addWidget(release_frame)
+        
+        # Tag-only
+        for tag in tag_only:
+            release_frame = QFrame()
+            release_frame.setStyleSheet("""
+                QFrame { 
+                    background-color: #4a4a4a; 
+                    margin: 5px; 
+                    padding: 10px;
+                    border-radius: 5px;
+                }
+            """)
+            release_layout = QVBoxLayout(release_frame)
+            
+            # Title row
+            title_frame = QFrame()
+            title_layout = QHBoxLayout(title_frame)
+            title_layout.setContentsMargins(0, 0, 0, 0)
+            
+            title_label = QLabel(f"{tag} (Tag only)")
+            title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+            title_label.setStyleSheet("color: white;")
+            title_layout.addWidget(title_label)
+            
+            title_layout.addStretch()
+            
+            # Delete button
+            delete_btn = QPushButton("🗑️")
+            delete_btn.setFixedSize(30, 30)
+            delete_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #e74c3c;
+                    border: none;
+                    border-radius: 3px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #c0392b;
+                }
+            """)
+            delete_btn.clicked.connect(lambda checked, t=tag: self.delete_specific_tag(t))
+            title_layout.addWidget(delete_btn)
+            
+            release_layout.addWidget(title_frame)
+            
+            # Info row
+            info_text = f"Tag: {tag} | No GitHub Release"
+            info_label = QLabel(info_text)
+            info_label.setStyleSheet("color: #cccccc; font-size: 10px;")
+            release_layout.addWidget(info_label)
+            
+            self.releases_layout.addWidget(release_frame)
         
         self.releases_layout.addStretch()
 
@@ -1320,6 +1451,10 @@ class ModernReleaseManager(QMainWindow):
         }
         
         color = colors.get(message_type, "#ffffff")
+        
+        # Escape HTML and replace newlines
+        message = message.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
+        
         formatted_message = f'<span style="color: {colors["timestamp"]}">[{timestamp}]</span> <span style="color: {color}">{message}</span>'
         
         self.console_text.moveCursor(QTextCursor.MoveOperation.End)
