@@ -373,20 +373,24 @@ class ModernReleaseManager(QMainWindow):
         
         layout.addWidget(header)
         
-        # Releases list
+        # Releases list - FIXED: Create proper scroll area
         self.releases_scroll = QScrollArea()
-        self.releases_content = QWidget()
-        self.releases_layout = QVBoxLayout(self.releases_content)
-        self.releases_scroll.setWidget(self.releases_content)
         self.releases_scroll.setWidgetResizable(True)
+        self.releases_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.releases_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        # Create container widget for releases
+        self.releases_container = QWidget()
+        self.releases_layout = QVBoxLayout(self.releases_container)
+        self.releases_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
         # Initial placeholder
-        placeholder = QLabel("Click 'Refresh' to load releases")
-        placeholder.setStyleSheet("color: #888888;")
-        placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.releases_layout.addWidget(placeholder)
+        self.placeholder_label = QLabel("Click 'Refresh' to load releases")
+        self.placeholder_label.setStyleSheet("color: #888888; padding: 20px;")
+        self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.releases_layout.addWidget(self.placeholder_label)
         
-        self.releases_layout.addStretch()
+        self.releases_scroll.setWidget(self.releases_container)
         layout.addWidget(self.releases_scroll)
 
     def setup_quick_tab(self):
@@ -561,7 +565,7 @@ class ModernReleaseManager(QMainWindow):
         self.log("🛑 All commands stopped", "warning")
 
     def test_github_cli(self):
-        """Test if GitHub CLI is working"""
+        """Test if GitHub CLI is working - DIAGNOSTIC ONLY"""
         self.log("🧪 Testing GitHub CLI...", "info")
         
         def test_cli():
@@ -584,14 +588,14 @@ class ModernReleaseManager(QMainWindow):
                 
                 self.log("✅ Authenticated with GitHub", "success")
                 
-                # Test 3: Try to get releases
+                # Test 3: Try to get releases (diagnostic only)
                 if self.project_path:
-                    result3 = subprocess.run(["gh", "release", "list"], capture_output=True, text=True, cwd=self.project_path)
-                    self.log(f"GitHub CLI output: {result3.stdout}", "output")
-                    if result3.stderr:
-                        self.log(f"GitHub CLI error: {result3.stderr}", "error")
-                    # Refresh the panel
-                    QTimer.singleShot(0, self.refresh_releases)
+                    result3 = subprocess.run(["gh", "release", "list", "--limit", "3"], capture_output=True, text=True, cwd=self.project_path)
+                    if result3.returncode == 0:
+                        self.log(f"✅ GitHub CLI working - found releases", "success")
+                        # Don't display release data in console - just confirm it works
+                    else:
+                        self.log(f"⚠️ GitHub CLI list error: {result3.stderr}", "warning")
                 
             except Exception as e:
                 self.log(f"❌ Error testing GitHub CLI: {e}", "error")
@@ -1003,426 +1007,423 @@ class ModernReleaseManager(QMainWindow):
                 try:
                     if temp_notes_file.exists():
                         temp_notes_file.unlink()
-                    
-                    if success:
-                        # Use QTimer to avoid threading issues
-                        QTimer.singleShot(0, lambda: self.safe_upload_with_checksum_fix(latest_tag))
-                    else:
-                        self.log(f"❌ Edit failed", "error")
-                except Exception as e:
-                    self.log(f"❌ Cleanup error: {e}", "error")
+                except:
+                    pass
+                
+                if success:
+                    self.log("✅ Release updated", "success")
+                    self.refresh_releases()
+                else:
+                    self.log("❌ Failed to update release", "error")
             
             self.run_command_async(edit_command, callback=edit_callback)
             
         except Exception as e:
             if temp_notes_file.exists():
                 temp_notes_file.unlink()
-            self.log(f"❌ Error: {e}", "error")
+            self.log(f"❌ Error: {str(e)}", "error")
 
-    def safe_upload_with_checksum_fix(self, tag):
-        """Thread-safe version of upload with checksum fix"""
-        self.log("🔄 Uploading files with checksum fix...", "info")
+    def delete_current_tag(self):
+        """Delete the latest release and tag"""
+        if not self.check_git_repository():
+            return
         
-        # Run the entire upload process in a single thread to avoid threading issues
-        def upload_process():
+        latest_tag = self.get_latest_release_tag()
+        if not latest_tag:
+            self.log("❌ No releases found", "error")
+            return
+        
+        reply = QMessageBox.question(self, "Confirm Delete", 
+                                   f"Delete release {latest_tag}? This cannot be undone!",
+                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        
+        self.log(f"🗑️ Deleting release {latest_tag}...", "warning")
+        
+        def delete_operations():
             try:
-                self.log("🗑️ Deleting existing release assets...", "warning")
-                
-                # Get existing assets
-                assets_result = subprocess.run(
-                    ["gh", "release", "view", tag, "--json", "assets"],
-                    capture_output=True, text=True, cwd=self.project_path
-                )
-                
-                if assets_result.returncode == 0:
-                    try:
-                        assets_data = json.loads(assets_result.stdout)
-                        for asset in assets_data.get("assets", []):
-                            asset_name = asset.get("name", "")
-                            if asset_name:
-                                delete_cmd = f'gh release delete-asset {tag} "{asset_name}" --yes'
-                                result = subprocess.run(delete_cmd, shell=True, capture_output=True, text=True, cwd=self.project_path)
-                                if result.returncode == 0:
-                                    self.log(f"✅ Deleted: {asset_name}", "warning")
-                                else:
-                                    self.log(f"⚠️ Failed to delete: {asset_name}", "warning")
-                    except Exception as e:
-                        self.log(f"⚠️ Error parsing assets: {e}", "warning")
-                
-                # Wait a bit for GitHub to process deletions
-                time.sleep(2)
-                
-                # Now upload new files using sync method to avoid threading
-                self.log("📤 Uploading new files...", "info")
-                
-                dist_path = Path(self.project_path) / "dist"
-                upload_success = True
-                
-                # Upload files individually to avoid threading issues
-                files_to_upload = []
-                files_to_upload.extend(dist_path.glob("MakeYourLifeEasier-*.exe"))
-                files_to_upload.extend(dist_path.glob("latest.yml"))
-                files_to_upload.extend(dist_path.glob("*.blockmap"))
-                
-                for file_path in files_to_upload:
-                    if file_path.exists():
-                        upload_cmd = f'gh release upload {tag} "{file_path}" --clobber'
-                        self.log(f"📤 Uploading: {file_path.name}", "info")
-                        
-                        result = subprocess.run(upload_cmd, shell=True, capture_output=True, text=True, 
-                                              cwd=self.project_path, timeout=120)
-                        
-                        if result.returncode == 0:
-                            self.log(f"✅ Uploaded: {file_path.name}", "success")
-                        else:
-                            self.log(f"❌ Failed to upload: {file_path.name}", "error")
-                            self.log(f"Error: {result.stderr}", "error")
-                            upload_success = False
-                            break
-                        
-                        time.sleep(1)  # Small delay between uploads
-                
-                # Emit result back to main thread
-                if upload_success:
-                    QTimer.singleShot(0, lambda: self.log(f"✅ {tag} updated successfully!", "success"))
-                    QTimer.singleShot(0, lambda: QTimer.singleShot(3000, self.refresh_releases))
-                else:
-                    QTimer.singleShot(0, lambda: self.log(f"❌ Upload failed", "error"))
+                # Delete release
+                delete_release_cmd = f"gh release delete {latest_tag} --yes"
+                if self.run_command_sync(delete_release_cmd):
+                    self.log(f"✅ Release {latest_tag} deleted", "success")
                     
+                    # Delete local tag
+                    delete_local_tag_cmd = f"git tag -d {latest_tag}"
+                    self.run_command_sync(delete_local_tag_cmd)
+                    
+                    # Delete remote tag
+                    delete_remote_tag_cmd = f"git push origin --delete {latest_tag}"
+                    self.run_command_sync(delete_remote_tag_cmd)
+                    
+                    QTimer.singleShot(0, self.refresh_releases)
+                else:
+                    self.log(f"❌ Failed to delete release {latest_tag}", "error")
             except Exception as e:
-                QTimer.singleShot(0, lambda: self.log(f"❌ Upload error: {e}", "error"))
+                self.log(f"❌ Error deleting: {e}", "error")
         
-        # Run the entire upload process in a single thread
-        upload_thread = threading.Thread(target=upload_process, daemon=True)
-        upload_thread.start()
+        threading.Thread(target=delete_operations, daemon=True).start()
 
     def get_latest_release_tag(self):
         """Get the latest release tag from GitHub"""
         try:
             result = subprocess.run(
                 ["gh", "release", "list", "--limit", "1", "--json", "tagName"],
-                capture_output=True, 
-                text=True, 
-                cwd=self.project_path
+                capture_output=True, text=True, cwd=self.project_path
             )
-            if result.returncode == 0 and result.stdout.strip():
+            
+            if result.returncode == 0:
                 data = json.loads(result.stdout)
-                if data and isinstance(data, list) and data[0].get("tagName"):
-                    return data[0]["tagName"]
-        except Exception as e:
-            self.log(f"❌ Error getting latest release: {e}", "error")
-        # Fallback to git tags
-        remote_tags = self.get_remote_tags()
-        if remote_tags:
-            return remote_tags[0]
-        return None
-
-    def get_remote_tags(self):
-        """Fetch ALL remote tags, even those without a GitHub release."""
-        try:
-            res = subprocess.run(
-                ["git", "ls-remote", "--tags", "origin"],
-                capture_output=True, text=True, cwd=self.project_path, timeout=45
-            )
-            tags = []
-            if res.returncode == 0 and res.stdout.strip():
-                for line in res.stdout.strip().splitlines():
-                    parts = line.split("\t")
-                    if len(parts) < 2:
-                        continue
-                    ref = parts[1]
-                    if ref.endswith("^{}"):  # skip annotated deref lines
-                        continue
-                    if "refs/tags/" in ref:
-                        tag = ref.split("refs/tags/")[1]
-                        tags.append(tag)
-            # unique & sort desc
-            return sorted(set(tags), reverse=True)
-        except Exception as e:
-            self.log(f"❌ fetch_remote_tags error: {e}", "error")
-            return []
-
-    def get_releases_alternative_method(self):
-        """Alternative method to get releases using git tags"""
-        remote_tags = self.get_remote_tags()
-        releases_output = ""
-        for i, tag in enumerate(remote_tags):
-            if tag:  # v1.0.0, v1.0.1, etc.
-                # Get tag date
-                date_result = subprocess.run(
-                    ["git", "log", "-1", "--format=%ai", tag],
-                    capture_output=True, 
-                    text=True, 
-                    cwd=self.project_path
-                )
-                date = date_result.stdout.strip() if date_result.returncode == 0 else "Unknown date"
-                type_str = 'Latest' if i == 0 else 'Release'
-                # Match the gh format: Title\tType\tTag\tDate
-                # Use tag as title if no better info
-                releases_output += f"{tag}\t{type_str}\t{tag}\t{date}\n"
-        return releases_output
-
-    def delete_current_tag(self):
-        if not self.check_git_repository():
-            self.log("❌ Not git repo", "error")
-            return
-            
-        version = self.version
-        if not version:
-            self.log("❌ No version", "error")
-            return
-        
-        reply = QMessageBox.question(self, "Confirm", f"Delete v{version}?", 
-                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if reply != QMessageBox.StandardButton.Yes:
-            return
-        
-        self.delete_specific_tag(f"v{version}")
-
-    def delete_specific_tag(self, tag):
-        if not self.check_git_repository():
-            return
-        
-        reply = QMessageBox.question(self, "Confirm", f"Delete {tag}?", 
-                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if reply != QMessageBox.StandardButton.Yes:
-            return
-        
-        self.log(f"🗑️ Deleting {tag}...", "warning")
-        
-        def delete_operations():
-            commands = [
-                f'gh release delete {tag} --yes',
-                f'git tag -d {tag}',
-                f'git push origin --delete {tag}'
-            ]
-            
-            for cmd in commands:
-                success = self.run_command_sync(cmd)
-                if not success and 'gh release delete' in cmd:
-                    self.log("⚠️ Release not found – continue with tag deletion", "warning")
-                time.sleep(1)
-            
-            QTimer.singleShot(1000, self.refresh_releases)
-
-        threading.Thread(target=delete_operations, daemon=True).start()
+                if data:
+                    return data[0]['tagName']
+            return None
+        except:
+            return None
 
     def refresh_releases(self):
-        """Refresh the releases list - IMPROVED VERSION"""
+        """Refresh the releases list in the top panel"""
         if not self.check_git_repository():
             self.log("❌ Not a git repository", "error")
             return
-            
+        
         self.log("🔄 Refreshing releases...", "info")
         
-        def get_releases():
+        def fetch_releases():
             try:
-                # Try GitHub CLI JSON first
-                releases = []
+                # Get releases from GitHub CLI
                 result = subprocess.run(
-                    ["gh", "release", "list", "--json", "tagName,name,isDraft,isPrerelease,isLatest,publishedAt", "--limit", "100"],
-                    capture_output=True, 
-                    text=True, 
-                    cwd=self.project_path,
-                    timeout=30
+                    ["gh", "release", "list", "--limit", "50", "--json", "tagName,name,createdAt,isDraft,isPrerelease,publishedAt"],
+                    capture_output=True, text=True, cwd=self.project_path, timeout=30
                 )
                 
+                releases = []
                 if result.returncode == 0 and result.stdout.strip():
                     releases = json.loads(result.stdout)
-                    if isinstance(releases, list):
-                        self.log(f"✅ Found {len(releases)} releases via GitHub CLI", "success")
-                    else:
-                        releases = []
+                    self.log(f"✅ Found {len(releases)} releases via GitHub CLI", "success")
                 else:
-                    self.log("⚠️ GitHub CLI failed, trying alternative method...", "warning")
+                    self.log("⚠️ No releases found via GitHub CLI", "warning")
                 
-                # Always fetch remote tags
-                remote_tags = self.get_remote_tags()
-                release_tags = {r.get("tagName", "") for r in releases}
-                tag_only = [t for t in remote_tags if t and t not in release_tags]
+                # Get all tags (including those without releases)
+                tags_result = subprocess.run(
+                    ["git", "tag", "--list", "--sort=-creatordate"],
+                    capture_output=True, text=True, cwd=self.project_path, timeout=30
+                )
                 
-                QTimer.singleShot(0, lambda: self.display_releases_json(releases, tag_only))
-                    
+                all_tags = []
+                if tags_result.returncode == 0 and tags_result.stdout.strip():
+                    all_tags = [tag.strip() for tag in tags_result.stdout.split('\n') if tag.strip()]
+                    self.log(f"✅ Found {len(all_tags)} git tags", "success")
+                
+                # Update UI with releases and tags
+                QTimer.singleShot(0, lambda: self.update_releases_display(releases, all_tags))
+                
             except subprocess.TimeoutExpired:
-                QTimer.singleShot(0, lambda: self.display_releases_json([], []))
-                self.log("❌ Timeout getting releases", "error")
+                QTimer.singleShot(0, lambda: self.log("❌ Timeout fetching releases", "error"))
             except Exception as e:
-                QTimer.singleShot(0, lambda: self.display_releases_json([], []))
-                self.log(f"❌ Error refreshing releases: {e}", "error")
+                QTimer.singleShot(0, lambda: self.log(f"❌ Error fetching releases: {e}", "error"))
         
-        threading.Thread(target=get_releases, daemon=True).start()
+        threading.Thread(target=fetch_releases, daemon=True).start()
 
-    def display_releases_json(self, releases, tag_only):
-        """Display releases in the UI - IMPROVED ROBUST PARSING"""
-        # Clear existing releases
+    def update_releases_display(self, releases, all_tags):
+        """Update the releases panel with releases and tags - FIXED VERSION"""
+        # Clear existing content
+        self.clear_releases_layout()
+        
+        if not releases and not all_tags:
+            self.placeholder_label = QLabel("No releases or tags found\n\nMake sure:\n• GitHub CLI is installed (gh)\n• You are authenticated (gh auth login)\n• Repository has releases or tags")
+            self.placeholder_label.setStyleSheet("color: #888888; padding: 20px; font-size: 12px;")
+            self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.releases_layout.addWidget(self.placeholder_label)
+            return
+        
+        # Create a set of release tags for quick lookup
+        release_tags = {release['tagName'] for release in releases}
+        
+        # Display releases first
+        if releases:
+            releases_label = QLabel("GitHub Releases:")
+            releases_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+            releases_label.setStyleSheet("color: #3498db; margin-top: 10px; margin-bottom: 5px;")
+            self.releases_layout.addWidget(releases_label)
+            
+            for release in releases:
+                self.add_release_item(release, is_release=True)
+    
+        # Display tags without releases
+        tags_without_releases = [tag for tag in all_tags if tag not in release_tags]
+        if tags_without_releases:
+            tags_label = QLabel("Git Tags (No Release):")
+            tags_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+            tags_label.setStyleSheet("color: #f39c12; margin-top: 20px; margin-bottom: 5px;")
+            self.releases_layout.addWidget(tags_label)
+            
+            for tag in tags_without_releases:
+                tag_item = {
+                    'tagName': tag,
+                    'name': tag,
+                    'createdAt': '',
+                    'publishedAt': '',
+                    'isDraft': False,
+                    'isPrerelease': False
+                }
+                self.add_release_item(tag_item, is_release=False)
+
+    def clear_releases_layout(self):
+        """Clear all widgets from releases layout except placeholder"""
+        # Remove all widgets from layout
         while self.releases_layout.count():
             child = self.releases_layout.takeAt(0)
             if child.widget():
-                child.widget().deleteLater()
-            
-        if not releases and not tag_only:
-            placeholder = QLabel("No releases found\n\nMake sure:\n• GitHub CLI is installed (gh)\n• You are authenticated (gh auth login)\n• Repository has releases")
-            placeholder.setStyleSheet("color: #888888; padding: 20px; font-size: 12px;")
-            placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.releases_layout.addWidget(placeholder)
-            self.releases_layout.addStretch()
-            return
-            
-        # Releases
-        for i, r in enumerate(releases):
-            tag = r.get("tagName", "").strip()
-            title = r.get("name", "").strip() or tag
-            date = r.get("publishedAt", "").strip()
-            is_latest = r.get("isLatest", False)
-            is_prerelease = r.get("isPrerelease", False)
-            is_draft = r.get("isDraft", False)
-            
-            release_frame = QFrame()
-            release_frame.setStyleSheet("""
-                QFrame { 
-                    background-color: #4a4a4a; 
-                    margin: 5px; 
-                    padding: 10px;
-                    border-radius: 5px;
-                }
-            """)
-            release_layout = QVBoxLayout(release_frame)
-            
-            # Title row
-            title_frame = QFrame()
-            title_layout = QHBoxLayout(title_frame)
-            title_layout.setContentsMargins(0, 0, 0, 0)
-            
-            title_label = QLabel(title)
-            title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-            title_label.setStyleSheet("color: white;")
-            title_layout.addWidget(title_label)
-            
-            title_layout.addStretch()
-            
-            # Delete button
-            delete_btn = QPushButton("🗑️")
-            delete_btn.setFixedSize(30, 30)
-            delete_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #e74c3c;
-                    border: none;
-                    border-radius: 3px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #c0392b;
-                }
-            """)
-            delete_btn.clicked.connect(lambda checked, t=tag: self.delete_specific_tag(t))
-            title_layout.addWidget(delete_btn)
-            
-            release_layout.addWidget(title_frame)
-            
-            # Info row
-            info_text = f"Tag: {tag}"
-            if date:
-                info_text += f" | Date: {date}"
-            info_label = QLabel(info_text)
-            info_label.setStyleSheet("color: #cccccc; font-size: 10px;")
-            release_layout.addWidget(info_label)
-            
-            # Status badge
-            if is_latest or i == 0:
-                latest_label = QLabel("📍 LATEST RELEASE")
-                latest_label.setStyleSheet("""
-                    QLabel {
-                        color: #27ae60; 
-                        font-weight: bold; 
-                        font-size: 9px;
-                        background-color: #2c3e50;
-                        padding: 2px 5px;
-                        border-radius: 3px;
-                    }
-                """)
-                release_layout.addWidget(latest_label)
-            if is_prerelease:
-                pre_label = QLabel("🧪 PRE-RELEASE")
-                pre_label.setStyleSheet("""
-                    QLabel {
-                        color: #f39c12; 
-                        font-weight: bold; 
-                        font-size: 9px;
-                        background-color: #34495e;
-                        padding: 2px 5px;
-                        border-radius: 3px;
-                    }
-                """)
-                release_layout.addWidget(pre_label)
-            if is_draft:
-                draft_label = QLabel("📝 DRAFT")
+                # Keep track of placeholder to reuse it
+                if child.widget() != self.placeholder_label:
+                    child.widget().deleteLater()
+
+    def add_release_item(self, release, is_release=True):
+        """Add a release/tag item to the releases panel - FIXED VERSION"""
+        item_frame = QFrame()
+        item_frame.setStyleSheet("""
+            QFrame {
+                background-color: #4a4a4a;
+                border-radius: 5px;
+                border: 1px solid #666666;
+                margin: 5px;
+                padding: 5px;
+            }
+        """)
+        
+        item_layout = QHBoxLayout(item_frame)
+        item_layout.setContentsMargins(10, 8, 10, 8)
+        
+        # Release info
+        info_layout = QVBoxLayout()
+        info_layout.setSpacing(2)
+        
+        # Title/tag
+        title = release.get('name', release['tagName'])
+        title_label = QLabel(title)
+        title_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        title_label.setStyleSheet("color: #ffffff;")
+        title_label.setWordWrap(True)
+        info_layout.addWidget(title_label)
+        
+        # Tag name and date
+        meta_text = f"Tag: {release['tagName']}"
+        
+        # Use publishedAt for releases, createdAt for drafts
+        date_str = ""
+        if is_release:
+            date_value = release.get('publishedAt') or release.get('createdAt', '')
+            if date_value:
+                try:
+                    # Handle ISO format date
+                    date_obj = datetime.fromisoformat(date_value.replace('Z', '+00:00'))
+                    date_str = date_obj.strftime('%Y-%m-%d %H:%M')
+                except:
+                    date_str = date_value.split('T')[0]  # Just get date part
+        
+        if date_str:
+            meta_text += f" | Date: {date_str}"
+        
+        if not is_release:
+            meta_text += " | Git Tag Only"
+        
+        meta_label = QLabel(meta_text)
+        meta_label.setStyleSheet("color: #888888; font-size: 9px;")
+        info_layout.addWidget(meta_label)
+        
+        item_layout.addLayout(info_layout)
+        item_layout.addStretch()
+        
+        # Status badges container
+        badges_layout = QHBoxLayout()
+        badges_layout.setSpacing(3)
+        
+        if is_release:
+            if release.get('isDraft'):
+                draft_label = QLabel("DRAFT")
                 draft_label.setStyleSheet("""
                     QLabel {
-                        color: #8e44ad; 
-                        font-weight: bold; 
-                        font-size: 9px;
-                        background-color: #34495e;
-                        padding: 2px 5px;
-                        border-radius: 3px;
+                        background-color: #f39c12; 
+                        color: white; 
+                        padding: 2px 6px; 
+                        border-radius: 3px; 
+                        font-size: 8px;
+                        font-weight: bold;
                     }
                 """)
-                release_layout.addWidget(draft_label)
+                badges_layout.addWidget(draft_label)
             
-            self.releases_layout.addWidget(release_frame)
+            if release.get('isPrerelease'):
+                pre_label = QLabel("PRE-RELEASE")
+                pre_label.setStyleSheet("""
+                    QLabel {
+                        background-color: #e67e22; 
+                        color: white; 
+                        padding: 2px 6px; 
+                        border-radius: 3px; 
+                        font-size: 8px;
+                        font-weight: bold;
+                    }
+                """)
+                badges_layout.addWidget(pre_label)
         
-        # Tag-only
-        for tag in tag_only:
-            release_frame = QFrame()
-            release_frame.setStyleSheet("""
-                QFrame { 
-                    background-color: #4a4a4a; 
-                    margin: 5px; 
-                    padding: 10px;
-                    border-radius: 5px;
-                }
-            """)
-            release_layout = QVBoxLayout(release_frame)
-            
-            # Title row
-            title_frame = QFrame()
-            title_layout = QHBoxLayout(title_frame)
-            title_layout.setContentsMargins(0, 0, 0, 0)
-            
-            title_label = QLabel(f"{tag} (Tag only)")
-            title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-            title_label.setStyleSheet("color: white;")
-            title_layout.addWidget(title_label)
-            
-            title_layout.addStretch()
-            
-            # Delete button
-            delete_btn = QPushButton("🗑️")
-            delete_btn.setFixedSize(30, 30)
-            delete_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #e74c3c;
-                    border: none;
-                    border-radius: 3px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #c0392b;
-                }
-            """)
-            delete_btn.clicked.connect(lambda checked, t=tag: self.delete_specific_tag(t))
-            title_layout.addWidget(delete_btn)
-            
-            release_layout.addWidget(title_frame)
-            
-            # Info row
-            info_text = f"Tag: {tag} | No GitHub Release"
-            info_label = QLabel(info_text)
-            info_label.setStyleSheet("color: #cccccc; font-size: 10px;")
-            release_layout.addWidget(info_label)
-            
-            self.releases_layout.addWidget(release_frame)
+        item_layout.addLayout(badges_layout)
         
-        self.releases_layout.addStretch()
+        # Delete button
+        delete_btn = QPushButton("🗑️")
+        delete_btn.setFixedSize(30, 30)
+        delete_btn.setToolTip(f"Delete {release['tagName']}")
+        delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                border-radius: 3px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        delete_btn.clicked.connect(lambda checked, tag=release['tagName'], is_rel=is_release: 
+                                 self.delete_release_tag(tag, is_rel))
+        item_layout.addWidget(delete_btn)
+        
+        self.releases_layout.addWidget(item_frame)
+
+    def delete_release_tag(self, tag_name, is_release=True):
+        """Delete a specific release or tag"""
+        reply = QMessageBox.question(
+            self, 
+            "Confirm Delete", 
+            f"Delete {'release' if is_release else 'tag'} {tag_name}?\n\nThis action cannot be undone!",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        
+        self.log(f"🗑️ Deleting {'release' if is_release else 'tag'} {tag_name}...", "warning")
+        
+        def delete_operations():
+            try:
+                success = True
+                
+                if is_release:
+                    # Delete GitHub release first
+                    delete_release_cmd = f"gh release delete {tag_name} --yes"
+                    result = subprocess.run(delete_release_cmd, shell=True, capture_output=True, text=True, 
+                                          cwd=self.project_path, timeout=30)
+                    
+                    if result.returncode == 0:
+                        self.log(f"✅ GitHub release {tag_name} deleted", "success")
+                    else:
+                        self.log(f"⚠️ Could not delete GitHub release (may not exist): {result.stderr}", "warning")
+                        # Continue with tag deletion even if release delete fails
+                
+                # Delete local tag
+                delete_local_cmd = f"git tag -d {tag_name}"
+                local_result = subprocess.run(delete_local_cmd, shell=True, capture_output=True, text=True,
+                                            cwd=self.project_path, timeout=30)
+                
+                if local_result.returncode == 0:
+                    self.log(f"✅ Local tag {tag_name} deleted", "success")
+                else:
+                    self.log(f"⚠️ Could not delete local tag: {local_result.stderr}", "warning")
+                    success = False
+                
+                # Delete remote tag
+                delete_remote_cmd = f"git push origin --delete {tag_name}"
+                remote_result = subprocess.run(delete_remote_cmd, shell=True, capture_output=True, text=True,
+                                             cwd=self.project_path, timeout=30)
+                
+                if remote_result.returncode == 0:
+                    self.log(f"✅ Remote tag {tag_name} deleted", "success")
+                else:
+                    self.log(f"⚠️ Could not delete remote tag: {remote_result.stderr}", "warning")
+                    success = False
+                
+                if success:
+                    self.log(f"✅ Successfully deleted {tag_name}", "success")
+                else:
+                    self.log(f"❌ Some operations failed for {tag_name}", "error")
+                
+                # Refresh the display regardless
+                QTimer.singleShot(1000, self.refresh_releases)
+                
+            except subprocess.TimeoutExpired:
+                self.log(f"❌ Timeout deleting {tag_name}", "error")
+            except Exception as e:
+                self.log(f"❌ Error deleting {tag_name}: {e}", "error")
+        
+        threading.Thread(target=delete_operations, daemon=True).start()
+
+    def browse_project_path(self):
+        path = QFileDialog.getExistingDirectory(self, "Select Project Directory")
+        if path:
+            self.project_path = path
+            self.path_label.setText(os.path.basename(path))
+            self.update_project_status()
+            
+            # Load version from package.json
+            package_json_path = Path(path) / "package.json"
+            if package_json_path.exists():
+                try:
+                    with open(package_json_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        version = data.get('version', '1.0.0')
+                        self.version = version
+                        self.version_display.setText(version)
+                        self.log(f"📦 Loaded version: {version}", "success")
+                except Exception as e:
+                    self.log(f"❌ Error reading package.json: {e}", "error")
+            
+            self.refresh_releases()
+
+    def show_releases(self):
+        self.tab_widget.setCurrentIndex(0)
+        self.refresh_releases()
+
+    def show_quick_release(self):
+        self.tab_widget.setCurrentIndex(1)
+
+    def show_advanced(self):
+        self.tab_widget.setCurrentIndex(2)
+
+    def log(self, message, message_type="output"):
+        """Thread-safe logging"""
+        colors = {
+            "error": "#e74c3c",
+            "success": "#27ae60", 
+            "warning": "#f39c12",
+            "info": "#3498db",
+            "output": "#ffffff"
+        }
+        
+        color = colors.get(message_type, "#ffffff")
+        
+        def update_console():
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            formatted_message = f'<span style="color: #888888;">[{timestamp}]</span> <span style="color: {color};">{message}</span><br>'
+            
+            self.console_text.moveCursor(QTextCursor.MoveOperation.End)
+            self.console_text.insertHtml(formatted_message)
+            self.console_text.moveCursor(QTextCursor.MoveOperation.End)
+            
+            # Auto-scroll
+            scrollbar = self.console_text.verticalScrollBar()
+            scrollbar.setValue(scrollbar.maximum())
+        
+        QTimer.singleShot(0, update_console)
+
+    def clear_console(self):
+        self.console_text.clear()
+
+    def copy_console(self):
+        clipboard = QGuiApplication.clipboard()
+        clipboard.setText(self.console_text.toPlainText())
+        self.log("📋 Console output copied to clipboard", "success")
 
     def command_finished(self, success, callback=None):
         self.is_working = False
@@ -1434,84 +1435,19 @@ class ModernReleaseManager(QMainWindow):
 
     def update_status(self, message):
         self.status_bar.showMessage(message)
-        
-    def log(self, message, message_type="info"):
-        if not message.strip():
-            return
-            
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        
-        colors = {
-            "info": "#ffffff",
-            "success": "#27ae60", 
-            "error": "#e74c3c",
-            "warning": "#f39c12",
-            "output": "#95a5a6",
-            "timestamp": "#7f8c8d"
-        }
-        
-        color = colors.get(message_type, "#ffffff")
-        
-        # Escape HTML and replace newlines
-        message = message.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
-        
-        formatted_message = f'<span style="color: {colors["timestamp"]}">[{timestamp}]</span> <span style="color: {color}">{message}</span>'
-        
-        self.console_text.moveCursor(QTextCursor.MoveOperation.End)
-        self.console_text.insertHtml(formatted_message + "<br>")
-        self.console_text.moveCursor(QTextCursor.MoveOperation.End)
-        
-        # Auto-scroll to bottom
-        scrollbar = self.console_text.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
-        
-    def clear_console(self):
-        self.console_text.clear()
-        
-    def copy_console(self):
-        clipboard = QGuiApplication.clipboard()
-        clipboard.setText(self.console_text.toPlainText())
-        self.log("📋 Copied", "success")
-        
-    # Navigation methods
-    def show_releases(self):
-        self.tab_widget.setCurrentIndex(0)
-        self.refresh_releases()
-        
-    def show_quick_release(self):
-        self.tab_widget.setCurrentIndex(1)
-        
-    def show_advanced(self):
-        self.tab_widget.setCurrentIndex(2)
-        
-    def browse_project_path(self):
-        path = QFileDialog.getExistingDirectory(self, "Select Project Directory")
-        if path:
-            self.project_path = path
-            self.path_label.setText(path)
-            self.load_package_json(path)
-            self.update_project_status()
-            # Auto-refresh releases when project is selected
-            QTimer.singleShot(500, self.refresh_releases)
-            
-    def load_package_json(self, path):
-        package_json_path = Path(path) / "package.json"
-        if package_json_path.exists():
-            try:
-                with open(package_json_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.version = data.get('version', 'Unknown')
-                    self.version_display.setText(self.version)
-            except Exception as e:
-                self.log(f"❌ package.json error: {e}", "error")
 
-if __name__ == "__main__":
+    def closeEvent(self, event):
+        self.stop_all_commands()
+        event.accept()
+
+def main():
     app = QApplication(sys.argv)
-    
-    # Set dark theme
-    app.setStyle('Fusion')
+    app.setApplicationName("GitHub Release Manager")
     
     window = ModernReleaseManager()
     window.show()
     
     sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()
