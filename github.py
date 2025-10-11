@@ -606,6 +606,32 @@ class ModernReleaseManager(ctk.CTk):
         
         self.refresh_releases()
 
+    def delete_specific_tag(self, tag):
+        if not self.check_git_repository():
+            return
+        
+        if not messagebox.askyesno("Confirm", f"Delete {tag}?"):
+            return
+        
+        self.log(f"🗑️ Deleting {tag}...", "warning")
+        
+        def delete_operations():
+            release_delete_cmd = f'gh release delete {tag} --yes'
+            release_success = self.run_command_in_thread(release_delete_cmd, check_git=True)
+            
+            if release_success:
+                tag_delete_cmd = f'git tag -d {tag}'
+                tag_success = self.run_command_in_thread(tag_delete_cmd, check_git=True)
+                
+                if tag_success:
+                    push_cmd = f'git push origin --delete {tag}'
+                    push_success = self.run_command_in_thread(push_cmd, check_git=True)
+                    
+                    if push_success:
+                        self.after(1000, self.refresh_releases)
+
+        threading.Thread(target=delete_operations, daemon=True).start()
+
     def refresh_releases(self):
         cwd = self.project_path_var.get() if self.check_git_repository() else None
         result = subprocess.run("gh release list", shell=True, capture_output=True, text=True, cwd=cwd)
@@ -621,16 +647,30 @@ class ModernReleaseManager(ctk.CTk):
             
         releases = releases_output.strip().split('\n')
         for release in releases:
-            parts = [part.strip() for part in release.split('\t') if part.strip()]
-            if len(parts) >= 3:
-                title, _, tag, *rest = parts
-                date = rest[0] if rest else ""
+            parts = [part.strip() for part in release.split('\t')]
+            if len(parts) == 4:
+                title = parts[0]
+                status = parts[1]
+                tag = parts[2]
+                date = parts[3]
                 
                 release_frame = ctk.CTkFrame(self.releases_frame)
                 release_frame.pack(fill="x", pady=5)
                 
-                ctk.CTkLabel(release_frame, text=title, font=("Arial", 12, "bold")).pack(anchor="w")
+                title_frame = ctk.CTkFrame(release_frame, fg_color="transparent")
+                title_frame.pack(fill="x")
+                
+                ctk.CTkLabel(title_frame, text=title, font=("Arial", 12, "bold")).pack(side="left")
+                
+                delete_btn = ctk.CTkButton(title_frame, text="🗑️", width=30, height=30,
+                                           command=lambda t=tag: self.delete_specific_tag(t),
+                                           fg_color="#e74c3c", hover_color="#c0392b")
+                delete_btn.pack(side="right", padx=5)
+                
                 ctk.CTkLabel(release_frame, text=f"Tag: {tag} | Date: {date}", font=("Arial", 10), text_color="gray").pack(anchor="w")
+                
+                if status == "Latest":
+                    ctk.CTkLabel(release_frame, text="LATEST", text_color="#27ae60", font=("Arial", 9, "bold")).pack(anchor="w")
 
     def command_finished(self):
         self.is_working = False
