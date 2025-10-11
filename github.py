@@ -1,99 +1,265 @@
-import customtkinter as ctk
-from tkinter import messagebox, scrolledtext, filedialog
-import subprocess
-import json
-from pathlib import Path
-import threading
 import sys
 import os
-from datetime import datetime
+import json
+import subprocess
+import threading
 import time
-import psutil
-from queue import Queue, Empty
 import shutil
+from pathlib import Path
+from datetime import datetime
+from queue import Queue, Empty
 
-# Configure appearance
-ctk.set_appearance_mode("Dark")  # Dark, Light, System
-ctk.set_default_color_theme("blue")  # blue, green, dark-blue
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+                            QLabel, QPushButton, QTextEdit, QLineEdit, QProgressBar,
+                            QTabWidget, QFrame, QScrollArea, QRadioButton, QButtonGroup,
+                            QFileDialog, QMessageBox, QMenu, QSplitter, QSizePolicy)
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt6.QtGui import QFont, QPalette, QColor, QAction, QTextCursor, QGuiApplication
 
-class ModernReleaseManager(ctk.CTk):
+try:
+    import psutil
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "psutil"])
+    import psutil
+
+class CommandWorker(QThread):
+    """Worker thread for running commands safely"""
+    output_signal = pyqtSignal(str, str)
+    finished_signal = pyqtSignal(bool)
+    command_signal = pyqtSignal(str)
+
+    def __init__(self, command, cwd=None):
+        super().__init__()
+        self.command = command
+        self.cwd = cwd
+        self._is_running = True
+
+    def run(self):
+        try:
+            self.command_signal.emit(f"▶️ {self.command}")
+            
+            process = subprocess.Popen(
+                self.command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                cwd=self.cwd,
+                bufsize=1,
+                universal_newlines=True
+            )
+            
+            while self._is_running:
+                line = process.stdout.readline()
+                if not line:
+                    break
+                if line.strip():
+                    self.output_signal.emit(line.strip(), "output")
+            
+            if self._is_running:
+                process.wait()
+                if process.returncode == 0:
+                    self.output_signal.emit("✅ Command completed successfully", "success")
+                    self.finished_signal.emit(True)
+                else:
+                    self.output_signal.emit(f"❌ Command failed with code: {process.returncode}", "error")
+                    self.finished_signal.emit(False)
+                    
+        except Exception as e:
+            self.output_signal.emit(f"❌ Error: {str(e)}", "error")
+            self.finished_signal.emit(False)
+
+    def stop(self):
+        self._is_running = False
+        self.terminate()
+        self.wait()
+
+class ModernReleaseManager(QMainWindow):
     def __init__(self):
         super().__init__()
-        
-        self.title("🚀 GitHub Release Manager - Simplified")
-        self.geometry("1000x700")
-        self.minsize(800, 600)
+        self.setWindowTitle("🚀 GitHub Release Manager - Simplified")
+        self.setGeometry(100, 100, 1200, 800)
         
         # Variables
-        self.version_var = ctk.StringVar(value="1.0.0")
-        self.release_type_var = ctk.StringVar(value="patch")
-        self.release_title_var = ctk.StringVar()
-        self.project_path_var = ctk.StringVar()
+        self.version = "1.0.0"
+        self.release_type = "patch"
+        self.project_path = ""
         self.is_working = False
-        self.current_command = None
+        self.current_workers = []
         self.command_queue = Queue()
         
         self.setup_ui()
-        self.after(100, self.load_initial_state)
-        self.after(100, self.process_command_queue)
+        self.setup_styles()
         
+        # Start queue processor
+        self.queue_timer = QTimer()
+        self.queue_timer.timeout.connect(self.process_command_queue)
+        self.queue_timer.start(100)
+
+    def setup_styles(self):
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #2b2b2b;
+                color: #ffffff;
+            }
+            QFrame {
+                background-color: #3c3c3c;
+                border-radius: 5px;
+                border: 1px solid #555555;
+            }
+            QLabel {
+                color: #ffffff;
+                padding: 5px;
+            }
+            QPushButton {
+                background-color: #007acc;
+                color: white;
+                border: none;
+                padding: 8px 15px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #005a9e;
+            }
+            QPushButton:disabled {
+                background-color: #555555;
+                color: #888888;
+            }
+            QPushButton.danger {
+                background-color: #e74c3c;
+            }
+            QPushButton.danger:hover {
+                background-color: #c0392b;
+            }
+            QPushButton.success {
+                background-color: #27ae60;
+            }
+            QPushButton.success:hover {
+                background-color: #219653;
+            }
+            QTextEdit, QLineEdit {
+                background-color: #1e1e1e;
+                color: #ffffff;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                padding: 5px;
+                font-family: 'Consolas', monospace;
+            }
+            QProgressBar {
+                border: 1px solid #555555;
+                border-radius: 4px;
+                background-color: #1e1e1e;
+                text-align: center;
+                color: white;
+            }
+            QProgressBar::chunk {
+                background-color: #007acc;
+                border-radius: 3px;
+            }
+            QTabWidget::pane {
+                border: 1px solid #555555;
+                background-color: #3c3c3c;
+            }
+            QTabBar::tab {
+                background-color: #2b2b2b;
+                color: #ffffff;
+                padding: 8px 15px;
+                border: 1px solid #555555;
+                border-bottom: none;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }
+            QTabBar::tab:selected {
+                background-color: #007acc;
+            }
+            QTabBar::tab:hover {
+                background-color: #005a9e;
+            }
+            QRadioButton {
+                color: #ffffff;
+                spacing: 8px;
+            }
+            QRadioButton::indicator {
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                border: 2px solid #888888;
+            }
+            QRadioButton::indicator:checked {
+                background-color: #007acc;
+                border: 2px solid #007acc;
+            }
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+        """)
+
     def setup_ui(self):
-        # Create main grid
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(10)
         
         # Sidebar
-        self.create_sidebar()
+        self.create_sidebar(main_layout)
         
         # Main content area
-        self.create_main_content()
+        self.create_main_content(main_layout)
         
         # Status bar
         self.create_status_bar()
+
+    def create_sidebar(self, parent_layout):
+        sidebar = QFrame()
+        sidebar.setFixedWidth(250)
+        sidebar.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         
-    def create_sidebar(self):
-        sidebar = ctk.CTkFrame(self, width=200, corner_radius=0)
-        sidebar.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
-        sidebar.grid_rowconfigure(4, weight=1)
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(10, 10, 10, 10)
+        sidebar_layout.setSpacing(10)
         
         # Project Section
-        project_section = ctk.CTkFrame(sidebar, fg_color="transparent")
-        project_section.grid(row=0, column=0, sticky="ew", padx=15, pady=10)
+        project_section = QFrame()
+        project_layout = QVBoxLayout(project_section)
         
-        ctk.CTkLabel(project_section, text="PROJECT", 
-                    font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
+        project_label = QLabel("PROJECT")
+        project_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        project_label.setStyleSheet("color: #888888;")
+        project_layout.addWidget(project_label)
         
         # Project Path
-        path_frame = ctk.CTkFrame(project_section, fg_color="transparent")
-        path_frame.pack(fill="x", pady=5)
+        self.select_path_btn = QPushButton("📁 Select Project")
+        self.select_path_btn.clicked.connect(self.browse_project_path)
+        project_layout.addWidget(self.select_path_btn)
         
-        ctk.CTkButton(path_frame, text="📁 Select Project", 
-                     command=self.browse_project_path,
-                     width=120).pack(fill="x")
-        
-        self.path_label = ctk.CTkLabel(path_frame, text="No project selected",
-                    font=("Arial", 10), text_color="gray", wraplength=180)
-        self.path_label.pack(fill="x", pady=(5, 0))
+        self.path_label = QLabel("No project selected")
+        self.path_label.setWordWrap(True)
+        self.path_label.setStyleSheet("color: #888888; font-size: 10px;")
+        project_layout.addWidget(self.path_label)
         
         # Version Info
-        version_frame = ctk.CTkFrame(project_section, fg_color="transparent")
-        version_frame.pack(fill="x", pady=5)
+        version_label = QLabel("Current Version:")
+        project_layout.addWidget(version_label)
         
-        ctk.CTkLabel(version_frame, text="Current Version:").pack(anchor="w")
-        self.version_display = ctk.CTkLabel(version_frame, textvariable=self.version_var,
-                    font=("Arial", 16, "bold"))
-        self.version_display.pack(fill="x", pady=5)
+        self.version_display = QLabel("1.0.0")
+        self.version_display.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        project_layout.addWidget(self.version_display)
         
         # Project Status
-        self.project_status = ctk.CTkLabel(project_section, 
-                                         text="🔴 No project selected",
-                                         font=("Arial", 10), 
-                                         text_color="#e74c3c")
-        self.project_status.pack(anchor="w", pady=5)
+        self.project_status = QLabel("🔴 No project selected")
+        self.project_status.setStyleSheet("color: #e74c3c; font-size: 10px;")
+        project_layout.addWidget(self.project_status)
+        
+        project_layout.addStretch()
+        sidebar_layout.addWidget(project_section)
         
         # Navigation
-        nav_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
-        nav_frame.grid(row=1, column=0, sticky="ew", padx=15, pady=20)
+        nav_section = QFrame()
+        nav_layout = QVBoxLayout(nav_section)
         
         nav_buttons = [
             ("📋 View Releases", self.show_releases),
@@ -102,115 +268,134 @@ class ModernReleaseManager(ctk.CTk):
         ]
         
         for text, command in nav_buttons:
-            btn = ctk.CTkButton(nav_frame, text=text, command=command,
-                               fg_color="transparent", hover_color=("gray70", "gray30"),
-                               anchor="w", height=35)
-            btn.pack(fill="x", pady=2)
+            btn = QPushButton(text)
+            btn.clicked.connect(command)
+            btn.setStyleSheet("text-align: left; padding: 10px;")
+            nav_layout.addWidget(btn)
         
-    def create_main_content(self):
-        main_content = ctk.CTkFrame(self, corner_radius=10)
-        main_content.grid(row=0, column=1, sticky="nsew", padx=(0, 10), pady=10)
-        main_content.grid_columnconfigure(0, weight=1)
-        main_content.grid_rowconfigure(1, weight=1)
+        sidebar_layout.addWidget(nav_section)
+        sidebar_layout.addStretch()
         
-        # Tabview for different sections
-        self.tabview = ctk.CTkTabview(main_content)
-        self.tabview.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        parent_layout.addWidget(sidebar)
+
+    def create_main_content(self, parent_layout):
+        main_content = QFrame()
+        main_layout = QVBoxLayout(main_content)
+        
+        # Tab widget
+        self.tab_widget = QTabWidget()
         
         # Create tabs
-        self.releases_tab = self.tabview.add("📋 Releases")
-        self.quick_tab = self.tabview.add("⚡ Quick Releases")
-        self.advanced_tab = self.tabview.add("🔧 Advanced")
+        self.releases_tab = QWidget()
+        self.quick_tab = QWidget()
+        self.advanced_tab = QWidget()
+        
+        self.tab_widget.addTab(self.releases_tab, "📋 Releases")
+        self.tab_widget.addTab(self.quick_tab, "⚡ Quick Releases")
+        self.tab_widget.addTab(self.advanced_tab, "🔧 Advanced")
         
         self.setup_releases_tab()
         self.setup_quick_tab()
         self.setup_advanced_tab()
         
+        main_layout.addWidget(self.tab_widget)
+        
         # Console area
-        console_frame = ctk.CTkFrame(main_content)
-        console_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
-        console_frame.grid_columnconfigure(0, weight=1)
-        console_frame.grid_rowconfigure(0, weight=1)
+        console_frame = QFrame()
+        console_layout = QVBoxLayout(console_frame)
         
         # Console header
-        console_header = ctk.CTkFrame(console_frame, fg_color="transparent")
-        console_header.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
+        console_header = QFrame()
+        console_header_layout = QHBoxLayout(console_header)
         
-        ctk.CTkLabel(console_header, text="📟 Output Console", 
-                    font=("Arial", 14, "bold")).pack(side="left")
+        console_label = QLabel("📟 Output Console")
+        console_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        console_header_layout.addWidget(console_label)
         
-        console_controls = ctk.CTkFrame(console_header, fg_color="transparent")
-        console_controls.pack(side="right")
+        console_header_layout.addStretch()
         
-        ctk.CTkButton(console_controls, text="Clear", width=80,
-                     command=self.clear_console).pack(side="left", padx=5)
-        ctk.CTkButton(console_controls, text="Copy", width=80,
-                     command=self.copy_console).pack(side="left", padx=5)
-        ctk.CTkButton(console_controls, text="Stop", width=100,
-                     command=self.stop_all_commands,
-                     fg_color="#e74c3c", hover_color="#c0392b").pack(side="left", padx=5)
+        # Console buttons
+        clear_btn = QPushButton("Clear")
+        clear_btn.clicked.connect(self.clear_console)
+        console_header_layout.addWidget(clear_btn)
+        
+        copy_btn = QPushButton("Copy")
+        copy_btn.clicked.connect(self.copy_console)
+        console_header_layout.addWidget(copy_btn)
+        
+        stop_btn = QPushButton("Stop")
+        stop_btn.clicked.connect(self.stop_all_commands)
+        stop_btn.setStyleSheet("background-color: #e74c3c;")
+        console_header_layout.addWidget(stop_btn)
+        
+        console_layout.addWidget(console_header)
         
         # Console text area
-        self.console_text = ctk.CTkTextbox(console_frame, font=("Consolas", 11))
-        self.console_text.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        self.console_text = QTextEdit()
+        self.console_text.setFont(QFont("Consolas", 10))
+        self.console_text.setReadOnly(True)
+        console_layout.addWidget(self.console_text)
         
-        # Configure text tags for colors
-        self.console_text.tag_config("info", foreground="white")
-        self.console_text.tag_config("success", foreground="#27ae60")
-        self.console_text.tag_config("error", foreground="#e74c3c")
-        self.console_text.tag_config("warning", foreground="#f39c12")
-        self.console_text.tag_config("output", foreground="#95a5a6")
-        self.console_text.tag_config("timestamp", foreground="#7f8c8d")
+        main_layout.addWidget(console_frame)
         
+        parent_layout.addWidget(main_content)
+
     def create_status_bar(self):
-        status_bar = ctk.CTkFrame(self, height=30, corner_radius=0)
-        status_bar.grid(row=1, column=0, columnspan=2, sticky="ew")
-        status_bar.grid_propagate(False)
+        self.status_bar = self.statusBar()
+        self.status_bar.showMessage("Ready")
         
-        status_bar.grid_columnconfigure(0, weight=1)
-        
-        self.status_label = ctk.CTkLabel(status_bar, text="Ready", 
-                                        font=("Arial", 11))
-        self.status_label.grid(row=0, column=0, sticky="w", padx=10)
-        
-        self.progress_bar = ctk.CTkProgressBar(status_bar, height=16, width=200)
-        self.progress_bar.grid(row=0, column=1, sticky="e", padx=10)
-        self.progress_bar.set(0)
-        
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setMaximumWidth(200)
+        self.progress_bar.setVisible(False)
+        self.status_bar.addPermanentWidget(self.progress_bar)
+
     def setup_releases_tab(self):
-        self.releases_tab.grid_columnconfigure(0, weight=1)
-        self.releases_tab.grid_rowconfigure(1, weight=1)
+        layout = QVBoxLayout(self.releases_tab)
         
         # Header
-        header_frame = ctk.CTkFrame(self.releases_tab, fg_color="transparent")
-        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+        header = QFrame()
+        header_layout = QHBoxLayout(header)
         
-        ctk.CTkLabel(header_frame, text="Release History",
-                    font=("Arial", 16, "bold")).pack(side="left")
+        title = QLabel("Release History")
+        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        header_layout.addWidget(title)
         
-        ctk.CTkButton(header_frame, text="Refresh", 
-                     command=lambda: self.queue_command(self.refresh_releases)).pack(side="right")
+        header_layout.addStretch()
+        
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.clicked.connect(self.refresh_releases)
+        header_layout.addWidget(refresh_btn)
+        
+        layout.addWidget(header)
         
         # Releases list
-        self.releases_frame = ctk.CTkScrollableFrame(self.releases_tab)
-        self.releases_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        self.releases_scroll = QScrollArea()
+        self.releases_content = QWidget()
+        self.releases_layout = QVBoxLayout(self.releases_content)
+        self.releases_scroll.setWidget(self.releases_content)
+        self.releases_scroll.setWidgetResizable(True)
         
         # Initial placeholder
-        ctk.CTkLabel(self.releases_frame, text="Click 'Refresh' to load releases",
-                    text_color="gray").pack(pady=20)
+        placeholder = QLabel("Click 'Refresh' to load releases")
+        placeholder.setStyleSheet("color: #888888;")
+        placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.releases_layout.addWidget(placeholder)
         
+        self.releases_layout.addStretch()
+        layout.addWidget(self.releases_scroll)
+
     def setup_quick_tab(self):
-        self.quick_tab.grid_columnconfigure(0, weight=1)
+        layout = QVBoxLayout(self.quick_tab)
         
         # Release type selection
-        type_frame = ctk.CTkFrame(self.quick_tab)
-        type_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+        type_frame = QFrame()
+        type_layout = QVBoxLayout(type_frame)
         
-        ctk.CTkLabel(type_frame, text="Release Type", 
-                    font=("Arial", 16, "bold")).pack(anchor="w", pady=10)
+        type_label = QLabel("Release Type")
+        type_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        type_layout.addWidget(type_label)
         
-        type_options = ctk.CTkFrame(type_frame, fg_color="transparent")
-        type_options.pack(fill="x", pady=10)
+        self.type_group = QButtonGroup()
         
         types = [
             ("🩹 Patch", "patch", "Bug fixes"),
@@ -219,63 +404,100 @@ class ModernReleaseManager(ctk.CTk):
         ]
         
         for text, value, description in types:
-            rb_frame = ctk.CTkFrame(type_options, fg_color="transparent")
-            rb_frame.pack(fill="x", pady=5)
+            radio_frame = QFrame()
+            radio_layout = QHBoxLayout(radio_frame)
             
-            rb = ctk.CTkRadioButton(rb_frame, text=text, variable=self.release_type_var,
-                                   value=value, font=("Arial", 12))
-            rb.pack(side="left")
+            radio = QRadioButton(text)
+            radio.setProperty("value", value)
+            if value == "patch":
+                radio.setChecked(True)
             
-            ctk.CTkLabel(rb_frame, text=description, font=("Arial", 10),
-                        text_color="gray").pack(side="left", padx=10)
+            self.type_group.addButton(radio)
+            radio.toggled.connect(self.on_release_type_changed)
+            radio_layout.addWidget(radio)
+            
+            desc_label = QLabel(description)
+            desc_label.setStyleSheet("color: #888888;")
+            radio_layout.addWidget(desc_label)
+            radio_layout.addStretch()
+            
+            type_layout.addWidget(radio_frame)
         
-        # Quick action buttons
-        action_frame = ctk.CTkFrame(self.quick_tab)
-        action_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=10)
+        layout.addWidget(type_frame)
         
-        ctk.CTkButton(action_frame, text="🚀 Quick Release", 
-                     command=lambda: self.queue_command(self.auto_release),
-                     height=50, font=("Arial", 16, "bold"),
-                     fg_color="#27ae60", hover_color="#219653").pack(pady=20)
-        
+        # Quick action button
+        quick_btn = QPushButton("🚀 Quick Release")
+        quick_btn.clicked.connect(lambda: self.queue_command(self.auto_release))
+        quick_btn.setStyleSheet("""
+            QPushButton {
+                font-size: 16px;
+                height: 50px;
+                background-color: #27ae60;
+            }
+            QPushButton:hover {
+                background-color: #219653;
+            }
+        """)
+        layout.addWidget(quick_btn)
+        layout.addStretch()
+
     def setup_advanced_tab(self):
-        self.advanced_tab.grid_columnconfigure(0, weight=1)
+        layout = QVBoxLayout(self.advanced_tab)
         
         # Release details
-        details_frame = ctk.CTkFrame(self.advanced_tab)
-        details_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+        details_frame = QFrame()
+        details_layout = QVBoxLayout(details_frame)
         
-        ctk.CTkLabel(details_frame, text="Release Details",
-                    font=("Arial", 16, "bold")).pack(anchor="w", pady=10)
+        details_label = QLabel("Release Details")
+        details_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        details_layout.addWidget(details_label)
         
         # Title
-        ctk.CTkLabel(details_frame, text="Release Title:").pack(anchor="w", pady=(10, 5))
-        self.title_entry = ctk.CTkEntry(details_frame, textvariable=self.release_title_var,
-                                       placeholder_text="Auto-generated if empty")
-        self.title_entry.pack(fill="x", pady=(0, 10))
+        title_label = QLabel("Release Title:")
+        details_layout.addWidget(title_label)
+        
+        self.title_entry = QLineEdit()
+        self.title_entry.setPlaceholderText("Auto-generated if empty")
+        details_layout.addWidget(self.title_entry)
         
         # Release Notes
-        ctk.CTkLabel(details_frame, text="Release Notes:").pack(anchor="w", pady=(10, 5))
-        self.notes_text = ctk.CTkTextbox(details_frame, height=150)
-        self.notes_text.pack(fill="x", pady=(0, 10))
+        notes_label = QLabel("Release Notes:")
+        details_layout.addWidget(notes_label)
+        
+        self.notes_text = QTextEdit()
+        self.notes_text.setMaximumHeight(150)
+        details_layout.addWidget(self.notes_text)
+        
+        layout.addWidget(details_frame)
         
         # Advanced actions
-        advanced_actions = ctk.CTkFrame(self.advanced_tab)
-        advanced_actions.grid(row=1, column=0, sticky="ew", padx=10, pady=10)
+        actions_frame = QFrame()
+        actions_layout = QVBoxLayout(actions_frame)
         
-        ctk.CTkLabel(advanced_actions, text="Actions",
-                    font=("Arial", 16, "bold")).pack(anchor="w", pady=10)
+        actions_label = QLabel("Actions")
+        actions_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        actions_layout.addWidget(actions_label)
         
         action_buttons = [
-            ("📤 Update Release", self.update_release),
-            ("🗑️ Delete Release", self.delete_current_tag),
-            ("➕ Create Release", lambda: self.queue_command(self.create_release)),
+            ("🔨 Build", lambda: self.queue_command(self.safe_build_single)),
+            ("📤 Update Latest Release", self.update_release),
+            ("🗑️ Delete Latest Release", self.delete_current_tag),
+            ("➕ Create Release", self.create_release),
         ]
         
         for text, command in action_buttons:
-            btn = ctk.CTkButton(advanced_actions, text=text, command=command)
-            btn.pack(fill="x", pady=5)
+            btn = QPushButton(text)
+            btn.clicked.connect(command)
+            actions_layout.addWidget(btn)
         
+        layout.addWidget(actions_frame)
+        layout.addStretch()
+
+    def on_release_type_changed(self):
+        radio = self.sender()
+        if radio.isChecked():
+            self.release_type = radio.property("value")
+
     # Command Queue System
     def queue_command(self, command_func):
         self.command_queue.put(command_func)
@@ -286,16 +508,15 @@ class ModernReleaseManager(ctk.CTk):
             if not self.is_working and not self.command_queue.empty():
                 command_func = self.command_queue.get_nowait()
                 self.log(f"🚀 Executing: {command_func.__name__}", "info")
-                threading.Thread(target=command_func, daemon=True).start()
+                # Run in main thread to avoid threading issues
+                QTimer.singleShot(0, command_func)
         except Empty:
             pass
-        finally:
-            self.after(100, self.process_command_queue)
 
     def stop_all_commands(self):
-        if self.current_command and self.current_command.poll() is None:
-            self.current_command.terminate()
-            self.log("🛑 Commands stopped", "warning")
+        for worker in self.current_workers:
+            worker.stop()
+        self.current_workers.clear()
         
         while not self.command_queue.empty():
             try:
@@ -304,15 +525,16 @@ class ModernReleaseManager(ctk.CTk):
                 break
         
         self.is_working = False
-        self.progress_bar.stop()
+        self.progress_bar.setVisible(False)
         self.update_status("Stopped")
+        self.log("🛑 All commands stopped", "warning")
 
     def check_project_selected(self):
-        if not self.project_path_var.get():
+        if not self.project_path:
             self.log("❌ Select project path first", "error")
             return False
         
-        project_path = Path(self.project_path_var.get())
+        project_path = Path(self.project_path)
         if not project_path.exists():
             self.log("❌ Project path does not exist", "error")
             return False
@@ -328,7 +550,7 @@ class ModernReleaseManager(ctk.CTk):
         if not self.check_project_selected():
             return False
             
-        project_path = Path(self.project_path_var.get())
+        project_path = Path(self.project_path)
         git_dir = project_path / ".git"
         
         if not git_dir.exists():
@@ -341,7 +563,7 @@ class ModernReleaseManager(ctk.CTk):
         if not self.check_project_selected():
             return False
             
-        dist_path = Path(self.project_path_var.get()) / "dist"
+        dist_path = Path(self.project_path) / "dist"
         
         if not dist_path.exists():
             self.log("❌ dist folder does not exist", "error")
@@ -362,11 +584,14 @@ class ModernReleaseManager(ctk.CTk):
     def update_project_status(self):
         if self.check_project_selected():
             if self.check_git_repository():
-                self.project_status.configure(text="🟢 Ready (Git)", text_color="#27ae60")
+                self.project_status.setText("🟢 Ready (Git)")
+                self.project_status.setStyleSheet("color: #27ae60;")
             else:
-                self.project_status.configure(text="🟡 Ready (No Git)", text_color="#f39c12")
+                self.project_status.setText("🟡 Ready (No Git)")
+                self.project_status.setStyleSheet("color: #f39c12;")
         else:
-            self.project_status.configure(text="🔴 No project", text_color="#e74c3c")
+            self.project_status.setText("🔴 No project")
+            self.project_status.setStyleSheet("color: #e74c3c;")
 
     def kill_electron_only(self):
         self.log("🔫 Killing Electron processes...", "warning")
@@ -387,7 +612,7 @@ class ModernReleaseManager(ctk.CTk):
         self.log(f"✅ Killed {killed_count} processes", "success")
 
     def safe_delete_dist(self, max_retries=3):
-        dist_path = Path(self.project_path_var.get()) / "dist"
+        dist_path = Path(self.project_path) / "dist"
         
         if not dist_path.exists():
             return True
@@ -421,7 +646,7 @@ class ModernReleaseManager(ctk.CTk):
             "npx electron-builder", "npm run make"
         ]
         
-        package_json_path = Path(self.project_path_var.get()) / "package.json"
+        package_json_path = Path(self.project_path) / "package.json"
         available_scripts = []
         if package_json_path.exists():
             with open(package_json_path, 'r', encoding='utf-8') as f:
@@ -437,72 +662,77 @@ class ModernReleaseManager(ctk.CTk):
                 continue
                 
             self.log(f"🛠️ Trying: {build_cmd}", "info")
-            if self.run_command_in_thread(build_cmd):
+            if self._run_subprocess(build_cmd):
                 time.sleep(5)
                 if self.check_dist_files_exist():
                     success = True
                     break
         return success
 
+    def _run_subprocess(self, command):
+        try:
+            process = subprocess.run(command, shell=True, capture_output=True, text=True, cwd=self.project_path, timeout=600)
+            output = process.stdout + process.stderr
+            tag = "output" if process.returncode == 0 else "error"
+            self.log(output, tag)
+            if process.returncode == 0:
+                self.log("✅ Command success", "success")
+            else:
+                self.log(f"❌ Command failed: {process.returncode}", "error")
+            return process.returncode == 0
+        except Exception as e:
+            self.log(f"❌ Error: {str(e)}", "error")
+            return False
+
     def run_command_async(self, command, cwd=None, require_project=True, check_git=False, callback=None):
         if require_project and not self.check_project_selected():
             if callback:
-                callback(False)
+                QTimer.singleShot(0, lambda: callback(False))
             return False
             
         if check_git and not self.check_git_repository():
             if callback:
-                callback(False)
+                QTimer.singleShot(0, lambda: callback(False))
             return False
             
         self.is_working = True
-        self.progress_bar.start()
+        self.progress_bar.setVisible(True)
         self.update_status("Working...")
         
-        def execute():
-            try:
-                working_dir = cwd or (self.project_path_var.get() if require_project else None)
-                self.after(0, lambda: self.log(f"▶️ {command}", "info"))
-                
-                process = subprocess.run(command, shell=True, capture_output=True, text=True, cwd=working_dir)
-                output = process.stdout + process.stderr
-                
-                if process.returncode == 0:
-                    self.after(0, lambda: self.log(output, "output"))
-                    self.after(0, lambda: self.log("✅ Success", "success"))
-                    result = True
-                else:
-                    self.after(0, lambda: self.log(output, "error"))
-                    self.after(0, lambda: self.log(f"❌ Failed: {process.returncode}", "error"))
-                    result = False
-                    
-            except Exception as e:
-                self.after(0, lambda: self.log(f"❌ Error: {str(e)}", "error"))
-                result = False
-            finally:
-                self.after(0, self.command_finished)
-                if callback:
-                    self.after(0, lambda: callback(result))
-            
-            return result
+        worker = CommandWorker(command, cwd or self.project_path)
+        worker.output_signal.connect(self.log)
+        worker.finished_signal.connect(lambda success: self.command_finished(success, callback))
+        worker.command_signal.connect(lambda cmd: self.log(cmd, "info"))
         
-        threading.Thread(target=execute, daemon=True).start()
+        self.current_workers.append(worker)
+        worker.start()
+        
         return True
 
-    def run_command_in_thread(self, command, cwd=None, require_project=True, check_git=False):
-        result_container = [None]
-        event = threading.Event()
-        
-        def callback(result):
-            result_container[0] = result
-            event.set()
-        
-        success = self.run_command_async(command, cwd, require_project, check_git, callback)
-        if not success:
+    def run_command_sync(self, command, cwd=None, require_project=True, check_git=False):
+        """Run command synchronously without threading"""
+        if require_project and not self.check_project_selected():
             return False
             
-        event.wait(300)
-        return result_container[0] if result_container[0] is not None else False
+        if check_git and not self.check_git_repository():
+            return False
+            
+        try:
+            self.log(f"▶️ {command}", "info")
+            process = subprocess.run(command, shell=True, capture_output=True, text=True, 
+                                   cwd=cwd or self.project_path, timeout=300)
+            output = process.stdout + process.stderr
+            if process.returncode == 0:
+                self.log(output, "output")
+                self.log("✅ Command completed successfully", "success")
+                return True
+            else:
+                self.log(output, "error")
+                self.log(f"❌ Command failed: {process.returncode}", "error")
+                return False
+        except Exception as e:
+            self.log(f"❌ Error: {str(e)}", "error")
+            return False
 
     def auto_release(self):
         if not self.check_project_selected():
@@ -519,29 +749,39 @@ class ModernReleaseManager(ctk.CTk):
 
     def create_release(self):
         if not self.check_git_repository() or not self.check_dist_files_exist():
+            self.log("❌ Checks failed", "error")
             return
             
-        current_version = self.version_var.get()
-        release_type = self.release_type_var.get()
-        new_version = self.calculate_new_version(current_version, release_type)
+        current_version = self.version
+        new_version = self.calculate_new_version(current_version, self.release_type)
         
-        release_title = self.release_title_var.get().strip() or f"v{new_version} - {release_type.capitalize()}"
-        release_notes = self.notes_text.get("1.0", "end-1c").strip() or f"{release_type.capitalize()} release"
+        release_title = self.title_entry.text().strip() or f"v{new_version} - {self.release_type.capitalize()}"
+        release_notes = self.notes_text.toPlainText().strip() or f"{self.release_type.capitalize()} release"
         
-        temp_notes_file = Path(self.project_path_var.get()) / "temp_release_notes.md"
+        temp_notes_file = Path(self.project_path) / "temp_release_notes.md"
         try:
             with open(temp_notes_file, 'w', encoding='utf-8') as f:
                 f.write(release_notes)
             
-            release_command = f'gh release create v{new_version} ./dist/*.exe ./dist/latest.yml ./dist/*.blockmap --title "{release_title}" --notes-file "{temp_notes_file}"'
-            success = self.run_command_in_thread(release_command, check_git=True)
+            create_command = f'gh release create v{new_version} ./dist/MakeYourLifeEasier-*.exe ./dist/latest.yml ./dist/*.blockmap --title "{release_title}" --notes-file "{temp_notes_file}"'
             
-            temp_notes_file.unlink()
+            def create_callback(success):
+                try:
+                    if temp_notes_file.exists():
+                        temp_notes_file.unlink()
+                    
+                    if success:
+                        self.version = new_version
+                        self.version_display.setText(new_version)
+                        self.log(f"🎉 v{new_version} created!", "success")
+                except Exception as e:
+                    self.log(f"❌ Cleanup error: {e}", "error")
             
-            if success:
-                self.version_var.set(new_version)
-                self.log(f"🎉 v{new_version} created!", "success")
+            self.run_command_async(create_command, callback=create_callback)
+            
         except Exception as e:
+            if temp_notes_file.exists():
+                temp_notes_file.unlink()
             self.log(f"❌ Error: {e}", "error")
 
     def calculate_new_version(self, current_version, release_type):
@@ -556,166 +796,264 @@ class ModernReleaseManager(ctk.CTk):
 
     def update_release(self):
         if not self.check_git_repository() or not self.check_dist_files_exist():
+            self.log("❌ Checks failed", "error")
             return
-            
-        version = self.version_var.get()
-        release_title = self.release_title_var.get().strip()
-        release_notes = self.notes_text.get("1.0", "end-1c").strip()
+        
+        latest_tag = self.get_latest_release_tag()
+        if not latest_tag:
+            self.log("❌ No releases found on GitHub", "error")
+            return
+        
+        version = latest_tag.lstrip('v')
+        
+        release_title = self.title_entry.text().strip()
+        release_notes = self.notes_text.toPlainText().strip()
         
         if not release_title or not release_notes:
             self.log("❌ Enter title and notes", "error")
             return
         
-        temp_notes_file = Path(self.project_path_var.get()) / "temp_release_notes.md"
+        self.version = version
+        self.version_display.setText(version)
+        
+        temp_notes_file = Path(self.project_path) / "temp_release_notes.md"
         try:
             with open(temp_notes_file, 'w', encoding='utf-8') as f:
                 f.write(release_notes)
             
-            update_command = f'gh release edit v{version} --title "{release_title}" --notes-file "{temp_notes_file}"'
-            metadata_success = self.run_command_in_thread(update_command, check_git=True)
+            edit_command = f'gh release edit {latest_tag} --title "{release_title}" --notes-file "{temp_notes_file}"'
             
-            temp_notes_file.unlink()
+            def edit_callback(success):
+                try:
+                    if temp_notes_file.exists():
+                        temp_notes_file.unlink()
+                    
+                    if success:
+                        upload_command = f'gh release upload {latest_tag} ./dist/MakeYourLifeEasier-*.exe ./dist/latest.yml ./dist/*.blockmap --clobber'
+                        self.run_command_async(upload_command, callback=lambda upload_success: (
+                            self.log(f"✅ {latest_tag} updated successfully!", "success") if upload_success else
+                            self.log(f"❌ Upload failed", "error")
+                        ))
+                    else:
+                        self.log(f"❌ Edit failed", "error")
+                except Exception as e:
+                    self.log(f"❌ Cleanup error: {e}", "error")
             
-            if metadata_success:
-                upload_command = f'gh release upload v{version} ./dist/*.exe ./dist/latest.yml ./dist/*.blockmap --clobber'
-                if self.run_command_in_thread(upload_command, check_git=True):
-                    self.log(f"✅ v{version} updated!", "success")
+            self.run_command_async(edit_command, callback=edit_callback)
+            
         except Exception as e:
+            if temp_notes_file.exists():
+                temp_notes_file.unlink()
             self.log(f"❌ Error: {e}", "error")
+
+    def get_latest_release_tag(self):
+        """Get the latest release tag from GitHub"""
+        try:
+            result = subprocess.run(
+                ["gh", "release", "list", "--limit", "1"],
+                capture_output=True, 
+                text=True, 
+                cwd=self.project_path
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                lines = result.stdout.strip().split('\n')
+                if lines:
+                    parts = lines[0].split('\t')
+                    return parts[2].strip() if len(parts) > 2 else None
+        except Exception as e:
+            self.log(f"❌ Error getting latest release: {e}", "error")
+        return None
 
     def delete_current_tag(self):
         if not self.check_git_repository():
+            self.log("❌ Not git repo", "error")
             return
             
-        version = self.version_var.get()
+        version = self.version
         if not version:
             self.log("❌ No version", "error")
             return
         
-        if not messagebox.askyesno("Confirm", f"Delete v{version}?"):
+        reply = QMessageBox.question(self, "Confirm", f"Delete v{version}?",
+                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply != QMessageBox.StandardButton.Yes:
             return
         
-        release_delete_cmd = f'gh release delete v{version} --yes'
-        self.run_command_in_thread(release_delete_cmd, check_git=True)
+        def delete_operations():
+            commands = [
+                f'gh release delete v{version} --yes',
+                f'git tag -d v{version}',
+                f'git push origin --delete v{version}'
+            ]
+            
+            for cmd in commands:
+                self.log(f"▶️ {cmd}", "info")
+                success = self.run_command_sync(cmd)
+                if not success:
+                    break
+                time.sleep(1)
+            
+            QTimer.singleShot(0, self.refresh_releases)
         
-        tag_delete_cmd = f'git tag -d v{version}'
-        self.run_command_in_thread(tag_delete_cmd, check_git=True)
-        
-        push_cmd = f'git push origin --delete v{version}'
-        self.run_command_in_thread(push_cmd, check_git=True)
-        
-        self.refresh_releases()
+        threading.Thread(target=delete_operations, daemon=True).start()
 
     def delete_specific_tag(self, tag):
         if not self.check_git_repository():
             return
         
-        if not messagebox.askyesno("Confirm", f"Delete {tag}?"):
+        reply = QMessageBox.question(self, "Confirm", f"Delete {tag}?",
+                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply != QMessageBox.StandardButton.Yes:
             return
         
         self.log(f"🗑️ Deleting {tag}...", "warning")
         
         def delete_operations():
-            release_delete_cmd = f'gh release delete {tag} --yes'
-            release_success = self.run_command_in_thread(release_delete_cmd, check_git=True)
+            commands = [
+                f'gh release delete {tag} --yes',
+                f'git tag -d {tag}',
+                f'git push origin --delete {tag}'
+            ]
             
-            if release_success:
-                tag_delete_cmd = f'git tag -d {tag}'
-                tag_success = self.run_command_in_thread(tag_delete_cmd, check_git=True)
-                
-                if tag_success:
-                    push_cmd = f'git push origin --delete {tag}'
-                    push_success = self.run_command_in_thread(push_cmd, check_git=True)
-                    
-                    if push_success:
-                        self.after(1000, self.refresh_releases)
+            for cmd in commands:
+                success = self.run_command_sync(cmd)
+                if not success:
+                    break
+                time.sleep(1)
+            
+            QTimer.singleShot(0, self.refresh_releases)
 
         threading.Thread(target=delete_operations, daemon=True).start()
 
     def refresh_releases(self):
-        cwd = self.project_path_var.get() if self.check_git_repository() else None
-        result = subprocess.run("gh release list", shell=True, capture_output=True, text=True, cwd=cwd)
-        self.after(0, lambda: self.display_releases(result.stdout))
+        if not self.check_git_repository():
+            return
+            
+        def refresh():
+            result = subprocess.run("gh release list", shell=True, capture_output=True, text=True, cwd=self.project_path)
+            QTimer.singleShot(0, lambda: self.display_releases(result.stdout))
+        
+        threading.Thread(target=refresh, daemon=True).start()
 
     def display_releases(self, releases_output):
-        for widget in self.releases_frame.winfo_children():
-            widget.destroy()
+        # Clear existing releases
+        for i in reversed(range(self.releases_layout.count())):
+            widget = self.releases_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
             
         if not releases_output.strip():
-            ctk.CTkLabel(self.releases_frame, text="No releases", text_color="gray").pack(pady=20)
+            placeholder = QLabel("No releases")
+            placeholder.setStyleSheet("color: #888888;")
+            placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.releases_layout.addWidget(placeholder)
             return
             
         releases = releases_output.strip().split('\n')
         for release in releases:
-            parts = [part.strip() for part in release.split('\t')]
-            if len(parts) == 4:
-                title = parts[0]
-                status = parts[1]
-                tag = parts[2]
-                date = parts[3]
+            parts = release.split('\t')
+            title = parts[0].strip() if len(parts) > 0 else ''
+            status = parts[1].strip() if len(parts) > 1 else ''
+            tag = parts[2].strip() if len(parts) > 2 else ''
+            date = parts[3].strip() if len(parts) > 3 else ''
+            
+            if not tag:
+                continue
                 
-                release_frame = ctk.CTkFrame(self.releases_frame)
-                release_frame.pack(fill="x", pady=5)
-                
-                title_frame = ctk.CTkFrame(release_frame, fg_color="transparent")
-                title_frame.pack(fill="x")
-                
-                ctk.CTkLabel(title_frame, text=title, font=("Arial", 12, "bold")).pack(side="left")
-                
-                delete_btn = ctk.CTkButton(title_frame, text="🗑️", width=30, height=30,
-                                           command=lambda t=tag: self.delete_specific_tag(t),
-                                           fg_color="#e74c3c", hover_color="#c0392b")
-                delete_btn.pack(side="right", padx=5)
-                
-                ctk.CTkLabel(release_frame, text=f"Tag: {tag} | Date: {date}", font=("Arial", 10), text_color="gray").pack(anchor="w")
-                
-                if status == "Latest":
-                    ctk.CTkLabel(release_frame, text="LATEST", text_color="#27ae60", font=("Arial", 9, "bold")).pack(anchor="w")
+            release_frame = QFrame()
+            release_frame.setStyleSheet("QFrame { background-color: #4a4a4a; margin: 2px; padding: 5px; }")
+            release_layout = QVBoxLayout(release_frame)
+            
+            title_frame = QFrame()
+            title_layout = QHBoxLayout(title_frame)
+            title_layout.setContentsMargins(0, 0, 0, 0)
+            
+            title_label = QLabel(title)
+            title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+            title_layout.addWidget(title_label)
+            
+            title_layout.addStretch()
+            
+            delete_btn = QPushButton("🗑️")
+            delete_btn.setFixedSize(30, 30)
+            delete_btn.setStyleSheet("background-color: #e74c3c;")
+            delete_btn.clicked.connect(lambda checked, t=tag: self.delete_specific_tag(t))
+            title_layout.addWidget(delete_btn)
+            
+            release_layout.addWidget(title_frame)
+            
+            info_label = QLabel(f"Tag: {tag} | Date: {date}")
+            info_label.setStyleSheet("color: #888888; font-size: 10px;")
+            release_layout.addWidget(info_label)
+            
+            if status == 'Latest':
+                latest_label = QLabel("LATEST")
+                latest_label.setStyleSheet("color: #27ae60; font-weight: bold; font-size: 9px;")
+                release_layout.addWidget(latest_label)
+            
+            self.releases_layout.addWidget(release_frame)
 
-    def command_finished(self):
+    def command_finished(self, success, callback=None):
         self.is_working = False
-        self.current_command = None
-        self.progress_bar.stop()
+        self.progress_bar.setVisible(False)
+        self.update_status("Ready")
+        
+        if callback:
+            callback(success)
 
     def update_status(self, message):
-        self.status_label.configure(text=message)
+        self.status_bar.showMessage(message)
         
     def log(self, message, message_type="info"):
         if not message.strip():
             return
             
         timestamp = datetime.now().strftime("%H:%M:%S")
-        self.console_text.insert("end", f"[{timestamp}] {message}\n", message_type)
-        self.console_text.see("end")
+        
+        colors = {
+            "info": "#ffffff",
+            "success": "#27ae60", 
+            "error": "#e74c3c",
+            "warning": "#f39c12",
+            "output": "#95a5a6",
+            "timestamp": "#7f8c8d"
+        }
+        
+        color = colors.get(message_type, "#ffffff")
+        formatted_message = f'<span style="color: {colors["timestamp"]}">[{timestamp}]</span> <span style="color: {color}">{message}</span>'
+        
+        self.console_text.moveCursor(QTextCursor.MoveOperation.End)
+        self.console_text.insertHtml(formatted_message + "<br>")
+        self.console_text.moveCursor(QTextCursor.MoveOperation.End)
+        
+        # Auto-scroll to bottom
+        scrollbar = self.console_text.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
         
     def clear_console(self):
-        self.console_text.delete("1.0", "end")
+        self.console_text.clear()
         
     def copy_console(self):
-        content = self.console_text.get("1.0", "end")
-        self.clipboard_clear()
-        self.clipboard_append(content)
+        clipboard = QGuiApplication.clipboard()
+        clipboard.setText(self.console_text.toPlainText())
         self.log("📋 Copied", "success")
         
     # Navigation methods
     def show_releases(self):
-        self.tabview.set("📋 Releases")
+        self.tab_widget.setCurrentIndex(0)
         self.refresh_releases()
         
     def show_quick_release(self):
-        self.tabview.set("⚡ Quick Releases")
+        self.tab_widget.setCurrentIndex(1)
         
     def show_advanced(self):
-        self.tabview.set("🔧 Advanced")
-        
-    def load_initial_state(self):
-        self.refresh_releases()
+        self.tab_widget.setCurrentIndex(2)
         
     def browse_project_path(self):
-        path = filedialog.askdirectory()
+        path = QFileDialog.getExistingDirectory(self, "Select Project Directory")
         if path:
-            self.project_path_var.set(path)
-            self.path_label.configure(text=path)
+            self.project_path = path
+            self.path_label.setText(path)
             self.load_package_json(path)
             self.update_project_status()
             
@@ -725,16 +1063,18 @@ class ModernReleaseManager(ctk.CTk):
             try:
                 with open(package_json_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    self.version_var.set(data.get('version', 'Unknown'))
+                    self.version = data.get('version', 'Unknown')
+                    self.version_display.setText(self.version)
             except Exception as e:
                 self.log(f"❌ package.json error: {e}", "error")
 
 if __name__ == "__main__":
-    try:
-        import psutil
-    except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "psutil"])
-        import psutil
-        
-    app = ModernReleaseManager()
-    app.mainloop()
+    app = QApplication(sys.argv)
+    
+    # Set dark theme
+    app.setStyle('Fusion')
+    
+    window = ModernReleaseManager()
+    window.show()
+    
+    sys.exit(app.exec())
