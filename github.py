@@ -75,6 +75,68 @@ class CommandWorker(QThread):
         self.terminate()
         self.wait()
 
+class BuildWorker(QThread):
+    """Specialized worker for build commands that might take longer"""
+    output_signal = pyqtSignal(str, str)
+    finished_signal = pyqtSignal(bool)
+    progress_signal = pyqtSignal(str)
+
+    def __init__(self, commands, cwd=None):
+        super().__init__()
+        self.commands = commands
+        self.cwd = cwd
+        self._is_running = True
+
+    def run(self):
+        try:
+            success = False
+            for i, command in enumerate(self.commands):
+                if not self._is_running:
+                    break
+                    
+                self.progress_signal.emit(f"Running: {command}")
+                self.output_signal.emit(f"Executing: {command}", "info")
+                
+                process = subprocess.Popen(
+                    command,
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    cwd=self.cwd,
+                    bufsize=1,
+                    universal_newlines=True
+                )
+                
+                while self._is_running:
+                    line = process.stdout.readline()
+                    if not line:
+                        break
+                    if line.strip():
+                        self.output_signal.emit(line.strip(), "output")
+                
+                if self._is_running:
+                    process.wait()
+                    if process.returncode == 0:
+                        self.output_signal.emit(f"Command completed: {command}", "success")
+                        success = True
+                        break
+                    else:
+                        self.output_signal.emit(f"Command failed: {command}", "warning")
+                else:
+                    break
+                    
+            self.finished_signal.emit(success)
+            
+        except Exception as e:
+            self.output_signal.emit(f"Build error: {str(e)}", "error")
+            self.finished_signal.emit(False)
+
+    def stop(self):
+        self._is_running = False
+        self.terminate()
+        self.wait()
+
 class ModernReleaseManager(QMainWindow):
     log_signal = pyqtSignal(str, str)
     update_releases_signal = pyqtSignal(list, list)
@@ -769,8 +831,6 @@ class ModernReleaseManager(QMainWindow):
         
         return widget
 
-    
-
     def create_advanced_view(self):
         """Create the advanced tools view widget"""
         widget = QWidget()
@@ -1191,92 +1251,194 @@ class ModernReleaseManager(QMainWindow):
                 time.sleep(3)
         return False
 
-    def clean_and_rebuild(self):
-        """Clean everything and do a fresh rebuild""" 
-        if not self.check_project_selected():
-            return
-            
-        self.log("Clean and rebuild...", "info")
+    def get_available_build_commands(self):
+        """Get available build commands from package.json"""
+        package_json_path = Path(self.project_path) / "package.json"
+        available_commands = []
         
-        # Clean dist folder
-        if self.safe_delete_dist():
-            self.log("Dist folder cleaned", "success")
-        else:
-            self.log("Failed to clean dist folder", "error")
-            return
-            
-        # Clean node_modules and reinstall
-        def clean_operations():
-            # Remove node_modules
-            node_modules_path = Path(self.project_path) / "node_modules"
-            if node_modules_path.exists():
-                self.log("Removing node_modules...", "info")
-                shutil.rmtree(node_modules_path)
-                self.log("node_modules removed", "success")
-            
-            # Remove package-lock.json
-            package_lock_path = Path(self.project_path) / "package-lock.json"
-            if package_lock_path.exists():
-                package_lock_path.unlink()
-                self.log("package-lock.json removed", "success")
-            
-            # Reinstall dependencies
-            self.log("Reinstalling dependencies...", "info")
-            if self.run_command_sync("npm install"):
-                self.log("Dependencies installed", "success")
+        if package_json_path.exists():
+            try:
+                with open(package_json_path, 'r', encoding='utf-8') as f:
+                    scripts = json.load(f).get('scripts', {})
+                    
+                # Priority order for build commands
+                priority_commands = [
+                    "npm run build-all",
+                    "npm run build-portable", 
+                    "npm run build-installer",
+                    "npm run build",
+                    "npm run dist",
+                    "npm run electron:build",
+                    "npx electron-builder",
+                    "npm run make"
+                ]
                 
-                # Rebuild
-                self.log("Rebuilding...", "info")
-                if self.safe_build_single():
-                    self.log("Rebuild completed successfully", "success")
-                else:
-                    self.log("Rebuild failed", "error")
-            else:
-                self.log("Failed to install dependencies", "error")
+                for cmd in priority_commands:
+                    script_name = cmd.replace("npm run ", "").replace("npx ", "")
+                    if cmd.startswith("npm run ") and script_name in scripts:
+                        available_commands.append(cmd)
+                    elif cmd.startswith("npx "):
+                        available_commands.append(cmd)
+                        
+            except Exception as e:
+                self.log(f"Error reading package.json: {e}", "error")
         
-        threading.Thread(target=clean_operations, daemon=True).start()
+        return available_commands
 
     def safe_build_single(self):
+        """Build project using thread to avoid UI freeze"""
         if not self.check_project_selected():
             return False
             
-        self.log("Safe build...", "info")
+        self.log("Starting safe build process...", "info")
         
+        # Kill any running Electron processes first
         self.kill_electron_only()
         
+        # Clean dist folder
         if not self.safe_delete_dist():
+            self.log("Failed to clean dist folder", "error")
             return False
             
         time.sleep(2)
         
-        build_commands = [
-            "npm run build-all", "npm run build-portable", "npm run build-installer",
-            "npm run build", "npm run dist", "npm run electron:build",
-            "npx electron-builder", "npm run make"
-        ]
+        # Get available build commands
+        build_commands = self.get_available_build_commands()
         
-        package_json_path = Path(self.project_path) / "package.json"
-        available_scripts = []
-        if package_json_path.exists():
-            with open(package_json_path, 'r', encoding='utf-8') as f:
-                scripts = json.load(f).get('scripts', {})
-                for script_name in scripts:
-                    if 'build' in script_name.lower() or 'dist' in script_name.lower() or 'electron' in script_name.lower():
-                        available_scripts.append(script_name)
+        if not build_commands:
+            self.log("No build commands found in package.json", "error")
+            return False
         
-        success = False
-        for build_cmd in build_commands:
-            script_name = build_cmd.replace("npm run ", "").replace("npx ", "")
-            if build_cmd.startswith("npm run ") and script_name not in available_scripts:
-                continue
+        self.log(f"Trying {len(build_commands)} build commands...", "info")
+        
+        # Use BuildWorker for build commands
+        self.is_working = True
+        self.progress_bar.setVisible(True)
+        self.update_status("Building project...")
+        
+        self.build_worker = BuildWorker(build_commands, self.project_path)
+        self.build_worker.output_signal.connect(lambda msg, typ: self.log(msg, typ))
+        self.build_worker.finished_signal.connect(self.build_finished)
+        self.build_worker.progress_signal.connect(lambda msg: self.update_status(msg))
+        
+        self.build_worker.start()
+        return True
+
+    def build_finished(self, success):
+        """Handle build completion"""
+        self.is_working = False
+        self.progress_bar.setVisible(False)
+        
+        if success:
+            self.log("Build completed successfully", "success")
+            self.update_status("Build completed")
+            
+            # Check if dist files were created
+            time.sleep(2)  # Allow time for files to be written
+            if self.check_dist_files_exist():
+                self.log("Distribution files created successfully", "success")
+            else:
+                self.log("Build completed but distribution files not found", "warning")
+        else:
+            self.log("Build failed", "error")
+            self.update_status("Build failed")
+        
+        # Clean up worker
+        if hasattr(self, 'build_worker'):
+            self.build_worker = None
+
+    def clean_and_rebuild(self):
+        """Clean everything and do a fresh rebuild using threads"""
+        if not self.check_project_selected():
+            return
+            
+        self.log("Starting clean rebuild process...", "info")
+        
+        # Show progress
+        self.is_working = True
+        self.progress_bar.setVisible(True)
+        self.update_status("Cleaning and rebuilding...")
+        
+        def clean_operations():
+            try:
+                # Clean dist folder
+                if self.safe_delete_dist():
+                    self.log("Dist folder cleaned", "success")
+                else:
+                    self.log("Failed to clean dist folder", "error")
+                    self.is_working = False
+                    self.progress_bar.setVisible(False)
+                    return
                 
-            self.log(f"Trying: {build_cmd}", "info '")
-            if self._run_subprocess(build_cmd):
-                time.sleep(5)
-                if self.check_dist_files_exist():
-                    success = True
-                    break
-        return success
+                # Remove node_modules and package-lock.json
+                node_modules_path = Path(self.project_path) / "node_modules"
+                if node_modules_path.exists():
+                    self.log("Removing node_modules...", "info")
+                    shutil.rmtree(node_modules_path)
+                    self.log("node_modules removed", "success")
+                
+                package_lock_path = Path(self.project_path) / "package-lock.json"
+                if package_lock_path.exists():
+                    package_lock_path.unlink()
+                    self.log("package-lock.json removed", "success")
+                
+                # Reinstall dependencies
+                self.log("Reinstalling dependencies...", "info")
+                if self.run_command_sync_thread_safe("npm install"):
+                    self.log("Dependencies installed", "success")
+                    
+                    # Rebuild using thread-safe method
+                    QTimer.singleShot(1000, self.safe_build_single)
+                else:
+                    self.log("Failed to install dependencies", "error")
+                    self.is_working = False
+                    self.progress_bar.setVisible(False)
+                    
+            except Exception as e:
+                self.log(f"Error during clean operations: {e}", "error")
+                self.is_working = False
+                self.progress_bar.setVisible(False)
+        
+        # Run clean operations in thread
+        threading.Thread(target=clean_operations, daemon=True).start()
+
+    def run_command_sync_thread_safe(self, command):
+        """Run command synchronously in a thread-safe way"""
+        try:
+            self.log(f"Running: {command}", "info")
+            process = subprocess.run(
+                command, 
+                shell=True, 
+                capture_output=True, 
+                text=True, 
+                cwd=self.project_path, 
+                timeout=300
+            )
+            
+            # Emit output in chunks to avoid UI blocking
+            if process.stdout:
+                for line in process.stdout.split('\n'):
+                    if line.strip():
+                        self.log(line, "output")
+            
+            if process.stderr:
+                for line in process.stderr.split('\n'):
+                    if line.strip():
+                        self.log(line, "error")
+            
+            if process.returncode == 0:
+                self.log("Command completed successfully", "success")
+                return True
+            else:
+                self.log(f"Command failed with code: {process.returncode}", "error")
+                return False
+                
+        except subprocess.TimeoutExpired:
+            self.log("Command timed out", "error")
+            return False
+        except Exception as e:
+            self.log(f"Error running command: {e}", "error")
+            return False
 
     def _run_subprocess(self, command):
         try:
@@ -1344,17 +1506,30 @@ class ModernReleaseManager(QMainWindow):
             return False
 
     def auto_release(self):
+        """Auto release with non-blocking build"""
         if not self.check_project_selected():
             return
             
-        self.log("Auto release...", "info")
+        self.log("Starting auto release process...", "info")
         
-        if self.safe_build_single():
-            time.sleep(5)
-            if self.check_dist_files_exist():
-                self.create_release()
+        def build_and_release():
+            # Build first
+            build_success = self.safe_build_single()
+            
+            if build_success:
+                # Wait a bit for build to complete and check files
+                time.sleep(5)
+                if self.check_dist_files_exist():
+                    self.log("Build successful, proceeding with release...", "success")
+                    # Schedule release creation
+                    QTimer.singleShot(1000, self.create_release)
+                else:
+                    self.log("Build completed but distribution files missing", "error")
             else:
-                self.log("Files missing", "error")
+                self.log("Build failed, cannot proceed with release", "error")
+        
+        # Start the process
+        threading.Thread(target=build_and_release, daemon=True).start()
 
     def create_release(self):
         if not self.check_git_repository() or not self.check_dist_files_exist():
@@ -2125,6 +2300,13 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("GitHub Release Manager - Modern")
     app.setApplicationVersion("2.0.0")
+    
+    # Set higher process priority to help with responsiveness
+    try:
+        import os
+        os.nice(10)  # Lower priority to prevent system freezing
+    except:
+        pass
     
     window = ModernReleaseManager()
     window.show()
