@@ -596,9 +596,9 @@ class ModernReleaseManager(QMainWindow):
         
         stats_layout.addStretch()
         
-        last_update_label = QLabel("Last update: Never")
-        last_update_label.setStyleSheet("color: #8888aa; font-size: 11px;")
-        stats_layout.addWidget(last_update_label)
+        self.last_update_label = QLabel("Last update: Never")
+        self.last_update_label.setStyleSheet("color: #8888aa; font-size: 11px;")
+        stats_layout.addWidget(self.last_update_label)
         
         releases_layout.addWidget(stats_widget)
         
@@ -626,18 +626,8 @@ class ModernReleaseManager(QMainWindow):
         self.releases_layout.setSpacing(8)
         self.releases_layout.setContentsMargins(5, 5, 5, 5)
         
-        # Initial placeholder
-        self.placeholder_label = QLabel("🎯 Click 'Refresh' to load releases\n\n📝 Make sure:\n• GitHub CLI is installed (gh)\n• You are authenticated (gh auth login)\n• Repository has releases or tags")
-        self.placeholder_label.setStyleSheet("""
-            color: #8888aa; 
-            padding: 40px; 
-            font-size: 13px; 
-            text-align: center;
-            line-height: 1.5;
-        """)
-        self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.placeholder_label.setWordWrap(True)
-        self.releases_layout.addWidget(self.placeholder_label)
+        # Initial placeholder - SHOW ONLY IF NO PROJECT PATH
+        self.setup_initial_placeholder()
         
         self.releases_scroll.setWidget(self.releases_container)
         releases_layout.addWidget(self.releases_scroll, 1)
@@ -648,6 +638,74 @@ class ModernReleaseManager(QMainWindow):
         widget = QWidget()
         widget.setLayout(layout)
         self.main_content_layout.addWidget(widget)
+
+    def setup_initial_placeholder(self):
+        """Setup the initial placeholder message based on project path status"""
+        # Clear any existing placeholder
+        if hasattr(self, 'placeholder_label') and self.placeholder_label:
+            self.placeholder_label.deleteLater()
+        
+        if not self.project_path:
+            # NO PROJECT SELECTED - Show setup instructions
+            self.placeholder_label = QLabel()
+            self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
+            self.placeholder_label.setText("""
+            <div style="text-align: center; padding: 40px;">
+                <h2 style="color: #fbc531; margin-bottom: 20px;">⚠️ Setup Required</h2>
+                <p style="color: #e0e0ff; font-size: 14px; margin-bottom: 25px; line-height: 1.5;">
+                    To use the GitHub Release Manager, you need to complete the following setup steps:
+                </p>
+                <div style="text-align: left; background: #1a1a2e; padding: 20px; border-radius: 10px; border: 1px solid #fbc53140; margin: 0 auto; max-width: 500px;">
+                    <div style="color: #00a8ff; font-weight: bold; margin-bottom: 15px;">📁 1. Select Project Folder</div>
+                    <p style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px;">
+                        Click the <span style="color: #00a8ff;">"Select Project Folder"</span> button in the sidebar to choose your project directory containing package.json
+                    </p>
+                    
+                    <div style="color: #00d2d3; font-weight: bold; margin-bottom: 15px;">🔑 2. Install & Authenticate GitHub CLI</div>
+                    <p style="color: #a0a0c0; margin-bottom: 10px; font-size: 13px;">
+                        • Install GitHub CLI from: <span style="color: #00d2d3;">https://cli.github.com/</span>
+                    </p>
+                    <p style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px;">
+                        • Run: <span style="color: #00d2d3; font-family: monospace;">gh auth login</span> to authenticate
+                    </p>
+                    
+                    <div style="color: #9c88ff; font-weight: bold; margin-bottom: 15px;">⚡ 3. Start Managing Releases</div>
+                    <p style="color: #a0a0c0; font-size: 13px;">
+                        Once setup is complete, click <span style="color: #9c88ff;">"Refresh"</span> to load your releases
+                    </p>
+                </div>
+                <p style="color: #8888aa; font-size: 12px; margin-top: 25px;">
+                    Need help? Check the GitHub CLI documentation for detailed setup instructions.
+                </p>
+            </div>
+            """)
+            self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.placeholder_label.setWordWrap(True)
+            self.releases_layout.addWidget(self.placeholder_label)
+        else:
+            # PROJECT SELECTED - Show refresh instructions
+            self.placeholder_label = QLabel()
+            self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
+            self.placeholder_label.setText("""
+            <div style="text-align: center; padding: 40px;">
+                <h3 style="color: #00a8ff; margin-bottom: 15px;">🚀 Ready to Load Releases</h3>
+                <p style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px; line-height: 1.5;">
+                    Project loaded: <span style="color: #00d2d3; font-weight: bold;">{}</span>
+                </p>
+                <div style="background: #00a8ff20; padding: 15px; border-radius: 8px; border: 1px solid #00a8ff40; margin: 0 auto; max-width: 400px;">
+                    <p style="color: #e0e0ff; margin-bottom: 15px; font-size: 13px;">
+                        Click the <span style="color: #00a8ff; font-weight: bold;">"Refresh"</span> button above to load your GitHub releases and tags.
+                    </p>
+                </div>
+                <p style="color: #8888aa; font-size: 12px; margin-top: 20px;">
+                    Make sure you're authenticated with GitHub CLI and have the necessary permissions.
+                </p>
+            </div>
+            """.format(os.path.basename(self.project_path)))
+            self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.placeholder_label.setWordWrap(True)
+            self.releases_layout.addWidget(self.placeholder_label)
+
     def setup_quick_release_view(self):
         """Setup the quick release view with checkboxes"""
         self.clear_main_content()
@@ -1594,21 +1652,41 @@ class ModernReleaseManager(QMainWindow):
         
         # Update last update time
         current_time = datetime.now().strftime("%H:%M:%S")
-        if hasattr(self, 'last_update_label'):
-            self.last_update_label.setText(f"Last update: {current_time}")
+        self.last_update_label.setText(f"Last update: {current_time}")
         
         if not releases and not all_tags:
-            self.placeholder_label = QLabel("🎯 No releases or tags found\n\n📝 Make sure:\n• GitHub CLI is installed (gh)\n• You are authenticated (gh auth login)\n• Repository has releases or tags\n\n🔄 Click 'Refresh' to try again")
-            self.placeholder_label.setStyleSheet("""
-                color: #8888aa; 
-                padding: 40px; 
-                font-size: 13px; 
-                text-align: center;
-                line-height: 1.5;
-            """)
-            self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.placeholder_label.setWordWrap(True)
-            self.releases_layout.addWidget(self.placeholder_label)
+            # No releases found - show appropriate message
+            if not self.project_path:
+                self.setup_initial_placeholder()  # Show setup instructions
+            else:
+                # Project selected but no releases found
+                self.placeholder_label = QLabel()
+                self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
+                self.placeholder_label.setText("""
+                <div style="text-align: center; padding: 40px;">
+                    <h3 style="color: #fbc531; margin-bottom: 15px;">🔍 No Releases Found</h3>
+                    <p style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px; line-height: 1.5;">
+                        No GitHub releases or tags found for this repository.
+                    </p>
+                    <div style="background: #fbc53120; padding: 15px; border-radius: 8px; border: 1px solid #fbc53140; margin: 0 auto; max-width: 450px;">
+                        <p style="color: #e0e0ff; margin-bottom: 10px; font-size: 13px; text-align: left;">
+                            <span style="color: #fbc531;">•</span> Make sure GitHub CLI is installed and authenticated
+                        </p>
+                        <p style="color: #e0e0ff; margin-bottom: 10px; font-size: 13px; text-align: left;">
+                            <span style="color: #fbc531;">•</span> Verify you have access to the repository
+                        </p>
+                        <p style="color: #e0e0ff; margin-bottom: 0; font-size: 13px; text-align: left;">
+                            <span style="color: #fbc531;">•</span> Check if the repository has any releases or tags
+                        </p>
+                    </div>
+                    <p style="color: #8888aa; font-size: 12px; margin-top: 20px;">
+                        Try the "Test GitHub CLI" button to verify your setup.
+                    </p>
+                </div>
+                """)
+                self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.placeholder_label.setWordWrap(True)
+                self.releases_layout.addWidget(self.placeholder_label)
             return
         
         # Create a set of release tags for quick lookup
