@@ -1,6 +1,6 @@
 {
   "name": "make-your-life-easier",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "main": "main.js",
@@ -16,12 +16,12 @@
   "dependencies": {
     "electron-store": "^8.1.0",
     "electron-sudo": "^4.0.12",
+    "electron-updater": "^6.1.7",
     "node-windows": "^1.0.0-beta.8",
-    "sqlite3": "^5.1.6",
-    "electron-updater": "^6.1.7"
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
-    "electron": "^28.0.0",
+    "electron": "^38.2.2",
     "electron-builder": "^26.0.12"
   },
   "build": {

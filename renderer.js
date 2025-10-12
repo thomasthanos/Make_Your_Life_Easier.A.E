@@ -3023,6 +3023,11 @@ function initializeAutoUpdater() {
   });
 
   function showUpdateNotification(data) {
+    // Skip showing anything for checking or if no update is available
+    if (data.status === 'checking' || data.status === 'not-available') {
+      return;  // Don't display the UI at all
+    }
+
     updateContent.innerHTML = '';
     
     const title = document.createElement('div');
@@ -3094,13 +3099,6 @@ function initializeAutoUpdater() {
 
     updateContent.appendChild(buttonContainer);
     updateStatus.style.display = 'block';
-
-    // Auto-hide "not available" message after 5 seconds
-    if (data.status === 'not-available') {
-      setTimeout(() => {
-        updateStatus.style.display = 'none';
-      }, 5000);
-    }
   }
 
 }
