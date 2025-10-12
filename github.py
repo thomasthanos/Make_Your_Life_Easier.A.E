@@ -23,7 +23,7 @@ except ImportError:
     import psutil
 
 class CommandWorker(QThread):
-    """Worker thread for running commands safely"""
+    """Worker thread for running commands safely""" 
     output_signal = pyqtSignal(str, str)
     finished_signal = pyqtSignal(bool)
     command_signal = pyqtSignal(str)
@@ -534,7 +534,7 @@ class ModernReleaseManager(QMainWindow):
         layout.addStretch()
 
     def suggest_version(self):
-        """Suggests the next version based on release_type"""
+        """Suggests the next version based on release_type""" 
         current_version = self.version
         suggested_version = self.calculate_new_version(current_version, self.release_type)
         self.log(f"💡 Suggested version: {suggested_version}", "info")
@@ -577,7 +577,7 @@ class ModernReleaseManager(QMainWindow):
         self.log("🛑 All commands stopped", "warning")
 
     def test_github_cli(self):
-        """Test if GitHub CLI is working - DIAGNOSTIC ONLY"""
+        """Test if GitHub CLI is working - DIAGNOSTIC ONLY""" 
         self.log("🧪 Testing GitHub CLI...", "info")
         
         def test_cli():
@@ -719,7 +719,7 @@ class ModernReleaseManager(QMainWindow):
         return False
 
     def clean_and_rebuild(self):
-        """Clean everything and do a fresh rebuild"""
+        """Clean everything and do a fresh rebuild""" 
         if not self.check_project_selected():
             return
             
@@ -846,7 +846,7 @@ class ModernReleaseManager(QMainWindow):
         return True
 
     def run_command_sync(self, command, cwd=None, require_project=True, check_git=False):
-        """Run command synchronously without threading"""
+        """Run command synchronously without threading""" 
         if require_project and not self.check_project_selected():
             return False
             
@@ -976,7 +976,7 @@ class ModernReleaseManager(QMainWindow):
             self.log(f"❌ Error preparing release: {e}", "error")
 
     def update_version_display(self, new_version):
-        """Update version in UI"""
+        """Update version in UI""" 
         self.version = new_version
         self.version_display.setText(new_version)
         self.version_entry.clear()  # Clear the field
@@ -992,7 +992,7 @@ class ModernReleaseManager(QMainWindow):
             return "1.0.0"
 
     def update_release(self):
-        """Improved update release that handles checksum issues - THREAD SAFE VERSION"""
+        """Improved update release that handles checksum issues - THREAD SAFE VERSION""" 
         if not self.check_git_repository() or not self.check_dist_files_exist():
             self.log("❌ Checks failed", "error")
             return
@@ -1042,7 +1042,7 @@ class ModernReleaseManager(QMainWindow):
             self.log(f"❌ Error: {str(e)}", "error")
 
     def delete_current_tag(self):
-        """Delete the latest release and tag"""
+        """Delete the latest release and tag""" 
         if not self.check_git_repository():
             return
         
@@ -1084,7 +1084,7 @@ class ModernReleaseManager(QMainWindow):
         threading.Thread(target=delete_operations, daemon=True).start()
 
     def get_latest_release_tag(self):
-        """Get the latest release tag from GitHub"""
+        """Get the latest release tag from GitHub""" 
         try:
             result = subprocess.run(
                 ["gh", "release", "list", "--limit", "1", "--json", "tagName"],
@@ -1100,7 +1100,7 @@ class ModernReleaseManager(QMainWindow):
             return None
 
     def refresh_releases(self):
-        """Refresh the releases list in the top panel"""
+        """Refresh the releases list in the top panel""" 
         if not self.check_git_repository():
             return
         
@@ -1129,6 +1129,8 @@ class ModernReleaseManager(QMainWindow):
                     if stdout:
                         try:
                             releases = json.loads(stdout)
+                            # Sort releases by createdAt descending
+                            releases = sorted(releases, key=lambda x: x['createdAt'], reverse=True)
                             self.log(f"✅ Found {len(releases)} releases via GitHub CLI", "success")
                         except json.JSONDecodeError as e:
                             self.log(f"❌ JSON parse error: {e}", "error")
@@ -1172,7 +1174,7 @@ class ModernReleaseManager(QMainWindow):
         threading.Thread(target=fetch_releases, daemon=True).start()
 
     def update_releases_display(self, releases, all_tags):
-        """Update the releases panel with releases and tags - FIXED VERSION"""
+        """Update the releases panel with releases and tags - FIXED VERSION""" 
         # Clear existing content
         self.clear_releases_layout()
         
@@ -1216,7 +1218,7 @@ class ModernReleaseManager(QMainWindow):
                 self.add_release_item(tag_item, is_release=False)
 
     def clear_releases_layout(self):
-        """Clear all widgets from releases layout except placeholder"""
+        """Clear all widgets from releases layout except placeholder""" 
         # Remove all widgets from layout
         while self.releases_layout.count():
             child = self.releases_layout.takeAt(0)
@@ -1226,7 +1228,7 @@ class ModernReleaseManager(QMainWindow):
                     child.widget().deleteLater()
 
     def add_release_item(self, release, is_release=True):
-        """Add a release/tag item to the releases panel - FIXED VERSION"""
+        """Add a release/tag item to the releases panel - FIXED VERSION""" 
         item_frame = QFrame()
         item_frame.setStyleSheet("""
             QFrame {
@@ -1317,14 +1319,14 @@ class ModernReleaseManager(QMainWindow):
         item_layout.addLayout(badges_layout)
         
         # Delete button
-        delete_btn = QPushButton("🗑️")
-        delete_btn.setFixedSize(30, 30)
+        delete_btn = QPushButton("Delete")
+        delete_btn.setFixedSize(60, 30)
         delete_btn.setToolTip(f"Delete {release['tagName']}")
         delete_btn.setStyleSheet("""
             QPushButton {
                 background-color: #e74c3c;
                 border-radius: 3px;
-                font-size: 12px;
+                font-size: 10px;
                 font-weight: bold;
             }
             QPushButton:hover {
@@ -1338,7 +1340,7 @@ class ModernReleaseManager(QMainWindow):
         self.releases_layout.addWidget(item_frame)
 
     def delete_release_tag(self, tag_name, is_release=True):
-        """Delete a specific release or tag"""
+        """Delete a specific release or tag""" 
         reply = QMessageBox.question(
             self, 
             "Confirm Delete", 
@@ -1376,8 +1378,11 @@ class ModernReleaseManager(QMainWindow):
                 if local_result.returncode == 0:
                     self.log(f"✅ Local tag {tag_name} deleted", "success")
                 else:
-                    self.log(f"⚠️ Could not delete local tag: {local_result.stderr}", "warning")
-                    success = False
+                    if "tag '{tag_name}' not found" in local_result.stderr:
+                        self.log(f"✅ No local tag {tag_name} to delete", "info")
+                    else:
+                        self.log(f"⚠️ Could not delete local tag: {local_result.stderr}", "warning")
+                        success = False
                 
                 # Delete remote tag
                 delete_remote_cmd = f"git push origin --delete {tag_name}"
@@ -1387,8 +1392,11 @@ class ModernReleaseManager(QMainWindow):
                 if remote_result.returncode == 0:
                     self.log(f"✅ Remote tag {tag_name} deleted", "success")
                 else:
-                    self.log(f"⚠️ Could not delete remote tag: {remote_result.stderr}", "warning")
-                    success = False
+                    if "remote ref does not exist" in remote_result.stderr:
+                        self.log(f"✅ No remote tag {tag_name} to delete", "info")
+                    else:
+                        self.log(f"⚠️ Could not delete remote tag: {remote_result.stderr}", "warning")
+                        success = False
                 
                 if success:
                     self.log(f"✅ Successfully deleted {tag_name}", "success")
@@ -1438,7 +1446,7 @@ class ModernReleaseManager(QMainWindow):
         self.tab_widget.setCurrentIndex(2)
 
     def log(self, message, message_type="output"):
-        """Thread-safe logging using signal"""
+        """Thread-safe logging using signal""" 
         self.log_signal.emit(message, message_type)
 
     def _log_to_console(self, message, message_type):
