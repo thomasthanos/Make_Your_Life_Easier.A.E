@@ -36,7 +36,7 @@ class CommandWorker(QThread):
 
     def run(self):
         try:
-            self.command_signal.emit(f"▶️ {self.command}")
+            self.command_signal.emit(f"{self.command}")
             
             process = subprocess.Popen(
                 self.command,
@@ -59,14 +59,14 @@ class CommandWorker(QThread):
             if self._is_running:
                 process.wait()
                 if process.returncode == 0:
-                    self.output_signal.emit("✅ Command completed successfully", "success")
+                    self.output_signal.emit("Command completed successfully", "success")
                     self.finished_signal.emit(True)
                 else:
-                    self.output_signal.emit(f"❌ Command failed with code: {process.returncode}", "error")
+                    self.output_signal.emit(f"Command failed with code: {process.returncode}", "error")
                     self.finished_signal.emit(False)
                     
         except Exception as e:
-            self.output_signal.emit(f"❌ Error: {str(e)}", "error")
+            self.output_signal.emit(f"Error: {str(e)}", "error")
             self.finished_signal.emit(False)
 
     def stop(self):
@@ -81,7 +81,7 @@ class ModernReleaseManager(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("🚀 GitHub Release Manager - Simplified")
+        self.setWindowTitle("GitHub Release Manager - Simplified")
         self.setGeometry(100, 100, 1200, 800)
         
         # Variables
@@ -206,6 +206,18 @@ class ModernReleaseManager(QMainWindow):
                 border: none;
                 background-color: transparent;
             }
+            /* Improved item styling */
+            .ReleaseItem {
+                background-color: #4a4a4a;
+                border-radius: 8px;
+                border: 1px solid #666666;
+                margin: 4px;
+                padding: 8px;
+            }
+            .ReleaseItem:hover {
+                background-color: #5a5a5a;
+                border: 1px solid #777777;
+            }
         """)
 
     def setup_ui(self):
@@ -244,7 +256,7 @@ class ModernReleaseManager(QMainWindow):
         project_layout.addWidget(project_label)
         
         # Project Path
-        self.select_path_btn = QPushButton("📁 Select Project")
+        self.select_path_btn = QPushButton("Select Project")
         self.select_path_btn.clicked.connect(self.browse_project_path)
         project_layout.addWidget(self.select_path_btn)
         
@@ -262,7 +274,7 @@ class ModernReleaseManager(QMainWindow):
         project_layout.addWidget(self.version_display)
         
         # Project Status
-        self.project_status = QLabel("🔴 No project selected")
+        self.project_status = QLabel("No project selected")
         self.project_status.setStyleSheet("color: #e74c3c; font-size: 10px;")
         project_layout.addWidget(self.project_status)
         
@@ -274,9 +286,9 @@ class ModernReleaseManager(QMainWindow):
         nav_layout = QVBoxLayout(nav_section)
         
         nav_buttons = [
-            ("📋 View Releases", self.show_releases),
-            ("⚡ Quick Releases", self.show_quick_release),
-            ("🔧 Advanced", self.show_advanced),
+            ("View Releases", self.show_releases),
+            ("Quick Releases", self.show_quick_release),
+            ("Advanced", self.show_advanced),
         ]
         
         for text, command in nav_buttons:
@@ -302,9 +314,9 @@ class ModernReleaseManager(QMainWindow):
         self.quick_tab = QWidget()
         self.advanced_tab = QWidget()
         
-        self.tab_widget.addTab(self.releases_tab, "📋 Releases")
-        self.tab_widget.addTab(self.quick_tab, "⚡ Quick Releases")
-        self.tab_widget.addTab(self.advanced_tab, "🔧 Advanced")
+        self.tab_widget.addTab(self.releases_tab, "Releases")
+        self.tab_widget.addTab(self.quick_tab, "Quick Releases")
+        self.tab_widget.addTab(self.advanced_tab, "Advanced")
         
         self.setup_releases_tab()
         self.setup_quick_tab()
@@ -320,7 +332,7 @@ class ModernReleaseManager(QMainWindow):
         console_header = QFrame()
         console_header_layout = QHBoxLayout(console_header)
         
-        console_label = QLabel("📟 Output Console")
+        console_label = QLabel("Output Console")
         console_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         console_header_layout.addWidget(console_label)
         
@@ -395,6 +407,7 @@ class ModernReleaseManager(QMainWindow):
         self.releases_container = QWidget()
         self.releases_layout = QVBoxLayout(self.releases_container)
         self.releases_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.releases_layout.setSpacing(6)  # Add spacing between items
         
         # Initial placeholder
         self.placeholder_label = QLabel("Click 'Refresh' to load releases")
@@ -419,9 +432,9 @@ class ModernReleaseManager(QMainWindow):
         self.type_group = QButtonGroup()
         
         types = [
-            ("🩹 Patch", "patch", "Bug fixes"),
-            ("✨ Minor", "minor", "New features"),
-            ("💥 Major", "major", "Breaking changes")
+            ("Patch", "patch", "Bug fixes"),
+            ("Minor", "minor", "New features"),
+            ("Major", "major", "Breaking changes")
         ]
         
         for text, value, description in types:
@@ -447,7 +460,7 @@ class ModernReleaseManager(QMainWindow):
         layout.addWidget(type_frame)
         
         # Quick action button
-        quick_btn = QPushButton("🚀 Quick Release")
+        quick_btn = QPushButton("Quick Release")
         quick_btn.clicked.connect(lambda: self.queue_command(self.auto_release))
         quick_btn.setStyleSheet("""
             QPushButton {
@@ -518,11 +531,11 @@ class ModernReleaseManager(QMainWindow):
         actions_layout.addWidget(actions_label)
         
         action_buttons = [
-            ("🔨 Build", lambda: self.queue_command(self.safe_build_single)),
-            ("📤 Update Latest Release", self.update_release),
-            ("🗑️ Delete Latest Release", self.delete_current_tag),
-            ("➕ Create Release", self.create_release),
-            ("🔄 Clean & Rebuild", self.clean_and_rebuild),
+            ("Build", lambda: self.queue_command(self.safe_build_single)),
+            ("Update Latest Release", self.update_release),
+            ("Delete Latest Release", self.delete_current_tag),
+            ("Create Release", self.create_release),
+            ("Clean & Rebuild", self.clean_and_rebuild),
         ]
         
         for text, command in action_buttons:
@@ -537,7 +550,7 @@ class ModernReleaseManager(QMainWindow):
         """Suggests the next version based on release_type""" 
         current_version = self.version
         suggested_version = self.calculate_new_version(current_version, self.release_type)
-        self.log(f"💡 Suggested version: {suggested_version}", "info")
+        self.log(f"Suggested version: {suggested_version}", "info")
         self.version_entry.setText(suggested_version)
 
     def on_release_type_changed(self):
@@ -548,13 +561,13 @@ class ModernReleaseManager(QMainWindow):
     # Command Queue System
     def queue_command(self, command_func):
         self.command_queue.put(command_func)
-        self.log(f"📋 Queued: {command_func.__name__}", "info")
+        self.log(f"Queued: {command_func.__name__}", "info")
 
     def process_command_queue(self):
         try:
             if not self.is_working and not self.command_queue.empty():
                 command_func = self.command_queue.get_nowait()
-                self.log(f"🚀 Executing: {command_func.__name__}", "info")
+                self.log(f"Executing: {command_func.__name__}", "info")
                 # Run in main thread to avoid threading issues
                 QTimer.singleShot(0, command_func)
         except Empty:
@@ -574,11 +587,11 @@ class ModernReleaseManager(QMainWindow):
         self.is_working = False
         self.progress_bar.setVisible(False)
         self.update_status("Stopped")
-        self.log("🛑 All commands stopped", "warning")
+        self.log("All commands stopped", "warning")
 
     def test_github_cli(self):
         """Test if GitHub CLI is working - DIAGNOSTIC ONLY""" 
-        self.log("🧪 Testing GitHub CLI...", "info")
+        self.log("Testing GitHub CLI...", "info")
         
         def test_cli():
             try:
@@ -586,34 +599,34 @@ class ModernReleaseManager(QMainWindow):
                 # Test 1: Check if gh is installed
                 result1 = subprocess.run(["gh", "--version"], capture_output=True, text=True)
                 if result1.returncode != 0:
-                    self.log("❌ GitHub CLI is not installed", "error")
-                    self.log("💡 Install from: https://cli.github.com/", "info")
+                    self.log("GitHub CLI is not installed", "error")
+                    self.log("Install from: https://cli.github.com/", "info")
                     return
                 
-                self.log("✅ GitHub CLI is installed", "success")
+                self.log("GitHub CLI is installed", "success")
                 
                 self.log("Running gh auth status", "info")
                 # Test 2: Check authentication
                 result2 = subprocess.run(["gh", "auth", "status"], capture_output=True, text=True)
                 if result2.returncode != 0:
-                    self.log("❌ Not authenticated with GitHub CLI", "error")
-                    self.log("💡 Run: gh auth login", "info")
+                    self.log("Not authenticated with GitHub CLI", "error")
+                    self.log("Run: gh auth login", "info")
                     return
                 
-                self.log("✅ Authenticated with GitHub", "success")
+                self.log("Authenticated with GitHub", "success")
                 
                 # Test 3: Try to get releases (diagnostic only)
                 if self.project_path:
                     self.log("Running gh release list", "info")
                     result3 = subprocess.run(["gh", "release", "list", "--limit", "3"], capture_output=True, text=True, cwd=self.project_path)
                     if result3.returncode == 0:
-                        self.log(f"✅ GitHub CLI working - found releases", "success")
+                        self.log(f"GitHub CLI working - found releases", "success")
                         # Don't display release data in console - just confirm it works
                     else:
-                        self.log(f"⚠️ GitHub CLI list error: {result3.stderr}", "warning")
+                        self.log(f"GitHub CLI list error: {result3.stderr}", "warning")
                 
             except Exception as e:
-                self.log(f"❌ Error testing GitHub CLI: {e}", "error")
+                self.log(f"Error testing GitHub CLI: {e}", "error")
             finally:
                 self.log("Test completed, refreshing releases", "info")
                 QTimer.singleShot(0, self.refresh_releases)
@@ -622,17 +635,17 @@ class ModernReleaseManager(QMainWindow):
 
     def check_project_selected(self):
         if not self.project_path:
-            self.log("❌ Select project path first", "error")
+            self.log("Select project path first", "error")
             return False
         
         project_path = Path(self.project_path)
         if not project_path.exists():
-            self.log("❌ Project path does not exist", "error")
+            self.log("Project path does not exist", "error")
             return False
             
         package_json = project_path / "package.json"
         if not package_json.exists():
-            self.log("❌ package.json not found", "error")
+            self.log("package.json not found", "error")
             return False
             
         return True
@@ -645,7 +658,7 @@ class ModernReleaseManager(QMainWindow):
         git_dir = project_path / ".git"
         
         if not git_dir.exists():
-            self.log("❌ Not a git repository", "error")
+            self.log("Not a git repository", "error")
             return False
             
         return True
@@ -657,7 +670,7 @@ class ModernReleaseManager(QMainWindow):
         dist_path = Path(self.project_path) / "dist"
         
         if not dist_path.exists():
-            self.log("❌ dist folder does not exist", "error")
+            self.log("dist folder does not exist", "error")
             return False
         
         exe_patterns = ["MakeYourLifeEasier-*.exe", "*.exe", "*.AppImage", "*.dmg", "*.deb"]
@@ -675,17 +688,17 @@ class ModernReleaseManager(QMainWindow):
     def update_project_status(self):
         if self.check_project_selected():
             if self.check_git_repository():
-                self.project_status.setText("🟢 Ready (Git)")
+                self.project_status.setText("Ready (Git)")
                 self.project_status.setStyleSheet("color: #27ae60;")
             else:
-                self.project_status.setText("🟡 Ready (No Git)")
+                self.project_status.setText("Ready (No Git)")
                 self.project_status.setStyleSheet("color: #f39c12;")
         else:
-            self.project_status.setText("🔴 No project")
+            self.project_status.setText("No project")
             self.project_status.setStyleSheet("color: #e74c3c;")
 
     def kill_electron_only(self):
-        self.log("🔫 Killing Electron processes...", "warning")
+        self.log("Killing Electron processes...", "warning")
         electron_processes = ["electron.exe", "MakeYourLifeEasier.exe", "node.exe"]
         killed_count = 0
         
@@ -695,12 +708,12 @@ class ModernReleaseManager(QMainWindow):
                 if any(target in proc_name for target in electron_processes):
                     proc.kill()
                     killed_count += 1
-                    self.log(f"✅ Killed: {proc.info['name']}", "warning")
+                    self.log(f"Killed: {proc.info['name']}", "warning")
             except:
                 pass
         
         time.sleep(3)
-        self.log(f"✅ Killed {killed_count} processes", "success")
+        self.log(f"Killed {killed_count} processes", "success")
 
     def safe_delete_dist(self, max_retries=3):
         dist_path = Path(self.project_path) / "dist"
@@ -714,7 +727,7 @@ class ModernReleaseManager(QMainWindow):
                 shutil.rmtree(dist_path)
                 return True
             except Exception as e:
-                self.log(f"⚠️ Delete failed: {str(e)}", "warning")
+                self.log(f"Delete failed: {str(e)}", "warning")
                 time.sleep(3)
         return False
 
@@ -723,13 +736,13 @@ class ModernReleaseManager(QMainWindow):
         if not self.check_project_selected():
             return
             
-        self.log("🧹 Clean and rebuild...", "info")
+        self.log("Clean and rebuild...", "info")
         
         # Clean dist folder
         if self.safe_delete_dist():
-            self.log("✅ Dist folder cleaned", "success")
+            self.log("Dist folder cleaned", "success")
         else:
-            self.log("❌ Failed to clean dist folder", "error")
+            self.log("Failed to clean dist folder", "error")
             return
             
         # Clean node_modules and reinstall
@@ -737,29 +750,29 @@ class ModernReleaseManager(QMainWindow):
             # Remove node_modules
             node_modules_path = Path(self.project_path) / "node_modules"
             if node_modules_path.exists():
-                self.log("🧹 Removing node_modules...", "info")
+                self.log("Removing node_modules...", "info")
                 shutil.rmtree(node_modules_path)
-                self.log("✅ node_modules removed", "success")
+                self.log("node_modules removed", "success")
             
             # Remove package-lock.json
             package_lock_path = Path(self.project_path) / "package-lock.json"
             if package_lock_path.exists():
                 package_lock_path.unlink()
-                self.log("✅ package-lock.json removed", "success")
+                self.log("package-lock.json removed", "success")
             
             # Reinstall dependencies
-            self.log("📦 Reinstalling dependencies...", "info")
+            self.log("Reinstalling dependencies...", "info")
             if self.run_command_sync("npm install"):
-                self.log("✅ Dependencies installed", "success")
+                self.log("Dependencies installed", "success")
                 
                 # Rebuild
-                self.log("🔨 Rebuilding...", "info")
+                self.log("Rebuilding...", "info")
                 if self.safe_build_single():
-                    self.log("✅ Rebuild completed successfully", "success")
+                    self.log("Rebuild completed successfully", "success")
                 else:
-                    self.log("❌ Rebuild failed", "error")
+                    self.log("Rebuild failed", "error")
             else:
-                self.log("❌ Failed to install dependencies", "error")
+                self.log("Failed to install dependencies", "error")
         
         threading.Thread(target=clean_operations, daemon=True).start()
 
@@ -767,7 +780,7 @@ class ModernReleaseManager(QMainWindow):
         if not self.check_project_selected():
             return False
             
-        self.log("🛡️ Safe build...", "info")
+        self.log("Safe build...", "info")
         
         self.kill_electron_only()
         
@@ -797,7 +810,7 @@ class ModernReleaseManager(QMainWindow):
             if build_cmd.startswith("npm run ") and script_name not in available_scripts:
                 continue
                 
-            self.log(f"🛠️ Trying: {build_cmd}", "info")
+            self.log(f"Trying: {build_cmd}", "info '")
             if self._run_subprocess(build_cmd):
                 time.sleep(5)
                 if self.check_dist_files_exist():
@@ -812,12 +825,12 @@ class ModernReleaseManager(QMainWindow):
             tag = "output" if process.returncode == 0 else "error"
             self.log(output, tag)
             if process.returncode == 0:
-                self.log("✅ Command success", "success")
+                self.log("Command success", "success")
             else:
-                self.log(f"❌ Command failed: {process.returncode}", "error")
+                self.log(f"Command failed: {process.returncode}", "error")
             return process.returncode == 0
         except Exception as e:
-            self.log(f"❌ Error: {str(e)}", "error")
+            self.log(f"Error: {str(e)}", "error")
             return False
 
     def run_command_async(self, command, cwd=None, require_project=True, check_git=False, callback=None):
@@ -854,38 +867,38 @@ class ModernReleaseManager(QMainWindow):
             return False
             
         try:
-            self.log(f"▶️ {command}", "info")
+            self.log(f"{command}", "info")
             process = subprocess.run(command, shell=True, capture_output=True, text=True, 
                                    cwd=cwd or self.project_path, timeout=300)
             output = process.stdout + process.stderr
             if process.returncode == 0:
                 self.log(output, "output")
-                self.log("✅ Command completed successfully", "success")
+                self.log("Command completed successfully", "success")
                 return True
             else:
                 self.log(output, "error")
-                self.log(f"❌ Command failed: {process.returncode}", "error")
+                self.log(f"Command failed: {process.returncode}", "error")
                 return False
         except Exception as e:
-            self.log(f"❌ Error: {str(e)}", "error")
+            self.log(f"Error: {str(e)}", "error")
             return False
 
     def auto_release(self):
         if not self.check_project_selected():
             return
             
-        self.log("🚀 Auto release...", "info")
+        self.log("Auto release...", "info")
         
         if self.safe_build_single():
             time.sleep(5)
             if self.check_dist_files_exist():
                 self.create_release()
             else:
-                self.log("❌ Files missing", "error")
+                self.log("Files missing", "error")
 
     def create_release(self):
         if not self.check_git_repository() or not self.check_dist_files_exist():
-            self.log("❌ Checks failed", "error")
+            self.log("Checks failed", "error")
             return
         
         # Use version from input field
@@ -893,19 +906,19 @@ class ModernReleaseManager(QMainWindow):
         
         # Validate version
         if not new_version:
-            self.log("❌ Please enter a version number", "error")
+            self.log("Please enter a version number", "error")
             return
         
         # Validate version format (e.g. 1.2.3)
         import re
         if not re.match(r'^\d+\.\d+\.\d+$', new_version):
-            self.log("❌ Version format should be X.Y.Z (e.g., 1.2.3)", "error")
+            self.log("Version format should be X.Y.Z (e.g., 1.2.3)", "error")
             return
         
         release_title = self.title_entry.text().strip() or f"v{new_version}"
         release_notes = self.notes_text.toPlainText().strip() or f"Release v{new_version}"
         
-        self.log(f"📋 Release Details:", "info")
+        self.log(f"Release Details:", "info")
         self.log(f"   Version: {new_version}", "info")
         self.log(f"   Title: {release_title}", "info")
         self.log(f"   Notes: {release_notes[:100]}...", "info")
@@ -917,12 +930,12 @@ class ModernReleaseManager(QMainWindow):
             with open(temp_notes_file, 'w', encoding='utf-8') as f:
                 f.write(release_notes)
             
-            self.log(f"📄 Notes written to: {temp_notes_file}", "info")
+            self.log(f"Notes written to: {temp_notes_file}", "info")
             
             # Check if file was created correctly
             if temp_notes_file.exists():
                 file_size = temp_notes_file.stat().st_size
-                self.log(f"📁 Notes file size: {file_size} bytes", "info")
+                self.log(f"Notes file size: {file_size} bytes", "info")
             
             def create_release_sync():
                 try:
@@ -936,7 +949,7 @@ class ModernReleaseManager(QMainWindow):
                         '--notes-file', str(temp_notes_file)
                     ]
                     
-                    self.log(f"▶️ Executing: {' '.join(create_command)}", "info")
+                    self.log(f"Executing: {' '.join(create_command)}", "info")
                     
                     result = subprocess.run(
                         create_command,
@@ -951,21 +964,21 @@ class ModernReleaseManager(QMainWindow):
                         temp_notes_file.unlink()
                     
                     if result.returncode == 0:
-                        self.log(f"✅ Release v{new_version} created successfully!", "success")
+                        self.log(f"Release v{new_version} created successfully!", "success")
                         self.update_version_display(new_version)
                         QTimer.singleShot(3000, self.refresh_releases)
                     else:
                         error_msg = result.stderr if result.stderr else "Unknown error"
-                        self.log(f"❌ Failed to create release: {error_msg}", "error")
+                        self.log(f"Failed to create release: {error_msg}", "error")
                         
                 except subprocess.TimeoutExpired:
                     if temp_notes_file.exists():
                         temp_notes_file.unlink()
-                    self.log("❌ Timeout creating release", "error")
+                    self.log("Timeout creating release", "error")
                 except Exception as e:
                     if temp_notes_file.exists():
                         temp_notes_file.unlink()
-                    self.log(f"❌ Error creating release: {e}", "error")
+                    self.log(f"Error creating release: {e}", "error")
             
             # Run in thread to not block UI
             threading.Thread(target=create_release_sync, daemon=True).start()
@@ -973,7 +986,7 @@ class ModernReleaseManager(QMainWindow):
         except Exception as e:
             if temp_notes_file.exists():
                 temp_notes_file.unlink()
-            self.log(f"❌ Error preparing release: {e}", "error")
+            self.log(f"Error preparing release: {e}", "error")
 
     def update_version_display(self, new_version):
         """Update version in UI""" 
@@ -994,12 +1007,12 @@ class ModernReleaseManager(QMainWindow):
     def update_release(self):
         """Improved update release that handles checksum issues - THREAD SAFE VERSION""" 
         if not self.check_git_repository() or not self.check_dist_files_exist():
-            self.log("❌ Checks failed", "error")
+            self.log("Checks failed", "error")
             return
         
         latest_tag = self.get_latest_release_tag()
         if not latest_tag:
-            self.log("❌ No releases found on GitHub", "error")
+            self.log("No releases found on GitHub", "error")
             return
         
         version = latest_tag.lstrip('v')
@@ -1008,7 +1021,7 @@ class ModernReleaseManager(QMainWindow):
         release_notes = self.notes_text.toPlainText().strip()
         
         if not release_title or not release_notes:
-            self.log("❌ Enter title and notes", "error")
+            self.log("Enter title and notes", "error")
             return
         
         self.version = version
@@ -1029,17 +1042,17 @@ class ModernReleaseManager(QMainWindow):
                     pass
                 
                 if success:
-                    self.log("✅ Release updated", "success")
+                    self.log("Release updated", "success")
                     self.refresh_releases()
                 else:
-                    self.log("❌ Failed to update release", "error")
+                    self.log("Failed to update release", "error")
             
             self.run_command_async(edit_command, callback=edit_callback)
             
         except Exception as e:
             if temp_notes_file.exists():
                 temp_notes_file.unlink()
-            self.log(f"❌ Error: {str(e)}", "error")
+            self.log(f"Error: {str(e)}", "error")
 
     def delete_current_tag(self):
         """Delete the latest release and tag""" 
@@ -1048,7 +1061,7 @@ class ModernReleaseManager(QMainWindow):
         
         latest_tag = self.get_latest_release_tag()
         if not latest_tag:
-            self.log("❌ No releases found", "error")
+            self.log("No releases found", "error")
             return
         
         reply = QMessageBox.question(self, "Confirm Delete", 
@@ -1058,14 +1071,14 @@ class ModernReleaseManager(QMainWindow):
         if reply != QMessageBox.StandardButton.Yes:
             return
         
-        self.log(f"🗑️ Deleting release {latest_tag}...", "warning")
+        self.log(f"Deleting release {latest_tag}...", "warning")
         
         def delete_operations():
             try:
                 # Delete release
                 delete_release_cmd = f"gh release delete {latest_tag} --yes"
                 if self.run_command_sync(delete_release_cmd):
-                    self.log(f"✅ Release {latest_tag} deleted", "success")
+                    self.log(f"Release {latest_tag} deleted", "success")
                     
                     # Delete local tag
                     delete_local_tag_cmd = f"git tag -d {latest_tag}"
@@ -1077,9 +1090,9 @@ class ModernReleaseManager(QMainWindow):
                     
                     QTimer.singleShot(0, self.refresh_releases)
                 else:
-                    self.log(f"❌ Failed to delete release {latest_tag}", "error")
+                    self.log(f"Failed to delete release {latest_tag}", "error")
             except Exception as e:
-                self.log(f"❌ Error deleting: {e}", "error")
+                self.log(f"Error deleting: {e}", "error")
         
         threading.Thread(target=delete_operations, daemon=True).start()
 
@@ -1105,11 +1118,11 @@ class ModernReleaseManager(QMainWindow):
             return
         
         if self.is_refreshing:
-            self.log("🔄 Already refreshing, skipping...", "info")
+            self.log("Already refreshing, skipping...", "info")
             return
         
         self.is_refreshing = True
-        self.log("🔄 Refreshing releases...", "info")
+        self.log("Refreshing releases...", "info")
         
         def fetch_releases():
             releases = []
@@ -1131,15 +1144,15 @@ class ModernReleaseManager(QMainWindow):
                             releases = json.loads(stdout)
                             # Sort releases by createdAt descending
                             releases = sorted(releases, key=lambda x: x['createdAt'], reverse=True)
-                            self.log(f"✅ Found {len(releases)} releases via GitHub CLI", "success")
+                            self.log(f"Found {len(releases)} releases via GitHub CLI", "success")
                         except json.JSONDecodeError as e:
-                            self.log(f"❌ JSON parse error: {e}", "error")
+                            self.log(f"JSON parse error: {e}", "error")
                     else:
-                        self.log("⚠️ Empty output from gh release list", "warning")
+                        self.log("Empty output from gh release list", "warning")
                 else:
-                    self.log(f"❌ gh release list failed with code {result.returncode}", "error")
+                    self.log(f"gh release list failed with code {result.returncode}", "error")
                     self.log(f"Error: {result.stderr}", "error")
-                    self.log("⚠️ No releases found via GitHub CLI", "warning")
+                    self.log("No releases found via GitHub CLI", "warning")
                 
                 self.log("Running git tag command", "info")
                 # Get all tags (including those without releases)
@@ -1154,20 +1167,20 @@ class ModernReleaseManager(QMainWindow):
                     self.log(f"git stdout: {stdout[:100]}...", "output")
                     if stdout:
                         all_tags = [tag.strip() for tag in stdout.split('\n') if tag.strip()]
-                        self.log(f"✅ Found {len(all_tags)} git tags", "success")
+                        self.log(f"Found {len(all_tags)} git tags", "success")
                     else:
-                        self.log("⚠️ No git tags found", "warning")
+                        self.log("No git tags found", "warning")
                 else:
-                    self.log(f"❌ git tag failed with code {tags_result.returncode}", "error")
+                    self.log(f"git tag failed with code {tags_result.returncode}", "error")
                     self.log(f"Error: {tags_result.stderr}", "error")
                 
                 # Update UI with releases and tags
                 self.update_releases_signal.emit(releases, all_tags)
                 
             except subprocess.TimeoutExpired:
-                self.log("❌ Timeout fetching releases", "error")
+                self.log("Timeout fetching releases", "error")
             except Exception as e:
-                self.log(f"❌ Error fetching releases: {e}", "error")
+                self.log(f"Error fetching releases: {e}", "error")
             finally:
                 self.reset_refreshing_signal.emit()
 
@@ -1216,6 +1229,9 @@ class ModernReleaseManager(QMainWindow):
                     'isPrerelease': False
                 }
                 self.add_release_item(tag_item, is_release=False)
+        
+        # Add stretch at the end to prevent expansion issues
+        self.releases_layout.addStretch()
 
     def clear_releases_layout(self):
         """Clear all widgets from releases layout except placeholder""" 
@@ -1228,24 +1244,30 @@ class ModernReleaseManager(QMainWindow):
                     child.widget().deleteLater()
 
     def add_release_item(self, release, is_release=True):
-        """Add a release/tag item to the releases panel - FIXED VERSION""" 
+        """Add a release/tag item to the releases panel - IMPROVED VERSION""" 
         item_frame = QFrame()
+        item_frame.setObjectName("ReleaseItem")
         item_frame.setStyleSheet("""
-            QFrame {
+            QFrame#ReleaseItem {
                 background-color: #4a4a4a;
-                border-radius: 5px;
+                border-radius: 8px;
                 border: 1px solid #666666;
-                margin: 5px;
-                padding: 5px;
+                margin: 4px;
+                padding: 8px;
+            }
+            QFrame#ReleaseItem:hover {
+                background-color: #5a5a5a;
+                border: 1px solid #777777;
             }
         """)
         
         item_layout = QHBoxLayout(item_frame)
-        item_layout.setContentsMargins(10, 8, 10, 8)
+        item_layout.setContentsMargins(12, 10, 12, 10)
+        item_layout.setSpacing(10)
         
         # Release info
         info_layout = QVBoxLayout()
-        info_layout.setSpacing(2)
+        info_layout.setSpacing(4)
         
         # Title/tag
         title = release.get('name', release['tagName'])
@@ -1280,12 +1302,11 @@ class ModernReleaseManager(QMainWindow):
         meta_label.setStyleSheet("color: #888888; font-size: 9px;")
         info_layout.addWidget(meta_label)
         
-        item_layout.addLayout(info_layout)
-        item_layout.addStretch()
+        item_layout.addLayout(info_layout, 1)
         
         # Status badges container
         badges_layout = QHBoxLayout()
-        badges_layout.setSpacing(3)
+        badges_layout.setSpacing(6)
         
         if is_release:
             if release.get('isDraft'):
@@ -1294,9 +1315,9 @@ class ModernReleaseManager(QMainWindow):
                     QLabel {
                         background-color: #f39c12; 
                         color: white; 
-                        padding: 2px 6px; 
-                        border-radius: 3px; 
-                        font-size: 8px;
+                        padding: 3px 8px; 
+                        border-radius: 4px; 
+                        font-size: 9px;
                         font-weight: bold;
                     }
                 """)
@@ -1308,26 +1329,28 @@ class ModernReleaseManager(QMainWindow):
                     QLabel {
                         background-color: #e67e22; 
                         color: white; 
-                        padding: 2px 6px; 
-                        border-radius: 3px; 
-                        font-size: 8px;
+                        padding: 3px 8px; 
+                        border-radius: 4px; 
+                        font-size: 9px;
                         font-weight: bold;
                     }
                 """)
                 badges_layout.addWidget(pre_label)
         
         item_layout.addLayout(badges_layout)
+        item_layout.addStretch()
         
         # Delete button
         delete_btn = QPushButton("Delete")
-        delete_btn.setFixedSize(60, 30)
+        delete_btn.setFixedSize(70, 32)
         delete_btn.setToolTip(f"Delete {release['tagName']}")
         delete_btn.setStyleSheet("""
             QPushButton {
                 background-color: #e74c3c;
-                border-radius: 3px;
-                font-size: 10px;
+                border-radius: 4px;
+                font-size: 11px;
                 font-weight: bold;
+                padding: 4px 8px;
             }
             QPushButton:hover {
                 background-color: #c0392b;
@@ -1352,7 +1375,7 @@ class ModernReleaseManager(QMainWindow):
         if reply != QMessageBox.StandardButton.Yes:
             return
         
-        self.log(f"🗑️ Deleting {'release' if is_release else 'tag'} {tag_name}...", "warning")
+        self.log(f"Deleting {'release' if is_release else 'tag'} {tag_name}...", "warning")
         
         def delete_operations():
             try:
@@ -1365,9 +1388,9 @@ class ModernReleaseManager(QMainWindow):
                                           cwd=self.project_path, timeout=30)
                     
                     if result.returncode == 0:
-                        self.log(f"✅ GitHub release {tag_name} deleted", "success")
+                        self.log(f"GitHub release {tag_name} deleted", "success")
                     else:
-                        self.log(f"⚠️ Could not delete GitHub release (may not exist): {result.stderr}", "warning")
+                        self.log(f"Could not delete GitHub release (may not exist): {result.stderr}", "warning")
                         # Continue with tag deletion even if release delete fails
                 
                 # Delete local tag
@@ -1376,12 +1399,12 @@ class ModernReleaseManager(QMainWindow):
                                             cwd=self.project_path, timeout=30)
                 
                 if local_result.returncode == 0:
-                    self.log(f"✅ Local tag {tag_name} deleted", "success")
+                    self.log(f"Local tag {tag_name} deleted", "success")
                 else:
                     if "tag '{tag_name}' not found" in local_result.stderr:
-                        self.log(f"✅ No local tag {tag_name} to delete", "info")
+                        self.log(f"No local tag {tag_name} to delete", "info")
                     else:
-                        self.log(f"⚠️ Could not delete local tag: {local_result.stderr}", "warning")
+                        self.log(f"Could not delete local tag: {local_result.stderr}", "warning")
                         success = False
                 
                 # Delete remote tag
@@ -1390,26 +1413,26 @@ class ModernReleaseManager(QMainWindow):
                                              cwd=self.project_path, timeout=30)
                 
                 if remote_result.returncode == 0:
-                    self.log(f"✅ Remote tag {tag_name} deleted", "success")
+                    self.log(f"Remote tag {tag_name} deleted", "success")
                 else:
                     if "remote ref does not exist" in remote_result.stderr:
-                        self.log(f"✅ No remote tag {tag_name} to delete", "info")
+                        self.log(f"No remote tag {tag_name} to delete", "info")
                     else:
-                        self.log(f"⚠️ Could not delete remote tag: {remote_result.stderr}", "warning")
+                        self.log(f"Could not delete remote tag: {remote_result.stderr}", "warning")
                         success = False
                 
                 if success:
-                    self.log(f"✅ Successfully deleted {tag_name}", "success")
+                    self.log(f"Successfully deleted {tag_name}", "success")
                 else:
-                    self.log(f"❌ Some operations failed for {tag_name}", "error")
+                    self.log(f"Some operations failed for {tag_name}", "error")
                 
                 # Refresh the display regardless
                 QTimer.singleShot(1000, self.refresh_releases)
                 
             except subprocess.TimeoutExpired:
-                self.log(f"❌ Timeout deleting {tag_name}", "error")
+                self.log(f"Timeout deleting {tag_name}", "error")
             except Exception as e:
-                self.log(f"❌ Error deleting {tag_name}: {e}", "error")
+                self.log(f"Error deleting {tag_name}: {e}", "error")
         
         threading.Thread(target=delete_operations, daemon=True).start()
 
@@ -1429,9 +1452,9 @@ class ModernReleaseManager(QMainWindow):
                         version = data.get('version', '1.0.0')
                         self.version = version
                         self.version_display.setText(version)
-                        self.log(f"📦 Loaded version: {version}", "success")
+                        self.log(f"Loaded version: {version}", "success")
                 except Exception as e:
-                    self.log(f"❌ Error reading package.json: {e}", "error")
+                    self.log(f"Error reading package.json: {e}", "error")
             
             self.refresh_releases()
 
@@ -1477,7 +1500,7 @@ class ModernReleaseManager(QMainWindow):
     def copy_console(self):
         clipboard = QGuiApplication.clipboard()
         clipboard.setText(self.console_text.toPlainText())
-        self.log("📋 Console output copied to clipboard", "success")
+        self.log("Console output copied to clipboard", "success")
 
     def command_finished(self, success, callback=None):
         self.is_working = False
