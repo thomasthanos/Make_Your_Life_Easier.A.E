@@ -895,22 +895,20 @@ Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -File "${psFile.
 });
 ipcMain.handle('restart-to-bios', async () => {
   return new Promise((resolve) => {
-    if (process.platform !== 'win32') {
-      resolve({ success: false, error: 'This feature is only available on Windows' });
-      return;
-    }
-    const vbsScript = `
-Set UAC = CreateObject("Shell.Application")
-UAC.ShellExecute "cmd", "/c shutdown /r /fw /t 30 /c \"BIOS Restart initiated by Make Your Life Easier App. Computer will restart in 30 seconds.\"", "", "runas", 1
-WScript.Sleep(3000)
-`;
-    const vbsFile = path.join(os.tmpdir(), 'bios_restart.vbs');
-   
+    const tempDir = os.tmpdir();
+    const vbsPath = path.join(tempDir, 'bios_restart.vbs');
+
+    // Use array join with \r\n to avoid indentation/newline issues
+    const vbsContent = [
+      'Set UAC = CreateObject("Shell.Application")',
+      'UAC.ShellExecute "cmd.exe", "/c shutdown /r /fw /t 0", "", "runas", 1'
+    ].join('\r\n');
+
     try {
-      fs.writeFileSync(vbsFile, vbsScript);
-      exec(`wscript "${vbsFile}"`, (error) => {
-        try { fs.unlinkSync(vbsFile); } catch (e) {}
-       
+      fs.writeFileSync(vbsPath, vbsContent);
+      exec(`cscript //nologo "${vbsPath}"`, (error) => {
+        try { fs.unlinkSync(vbsPath); } catch (e) {}
+        
         if (error) {
           resolve({
             success: false,
