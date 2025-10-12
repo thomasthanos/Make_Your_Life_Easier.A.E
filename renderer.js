@@ -43,7 +43,6 @@ const processStates = new Map();
   }
 
   let translations = {};
-  let isManualCheck = false;
   
   // Load translation JSON file based on current language.  It first tries
   // to fetch from the `lang/` subfolder; if that fails (e.g. because

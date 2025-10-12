@@ -9,6 +9,7 @@ const { dialog } = require('electron');
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 let updateAvailable = false;
+let isManualCheck = false;
 let updateDownloaded = false;
 autoUpdater.on('checking-for-update', () => {
   console.log('Checking for updates...');
