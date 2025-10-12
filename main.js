@@ -12,10 +12,11 @@ let updateAvailable = false;
 let updateDownloaded = false;
 autoUpdater.on('checking-for-update', () => {
   console.log('Checking for updates...');
-  if (mainWindow) {
+  if (mainWindow && isManualCheck) {
     mainWindow.webContents.send('update-status', { status: 'checking', message: 'Checking for updates...' });
   }
 });
+
 autoUpdater.on('update-available', (info) => {
   console.log('Update available:', info);
   updateAvailable = true;
@@ -28,15 +29,17 @@ autoUpdater.on('update-available', (info) => {
     });
   }
 });
+
 autoUpdater.on('update-not-available', (info) => {
   console.log('Update not available:', info);
-  if (mainWindow) {
+  if (mainWindow && isManualCheck) {
     mainWindow.webContents.send('update-status', {
       status: 'not-available',
       message: 'You are running the latest version'
     });
   }
 });
+
 autoUpdater.on('download-progress', (progressObj) => {
   console.log('Download progress:', progressObj);
   if (mainWindow) {
@@ -47,6 +50,7 @@ autoUpdater.on('download-progress', (progressObj) => {
     });
   }
 });
+
 autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded:', info);
   updateDownloaded = true;
@@ -58,6 +62,7 @@ autoUpdater.on('update-downloaded', (info) => {
     });
   }
 });
+
 autoUpdater.on('error', (err) => {
   console.log('Update error:', err);
   if (mainWindow) {
@@ -69,10 +74,13 @@ autoUpdater.on('error', (err) => {
 });
 ipcMain.handle('check-for-updates', async () => {
   try {
+    isManualCheck = true;
     await autoUpdater.checkForUpdates();
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
+  } finally {
+    isManualCheck = false;
   }
 });
 ipcMain.handle('download-update', async () => {

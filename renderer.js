@@ -43,7 +43,8 @@ const processStates = new Map();
   }
 
   let translations = {};
-
+  let isManualCheck = false;
+  
   // Load translation JSON file based on current language.  It first tries
   // to fetch from the `lang/` subfolder; if that fails (e.g. because
   // translations are stored at the root level), it falls back to
@@ -3023,6 +3024,7 @@ function initializeAutoUpdater() {
   });
 
   function showUpdateNotification(data) {
+    // No longer skip 'checking' or 'not-available' – show for all statuses
     updateContent.innerHTML = '';
     
     const title = document.createElement('div');
@@ -3040,6 +3042,34 @@ function initializeAutoUpdater() {
     buttonContainer.style.cssText = 'display: flex; gap: 0.5rem; justify-content: flex-end;';
 
     switch (data.status) {
+      case 'checking':
+        title.textContent = '🕒 Checking for Updates';
+        message.textContent = 'Checking for updates...';
+        // No buttons needed – this is transient
+        // Auto-hide after 10 seconds if no further events (safety net)
+        setTimeout(() => {
+          if (updateStatus.style.display !== 'none') {
+            updateStatus.style.display = 'none';
+          }
+        }, 10000);
+        break;
+
+      case 'not-available':
+        title.textContent = '✅ Up to Date';
+        message.textContent = 'You are running the latest version!';
+        const okBtn = document.createElement('button');
+        okBtn.className = 'button button-secondary';
+        okBtn.textContent = 'OK';
+        okBtn.onclick = () => {
+          updateStatus.style.display = 'none';
+        };
+        buttonContainer.appendChild(okBtn);
+        // Auto-hide after 5 seconds for non-critical info
+        setTimeout(() => {
+          updateStatus.style.display = 'none';
+        }, 5000);
+        break;
+
       case 'available':
         const downloadBtn = document.createElement('button');
         downloadBtn.className = 'button';
@@ -3072,6 +3102,8 @@ function initializeAutoUpdater() {
         break;
 
       case 'error':
+        title.textContent = '❌ Update Error';
+        message.textContent = `Update check failed: ${data.message}`;
         const closeBtn = document.createElement('button');
         closeBtn.className = 'button button-secondary';
         closeBtn.textContent = 'Close';
@@ -3079,28 +3111,26 @@ function initializeAutoUpdater() {
           updateStatus.style.display = 'none';
         };
         buttonContainer.appendChild(closeBtn);
+        // Auto-hide after 10 seconds
+        setTimeout(() => {
+          updateStatus.style.display = 'none';
+        }, 10000);
         break;
     }
 
-    if (data.status !== 'downloading') {
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'button button-secondary';
-      closeBtn.textContent = 'Later';
-      closeBtn.onclick = () => {
+    // Add a "Later" button for non-error/transient states
+    if (['available', 'downloaded', 'not-available'].includes(data.status)) {
+      const laterBtn = document.createElement('button');
+      laterBtn.className = 'button button-secondary';
+      laterBtn.textContent = 'Later';
+      laterBtn.onclick = () => {
         updateStatus.style.display = 'none';
       };
-      buttonContainer.appendChild(closeBtn);
+      buttonContainer.appendChild(laterBtn);
     }
 
     updateContent.appendChild(buttonContainer);
     updateStatus.style.display = 'block';
-
-    // Auto-hide "not available" message after 5 seconds
-    if (data.status === 'not-available') {
-      setTimeout(() => {
-        updateStatus.style.display = 'none';
-      }, 5000);
-    }
   }
 
 }
