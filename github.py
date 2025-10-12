@@ -716,7 +716,6 @@ class ModernReleaseManager(QMainWindow):
         self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.placeholder_label.setWordWrap(True)
         self.releases_layout.addWidget(self.placeholder_label)
-
     def setup_quick_release_view(self):
         """Setup the quick release view with checkboxes"""
         self.clear_main_content()
@@ -1996,6 +1995,10 @@ class ModernReleaseManager(QMainWindow):
                         self.log(f"Loaded version: {version}", "success")
                 except Exception as e:
                     self.log(f"Error reading package.json: {e}", "error")
+            
+            # HIDE THE PLACEHOLDER WHEN PROJECT IS SELECTED
+            if hasattr(self, 'placeholder_label') and self.placeholder_label:
+                self.placeholder_label.hide()
             
             self.refresh_releases()
 
