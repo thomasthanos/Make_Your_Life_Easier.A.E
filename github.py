@@ -575,33 +575,79 @@ class ModernReleaseManager(QMainWindow):
         
         layout.addWidget(header)
         
-        # Releases list
+        # Releases list - MODERN VERSION
+        releases_card = QFrame()
+        releases_card.setProperty("card", "true")
+        releases_layout = QVBoxLayout(releases_card)
+        releases_layout.setSpacing(10)
+        
+        # Stats bar
+        stats_widget = QWidget()
+        stats_layout = QHBoxLayout(stats_widget)
+        stats_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.releases_count_label = QLabel("Releases: 0")
+        self.releases_count_label.setStyleSheet("color: #00a8ff; font-weight: bold;")
+        stats_layout.addWidget(self.releases_count_label)
+        
+        self.tags_count_label = QLabel("Tags: 0")
+        self.tags_count_label.setStyleSheet("color: #fbc531; font-weight: bold;")
+        stats_layout.addWidget(self.tags_count_label)
+        
+        stats_layout.addStretch()
+        
+        last_update_label = QLabel("Last update: Never")
+        last_update_label.setStyleSheet("color: #8888aa; font-size: 11px;")
+        stats_layout.addWidget(last_update_label)
+        
+        releases_layout.addWidget(stats_widget)
+        
+        # Releases scroll area
         self.releases_scroll = QScrollArea()
         self.releases_scroll.setWidgetResizable(True)
         self.releases_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.releases_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.releases_scroll.setStyleSheet("""
+            QScrollArea {
+                background: transparent;
+                border: none;
+                border-radius: 8px;
+            }
+            QScrollArea > QWidget > QWidget {
+                background: transparent;
+            }
+        """)
         
         # Create container widget for releases
         self.releases_container = QWidget()
+        self.releases_container.setStyleSheet("background: transparent;")
         self.releases_layout = QVBoxLayout(self.releases_container)
         self.releases_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.releases_layout.setSpacing(8)
-        self.releases_layout.setContentsMargins(10, 10, 10, 10)
+        self.releases_layout.setContentsMargins(5, 5, 5, 5)
         
         # Initial placeholder
-        self.placeholder_label = QLabel("Click 'Refresh' to load releases")
-        self.placeholder_label.setStyleSheet("color: #8888aa; padding: 40px; font-size: 14px; text-align: center;")
+        self.placeholder_label = QLabel("🎯 Click 'Refresh' to load releases\n\n📝 Make sure:\n• GitHub CLI is installed (gh)\n• You are authenticated (gh auth login)\n• Repository has releases or tags")
+        self.placeholder_label.setStyleSheet("""
+            color: #8888aa; 
+            padding: 40px; 
+            font-size: 13px; 
+            text-align: center;
+            line-height: 1.5;
+        """)
         self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.placeholder_label.setWordWrap(True)
         self.releases_layout.addWidget(self.placeholder_label)
         
         self.releases_scroll.setWidget(self.releases_container)
-        layout.addWidget(self.releases_scroll, 1)  # Take available space
+        releases_layout.addWidget(self.releases_scroll, 1)
+        
+        layout.addWidget(releases_card, 1)
         
         # Set as current view
         widget = QWidget()
         widget.setLayout(layout)
         self.main_content_layout.addWidget(widget)
-
     def setup_quick_release_view(self):
         """Setup the quick release view with checkboxes"""
         self.clear_main_content()
@@ -751,13 +797,14 @@ class ModernReleaseManager(QMainWindow):
         details_layout = QVBoxLayout(details_group)
         details_layout.setSpacing(10)
         
-        # Version Input
+        # Version Input - FIXED: Better layout for suggest button
         version_widget = QWidget()
         version_layout = QHBoxLayout(version_widget)
         version_layout.setContentsMargins(0, 0, 0, 0)
         
         version_label = QLabel("Version:")
         version_label.setFixedWidth(80)
+        version_label.setStyleSheet("color: #e0e0ff;")
         version_layout.addWidget(version_label)
         
         self.version_entry = QLineEdit()
@@ -766,7 +813,8 @@ class ModernReleaseManager(QMainWindow):
         
         suggest_btn = QPushButton("💡 Suggest")
         suggest_btn.clicked.connect(self.suggest_version)
-        suggest_btn.setFixedWidth(90)
+        suggest_btn.setFixedWidth(100)  # Increased width
+        suggest_btn.setStyleSheet("font-size: 11px; padding: 8px 5px;")  # Adjusted padding
         version_layout.addWidget(suggest_btn)
         
         details_layout.addWidget(version_widget)
@@ -778,6 +826,7 @@ class ModernReleaseManager(QMainWindow):
         
         title_label = QLabel("Title:")
         title_label.setFixedWidth(80)
+        title_label.setStyleSheet("color: #e0e0ff;")
         title_layout.addWidget(title_label)
         
         self.title_entry = QLineEdit()
@@ -788,10 +837,11 @@ class ModernReleaseManager(QMainWindow):
         
         # Release Notes - More compact
         notes_label = QLabel("Release Notes:")
+        notes_label.setStyleSheet("color: #e0e0ff;")
         details_layout.addWidget(notes_label)
         
         self.notes_text = QTextEdit()
-        self.notes_text.setMaximumHeight(100)  # More compact
+        self.notes_text.setMaximumHeight(120)  # More compact
         self.notes_text.setPlaceholderText("Enter release notes...")
         details_layout.addWidget(self.notes_text)
         
@@ -881,6 +931,10 @@ class ModernReleaseManager(QMainWindow):
 
     def suggest_version(self):
         """Suggests the next version based on release_type""" 
+        if not self.version:
+            self.log("No current version found", "error")
+            return
+            
         current_version = self.version
         suggested_version = self.calculate_new_version(current_version, self.release_type)
         self.log(f"Suggested version: {suggested_version}", "info")
@@ -1528,14 +1582,32 @@ class ModernReleaseManager(QMainWindow):
         threading.Thread(target=fetch_releases, daemon=True).start()
 
     def update_releases_display(self, releases, all_tags):
-        """Update the releases panel with releases and tags - FIXED VERSION""" 
+        """Update the releases panel with releases and tags - MODERN VERSION""" 
         # Clear existing content
         self.clear_releases_layout()
         
+        # Update stats
+        releases_count = len(releases)
+        tags_count = len(all_tags)
+        self.releases_count_label.setText(f"📦 Releases: {releases_count}")
+        self.tags_count_label.setText(f"🏷️ Tags: {tags_count}")
+        
+        # Update last update time
+        current_time = datetime.now().strftime("%H:%M:%S")
+        if hasattr(self, 'last_update_label'):
+            self.last_update_label.setText(f"Last update: {current_time}")
+        
         if not releases and not all_tags:
-            self.placeholder_label = QLabel("No releases or tags found\n\nMake sure:\n• GitHub CLI is installed (gh)\n• You are authenticated (gh auth login)\n• Repository has releases or tags")
-            self.placeholder_label.setStyleSheet("color: #8888aa; padding: 20px; font-size: 12px;")
+            self.placeholder_label = QLabel("🎯 No releases or tags found\n\n📝 Make sure:\n• GitHub CLI is installed (gh)\n• You are authenticated (gh auth login)\n• Repository has releases or tags\n\n🔄 Click 'Refresh' to try again")
+            self.placeholder_label.setStyleSheet("""
+                color: #8888aa; 
+                padding: 40px; 
+                font-size: 13px; 
+                text-align: center;
+                line-height: 1.5;
+            """)
             self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.placeholder_label.setWordWrap(True)
             self.releases_layout.addWidget(self.placeholder_label)
             return
         
@@ -1544,21 +1616,41 @@ class ModernReleaseManager(QMainWindow):
         
         # Display releases first
         if releases:
-            releases_label = QLabel("GitHub Releases:")
-            releases_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-            releases_label.setStyleSheet("color: #00a8ff; margin-top: 10px; margin-bottom: 15px;")  # Increased bottom margin for spacing
-            self.releases_layout.addWidget(releases_label)
+            releases_header = QLabel("🚀 GitHub Releases")
+            releases_header.setStyleSheet("""
+                font-size: 16px; 
+                font-weight: bold; 
+                color: #00a8ff; 
+                margin-top: 10px; 
+                margin-bottom: 10px;
+                padding: 8px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                        stop:0 transparent, stop:0.5 #00a8ff20, stop:1 transparent);
+                border-radius: 6px;
+            """)
+            releases_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.releases_layout.addWidget(releases_header)
             
             for release in releases:
                 self.add_release_item(release, is_release=True)
-    
+
         # Display tags without releases
         tags_without_releases = [tag for tag in all_tags if tag not in release_tags]
         if tags_without_releases:
-            tags_label = QLabel("Git Tags (No Release):")
-            tags_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-            tags_label.setStyleSheet("color: #fbc531; margin-top: 20px; margin-bottom: 15px;")  # Increased bottom margin
-            self.releases_layout.addWidget(tags_label)
+            tags_header = QLabel("🏷️ Git Tags (No Release)")
+            tags_header.setStyleSheet("""
+                font-size: 16px; 
+                font-weight: bold; 
+                color: #fbc531; 
+                margin-top: 20px; 
+                margin-bottom: 10px;
+                padding: 8px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                        stop:0 transparent, stop:0.5 #fbc53120, stop:1 transparent);
+                border-radius: 6px;
+            """)
+            tags_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.releases_layout.addWidget(tags_header)
             
             for tag in tags_without_releases:
                 tag_item = {
@@ -1585,43 +1677,48 @@ class ModernReleaseManager(QMainWindow):
                     child.widget().deleteLater()
 
     def add_release_item(self, release, is_release=True):
-        """Add a release/tag item to the releases panel - IMPROVED VERSION""" 
+        """Add a release/tag item to the releases panel - MODERN VERSION""" 
         item_frame = QFrame()
         item_frame.setObjectName("ReleaseItem")
         item_frame.setStyleSheet("""
             QFrame#ReleaseItem {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                          stop:0 #202036, stop:1 #1c1c30);
-                border-radius: 10px;
+                                        stop:0 #202036, stop:1 #1c1c30);
+                border-radius: 12px;
                 border: 1px solid #2a2a4a;
                 margin: 6px;
-                padding: 12px;
+                padding: 15px;
             }
             QFrame#ReleaseItem:hover {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                          stop:0 #252540, stop:1 #202036);
+                                        stop:0 #252540, stop:1 #202036);
                 border: 1px solid #00a8ff;
+                transform: translateY(-1px);
             }
         """)
         
         item_layout = QHBoxLayout(item_frame)
-        item_layout.setContentsMargins(12, 10, 12, 10)
-        item_layout.setSpacing(10)
+        item_layout.setContentsMargins(15, 12, 15, 12)
+        item_layout.setSpacing(12)
         
-        # Release info
+        # Left side - Release info
         info_layout = QVBoxLayout()
-        info_layout.setSpacing(4)
+        info_layout.setSpacing(6)
         
-        # Title/tag
+        # Title/tag with icon
         title = release.get('name', release['tagName'])
-        title_label = QLabel(title)
-        title_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        title_label = QLabel(f"{'🚀' if is_release else '🏷️'} {title}")
+        title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         title_label.setStyleSheet("color: #ffffff;")
         title_label.setWordWrap(True)
         info_layout.addWidget(title_label)
         
         # Tag name and date
-        meta_text = f"Tag: {release['tagName']}"
+        meta_layout = QHBoxLayout()
+        
+        tag_label = QLabel(f"📌 {release['tagName']}")
+        tag_label.setStyleSheet("color: #00a8ff; font-size: 10px; font-weight: bold; background: #00a8ff20; padding: 2px 8px; border-radius: 10px;")
+        meta_layout.addWidget(tag_label)
         
         # Use publishedAt for releases, createdAt for drafts
         date_str = ""
@@ -1636,16 +1733,24 @@ class ModernReleaseManager(QMainWindow):
                     date_str = date_value.split('T')[0]  # Just get date part
         
         if date_str:
-            meta_text += f" | Date: {date_str}"
+            date_label = QLabel(f"📅 {date_str}")
+            date_label.setStyleSheet("color: #8888aa; font-size: 10px;")
+            meta_layout.addWidget(date_label)
         
         if not is_release:
-            meta_text += " | Git Tag Only"
+            git_tag_label = QLabel("🔖 Git Tag Only")
+            git_tag_label.setStyleSheet("color: #fbc531; font-size: 10px; background: #fbc53120; padding: 2px 8px; border-radius: 10px;")
+            meta_layout.addWidget(git_tag_label)
         
-        meta_label = QLabel(meta_text)
-        meta_label.setStyleSheet("color: #8888aa; font-size: 9px;")
-        info_layout.addWidget(meta_label)
+        meta_layout.addStretch()
+        info_layout.addLayout(meta_layout)
         
         item_layout.addLayout(info_layout, 1)
+        
+        # Right side - Status badges and actions
+        right_layout = QVBoxLayout()
+        right_layout.setSpacing(6)
+        right_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
         # Status badges container
         badges_layout = QHBoxLayout()
@@ -1653,13 +1758,13 @@ class ModernReleaseManager(QMainWindow):
         
         if is_release:
             if release.get('isDraft'):
-                draft_label = QLabel("DRAFT")
+                draft_label = QLabel("📝 DRAFT")
                 draft_label.setStyleSheet("""
                     QLabel {
                         background-color: #fbc531; 
-                        color: white; 
+                        color: #000000; 
                         padding: 3px 8px; 
-                        border-radius: 4px; 
+                        border-radius: 8px; 
                         font-size: 9px;
                         font-weight: bold;
                     }
@@ -1667,31 +1772,31 @@ class ModernReleaseManager(QMainWindow):
                 badges_layout.addWidget(draft_label)
             
             if release.get('isPrerelease'):
-                pre_label = QLabel("PRE-RELEASE")
+                pre_label = QLabel("🔬 PRE-RELEASE")
                 pre_label.setStyleSheet("""
                     QLabel {
-                        background-color: #e67e22; 
+                        background-color: #9c88ff; 
                         color: white; 
                         padding: 3px 8px; 
-                        border-radius: 4px; 
+                        border-radius: 8px; 
                         font-size: 9px;
                         font-weight: bold;
                     }
                 """)
                 badges_layout.addWidget(pre_label)
         
-        item_layout.addLayout(badges_layout)
-        item_layout.addStretch()
+        badges_layout.addStretch()
+        right_layout.addLayout(badges_layout)
         
         # Delete button
         delete_btn = QPushButton("🗑️ Delete")
-        delete_btn.setFixedSize(80, 32)
+        delete_btn.setFixedSize(80, 28)
         delete_btn.setToolTip(f"Delete {release['tagName']}")
         delete_btn.setStyleSheet("""
             QPushButton {
                 background-color: #ff6b6b;
-                border-radius: 4px;
-                font-size: 11px;
+                border-radius: 6px;
+                font-size: 10px;
                 font-weight: bold;
                 padding: 4px 8px;
             }
@@ -1700,8 +1805,10 @@ class ModernReleaseManager(QMainWindow):
             }
         """)
         delete_btn.clicked.connect(lambda checked, tag=release['tagName'], is_rel=is_release: 
-                                 self.delete_release_tag(tag, is_rel))
-        item_layout.addWidget(delete_btn)
+                                self.delete_release_tag(tag, is_rel))
+        right_layout.addWidget(delete_btn)
+        
+        item_layout.addLayout(right_layout)
         
         self.releases_layout.addWidget(item_frame)
 
