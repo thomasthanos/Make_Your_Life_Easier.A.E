@@ -12,7 +12,8 @@ from queue import Queue, Empty
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                             QLabel, QPushButton, QTextEdit, QLineEdit, QProgressBar,
                             QTabWidget, QFrame, QScrollArea, QRadioButton, QButtonGroup,
-                            QFileDialog, QMessageBox, QMenu, QSplitter, QSizePolicy)
+                            QFileDialog, QMessageBox, QMenu, QSplitter, QSizePolicy,
+                            QGridLayout, QGroupBox)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QPalette, QColor, QAction, QTextCursor, QGuiApplication
 
@@ -81,8 +82,8 @@ class ModernReleaseManager(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("GitHub Release Manager - Simplified")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setWindowTitle("🚀 GitHub Release Manager - Modern")
+        self.setGeometry(100, 100, 1400, 900)
         
         # Variables
         self.version = "1.0.0"
@@ -94,7 +95,7 @@ class ModernReleaseManager(QMainWindow):
         self.command_queue = Queue()
         
         self.setup_ui()
-        self.setup_styles()
+        self.setup_modern_styles()
         
         self.log_signal.connect(self._log_to_console)
         self.update_releases_signal.connect(self.update_releases_display)
@@ -108,115 +109,263 @@ class ModernReleaseManager(QMainWindow):
     def _reset_refreshing(self):
         self.is_refreshing = False
 
-    def setup_styles(self):
+    def setup_modern_styles(self):
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #2b2b2b;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                          stop:0 #1a1a2e, stop:1 #16213e);
                 color: #ffffff;
+                font-family: 'Segoe UI', Arial, sans-serif;
             }
-            QFrame {
-                background-color: #3c3c3c;
-                border-radius: 5px;
-                border: 1px solid #555555;
+            
+            /* Modern Cards */
+            QFrame[card="true"] {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #2d2d44, stop:1 #252536);
+                border-radius: 12px;
+                border: 1px solid #404060;
+                padding: 15px;
             }
+            
+            QFrame[card="true"]:hover {
+                border: 1px solid #505080;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #35354c, stop:1 #2d2d44);
+            }
+            
+            /* Sidebar */
+            QFrame#sidebar {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                          stop:0 #1f1f3d, stop:1 #252536);
+                border-right: 1px solid #404060;
+            }
+            
+            /* Labels */
             QLabel {
-                color: #ffffff;
-                padding: 5px;
+                color: #e0e0ff;
+                padding: 2px;
             }
+            
+            QLabel.title {
+                font-size: 18px;
+                font-weight: bold;
+                color: #ffffff;
+                padding: 8px 0px;
+            }
+            
+            QLabel.subtitle {
+                font-size: 12px;
+                color: #a0a0c0;
+                padding: 2px 0px;
+            }
+            
+            /* Modern Buttons */
             QPushButton {
-                background-color: #007acc;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #6C63FF, stop:1 #4a44cc);
                 color: white;
                 border: none;
-                padding: 8px 15px;
-                border-radius: 4px;
+                padding: 12px 20px;
+                border-radius: 8px;
                 font-weight: bold;
+                font-size: 12px;
+                min-height: 20px;
             }
+            
             QPushButton:hover {
-                background-color: #005a9e;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #7d75ff, stop:1 #5a54dd);
             }
+            
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #5a54dd, stop:1 #4a44cc);
+            }
+            
             QPushButton:disabled {
-                background-color: #555555;
-                color: #888888;
+                background: #404060;
+                color: #8888aa;
             }
+            
             QPushButton.danger {
-                background-color: #e74c3c;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #ff6b6b, stop:1 #cc5555);
             }
+            
             QPushButton.danger:hover {
-                background-color: #c0392b;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #ff7b7b, stop:1 #dd6666);
             }
+            
             QPushButton.success {
-                background-color: #27ae60;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #27ae60, stop:1 #219653);
             }
+            
             QPushButton.success:hover {
-                background-color: #219653;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #32c471, stop:1 #27ae60);
             }
-            QTextEdit, QLineEdit {
-                background-color: #1e1e1e;
+            
+            QPushButton.warning {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #f39c12, stop:1 #d35400);
+            }
+            
+            /* Input Fields */
+            QLineEdit, QTextEdit {
+                background: #1e1e2e;
                 color: #ffffff;
-                border: 1px solid #555555;
-                border-radius: 4px;
-                padding: 5px;
-                font-family: 'Consolas', monospace;
+                border: 2px solid #404060;
+                border-radius: 8px;
+                padding: 10px;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 12px;
+                selection-background-color: #6C63FF;
             }
+            
+            QLineEdit:focus, QTextEdit:focus {
+                border: 2px solid #6C63FF;
+                background: #252536;
+            }
+            
+            QLineEdit::placeholder, QTextEdit::placeholder {
+                color: #666699;
+            }
+            
+            /* Progress Bar */
             QProgressBar {
-                border: 1px solid #555555;
-                border-radius: 4px;
-                background-color: #1e1e1e;
+                border: 2px solid #404060;
+                border-radius: 8px;
+                background: #1e1e2e;
                 text-align: center;
                 color: white;
+                font-weight: bold;
             }
+            
             QProgressBar::chunk {
-                background-color: #007acc;
-                border-radius: 3px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                          stop:0 #6C63FF, stop:1 #4a44cc);
+                border-radius: 6px;
             }
+            
+            /* Tabs */
             QTabWidget::pane {
-                border: 1px solid #555555;
-                background-color: #3c3c3c;
+                border: 1px solid #404060;
+                background: transparent;
+                border-radius: 12px;
             }
+            
             QTabBar::tab {
-                background-color: #2b2b2b;
-                color: #ffffff;
-                padding: 8px 15px;
-                border: 1px solid #555555;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #2d2d44, stop:1 #252536);
+                color: #a0a0c0;
+                padding: 12px 20px;
+                border: 1px solid #404060;
                 border-bottom: none;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+                margin-right: 2px;
+                font-weight: bold;
             }
+            
             QTabBar::tab:selected {
-                background-color: #007acc;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #6C63FF, stop:1 #4a44cc);
+                color: white;
+                border: 1px solid #6C63FF;
             }
-            QTabBar::tab:hover {
-                background-color: #005a9e;
+            
+            QTabBar::tab:hover:!selected {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #404060, stop:1 #35354c);
+                color: #e0e0ff;
             }
+            
+            /* Radio Buttons */
             QRadioButton {
-                color: #ffffff;
-                spacing: 8px;
+                color: #e0e0ff;
+                spacing: 12px;
+                font-size: 13px;
+                padding: 8px 0px;
             }
+            
             QRadioButton::indicator {
-                width: 16px;
-                height: 16px;
-                border-radius: 8px;
-                border: 2px solid #888888;
+                width: 18px;
+                height: 18px;
+                border-radius: 9px;
+                border: 2px solid #666699;
             }
+            
             QRadioButton::indicator:checked {
-                background-color: #007acc;
-                border: 2px solid #007acc;
+                background: #6C63FF;
+                border: 2px solid #6C63FF;
             }
+            
+            QRadioButton::indicator:hover {
+                border: 2px solid #8888cc;
+            }
+            
+            /* Scroll Areas */
             QScrollArea {
                 border: none;
-                background-color: transparent;
+                background: transparent;
             }
-            /* Improved item styling */
+            
+            QScrollBar:vertical {
+                background: #2d2d44;
+                width: 12px;
+                border-radius: 6px;
+            }
+            
+            QScrollBar::handle:vertical {
+                background: #6C63FF;
+                border-radius: 6px;
+                min-height: 20px;
+            }
+            
+            QScrollBar::handle:vertical:hover {
+                background: #7d75ff;
+            }
+            
+            /* Release Items */
             .ReleaseItem {
-                background-color: #4a4a4a;
-                border-radius: 8px;
-                border: 1px solid #666666;
-                margin: 4px;
-                padding: 8px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #35354c, stop:1 #2d2d44);
+                border-radius: 10px;
+                border: 1px solid #404060;
+                margin: 6px;
+                padding: 12px;
             }
+            
             .ReleaseItem:hover {
-                background-color: #5a5a5a;
-                border: 1px solid #777777;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #3d3d54, stop:1 #35354c);
+                border: 1px solid #6C63FF;
+            }
+            
+            /* Group Boxes */
+            QGroupBox {
+                color: #6C63FF;
+                font-weight: bold;
+                font-size: 14px;
+                border: 2px solid #404060;
+                border-radius: 10px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 8px 0 8px;
+            }
+            
+            /* Status Bar */
+            QStatusBar {
+                background: #1f1f3d;
+                color: #a0a0c0;
+                border-top: 1px solid #404060;
             }
         """)
 
@@ -225,11 +374,11 @@ class ModernReleaseManager(QMainWindow):
         self.setCentralWidget(central_widget)
         
         main_layout = QHBoxLayout(central_widget)
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         
-        # Sidebar
-        self.create_sidebar(main_layout)
+        # Modern Sidebar
+        self.create_modern_sidebar(main_layout)
         
         # Main content area
         self.create_main_content(main_layout)
@@ -237,74 +386,104 @@ class ModernReleaseManager(QMainWindow):
         # Status bar
         self.create_status_bar()
 
-    def create_sidebar(self, parent_layout):
+    def create_modern_sidebar(self, parent_layout):
         sidebar = QFrame()
-        sidebar.setFixedWidth(250)
+        sidebar.setObjectName("sidebar")
+        sidebar.setFixedWidth(280)
         sidebar.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         
         sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(10, 10, 10, 10)
-        sidebar_layout.setSpacing(10)
+        sidebar_layout.setContentsMargins(15, 20, 15, 20)
+        sidebar_layout.setSpacing(20)
         
-        # Project Section
-        project_section = QFrame()
-        project_layout = QVBoxLayout(project_section)
+        # App Title
+        title_label = QLabel("🚀 Release Manager")
+        title_label.setStyleSheet("font-size: 20px; font-weight: bold; color: #6C63FF; padding: 10px 0px;")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sidebar_layout.addWidget(title_label)
         
-        project_label = QLabel("PROJECT")
-        project_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        project_label.setStyleSheet("color: #888888;")
+        # Project Section Card
+        project_card = QFrame()
+        project_card.setProperty("card", "true")
+        project_layout = QVBoxLayout(project_card)
+        project_layout.setSpacing(12)
+        
+        project_label = QLabel("📁 PROJECT")
+        project_label.setStyleSheet("color: #6C63FF; font-size: 14px; font-weight: bold;")
         project_layout.addWidget(project_label)
         
         # Project Path
-        self.select_path_btn = QPushButton("Select Project")
+        self.select_path_btn = QPushButton("📂 Select Project Folder")
         self.select_path_btn.clicked.connect(self.browse_project_path)
+        self.select_path_btn.setStyleSheet("text-align: left; padding-left: 15px;")
         project_layout.addWidget(self.select_path_btn)
         
         self.path_label = QLabel("No project selected")
         self.path_label.setWordWrap(True)
-        self.path_label.setStyleSheet("color: #888888; font-size: 10px;")
+        self.path_label.setStyleSheet("color: #a0a0c0; font-size: 11px; background: #252536; padding: 8px; border-radius: 6px;")
         project_layout.addWidget(self.path_label)
         
-        # Version Info
+        # Version Info Card
+        version_card = QFrame()
+        version_card.setProperty("card", "true")
+        version_layout = QVBoxLayout(version_card)
+        
+        version_title = QLabel("📊 Version Info")
+        version_title.setStyleSheet("color: #6C63FF; font-size: 14px; font-weight: bold;")
+        version_layout.addWidget(version_title)
+        
         version_label = QLabel("Current Version:")
-        project_layout.addWidget(version_label)
+        version_label.setStyleSheet("color: #a0a0c0; font-size: 12px;")
+        version_layout.addWidget(version_label)
         
         self.version_display = QLabel("1.0.0")
-        self.version_display.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        project_layout.addWidget(self.version_display)
+        self.version_display.setStyleSheet("font-size: 24px; font-weight: bold; color: #6C63FF; padding: 5px 0px;")
+        self.version_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        version_layout.addWidget(self.version_display)
         
         # Project Status
-        self.project_status = QLabel("No project selected")
-        self.project_status.setStyleSheet("color: #e74c3c; font-size: 10px;")
-        project_layout.addWidget(self.project_status)
+        self.project_status = QLabel("⏳ No project selected")
+        self.project_status.setStyleSheet("color: #f39c12; font-size: 11px; background: #252536; padding: 8px; border-radius: 6px;")
+        version_layout.addWidget(self.project_status)
         
-        project_layout.addStretch()
-        sidebar_layout.addWidget(project_section)
+        project_layout.addWidget(version_card)
+        sidebar_layout.addWidget(project_card)
         
-        # Navigation
-        nav_section = QFrame()
-        nav_layout = QVBoxLayout(nav_section)
+        # Navigation Section
+        nav_card = QFrame()
+        nav_card.setProperty("card", "true")
+        nav_layout = QVBoxLayout(nav_card)
+        
+        nav_label = QLabel("🧭 Navigation")
+        nav_label.setStyleSheet("color: #6C63FF; font-size: 14px; font-weight: bold; padding-bottom: 10px;")
+        nav_layout.addWidget(nav_label)
         
         nav_buttons = [
-            ("View Releases", self.show_releases),
-            ("Quick Releases", self.show_quick_release),
-            ("Advanced", self.show_advanced),
+            ("📋 View Releases", self.show_releases),
+            ("⚡ Quick Releases", self.show_quick_release),
+            ("⚙️ Advanced Tools", self.show_advanced),
         ]
         
         for text, command in nav_buttons:
             btn = QPushButton(text)
             btn.clicked.connect(command)
-            btn.setStyleSheet("text-align: left; padding: 10px;")
+            btn.setStyleSheet("text-align: left; padding: 12px 15px; font-size: 13px;")
             nav_layout.addWidget(btn)
         
-        sidebar_layout.addWidget(nav_section)
+        sidebar_layout.addWidget(nav_card)
         sidebar_layout.addStretch()
         
         parent_layout.addWidget(sidebar)
 
     def create_main_content(self, parent_layout):
-        main_content = QFrame()
+        main_content = QWidget()
         main_layout = QVBoxLayout(main_content)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(15)
+        
+        # Use QSplitter for resizable tab and console
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter.setStyleSheet("QSplitter::handle { background: #404060; }")
         
         # Tab widget
         self.tab_widget = QTabWidget()
@@ -314,90 +493,106 @@ class ModernReleaseManager(QMainWindow):
         self.quick_tab = QWidget()
         self.advanced_tab = QWidget()
         
-        self.tab_widget.addTab(self.releases_tab, "Releases")
-        self.tab_widget.addTab(self.quick_tab, "Quick Releases")
-        self.tab_widget.addTab(self.advanced_tab, "Advanced")
+        self.tab_widget.addTab(self.releases_tab, "📋 Releases")
+        self.tab_widget.addTab(self.quick_tab, "⚡ Quick Release")
+        self.tab_widget.addTab(self.advanced_tab, "⚙️ Advanced")
         
         self.setup_releases_tab()
         self.setup_quick_tab()
         self.setup_advanced_tab()
         
-        main_layout.addWidget(self.tab_widget)
+        self.splitter.addWidget(self.tab_widget)
         
-        # Console area
+        # Console area - LARGER OUTPUT
         console_frame = QFrame()
+        console_frame.setProperty("card", "true")
         console_layout = QVBoxLayout(console_frame)
+        console_layout.setSpacing(10)
         
         # Console header
-        console_header = QFrame()
+        console_header = QWidget()
         console_header_layout = QHBoxLayout(console_header)
+        console_header_layout.setContentsMargins(0, 0, 0, 0)
         
-        console_label = QLabel("Output Console")
-        console_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        console_label = QLabel("📊 Output Console")
+        console_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #6C63FF;")
         console_header_layout.addWidget(console_label)
         
         console_header_layout.addStretch()
         
         # Console buttons
-        clear_btn = QPushButton("Clear")
+        clear_btn = QPushButton("🗑️ Clear")
         clear_btn.clicked.connect(self.clear_console)
+        clear_btn.setFixedWidth(100)
         console_header_layout.addWidget(clear_btn)
         
-        copy_btn = QPushButton("Copy")
+        copy_btn = QPushButton("📋 Copy")
         copy_btn.clicked.connect(self.copy_console)
+        copy_btn.setFixedWidth(100)
         console_header_layout.addWidget(copy_btn)
         
-        stop_btn = QPushButton("Stop")
+        stop_btn = QPushButton("⏹️ Stop")
         stop_btn.clicked.connect(self.stop_all_commands)
-        stop_btn.setStyleSheet("background-color: #e74c3c;")
+        stop_btn.setStyleSheet("background-color: #ff6b6b;")
+        stop_btn.setFixedWidth(100)
         console_header_layout.addWidget(stop_btn)
         
         console_layout.addWidget(console_header)
         
-        # Console text area
+        # Console text area - MADE LARGER
         self.console_text = QTextEdit()
-        self.console_text.setFont(QFont("Consolas", 10))
+        self.console_text.setFont(QFont("Consolas", 11))  # Larger font
         self.console_text.setReadOnly(True)
+        self.console_text.setMinimumHeight(250)  # Minimum height increased
         console_layout.addWidget(self.console_text)
         
-        main_layout.addWidget(console_frame)
+        self.splitter.addWidget(console_frame)
         
-        parent_layout.addWidget(main_content)
+        # Set sizes: console takes 45% of space (larger output)
+        self.splitter.setStretchFactor(0, 55)
+        self.splitter.setStretchFactor(1, 45)
+        self.splitter.setSizes([500, 400])  # Initial heights
+        
+        main_layout.addWidget(self.splitter)
+        parent_layout.addWidget(main_content, 1)  # Take remaining space
 
     def create_status_bar(self):
         self.status_bar = self.statusBar()
-        self.status_bar.showMessage("Ready")
+        self.status_bar.showMessage("✅ Ready")
         
         self.progress_bar = QProgressBar()
-        self.progress_bar.setMaximumWidth(200)
+        self.progress_bar.setMaximumWidth(250)
         self.progress_bar.setVisible(False)
         self.status_bar.addPermanentWidget(self.progress_bar)
 
     def setup_releases_tab(self):
         layout = QVBoxLayout(self.releases_tab)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(15)
         
         # Header
-        header = QFrame()
+        header = QWidget()
         header_layout = QHBoxLayout(header)
         
-        title = QLabel("Release History")
-        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        title = QLabel("📋 Release History")
+        title.setStyleSheet("font-size: 24px; font-weight: bold; color: #6C63FF;")
         header_layout.addWidget(title)
         
         header_layout.addStretch()
         
-        refresh_btn = QPushButton("Refresh")
+        refresh_btn = QPushButton("🔄 Refresh")
         refresh_btn.clicked.connect(self.refresh_releases)
+        refresh_btn.setFixedWidth(120)
         header_layout.addWidget(refresh_btn)
         
-        # Test button for debugging
-        test_btn = QPushButton("Test GitHub CLI")
+        test_btn = QPushButton("🔧 Test GitHub CLI")
         test_btn.clicked.connect(self.test_github_cli)
+        test_btn.setFixedWidth(140)
         header_layout.addWidget(test_btn)
         
         layout.addWidget(header)
         
-        # Releases list - FIXED: Create proper scroll area
+        # Releases list
         self.releases_scroll = QScrollArea()
         self.releases_scroll.setWidgetResizable(True)
         self.releases_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -407,144 +602,270 @@ class ModernReleaseManager(QMainWindow):
         self.releases_container = QWidget()
         self.releases_layout = QVBoxLayout(self.releases_container)
         self.releases_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.releases_layout.setSpacing(6)  # Add spacing between items
+        self.releases_layout.setSpacing(8)
+        self.releases_layout.setContentsMargins(10, 10, 10, 10)
         
         # Initial placeholder
         self.placeholder_label = QLabel("Click 'Refresh' to load releases")
-        self.placeholder_label.setStyleSheet("color: #888888; padding: 20px;")
+        self.placeholder_label.setStyleSheet("color: #8888aa; padding: 40px; font-size: 14px; text-align: center;")
         self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.releases_layout.addWidget(self.placeholder_label)
         
         self.releases_scroll.setWidget(self.releases_container)
-        layout.addWidget(self.releases_scroll)
+        layout.addWidget(self.releases_scroll, 1)  # Take available space
 
     def setup_quick_tab(self):
         layout = QVBoxLayout(self.quick_tab)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
         
-        # Release type selection
-        type_frame = QFrame()
-        type_layout = QVBoxLayout(type_frame)
+        # Title
+        title = QLabel("⚡ Quick Release")
+        title.setStyleSheet("font-size: 24px; font-weight: bold; color: #6C63FF; text-align: center; padding: 10px;")
+        layout.addWidget(title)
         
-        type_label = QLabel("Release Type")
-        type_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        type_layout.addWidget(type_label)
+        # Main content area
+        content_widget = QWidget()
+        content_layout = QHBoxLayout(content_widget)
+        content_layout.setSpacing(30)
+        
+        # Left side - Release type selection
+        left_frame = QFrame()
+        left_frame.setProperty("card", "true")
+        left_frame.setFixedWidth(400)
+        left_layout = QVBoxLayout(left_frame)
+        left_layout.setSpacing(15)
+        
+        type_label = QLabel("🎯 Release Type")
+        type_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #6C63FF;")
+        left_layout.addWidget(type_label)
         
         self.type_group = QButtonGroup()
         
         types = [
-            ("Patch", "patch", "Bug fixes"),
-            ("Minor", "minor", "New features"),
-            ("Major", "major", "Breaking changes")
+            ("🔧 Patch Release", "patch", "Bug fixes and minor updates", "#27ae60"),
+            ("✨ Minor Release", "minor", "New features and improvements", "#3498db"),
+            ("🚀 Major Release", "major", "Breaking changes and major updates", "#e74c3c")
         ]
         
-        for text, value, description in types:
-            radio_frame = QFrame()
-            radio_layout = QHBoxLayout(radio_frame)
+        for text, value, description, color in types:
+            radio_card = QFrame()
+            radio_card.setProperty("card", "true")
+            radio_layout = QVBoxLayout(radio_card)
+            radio_layout.setSpacing(8)
             
+            radio_row = QHBoxLayout()
             radio = QRadioButton(text)
             radio.setProperty("value", value)
+            radio.setStyleSheet(f"color: {color}; font-weight: bold; font-size: 14px;")
             if value == "patch":
                 radio.setChecked(True)
             
             self.type_group.addButton(radio)
             radio.toggled.connect(self.on_release_type_changed)
-            radio_layout.addWidget(radio)
+            radio_row.addWidget(radio)
+            radio_row.addStretch()
             
             desc_label = QLabel(description)
-            desc_label.setStyleSheet("color: #888888;")
-            radio_layout.addWidget(desc_label)
-            radio_layout.addStretch()
+            desc_label.setStyleSheet("color: #a0a0c0; font-size: 12px; padding-left: 25px;")
+            desc_label.setWordWrap(True)
             
-            type_layout.addWidget(radio_frame)
+            radio_layout.addLayout(radio_row)
+            radio_layout.addWidget(desc_label)
+            left_layout.addWidget(radio_card)
         
-        layout.addWidget(type_frame)
+        left_layout.addStretch()
+        content_layout.addWidget(left_frame)
+        
+        # Right side - Quick actions
+        right_frame = QFrame()
+        right_frame.setProperty("card", "true")
+        right_layout = QVBoxLayout(right_frame)
+        right_layout.setSpacing(20)
+        
+        action_label = QLabel("⚡ Quick Actions")
+        action_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #6C63FF;")
+        right_layout.addWidget(action_label)
+        
+        # Version preview
+        preview_card = QFrame()
+        preview_card.setProperty("card", "true")
+        preview_layout = QVBoxLayout(preview_card)
+        
+        preview_label = QLabel("📊 Version Preview")
+        preview_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #6C63FF;")
+        preview_layout.addWidget(preview_label)
+        
+        self.version_preview = QLabel("1.0.1")
+        self.version_preview.setStyleSheet("font-size: 32px; font-weight: bold; color: #27ae60; text-align: center; padding: 15px;")
+        self.version_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        preview_layout.addWidget(self.version_preview)
+        
+        preview_note = QLabel("Next version based on current selection")
+        preview_note.setStyleSheet("color: #a0a0c0; font-size: 11px; text-align: center;")
+        preview_layout.addWidget(preview_note)
+        
+        right_layout.addWidget(preview_card)
         
         # Quick action button
-        quick_btn = QPushButton("Quick Release")
+        quick_btn = QPushButton("🚀 CREATE QUICK RELEASE")
         quick_btn.clicked.connect(lambda: self.queue_command(self.auto_release))
         quick_btn.setStyleSheet("""
             QPushButton {
                 font-size: 16px;
-                height: 50px;
-                background-color: #27ae60;
+                font-weight: bold;
+                height: 60px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                          stop:0 #6C63FF, stop:0.5 #4a44cc, stop:1 #6C63FF);
             }
             QPushButton:hover {
-                background-color: #219653;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                          stop:0 #7d75ff, stop:0.5 #5a54dd, stop:1 #7d75ff);
             }
         """)
-        layout.addWidget(quick_btn)
+        right_layout.addWidget(quick_btn)
+        
+        right_layout.addStretch()
+        content_layout.addWidget(right_frame)
+        
+        layout.addWidget(content_widget, 1)
         layout.addStretch()
 
     def setup_advanced_tab(self):
         layout = QVBoxLayout(self.advanced_tab)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(15)
         
-        # Release details
-        details_frame = QFrame()
-        details_layout = QVBoxLayout(details_frame)
+        # Title
+        title = QLabel("⚙️ Advanced Tools")
+        title.setStyleSheet("font-size: 24px; font-weight: bold; color: #6C63FF; text-align: center; padding: 10px;")
+        layout.addWidget(title)
         
-        details_label = QLabel("Release Details")
-        details_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        details_layout.addWidget(details_label)
+        # Use grid layout for compact arrangement
+        grid_widget = QWidget()
+        grid_layout = QGridLayout(grid_widget)
+        grid_layout.setSpacing(15)
         
-        # Version Input - NEW FIELD
+        # Release Details - Left Column
+        details_group = QGroupBox("📝 Release Details")
+        details_layout = QVBoxLayout(details_group)
+        details_layout.setSpacing(10)
+        
+        # Version Input
+        version_widget = QWidget()
+        version_layout = QHBoxLayout(version_widget)
+        version_layout.setContentsMargins(0, 0, 0, 0)
+        
         version_label = QLabel("Version:")
-        details_layout.addWidget(version_label)
-        
-        version_layout = QHBoxLayout()
+        version_label.setFixedWidth(80)
+        version_layout.addWidget(version_label)
         
         self.version_entry = QLineEdit()
         self.version_entry.setPlaceholderText("e.g., 1.2.3")
         version_layout.addWidget(self.version_entry)
         
-        # Button for suggesting version
-        suggest_btn = QPushButton("Suggest")
+        suggest_btn = QPushButton("💡 Suggest")
         suggest_btn.clicked.connect(self.suggest_version)
-        suggest_btn.setFixedWidth(80)
+        suggest_btn.setFixedWidth(90)
         version_layout.addWidget(suggest_btn)
         
-        details_layout.addLayout(version_layout)
+        details_layout.addWidget(version_widget)
         
         # Title
-        title_label = QLabel("Release Title:")
-        details_layout.addWidget(title_label)
+        title_widget = QWidget()
+        title_layout = QHBoxLayout(title_widget)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        
+        title_label = QLabel("Title:")
+        title_label.setFixedWidth(80)
+        title_layout.addWidget(title_label)
         
         self.title_entry = QLineEdit()
         self.title_entry.setPlaceholderText("Auto-generated if empty")
-        details_layout.addWidget(self.title_entry)
+        title_layout.addWidget(self.title_entry)
         
-        # Release Notes
+        details_layout.addWidget(title_widget)
+        
+        # Release Notes - More compact
         notes_label = QLabel("Release Notes:")
         details_layout.addWidget(notes_label)
         
         self.notes_text = QTextEdit()
-        self.notes_text.setMaximumHeight(150)
+        self.notes_text.setMaximumHeight(100)  # More compact
+        self.notes_text.setPlaceholderText("Enter release notes...")
         details_layout.addWidget(self.notes_text)
         
-        layout.addWidget(details_frame)
+        grid_layout.addWidget(details_group, 0, 0)
         
-        # Advanced actions
-        actions_frame = QFrame()
-        actions_layout = QVBoxLayout(actions_frame)
+        # Build Actions - Right Top
+        build_group = QGroupBox("🔨 Build Actions")
+        build_layout = QVBoxLayout(build_group)
+        build_layout.setSpacing(8)
         
-        actions_label = QLabel("Actions")
-        actions_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        actions_layout.addWidget(actions_label)
-        
-        action_buttons = [
-            ("Build", lambda: self.queue_command(self.safe_build_single)),
-            ("Update Latest Release", self.update_release),
-            ("Delete Latest Release", self.delete_current_tag),
-            ("Create Release", self.create_release),
-            ("Clean & Rebuild", self.clean_and_rebuild),
+        build_buttons = [
+            ("🔧 Build Project", lambda: self.queue_command(self.safe_build_single)),
+            ("🧹 Clean & Rebuild", self.clean_and_rebuild),
         ]
         
-        for text, command in action_buttons:
+        for text, command in build_buttons:
             btn = QPushButton(text)
             btn.clicked.connect(command)
-            actions_layout.addWidget(btn)
+            btn.setMinimumHeight(35)
+            build_layout.addWidget(btn)
         
-        layout.addWidget(actions_frame)
+        grid_layout.addWidget(build_group, 0, 1)
+        
+        # Release Actions - Right Middle
+        release_group = QGroupBox("🚀 Release Actions")
+        release_layout = QVBoxLayout(release_group)
+        release_layout.setSpacing(8)
+        
+        release_buttons = [
+            ("📦 Create Release", self.create_release),
+            ("✏️ Update Latest Release", self.update_release),
+        ]
+        
+        for text, command in release_buttons:
+            btn = QPushButton(text)
+            btn.clicked.connect(command)
+            btn.setMinimumHeight(35)
+            release_layout.addWidget(btn)
+        
+        grid_layout.addWidget(release_group, 1, 1)
+        
+        # Danger Zone - Right Bottom
+        danger_group = QGroupBox("⚠️ Danger Zone")
+        danger_layout = QVBoxLayout(danger_group)
+        danger_layout.setSpacing(8)
+        
+        danger_buttons = [
+            ("🗑️ Delete Latest Release", self.delete_current_tag),
+        ]
+        
+        for text, command in danger_buttons:
+            btn = QPushButton(text)
+            btn.clicked.connect(command)
+            btn.setMinimumHeight(35)
+            btn.setStyleSheet("background-color: #e74c3c;")
+            danger_layout.addWidget(btn)
+        
+        grid_layout.addWidget(danger_group, 1, 0)
+        
+        # Set column stretch for proper spacing
+        grid_layout.setColumnStretch(0, 1)
+        grid_layout.setColumnStretch(1, 1)
+        
+        layout.addWidget(grid_widget, 1)
         layout.addStretch()
+
+    def on_release_type_changed(self):
+        radio = self.sender()
+        if radio.isChecked():
+            self.release_type = radio.property("value")
+            # Update version preview
+            if self.version:
+                new_version = self.calculate_new_version(self.version, self.release_type)
+                self.version_preview.setText(new_version)
 
     def suggest_version(self):
         """Suggests the next version based on release_type""" 
@@ -552,11 +873,6 @@ class ModernReleaseManager(QMainWindow):
         suggested_version = self.calculate_new_version(current_version, self.release_type)
         self.log(f"Suggested version: {suggested_version}", "info")
         self.version_entry.setText(suggested_version)
-
-    def on_release_type_changed(self):
-        radio = self.sender()
-        if radio.isChecked():
-            self.release_type = radio.property("value")
 
     # Command Queue System
     def queue_command(self, command_func):
@@ -688,14 +1004,14 @@ class ModernReleaseManager(QMainWindow):
     def update_project_status(self):
         if self.check_project_selected():
             if self.check_git_repository():
-                self.project_status.setText("Ready (Git)")
-                self.project_status.setStyleSheet("color: #27ae60;")
+                self.project_status.setText("✅ Ready (Git)")
+                self.project_status.setStyleSheet("color: #27ae60; font-size: 11px; background: #252536; padding: 8px; border-radius: 6px;")
             else:
-                self.project_status.setText("Ready (No Git)")
-                self.project_status.setStyleSheet("color: #f39c12;")
+                self.project_status.setText("⚠️ Ready (No Git)")
+                self.project_status.setStyleSheet("color: #f39c12; font-size: 11px; background: #252536; padding: 8px; border-radius: 6px;")
         else:
-            self.project_status.setText("No project")
-            self.project_status.setStyleSheet("color: #e74c3c;")
+            self.project_status.setText("❌ No project")
+            self.project_status.setStyleSheet("color: #e74c3c; font-size: 11px; background: #252536; padding: 8px; border-radius: 6px;")
 
     def kill_electron_only(self):
         self.log("Killing Electron processes...", "warning")
@@ -992,6 +1308,7 @@ class ModernReleaseManager(QMainWindow):
         """Update version in UI""" 
         self.version = new_version
         self.version_display.setText(new_version)
+        self.version_preview.setText(self.calculate_new_version(new_version, self.release_type))
         self.version_entry.clear()  # Clear the field
 
     def calculate_new_version(self, current_version, release_type):
@@ -1193,7 +1510,7 @@ class ModernReleaseManager(QMainWindow):
         
         if not releases and not all_tags:
             self.placeholder_label = QLabel("No releases or tags found\n\nMake sure:\n• GitHub CLI is installed (gh)\n• You are authenticated (gh auth login)\n• Repository has releases or tags")
-            self.placeholder_label.setStyleSheet("color: #888888; padding: 20px; font-size: 12px;")
+            self.placeholder_label.setStyleSheet("color: #8888aa; padding: 20px; font-size: 12px;")
             self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.releases_layout.addWidget(self.placeholder_label)
             return
@@ -1205,7 +1522,7 @@ class ModernReleaseManager(QMainWindow):
         if releases:
             releases_label = QLabel("GitHub Releases:")
             releases_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-            releases_label.setStyleSheet("color: #3498db; margin-top: 10px; margin-bottom: 5px;")
+            releases_label.setStyleSheet("color: #3498db; margin-top: 10px; margin-bottom: 15px;")  # Increased bottom margin for spacing
             self.releases_layout.addWidget(releases_label)
             
             for release in releases:
@@ -1216,7 +1533,7 @@ class ModernReleaseManager(QMainWindow):
         if tags_without_releases:
             tags_label = QLabel("Git Tags (No Release):")
             tags_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-            tags_label.setStyleSheet("color: #f39c12; margin-top: 20px; margin-bottom: 5px;")
+            tags_label.setStyleSheet("color: #f39c12; margin-top: 20px; margin-bottom: 15px;")  # Increased bottom margin
             self.releases_layout.addWidget(tags_label)
             
             for tag in tags_without_releases:
@@ -1249,15 +1566,17 @@ class ModernReleaseManager(QMainWindow):
         item_frame.setObjectName("ReleaseItem")
         item_frame.setStyleSheet("""
             QFrame#ReleaseItem {
-                background-color: #4a4a4a;
-                border-radius: 8px;
-                border: 1px solid #666666;
-                margin: 4px;
-                padding: 8px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #35354c, stop:1 #2d2d44);
+                border-radius: 10px;
+                border: 1px solid #404060;
+                margin: 6px;
+                padding: 12px;
             }
             QFrame#ReleaseItem:hover {
-                background-color: #5a5a5a;
-                border: 1px solid #777777;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                          stop:0 #3d3d54, stop:1 #35354c);
+                border: 1px solid #6C63FF;
             }
         """)
         
@@ -1299,7 +1618,7 @@ class ModernReleaseManager(QMainWindow):
             meta_text += " | Git Tag Only"
         
         meta_label = QLabel(meta_text)
-        meta_label.setStyleSheet("color: #888888; font-size: 9px;")
+        meta_label.setStyleSheet("color: #8888aa; font-size: 9px;")
         info_layout.addWidget(meta_label)
         
         item_layout.addLayout(info_layout, 1)
@@ -1341,8 +1660,8 @@ class ModernReleaseManager(QMainWindow):
         item_layout.addStretch()
         
         # Delete button
-        delete_btn = QPushButton("Delete")
-        delete_btn.setFixedSize(70, 32)
+        delete_btn = QPushButton("🗑️ Delete")
+        delete_btn.setFixedSize(80, 32)
         delete_btn.setToolTip(f"Delete {release['tagName']}")
         delete_btn.setStyleSheet("""
             QPushButton {
@@ -1452,6 +1771,7 @@ class ModernReleaseManager(QMainWindow):
                         version = data.get('version', '1.0.0')
                         self.version = version
                         self.version_display.setText(version)
+                        self.version_preview.setText(self.calculate_new_version(version, self.release_type))
                         self.log(f"Loaded version: {version}", "success")
                 except Exception as e:
                     self.log(f"Error reading package.json: {e}", "error")
@@ -1519,7 +1839,8 @@ class ModernReleaseManager(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("GitHub Release Manager")
+    app.setApplicationName("GitHub Release Manager - Modern")
+    app.setApplicationVersion("2.0.0")
     
     window = ModernReleaseManager()
     window.show()
