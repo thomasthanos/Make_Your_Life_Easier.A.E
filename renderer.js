@@ -3103,59 +3103,6 @@ function initializeAutoUpdater() {
     }
   }
 
-  // Add update button to settings page (disabled: update section now directly in buildSettingsPage)
-  /*
-  const originalBuildSettingsPage = buildSettingsPage;
-  buildSettingsPage = function() {
-    const container = originalBuildSettingsPage();
-    
-    const updateSection = document.createElement('div');
-    updateSection.className = 'settings-row';
-    updateSection.style.cssText = 'border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1rem;';
-    
-    const updateLabel = document.createElement('div');
-    updateLabel.className = 'settings-label';
-    updateLabel.textContent = 'Updates:';
-    
-    const updateControl = document.createElement('div');
-    updateControl.className = 'settings-control';
-    
-    const updateButton = document.createElement('button');
-    updateButton.className = 'button';
-    updateButton.textContent = 'Check for Updates';
-    updateButton.onclick = () => {
-      updateButton.disabled = true;
-      updateButton.textContent = 'Checking...';
-      window.api.checkForUpdates().finally(() => {
-        setTimeout(() => {
-          updateButton.disabled = false;
-          updateButton.textContent = 'Check for Updates';
-        }, 3000);
-      });
-    };
-    
-    const versionInfo = document.createElement('div');
-    versionInfo.style.cssText = 'margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.7;';
-    versionInfo.textContent = `Current version: ${currentVersion || 'loading...'}`;
-    
-    updateControl.appendChild(updateButton);
-    updateControl.appendChild(versionInfo);
-    updateSection.appendChild(updateLabel);
-    updateSection.appendChild(updateControl);
-    
-    container.appendChild(updateSection);
-    
-    // Load current version
-    if (!currentVersion) {
-      window.api.getAppVersion().then(version => {
-        currentVersion = version;
-        versionInfo.textContent = `Current version: ${version}`;
-      });
-    }
-    
-    return container;
-  };
-  */
 }
 
 
