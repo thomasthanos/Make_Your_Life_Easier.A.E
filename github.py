@@ -93,6 +93,8 @@ class ModernReleaseManager(QMainWindow):
         self.is_refreshing = False
         self.current_workers = []
         self.command_queue = Queue()
+        self.current_view = "releases"
+        self.views = {}  # Dictionary to store all views
         
         self.setup_ui()
         self.setup_electric_blue_styles()
@@ -105,6 +107,9 @@ class ModernReleaseManager(QMainWindow):
         self.queue_timer = QTimer()
         self.queue_timer.timeout.connect(self.process_command_queue)
         self.queue_timer.start(100)
+        
+        # Create all views upfront
+        self.setup_all_views()
 
     def _reset_refreshing(self):
         self.is_refreshing = False
@@ -369,11 +374,20 @@ class ModernReleaseManager(QMainWindow):
         # Modern Sidebar
         self.create_modern_sidebar(main_layout)
         
-        # Main content area - NO TABS, single view
+        # Main content area
         self.create_main_content(main_layout)
         
         # Status bar
         self.create_status_bar()
+
+    def setup_all_views(self):
+        """Create all views once and store them"""
+        self.views["releases"] = self.create_releases_view()
+        self.views["quick_release"] = self.create_quick_release_view()
+        self.views["advanced"] = self.create_advanced_view()
+        
+        # Show initial view
+        self.show_releases()
 
     def create_modern_sidebar(self, parent_layout):
         sidebar = QFrame()
@@ -475,13 +489,11 @@ class ModernReleaseManager(QMainWindow):
         self.splitter.setStyleSheet("QSplitter::handle { background: #2a2a4a; }")
         
         # Main content widget (will show different views)
-        self.main_content_widget = QWidget()
-        self.main_content_layout = QVBoxLayout(self.main_content_widget)
+        self.main_content_stack = QWidget()
+        self.main_content_layout = QVBoxLayout(self.main_content_stack)
+        self.main_content_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Start with releases view
-        self.setup_releases_view()
-        
-        self.splitter.addWidget(self.main_content_widget)
+        self.splitter.addWidget(self.main_content_stack)
         
         # Console area - LARGER OUTPUT
         console_frame = QFrame()
@@ -545,11 +557,10 @@ class ModernReleaseManager(QMainWindow):
         self.progress_bar.setVisible(False)
         self.status_bar.addPermanentWidget(self.progress_bar)
 
-    def setup_releases_view(self):
-        """Setup the releases view (default view)"""
-        self.clear_main_content()
-        
-        layout = QVBoxLayout()
+    def create_releases_view(self):
+        """Create the releases view widget"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(15)
         
@@ -626,7 +637,7 @@ class ModernReleaseManager(QMainWindow):
         self.releases_layout.setSpacing(8)
         self.releases_layout.setContentsMargins(5, 5, 5, 5)
         
-        # Initial placeholder - SHOW ONLY IF NO PROJECT PATH
+        # Initial placeholder
         self.setup_initial_placeholder()
         
         self.releases_scroll.setWidget(self.releases_container)
@@ -634,93 +645,12 @@ class ModernReleaseManager(QMainWindow):
         
         layout.addWidget(releases_card, 1)
         
-        # Set as current view
-        widget = QWidget()
-        widget.setLayout(layout)
-        self.main_content_layout.addWidget(widget)
+        return widget
 
-    def setup_initial_placeholder(self):
-        """Setup the initial placeholder message based on project path status"""
-        # Clear any existing placeholder
-        if hasattr(self, 'placeholder_label') and self.placeholder_label:
-            self.placeholder_label.deleteLater()
-        
-        if not self.project_path:
-            # NO PROJECT SELECTED - Clean design without background
-            self.placeholder_label = QLabel()
-            self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
-            self.placeholder_label.setText("""
-            <div style="text-align: center; padding: 40px 20px;">
-                <h3 style="color: #00a8ff; margin-bottom: 25px; font-size: 20px; font-weight: bold;">GitHub Release Manager</h3>
-                
-                <div style="display: inline-block; text-align: left; max-width: 500px;">
-                    <!-- Step 1 -->
-                    <div style="margin-bottom: 20px;">
-                        <div style="color: #00a8ff; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
-                            1. Select Project Folder
-                        </div>
-                        <div style="color: #a0a0c0; font-size: 12px; line-height: 1.4; padding-left: 8px;">
-                            Click <span style="color: #00a8ff; font-weight: bold;">"Select Project Folder"</span> in the sidebar to choose your project directory
-                        </div>
-                    </div>
-                    
-                    <!-- Step 2 -->
-                    <div style="margin-bottom: 20px;">
-                        <div style="color: #00d2d3; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
-                            2. Install & Authenticate GitHub CLI
-                        </div>
-                        <div style="color: #a0a0c0; font-size: 12px; line-height: 1.4; padding-left: 8px;">
-                            • Install from: <span style="color: #00d2d3;">https://cli.github.com/</span><br>
-                            • Run: <code style="color: #00d2d3; font-family: monospace;">gh auth login</code> to authenticate
-                        </div>
-                    </div>
-                    
-                    <!-- Step 3 -->
-                    <div style="margin-bottom: 25px;">
-                        <div style="color: #9c88ff; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
-                            3. Start Managing Releases
-                        </div>
-                        <div style="color: #a0a0c0; font-size: 12px; line-height: 1.4; padding-left: 8px;">
-                            Once setup is complete, click <span style="color: #9c88ff; font-weight: bold;">"Refresh"</span> to load your releases
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Help tip -->
-                <div style="color: #8888aa; font-size: 11px; margin-top: 20px;">
-                    Need help? Check the GitHub CLI documentation for detailed setup instructions
-                </div>
-            </div>
-            """)
-        else:
-            # PROJECT SELECTED - Clean ready state
-            self.placeholder_label = QLabel()
-            self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
-            self.placeholder_label.setText("""
-            <div style="text-align: center; padding: 40px 20px;">
-                <h3 style="color: #00a8ff; margin-bottom: 15px; font-size: 18px; font-weight: bold;">Ready to Load Releases</h3>
-                <div style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px; line-height: 1.5;">
-                    Project loaded: <span style="color: #00d2d3; font-weight: bold;">{}</span>
-                </div>
-                
-                <div style="color: #e0e0ff; font-size: 13px; margin-bottom: 20px;">
-                    Click the <span style="color: #00a8ff; font-weight: bold;">"Refresh"</span> button above to load your GitHub releases and tags
-                </div>
-                
-                <div style="color: #8888aa; font-size: 11px;">
-                    Make sure you're authenticated with GitHub CLI and have the necessary permissions
-                </div>
-            </div>
-            """.format(os.path.basename(self.project_path)))
-        
-        self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.placeholder_label.setWordWrap(True)
-        self.releases_layout.addWidget(self.placeholder_label)
-    def setup_quick_release_view(self):
-        """Setup the quick release view with checkboxes"""
-        self.clear_main_content()
-        
-        layout = QVBoxLayout()
+    def create_quick_release_view(self):
+        """Create the quick release view widget"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(20)
         
@@ -822,11 +752,11 @@ class ModernReleaseManager(QMainWindow):
                 font-weight: bold;
                 height: 60px;
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                          stop:0 #00a8ff, stop:0.5 #0097e6, stop:1 #00a8ff);
+                                      stop:0 #00a8ff, stop:0.5 #0097e6, stop:1 #00a8ff);
             }
             QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                          stop:0 #0097e6, stop:0.5 #0087d6, stop:1 #0097e6);
+                                      stop:0 #0097e6, stop:0.5 #0087d6, stop:1 #0097e6);
             }
         """)
         right_layout.addWidget(quick_btn)
@@ -837,16 +767,12 @@ class ModernReleaseManager(QMainWindow):
         layout.addWidget(content_widget, 1)
         layout.addStretch()
         
-        # Set as current view
-        widget = QWidget()
-        widget.setLayout(layout)
-        self.main_content_layout.addWidget(widget)
+        return widget
 
-    def setup_advanced_view(self):
-        """Setup the advanced tools view"""
-        self.clear_main_content()
-        
-        layout = QVBoxLayout()
+    def create_advanced_view(self):
+        """Create the advanced tools view widget"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(15)
         
@@ -865,7 +791,7 @@ class ModernReleaseManager(QMainWindow):
         details_layout = QVBoxLayout(details_group)
         details_layout.setSpacing(10)
         
-        # Version Input - FIXED: Better layout for suggest button
+        # Version Input
         version_widget = QWidget()
         version_layout = QHBoxLayout(version_widget)
         version_layout.setContentsMargins(0, 0, 0, 0)
@@ -881,8 +807,8 @@ class ModernReleaseManager(QMainWindow):
         
         suggest_btn = QPushButton("💡 Suggest")
         suggest_btn.clicked.connect(self.suggest_version)
-        suggest_btn.setFixedWidth(100)  # Increased width
-        suggest_btn.setStyleSheet("font-size: 11px; padding: 8px 5px;")  # Adjusted padding
+        suggest_btn.setFixedWidth(100)
+        suggest_btn.setStyleSheet("font-size: 11px; padding: 8px 5px;")
         version_layout.addWidget(suggest_btn)
         
         details_layout.addWidget(version_widget)
@@ -909,7 +835,7 @@ class ModernReleaseManager(QMainWindow):
         details_layout.addWidget(notes_label)
         
         self.notes_text = QTextEdit()
-        self.notes_text.setMaximumHeight(120)  # More compact
+        self.notes_text.setMaximumHeight(120)
         self.notes_text.setPlaceholderText("Enter release notes...")
         details_layout.addWidget(self.notes_text)
         
@@ -969,24 +895,92 @@ class ModernReleaseManager(QMainWindow):
         
         grid_layout.addWidget(danger_group, 1, 0)
         
-        # Set column stretch for proper spacing
         grid_layout.setColumnStretch(0, 1)
         grid_layout.setColumnStretch(1, 1)
         
         layout.addWidget(grid_widget, 1)
         layout.addStretch()
         
-        # Set as current view
-        widget = QWidget()
-        widget.setLayout(layout)
-        self.main_content_layout.addWidget(widget)
+        return widget
+
+    def setup_initial_placeholder(self):
+        """Setup the initial placeholder message based on project path status"""
+        # Clear any existing placeholder first
+        if hasattr(self, 'placeholder_label') and self.placeholder_label:
+            try:
+                self.releases_layout.removeWidget(self.placeholder_label)
+                self.placeholder_label.deleteLater()
+            except:
+                pass
+            self.placeholder_label = None
+        
+        # Only create placeholder if no project is selected
+        if not self.project_path:
+            # NO PROJECT SELECTED - Show setup instructions
+            self.placeholder_label = QLabel()
+            self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
+            self.placeholder_label.setText("""
+            <div style="text-align: center; padding: 40px 20px;">
+                <h3 style="color: #00a8ff; margin-bottom: 25px; font-size: 20px; font-weight: bold;">GitHub Release Manager</h3>
+                
+                <div style="display: inline-block; text-align: left; max-width: 500px;">
+                    <!-- Step 1 -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="color: #00a8ff; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+                            1. Select Project Folder
+                        </div>
+                        <div style="color: #a0a0c0; font-size: 12px; line-height: 1.4; padding-left: 8px;">
+                            Click <span style="color: #00a8ff; font-weight: bold;">"Select Project Folder"</span> in the sidebar to choose your project directory
+                        </div>
+                    </div>
+                    
+                    <!-- Step 2 -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="color: #00d2d3; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+                            2. Install & Authenticate GitHub CLI
+                        </div>
+                        <div style="color: #a0a0c0; font-size: 12px; line-height: 1.4; padding-left: 8px;">
+                            • Install from: <span style="color: #00d2d3;">https://cli.github.com/</span><br>
+                            • Run: <code style="color: #00d2d3; font-family: monospace;">gh auth login</code> to authenticate
+                        </div>
+                    </div>
+                    
+                    <!-- Step 3 -->
+                    <div style="margin-bottom: 25px;">
+                        <div style="color: #9c88ff; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+                            3. Start Managing Releases
+                        </div>
+                        <div style="color: #a0a0c0; font-size: 12px; line-height: 1.4; padding-left: 8px;">
+                            Once setup is complete, click <span style="color: #9c88ff; font-weight: bold;">"Refresh"</span> to load your releases
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Help tip -->
+                <div style="color: #8888aa; font-size: 11px; margin-top: 20px;">
+                    Need help? Check the GitHub CLI documentation for detailed setup instructions
+                </div>
+            </div>
+            """)
+            self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.placeholder_label.setWordWrap(True)
+            self.releases_layout.addWidget(self.placeholder_label)
+        else:
+            # PROJECT SELECTED - Don't create placeholder at all
+            self.placeholder_label = None
+
+    def switch_view(self, view_name):
+        """Switch between views"""
+        self.clear_main_content()
+        if view_name in self.views:
+            self.main_content_layout.addWidget(self.views[view_name])
 
     def clear_main_content(self):
         """Clear the main content area"""
         while self.main_content_layout.count():
             child = self.main_content_layout.takeAt(0)
             if child.widget():
-                child.widget().deleteLater()
+                child.widget().setParent(None)  # Just remove, don't delete
 
     def on_release_type_changed(self):
         checkbox = self.sender()
@@ -1041,14 +1035,17 @@ class ModernReleaseManager(QMainWindow):
 
     # Navigation methods
     def show_releases(self):
-        self.setup_releases_view()
+        self.current_view = "releases"
+        self.switch_view("releases")
         self.refresh_releases()
 
     def show_quick_release(self):
-        self.setup_quick_release_view()
+        self.current_view = "quick_release"
+        self.switch_view("quick_release")
 
     def show_advanced(self):
-        self.setup_advanced_view()
+        self.current_view = "advanced"
+        self.switch_view("advanced")
 
     def test_github_cli(self):
         """Test if GitHub CLI is working - DIAGNOSTIC ONLY""" 
@@ -1580,6 +1577,11 @@ class ModernReleaseManager(QMainWindow):
         if not self.check_git_repository():
             return
         
+        # ΕΛΕΓΧΟΣ: Μόνο αν είμαστε στο releases view
+        if self.current_view != "releases":
+            self.log("Not in releases view, skipping refresh", "info")
+            return
+        
         if self.is_refreshing:
             self.log("Already refreshing, skipping...", "info")
             return
@@ -1637,9 +1639,12 @@ class ModernReleaseManager(QMainWindow):
                     self.log(f"git tag failed with code {tags_result.returncode}", "error")
                     self.log(f"Error: {tags_result.stderr}", "error")
                 
-                # Update UI with releases and tags
-                self.update_releases_signal.emit(releases, all_tags)
-                
+                # ΕΛΕΓΧΟΣ: Μόνο αν ακόμα είμαστε στο releases view
+                if self.current_view == "releases":
+                    self.update_releases_signal.emit(releases, all_tags)
+                else:
+                    self.log("View changed during refresh, skipping UI update", "info")
+                    
             except subprocess.TimeoutExpired:
                 self.log("Timeout fetching releases", "error")
             except Exception as e:
@@ -1651,118 +1656,168 @@ class ModernReleaseManager(QMainWindow):
 
     def update_releases_display(self, releases, all_tags):
         """Update the releases panel with releases and tags - MODERN VERSION""" 
-        # Clear existing content
-        self.clear_releases_layout()
-        
-        # Update stats
-        releases_count = len(releases)
-        tags_count = len(all_tags)
-        self.releases_count_label.setText(f"📦 Releases: {releases_count}")
-        self.tags_count_label.setText(f"🏷️ Tags: {tags_count}")
-        
-        # Update last update time
-        current_time = datetime.now().strftime("%H:%M:%S")
-        self.last_update_label.setText(f"Last update: {current_time}")
-        
-        if not releases and not all_tags:
-            # No releases found - show appropriate message
-            if not self.project_path:
-                self.setup_initial_placeholder()  # Show setup instructions
-            else:
-                # Project selected but no releases found
-                self.placeholder_label = QLabel()
-                self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
-                self.placeholder_label.setText("""
-                <div style="text-align: center; padding: 40px;">
-                    <h3 style="color: #fbc531; margin-bottom: 15px;">🔍 No Releases Found</h3>
-                    <p style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px; line-height: 1.5;">
-                        No GitHub releases or tags found for this repository.
-                    </p>
-                    <div style="background: #fbc53120; padding: 15px; border-radius: 8px; border: 1px solid #fbc53140; margin: 0 auto; max-width: 450px;">
-                        <p style="color: #e0e0ff; margin-bottom: 10px; font-size: 13px; text-align: left;">
-                            <span style="color: #fbc531;">•</span> Make sure GitHub CLI is installed and authenticated
-                        </p>
-                        <p style="color: #e0e0ff; margin-bottom: 10px; font-size: 13px; text-align: left;">
-                            <span style="color: #fbc531;">•</span> Verify you have access to the repository
-                        </p>
-                        <p style="color: #e0e0ff; margin-bottom: 0; font-size: 13px; text-align: left;">
-                            <span style="color: #fbc531;">•</span> Check if the repository has any releases or tags
-                        </p>
-                    </div>
-                    <p style="color: #8888aa; font-size: 12px; margin-top: 20px;">
-                        Try the "Test GitHub CLI" button to verify your setup.
-                    </p>
-                </div>
-                """)
-                self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.placeholder_label.setWordWrap(True)
-                self.releases_layout.addWidget(self.placeholder_label)
-            return
-        
-        # Create a set of release tags for quick lookup
-        release_tags = {release['tagName'] for release in releases}
-        
-        # Display releases first
-        if releases:
-            releases_header = QLabel("🚀 GitHub Releases")
-            releases_header.setStyleSheet("""
-                font-size: 16px; 
-                font-weight: bold; 
-                color: #00a8ff; 
-                margin-top: 10px; 
-                margin-bottom: 10px;
-                padding: 8px;
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                        stop:0 transparent, stop:0.5 #00a8ff20, stop:1 transparent);
-                border-radius: 6px;
-            """)
-            releases_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.releases_layout.addWidget(releases_header)
-            
-            for release in releases:
-                self.add_release_item(release, is_release=True)
+        # Use QTimer to ensure this runs in the main thread and we can safely check the layout
+        QTimer.singleShot(0, lambda: self._safe_update_releases_display(releases, all_tags))
 
-        # Display tags without releases
-        tags_without_releases = [tag for tag in all_tags if tag not in release_tags]
-        if tags_without_releases:
-            tags_header = QLabel("🏷️ Git Tags (No Release)")
-            tags_header.setStyleSheet("""
-                font-size: 16px; 
-                font-weight: bold; 
-                color: #fbc531; 
-                margin-top: 20px; 
-                margin-bottom: 10px;
-                padding: 8px;
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                        stop:0 transparent, stop:0.5 #fbc53120, stop:1 transparent);
-                border-radius: 6px;
-            """)
-            tags_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.releases_layout.addWidget(tags_header)
+    def _safe_update_releases_display(self, releases, all_tags):
+        """Safely update releases display with proper error handling"""
+        try:
+            # ΕΛΕΓΧΟΣ: Μόνο αν είμαστε στο releases view
+            if self.current_view != "releases":
+                self.log("Not in releases view, skipping UI update", "info")
+                return
+                
+            # Check if the releases container and layout still exist
+            if not self.releases_container or not self.releases_layout:
+                self.log("Releases layout no longer exists, skipping update", "warning")
+                return
+                
+            # Clear existing content (BUT keep placeholder if it exists)
+            self.clear_releases_layout()
             
-            for tag in tags_without_releases:
-                tag_item = {
-                    'tagName': tag,
-                    'name': tag,
-                    'createdAt': '',
-                    'publishedAt': '',
-                    'isDraft': False,
-                    'isPrerelease': False
-                }
-                self.add_release_item(tag_item, is_release=False)
-        
-        # Add stretch at the end to prevent expansion issues
-        self.releases_layout.addStretch()
+            # Update stats
+            releases_count = len(releases)
+            tags_count = len(all_tags)
+            self.releases_count_label.setText(f"📦 Releases: {releases_count}")
+            self.tags_count_label.setText(f"🏷️ Tags: {tags_count}")
+            
+            # Update last update time
+            current_time = datetime.now().strftime("%H:%M:%S")
+            self.last_update_label.setText(f"Last update: {current_time}")
+            
+            if not releases and not all_tags:
+                # No releases found - show appropriate message
+                if not self.project_path:
+                    # Only create placeholder if it doesn't exist
+                    if not hasattr(self, 'placeholder_label') or not self.placeholder_label:
+                        self.setup_initial_placeholder()
+                    else:
+                        self.placeholder_label.show()
+                else:
+                    # Project selected but no releases found
+                    if not hasattr(self, 'placeholder_label') or not self.placeholder_label:
+                        self.placeholder_label = QLabel()
+                        self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
+                        self.placeholder_label.setText("""
+                        <div style="text-align: center; padding: 40px;">
+                            <h3 style="color: #fbc531; margin-bottom: 15px;">🔍 No Releases Found</h3>
+                            <p style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px; line-height: 1.5;">
+                                No GitHub releases or tags found for this repository.
+                            </p>
+                            <div style="background: #fbc53120; padding: 15px; border-radius: 8px; border: 1px solid #fbc53140; margin: 0 auto; max-width: 450px;">
+                                <p style="color: #e0e0ff; margin-bottom: 10px; font-size: 13px; text-align: left;">
+                                    <span style="color: #fbc531;">•</span> Make sure GitHub CLI is installed and authenticated
+                                </p>
+                                <p style="color: #e0e0ff; margin-bottom: 10px; font-size: 13px; text-align: left;">
+                                    <span style="color: #fbc531;">•</span> Verify you have access to the repository
+                                </p>
+                                <p style="color: #e0e0ff; margin-bottom: 0; font-size: 13px; text-align: left;">
+                                    <span style="color: #fbc531;">•</span> Check if the repository has any releases or tags
+                                </p>
+                            </div>
+                            <p style="color: #8888aa; font-size: 12px; margin-top: 20px;">
+                                Try the "Test GitHub CLI" button to verify your setup.
+                            </p>
+                        </div>
+                        """)
+                        self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                        self.placeholder_label.setWordWrap(True)
+                        self.releases_layout.addWidget(self.placeholder_label)
+                    else:
+                        self.placeholder_label.show()
+                return
+            
+            # Hide placeholder if we have releases to show
+            if hasattr(self, 'placeholder_label') and self.placeholder_label:
+                self.placeholder_label.hide()
+            
+            # Create a set of release tags for quick lookup
+            release_tags = {release['tagName'] for release in releases}
+            
+            # Display releases first
+            if releases:
+                releases_header = QLabel("🚀 GitHub Releases")
+                releases_header.setStyleSheet("""
+                    font-size: 16px; 
+                    font-weight: bold; 
+                    color: #00a8ff; 
+                    margin-top: 10px; 
+                    margin-bottom: 10px;
+                    padding: 8px;
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                                stop:0 transparent, stop:0.5 #00a8ff20, stop:1 transparent);
+                    border-radius: 6px;
+                """)
+                releases_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.releases_layout.addWidget(releases_header)
+                
+                for release in releases:
+                    self.add_release_item(release, is_release=True)
+
+            # Display tags without releases
+            tags_without_releases = [tag for tag in all_tags if tag not in release_tags]
+            if tags_without_releases:
+                tags_header = QLabel("🏷️ Git Tags (No Release)")
+                tags_header.setStyleSheet("""
+                    font-size: 16px; 
+                    font-weight: bold; 
+                    color: #fbc531; 
+                    margin-top: 20px; 
+                    margin-bottom: 10px;
+                    padding: 8px;
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                                stop:0 transparent, stop:0.5 #fbc53120, stop:1 transparent);
+                    border-radius: 6px;
+                """)
+                tags_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.releases_layout.addWidget(tags_header)
+                
+                for tag in tags_without_releases:
+                    tag_item = {
+                        'tagName': tag,
+                        'name': tag,
+                        'createdAt': '',
+                        'publishedAt': '',
+                        'isDraft': False,
+                        'isPrerelease': False
+                    }
+                    self.add_release_item(tag_item, is_release=False)
+            
+            # Add stretch at the end to prevent expansion issues
+            self.releases_layout.addStretch()
+            
+        except RuntimeError as e:
+            # Layout has been deleted, ignore the update
+            pass
+        except Exception as e:
+            print(f"Unexpected error updating releases display: {e}")
 
     def clear_releases_layout(self):
-        """Clear all widgets from releases layout except placeholder""" 
-        # Remove all widgets from layout
-        while self.releases_layout.count():
-            child = self.releases_layout.takeAt(0)
-            if child.widget():
-                # Keep track of placeholder to reuse it
-                if child.widget() != self.placeholder_label:
-                    child.widget().deleteLater()
+        """Clear all widgets from releases layout except placeholder"""
+        try:
+            if not self.releases_layout:
+                return
+                
+            # Create a list to store widgets to remove (excluding placeholder)
+            widgets_to_remove = []
+            
+            # First, identify all widgets except the placeholder
+            for i in range(self.releases_layout.count()):
+                child = self.releases_layout.itemAt(i)
+                if child and child.widget():
+                    if child.widget() != self.placeholder_label:
+                        widgets_to_remove.append(child.widget())
+            
+            # Remove identified widgets
+            for widget in widgets_to_remove:
+                try:
+                    self.releases_layout.removeWidget(widget)
+                    widget.deleteLater()
+                except Exception:
+                    pass
+                    
+        except Exception:
+            pass
 
     def add_release_item(self, release, is_release=True):
         """Add a release/tag item to the releases panel - MODERN VERSION""" 
@@ -1781,7 +1836,6 @@ class ModernReleaseManager(QMainWindow):
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                         stop:0 #252540, stop:1 #202036);
                 border: 1px solid #00a8ff;
-                transform: translateY(-1px);
             }
         """)
         
@@ -1998,7 +2052,11 @@ class ModernReleaseManager(QMainWindow):
             
             # HIDE THE PLACEHOLDER WHEN PROJECT IS SELECTED
             if hasattr(self, 'placeholder_label') and self.placeholder_label:
-                self.placeholder_label.hide()
+                try:
+                    self.placeholder_label.hide()
+                except RuntimeError:
+                    # Object already deleted, just remove the reference
+                    self.placeholder_label = None
             
             self.refresh_releases()
 
