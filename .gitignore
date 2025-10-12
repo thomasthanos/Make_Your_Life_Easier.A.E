@@ -1,0 +1,13 @@
+/node_modules/
+/dist/
+*.exe
+*.zip
+*.7z
+logs/npm-build-all.log
+logs/npm-install.log
+3)
+3)
+3)
+task.bat
+3)
+temp_release_notes.md

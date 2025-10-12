@@ -1,0 +1,125 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VaultGuard - Modern Password Manager</title>
+    <link rel="stylesheet" href="passwordmanager.css">
+</head>
+<body>
+    <div class="password-manager">
+        <!-- Header -->
+        <div class="pm-header">
+            <h1>VaultGuard</h1>
+            <button class="button" id="addPasswordBtn">
+                <span>+ Add Password</span>
+            </button>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats-container" id="statsContainer">
+            <!-- Stats will be loaded here -->
+        </div>
+
+        <!-- Controls -->
+        <div class="pm-controls">
+            <div class="pm-search">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="Search passwords, usernames, emails..." class="form-input">
+            </div>
+            <button class="button button-secondary" id="manageCategoriesBtn">
+                <span>🏷️ Manage Categories</span>
+            </button>
+        </div>
+
+        <!-- Categories -->
+        <div class="pm-categories" id="categoriesContainer">
+            <!-- Categories will be loaded here -->
+        </div>
+
+        <!-- Password Grid -->
+        <div class="pm-grid" id="passwordsGrid">
+            <!-- Passwords will be loaded here -->
+        </div>
+
+        <!-- Floating Action Button -->
+        <button class="fab" id="fabAddPassword" title="Add New Password">+</button>
+    </div>
+
+    <!-- Add/Edit Password Modal -->
+    <div class="modal" id="passwordModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="passwordModalTitle">Add New Password</h2>
+                <button class="close-btn" id="closePasswordModal">&times;</button>
+            </div>
+            <form id="passwordForm">
+                <input type="hidden" id="passwordId">
+                <div class="form-group">
+                    <label class="form-label" for="title">Title *</label>
+                    <input type="text" id="title" class="form-input" required placeholder="Enter service name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="category">Category</label>
+                    <select id="category" class="form-select">
+                        <option value="">No Category</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="username">Username</label>
+                    <input type="text" id="username" class="form-input" placeholder="Enter username">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="email">Email</label>
+                    <input type="email" id="email" class="form-input" placeholder="Enter email address">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="password">Password *</label>
+                    <input type="password" id="password" class="form-input" required placeholder="Enter password">
+                    <div class="password-strength">
+                        <div class="strength-bar" id="passwordStrength"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="url">Website URL</label>
+                    <input type="url" id="url" class="form-input" placeholder="https://example.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="notes">Notes</label>
+                    <textarea id="notes" class="form-textarea" placeholder="Additional notes..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="button button-secondary" id="cancelPasswordBtn">Cancel</button>
+                    <button type="submit" class="button" id="savePasswordBtn">
+                        <span>💾 Save Password</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Manage Categories Modal -->
+    <div class="modal" id="categoriesModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Manage Categories</h2>
+                <button class="close-btn" id="closeCategoriesModal">&times;</button>
+            </div>
+            <div class="form-group">
+                <div class="category-management">
+                    <input type="text" id="newCategoryName" class="form-input" placeholder="Enter new category name">
+                    <button class="button" id="addCategoryBtn">Add Category</button>
+                </div>
+                <div id="categoriesList">
+                    <!-- Categories list will be loaded here -->
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="button" id="closeCategoriesBtn">Close</button>
+            </div>
+        </div>
+    </div>
+    <script src="auth-ui.js"></script>
+    <script src="passwordmanager.js"></script>
+    
+</body>
+</html>

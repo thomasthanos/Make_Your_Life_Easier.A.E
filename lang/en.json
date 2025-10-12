@@ -1,0 +1,155 @@
+{
+  "menu": {
+    "settings": "Settings",
+    "install_apps": "Install apps",
+    "activate_autologin": "Activate / Autologin",
+    "system_maintenance": "System maintenance",
+    "crack_installer": "Crack apps installer",
+    "spicetify": "Spicetify Spotify",
+    "password_manager": "Password manager",
+    "christitus": "Chris Titus Toolbox",
+    "dlc_unlocker": "DLC unlocker",
+    "bios": "BIOS"
+  },
+  "general": {
+    "language": "Language",
+    "theme": "Theme",
+    "dark": "Dark",
+    "light": "Light",
+    "not_implemented": "Feature not implemented for legal reasons.",
+    "open": "Open",
+    "install": "Install",
+    "run": "Run",
+    "output": "Output",
+    "error": "Error",
+    "system_info": "System information",
+    "version": "Version",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "user": "User",
+    "hostname": "Hostname",
+    "arch": "Architecture",
+    "platform": "Platform",
+    "release": "Release",
+    "total_memory": "Total memory",
+    "free_memory": "Free memory",
+    "save": "Save",
+    "saved": "Saved",
+    "cancel": "Cancel"
+  },
+  "pages": {
+    "settings_title": "Application settings",
+    "install_title": "Install selected applications",
+    "maintenance_title": "System maintenance tasks",
+    "spicetify_title": "Spicetify configuration",
+    "spicetify_desc": "Spicetify is a Spotify client modification tool. Please respect Spotify's terms of service when using it.",
+    "password_title": "Password manager",
+    "info_title": "System details",
+    "bios_title": "BIOS information",
+    "install_desc": "Select apps to download. We will open each installer automatically after the download finishes.",
+    "maintenance_desc": "Perform various system maintenance tasks to keep your computer running smoothly.",
+    "crack_title": "Project installer",
+    "crack_desc": "Download your project backups from Dropbox",
+    "dlc_title": "DLC Unlocker",
+    "activate_title": "Windows Activation & Auto Login"
+  },
+  "actions": {
+    "check_updates": "Check for updates",
+    "create_restore_point": "Create restore point",
+    "clean_temp": "Clean temporary files",
+    "open_spicetify": "Open Spicetify website",
+    "open_password_manager": "Open password manager",
+    "scan_repair": "Scan & repair",
+    "download_patch": "Download Patch My PC",
+    "download": "Download",
+    "install_spicetify": "Install Spicetify",
+    "uninstall_spicetify": "Uninstall Spicetify",
+    "full_uninstall_spotify": "Full uninstall Spotify",
+    "activate_windows": "Download & Activate Windows",
+    "setup_autologin": "Download & Auto Login",
+    "download_selected": "Download Selected",
+    "run_sfc": "Run SFC",
+    "run_dism": "Run DISM",
+    "clean_temp_files": "Clean Temp Files",
+    "download_run": "Download & Run"
+  },
+  "messages": {
+    "bios_instructions": "To access the BIOS/UEFI settings, please restart your computer and press the designated key (often F2, F10, Del or Esc) during startup. Modern operating systems do not allow entering BIOS directly from within apps.",
+    "password_warning": "This simple password manager stores credentials locally. Do not use for sensitive data.",
+    "install_spicetify_success": "Spicetify installed successfully!",
+    "install_spicetify_error": "Error installing Spicetify",
+    "uninstall_spicetify_success": "Spicetify uninstalled successfully!",
+    "uninstall_spicetify_error": "Error uninstalling Spicetify",
+    "full_uninstall_spotify_success": "Spotify fully uninstalled!",
+    "full_uninstall_spotify_error": "Error fully uninstalling Spotify",
+    "activate_success": "Windows activation started!",
+    "autologin_success": "Auto login tool started!",
+    "admin_warning": "This operation requires administrator privileges and will restart your computer immediately.",
+    "restart_to_bios": "Restart to BIOS",
+    "no_apps_selected": "No applications selected.",
+    "all_downloads_complete": "All downloads completed.",
+    "download_failed": "Download failed",
+    "extraction_failed": "Extraction failed",
+    "installer_started": "Installer started successfully!",
+    "could_not_open": "Could not open automatically",
+    "download_timed_out": "Download timed out"
+  },
+  "maintenance": {
+    "delete_temp_files": "Delete Temp Files",
+    "temp_files_desc": "Clean TEMP, %TEMP%, and Prefetch folders",
+    "system_file_repair": "System File Repair",
+    "system_file_desc": "SFC Scan & DISM Repair system tools (Admin required)",
+    "patch_my_pc": "Patch My PC",
+    "patch_my_pc_desc": "Update third-party applications automatically"
+  },
+  "dlc": {
+    "sims_installer": "Sims Installer",
+    "sims_desc": "Complete Sims DLC package with all expansions",
+    "ea_unlocker": "EA Unlocker", 
+    "ea_desc": "Unlock all EA games DLC content and features",
+    "download_sims": "DOWNLOAD SIMS INSTALLER",
+    "download_ea": "DOWNLOAD EA UNLOCKER",
+    "tutorial_title": "EA DLC Unlocker & Sims 4 Updater Guide",
+    "tutorial_desc": "📁 <strong>EA DLC Unlocker:</strong> General tool for unlocking DLCs in EA games<br>🎮 <strong>Sims 4 Updater:</strong> Specialized for The Sims 4 with updates & repairs"
+  },
+  "activation": {
+    "activate_windows": "Activate Windows",
+    "activate_desc": "Download and run Windows activation script (requires Administrator)",
+    "auto_login": "Auto Login",
+    "auto_login_desc": "Download and setup automatic login without password"
+  },
+
+  "apps": {
+    "betterdiscord": {
+      "name": "BetterDiscord",
+      "description": "Enhanced Discord client"
+    },
+    "discord_ptb": {
+      "name": "Discord PTB",
+      "description": "Public Test Build of Discord"
+    },
+    "discord": {
+      "name": "Discord",
+      "description": "Official Discord client"
+    },
+    "epic_games": {
+      "name": "Epic Games",
+      "description": "Epic Games Launcher"
+    },
+    "ubisoft_connect": {
+      "name": "Ubisoft Connect",
+      "description": "Ubisoft game launcher"
+    }
+  },
+
+  "christitus_page": {
+    "title": "Chris Titus",
+    "subtitle": "Toolbox",
+    "run_button": "Run Chris Titus Toolbox",
+    "running": "Running...",
+    "run_success": "Toolbox started successfully!",
+    "run_error": "Error running toolbox",
+    "run_failure": "Failed to run toolbox",
+    "tip": "💡 <strong>Tip:</strong> Run as Administrator for full functionality"
+  }
+}
