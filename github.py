@@ -75,6 +75,10 @@ class CommandWorker(QThread):
         self.wait()
 
 class ModernReleaseManager(QMainWindow):
+    log_signal = pyqtSignal(str, str)
+    update_releases_signal = pyqtSignal(list, list)
+    reset_refreshing_signal = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("🚀 GitHub Release Manager - Simplified")
@@ -85,16 +89,24 @@ class ModernReleaseManager(QMainWindow):
         self.release_type = "patch"
         self.project_path = ""
         self.is_working = False
+        self.is_refreshing = False
         self.current_workers = []
         self.command_queue = Queue()
         
         self.setup_ui()
         self.setup_styles()
         
+        self.log_signal.connect(self._log_to_console)
+        self.update_releases_signal.connect(self.update_releases_display)
+        self.reset_refreshing_signal.connect(self._reset_refreshing)
+        
         # Start queue processor
         self.queue_timer = QTimer()
         self.queue_timer.timeout.connect(self.process_command_queue)
         self.queue_timer.start(100)
+
+    def _reset_refreshing(self):
+        self.is_refreshing = False
 
     def setup_styles(self):
         self.setStyleSheet("""
@@ -525,8 +537,8 @@ class ModernReleaseManager(QMainWindow):
         """Suggests the next version based on release_type"""
         current_version = self.version
         suggested_version = self.calculate_new_version(current_version, self.release_type)
-        self.version_entry.setText(suggested_version)
         self.log(f"💡 Suggested version: {suggested_version}", "info")
+        self.version_entry.setText(suggested_version)
 
     def on_release_type_changed(self):
         radio = self.sender()
@@ -570,6 +582,7 @@ class ModernReleaseManager(QMainWindow):
         
         def test_cli():
             try:
+                self.log("Running gh --version", "info")
                 # Test 1: Check if gh is installed
                 result1 = subprocess.run(["gh", "--version"], capture_output=True, text=True)
                 if result1.returncode != 0:
@@ -579,6 +592,7 @@ class ModernReleaseManager(QMainWindow):
                 
                 self.log("✅ GitHub CLI is installed", "success")
                 
+                self.log("Running gh auth status", "info")
                 # Test 2: Check authentication
                 result2 = subprocess.run(["gh", "auth", "status"], capture_output=True, text=True)
                 if result2.returncode != 0:
@@ -590,6 +604,7 @@ class ModernReleaseManager(QMainWindow):
                 
                 # Test 3: Try to get releases (diagnostic only)
                 if self.project_path:
+                    self.log("Running gh release list", "info")
                     result3 = subprocess.run(["gh", "release", "list", "--limit", "3"], capture_output=True, text=True, cwd=self.project_path)
                     if result3.returncode == 0:
                         self.log(f"✅ GitHub CLI working - found releases", "success")
@@ -599,6 +614,9 @@ class ModernReleaseManager(QMainWindow):
                 
             except Exception as e:
                 self.log(f"❌ Error testing GitHub CLI: {e}", "error")
+            finally:
+                self.log("Test completed, refreshing releases", "info")
+                QTimer.singleShot(0, self.refresh_releases)
         
         threading.Thread(target=test_cli, daemon=True).start()
 
@@ -805,12 +823,12 @@ class ModernReleaseManager(QMainWindow):
     def run_command_async(self, command, cwd=None, require_project=True, check_git=False, callback=None):
         if require_project and not self.check_project_selected():
             if callback:
-                QTimer.singleShot(0, lambda: callback(False))
+                callback(False)
             return False
             
         if check_git and not self.check_git_repository():
             if callback:
-                QTimer.singleShot(0, lambda: callback(False))
+                callback(False)
             return False
             
         self.is_working = True
@@ -818,7 +836,7 @@ class ModernReleaseManager(QMainWindow):
         self.update_status("Working...")
         
         worker = CommandWorker(command, cwd or self.project_path)
-        worker.output_signal.connect(self.log)
+        worker.output_signal.connect(lambda msg, typ: self.log(msg, typ))
         worker.finished_signal.connect(lambda success: self.command_finished(success, callback))
         worker.command_signal.connect(lambda cmd: self.log(cmd, "info"))
         
@@ -933,21 +951,21 @@ class ModernReleaseManager(QMainWindow):
                         temp_notes_file.unlink()
                     
                     if result.returncode == 0:
-                        QTimer.singleShot(0, lambda: self.log(f"✅ Release v{new_version} created successfully!", "success"))
-                        QTimer.singleShot(0, lambda: self.update_version_display(new_version))
+                        self.log(f"✅ Release v{new_version} created successfully!", "success")
+                        self.update_version_display(new_version)
                         QTimer.singleShot(3000, self.refresh_releases)
                     else:
                         error_msg = result.stderr if result.stderr else "Unknown error"
-                        QTimer.singleShot(0, lambda: self.log(f"❌ Failed to create release: {error_msg}", "error"))
+                        self.log(f"❌ Failed to create release: {error_msg}", "error")
                         
                 except subprocess.TimeoutExpired:
                     if temp_notes_file.exists():
                         temp_notes_file.unlink()
-                    QTimer.singleShot(0, lambda: self.log("❌ Timeout creating release", "error"))
+                    self.log("❌ Timeout creating release", "error")
                 except Exception as e:
                     if temp_notes_file.exists():
                         temp_notes_file.unlink()
-                    QTimer.singleShot(0, lambda: self.log(f"❌ Error creating release: {e}", "error"))
+                    self.log(f"❌ Error creating release: {e}", "error")
             
             # Run in thread to not block UI
             threading.Thread(target=create_release_sync, daemon=True).start()
@@ -1084,45 +1102,73 @@ class ModernReleaseManager(QMainWindow):
     def refresh_releases(self):
         """Refresh the releases list in the top panel"""
         if not self.check_git_repository():
-            self.log("❌ Not a git repository", "error")
             return
         
+        if self.is_refreshing:
+            self.log("🔄 Already refreshing, skipping...", "info")
+            return
+        
+        self.is_refreshing = True
         self.log("🔄 Refreshing releases...", "info")
         
         def fetch_releases():
+            releases = []
+            all_tags = []
             try:
+                self.log("Running gh release list command", "info")
                 # Get releases from GitHub CLI
                 result = subprocess.run(
                     ["gh", "release", "list", "--limit", "50", "--json", "tagName,name,createdAt,isDraft,isPrerelease,publishedAt"],
                     capture_output=True, text=True, cwd=self.project_path, timeout=30
                 )
                 
-                releases = []
-                if result.returncode == 0 and result.stdout.strip():
-                    releases = json.loads(result.stdout)
-                    self.log(f"✅ Found {len(releases)} releases via GitHub CLI", "success")
+                self.log(f"gh command returncode: {result.returncode}", "info")
+                if result.returncode == 0:
+                    stdout = result.stdout.strip()
+                    self.log(f"gh stdout: {stdout[:100]}...", "output")
+                    if stdout:
+                        try:
+                            releases = json.loads(stdout)
+                            self.log(f"✅ Found {len(releases)} releases via GitHub CLI", "success")
+                        except json.JSONDecodeError as e:
+                            self.log(f"❌ JSON parse error: {e}", "error")
+                    else:
+                        self.log("⚠️ Empty output from gh release list", "warning")
                 else:
+                    self.log(f"❌ gh release list failed with code {result.returncode}", "error")
+                    self.log(f"Error: {result.stderr}", "error")
                     self.log("⚠️ No releases found via GitHub CLI", "warning")
                 
+                self.log("Running git tag command", "info")
                 # Get all tags (including those without releases)
                 tags_result = subprocess.run(
                     ["git", "tag", "--list", "--sort=-creatordate"],
                     capture_output=True, text=True, cwd=self.project_path, timeout=30
                 )
                 
-                all_tags = []
-                if tags_result.returncode == 0 and tags_result.stdout.strip():
-                    all_tags = [tag.strip() for tag in tags_result.stdout.split('\n') if tag.strip()]
-                    self.log(f"✅ Found {len(all_tags)} git tags", "success")
+                self.log(f"git tag returncode: {tags_result.returncode}", "info")
+                if tags_result.returncode == 0:
+                    stdout = tags_result.stdout.strip()
+                    self.log(f"git stdout: {stdout[:100]}...", "output")
+                    if stdout:
+                        all_tags = [tag.strip() for tag in stdout.split('\n') if tag.strip()]
+                        self.log(f"✅ Found {len(all_tags)} git tags", "success")
+                    else:
+                        self.log("⚠️ No git tags found", "warning")
+                else:
+                    self.log(f"❌ git tag failed with code {tags_result.returncode}", "error")
+                    self.log(f"Error: {tags_result.stderr}", "error")
                 
                 # Update UI with releases and tags
-                QTimer.singleShot(0, lambda: self.update_releases_display(releases, all_tags))
+                self.update_releases_signal.emit(releases, all_tags)
                 
             except subprocess.TimeoutExpired:
-                QTimer.singleShot(0, lambda: self.log("❌ Timeout fetching releases", "error"))
+                self.log("❌ Timeout fetching releases", "error")
             except Exception as e:
-                QTimer.singleShot(0, lambda: self.log(f"❌ Error fetching releases: {e}", "error"))
-        
+                self.log(f"❌ Error fetching releases: {e}", "error")
+            finally:
+                self.reset_refreshing_signal.emit()
+
         threading.Thread(target=fetch_releases, daemon=True).start()
 
     def update_releases_display(self, releases, all_tags):
@@ -1392,7 +1438,10 @@ class ModernReleaseManager(QMainWindow):
         self.tab_widget.setCurrentIndex(2)
 
     def log(self, message, message_type="output"):
-        """Thread-safe logging"""
+        """Thread-safe logging using signal"""
+        self.log_signal.emit(message, message_type)
+
+    def _log_to_console(self, message, message_type):
         colors = {
             "error": "#e74c3c",
             "success": "#27ae60", 
@@ -1403,19 +1452,16 @@ class ModernReleaseManager(QMainWindow):
         
         color = colors.get(message_type, "#ffffff")
         
-        def update_console():
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            formatted_message = f'<span style="color: #888888;">[{timestamp}]</span> <span style="color: {color};">{message}</span><br>'
-            
-            self.console_text.moveCursor(QTextCursor.MoveOperation.End)
-            self.console_text.insertHtml(formatted_message)
-            self.console_text.moveCursor(QTextCursor.MoveOperation.End)
-            
-            # Auto-scroll
-            scrollbar = self.console_text.verticalScrollBar()
-            scrollbar.setValue(scrollbar.maximum())
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        formatted_message = f'<span style="color: #888888;">[{timestamp}]</span> <span style="color: {color};">{message}</span><br>'
         
-        QTimer.singleShot(0, update_console)
+        self.console_text.moveCursor(QTextCursor.MoveOperation.End)
+        self.console_text.insertHtml(formatted_message)
+        self.console_text.moveCursor(QTextCursor.MoveOperation.End)
+        
+        # Auto-scroll
+        scrollbar = self.console_text.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     def clear_console(self):
         self.console_text.clear()
