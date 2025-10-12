@@ -769,6 +769,8 @@ class ModernReleaseManager(QMainWindow):
         
         return widget
 
+    
+
     def create_advanced_view(self):
         """Create the advanced tools view widget"""
         widget = QWidget()
@@ -1793,31 +1795,41 @@ class ModernReleaseManager(QMainWindow):
             print(f"Unexpected error updating releases display: {e}")
 
     def clear_releases_layout(self):
-        """Clear all widgets from releases layout except placeholder"""
+        """Clear ALL items from releases layout except placeholder"""
         try:
             if not self.releases_layout:
                 return
-                
-            # Create a list to store widgets to remove (excluding placeholder)
-            widgets_to_remove = []
             
-            # First, identify all widgets except the placeholder
+            # Δημιουργούμε λίστα με ΟΛΑ τα items προς αφαίρεση (εξαιρώντας το placeholder)
+            items_to_remove = []
+            
+            # Αναγνωρίζουμε όλα τα layout items
             for i in range(self.releases_layout.count()):
                 child = self.releases_layout.itemAt(i)
-                if child and child.widget():
-                    if child.widget() != self.placeholder_label:
-                        widgets_to_remove.append(child.widget())
-            
-            # Remove identified widgets
-            for widget in widgets_to_remove:
-                try:
-                    self.releases_layout.removeWidget(widget)
-                    widget.deleteLater()
-                except Exception:
-                    pass
+                if child:
+                    # ΚΡΙΤΗΡΙΟ: Διατηρούμε ΜΟΝΟ το placeholder_label widget
+                    if child.widget() and child.widget() == self.placeholder_label:
+                        continue  # Skip placeholder - keep it
                     
-        except Exception:
-            pass
+                    items_to_remove.append(child)
+            
+            # Αφαιρούμε όλα τα εντοπισμένα items (widgets ΚΑΙ spacers)
+            for item in items_to_remove:
+                try:
+                    if item.widget():
+                        # Αφαίρεση widget
+                        widget = item.widget()
+                        self.releases_layout.removeWidget(widget)
+                        widget.setParent(None)
+                        widget.deleteLater()
+                    else:
+                        # Αφαίρεση spacer/item
+                        self.releases_layout.removeItem(item)
+                except Exception as e:
+                    print(f"Error removing item: {e}")
+                    
+        except Exception as e:
+            print(f"Error in clear_releases_layout: {e}")
 
     def add_release_item(self, release, is_release=True):
         """Add a release/tag item to the releases panel - MODERN VERSION""" 
