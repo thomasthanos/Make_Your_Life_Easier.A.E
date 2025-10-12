@@ -646,65 +646,76 @@ class ModernReleaseManager(QMainWindow):
             self.placeholder_label.deleteLater()
         
         if not self.project_path:
-            # NO PROJECT SELECTED - Show setup instructions
+            # NO PROJECT SELECTED - Clean design without background
             self.placeholder_label = QLabel()
             self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
             self.placeholder_label.setText("""
-            <div style="text-align: center; padding: 40px;">
-                <h2 style="color: #fbc531; margin-bottom: 20px;">⚠️ Setup Required</h2>
-                <p style="color: #e0e0ff; font-size: 14px; margin-bottom: 25px; line-height: 1.5;">
-                    To use the GitHub Release Manager, you need to complete the following setup steps:
-                </p>
-                <div style="text-align: left; background: #1a1a2e; padding: 20px; border-radius: 10px; border: 1px solid #fbc53140; margin: 0 auto; max-width: 500px;">
-                    <div style="color: #00a8ff; font-weight: bold; margin-bottom: 15px;">📁 1. Select Project Folder</div>
-                    <p style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px;">
-                        Click the <span style="color: #00a8ff;">"Select Project Folder"</span> button in the sidebar to choose your project directory containing package.json
-                    </p>
+            <div style="text-align: center; padding: 40px 20px;">
+                <h3 style="color: #00a8ff; margin-bottom: 25px; font-size: 20px; font-weight: bold;">GitHub Release Manager</h3>
+                
+                <div style="display: inline-block; text-align: left; max-width: 500px;">
+                    <!-- Step 1 -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="color: #00a8ff; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+                            1. Select Project Folder
+                        </div>
+                        <div style="color: #a0a0c0; font-size: 12px; line-height: 1.4; padding-left: 8px;">
+                            Click <span style="color: #00a8ff; font-weight: bold;">"Select Project Folder"</span> in the sidebar to choose your project directory
+                        </div>
+                    </div>
                     
-                    <div style="color: #00d2d3; font-weight: bold; margin-bottom: 15px;">🔑 2. Install & Authenticate GitHub CLI</div>
-                    <p style="color: #a0a0c0; margin-bottom: 10px; font-size: 13px;">
-                        • Install GitHub CLI from: <span style="color: #00d2d3;">https://cli.github.com/</span>
-                    </p>
-                    <p style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px;">
-                        • Run: <span style="color: #00d2d3; font-family: monospace;">gh auth login</span> to authenticate
-                    </p>
+                    <!-- Step 2 -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="color: #00d2d3; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+                            2. Install & Authenticate GitHub CLI
+                        </div>
+                        <div style="color: #a0a0c0; font-size: 12px; line-height: 1.4; padding-left: 8px;">
+                            • Install from: <span style="color: #00d2d3;">https://cli.github.com/</span><br>
+                            • Run: <code style="color: #00d2d3; font-family: monospace;">gh auth login</code> to authenticate
+                        </div>
+                    </div>
                     
-                    <div style="color: #9c88ff; font-weight: bold; margin-bottom: 15px;">⚡ 3. Start Managing Releases</div>
-                    <p style="color: #a0a0c0; font-size: 13px;">
-                        Once setup is complete, click <span style="color: #9c88ff;">"Refresh"</span> to load your releases
-                    </p>
+                    <!-- Step 3 -->
+                    <div style="margin-bottom: 25px;">
+                        <div style="color: #9c88ff; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+                            3. Start Managing Releases
+                        </div>
+                        <div style="color: #a0a0c0; font-size: 12px; line-height: 1.4; padding-left: 8px;">
+                            Once setup is complete, click <span style="color: #9c88ff; font-weight: bold;">"Refresh"</span> to load your releases
+                        </div>
+                    </div>
                 </div>
-                <p style="color: #8888aa; font-size: 12px; margin-top: 25px;">
-                    Need help? Check the GitHub CLI documentation for detailed setup instructions.
-                </p>
+                
+                <!-- Help tip -->
+                <div style="color: #8888aa; font-size: 11px; margin-top: 20px;">
+                    Need help? Check the GitHub CLI documentation for detailed setup instructions
+                </div>
             </div>
             """)
-            self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.placeholder_label.setWordWrap(True)
-            self.releases_layout.addWidget(self.placeholder_label)
         else:
-            # PROJECT SELECTED - Show refresh instructions
+            # PROJECT SELECTED - Clean ready state
             self.placeholder_label = QLabel()
             self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
             self.placeholder_label.setText("""
-            <div style="text-align: center; padding: 40px;">
-                <h3 style="color: #00a8ff; margin-bottom: 15px;">🚀 Ready to Load Releases</h3>
-                <p style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px; line-height: 1.5;">
+            <div style="text-align: center; padding: 40px 20px;">
+                <h3 style="color: #00a8ff; margin-bottom: 15px; font-size: 18px; font-weight: bold;">Ready to Load Releases</h3>
+                <div style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px; line-height: 1.5;">
                     Project loaded: <span style="color: #00d2d3; font-weight: bold;">{}</span>
-                </p>
-                <div style="background: #00a8ff20; padding: 15px; border-radius: 8px; border: 1px solid #00a8ff40; margin: 0 auto; max-width: 400px;">
-                    <p style="color: #e0e0ff; margin-bottom: 15px; font-size: 13px;">
-                        Click the <span style="color: #00a8ff; font-weight: bold;">"Refresh"</span> button above to load your GitHub releases and tags.
-                    </p>
                 </div>
-                <p style="color: #8888aa; font-size: 12px; margin-top: 20px;">
-                    Make sure you're authenticated with GitHub CLI and have the necessary permissions.
-                </p>
+                
+                <div style="color: #e0e0ff; font-size: 13px; margin-bottom: 20px;">
+                    Click the <span style="color: #00a8ff; font-weight: bold;">"Refresh"</span> button above to load your GitHub releases and tags
+                </div>
+                
+                <div style="color: #8888aa; font-size: 11px;">
+                    Make sure you're authenticated with GitHub CLI and have the necessary permissions
+                </div>
             </div>
             """.format(os.path.basename(self.project_path)))
-            self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.placeholder_label.setWordWrap(True)
-            self.releases_layout.addWidget(self.placeholder_label)
+        
+        self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.placeholder_label.setWordWrap(True)
+        self.releases_layout.addWidget(self.placeholder_label)
 
     def setup_quick_release_view(self):
         """Setup the quick release view with checkboxes"""
