@@ -1684,118 +1684,137 @@ function dismissToast(toastEl) {
   }, 300);
 }
   // ---- INSTALL APPS (fixed) ----
-  async function buildInstallPage(){
-    const container = document.createElement('div'); container.className='card';
-    const title = document.createElement('h2'); title.textContent = (translations.pages&&translations.pages.install_title)||'Install Applications'; container.appendChild(title);
-    const desc  = document.createElement('p'); desc.textContent = (translations.pages&&translations.pages.install_desc)||'Select apps to download. We will open each installer automatically after the download finishes.'; container.appendChild(desc);
+async function buildInstallPage(){
+  const container = document.createElement('div'); container.className='card';
+  const title = document.createElement('h2'); title.textContent = (translations.pages&&translations.pages.install_title)||'Install Applications'; container.appendChild(title);
+  const desc  = document.createElement('p'); desc.textContent = (translations.pages&&translations.pages.install_desc)||'Select apps to download. We will open each installer automatically after the download finishes.'; container.appendChild(desc);
 
-    // Keep your app list; you can edit URLs/names safely
-    const apps = [
-      { name: 'BetterDiscord', description: 'Enhanced Discord client', url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&st=kd8njdce&dl=1', ext: 'exe' },
-      { name: 'Discord PTB', description: 'Public Test Build of Discord', url: 'https://www.dropbox.com/scl/fi/aaqzyvha72wjhmlbkaisf/discord_ptb.exe?rlkey=jandm03y74hsx8vmt3bf9enub&st=syrb9gxp&dl=1', ext: 'exe' },
-      { name: 'Discord', description: 'Official Discord client', url: 'https://www.dropbox.com/scl/fi/bgpi9iy00abrkw995u4by/discord.exe?rlkey=fm22iu7b0gwvackygmhvv29uw&st=mvmkbabw&dl=1', ext: 'exe' },
-      { name: 'Epic Games', description: 'Epic Games Launcher', url: 'https://www.dropbox.com/scl/fi/3mnee6vxp3wp1mym5nrhd/epicgames.msi?rlkey=ygiy5oqia6hm0ne61vs7nz6m6&st=qigfjjlm&dl=1', ext: 'msi' },
-      { name: 'Ubisoft Connect', description: 'Ubisoft game launcher', url: 'https://www.dropbox.com/scl/fi/8wzoxzkf23pklm6thvr3d/ubisoft.exe?rlkey=lasiokbqo5h659kib2s42zjtf&st=pzys86ls&dl=1', ext: 'exe' },
-      { 
-        name: 'Advanced Installer', 
-        description: 'Professional Windows installer authoring tool', 
-        url: 'https://www.dropbox.com/scl/fi/nx5ced8mt2t5mye4tus6j/Advanced-Installer-Architect-23.1.0.zip?rlkey=2bre9u83d9lfdvhhz778nvr04&st=cgpe2npr&dl=1', 
-        ext: 'zip',
-        isAdvancedInstaller: true // Ειδική επεξεργασία για αυτήν την εφαρμογή
-      }    
-    ];
+  // Λίστα εφαρμογών - απλά προσθέτεις νέες εφαρμογές εδώ
+  const apps = [
+    { name: 'BetterDiscord', description: 'Enhanced Discord client', url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&st=kd8njdce&dl=1', ext: 'exe' },
+    { name: 'Discord PTB', description: 'Public Test Build of Discord', url: 'https://www.dropbox.com/scl/fi/aaqzyvha72wjhmlbkaisf/discord_ptb.exe?rlkey=jandm03y74hsx8vmt3bf9enub&st=syrb9gxp&dl=1', ext: 'exe' },
+    { name: 'Discord', description: 'Official Discord client', url: 'https://www.dropbox.com/scl/fi/bgpi9iy00abrkw995u4by/discord.exe?rlkey=fm22iu7b0gwvackygmhvv29uw&st=mvmkbabw&dl=1', ext: 'exe' },
+    { name: 'Epic Games', description: 'Epic Games Launcher', url: 'https://www.dropbox.com/scl/fi/3mnee6vxp3wp1mym5nrhd/epicgames.msi?rlkey=ygiy5oqia6hm0ne61vs7nz6m6&st=qigfjjlm&dl=1', ext: 'msi' },
+    { name: 'Ubisoft Connect', description: 'Ubisoft game launcher', url: 'https://www.dropbox.com/scl/fi/8wzoxzkf23pklm6thvr3d/ubisoft.exe?rlkey=lasiokbqo5h659kib2s42zjtf&st=pzys86ls&dl=1', ext: 'exe' },
+    { name: 'Spotify', description: 'Spotify Launcher', url: 'https://www.dropbox.com/scl/fi/tgfdprtihmfmg0vmje5mw/SpotifySetup.exe?rlkey=55vfvccgpndwys4wvl1gg4u1v&st=2leaehi8&dl=1', ext: 'exe' },
+    { name: 'Advanced Installer', description: 'Professional Windows installer authoring tool', url: 'https://www.dropbox.com/scl/fi/nx5ced8mt2t5mye4tus6j/Advanced-Installer-Architect-23.1.0.zip?rlkey=2bre9u83d9lfdvhhz778nvr04&st=cgpe2npr&dl=1', ext: 'zip', isAdvancedInstaller: true }
+  ];
 
-    const list = document.createElement('ul'); list.style.listStyle='none'; list.style.padding='0'; list.style.margin='0';
-    apps.forEach((app, i)=>{
-      const li=document.createElement('li'); li.style.display='flex'; li.style.alignItems='center'; li.style.padding='1rem'; li.style.border='1px solid var(--border-color)'; li.style.borderRadius='12px'; li.style.marginBottom='0.75rem'; li.style.background='var(--card-bg)';
-      const cb=document.createElement('input'); cb.type='checkbox'; cb.id=`app-${i}`; cb.style.marginRight='1rem'; cb.style.width='18px'; cb.style.height='18px'; cb.style.accentColor='var(--accent-color)';
-      const label=document.createElement('label'); label.htmlFor=cb.id; label.style.flex='1'; label.style.display='flex'; label.style.alignItems='center';
-      const text=document.createElement('div'); const n=document.createElement('span'); n.textContent=app.name; n.style.fontWeight='600'; n.style.fontSize='1.1rem'; const p=document.createElement('p'); p.textContent=app.description; p.style.margin='0'; p.style.opacity='0.8'; p.style.fontSize='0.9rem'; text.append(n,p); label.append(text);
-      const status=document.createElement('pre'); status.className='status-pre'; status.style.marginLeft='auto'; status.style.fontSize='0.85rem'; status.style.opacity='0.8';
-      li.append(cb,label,status); list.appendChild(li);
+  // Αυτόματη ταξινόμηση αλφαβητικά - ΔΕΝ χρειάζεται να αλλάξεις τίποτα
+  const sortedApps = [...apps].sort((a, b) => a.name.localeCompare(b.name));
+
+  const list = document.createElement('ul'); list.style.listStyle='none'; list.style.padding='0'; list.style.margin='0';
+  
+  // Χρήση των sortedApps αντί για apps
+  sortedApps.forEach((app, i)=>{
+    const li=document.createElement('li'); li.style.display='flex'; li.style.alignItems='center'; li.style.padding='1rem'; li.style.border='1px solid var(--border-color)'; li.style.borderRadius='12px'; li.style.marginBottom='0.75rem'; li.style.background='var(--card-bg)';
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.id=`app-${i}`; cb.style.marginRight='1rem'; cb.style.width='18px'; cb.style.height='18px'; cb.style.accentColor='var(--accent-color)';
+    const label=document.createElement('label'); label.htmlFor=cb.id; label.style.flex='1'; label.style.display='flex'; label.style.alignItems='center';
+    const text=document.createElement('div'); const n=document.createElement('span'); n.textContent=app.name; n.style.fontWeight='600'; n.style.fontSize='1.1rem'; const p=document.createElement('p'); p.textContent=app.description; p.style.margin='0'; p.style.opacity='0.8'; p.style.fontSize='0.9rem'; text.append(n,p); label.append(text);
+    const status=document.createElement('pre'); status.className='status-pre'; status.style.marginLeft='auto'; status.style.fontSize='0.85rem'; status.style.opacity='0.8';
+    li.append(cb,label,status); list.appendChild(li);
+  });
+  container.appendChild(list);
+
+  const btn=document.createElement('button'); btn.className='button'; btn.textContent=(translations.actions&&translations.actions.download_selected)||'Download Selected'; btn.style.marginTop='1rem'; container.appendChild(btn);
+
+  let running = false;
+  btn.onclick = async () => {
+    if (running) return;
+    running = true;
+    btn.disabled = true;
+    btn.textContent = 'Downloading...';
+
+    // Χρήση sortedApps για να βρούμε το σωστό app
+    const selected = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => {
+      const index = parseInt(cb.id.split('-')[1]);
+      return sortedApps[index]; // Χρήση sortedApps αντί για apps
     });
-    container.appendChild(list);
 
-    const btn=document.createElement('button'); btn.className='button'; btn.textContent=(translations.actions&&translations.actions.download_selected)||'Download Selected'; btn.style.marginTop='1rem'; container.appendChild(btn);
+    if (!selected.length) {
+      toast(translations.messages.no_apps_selected || 'No applications selected.', { type: 'info' });
+      running = false;
+      btn.disabled = false;
+      btn.textContent = (translations.actions && translations.actions.download_selected) || 'Download Selected';
+      return;
+    }
 
-    let running = false;
-    btn.onclick = async () => {
-      if (running) return;
-      running = true;
-      btn.disabled = true;
-      btn.textContent = 'Downloading...';
-
-      const selected = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => parseInt(cb.id.split('-')[1]));
-      if (!selected.length) {
-        toast(translations.messages.no_apps_selected || 'No applications selected.', { type: 'info' });
-        running = false;
-        btn.disabled = false;
-        btn.textContent = (translations.actions && translations.actions.download_selected) || 'Download Selected';
-        return;
-      }
-
-
-
-const handleDownload = (idx) => {
-    const app = apps[idx];
-    const li = list.children[idx];
-    const status = li.querySelector('pre');
-    status.textContent = 'Starting download...';
-    status.style.display = 'block';
-    const id = `install-${app.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
-    const TIMEOUT_MS = 120000;
-    
-    return new Promise((resolve) => {
-        let timeout;
-        const unsubscribe = window.api.onDownloadEvent(async (data) => {
-            if (data.id !== id) return;
-            if (timeout) {
-                clearTimeout(timeout);
-                timeout = null;
-            }
-            
-            if (data.status === 'started') {
-                status.textContent = 'Downloading: 0%';
-                status.style.display = 'block';
-            } else if (data.status === 'progress') {
-                status.textContent = `Downloading: ${data.percent}%`;
-                status.style.display = 'block';
-            } else if (data.status === 'complete') {
-                status.textContent = 'Download complete!';
-                status.style.display = 'block';
-                unsubscribe();
+    const handleDownload = (app) => {
+        const index = sortedApps.findIndex(a => a.name === app.name);
+        const li = list.children[index];
+        const status = li.querySelector('pre');
+        status.textContent = 'Starting download...';
+        status.style.display = 'block';
+        const id = `install-${app.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+        const TIMEOUT_MS = 120000;
+        return new Promise((resolve) => {
+            let timeout;
+            const unsubscribe = window.api.onDownloadEvent(async (data) => {
+                if (data.id !== id) return;
+                if (timeout) {
+                    clearTimeout(timeout);
+                    timeout = null;
+                }
                 
-                try {
-                    // Ειδική επεξεργασία για Advanced Installer
-                    if (app.isAdvancedInstaller) {
-                        await processAdvancedInstaller(data.path, status, app.name);
-                    } else {
-                        // Κανονική επεξεργασία για άλλες εφαρμογές
-                        await window.api.openInstaller(data.path);
-                        status.textContent = 'Installer opened successfully!';
-                        status.classList.add('status-success');
-                        toast(`${app.name}: installer opened successfully!`, { 
-                            type: 'success', 
+                if (data.status === 'started') {
+                    status.textContent = 'Downloading: 0%';
+                    status.style.display = 'block';
+                } else if (data.status === 'progress') {
+                    status.textContent = `Downloading: ${data.percent}%`;
+                    status.style.display = 'block';
+                } else if (data.status === 'complete') {
+                    status.textContent = 'Download complete!';
+                    status.style.display = 'block';
+                    unsubscribe();
+                    
+                    try {
+                        // Ειδική επεξεργασία για Advanced Installer
+                        if (app.isAdvancedInstaller) {
+                            await processAdvancedInstaller(data.path, status, app.name);
+                        } else {
+                            // Κανονική επεξεργασία για άλλες εφαρμογές
+                            await window.api.openInstaller(data.path);
+                            status.textContent = 'Installer opened successfully!';
+                            status.classList.add('status-success');
+                            toast(`${app.name}: installer opened successfully!`, { 
+                                type: 'success', 
+                                title: 'Install' 
+                            });
+                        }
+                    } catch (error) {
+                        status.textContent = `Error: ${error.message}`;
+                        status.classList.add('status-error');
+                        toast(`${app.name}: error - ${error.message}`, { 
+                            type: 'error', 
                             title: 'Install' 
                         });
                     }
-                } catch (error) {
-                    status.textContent = `Error: ${error.message}`;
+                    
+                    autoFadeStatus(status, 3000);
+                    resolve();
+                    
+                } else if (data.status === 'error') {
+                    status.textContent = `Download error: ${data.error}`;
                     status.classList.add('status-error');
-                    toast(`${app.name}: error - ${error.message}`, { 
+                    status.style.display = 'block';
+                    toast(`${app.name}: download error - ${data.error}`, { 
                         type: 'error', 
                         title: 'Install' 
                     });
+                    autoFadeStatus(status, 4000);
+                    unsubscribe();
+                    resolve();
                 }
-                
-                autoFadeStatus(status, 3000);
-                resolve();
-                
-            } else if (data.status === 'error') {
-                status.textContent = `Download error: ${data.error}`;
+            });
+
+            // Start download
+            try {
+                window.api.downloadStart(id, app.url, `${app.name}.${app.ext}`);
+            } catch (e) {
+                status.textContent = `Download failed: ${e.message}`;
                 status.classList.add('status-error');
                 status.style.display = 'block';
-                toast(`${app.name}: download error - ${data.error}`, { 
+                toast(`${app.name}: download failed - ${e.message}`, { 
                     type: 'error', 
                     title: 'Install' 
                 });
@@ -1803,51 +1822,34 @@ const handleDownload = (idx) => {
                 unsubscribe();
                 resolve();
             }
+            
+            // Timeout handler
+            timeout = setTimeout(() => {
+                timeout = null;
+                status.textContent = 'Download timed out';
+                status.classList.add('status-error');
+                status.style.display = 'block';
+                toast(`${app.name}: download timed out`, { 
+                    type: 'error', 
+                    title: 'Install' 
+                });
+                autoFadeStatus(status, 4000);
+                unsubscribe();
+                resolve();
+            }, TIMEOUT_MS);
         });
-
-        // Start download
-        try {
-            window.api.downloadStart(id, app.url, `${app.name}.${app.ext}`);
-        } catch (e) {
-            status.textContent = `Download failed: ${e.message}`;
-            status.classList.add('status-error');
-            status.style.display = 'block';
-            toast(`${app.name}: download failed - ${e.message}`, { 
-                type: 'error', 
-                title: 'Install' 
-            });
-            autoFadeStatus(status, 4000);
-            unsubscribe();
-            resolve();
-        }
-        
-        // Timeout handler
-        timeout = setTimeout(() => {
-            timeout = null;
-            status.textContent = 'Download timed out';
-            status.classList.add('status-error');
-            status.style.display = 'block';
-            toast(`${app.name}: download timed out`, { 
-                type: 'error', 
-                title: 'Install' 
-            });
-            autoFadeStatus(status, 4000);
-            unsubscribe();
-            resolve();
-        }, TIMEOUT_MS);
-    });
-};
-
-      // Launch all downloads concurrently
-      const promises = selected.map((idx) => handleDownload(idx));
-      await Promise.all(promises);
-      toast(translations.messages.all_downloads_complete || 'All downloads completed.', { title: 'make-your-life-easier', type: 'success' });
-      running = false;
-      btn.disabled = false;
-      btn.textContent = (translations.actions && translations.actions.download_selected) || 'Download Selected';
     };
-    return container;
-  }
+
+    // Launch all downloads concurrently
+    const promises = selected.map((app) => handleDownload(app));
+    await Promise.all(promises);
+    toast(translations.messages.all_downloads_complete || 'All downloads completed.', { title: 'make-your-life-easier', type: 'success' });
+    running = false;
+    btn.disabled = false;
+    btn.textContent = (translations.actions && translations.actions.download_selected) || 'Download Selected';
+  };
+  return container;
+}
 // Συνάρτηση για επεξεργασία του Advanced Installer
 async function processAdvancedInstaller(zipPath, statusElement, appName) {
     statusElement.textContent = 'Extracting Advanced Installer...';
