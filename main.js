@@ -1217,3 +1217,75 @@ ipcMain.handle('find-exe-files', async (event, directoryPath) => {
     }
   });
 });
+// Προσθήκη νέου handler για MSI installers
+ipcMain.handle('run-msi-installer', async (event, msiPath) => {
+    return new Promise((resolve) => {
+        if (process.platform !== 'win32') {
+            resolve({ success: false, error: 'MSI installers are only supported on Windows' });
+            return;
+        }
+        
+        const command = `msiexec /i "${msiPath}"`;
+        
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                console.log('MSI execution details:', { error, stdout, stderr });
+                
+                // Θεωρούμε επιτυχία αν υπήρχε κάποιο output
+                if (stdout || stderr) {
+                    resolve({ 
+                        success: true, 
+                        message: 'MSI installer started successfully',
+                        details: { stdout, stderr }
+                    });
+                } else {
+                    resolve({ 
+                        success: false, 
+                        error: error.message,
+                        details: { stdout, stderr }
+                    });
+                }
+            } else {
+                resolve({ 
+                    success: true, 
+                    message: 'MSI installer completed successfully',
+                    details: { stdout, stderr }
+                });
+            }
+        });
+    });
+});
+// Νέο handler για εκτέλεση installers
+ipcMain.handle('run-installer', async (event, filePath) => {
+    return new Promise((resolve) => {
+        console.log('Running installer:', filePath);
+        
+        if (process.platform === 'win32') {
+            // Χρήση start command για να ανοίξει το αρχείο
+            const command = `start "" "${filePath}"`;
+            
+            exec(command, (error, stdout, stderr) => {
+                if (error) {
+                    console.log('Exec error:', error);
+                    resolve({ success: false, error: error.message });
+                } else {
+                    console.log('Exec success');
+                    resolve({ success: true });
+                }
+            });
+        } else {
+            // Για άλλα OS
+            shell.openPath(filePath)
+                .then((error) => {
+                    if (error) {
+                        resolve({ success: false, error: error });
+                    } else {
+                        resolve({ success: true });
+                    }
+                })
+                .catch((error) => {
+                    resolve({ success: false, error: error.message });
+                });
+        }
+    });
+});

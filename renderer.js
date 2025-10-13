@@ -1140,9 +1140,9 @@ function selectBestExe(files, dlcName) {
 }
 // Βοηθητική function για path του extracted folder
 function getExtractedFolderPath(zipPath) {
-  const parentDir = getDirectoryName(zipPath);
-  const baseName = getBaseName(zipPath, '.zip');
-  return `${parentDir}/${baseName}`;
+    const parentDir = getDirectoryName(zipPath);
+    const baseName = getBaseName(zipPath, '.zip');
+    return `${parentDir}/${baseName}`;
 }
 
 // Βοηθητικές functions για path manipulation
@@ -1695,7 +1695,14 @@ function dismissToast(toastEl) {
       { name: 'Discord PTB', description: 'Public Test Build of Discord', url: 'https://www.dropbox.com/scl/fi/aaqzyvha72wjhmlbkaisf/discord_ptb.exe?rlkey=jandm03y74hsx8vmt3bf9enub&st=syrb9gxp&dl=1', ext: 'exe' },
       { name: 'Discord', description: 'Official Discord client', url: 'https://www.dropbox.com/scl/fi/bgpi9iy00abrkw995u4by/discord.exe?rlkey=fm22iu7b0gwvackygmhvv29uw&st=mvmkbabw&dl=1', ext: 'exe' },
       { name: 'Epic Games', description: 'Epic Games Launcher', url: 'https://www.dropbox.com/scl/fi/3mnee6vxp3wp1mym5nrhd/epicgames.msi?rlkey=ygiy5oqia6hm0ne61vs7nz6m6&st=qigfjjlm&dl=1', ext: 'msi' },
-      { name: 'Ubisoft Connect', description: 'Ubisoft game launcher', url: 'https://www.dropbox.com/scl/fi/8wzoxzkf23pklm6thvr3d/ubisoft.exe?rlkey=lasiokbqo5h659kib2s42zjtf&st=pzys86ls&dl=1', ext: 'exe' }
+      { name: 'Ubisoft Connect', description: 'Ubisoft game launcher', url: 'https://www.dropbox.com/scl/fi/8wzoxzkf23pklm6thvr3d/ubisoft.exe?rlkey=lasiokbqo5h659kib2s42zjtf&st=pzys86ls&dl=1', ext: 'exe' },
+      { 
+        name: 'Advanced Installer', 
+        description: 'Professional Windows installer authoring tool', 
+        url: 'https://www.dropbox.com/scl/fi/nx5ced8mt2t5mye4tus6j/Advanced-Installer-Architect-23.1.0.zip?rlkey=2bre9u83d9lfdvhhz778nvr04&st=cgpe2npr&dl=1', 
+        ext: 'zip',
+        isAdvancedInstaller: true // Ειδική επεξεργασία για αυτήν την εφαρμογή
+      }    
     ];
 
     const list = document.createElement('ul'); list.style.listStyle='none'; list.style.padding='0'; list.style.margin='0';
@@ -1734,17 +1741,19 @@ const handleDownload = (idx) => {
     const li = list.children[idx];
     const status = li.querySelector('pre');
     status.textContent = 'Starting download...';
-    status.style.display = 'block'; // Ensure it's visible
+    status.style.display = 'block';
     const id = `install-${app.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
     const TIMEOUT_MS = 120000;
+    
     return new Promise((resolve) => {
         let timeout;
-        const unsubscribe = window.api.onDownloadEvent((data) => {
+        const unsubscribe = window.api.onDownloadEvent(async (data) => {
             if (data.id !== id) return;
             if (timeout) {
                 clearTimeout(timeout);
                 timeout = null;
             }
+            
             if (data.status === 'started') {
                 status.textContent = 'Downloading: 0%';
                 status.style.display = 'block';
@@ -1752,36 +1761,50 @@ const handleDownload = (idx) => {
                 status.textContent = `Downloading: ${data.percent}%`;
                 status.style.display = 'block';
             } else if (data.status === 'complete') {
-                status.textContent = 'Download complete! Launching installer...';
+                status.textContent = 'Download complete!';
                 status.style.display = 'block';
                 unsubscribe();
-                window.api.openInstaller(data.path)
-                    .then(() => {
+                
+                try {
+                    // Ειδική επεξεργασία για Advanced Installer
+                    if (app.isAdvancedInstaller) {
+                        await processAdvancedInstaller(data.path, status, app.name);
+                    } else {
+                        // Κανονική επεξεργασία για άλλες εφαρμογές
+                        await window.api.openInstaller(data.path);
                         status.textContent = 'Installer opened successfully!';
                         status.classList.add('status-success');
-                        status.style.display = 'block';
-                        toast(`${app.name}: άνοιξε ο installer.`, { type: 'success', title: 'Install' });
-                        autoFadeStatus(status, 2000); // Fade out after 2 seconds
-                        resolve();
-                    })
-                    .catch((e) => {
-                        status.textContent = 'Downloaded. Could not open automatically.';
-                        status.classList.add('status-warning');
-                        status.style.display = 'block';
-                        toast(`${app.name}: δεν μπόρεσε να ανοίξει αυτόματα (${e.message}).`, { type: 'error', title: 'Install', duration: 6000 });
-                        autoFadeStatus(status, 3000); // Fade out after 3 seconds
-                        resolve();
+                        toast(`${app.name}: installer opened successfully!`, { 
+                            type: 'success', 
+                            title: 'Install' 
+                        });
+                    }
+                } catch (error) {
+                    status.textContent = `Error: ${error.message}`;
+                    status.classList.add('status-error');
+                    toast(`${app.name}: error - ${error.message}`, { 
+                        type: 'error', 
+                        title: 'Install' 
                     });
+                }
+                
+                autoFadeStatus(status, 3000);
+                resolve();
+                
             } else if (data.status === 'error') {
                 status.textContent = `Download error: ${data.error}`;
                 status.classList.add('status-error');
                 status.style.display = 'block';
-                toast(`${app.name}: σφάλμα λήψης – ${data.error}`, { type: 'error', title: 'Install', duration: 6000 });
-                autoFadeStatus(status, 4000); // Fade out after 4 seconds for errors
+                toast(`${app.name}: download error - ${data.error}`, { 
+                    type: 'error', 
+                    title: 'Install' 
+                });
+                autoFadeStatus(status, 4000);
                 unsubscribe();
                 resolve();
             }
         });
+
         // Start download
         try {
             window.api.downloadStart(id, app.url, `${app.name}.${app.ext}`);
@@ -1789,20 +1812,26 @@ const handleDownload = (idx) => {
             status.textContent = `Download failed: ${e.message}`;
             status.classList.add('status-error');
             status.style.display = 'block';
-            toast(`${app.name}: αποτυχία λήψης – ${e.message}`, { type: 'error', title: 'Install', duration: 6000 });
-            autoFadeStatus(status, 4000); // Fade out after 4 seconds
+            toast(`${app.name}: download failed - ${e.message}`, { 
+                type: 'error', 
+                title: 'Install' 
+            });
+            autoFadeStatus(status, 4000);
             unsubscribe();
             resolve();
-            return;
         }
+        
         // Timeout handler
         timeout = setTimeout(() => {
             timeout = null;
             status.textContent = 'Download timed out';
             status.classList.add('status-error');
             status.style.display = 'block';
-            toast(`${app.name}: έληξε ο χρόνος λήψης`, { type: 'error', title: 'Install', duration: 6000 });
-            autoFadeStatus(status, 4000); // Fade out after 4 seconds
+            toast(`${app.name}: download timed out`, { 
+                type: 'error', 
+                title: 'Install' 
+            });
+            autoFadeStatus(status, 4000);
             unsubscribe();
             resolve();
         }, TIMEOUT_MS);
@@ -1819,6 +1848,241 @@ const handleDownload = (idx) => {
     };
     return container;
   }
+// Συνάρτηση για επεξεργασία του Advanced Installer
+async function processAdvancedInstaller(zipPath, statusElement, appName) {
+    statusElement.textContent = 'Extracting Advanced Installer...';
+    
+    try {
+        // Extract το zip αρχείο
+        const extractResult = await window.api.extractArchive(zipPath, '');
+        
+        if (!extractResult.success) {
+            throw new Error(`Extraction failed: ${extractResult.error}`);
+        }
+        
+        statusElement.textContent = 'Extraction complete!';
+        
+        // Βρες το extracted directory
+        const extractedDir = getExtractedFolderPath(zipPath);
+        
+        // Συγκεκριμένα paths
+        const msiPath = `${extractedDir}\\advinst.msi`;
+        const activatorPath = `${extractedDir}\\Advanced Installer Activator.exe`;
+        
+        console.log('MSI Path:', msiPath);
+        console.log('Activator Path:', activatorPath);
+        
+        // Έλεγχος ύπαρξης αρχείων με διαφορετικό τρόπο
+        const filesExist = await checkFilesExist([msiPath, activatorPath]);
+        
+        if (!filesExist.msiExists) {
+            throw new Error('advinst.msi not found');
+        }
+        
+        if (!filesExist.activatorExists) {
+            throw new Error('Advanced Installer Activator.exe not found');
+        }
+        
+        statusElement.textContent = 'Starting Advanced Installer setup...';
+        
+        // Εκτέλεση του advinst.msi ΜΟΝΟ ΜΙΑ ΦΟΡΑ
+        console.log('Running MSI installer...');
+        const installResult = await window.api.runInstaller(msiPath);
+        
+        if (!installResult.success) {
+            throw new Error(`Failed to run MSI installer: ${installResult.error}`);
+        }
+        
+        statusElement.textContent = '✅ Advanced Installer setup started! Complete the installation.';
+        statusElement.classList.add('status-success');
+        
+        // Compact κουμπί δεξιά
+        const activatorButton = document.createElement('button');
+        activatorButton.className = 'button activator-button';
+        activatorButton.innerHTML = '🔓 Activate';
+        activatorButton.style.marginLeft = 'auto';
+        activatorButton.style.marginTop = '0';
+        activatorButton.style.padding = '0.4rem 0.8rem';
+        activatorButton.style.fontSize = '0.8rem';
+        activatorButton.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
+        activatorButton.style.border = 'none';
+        activatorButton.style.borderRadius = '4px';
+        activatorButton.style.fontWeight = '500';
+        activatorButton.style.minWidth = '80px';
+        activatorButton.style.height = '32px';
+        
+        activatorButton.addEventListener('click', async () => {
+            activatorButton.disabled = true;
+            activatorButton.innerHTML = '⏳...';
+            
+            try {
+                console.log('Running activator...');
+                const activatorResult = await window.api.runInstaller(activatorPath);
+                
+                if (activatorResult.success) {
+                    activatorButton.innerHTML = '✅ Done';
+                    activatorButton.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
+                    
+                    statusElement.textContent = '✅ Advanced Installer Activator started successfully! Follow the activation instructions.';
+                    statusElement.classList.add('status-success');
+                    
+                    toast('Activator started successfully!', {
+                        type: 'success',
+                        title: 'Advanced Installer',
+                        duration: 4000
+                    });
+                    
+                    autoFadeStatus(statusElement, 6000);
+                    
+                } else {
+                    throw new Error(`Could not run activator: ${activatorResult.error}`);
+                }
+            } catch (error) {
+                activatorButton.innerHTML = '❌ Error';
+                activatorButton.style.background = 'linear-gradient(135deg, var(--error-color) 0%, #f87171 100%)';
+                
+                statusElement.textContent = `Error running activator: ${error.message}`;
+                statusElement.classList.add('status-error');
+                
+                toast('Failed to run activator', {
+                    type: 'error',
+                    title: 'Advanced Installer',
+                    duration: 4000
+                });
+                
+                setTimeout(() => {
+                    activatorButton.disabled = false;
+                    activatorButton.innerHTML = '🔓 Activate';
+                    activatorButton.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
+                }, 2000);
+            }
+        });
+        
+        // Προσθήκη compact κουμπιού
+        const card = statusElement.closest('li');
+        if (card) {
+            const oldButton = card.querySelector('.activator-button');
+            if (oldButton) oldButton.remove();
+            
+            const labelContainer = card.querySelector('label');
+            if (labelContainer) {
+                labelContainer.style.display = 'flex';
+                labelContainer.style.alignItems = 'center';
+                labelContainer.style.justifyContent = 'space-between';
+                labelContainer.style.width = '100%';
+                
+                const textContainer = labelContainer.querySelector('div');
+                if (textContainer) {
+                    textContainer.style.flex = '1';
+                    textContainer.style.marginRight = '1rem';
+                }
+                
+                labelContainer.appendChild(activatorButton);
+            } else {
+                card.appendChild(activatorButton);
+            }
+        }
+        
+        toast('Advanced Installer setup started! Complete the installation and click "Activate".', {
+            type: 'info',
+            title: 'Advanced Installer',
+            duration: 5000
+        });
+        
+    } catch (error) {
+        statusElement.textContent = `Error: ${error.message}`;
+        statusElement.classList.add('status-error');
+        throw error;
+    }
+}
+
+// Βοηθητική συνάρτηση για έλεγχο ύπαρξης αρχείων (χωρίς εκτέλεση)
+async function checkFilesExist(filePaths) {
+    return new Promise((resolve) => {
+        const results = {
+            msiExists: false,
+            activatorExists: false
+        };
+        
+        let completed = 0;
+        
+        filePaths.forEach(filePath => {
+            // Χρήση fetch για έλεγχο ύπαρξης χωρίς εκτέλεση
+            fetch(`file:///${filePath}`)
+                .then(() => {
+                    if (filePath.includes('advinst.msi')) {
+                        results.msiExists = true;
+                    } else if (filePath.includes('Advanced Installer Activator.exe')) {
+                        results.activatorExists = true;
+                    }
+                    completed++;
+                    if (completed === filePaths.length) resolve(results);
+                })
+                .catch(() => {
+                    completed++;
+                    if (completed === filePaths.length) resolve(results);
+                });
+        });
+    });
+}
+
+// Βοηθητική συνάρτηση για path του extracted folder
+function getExtractedFolderPath(zipPath) {
+    const parentDir = getDirectoryName(zipPath);
+    const baseName = getBaseName(zipPath, '.zip');
+    return `${parentDir}\\${baseName}`;
+}
+
+// Βοηθητικές functions για path manipulation
+function getDirectoryName(filePath) {
+    if (filePath.includes('\\')) {
+        return filePath.substring(0, filePath.lastIndexOf('\\'));
+    }
+    return filePath.substring(0, filePath.lastIndexOf('/'));
+}
+
+function getBaseName(filePath, ext = '') {
+    let fileName;
+    if (filePath.includes('\\')) {
+        fileName = filePath.substring(filePath.lastIndexOf('\\') + 1);
+    } else {
+        fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+    }
+    
+    if (ext && fileName.endsWith(ext)) {
+        fileName = fileName.substring(0, fileName.length - ext.length);
+    }
+    return fileName;
+}
+// Βοηθητική συνάρτηση για έλεγχο ύπαρξης αρχείων (χωρίς εκτέλεση)
+async function checkFilesExist(filePaths) {
+    return new Promise((resolve) => {
+        const results = {
+            msiExists: false,
+            activatorExists: false
+        };
+        
+        let completed = 0;
+        
+        filePaths.forEach(filePath => {
+            // Χρήση fetch για έλεγχο ύπαρξης χωρίς εκτέλεση
+            fetch(`file:///${filePath}`)
+                .then(() => {
+                    if (filePath.includes('advinst.msi')) {
+                        results.msiExists = true;
+                    } else if (filePath.includes('Advanced Installer Activator.exe')) {
+                        results.activatorExists = true;
+                    }
+                    completed++;
+                    if (completed === filePaths.length) resolve(results);
+                })
+                .catch(() => {
+                    completed++;
+                    if (completed === filePaths.length) resolve(results);
+                });
+        });
+    });
+}
 
 // Build Spicetify page
   function buildSpicetifyPage() {

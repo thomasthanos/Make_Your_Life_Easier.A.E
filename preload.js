@@ -100,5 +100,7 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('update-status', listener);
     return () => ipcRenderer.removeListener('update-status', listener);
   },
+runMsiInstaller: (msiPath) => ipcRenderer.invoke('run-msi-installer', msiPath),
+runInstaller: (filePath) => ipcRenderer.invoke('run-installer', filePath),
 
 });
