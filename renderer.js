@@ -1689,23 +1689,23 @@ async function buildInstallPage(){
   const title = document.createElement('h2'); title.textContent = (translations.pages&&translations.pages.install_title)||'Install Applications'; container.appendChild(title);
   const desc  = document.createElement('p'); desc.textContent = (translations.pages&&translations.pages.install_desc)||'Select apps to download. We will open each installer automatically after the download finishes.'; container.appendChild(desc);
 
-  // Λίστα εφαρμογών - απλά προσθέτεις νέες εφαρμογές εδώ
+  // Λίστα εφαρμογών - όλα σε μία γραμμή το καθένα
   const apps = [
-    { name: 'BetterDiscord', description: 'Enhanced Discord client', url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&st=kd8njdce&dl=1', ext: 'exe' },
-    { name: 'Discord PTB', description: 'Public Test Build of Discord', url: 'https://www.dropbox.com/scl/fi/aaqzyvha72wjhmlbkaisf/discord_ptb.exe?rlkey=jandm03y74hsx8vmt3bf9enub&st=syrb9gxp&dl=1', ext: 'exe' },
-    { name: 'Discord', description: 'Official Discord client', url: 'https://www.dropbox.com/scl/fi/bgpi9iy00abrkw995u4by/discord.exe?rlkey=fm22iu7b0gwvackygmhvv29uw&st=mvmkbabw&dl=1', ext: 'exe' },
-    { name: 'Epic Games', description: 'Epic Games Launcher', url: 'https://www.dropbox.com/scl/fi/3mnee6vxp3wp1mym5nrhd/epicgames.msi?rlkey=ygiy5oqia6hm0ne61vs7nz6m6&st=qigfjjlm&dl=1', ext: 'msi' },
-    { name: 'Ubisoft Connect', description: 'Ubisoft game launcher', url: 'https://www.dropbox.com/scl/fi/8wzoxzkf23pklm6thvr3d/ubisoft.exe?rlkey=lasiokbqo5h659kib2s42zjtf&st=pzys86ls&dl=1', ext: 'exe' },
-    { name: 'Spotify', description: 'Spotify Launcher', url: 'https://www.dropbox.com/scl/fi/tgfdprtihmfmg0vmje5mw/SpotifySetup.exe?rlkey=55vfvccgpndwys4wvl1gg4u1v&st=2leaehi8&dl=1', ext: 'exe' },
-    { name: 'Advanced Installer', description: 'Professional Windows installer authoring tool', url: 'https://www.dropbox.com/scl/fi/nx5ced8mt2t5mye4tus6j/Advanced-Installer-Architect-23.1.0.zip?rlkey=2bre9u83d9lfdvhhz778nvr04&st=cgpe2npr&dl=1', ext: 'zip', isAdvancedInstaller: true }
+    { name: translations.apps?.betterdiscord?.name || 'BetterDiscord', description: translations.apps?.betterdiscord?.description || 'Enhanced Discord client', url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&st=kd8njdce&dl=1', ext: 'exe' },
+    { name: translations.apps?.discord_ptb?.name || 'Discord PTB', description: translations.apps?.discord_ptb?.description || 'Public Test Build of Discord', url: 'https://www.dropbox.com/scl/fi/aaqzyvha72wjhmlbkaisf/discord_ptb.exe?rlkey=jandm03y74hsx8vmt3bf9enub&st=syrb9gxp&dl=1', ext: 'exe' },
+    { name: translations.apps?.discord?.name || 'Discord', description: translations.apps?.discord?.description || 'Official Discord client', url: 'https://www.dropbox.com/scl/fi/bgpi9iy00abrkw995u4by/discord.exe?rlkey=fm22iu7b0gwvackygmhvv29uw&st=mvmkbabw&dl=1', ext: 'exe' },
+    { name: translations.apps?.epic_games?.name || 'Epic Games', description: translations.apps?.epic_games?.description || 'Epic Games Launcher', url: 'https://www.dropbox.com/scl/fi/3mnee6vxp3wp1mym5nrhd/epicgames.msi?rlkey=ygiy5oqia6hm0ne61vs7nz6m6&st=qigfjjlm&dl=1', ext: 'msi' },
+    { name: translations.apps?.ubisoft_connect?.name || 'Ubisoft Connect', description: translations.apps?.ubisoft_connect?.description || 'Ubisoft game launcher', url: 'https://www.dropbox.com/scl/fi/8wzoxzkf23pklm6thvr3d/ubisoft.exe?rlkey=lasiokbqo5h659kib2s42zjtf&st=pzys86ls&dl=1', ext: 'exe' },
+    { name: translations.apps?.spotify?.name || 'Spotify', description: translations.apps?.spotify?.description || 'Spotify music streaming client', url: 'https://www.dropbox.com/scl/fi/tgfdprtihmfmg0vmje5mw/SpotifySetup.exe?rlkey=55vfvccgpndwys4wvl1gg4u1v&st=2leaehi8&dl=1', ext: 'exe' },
+    { name: translations.apps?.advanced_installer?.name || 'Advanced Installer', description: translations.apps?.advanced_installer?.description || 'Professional Windows installer authoring tool', url: 'https://www.dropbox.com/scl/fi/nx5ced8mt2t5mye4tus6j/Advanced-Installer-Architect-23.1.0.zip?rlkey=2bre9u83d9lfdvhhz778nvr04&st=cgpe2npr&dl=1', ext: 'zip', isAdvancedInstaller: true }
   ];
 
-  // Αυτόματη ταξινόμηση αλφαβητικά - ΔΕΝ χρειάζεται να αλλάξεις τίποτα
+  // Αυτόματη ταξινόμηση αλφαβητικά
   const sortedApps = [...apps].sort((a, b) => a.name.localeCompare(b.name));
 
   const list = document.createElement('ul'); list.style.listStyle='none'; list.style.padding='0'; list.style.margin='0';
   
-  // Χρήση των sortedApps αντί για apps
+  // Χρήση των sortedApps
   sortedApps.forEach((app, i)=>{
     const li=document.createElement('li'); li.style.display='flex'; li.style.alignItems='center'; li.style.padding='1rem'; li.style.border='1px solid var(--border-color)'; li.style.borderRadius='12px'; li.style.marginBottom='0.75rem'; li.style.background='var(--card-bg)';
     const cb=document.createElement('input'); cb.type='checkbox'; cb.id=`app-${i}`; cb.style.marginRight='1rem'; cb.style.width='18px'; cb.style.height='18px'; cb.style.accentColor='var(--accent-color)';
@@ -1728,7 +1728,7 @@ async function buildInstallPage(){
     // Χρήση sortedApps για να βρούμε το σωστό app
     const selected = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => {
       const index = parseInt(cb.id.split('-')[1]);
-      return sortedApps[index]; // Χρήση sortedApps αντί για apps
+      return sortedApps[index];
     });
 
     if (!selected.length) {

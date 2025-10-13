@@ -118,7 +118,6 @@
     "auto_login": "Auto Login",
     "auto_login_desc": "Download and setup automatic login without password"
   },
-
   "apps": {
     "betterdiscord": {
       "name": "BetterDiscord",
@@ -139,9 +138,16 @@
     "ubisoft_connect": {
       "name": "Ubisoft Connect",
       "description": "Ubisoft game launcher"
+    },
+    "spotify": {
+      "name": "Spotify",
+      "description": "Spotify music streaming client"
+    },
+    "advanced_installer": {
+      "name": "Advanced Installer",
+      "description": "Professional Windows installer authoring tool"
     }
   },
-
   "christitus_page": {
     "title": "Chris Titus",
     "subtitle": "Toolbox",

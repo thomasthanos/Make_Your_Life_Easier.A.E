@@ -120,27 +120,35 @@
   },
 
   "apps": {
-    "betterdiscord": {
-      "name": "BetterDiscord",
-      "description": "Βελτιωμένος client του Discord"
-    },
-    "discord_ptb": {
-      "name": "Discord PTB",
-      "description": "Δημόσια δοκιμαστική έκδοση του Discord"
-    },
-    "discord": {
-      "name": "Discord",
-      "description": "Επίσημος client του Discord"
-    },
-    "epic_games": {
-      "name": "Epic Games",
-      "description": "Εκκινητής του Epic Games"
-    },
-    "ubisoft_connect": {
-      "name": "Ubisoft Connect",
-      "description": "Εκκινητής παιχνιδιών της Ubisoft"
-    }
+  "betterdiscord": {
+    "name": "BetterDiscord",
+    "description": "Βελτιωμένος client του Discord"
   },
+  "discord_ptb": {
+    "name": "Discord PTB",
+    "description": "Δημόσια δοκιμαστική έκδοση (PTB) του Discord"
+  },
+  "discord": {
+    "name": "Discord",
+    "description": "Επίσημη εφαρμογή του Discord"
+  },
+  "epic_games": {
+    "name": "Epic Games",
+    "description": "Epic Games Launcher"
+  },
+  "ubisoft_connect": {
+    "name": "Ubisoft Connect",
+    "description": "Εκκινητής παιχνιδιών της Ubisoft"
+  },
+  "spotify": {
+    "name": "Spotify",
+    "description": "Εφαρμογή streaming μουσικής της Spotify"
+  },
+  "advanced_installer": {
+    "name": "Advanced Installer",
+    "description": "Επαγγελματικό εργαλείο δημιουργίας εγκαταστάσεων για Windows"
+  }
+},
 
   "christitus_page": {
     "title": "Chris Titus",
