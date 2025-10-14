@@ -2100,7 +2100,6 @@ const ICON_FULL_UNINSTALL_SPOTIFY = `
 </svg>
 `;
 
-/* === Page === */
 function buildSpicetifyPage() {
   const container = document.createElement('div');
   container.className = 'card';
@@ -2108,41 +2107,32 @@ function buildSpicetifyPage() {
   // Grid: δύο στήλες στο πάνω row, full-width το κάτω
   const grid = document.createElement('div');
   grid.className = 'install-grid';
-  grid.style.display = 'grid';
-  grid.style.gridTemplateColumns = 'repeat(2, minmax(0,1fr))';
-  grid.style.gap = '1rem';
-  grid.style.marginTop = '1rem';
 
   // Output
   const outputPre = document.createElement('pre');
   outputPre.className = 'status-pre';
-  outputPre.style.whiteSpace = 'pre-wrap';
-  outputPre.style.wordBreak = 'break-word';
-  outputPre.style.maxHeight = '200px';
-  outputPre.style.overflowY = 'auto';
-  outputPre.style.marginTop = '1rem';
 
   async function runAction(action, successMsg, errorMsg, button) {
     button.disabled = true;
     const originalText = button.textContent;
-    button.textContent = 'Running...';
+    button.textContent = (translations.general?.run || 'Run') + '...';
     try {
       const result = await action();
       outputPre.textContent = result.output || '';
       if (result.success) {
-        toast(successMsg, { type: 'success', title: translations.menu.spicetify });
+        toast(successMsg, { type: 'success', title: translations.menu?.spicetify || 'Spicetify' });
         button.textContent = '✓ ' + originalText;
-        button.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
-        setTimeout(() => { button.textContent = originalText; button.style.background = ''; }, 2000);
+        button.classList.add('success');
+        setTimeout(() => { button.textContent = originalText; button.classList.remove('success'); }, 2000);
       } else {
         throw new Error(result.error);
       }
     } catch (err) {
       outputPre.textContent = '';
-      toast(errorMsg + `: ${err.message}`, { type: 'error', title: translations.menu.spicetify, duration: 6000 });
+      toast(errorMsg + `: ${err.message}`, { type: 'error', title: translations.menu?.spicetify || 'Spicetify', duration: 6000 });
       button.textContent = '✗ ' + originalText;
-      button.style.background = 'linear-gradient(135deg, var(--error-color) 0%, #f87171 100%)';
-      setTimeout(() => { button.textContent = originalText; button.style.background = ''; }, 2000);
+      button.classList.add('error');
+      setTimeout(() => { button.textContent = originalText; button.classList.remove('error'); }, 2000);
     } finally {
       button.disabled = false;
     }
@@ -2151,23 +2141,16 @@ function buildSpicetifyPage() {
   function buildHeader(svgHTML, titleTxt, descTxt) {
     const header = document.createElement('div');
     header.className = 'app-header';
-    header.style.display = 'flex';
-    header.style.gap = '0.75rem';
-    header.style.alignItems = 'center';
 
     const iconWrap = document.createElement('div');
     iconWrap.className = 'app-icon';
-    iconWrap.innerHTML = svgHTML; // 36x36
+    iconWrap.innerHTML = svgHTML;
 
     const textBox = document.createElement('div');
     const h3 = document.createElement('h3');
     h3.textContent = titleTxt;
-    h3.style.margin = '0 0 0.35rem 0';
     const p = document.createElement('p');
     p.textContent = descTxt;
-    p.style.margin = '0';
-    p.style.opacity = '0.8';
-    p.style.fontSize = '0.9rem';
 
     textBox.appendChild(h3);
     textBox.appendChild(p);
@@ -2185,8 +2168,6 @@ function buildSpicetifyPage() {
     const btn = document.createElement('button');
     btn.className = 'button';
     btn.textContent = btnLabel;
-    btn.style.marginTop = '1rem';
-    btn.style.width = '100%';
     btn.addEventListener('click', () => onClick(btn));
     card.appendChild(btn);
     return card;
@@ -2195,26 +2176,26 @@ function buildSpicetifyPage() {
   // Top row: Install | Uninstall
   const installCard = makeCard(
     ICON_INSTALL_SPICETIFY,
-    'Install Spicetify',
-    'Download and install Spicetify for Spotify customization',
-    'Install',
+    translations.actions?.install_spicetify || 'Install Spicetify',
+    translations.pages?.spicetify_desc || 'Download and install Spicetify to customize Spotify',
+    translations.actions?.install || 'Install',
     (btn) => runAction(
       () => window.api.installSpicetify(),
-      (translations.messages && translations.messages.install_spicetify_success) || 'Spicetify installed successfully!',
-      (translations.messages && translations.messages.install_spicetify_error) || 'Error installing Spicetify',
+      translations.messages?.install_spicetify_success || 'Spicetify installed successfully!',
+      translations.messages?.install_spicetify_error || 'Error installing Spicetify',
       btn
     )
   );
 
   const uninstallCard = makeCard(
     ICON_UNINSTALL_SPICETIFY,
-    'Uninstall Spicetify',
-    'Remove Spicetify while keeping Spotify intact',
-    'Uninstall',
+    translations.actions?.uninstall_spicetify || 'Uninstall Spicetify',
+    translations.general?.not_implemented || 'Remove Spicetify while keeping Spotify',
+    translations.general?.cancel || 'Cancel',
     (btn) => runAction(
       () => window.api.uninstallSpicetify(),
-      (translations.messages && translations.messages.uninstall_spicetify_success) || 'Spicetify uninstalled successfully!',
-      (translations.messages && translations.messages.uninstall_spicetify_error) || 'Error uninstalling Spicetify',
+      translations.messages?.uninstall_spicetify_success || 'Spicetify uninstalled successfully!',
+      translations.messages?.uninstall_spicetify_error || 'Error uninstalling Spicetify',
       btn
     )
   );
@@ -2222,17 +2203,17 @@ function buildSpicetifyPage() {
   // Bottom row: Full uninstall spans both columns
   const fullUninstallCard = makeCard(
     ICON_FULL_UNINSTALL_SPOTIFY,
-    'Full Uninstall',
-    'Completely remove both Spotify and Spicetify',
-    'Full Uninstall',
+    translations.actions?.full_uninstall_spotify || 'Full Uninstall Spotify',
+    translations.general?.not_implemented || 'Complete removal of both Spotify and Spicetify',
+    translations.actions?.full_uninstall_spotify || 'Full Uninstall Spotify',
     (btn) => runAction(
       () => window.api.fullUninstallSpotify(),
-      (translations.messages && translations.messages.full_uninstall_spotify_success) || 'Spotify fully uninstalled!',
-      (translations.messages && translations.messages.full_uninstall_spotify_error) || 'Error fully uninstalling Spotify',
+      translations.messages?.full_uninstall_spotify_success || 'Spotify fully uninstalled!',
+      translations.messages?.full_uninstall_spotify_error || 'Error fully uninstalling Spotify',
       btn
     )
   );
-  fullUninstallCard.style.gridColumn = '1 / -1'; // span both columns
+  fullUninstallCard.classList.add('full-span');
 
   // Assemble
   grid.appendChild(installCard);
@@ -2243,7 +2224,6 @@ function buildSpicetifyPage() {
   container.appendChild(outputPre);
   return container;
 }
-
 
 // Build crack installer page - more compact grid with progress and pause
 async function buildCrackInstallerPage() {
