@@ -378,16 +378,6 @@ async function buildActivateAutologinPage() {
   const container = document.createElement('div');
   container.className = 'card';
   
-  const title = document.createElement('h2');
-  title.textContent = translations.menu.activate_autologin;
-  container.appendChild(title);
-  
-  const desc = document.createElement('p');
-  desc.textContent = translations.pages.activate_title || 'Windows activation and automatic login configuration';
-  desc.style.opacity = '0.8';
-  desc.style.marginBottom = '2rem';
-  container.appendChild(desc);
-  
   // Activate Windows card
   const activateCard = document.createElement('div');
   activateCard.className = 'app-card fixed-height';
