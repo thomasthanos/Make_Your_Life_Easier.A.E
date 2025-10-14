@@ -1995,3 +1995,25 @@ input:checked + .slider:before {
     display: none;
   }
 }
+/* --- Spicetify UI add-ons --- */
+.btn-icon { display:inline-flex; align-items:center; gap:.5rem; }
+.btn-icon svg { width:18px; height:18px; stroke: currentColor; fill: none; }
+
+.button-danger{
+  background: linear-gradient(135deg, var(--error-color) 0%, #dc2626 100%);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+  color:#fff;
+}
+.button-danger:hover{
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+}
+
+/* optional: compact card paddings for tool cards like the screenshot */
+.app-card.spc { padding: 1.25rem; }
+.app-card .spc-desc { opacity:.85; line-height:1.5; margin: .25rem 0 .75rem; }
+
+/* a single shared status box for the page */
+.spc-status { margin-top: .75rem; }
+
+.app-icon svg { color: var(--accent-color, #22c55e); }
+.app-icon svg, .app-icon svg * { fill: currentColor !important; }

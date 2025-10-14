@@ -16,7 +16,7 @@
     "theme": "Theme",
     "dark": "Dark",
     "light": "Light",
-    "not_implemented": "Feature not implemented for legal reasons.",
+    "not_implemented": "This will completely remove Spicetify and restore Spotify to its original state.",
     "open": "Open",
     "install": "Install",
     "run": "Run",
@@ -41,8 +41,8 @@
     "settings_title": "Application settings",
     "install_title": "Install selected applications",
     "maintenance_title": "System maintenance tasks",
-    "spicetify_title": "Spicetify configuration",
-    "spicetify_desc": "Spicetify is a Spotify client modification tool. Please respect Spotify's terms of service when using it.",
+    "spicetify_title": "Install Spicetify",
+"spicetify_desc": "Spicetify adds themes and customizations to Spotify for better experience.",
     "password_title": "Password manager",
     "info_title": "System details",
     "bios_title": "BIOS information",
@@ -76,12 +76,12 @@
   "messages": {
     "bios_instructions": "To access the BIOS/UEFI settings, please restart your computer and press the designated key (often F2, F10, Del or Esc) during startup. Modern operating systems do not allow entering BIOS directly from within apps.",
     "password_warning": "This simple password manager stores credentials locally. Do not use for sensitive data.",
-    "install_spicetify_success": "Spicetify installed successfully!",
+    "install_spicetify_success": "Spicetify installed successfully! Restart Spotify to see the changes.",
     "install_spicetify_error": "Error installing Spicetify",
     "uninstall_spicetify_success": "Spicetify uninstalled successfully!",
     "uninstall_spicetify_error": "Error uninstalling Spicetify",
-    "full_uninstall_spotify_success": "Spotify fully uninstalled!",
-    "full_uninstall_spotify_error": "Error fully uninstalling Spotify",
+    "full_uninstall_spotify_success": "Spotify completely removed from your computer!",
+    "full_uninstall_spotify_error": "Error completely removing Spotify",
     "activate_success": "Windows activation started!",
     "autologin_success": "Auto login tool started!",
     "admin_warning": "This operation requires administrator privileges and will restart your computer immediately.",
@@ -157,5 +157,4 @@
       "Essential software installation"
     ]
   }
-
 }

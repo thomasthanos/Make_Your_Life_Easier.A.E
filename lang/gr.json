@@ -16,7 +16,7 @@
     "theme": "Θέμα",
     "dark": "Σκοτεινό",
     "light": "Φωτεινό",
-    "not_implemented": "Αυτή η λειτουργία δεν είναι διαθέσιμη για νομικούς λόγους.",
+    "not_implemented": "Αυτό θα αφαιρέσει πλήρως το Spicetify και θα επαναφέρει το Spotify στην αρχική του κατάσταση.",
     "open": "Άνοιγμα",
     "install": "Εγκατάσταση",
     "run": "Εκτέλεση",
@@ -41,8 +41,8 @@
     "settings_title": "Ρυθμίσεις εφαρμογής",
     "install_title": "Εγκατάσταση επιλεγμένων εφαρμογών",
     "maintenance_title": "Εργασίες συντήρησης συστήματος",
-    "spicetify_title": "Ρύθμιση Spicetify",
-    "spicetify_desc": "Το Spicetify είναι ένα εργαλείο τροποποίησης του Spotify. Παρακαλώ σεβαστείτε τους όρους χρήσης του Spotify.",
+    "spicetify_title": "Εγκατάσταση Spicetify",
+"spicetify_desc": "Το Spicetify προσθέτει θέματα και προσαρμογές στο Spotify για καλύτερη εμπειρία.",
     "password_title": "Διαχειριστής κωδικών",
     "info_title": "Λεπτομέρειες συστήματος",
     "bios_title": "Πληροφορίες BIOS",
@@ -76,12 +76,12 @@
   "messages": {
     "bios_instructions": "Για να εισέλθετε στο BIOS/UEFI, κάντε επανεκκίνηση του υπολογιστή σας και πατήστε το κατάλληλο πλήκτρο (συνήθως F2, F10, Del ή Esc) κατά την εκκίνηση. Τα σύγχρονα λειτουργικά συστήματα δεν επιτρέπουν πρόσβαση στο BIOS μέσα από εφαρμογές.",
     "password_warning": "Αυτός ο απλός διαχειριστής κωδικών αποθηκεύει τα διαπιστευτήρια τοπικά. Μην τον χρησιμοποιείτε για ευαίσθητα δεδομένα.",
-    "install_spicetify_success": "Η εγκατάσταση του Spicetify ολοκληρώθηκε με επιτυχία!",
+    "install_spicetify_success": "Το Spicetify εγκαταστάθηκε επιτυχώς! Επανεκκινήστε το Spotify για να δείτε τις αλλαγές.",
     "install_spicetify_error": "Σφάλμα κατά την εγκατάσταση του Spicetify",
-    "uninstall_spicetify_success": "Η απεγκατάσταση του Spicetify ολοκληρώθηκε με επιτυχία!",
+    "uninstall_spicetify_success": "Το Spicetify απεγκαταστάθηκε επιτυχώς!",
     "uninstall_spicetify_error": "Σφάλμα κατά την απεγκατάσταση του Spicetify",
-    "full_uninstall_spotify_success": "Η πλήρης απεγκατάσταση του Spotify ολοκληρώθηκε!",
-    "full_uninstall_spotify_error": "Σφάλμα κατά την πλήρη απεγκατάσταση του Spotify",
+    "full_uninstall_spotify_success": "Το Spotify αφαιρέθηκε πλήρως από τον υπολογιστή!",
+    "full_uninstall_spotify_error": "Σφάλμα κατά την πλήρη αφαίρεση του Spotify",
     "activate_success": "Η ενεργοποίηση του Windows ξεκίνησε!",
     "autologin_success": "Το εργαλείο αυτόματης σύνδεσης ξεκίνησε!",
     "admin_warning": "Αυτή η λειτουργία απαιτεί δικαιώματα διαχειριστή και θα επανεκκινήσει τον υπολογιστή σας αμέσως.",
@@ -118,38 +118,36 @@
     "auto_login": "Αυτόματη Σύνδεση",
     "auto_login_desc": "Ρύθμιση αυτόματης σύνδεσης χωρίς κωδικό"
   },
-
   "apps": {
-  "betterdiscord": {
-    "name": "BetterDiscord",
-    "description": "Βελτιωμένος client του Discord"
+    "betterdiscord": {
+      "name": "BetterDiscord",
+      "description": "Βελτιωμένος client του Discord"
+    },
+    "discord_ptb": {
+      "name": "Discord PTB",
+      "description": "Δημόσια δοκιμαστική έκδοση (PTB) του Discord"
+    },
+    "discord": {
+      "name": "Discord",
+      "description": "Επίσημη εφαρμογή του Discord"
+    },
+    "epic_games": {
+      "name": "Epic Games",
+      "description": "Epic Games Launcher"
+    },
+    "ubisoft_connect": {
+      "name": "Ubisoft Connect",
+      "description": "Εκκινητής παιχνιδιών της Ubisoft"
+    },
+    "spotify": {
+      "name": "Spotify",
+      "description": "Εφαρμογή streaming μουσικής της Spotify"
+    },
+    "advanced_installer": {
+      "name": "Advanced Installer",
+      "description": "Επαγγελματικό εργαλείο δημιουργίας εγκαταστάσεων για Windows"
+    }
   },
-  "discord_ptb": {
-    "name": "Discord PTB",
-    "description": "Δημόσια δοκιμαστική έκδοση (PTB) του Discord"
-  },
-  "discord": {
-    "name": "Discord",
-    "description": "Επίσημη εφαρμογή του Discord"
-  },
-  "epic_games": {
-    "name": "Epic Games",
-    "description": "Epic Games Launcher"
-  },
-  "ubisoft_connect": {
-    "name": "Ubisoft Connect",
-    "description": "Εκκινητής παιχνιδιών της Ubisoft"
-  },
-  "spotify": {
-    "name": "Spotify",
-    "description": "Εφαρμογή streaming μουσικής της Spotify"
-  },
-  "advanced_installer": {
-    "name": "Advanced Installer",
-    "description": "Επαγγελματικό εργαλείο δημιουργίας εγκαταστάσεων για Windows"
-  }
-},
-
   "christitus_page": {
     "subtitle_full": "Πλήρης εργαλειοθήκη για βελτιστοποίηση των Windows",
     "features": [
@@ -159,5 +157,4 @@
       "Εγκατάσταση βασικού λογισμικού"
     ]
   }
-
 }
