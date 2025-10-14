@@ -149,13 +149,13 @@
     }
   },
   "christitus_page": {
-    "title": "Chris Titus",
-    "subtitle": "Toolbox",
-    "run_button": "Run Chris Titus Toolbox",
-    "running": "Running...",
-    "run_success": "Toolbox started successfully!",
-    "run_error": "Error running toolbox",
-    "run_failure": "Failed to run toolbox",
-    "tip": "💡 <strong>Tip:</strong> Run as Administrator for full functionality"
+    "subtitle_full": "Comprehensive toolbox for Windows optimization",
+    "features": [
+      "System optimization and tweaks",
+      "Remove bloatware and unwanted apps",
+      "Privacy and security enhancements",
+      "Essential software installation"
+    ]
   }
+
 }

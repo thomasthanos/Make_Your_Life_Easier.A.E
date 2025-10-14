@@ -20,7 +20,63 @@ const processStates = new Map();
     'dlc_unlocker',
     'bios'
   ];
+const MENU_ICONS = {
+  settings: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings w-5 h-5 text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+  `,
 
+  install_apps: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
+  `,
+
+  activate_autologin: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-in w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" x2="3" y1="12" y2="12"></line></svg>
+  `,
+
+  system_maintenance: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wrench w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+  `,
+
+  crack_installer: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path><path d="M12 22V12"></path><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"></path><path d="m7.5 4.27 9 5.15"></path></svg>
+  `,
+
+  spicetify: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-music w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+  `,
+
+  password_manager: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-lock w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+  `,
+
+  christitus: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-terminal w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" x2="20" y1="19" y2="19"></line></svg>
+  `,
+
+  dlc_unlocker: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-gamepad2 w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><line x1="6" x2="10" y1="11" y2="11"></line><line x1="8" x2="8" y1="9" y2="13"></line><line x1="15" x2="15.01" y1="12" y2="12"></line><line x1="18" x2="18.01" y1="10" y2="10"></line><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"></path></svg>
+  `,
+
+  bios: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-computer w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><rect width="14" height="8" x="5" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><path d="M6 18h2"></path><path d="M12 18h6"></path></svg>
+  `,
+};
+
+
+
+  function createMenuButton(key, label) {
+  const li = document.createElement('li');
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.dataset.key = key;
+  btn.innerHTML = `
+    <span class="mi">${MENU_ICONS[key] || ''}</span>
+    <span class="label">${label}</span>
+    <span class="dot" aria-hidden="true"></span>
+  `;
+  li.appendChild(btn);
+  return li;
+}
   // Default settings
   const defaultSettings = {
     lang: 'en',
@@ -74,24 +130,33 @@ const processStates = new Map();
   function renderMenu() {
     const menuList = document.getElementById('menu-list');
     menuList.innerHTML = '';
+
     menuKeys.forEach((key) => {
-      const li = document.createElement('li');
-      const btn = document.createElement('button');
-      // Use safe access for menu translations
-      btn.textContent = (translations.menu && translations.menu[key]) || key;
-      btn.dataset.page = key;
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#menu-list button').forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-        loadPage(key);
-      });
-      li.appendChild(btn);
-      menuList.appendChild(li);
+      const label = (translations.menu && translations.menu[key]) || key;
+      menuList.appendChild(createMenuButton(key, label));
     });
-    // Activate the first page by default
-    const firstBtn = menuList.querySelector('button');
-    if (firstBtn) firstBtn.click();
+
+    // Bind μία φορά
+    if (!menuList._boundClick) {
+      menuList.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-key]');
+        if (!btn) return;
+        document.querySelectorAll('#menu-list button.active')
+          .forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadPage(btn.dataset.key);
+      });
+      menuList._boundClick = true;
+    }
+
+    // ενεργοποίηση πρώτου
+    const first = menuList.querySelector('button[data-key]');
+    if (first) {
+      first.classList.add('active');
+      loadPage(first.dataset.key);
+    }
   }
+
 
   // Helper to set header text
   function setHeader(text) {
@@ -2994,106 +3059,102 @@ function buildPasswordManagerPage() {
       }
   `;
   document.head.appendChild(notificationStyles);
-  // Build Chris Titus page
+// === Chris Titus / Windows Utility — full-width, scoped styles, line icon ===
+// === Helper: inline SVG → data URL ===
+const svgDataUrl = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+
+// === Chris Titus / Windows Utility — full-width, scoped styles, terminal icon ===
 function buildChrisTitusPage() {
-    const container = document.createElement('div');
-    container.className = 'card';
-    
-    // Header with gradient
-    const header = document.createElement('div');
-    header.style.textAlign = 'center';
-    header.style.marginBottom = '2rem';
-    
-    const icon = document.createElement('div');
-    icon.style.fontSize = '4rem';
-    icon.style.marginBottom = '1rem';
-    icon.textContent = '🛠️';
-    
-    const title = document.createElement('h2');
-    title.innerHTML = 'Chris Titus<br><span style="font-size: 1.2rem; opacity: 0.8;">Toolbox</span>';
-    title.style.background = 'linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%)';
-    title.style.webkitBackgroundClip = 'text';
-    title.style.webkitTextFillColor = 'transparent';
-    title.style.backgroundClip = 'text';
-    
-    header.appendChild(icon);
-    header.appendChild(title);
-    container.appendChild(header);
+  const el = (t, cls, html) => {
+    const n = document.createElement(t);
+    if (cls) n.className = cls;
+    if (html !== undefined) n.innerHTML = html;
+    return n;
+  };
 
-    // Main action button
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.textAlign = 'center';
-    
-    const runButton = document.createElement('button');
-    runButton.className = 'button';
-    runButton.innerHTML = '🚀 Run Chris Titus Toolbox';
-    runButton.style.fontSize = '1.1rem';
-    runButton.style.padding = '1.2rem 2.5rem';
-    runButton.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    runButton.style.border = 'none';
-    runButton.style.borderRadius = '50px';
-    runButton.style.boxShadow = '0 8px 32px rgba(102, 126, 234, 0.3)';
-    runButton.style.transition = 'all 0.3s ease';
-    
-    runButton.addEventListener('mouseenter', () => {
-        runButton.style.transform = 'translateY(-3px)';
-        runButton.style.boxShadow = '0 12px 40px rgba(102, 126, 234, 0.4)';
-    });
-    
-    runButton.addEventListener('mouseleave', () => {
-        runButton.style.transform = 'translateY(0)';
-        runButton.style.boxShadow = '0 8px 32px rgba(102, 126, 234, 0.3)';
-    });
+  const card = el('section', 'ctt-card');
 
-    runButton.addEventListener('click', async () => {
-        runButton.disabled = true;
-        runButton.innerHTML = '⏳ Running...';
-        runButton.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
-        
-        try {
-            const result = await window.api.runCommand('powershell -Command "iwr -useb https://christitus.com/win | iex"');
-            
-            if (result.error) {
-                toast('Error running toolbox', { 
-                    type: 'error', 
-                    title: 'Chris Titus',
-                    duration: 5000 
-                });
-            } else {
-                toast('Toolbox started successfully!', { 
-                    type: 'success', 
-                    title: 'Chris Titus' 
-                });
-            }
-        } catch (error) {
-            toast('Failed to run toolbox', { 
-                type: 'error', 
-                title: 'Chris Titus',
-                duration: 5000 
-            });
-        } finally {
-            setTimeout(() => {
-                runButton.disabled = false;
-                runButton.innerHTML = '🚀 Run Chris Titus Toolbox';
-                runButton.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-            }, 2000);
-        }
-    });
-    
-    buttonContainer.appendChild(runButton);
-    container.appendChild(buttonContainer);
+  // Scoped CSS (δεν επηρεάζει άλλα μέρη της εφαρμογής)
+  const style = document.createElement('style');
+  
+  card.appendChild(style);
 
-    // Footer note
-    const footerNote = document.createElement('p');
-    footerNote.innerHTML = '💡 <strong>Tip:</strong> Run as Administrator for full functionality';
-    footerNote.style.textAlign = 'center';
-    footerNote.style.marginTop = '2rem';
-    footerNote.style.opacity = '0.7';
-    footerNote.style.fontSize = '0.9rem';
-    container.appendChild(footerNote);
+  // Header (SVG terminal)
+  const header = el('div','ctt-header');
+  const icon = el('img','ctt-icon');
+  const terminalSVG = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+         fill="none" stroke="#1ea8ff" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="4 17 10 11 4 5"></polyline>
+      <line x1="12" y1="19" x2="20" y2="19"></line>
+    </svg>`;
+  icon.src = svgDataUrl(terminalSVG);
 
-    return container;
+  const titles = el('div', null, `
+    <h2 class="ctt-title">Windows Utility</h2>
+    <p class="ctt-sub">COMPREHENSIVE TOOLBOX FOR WINDOWS OPTIMIZATION</p>
+  `);
+  header.appendChild(icon);
+  header.appendChild(titles);
+  card.appendChild(header);
+
+  // Bullets
+  card.appendChild(el('ul','ctt-bullets',`
+    <li>System optimization and tweaks</li>
+    <li>Remove bloatware and unwanted apps</li>
+    <li>Privacy and security enhancements</li>
+    <li>Essential software installation</li>
+  `));
+
+  // Actions
+  const actions = el('div','ctt-actions');
+  const launchBtn = el('button','ctt-launch',`<span class="ctt-iconmono">›_</span>Launch Tool`);
+  const ghBtn = el('button','ctt-outline',`<span class="ctt-iconmono">↗</span>GitHub`);
+  actions.appendChild(launchBtn);
+  actions.appendChild(ghBtn);
+  card.appendChild(actions);
+
+  // Status
+  const status = el('div','ctt-status');
+  card.appendChild(status);
+  const setStatus = (msg, type='')=>{
+    status.className = 'ctt-status show' + (type ? ' ' + type : '');
+    status.textContent = msg || '';
+  };
+
+  // Actions wiring
+  const psCmd = [
+    'powershell','-NoProfile','-ExecutionPolicy','Bypass','-Command',
+    `"irm christitus.com/win | iex"`
+  ].join(' ');
+
+  launchBtn.addEventListener('click', async () => {
+    try{
+      launchBtn.disabled = true;
+      setStatus('Downloading & launching Windows Utility...');
+      if (window.api?.runCommand) {
+        await window.api.runCommand(psCmd);
+        setStatus('Utility launched in a new PowerShell window. Follow the on-screen prompts.','success');
+      } else {
+        await navigator.clipboard.writeText(psCmd);
+        setStatus('Electron bridge not found. Command copied to clipboard — run in elevated PowerShell.','error');
+      }
+    }catch(e){
+      setStatus('Failed to launch: ' + e.message, 'error');
+    }finally{
+      launchBtn.disabled = false;
+    }
+  });
+
+  ghBtn.addEventListener('click', async () => {
+    if (window.api?.openExternal) await window.api.openExternal('https://github.com/ChrisTitusTech/winutil');
+    else window.open('https://github.com/ChrisTitusTech/winutil','_blank');
+  });
+
+  return card;
 }
+
 
   // Modifications to renderer.js
 // Add the following function after buildChrisTitusPage() or similar:
@@ -3403,4 +3464,156 @@ function initializeAutoUpdater() {
 
 // Initialize the application once
 init();
+async function ensureSidebarVersion() {
+  const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
+  if (!sidebar) return;
+
+  // απόφυγε διπλό footer
+  if (sidebar.querySelector('.sidebar-footer')) return;
+
+  const footer = document.createElement('div');
+  footer.className = 'sidebar-footer';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'version-wrap';
+  wrap.title = 'App version';
+
+  wrap.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span id="appVersion">dev</span>
+  `;
+
+  footer.appendChild(wrap);
+  sidebar.appendChild(footer);
+
+  try {
+    // Έλεγχος αν το API υπάρχει
+    if (window.api && typeof window.api.getAppVersion === 'function') {
+      console.log('📦 Fetching app version from API...');
+      const version = await window.api.getAppVersion();
+      console.log('📦 Version received:', version);
+      
+      if (version && version !== '000' && version !== '0.0.0') {
+        document.getElementById('appVersion').textContent = `v${version}`;
+      } else {
+        // Fallback αν η έκδοση είναι 000
+        document.getElementById('appVersion').textContent = 'v1.0.0';
+        console.warn('⚠️ Version returned 000, using fallback');
+      }
+    } else {
+      console.warn('⚠️ getAppVersion API not available');
+      document.getElementById('appVersion').textContent = 'v1.0.0';
+    }
+  } catch (error) {
+    console.error('❌ Error getting version:', error);
+    document.getElementById('appVersion').textContent = 'v1.0.0';
+  }
+}
+async function ensureSidebarVersion() {
+  const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
+  if (!sidebar) return;
+
+  if (sidebar.querySelector('.sidebar-footer')) return;
+
+  const footer = document.createElement('div');
+  footer.className = 'sidebar-footer';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'version-wrap';
+  
+  wrap.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span id="appVersion">dev</span>
+  `;
+
+  footer.appendChild(wrap);
+  sidebar.appendChild(footer);
+
+  // Πολλαπλές στρατηγικές για να βρει την έκδοση
+  const version = await getAppVersionWithFallback();
+  document.getElementById('appVersion').textContent = version;
+}
+
+function normalizeVersion(v) {
+  if (!v) return null;
+  v = String(v).trim().replace(/^v/i, '');
+  // «όλα μηδενικά» 0.0.0, 0.0.0.0, 000 κ.λπ.
+  if (/^0+(?:\.0+){0,3}$/.test(v)) return null;
+  // αποδεκτό x.y[.z[.w]]
+  if (!/^\d+(?:\.\d+){1,3}$/.test(v)) return null;
+  return v;
+}
+
+async function getAppVersionWithFallback() {
+  try {
+    if (window.api?.getAppVersion) {
+      const raw = await window.api.getAppVersion();
+      const v = normalizeVersion(raw);
+      if (v) return `v${v}`;
+    }
+  } catch {}
+  try {
+    const res = await fetch('./package.json');
+    if (res.ok) {
+      const pkg = await res.json();
+      const v = normalizeVersion(pkg?.version);
+      if (v) return `v${v}`;
+    }
+  } catch {}
+  const envV = normalizeVersion(typeof process !== 'undefined' ? process?.env?.npm_package_version : null);
+  if (envV) return `v${envV}`;
+  return 'v1.0.0'; // ασφαλές fallback
+}
+
+async function ensureSidebarVersion() {
+  const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
+  if (!sidebar) return;
+
+  // αν δεν υπάρχει footer, φτιάξ’ το
+  if (!sidebar.querySelector('.sidebar-footer')) {
+    const footer = document.createElement('div');
+    footer.className = 'sidebar-footer';
+    footer.innerHTML = `
+      <div class="version-wrap" title="App version">
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span id="appVersion">v…</span>
+      </div>`;
+    sidebar.appendChild(footer);
+  }
+
+  const el = document.getElementById('appVersion');
+  const setSafe = (txt) => { el.textContent = txt; };
+
+  // 1η προσπάθεια
+  setSafe(await getAppVersionWithFallback());
+
+  // Ασφάλεια: αν κάτι την ξαναγράψει σε 0.0.0 μετά από λίγο, ξαναδιορθώνουμε
+  setTimeout(async () => {
+    const raw = el.textContent.trim().replace(/^v/i,'');
+    if (!raw || /^0+(?:\.0+){0,3}$/.test(raw)) {
+      setSafe(await getAppVersionWithFallback());
+    }
+  }, 800);
+}
+getAppVersionWithFallback().then(v => console.log('App version resolved =', v));
+
+// κάλεσέ το στο init:
+async function init() {
+  await loadTranslations();
+  applyTheme();
+  renderMenu();
+  await ensureSidebarVersion();   // <-- να υπάρχει αυτό
+  initializeAutoUpdater();
+}
+
+
 })();

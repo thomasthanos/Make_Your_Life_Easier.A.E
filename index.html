@@ -7,46 +7,69 @@
     <meta name="theme-color" content="#7c3aed" />
     <meta name="description" content="Make Your Life Easier - A comprehensive tool for system management and productivity" />
     <title>Make Your Life Easier</title>
-    
+
+    <!-- Prevent theme flash -->
+    <script>
+      (function () {
+        try {
+          const t = localStorage.getItem('myle-theme');
+          if (t) document.documentElement.setAttribute('data-theme', t);
+        } catch (_) {}
+      })();
+    </script>
+
     <!-- Preload critical resources -->
     <link rel="preload" href="styles.css" as="style" />
     <link rel="preload" href="renderer.js" as="script" />
-    
+
     <!-- Main stylesheet -->
     <link rel="stylesheet" href="styles.css" />
-    
+
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   </head>
   <body>
     <div id="app">
-      <nav id="sidebar">
+      <nav id="sidebar" role="navigation" aria-label="Sidebar">
         <div class="app-title">Make Your Life Easier</div>
         <ul id="menu-list"></ul>
+
+        <div class="sidebar-footer">
+          <div class="version-wrap" title="App version">
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span id="appVersion">v0.0.0</span>
+          </div>
+        </div>
       </nav>
-      <main id="main">
+
+      <main id="main" role="main">
         <header id="header"></header>
         <div id="content" class="content"></div>
       </main>
     </div>
 
-    <!-- Renderer script -->
-    <script src="renderer.js"></script>
-    
-    <!-- Loading animation -->
-    <div id="loading" style="position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg-color);display:flex;align-items:center;justify-content:center;z-index:9999;">
-      <div style="text-align:center;">
-        <div class="loading" style="width:40px;height:40px;border-width:4px;margin:0 auto 1rem;"></div>
+    <!-- Renderer script (defer) -->
+    <script src="renderer.js" defer></script>
+
+    <!-- Loading overlay -->
+    <div id="loading" class="loading-overlay" aria-live="polite">
+      <div class="loading-box">
+        <div class="loading"></div>
         <p>Loading...</p>
       </div>
     </div>
-    
+
+    <noscript>
+      <style>#app{display:none}</style>
+      <p style="padding:1rem">This app requires JavaScript to run.</p>
+    </noscript>
+
     <script>
-      // Hide loading animation when page is fully loaded
       window.addEventListener('load', () => {
-        setTimeout(() => {
-          document.getElementById('loading').style.display = 'none';
-        }, 500);
+        setTimeout(() => { document.getElementById('loading').style.display = 'none'; }, 500);
       });
     </script>
   </body>
