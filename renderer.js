@@ -496,57 +496,51 @@ async function buildActivateAutologinPage() {
   return container;
 }
 
+// buildDlcUnlockerPage — CSS-free version (all styling via classes only)
 async function buildDlcUnlockerPage() {
   const container = document.createElement('div');
-  container.className = 'card';
-  
+  container.className = 'card dlc-scope';
+
   const title = document.createElement('h2');
-  title.textContent = translations.menu.dlc_unlocker || 'DLC Unlocker';
+  title.textContent = (translations?.menu?.dlc_unlocker) || 'DLC Unlocker';
   container.appendChild(title);
-  
-  // Grid container for the two cards
+
+  // Grid
   const grid = document.createElement('div');
-  grid.className = 'install-grid';
-  grid.style.gridTemplateColumns = '1fr 1fr';
-  grid.style.gap = '1.5rem';
-  grid.style.alignItems = 'stretch';
-  
-  // Sims Installer Card
+  grid.className = 'install-grid dlc-grid';
+  container.appendChild(grid);
+
+  // ===== Sims Installer Card =====
   const simsCard = document.createElement('div');
-  simsCard.className = 'app-card fixed-height';
-  
+  simsCard.className = 'app-card fixed-height dlc-card';
+  grid.appendChild(simsCard);
+
   const simsHeader = document.createElement('div');
-  simsHeader.className = 'app-header';
-  
+  simsHeader.className = 'app-header dlc-card-header';
+  simsCard.appendChild(simsHeader);
+
   const simsIcon = document.createElement('div');
-  simsIcon.style.fontSize = '3rem';
-  simsIcon.style.marginRight = '1rem';
+  simsIcon.className = 'dlc-icon sims-icon';
   simsIcon.innerHTML = `
-    <svg width="58" height="58" viewBox="0 0 308 734" fill="none">
+    <svg class="dlc-svg sims-svg" viewBox="0 0 308 734" aria-hidden="true">
       <path d="M204 733L27.3308 366.25L380.669 366.25L204 733Z" fill="url(#paint0_linear_1_6)"/>
       <path d="M204 0L380.669 366.75H27.3308L204 0Z" fill="url(#paint1_linear_1_6)"/>
       <path d="M205.5 734L124.527 366.5L286.473 366.5L205.5 734Z" fill="url(#paint2_linear_1_6)"/>
       <path d="M205.5 0L286.473 366.75H124.527L205.5 0Z" fill="url(#paint3_linear_1_6)"/>
       <defs>
         <linearGradient id="paint0_linear_1_6" x1="34" y1="459" x2="327" y2="537" gradientUnits="userSpaceOnUse">
-          <stop stop-color="#AFD23E"/>
-          <stop offset="0.518773" stop-color="#11B14B"/>
-          <stop offset="0.641251" stop-color="#91C34B"/>
-          <stop offset="1" stop-color="#02591E"/>
+          <stop stop-color="#AFD23E"/><stop offset="0.518773" stop-color="#11B14B"/>
+          <stop offset="0.641251" stop-color="#91C34B"/><stop offset="1" stop-color="#02591E"/>
         </linearGradient>
         <linearGradient id="paint1_linear_1_6" x1="45.5" y1="262.5" x2="387.5" y2="362" gradientUnits="userSpaceOnUse">
-          <stop stop-color="#F5F8E0"/>
-          <stop offset="0.199057" stop-color="#98C868"/>
-          <stop offset="0.609375" stop-color="#1AB04C"/>
-          <stop offset="1" stop-color="#99CB47"/>
+          <stop stop-color="#F5F8E0"/><stop offset="0.199057" stop-color="#98C868"/>
+          <stop offset="0.609375" stop-color="#1AB04C"/><stop offset="1" stop-color="#99CB47"/>
         </linearGradient>
         <linearGradient id="paint2_linear_1_6" x1="117.5" y1="388" x2="290.5" y2="383.5" gradientUnits="userSpaceOnUse">
-          <stop stop-color="#A3D24A"/>
-          <stop offset="1" stop-color="#51C251"/>
+          <stop stop-color="#A3D24A"/><stop offset="1" stop-color="#51C251"/>
         </linearGradient>
         <linearGradient id="paint3_linear_1_6" x1="144.5" y1="348" x2="299" y2="348.5" gradientUnits="userSpaceOnUse">
-          <stop stop-color="#DBEBB3"/>
-          <stop offset="0.375221" stop-color="#9ED167"/>
+          <stop stop-color="#DBEBB3"/><stop offset="0.375221" stop-color="#9ED167"/>
           <stop offset="1" stop-color="#61C558"/>
           <stop offset="1" stop-color="#64C559"/>
         </linearGradient>
@@ -554,69 +548,54 @@ async function buildDlcUnlockerPage() {
     </svg>
   `;
   simsHeader.appendChild(simsIcon);
-  
+
   const simsText = document.createElement('div');
+  simsText.className = 'dlc-card-text';
   const simsName = document.createElement('h3');
-  simsName.textContent = translations.dlc.sims_installer || 'Sims Installer';
-  simsName.style.margin = '0 0 0.5rem 0';
-  simsName.style.fontSize = '1.4rem';
+  simsName.className = 'dlc-card-title';
+  simsName.textContent = (translations?.dlc?.sims_installer) || 'Sims Installer';
   const simsDesc = document.createElement('p');
-  simsDesc.textContent = translations.dlc.sims_desc || 'Complete Sims DLC package with all expansions';
-  simsDesc.style.margin = '0';
-  simsDesc.style.opacity = '0.8';
-  simsDesc.style.fontSize = '0.9rem';
-  simsDesc.style.minHeight = '40px';
+  simsDesc.className = 'dlc-card-desc';
+  simsDesc.textContent = (translations?.dlc?.sims_desc) || 'Complete Sims DLC package with all expansions';
   simsText.appendChild(simsName);
   simsText.appendChild(simsDesc);
   simsHeader.appendChild(simsText);
-  
-  simsCard.appendChild(simsHeader);
-  
+
   const simsButton = document.createElement('button');
-  simsButton.className = 'button';
-  simsButton.innerHTML = '🎮 ' + (translations.dlc.download_sims || 'DOWNLOAD SIMS INSTALLER');
-  simsButton.style.marginTop = 'auto';
-  simsButton.style.width = '100%';
-  simsButton.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-  simsButton.style.border = 'none';
-  simsButton.style.fontWeight = '700';
-  simsButton.style.letterSpacing = '0.5px';
-  
+  simsButton.className = 'button dlc-btn dlc-btn-sims';
+  simsButton.innerHTML = '🎮 ' + ((translations?.dlc?.download_sims) || 'DOWNLOAD SIMS INSTALLER');
+  simsCard.appendChild(simsButton);
+
   const simsStatus = document.createElement('pre');
-  simsStatus.className = 'status-pre';
-  simsStatus.style.display = 'none';
-  
+  simsStatus.className = 'status-pre dlc-status';
+  simsCard.appendChild(simsStatus);
+
   simsButton.addEventListener('click', async () => {
+    simsStatus.classList.add('show');
     await downloadAndExtractDLC(
-      simsButton, 
-      simsStatus, 
+      simsButton,
+      simsStatus,
       'sims-installer',
       'https://www.dropbox.com/scl/fi/5841qp2eysq0xvsxodmr1/sims_install.zip?rlkey=h843bkdkw8ymi7rqaq473ktni&st=t72b3hna&dl=1',
-      translations.dlc.sims_installer || 'Sims Installer'
+      (translations?.dlc?.sims_installer) || 'Sims Installer'
     );
   });
-  
-  simsCard.appendChild(simsButton);
-  simsCard.appendChild(simsStatus);
-  
-  // EA Unlocker Card
+
+  // ===== EA Unlocker Card =====
   const eaCard = document.createElement('div');
-  eaCard.className = 'app-card fixed-height';
-  
+  eaCard.className = 'app-card fixed-height dlc-card';
+  grid.appendChild(eaCard);
+
   const eaHeader = document.createElement('div');
-  eaHeader.className = 'app-header';
-  
+  eaHeader.className = 'app-header dlc-card-header';
+  eaCard.appendChild(eaHeader);
+
   const eaIcon = document.createElement('div');
-  eaIcon.style.fontSize = '3rem';
-  eaIcon.style.marginRight = '1rem';
+  eaIcon.className = 'dlc-icon ea-icon';
   eaIcon.innerHTML = `
-    <svg width="58" height="58" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <svg class="dlc-svg ea-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
-        <style>
-          .ea-a{fill:gray;}
-          .ea-b{fill:#b2b2b2;}
-          .ea-c{fill:none;stroke:#191919;stroke-linecap:round;stroke-linejoin:round;}
-        </style>
+        <style>.ea-a{fill:gray;}.ea-b{fill:#b2b2b2;}.ea-c{fill:none;stroke:#191919;stroke-linecap:round;stroke-linejoin:round;}</style>
       </defs>
       <polygon class="ea-a" points="16.434 5.5 10.77 14.5 4.563 14.5 5.992 11.5 9.854 11.5 11.256 9.5 2.646 9.5 1.244 11.5 3.304 11.5 0.5 16.5 12.057 16.5 16.434 9.519 18.036 12.5 16.662 12.5 15.261 14.5 19.438 14.5 20.84 16.5 23.5 16.5 16.434 5.5"/>
       <polygon class="ea-b" points="14.574 5.5 5.449 5.5 4.047 7.5 13.173 7.5 14.574 5.5"/>
@@ -624,159 +603,81 @@ async function buildDlcUnlockerPage() {
     </svg>
   `;
   eaHeader.appendChild(eaIcon);
-  
+
   const eaText = document.createElement('div');
+  eaText.className = 'dlc-card-text';
   const eaName = document.createElement('h3');
-  eaName.textContent = translations.dlc.ea_unlocker || 'EA Unlocker';
-  eaName.style.margin = '0 0 0.5rem 0';
-  eaName.style.fontSize = '1.4rem';
+  eaName.className = 'dlc-card-title';
+  eaName.textContent = (translations?.dlc?.ea_unlocker) || 'EA Unlocker';
   const eaDesc = document.createElement('p');
-  eaDesc.textContent = translations.dlc.ea_desc || 'Unlock all EA games DLC content and features';
-  eaDesc.style.margin = '0';
-  eaDesc.style.opacity = '0.8';
-  eaDesc.style.fontSize = '0.9rem';
-  eaDesc.style.minHeight = '40px';
+  eaDesc.className = 'dlc-card-desc';
+  eaDesc.textContent = (translations?.dlc?.ea_desc) || 'Unlock all EA games DLC content and features';
   eaText.appendChild(eaName);
   eaText.appendChild(eaDesc);
   eaHeader.appendChild(eaText);
-  
-  eaCard.appendChild(eaHeader);
-  
+
   const eaButton = document.createElement('button');
-  eaButton.className = 'button';
-  eaButton.innerHTML = '🚀 ' + (translations.dlc.download_ea || 'DOWNLOAD EA UNLOCKER');
-  eaButton.style.marginTop = 'auto';
-  eaButton.style.width = '100%';
-  eaButton.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
-  eaButton.style.border = 'none';
-  eaButton.style.fontWeight = '700';
-  eaButton.style.letterSpacing = '0.5px';
-  
+  eaButton.className = 'button dlc-btn dlc-btn-ea';
+  eaButton.innerHTML = '🚀 ' + ((translations?.dlc?.download_ea) || 'DOWNLOAD EA UNLOCKER');
+  eaCard.appendChild(eaButton);
+
   const eaStatus = document.createElement('pre');
-  eaStatus.className = 'status-pre';
-  eaStatus.style.display = 'none';
-  
+  eaStatus.className = 'status-pre dlc-status';
+  eaCard.appendChild(eaStatus);
+
   eaButton.addEventListener('click', async () => {
+    eaStatus.classList.add('show');
     await downloadAndExtractDLC(
-      eaButton, 
-      eaStatus, 
+      eaButton,
+      eaStatus,
       'ea-unlocker',
       'https://www.dropbox.com/scl/fi/mbnhjivbbyyn4avjerrzw/EA_UNLOCKER.zip?rlkey=vchua3ks8whlvmgbvc2kas0mw&st=1f3zq290&dl=1',
-      translations.dlc.ea_unlocker || 'EA Unlocker'
+      (translations?.dlc?.ea_unlocker) || 'EA Unlocker'
     );
   });
-  
-  eaCard.appendChild(eaButton);
-  eaCard.appendChild(eaStatus);
-  
-  // Add cards to grid
-  grid.appendChild(simsCard);
-  grid.appendChild(eaCard);
-  container.appendChild(grid);
-  
-  // Ultra Compact YouTube Tutorial Section
+
+  // ===== Tutorials Section =====
   const tutorialsSection = document.createElement('div');
-  tutorialsSection.style.marginTop = '2rem';
-  tutorialsSection.style.paddingTop = '1.5rem';
-  tutorialsSection.style.borderTop = '1px solid var(--border-color)';
+  tutorialsSection.className = 'dlc-tutorials';
+  container.appendChild(tutorialsSection);
 
-  // Single compact tutorial card
   const tutorialCard = document.createElement('div');
-  tutorialCard.className = 'tutorial-card-compact';
-  tutorialCard.style.background = 'var(--card-bg)';
-  tutorialCard.style.border = '1px solid var(--border-color)';
-  tutorialCard.style.borderRadius = '12px';
-  tutorialCard.style.padding = '0.75rem';
-  tutorialCard.style.transition = 'all 0.3s ease';
-  tutorialCard.style.cursor = 'pointer';
-  tutorialCard.style.display = 'flex';
-  tutorialCard.style.alignItems = 'center';
-  tutorialCard.style.gap = '1rem';
-  tutorialCard.style.maxWidth = '500px';
-  tutorialCard.style.margin = '0 auto';
+  tutorialCard.className = 'tutorial-card-compact dlc-tutorial-card';
+  tutorialsSection.appendChild(tutorialCard);
 
-  // Thumbnail
   const thumbnailContainer = document.createElement('div');
-  thumbnailContainer.style.position = 'relative';
-  thumbnailContainer.style.flexShrink = '0';
+  thumbnailContainer.className = 'dlc-thumb-wrap';
+  tutorialCard.appendChild(thumbnailContainer);
 
   const thumbnail = document.createElement('img');
+  thumbnail.className = 'dlc-thumb';
   thumbnail.src = 'https://i.ytimg.com/vi/UOfQJv4tkEI/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLD8q9X7l6Kq1tV-5f5QY2W5sXwJ7g';
   thumbnail.alt = 'Tutorial';
-  thumbnail.style.width = '120px';
-  thumbnail.style.height = '68px';
-  thumbnail.style.objectFit = 'cover';
-  thumbnail.style.borderRadius = '8px';
-  thumbnail.style.transition = 'transform 0.3s ease';
-
-  // Play button overlay
-  const playButton = document.createElement('div');
-  playButton.style.position = 'absolute';
-  playButton.style.top = '50%';
-  playButton.style.left = '50%';
-  playButton.style.transform = 'translate(-50%, -50%)';
-  playButton.style.background = 'rgba(255, 0, 0, 0.9)';
-  playButton.style.borderRadius = '6px';
-  playButton.style.width = '32px';
-  playButton.style.height = '32px';
-  playButton.style.display = 'flex';
-  playButton.style.alignItems = 'center';
-  playButton.style.justifyContent = 'center';
-  playButton.style.transition = 'all 0.3s ease';
-
-  const playIcon = document.createElement('div');
-  playIcon.innerHTML = '▶';
-  playIcon.style.color = 'white';
-  playIcon.style.fontSize = '0.8rem';
-  playIcon.style.marginLeft = '2px';
-
-  playButton.appendChild(playIcon);
   thumbnailContainer.appendChild(thumbnail);
+
+  const playButton = document.createElement('div');
+  playButton.className = 'dlc-play';
+  playButton.innerHTML = '<span class="dlc-play-icon">▶</span>';
   thumbnailContainer.appendChild(playButton);
 
-  // Content area
   const content = document.createElement('div');
-  content.style.flex = '1';
-
+  content.className = 'dlc-tutorial-content';
   const descEl = document.createElement('p');
-  descEl.innerHTML = translations.dlc.tutorial_desc || '📁 <strong>EA DLC Unlocker:</strong> General tool for unlocking DLCs in EA games<br>🎮 <strong>Sims 4 Updater:</strong> Specialized for The Sims 4 with updates & repairs';
-  descEl.style.margin = '0';
-  descEl.style.fontSize = '0.85rem';
-  descEl.style.color = 'var(--text-color)';
-  descEl.style.opacity = '0.9';
-  descEl.style.lineHeight = '1.4';
-
+  descEl.className = 'dlc-tutorial-desc';
+  descEl.innerHTML = (translations?.dlc?.tutorial_desc) ||
+    '📁 <strong>EA DLC Unlocker:</strong> General tool for unlocking DLCs in EA games<br>🎮 <strong>Sims 4 Updater:</strong> Specialized for The Sims 4 with updates & repairs';
   content.appendChild(descEl);
-  tutorialCard.appendChild(thumbnailContainer);
   tutorialCard.appendChild(content);
 
-  // Hover effects (remain the same)
-  tutorialCard.addEventListener('mouseenter', () => {
-    tutorialCard.style.transform = 'translateY(-2px)';
-    tutorialCard.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
-    thumbnail.style.transform = 'scale(1.05)';
-    playButton.style.background = 'rgba(255, 0, 0, 1)';
-    playButton.style.transform = 'translate(-50%, -50%) scale(1.1)';
-  });
-
-  tutorialCard.addEventListener('mouseleave', () => {
-    tutorialCard.style.transform = 'translateY(0)';
-    tutorialCard.style.boxShadow = 'none';
-    thumbnail.style.transform = 'scale(1)';
-    playButton.style.background = 'rgba(255, 0, 0, 0.9)';
-    playButton.style.transform = 'translate(-50%, -50%) scale(1)';
-  });
-
-  // Click to open video
   tutorialCard.addEventListener('click', () => {
-    window.api.openExternal('https://www.youtube.com/watch?v=UOfQJv4tkEI');
+    if (window.api?.openExternal) window.api.openExternal('https://www.youtube.com/watch?v=UOfQJv4tkEI');
+    else window.open('https://www.youtube.com/watch?v=UOfQJv4tkEI', '_blank');
   });
 
-  tutorialsSection.appendChild(tutorialCard);
-  container.appendChild(tutorialsSection);
-  
   return container;
 }
+
+
 
 async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, dlcName) {
     button.disabled = true;
