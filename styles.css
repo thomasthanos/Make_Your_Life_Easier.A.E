@@ -1624,13 +1624,13 @@ input:checked + .slider:before {
       box-shadow:0 10px 26px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.05);
     }
     .ctt-header{display:flex; align-items:flex-start; gap:12px; margin-bottom:8px;}
-  .ctt-icon { width: 40px; height: 40px; margin-top: 6px; }
+  .ctt-icon { width: 60px; height: 60px; margin-top: 6px; }
   .ctt-icon svg { width: 100%; height: 100%; display: block; stroke: #1ea8ff; fill: #00bfff; }
     .ctt-title{margin:0; font-size:18px; font-weight:700; color:#20b7ff;}
     .ctt-sub{margin:.35rem 0 0; font-size:12px; letter-spacing:2px; text-transform:uppercase;
       color:rgba(220,234,248,.85);}
     .ctt-bullets{margin:12px 0 16px; padding:0; list-style:none;}
-    .ctt-bullets li{position:relative; padding-left:16px; margin:8px 0; line-height:1.55; color:#e6f0f7;}
+    .ctt-bullets li{position:relative; padding-left:16px; margin:8px 71px; line-height:1.55; color:#e6f0f7;}
     .ctt-bullets li::before{content:''; position:absolute; left:0; top:.6em; width:6px; height:6px; border-radius:50%;
       background:#28c3ff; box-shadow:0 0 0 2px rgba(40,195,255,.18);}
     .ctt-actions{display:flex; gap:12px; align-items:center; flex-wrap:wrap;}
