@@ -1293,6 +1293,82 @@ ipcMain.handle('run-installer', async (event, filePath) => {
 });
 // Τροποποιημένο main.js
 // Προσθέτουμε νέο handler για reset password manager (διαγραφή config και DB)
+// helper
+function sendUpdate(data) {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (win) win.webContents.send('update-status', data);
+}
+
+// Πιάνει "Checking"
+autoUpdater.on('checking-for-update', () => {
+  sendUpdate({ status: 'checking', message: 'Checking for updates…' });
+});
+
+// Όταν βρεθεί update: ΠΕΡΝΑ ΤΟ releaseName (τίτλος GitHub)
+autoUpdater.on('update-available', (info) => {
+  const titleFromGitHub =
+    info.releaseName ||
+    extractTitleFromNotes(info.releaseNotes) ||
+    `Update v${info.version}`;
+
+  sendUpdate({
+    status: 'available',
+    version: info.version,
+    message: titleFromGitHub
+  });
+});
+
+// Πρόοδος λήψης
+autoUpdater.on('download-progress', (p) => {
+  sendUpdate({
+    status: 'downloading',
+    percent: p.percent
+  });
+});
+
+// Όταν κατέβει: ξαναστείλε τον τίτλο για συνέπεια
+autoUpdater.on('update-downloaded', (info) => {
+  const titleFromGitHub =
+    info.releaseName ||
+    extractTitleFromNotes(info.releaseNotes) ||
+    `Update v${info.version}`;
+
+  sendUpdate({
+    status: 'downloaded',
+    version: info.version,
+    message: titleFromGitHub
+  });
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  sendUpdate({
+    status: 'not-available',
+    version: info?.version || '',
+    message: 'You are on the latest version'
+  });
+});
+
+autoUpdater.on('error', (err) => {
+  sendUpdate({ status: 'error', message: String(err?.message || err) });
+});
+
+// Μικρός helper για όταν το releaseNotes είναι string/array
+function extractTitleFromNotes(releaseNotes) {
+  if (!releaseNotes) return null;
+  // electron-updater μπορεί να δώσει array από { version, note }
+  if (Array.isArray(releaseNotes)) {
+    const first = releaseNotes[0];
+    if (first?.note) {
+      // Πάρε την πρώτη γραμμή σαν τίτλο
+      const line = String(first.note).split(/\r?\n/).find(Boolean);
+      return line?.trim() || null;
+    }
+    return null;
+  }
+  // string: πάρε την πρώτη “γεμάτη” γραμμή (π.χ. # Title)
+  const line = String(releaseNotes).split(/\r?\n/).find(l => l.trim().length > 0);
+  return line?.replace(/^#+\s*/, '').trim() || null;
+}
 
 ipcMain.handle('password-manager-reset', async () => {
     try {
