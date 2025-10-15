@@ -40,7 +40,6 @@ class PasswordManager {
     initializeEventListeners() {
         // Password modal
         document.getElementById('addPasswordBtn').addEventListener('click', () => this.openPasswordModal());
-        document.getElementById('fabAddPassword').addEventListener('click', () => this.openPasswordModal());
         document.getElementById('closePasswordModal').addEventListener('click', () => this.closePasswordModal());
         document.getElementById('cancelPasswordBtn').addEventListener('click', () => this.closePasswordModal());
         document.getElementById('passwordForm').addEventListener('submit', (e) => this.savePassword(e));
@@ -177,12 +176,19 @@ class PasswordManager {
         const passwordField = document.getElementById('password');
         const formGroup = passwordField.closest('.form-group');
         
-        if (formGroup.querySelector('.generate-password-btn')) return;
+        // Remove existing button if any
+        const existingBtn = formGroup.querySelector('.generate-password-btn');
+        if (existingBtn) {
+            existingBtn.remove();
+        }
         
         const generateBtn = document.createElement('button');
         generateBtn.type = 'button';
         generateBtn.className = 'button generate-password-btn';
-        generateBtn.innerHTML = '🎲 Generate Strong Password';
+        generateBtn.setAttribute('aria-label', 'Generate strong password');
+        
+        // ΠΡΟΣΘΕΣΕ ΜΟΝΟ ΤΟ ΖΑΡΙ ΣΤΟ INNERHTML
+        generateBtn.innerHTML = '🎲'; // ΜΟΝΟ ΤΟ EMOJI
         
         generateBtn.addEventListener('click', () => {
             this.generateStrongPassword();
@@ -648,6 +654,7 @@ renderPasswords() {
         modal.classList.add('active');
         document.getElementById('title').focus();
         
+        // Προσθήκη του κουμπιού αμέσως
         setTimeout(() => this.addGeneratePasswordButton(), 100);
     }
 

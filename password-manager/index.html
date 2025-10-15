@@ -40,9 +40,6 @@
         <div class="pm-grid" id="passwordsGrid">
             <!-- Passwords will be loaded here -->
         </div>
-
-        <!-- Floating Action Button -->
-        <button class="fab" id="fabAddPassword" title="Add New Password">+</button>
     </div>
 
     <!-- Add/Edit Password Modal -->
@@ -53,46 +50,59 @@
                 <button class="close-btn" id="closePasswordModal">&times;</button>
             </div>
             <form id="passwordForm">
-                <input type="hidden" id="passwordId">
+            <input type="hidden" id="passwordId">
+
+            <!-- NEW: start grid wrapper -->
+            <div class="pm-form-grid">
                 <div class="form-group">
-                    <label class="form-label" for="title">Title *</label>
-                    <input type="text" id="title" class="form-input" required placeholder="Enter service name">
+                <label class="form-label" for="title">Title *</label>
+                <input type="text" id="title" class="form-input" required placeholder="Enter service name">
                 </div>
+
                 <div class="form-group">
-                    <label class="form-label" for="category">Category</label>
-                    <select id="category" class="form-select">
-                        <option value="">No Category</option>
-                    </select>
+                <label class="form-label" for="password">Password *</label>
+                <input type="password" id="password" class="form-input" required placeholder="Enter password">
+                <div class="password-strength">
+                    <div class="strength-bar" id="passwordStrength"></div>
                 </div>
+                <!-- το Generate το προσθέτει ήδη το JS, θα «κάτσει» σωστά με το CSS παρακάτω -->
+                </div>
+
                 <div class="form-group">
-                    <label class="form-label" for="username">Username</label>
-                    <input type="text" id="username" class="form-input" placeholder="Enter username">
+                <label class="form-label" for="url">Website URL</label>
+                <input type="url" id="url" class="form-input" placeholder="https://example.com">
                 </div>
+
                 <div class="form-group">
-                    <label class="form-label" for="email">Email</label>
-                    <input type="email" id="email" class="form-input" placeholder="Enter email address">
+                <label class="form-label" for="category">Category</label>
+                <select id="category" class="form-select">
+                    <option value="">No Category</option>
+                </select>
                 </div>
+
                 <div class="form-group">
-                    <label class="form-label" for="password">Password *</label>
-                    <input type="password" id="password" class="form-input" required placeholder="Enter password">
-                    <div class="password-strength">
-                        <div class="strength-bar" id="passwordStrength"></div>
-                    </div>
+                <label class="form-label" for="username">Username</label>
+                <input type="text" id="username" class="form-input" placeholder="Enter username">
                 </div>
+
                 <div class="form-group">
-                    <label class="form-label" for="url">Website URL</label>
-                    <input type="url" id="url" class="form-input" placeholder="https://example.com">
+                <label class="form-label" for="notes">Notes</label>
+                <textarea id="notes" class="form-textarea" placeholder="Additional notes..."></textarea>
                 </div>
+
                 <div class="form-group">
-                    <label class="form-label" for="notes">Notes</label>
-                    <textarea id="notes" class="form-textarea" placeholder="Additional notes..."></textarea>
+                <label class="form-label" for="email">Email</label>
+                <input type="email" id="email" class="form-input" placeholder="Enter email address">
                 </div>
-                <div class="form-actions">
-                    <button type="button" class="button button-secondary" id="cancelPasswordBtn">Cancel</button>
-                    <button type="submit" class="button" id="savePasswordBtn">
-                        <span>💾 Save Password</span>
-                    </button>
-                </div>
+            </div>
+            <!-- NEW: end grid wrapper -->
+
+            <div class="form-actions">
+                <button type="button" class="button button-secondary" id="cancelPasswordBtn">Cancel</button>
+                <button type="submit" class="button" id="savePasswordBtn">
+                <span>💾 Save Password</span>
+                </button>
+            </div>
             </form>
         </div>
     </div>
