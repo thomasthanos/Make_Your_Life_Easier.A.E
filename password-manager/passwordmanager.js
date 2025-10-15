@@ -505,9 +505,8 @@ renderPasswords() {
                 <!-- Password Field -->
                 <div class="compact-field">
                     <div class="compact-value">
-<span class="strength-dot strength-${strength}" aria-hidden="true"></span>
-<span class="compact-text compact-password-hidden">••••••••</span>
-
+                        <span class="strength-dot strength-${strength}" aria-hidden="true"></span>
+                        <span class="compact-text compact-password-hidden">••••••••</span>
                         <button class="compact-reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="Reveal password">👁️</button>
                         <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.password)}')" title="Copy password">📋</button>
                     </div>
