@@ -3616,27 +3616,6 @@ function showRestartDialog() {
   }
 // Auto Updater functionality
 function initializeAutoUpdater() {
-  const updateStatus = document.createElement('div');
-  updateStatus.id = 'update-status';
-  updateStatus.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1rem;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    z-index: 1000;
-    max-width: 300px;
-    backdrop-filter: blur(10px);
-    display: none;
-  `;
-
-  const updateContent = document.createElement('div');
-  updateStatus.appendChild(updateContent);
-  document.body.appendChild(updateStatus);
-
   let currentVersion = '';
 
   // Get current version
@@ -3646,119 +3625,13 @@ function initializeAutoUpdater() {
 
   // Listen for update events
   window.api.onUpdateStatus((data) => {
-    showUpdateNotification(data);
+    showModernUpdateNotification(data);
   });
 
-  function showUpdateNotification(data) {
-    // No longer skip 'checking' or 'not-available' – show for all statuses
-    updateContent.innerHTML = '';
-    
-    const title = document.createElement('div');
-    title.style.cssText = 'font-weight: 600; margin-bottom: 0.5rem; color: var(--accent-color);';
-    title.textContent = '🔔 App Update';
-
-    const message = document.createElement('div');
-    message.style.cssText = 'margin-bottom: 1rem; font-size: 0.9rem; line-height: 1.4;';
-    message.textContent = data.message;
-
-    updateContent.appendChild(title);
-    updateContent.appendChild(message);
-
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.cssText = 'display: flex; gap: 0.5rem; justify-content: flex-end;';
-
-    switch (data.status) {
-      case 'checking':
-        title.textContent = '🕒 Checking for Updates';
-        message.textContent = 'Checking for updates...';
-        // No buttons needed – this is transient
-        // Auto-hide after 10 seconds if no further events (safety net)
-        setTimeout(() => {
-          if (updateStatus.style.display !== 'none') {
-            updateStatus.style.display = 'none';
-          }
-        }, 10000);
-        break;
-
-      case 'not-available':
-        title.textContent = '✅ Up to Date';
-        message.textContent = 'You are running the latest version!';
-        const okBtn = document.createElement('button');
-        okBtn.className = 'button button-secondary';
-        okBtn.textContent = 'OK';
-        okBtn.onclick = () => {
-          updateStatus.style.display = 'none';
-        };
-        buttonContainer.appendChild(okBtn);
-        // Auto-hide after 5 seconds for non-critical info
-        setTimeout(() => {
-          updateStatus.style.display = 'none';
-        }, 5000);
-        break;
-
-      case 'available':
-        const downloadBtn = document.createElement('button');
-        downloadBtn.className = 'button';
-        downloadBtn.textContent = 'Download';
-        downloadBtn.onclick = () => {
-          window.api.downloadUpdate();
-          downloadBtn.disabled = true;
-          downloadBtn.textContent = 'Downloading...';
-        };
-        buttonContainer.appendChild(downloadBtn);
-        break;
-
-      case 'downloading':
-        const progress = document.createElement('div');
-        progress.style.cssText = 'width: 100%; height: 4px; background: var(--border-color); border-radius: 2px; overflow: hidden; margin-bottom: 0.5rem;';
-        const progressBar = document.createElement('div');
-        progressBar.style.cssText = `height: 100%; background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light)); width: ${data.percent || 0}%; transition: width 0.3s ease;`;
-        progress.appendChild(progressBar);
-        updateContent.appendChild(progress);
-        break;
-
-      case 'downloaded':
-        const installBtn = document.createElement('button');
-        installBtn.className = 'button';
-        installBtn.textContent = 'Restart & Install';
-        installBtn.onclick = () => {
-          window.api.installUpdate();
-        };
-        buttonContainer.appendChild(installBtn);
-        break;
-
-      case 'error':
-        title.textContent = '❌ Update Error';
-        message.textContent = `Update check failed: ${data.message}`;
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'button button-secondary';
-        closeBtn.textContent = 'Close';
-        closeBtn.onclick = () => {
-          updateStatus.style.display = 'none';
-        };
-        buttonContainer.appendChild(closeBtn);
-        // Auto-hide after 10 seconds
-        setTimeout(() => {
-          updateStatus.style.display = 'none';
-        }, 10000);
-        break;
-    }
-
-    // Add a "Later" button for non-error/transient states
-    if (['available', 'downloaded', 'not-available'].includes(data.status)) {
-      const laterBtn = document.createElement('button');
-      laterBtn.className = 'button button-secondary';
-      laterBtn.textContent = 'Later';
-      laterBtn.onclick = () => {
-        updateStatus.style.display = 'none';
-      };
-      buttonContainer.appendChild(laterBtn);
-    }
-
-    updateContent.appendChild(buttonContainer);
-    updateStatus.style.display = 'block';
-  }
-
+  // Check for updates on startup (after a delay)
+  setTimeout(() => {
+    window.api.checkForUpdates();
+  }, 3000);
 }
 
 
@@ -3905,7 +3778,719 @@ async function ensureSidebarVersion() {
   }, 800);
 }
 getAppVersionWithFallback().then(v => console.log('App version resolved =', v));
+// Modern update notification UI
+function showModernUpdateNotification(data) {
+  // Remove any existing update notifications
+  const existingNotification = document.getElementById('modern-update-notification');
+  if (existingNotification) {
+    existingNotification.remove();
+  }
 
+  const notification = document.createElement('div');
+  notification.id = 'modern-update-notification';
+  notification.className = 'modern-update-notification';
+
+  let notificationContent = '';
+
+  switch (data.status) {
+    case 'checking':
+      notificationContent = createCheckingUpdateUI();
+      break;
+    
+    case 'not-available':
+      notificationContent = createUpToDateUI();
+      break;
+    
+    case 'available':
+      notificationContent = createUpdateAvailableUI(data);
+      break;
+    
+    case 'downloading':
+      notificationContent = createDownloadingUI(data);
+      break;
+    
+    case 'downloaded':
+      notificationContent = createUpdateReadyUI(data);
+      break;
+    
+    case 'error':
+      notificationContent = createUpdateErrorUI(data);
+      break;
+    
+    default:
+      return; // Don't show notification for unknown status
+  }
+
+  notification.innerHTML = notificationContent;
+  document.body.appendChild(notification);
+
+  // Add event listeners based on content
+  setupUpdateEventListeners(notification, data);
+}
+function createCheckingUpdateUI() {
+  return `
+    <div class="update-card checking">
+      <div class="update-header">
+        <div class="update-icon">
+          <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="update-title">
+          <h3>Checking for Updates</h3>
+          <p>Looking for the latest version...</p>
+        </div>
+      </div>
+      <div class="update-progress">
+        <div class="progress-bar">
+          <div class="progress-fill indeterminate"></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createUpToDateUI() {
+  return `
+    <div class="update-card success">
+      <div class="update-header">
+        <div class="update-icon">
+          <svg class="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="update-title">
+          <h3>You're Up to Date</h3>
+          <p>Running the latest version</p>
+        </div>
+      </div>
+      <div class="update-actions">
+        <button class="update-btn primary" data-action="close">
+          <span>Awesome!</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function createUpdateAvailableUI(data) {
+  return `
+    <div class="update-card available">
+      <div class="update-badge">NEW</div>
+      <div class="update-header">
+        <div class="update-icon">
+          <svg class="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+        </div>
+        <div class="update-title">
+          <h3>New Update Available</h3>
+          <p>Version ${data.version} is ready to download</p>
+        </div>
+      </div>
+      
+      <div class="update-features">
+        <div class="feature-item">
+          <div class="feature-icon">
+            <svg class="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <p class="feature-text">Performance improvements and bug fixes</p>
+        </div>
+      </div>
+
+      <div class="update-actions">
+        <button class="update-btn primary" data-action="download">
+          <span>Download Update</span>
+          <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+          </svg>
+        </button>
+        <button class="update-btn secondary" data-action="later">
+          <span>Later</span>
+        </button>
+      </div>
+
+      <div class="update-footer">
+        <div class="auto-update-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" id="autoUpdateToggle" checked>
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-text">Auto-update future versions</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createDownloadingUI(data) {
+  const percent = data.percent || 0;
+  return `
+    <div class="update-card downloading">
+      <div class="update-header">
+        <div class="update-icon">
+          <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+        </div>
+        <div class="update-title">
+          <h3>Downloading Update</h3>
+          <p>Getting everything ready...</p>
+        </div>
+      </div>
+
+      <div class="download-progress">
+        <div class="progress-info">
+          <span class="progress-text">Download Progress</span>
+          <span class="progress-percent">${Math.round(percent)}%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: ${percent}%">
+            <div class="progress-shimmer"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="update-stats">
+        <div class="stat">
+          <span class="stat-label">Speed</span>
+          <span class="stat-value">${formatBytes(data.bytesPerSecond || 0)}/s</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Downloaded</span>
+          <span class="stat-value">${formatBytes(data.transferred || 0)} / ${formatBytes(data.total || 0)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createUpdateReadyUI(data) {
+  return `
+    <div class="update-card ready">
+      <div class="update-header">
+        <div class="update-icon">
+          <svg class="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+        <div class="update-title">
+          <h3>Update Ready</h3>
+          <p>Restart to apply the update</p>
+        </div>
+      </div>
+
+      <div class="update-features">
+        <div class="feature-item">
+          <div class="feature-icon">
+            <svg class="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <p class="feature-text">Improved performance and new features</p>
+        </div>
+      </div>
+
+      <div class="update-actions">
+        <button class="update-btn primary" data-action="install">
+          <span>Restart & Install</span>
+          <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </button>
+        <button class="update-btn secondary" data-action="later">
+          <span>Later</span>
+        </button>
+      </div>
+
+      <div class="update-note">
+        <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>Your work will be saved automatically</span>
+      </div>
+    </div>
+  `;
+}
+
+function createUpdateErrorUI(data) {
+  return `
+    <div class="update-card error">
+      <div class="update-header">
+        <div class="update-icon">
+          <svg class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="update-title">
+          <h3>Update Failed</h3>
+          <p>${data.message || 'Something went wrong'}</p>
+        </div>
+      </div>
+
+      <div class="update-actions">
+        <button class="update-btn primary" data-action="retry">
+          <span>Try Again</span>
+        </button>
+        <button class="update-btn secondary" data-action="close">
+          <span>Close</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function setupUpdateEventListeners(notification, data) {
+  const buttons = notification.querySelectorAll('[data-action]');
+  
+  buttons.forEach(button => {
+    button.addEventListener('click', () => {
+      const action = button.dataset.action;
+      
+      switch (action) {
+        case 'download':
+          window.api.downloadUpdate();
+          break;
+        
+        case 'install':
+          window.api.installUpdate();
+          break;
+        
+        case 'retry':
+          window.api.checkForUpdates();
+          break;
+        
+        case 'later':
+        case 'close':
+          notification.remove();
+          break;
+      }
+    });
+  });
+
+  // Auto-close certain notifications after delay
+  if (['not-available', 'error'].includes(data.status)) {
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.remove();
+      }
+    }, 5000);
+  }
+}
+
+// Helper function to format bytes
+function formatBytes(bytes, decimals = 2) {
+  if (bytes === 0) return '0 Bytes';
+  
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+// Add the CSS styles
+const updateStyles = `
+.modern-update-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.update-card {
+  width: 380px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.update-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light));
+}
+
+.update-card.success::before {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.update-card.error::before {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.update-card.checking::before {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.update-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: linear-gradient(135deg, #10b981, #34d399);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.update-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.update-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.update-card.success .update-icon {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.update-card.error .update-icon {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.update-title h3 {
+  margin: 0 0 4px 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.update-title p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.update-features {
+  margin: 1rem 0;
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.feature-item:last-child {
+  margin-bottom: 0;
+}
+
+.feature-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.feature-text {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.update-progress,
+.download-progress {
+  margin: 1rem 0;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.progress-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.progress-percent {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--accent-color);
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light));
+  border-radius: 3px;
+  position: relative;
+  transition: width 0.3s ease;
+}
+
+.progress-fill.indeterminate {
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light));
+  animation: indeterminate 1.5s infinite linear;
+  width: 50% !important;
+}
+
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.progress-shimmer {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.update-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.stat {
+  text-align: center;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.update-actions {
+  display: flex;
+  gap: 12px;
+  margin: 1.5rem 0 1rem 0;
+}
+
+.update-btn {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.update-btn.primary {
+  background: linear-gradient(135deg, var(--accent-color), var(--accent-color-light));
+  color: white;
+}
+
+.update-btn.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 191, 255, 0.3);
+}
+
+.update-btn.secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.update-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.update-footer {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.auto-update-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-label {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.toggle-label input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border-color);
+  transition: .3s;
+  border-radius: 24px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+  background: linear-gradient(135deg, #10b981, #34d399);
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+.toggle-text {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.update-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.update-note span {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+  .modern-update-notification {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+  }
+  
+  .update-card {
+    width: auto;
+    max-width: none;
+  }
+}
+`;
+
+// Add styles to document
+if (!document.querySelector('#modern-update-styles')) {
+  const styleSheet = document.createElement('style');
+  styleSheet.id = 'modern-update-styles';
+  styleSheet.textContent = updateStyles;
+  document.head.appendChild(styleSheet);
+}
 // κάλεσέ το στο init:
 async function init() {
   await loadTranslations();
