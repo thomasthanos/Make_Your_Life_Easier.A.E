@@ -15,10 +15,12 @@ class PasswordManager {
         
         // Initialize auth UI first
         this.authUI = new PasswordManagerAuthUI();
-        
+        this.observeCards = () => {}; // Προσωρινή κενή συνάρτηση
+
         setTimeout(() => {
             this.initializeEventListeners();
             this.initializeAuth();
+            this.initializeAnimations();
         }, 1000);
     }
 
@@ -138,14 +140,16 @@ class PasswordManager {
             });
         }, observerOptions);
 
+        // ΠΡΟΣΘΗΚΗ: Ορισμός της observeCards ως μέθοδο
         this.observeCards = () => {
-            document.querySelectorAll('.password-card').forEach(card => {
+            document.querySelectorAll('.password-card, .compact-password-card').forEach(card => {
                 card.style.opacity = '0';
                 card.style.transform = 'translateY(20px)';
                 observer.observe(card);
             });
         };
 
+        // Προσθήκη CSS animations
         const style = document.createElement('style');
         style.textContent = `
             @keyframes cardEntrance {
