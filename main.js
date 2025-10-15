@@ -159,6 +159,7 @@ function createPasswordManagerWindow() {
     passwordWindow.loadFile('password-manager/index.html');
     passwordWindow.setMenuBarVisibility(false);
 }
+
 app.whenReady().then(() => {
   createWindow();
   app.on('activate', () => {
@@ -1288,4 +1289,30 @@ ipcMain.handle('run-installer', async (event, filePath) => {
                 });
         }
     });
+});
+// Τροποποιημένο main.js
+// Προσθέτουμε νέο handler για reset password manager (διαγραφή config και DB)
+
+ipcMain.handle('password-manager-reset', async () => {
+    try {
+        // Διαγραφή config file
+        if (fs.existsSync(pmAuth.configPath)) {
+            fs.unlinkSync(pmAuth.configPath);
+        }
+        
+        // Διαγραφή DB file
+        const dbPath = path.join(pmAuth.dbDirectory, 'password_manager.db');
+        if (fs.existsSync(dbPath)) {
+            fs.unlinkSync(dbPath);
+        }
+        
+        // Logout και reset auth
+        pmAuth.logout();
+        pmAuth.initialize(); // Re-init
+        
+        return { success: true };
+    } catch (error) {
+        console.error('Error resetting password manager:', error);
+        return { success: false, error: error.message };
+    }
 });

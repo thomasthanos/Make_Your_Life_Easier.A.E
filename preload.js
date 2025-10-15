@@ -30,7 +30,7 @@ contextBridge.exposeInMainWorld('api', {
   openInstaller: (filePath) => ipcRenderer.invoke('open-installer', filePath),
 
   openFile: (filePath) => ipcRenderer.invoke('open-file', filePath),
-
+passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   // Extract a password‑protected archive using the bundled 7‑Zip.  Provide the
   // archive path, the password, and an optional output directory.  Returns
   // { success, output } or { success, error }.
