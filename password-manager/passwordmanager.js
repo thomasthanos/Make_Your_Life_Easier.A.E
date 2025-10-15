@@ -505,9 +505,9 @@ renderPasswords() {
                 <!-- Password Field -->
                 <div class="compact-field">
                     <div class="compact-value">
-                        <span class="compact-text compact-password-hidden">
-                            ${strengthIcons[strength]} ••••••••
-                        </span>
+<span class="strength-dot strength-${strength}" aria-hidden="true"></span>
+<span class="compact-text compact-password-hidden">••••••••</span>
+
                         <button class="compact-reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="Reveal password">👁️</button>
                         <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.password)}')" title="Copy password">📋</button>
                     </div>
@@ -696,8 +696,8 @@ async savePassword(e) {
     const passwordData = {
         title: document.getElementById('title').value.trim(),
         category_id: document.getElementById('category').value || null,
-        username: document.getElementById('username').value.trim() || null,
-        email: document.getElementById('email').value.trim() || null,
+        username: document.getElementById('username').value.trim(), // ΑΦΗΣΤΕ ΑΥΤΟ ΧΩΡΙΣ null
+        email: document.getElementById('email').value.trim(), // ΑΦΗΣΤΕ ΑΥΤΟ ΧΩΡΙΣ null
         password: document.getElementById('password').value,
         url: document.getElementById('url').value.trim() || null,
         notes: document.getElementById('notes').value.trim() || null
@@ -705,9 +705,8 @@ async savePassword(e) {
 
     console.log('Saving password data:', {
         title: passwordData.title,
-        passwordLength: passwordData.password ? passwordData.password.length : 0,
-        hasUsername: !!passwordData.username,
-        hasEmail: !!passwordData.email
+        username: passwordData.username, // DEBUG
+        passwordLength: passwordData.password ? passwordData.password.length : 0
     });
 
     // Validation: Title is required
@@ -731,6 +730,14 @@ async savePassword(e) {
         this.showError('Password cannot be empty.');
         document.getElementById('password').classList.add('shake');
         setTimeout(() => document.getElementById('password').classList.remove('shake'), 500);
+        return;
+    }
+
+    const emailVal = document.getElementById('email').value.trim();
+    if (emailVal && !this.isValidEmailUnicode(emailVal)) {
+        this.showError('Invalid email format.');
+        document.getElementById('email').classList.add('shake');
+        setTimeout(() => document.getElementById('email').classList.remove('shake'), 500);
         return;
     }
 
@@ -779,6 +786,25 @@ async savePassword(e) {
 
     editPassword(passwordId) {
         this.openPasswordModal(passwordId);
+    }
+    // passwordmanager.js — helpers (βάλε τα μέσα στην κλάση PasswordManager)
+    isAscii(str) { return /^[\x00-\x7F]*$/.test(str); }
+
+    // Πολύ απλός Unicode email έλεγχος: ένα @, μη κενά μέρη, domain με labels χωρισμένα με τελείες.
+    // Επιτρέπει ελληνικά/Unicode και στο local-part και στο domain (IDN).
+    isValidEmailUnicode(value) {
+    if (!value) return true; // άδειο = οκ (το email δεν είναι required)
+    const parts = value.split('@');
+    if (parts.length !== 2) return false;
+    const [local, domain] = parts;
+    if (!local || !domain) return false;
+    // domain: labels με γράμματα/αριθμούς/παύλες (Unicode), χωρισμένα με τελείες
+    const label = /^[\p{L}\p{M}\p{N}]+(?:[\p{L}\p{M}\p{N}-]*[\p{L}\p{M}\p{N}])?$/u;
+    const labels = domain.split('.');
+    if (labels.some(l => !l || !label.test(l))) return false;
+    // local: οτιδήποτε εκτός από κενό/χωρίς @/χωρίς κενό διάστημα
+    if (/[^\S\r\n]/.test(local)) return false;
+    return true;
     }
 
     async deletePassword(passwordId) {
@@ -932,33 +958,51 @@ async savePassword(e) {
         }
     }
 
-    togglePassword(button, passwordId) {
-        const password = this.passwords.find(p => p.id === passwordId);
-        if (!password) return;
+togglePassword(button, passwordId) {
+    const password = this.passwords.find(p => p.id === passwordId);
+    if (!password) return;
 
-        const textElement = button.previousElementSibling;
-        
-        if (textElement.classList.contains('password-hidden')) {
-            textElement.textContent = password.password;
-            textElement.classList.remove('password-hidden');
-            button.innerHTML = '🙈';
-            button.title = 'Hide password';
-            
-            setTimeout(() => {
-                if (!textElement.classList.contains('password-hidden')) {
-                    textElement.textContent = '••••••••';
-                    textElement.classList.add('password-hidden');
-                    button.innerHTML = '👁️';
-                    button.title = 'Reveal password';
-                }
-            }, 30000);
-        } else {
-            textElement.textContent = '••••••••';
-            textElement.classList.add('password-hidden');
-            button.innerHTML = '👁️';
-            button.title = 'Reveal password';
-        }
+    // Βρείτε το σωστό text element - διαφορετικά για compact vs normal mode
+    let textElement;
+    
+    if (this.isCompactMode) {
+        // Στο compact mode, το text element είναι το πρώτο span μέσα στο compact-value
+        const compactValue = button.closest('.compact-value');
+        textElement = compactValue.querySelector('.compact-text');
+    } else {
+        // Στο normal mode, το text element είναι το προηγούμενο sibling
+        textElement = button.previousElementSibling;
     }
+
+    if (!textElement) {
+        console.error('Could not find text element for password toggle');
+        return;
+    }
+    
+    if (textElement.classList.contains('password-hidden') || textElement.classList.contains('compact-password-hidden')) {
+        // Show password
+        textElement.textContent = password.password;
+        textElement.classList.remove('password-hidden', 'compact-password-hidden');
+        button.innerHTML = '🙈';
+        button.title = 'Hide password';
+        
+        // Auto-hide after 30 seconds
+        setTimeout(() => {
+            if (!textElement.classList.contains('password-hidden') && !textElement.classList.contains('compact-password-hidden')) {
+                textElement.textContent = '••••••••';
+                textElement.classList.add(this.isCompactMode ? 'compact-password-hidden' : 'password-hidden');
+                button.innerHTML = '👁️';
+                button.title = 'Reveal password';
+            }
+        }, 30000);
+    } else {
+        // Hide password
+        textElement.textContent = '••••••••';
+        textElement.classList.add(this.isCompactMode ? 'compact-password-hidden' : 'password-hidden');
+        button.innerHTML = '👁️';
+        button.title = 'Reveal password';
+    }
+}
 
     async copyToClipboard(text) {
         try {
