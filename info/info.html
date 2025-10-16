@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Βοήθεια - Make Your Life Easier</title>
+    <!-- Link to the responsive stylesheet instead of the original -->
     <link rel="stylesheet" href="info.css">
 </head>
-<body>
+<body data-lang="gr">
     <div class="container">
         <!-- Header -->
         <header class="header">
@@ -15,53 +16,60 @@
                     <span class="logo-icon">🚀</span>
                     <h1>Make Your Life Easier</h1>
                 </div>
-                <p class="subtitle">Ολοκληρωμένος Οδηγός Χρήσης - Όλα Εξηγημένα με Απλά Λόγια</p>
+                <p class="subtitle"><span class="gr">Ολοκληρωμένος Οδηγός Χρήσης - Όλα Εξηγημένα με Απλά Λόγια</span><span class="en">Comprehensive User Guide - Everything Explained in Simple Words</span></p>
             </div>
+            <!-- Language toggle button inside the header for better positioning -->
+            <button id="lang-toggle" class="lang-toggle">EN</button>
         </header>
 
         <!-- Navigation -->
         <nav class="nav">
+            <!-- Responsive nav toggle button -->
+            <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span class="hamburger"></span>
+            </button>
             <div class="nav-container">
                 <button class="nav-button active" data-section="install">
                     <span class="nav-icon">📥</span>
-                    Εγκατάσταση Apps
+                    <span class="gr">Εγκατάσταση Εφαρμογών</span><span class="en">Install Apps</span>
                 </button>
                 <button class="nav-button" data-section="activate">
                     <span class="nav-icon">🔓</span>
-                    Ενεργοποίηση
+                    <span class="gr">Ενεργοποίηση</span><span class="en">Activate</span>
                 </button>
                 <button class="nav-button" data-section="maintenance">
                     <span class="nav-icon">🛠️</span>
-                    Συντήρηση
+                    <span class="gr">Συντήρηση</span><span class="en">Maintenance</span>
                 </button>
                 <button class="nav-button" data-section="crack">
                     <span class="nav-icon">🎮</span>
-                    Crack Apps
+                    <span class="gr">Crack Apps</span><span class="en">Crack Apps</span>
                 </button>
                 <button class="nav-button" data-section="dlc">
                     <span class="nav-icon">🎁</span>
-                    DLC Unlocker
+                    <span class="gr">DLC Unlocker</span><span class="en">DLC Unlocker</span>
                 </button>
                 <button class="nav-button" data-section="password">
                     <span class="nav-icon">🔐</span>
-                    Κωδικοί
+                    <span class="gr">Κωδικοί</span><span class="en">Passwords</span>
                 </button>
                 <button class="nav-button" data-section="spicetify">
                     <span class="nav-icon">🎵</span>
-                    Spicetify
+                    <span class="gr">Spicetify</span><span class="en">Spicetify</span>
                 </button>
                 <button class="nav-button" data-section="titus">
                     <span class="nav-icon">🧰</span>
-                    Chris Titus
+                    <span class="gr">Chris Titus</span><span class="en">Chris Titus</span>
                 </button>
                 <button class="nav-button" data-section="bios">
                     <span class="nav-icon">⚡</span>
-                    BIOS
+                    <span class="gr">BIOS</span><span class="en">BIOS</span>
                 </button>
                 <button class="nav-button" data-section="settings">
                     <span class="nav-icon">⚙️</span>
-                    Ρυθμίσεις
+                    <span class="gr">Ρυθμίσεις</span><span class="en">Settings</span>
                 </button>
+
             </div>
         </nav>
 
@@ -70,72 +78,75 @@
             <!-- Εγκατάσταση Εφαρμογών -->
             <section id="install" class="section active">
                 <div class="section-header">
-                    <h2><span class="section-emoji">📥</span> Εγκατάσταση Εφαρμογών</h2>
-                    <div class="section-badge">Αυτόματη Εγκατάσταση</div>
+                    <h2><span class="section-emoji">📥</span><span class="gr"> Εγκατάσταση Εφαρμογών</span><span class="en"> Install Apps</span></h2>
+                    <div class="section-badge"><span class="gr">Αυτόματη Εγκατάσταση</span><span class="en">Automatic Installation</span></div>
                 </div>
 
                 <div class="feature-grid">
                     <div class="feature-card">
                         <div class="feature-icon">🎯</div>
-                        <h3>Τι Κάνει Αυτό το Κουμπί;</h3>
-                        <p><strong>Κατεβάζει και εγκαθιστά προγράμματα αυτόματα!</strong> Δεν χρειάζεται να ψάχνεις στο internet ή να ανησυχείς για ιούς.</p>
+                        <h3><span class="gr">Τι Κάνει Αυτό το Κουμπί;</span><span class="en">What Does This Button Do?</span></h3>
+                        <p>
+                            <span class="gr"><strong>Κατεβάζει και εγκαθιστά προγράμματα αυτόματα!</strong> Δεν χρειάζεται να ψάχνεις στο internet ή να ανησυχείς για ιούς.</span>
+                            <span class="en"><strong>It downloads and installs programs automatically!</strong> You don't need to search the internet or worry about viruses.</span>
+                        </p>
                     </div>
 
                     <div class="feature-card">
                         <div class="feature-icon">📋</div>
-                        <h3>Πώς το Χρησιμοποιώ;</h3>
+                        <h3><span class="gr">Πώς το Χρησιμοποιώ;</span><span class="en">How Do I Use It?</span></h3>
                         <div class="steps">
                             <div class="step">
                                 <span class="step-number">1</span>
-                                <span class="step-text"><strong>Βάλε tick</strong> στα προγράμματα που θες (μπορείς πολλά μαζί)</span>
+                                <span class="step-text"><span class="gr"><strong>Βάλε tick</strong> στα προγράμματα που θες (μπορείς πολλά μαζί)</span><span class="en"><strong>Select</strong> the programs you want (you can choose multiple)</span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">2</span>
-                                <span class="step-text"><strong>Πάτα "Download Selected"</strong></span>
+                                <span class="step-text"><span class="gr"><strong>Πάτα "Download Selected"</strong></span><span class="en"><strong>Press "Download Selected"</strong></span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">3</span>
-                                <span class="step-text"><strong>Περίμενε</strong> να κατέβουν (βλέπεις ποσοστό προόδου)</span>
+                                <span class="step-text"><span class="gr"><strong>Περίμενε</strong> να κατέβουν (βλέπεις ποσοστό προόδου)</span><span class="en"><strong>Wait</strong> for them to download (see progress percentage)</span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">4</span>
-                                <span class="step-text"><strong>Αυτόματα ανοίγει</strong> ο εγκαταστάτης</span>
+                                <span class="step-text"><span class="gr"><strong>Αυτόματα ανοίγει</strong> ο εγκαταστάτης</span><span class="en"><strong>The installer</strong> opens automatically</span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">5</span>
-                                <span class="step-text"><strong>Απλά ακολούθησε</strong> τις οδηγίες στον εγκαταστάτη</span>
+                                <span class="step-text"><span class="gr"><strong>Απλά ακολούθησε</strong> τις οδηγίες στον εγκαταστάτη</span><span class="en"><strong>Simply follow</strong> the instructions in the installer</span></span>
                             </div>
                         </div>
                     </div>
 
                     <div class="feature-card full-width">
                         <div class="feature-icon">🎮</div>
-                        <h3>Διαθέσιμα Προγράμματα</h3>
+                        <h3><span class="gr">Διαθέσιμα Προγράμματα</span><span class="en">Available Programs</span></h3>
                         <div class="apps-grid">
                             <div class="app-item">
                                 <span class="app-icon">💬</span>
                                 <strong>BetterDiscord</strong>
-                                <span>Discord με extra features</span>
+                                <span class="gr">Discord με extra features</span><span class="en">Discord with extra features</span>
                             </div>
                             <div class="app-item">
                                 <span class="app-icon">🧪</span>
                                 <strong>Discord PTB</strong>
-                                <span>Δοκιμαστική έκδοση</span>
+                                <span class="gr">Δοκιμαστική έκδοση</span><span class="en">Test version</span>
                             </div>
                             <div class="app-item">
                                 <span class="app-icon">💬</span>
                                 <strong>Discord</strong>
-                                <span>Επίσημος client</span>
+                                <span class="gr">Επίσημος client</span><span class="en">Official client</span>
                             </div>
                             <div class="app-item">
                                 <span class="app-icon">🎮</span>
                                 <strong>Epic Games</strong>
-                                <span>Launcher για παιχνίδια</span>
+                                <span class="gr">Launcher για παιχνίδια</span><span class="en">Launcher for games</span>
                             </div>
                             <div class="app-item">
                                 <span class="app-icon">🏰</span>
                                 <strong>Ubisoft Connect</strong>
-                                <span>Launcher Ubisoft</span>
+                                <span class="gr">Launcher Ubisoft</span><span class="en">Ubisoft launcher</span>
                             </div>
                         </div>
                     </div>
@@ -144,7 +155,8 @@
                 <div class="info-box success">
                     <div class="info-icon">✅</div>
                     <div>
-                        <strong>Τέλειο για:</strong> Άτομα που δεν ξέρουν από πιο site να κατεβάσουν προγράμματα ή φοβούνται ιούς!
+                        <span class="gr"><strong>Τέλειο για:</strong> Άτομα που δεν ξέρουν από ποιο site να κατεβάσουν προγράμματα ή φοβούνται ιούς!</span>
+                        <span class="en"><strong>Perfect for:</strong> People who don't know which site to download programs from or who are afraid of viruses!</span>
                     </div>
                 </div>
             </section>
@@ -152,57 +164,63 @@
             <!-- Ενεργοποίηση Windows -->
             <section id="activate" class="section">
                 <div class="section-header">
-                    <h2><span class="section-emoji">🔓</span> Ενεργοποίηση Windows & Auto Login</h2>
-                    <div class="section-badge">Δικαιώματα Admin</div>
+                    <h2><span class="section-emoji">🔓</span><span class="gr"> Ενεργοποίηση Windows & Auto Login</span><span class="en"> Windows Activation & Auto Login</span></h2>
+                    <div class="section-badge"><span class="gr">Δικαιώματα Admin</span><span class="en">Admin Privileges</span></div>
                 </div>
 
                 <div class="feature-grid">
                     <div class="feature-card">
                         <div class="feature-icon">🪟</div>
-                        <h3>Ενεργοποίηση Windows</h3>
-                        <p><strong>Κάνει το Windows σου πλήρως ενεργοποιημένο!</strong> Δεν θα βλέπεις πια μηνύματα "Activate Windows".</p>
+                        <h3><span class="gr">Ενεργοποίηση Windows</span><span class="en">Windows Activation</span></h3>
+                        <p>
+                            <span class="gr"><strong>Κάνει το Windows σου πλήρως ενεργοποιημένο!</strong> Δεν θα βλέπεις πια μηνύματα "Activate Windows".</span>
+                            <span class="en"><strong>Fully activates your Windows!</strong> You will no longer see "Activate Windows" messages.</span>
+                        </p>
                         
                         <div class="process-flow">
                             <div class="flow-step">
                                 <span class="flow-number">1</span>
-                                <span>Κατεβάζει activation script</span>
+                                <span class="gr">Κατεβάζει activation script</span><span class="en">Downloads activation script</span>
                             </div>
                             <div class="flow-step">
                                 <span class="flow-number">2</span>
-                                <span>Ζητάει άδεια διαχειριστή</span>
+                                <span class="gr">Ζητάει άδεια διαχειριστή</span><span class="en">Requests administrator permission</span>
                             </div>
                             <div class="flow-step">
                                 <span class="flow-number">3</span>
-                                <span>Εκτελεί το script</span>
+                                <span class="gr">Εκτελεί το script</span><span class="en">Runs the script</span>
                             </div>
                             <div class="flow-step">
                                 <span class="flow-number">4</span>
-                                <span>Windows activated! 🎉</span>
+                                <span class="gr">Windows activated! 🎉</span><span class="en">Windows activated! 🎉</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="feature-card">
                         <div class="feature-icon">🚀</div>
-                        <h3>Auto Login</h3>
-                        <p><strong>Μπαίνεις απευθείας στο Windows χωρίς κωδικό!</strong></p>
+                        <h3><span class="gr">Auto Login</span><span class="en">Auto Login</span></h3>
+                        <p>
+                            <span class="gr"><strong>Μπαίνεις απευθείας στο Windows χωρίς κωδικό!</strong></span>
+                            <span class="en"><strong>Enter Windows directly without a password!</strong></span>
+                        </p>
                         
                         <div class="process-flow">
                             <div class="flow-step">
                                 <span class="flow-number">1</span>
-                                <span>Κατεβάζει auto login tool</span>
+                                <span class="gr">Κατεβάζει auto login tool</span><span class="en">Downloads auto login tool</span>
                             </div>
                             <div class="flow-step">
                                 <span class="flow-number">2</span>
-                                <span>Ζητάει δικαιώματα admin</span>
+                                <span class="gr">Ζητάει δικαιώματα admin</span><span class="en">Requests admin rights</span>
                             </div>
                             <div class="flow-step">
                                 <span class="flow-number">3</span>
-                                <span>Ρυθμίζει το σύστημα</span>
+                                <span class="gr">Ρυθμίζει το σύστημα</span><span class="en">Configures the system</span>
                             </div>
                             <div class="flow-step">
                                 <span class="flow-number">4</span>
-                                <span>Απευθείας login! 🔓</span>
+                                <span class="gr">Απευθείας login! 🔓</span><span class="en">Direct login! 🔓</span>
                             </div>
                         </div>
                     </div>
@@ -211,7 +229,8 @@
                 <div class="info-box warning">
                     <div class="info-icon">⚠️</div>
                     <div>
-                        <strong>Προσοχή:</strong> Και τα δύο χρειάζονται να πατήσεις "Ναι" στο UAC prompt (το παράθυρο που λέει "Do you want to allow this app to make changes?")
+                        <span class="gr"><strong>Προσοχή:</strong> Και τα δύο χρειάζονται να πατήσεις "Ναι" στο UAC prompt (το παράθυρο που λέει "Do you want to allow this app to make changes?")</span>
+                        <span class="en"><strong>Attention:</strong> Both require you to click "Yes" on the UAC prompt (the window that says "Do you want to allow this app to make changes?")</span>
                     </div>
                 </div>
             </section>
@@ -219,61 +238,70 @@
             <!-- Συντήρηση Συστήματος -->
             <section id="maintenance" class="section">
                 <div class="section-header">
-                    <h2><span class="section-emoji">🛠️</span> Συντήρηση Συστήματος</h2>
-                    <div class="section-badge">Βελτιστοποίηση</div>
+                    <h2><span class="section-emoji">🛠️</span><span class="gr"> Συντήρηση Συστήματος</span><span class="en"> System Maintenance</span></h2>
+                    <div class="section-badge"><span class="gr">Βελτιστοποίηση</span><span class="en">Optimization</span></div>
                 </div>
 
                 <div class="feature-grid">
                     <div class="feature-card">
                         <div class="feature-icon">🧹</div>
-                        <h3>Καθαρισμός Προσωρινών</h3>
-                        <p><strong>Καθαρίζει αρχεία που πιάνουν χώρο άσκοπα!</strong></p>
+                        <h3><span class="gr">Καθαρισμός Προσωρινών</span><span class="en">Temporary Cleanup</span></h3>
+                        <p>
+                            <span class="gr"><strong>Καθαρίζει αρχεία που πιάνουν χώρο άσκοπα!</strong></span>
+                            <span class="en"><strong>Cleans files that take up unnecessary space!</strong></span>
+                        </p>
                         <ul class="feature-list">
-                            <li>Διαγράφει temporary files</li>
-                            <li>Καθαρίζει cache browsers</li>
-                            <li>Ελευθερώνει χώρο στο σκληρό δίσκο</li>
-                            <li>Βελτιώνει απόδοση συστήματος</li>
+                            <li><span class="gr">Διαγράφει temporary files</span><span class="en">Deletes temporary files</span></li>
+                            <li><span class="gr">Καθαρίζει cache browsers</span><span class="en">Cleans browser cache</span></li>
+                            <li><span class="gr">Ελευθερώνει χώρο στο σκληρό δίσκο</span><span class="en">Frees up hard drive space</span></li>
+                            <li><span class="gr">Βελτιώνει απόδοση συστήματος</span><span class="en">Improves system performance</span></li>
                         </ul>
                     </div>
 
                     <div class="feature-card">
                         <div class="feature-icon">🔧</div>
-                        <h3>Επιδιόρθωση Συστήματος</h3>
-                        <p><strong>Διορθώνει προβλήματα του Windows!</strong></p>
+                        <h3><span class="gr">Επιδιόρθωση Συστήματος</span><span class="en">System Repair</span></h3>
+                        <p>
+                            <span class="gr"><strong>Διορθώνει προβλήματα του Windows!</strong></span>
+                            <span class="en"><strong>Fixes Windows problems!</strong></span>
+                        </p>
                         
                         <div class="tool-grid">
                             <div class="tool-item">
                                 <strong>SFC Scan</strong>
-                                <span>Ελέγχει και διορθώνει χαλασμένα system files</span>
+                                <span class="gr">Ελέγχει και διορθώνει χαλασμένα system files</span><span class="en">Checks and fixes corrupted system files</span>
                             </div>
                             <div class="tool-item">
                                 <strong>DISM Repair</strong>
-                                <span>Επιδιορθώνει το Windows image</span>
+                                <span class="gr">Επιδιορθώνει το Windows image</span><span class="en">Repairs the Windows image</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="feature-card full-width">
                         <div class="feature-icon">📦</div>
-                        <h3>Patch My PC</h3>
-                        <p><strong>Ενημερώνει όλα τα προγράμματά σου με ένα κλικ!</strong></p>
+                        <h3><span class="gr">Patch My PC</span><span class="en">Patch My PC</span></h3>
+                        <p>
+                            <span class="gr"><strong>Ενημερώνει όλα τα προγράμματά σου με ένα κλικ!</strong></span>
+                            <span class="en"><strong>Updates all your programs with one click!</strong></span>
+                        </p>
                         
                         <div class="steps">
                             <div class="step">
                                 <span class="step-number">1</span>
-                                <span class="step-text"><strong>Σκανάρει</strong> τον υπολογιστή για παλιά προγράμματα</span>
+                                <span class="step-text"><span class="gr"><strong>Σκανάρει</strong> τον υπολογιστή για παλιά προγράμματα</span><span class="en"><strong>Scans</strong> your computer for outdated programs</span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">2</span>
-                                <span class="step-text"><strong>Βρίσκει</strong> τις καινούργιες εκδόσεις</span>
+                                <span class="step-text"><span class="gr"><strong>Βρίσκει</strong> τις καινούργιες εκδόσεις</span><span class="en"><strong>Finds</strong> the latest versions</span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">3</span>
-                                <span class="step-text"><strong>Κατεβάζει</strong> τις ενημερώσεις</span>
+                                <span class="step-text"><span class="gr"><strong>Κατεβάζει</strong> τις ενημερώσεις</span><span class="en"><strong>Downloads</strong> the updates</span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">4</span>
-                                <span class="step-text"><strong>Εγκαθιστά</strong> όλα αυτόματα</span>
+                                <span class="step-text"><span class="gr"><strong>Εγκαθιστά</strong> όλα αυτόματα</span><span class="en"><strong>Installs</strong> everything automatically</span></span>
                             </div>
                         </div>
                     </div>
@@ -282,7 +310,8 @@
                 <div class="info-box success">
                     <div class="info-icon">✅</div>
                     <div>
-                        <strong>Αποτέλεσμα:</strong> Πιο γρήγορος υπολογιστής, λιγότερα προβλήματα, περισσότερος ελεύθερος χώρος!
+                        <span class="gr"><strong>Αποτέλεσμα:</strong> Πιο γρήγορος υπολογιστής, λιγότερα προβλήματα, περισσότερος ελεύθερος χώρος!</span>
+                        <span class="en"><strong>Result:</strong> Faster computer, fewer problems, more free space!</span>
                     </div>
                 </div>
             </section>
@@ -290,8 +319,8 @@
             <!-- Crack Apps -->
             <section id="crack" class="section">
                 <div class="section-header">
-                    <h2><span class="section-emoji">🎮</span> Crack Apps Installer</h2>
-                    <div class="section-badge">Premium Software</div>
+                    <h2><span class="section-emoji">🎮</span><span class="gr"> Crack Apps Installer</span><span class="en"> Crack Apps Installer</span></h2>
+                    <div class="section-badge"><span class="gr">Premium Λογισμικό</span><span class="en">Premium Software</span></div>
                 </div>
 
                 <div class="feature-grid">
@@ -378,8 +407,8 @@
             <!-- DLC Unlocker -->
             <section id="dlc" class="section">
                 <div class="section-header">
-                    <h2><span class="section-emoji">🎁</span> DLC Unlocker</h2>
-                    <div class="section-badge">Free Game Content</div>
+                    <h2><span class="section-emoji">🎁</span><span class="gr"> DLC Unlocker</span><span class="en"> DLC Unlocker</span></h2>
+                    <div class="section-badge"><span class="gr">Δωρεάν Περιεχόμενο Παιχνιδιών</span><span class="en">Free Game Content</span></div>
                 </div>
 
                 <div class="feature-grid">
@@ -436,64 +465,70 @@
             <!-- Διαχειριστής Κωδικών -->
             <section id="password" class="section">
                 <div class="section-header">
-                    <h2><span class="section-emoji">🔐</span> Διαχειριστής Κωδικών</h2>
-                    <div class="section-badge">Ασφάλεια</div>
+                    <h2><span class="section-emoji">🔐</span><span class="gr"> Διαχειριστής Κωδικών</span><span class="en"> Password Manager</span></h2>
+                    <div class="section-badge"><span class="gr">Ασφάλεια</span><span class="en">Security</span></div>
                 </div>
 
                 <div class="feature-grid">
                     <div class="feature-card">
                         <div class="feature-icon">🗝️</div>
-                        <h3>Γιατί Χρειάζεσαι Password Manager;</h3>
-                        <p><strong>Γιατί δεν πρέπει να χρησιμοποιείς τον ίδιο κωδικό παντού!</strong></p>
-                        <p>Αποθηκεύει με ασφάλεια όλους σου τους κωδικούς σε ένα μέρος.</p>
+                        <h3><span class="gr">Γιατί Χρειάζεσαι Password Manager;</span><span class="en">Why Do You Need a Password Manager?</span></h3>
+                        <p>
+                            <span class="gr"><strong>Γιατί δεν πρέπει να χρησιμοποιείς τον ίδιο κωδικό παντού!</strong></span>
+                            <span class="en"><strong>Because you shouldn't use the same password everywhere!</strong></span>
+                        </p>
+                        <p>
+                            <span class="gr">Αποθηκεύει με ασφάλεια όλους σου τους κωδικούς σε ένα μέρος.</span>
+                            <span class="en">It securely stores all your passwords in one place.</span>
+                        </p>
                     </div>
 
                     <div class="feature-card">
                         <div class="feature-icon">🔒</div>
-                        <h3>Πώς Λειτουργεί;</h3>
+                        <h3><span class="gr">Πώς Λειτουργεί;</span><span class="en">How Does It Work?</span></h3>
                         <div class="steps">
                             <div class="step">
                                 <span class="step-number">1</span>
-                                <span class="step-text"><strong>Δημιουργείς</strong> Master Password</span>
+                                <span class="step-text"><span class="gr"><strong>Δημιουργείς</strong> Master Password</span><span class="en"><strong>Create</strong> Master Password</span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">2</span>
-                                <span class="step-text"><strong>Προσθέτεις</strong> κωδικούς</span>
+                                <span class="step-text"><span class="gr"><strong>Προσθέτεις</strong> κωδικούς</span><span class="en"><strong>Add</strong> passwords</span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">3</span>
-                                <span class="step-text"><strong>Κρυπτογράφηση</strong> αυτόματη</span>
+                                <span class="step-text"><span class="gr"><strong>Κρυπτογράφηση</strong> αυτόματη</span><span class="en"><strong>Automatic</strong> encryption</span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">4</span>
-                                <span class="step-text"><strong>Ασφαλής</strong> αποθήκευση</span>
+                                <span class="step-text"><span class="gr"><strong>Ασφαλής</strong> αποθήκευση</span><span class="en"><strong>Secure</strong> storage</span></span>
                             </div>
                         </div>
                     </div>
 
                     <div class="feature-card full-width">
                         <div class="feature-icon">🎯</div>
-                        <h3>Δυνατότητες</h3>
+                        <h3><span class="gr">Δυνατότητες</span><span class="en">Capabilities</span></h3>
                         <div class="capabilities-grid">
                             <div class="capability">
                                 <span class="capability-icon">📁</span>
-                                <strong>Οργάνωση</strong>
-                                <span>Με κατηγορίες (Social, Work, Games)</span>
+                                <strong><span class="gr">Οργάνωση</span><span class="en">Organization</span></strong>
+                                <span class="gr">Με κατηγορίες (Social, Work, Games)</span><span class="en">With categories (Social, Work, Games)</span>
                             </div>
                             <div class="capability">
                                 <span class="capability-icon">🔍</span>
-                                <strong>Αναζήτηση</strong>
-                                <span>Γρήγορη εύρεση με όνομα</span>
+                                <strong><span class="gr">Αναζήτηση</span><span class="en">Search</span></strong>
+                                <span class="gr">Γρήγορη εύρεση με όνομα</span><span class="en">Quick search by name</span>
                             </div>
                             <div class="capability">
                                 <span class="capability-icon">🛡️</span>
-                                <strong>Ασφάλεια</strong>
-                                <span>Κρυπτογραφημένοι κωδικοί</span>
+                                <strong><span class="gr">Ασφάλεια</span><span class="en">Security</span></strong>
+                                <span class="gr">Κρυπτογραφημένοι κωδικοί</span><span class="en">Encrypted passwords</span>
                             </div>
                             <div class="capability">
                                 <span class="capability-icon">💾</span>
-                                <strong>Αποθήκευση</strong>
-                                <span>Τοπικά στον υπολογιστή</span>
+                                <strong><span class="gr">Αποθήκευση</span><span class="en">Storage</span></strong>
+                                <span class="gr">Τοπικά στον υπολογιστή</span><span class="en">Locally on the computer</span>
                             </div>
                         </div>
                     </div>
@@ -502,7 +537,8 @@
                 <div class="info-box warning">
                     <div class="info-icon">⚠️</div>
                     <div>
-                        <strong>Σημαντικό:</strong> Μην ξεχάσεις τον Master Password! Δεν μπορείς να ανακτήσεις τους κωδικούς σου χωρίς αυτόν!
+                        <span class="gr"><strong>Σημαντικό:</strong> Μην ξεχάσεις τον Master Password! Δεν μπορείς να ανακτήσεις τους κωδικούς σου χωρίς αυτόν!</span>
+                        <span class="en"><strong>Important:</strong> Don't forget the Master Password! You cannot recover your passwords without it!</span>
                     </div>
                 </div>
             </section>
@@ -510,8 +546,8 @@
             <!-- Spicetify -->
             <section id="spicetify" class="section">
                 <div class="section-header">
-                    <h2><span class="section-emoji">🎵</span> Spicetify Spotify</h2>
-                    <div class="section-badge">Customization</div>
+                    <h2><span class="section-emoji">🎵</span><span class="gr"> Spicetify Spotify</span><span class="en"> Spicetify Spotify</span></h2>
+                    <div class="section-badge"><span class="gr">Προσαρμογή</span><span class="en">Customization</span></div>
                 </div>
 
                 <div class="feature-grid">
@@ -571,8 +607,8 @@
             <!-- Chris Titus -->
             <section id="titus" class="section">
                 <div class="section-header">
-                    <h2><span class="section-emoji">🧰</span> Chris Titus Toolbox</h2>
-                    <div class="section-badge">Windows Optimization</div>
+                    <h2><span class="section-emoji">🧰</span><span class="gr"> Chris Titus Toolbox</span><span class="en"> Chris Titus Toolbox</span></h2>
+                    <div class="section-badge"><span class="gr">Βελτιστοποίηση Windows</span><span class="en">Windows Optimization</span></div>
                 </div>
 
                 <div class="feature-grid">
@@ -631,8 +667,8 @@
             <!-- BIOS -->
             <section id="bios" class="section">
                 <div class="section-header">
-                    <h2><span class="section-emoji">⚡</span> BIOS Settings</h2>
-                    <div class="section-badge">System Level</div>
+                    <h2><span class="section-emoji">⚡</span><span class="gr"> Ρυθμίσεις BIOS</span><span class="en"> BIOS Settings</span></h2>
+                    <div class="section-badge"><span class="gr">Επίπεδο Συστήματος</span><span class="en">System Level</span></div>
                 </div>
 
                 <div class="feature-grid">
@@ -701,61 +737,70 @@
             <!-- Ρυθμίσεις -->
             <section id="settings" class="section">
                 <div class="section-header">
-                    <h2><span class="section-emoji">⚙️</span> Ρυθμίσεις</h2>
-                    <div class="section-badge">Personalization</div>
+                    <h2><span class="section-emoji">⚙️</span><span class="gr"> Ρυθμίσεις</span><span class="en"> Settings</span></h2>
+                    <div class="section-badge"><span class="gr">Εξατομίκευση</span><span class="en">Personalization</span></div>
                 </div>
 
                 <div class="feature-grid">
                     <div class="feature-card">
                         <div class="feature-icon">🌐</div>
-                        <h3>Αλλαγή Γλώσσας</h3>
-                        <p><strong>Αλλάζει τη γλώσσα της εφαρμογής!</strong></p>
+                        <h3><span class="gr">Αλλαγή Γλώσσας</span><span class="en">Change Language</span></h3>
+                        <p>
+                            <span class="gr"><strong>Αλλάζει τη γλώσσα της εφαρμογής!</strong></span>
+                            <span class="en"><strong>Changes the language of the application!</strong></span>
+                        </p>
                         <ul class="feature-list">
-                            <li><strong>Ελληνικά</strong> - Για ελληνικά μενού</li>
-                            <li><strong>English</strong> - Για αγγλικά μενού</li>
+                            <li><span class="gr"><strong>Ελληνικά</strong> - Για ελληνικά μενού</span><span class="en"><strong>Greek</strong> - For Greek menus</span></li>
+                            <li><span class="gr"><strong>English</strong> - Για αγγλικά μενού</span><span class="en"><strong>English</strong> - For English menus</span></li>
                         </ul>
-                        <p class="note">Η αλλαγή γίνεται αμέσως χωρίς restart!</p>
+                        <p class="note"><span class="gr">Η αλλαγή γίνεται αμέσως χωρίς restart!</span><span class="en">The change happens instantly without restart!</span></p>
                     </div>
 
                     <div class="feature-card">
                         <div class="feature-icon">🎨</div>
-                        <h3>Αλλαγή Θέματος</h3>
-                        <p><strong>Αλλάζει τα χρώματα της εφαρμογής!</strong></p>
+                        <h3><span class="gr">Αλλαγή Θέματος</span><span class="en">Change Theme</span></h3>
+                        <p>
+                            <span class="gr"><strong>Αλλάζει τα χρώματα της εφαρμογής!</strong></span>
+                            <span class="en"><strong>Changes the colors of the application!</strong></span>
+                        </p>
                         <div class="theme-options">
                             <div class="theme-option">
                                 <span class="theme-icon">☀️</span>
-                                <strong>Φωτεινό Θέμα</strong>
-                                <span>Λευκό background</span>
+                                <strong><span class="gr">Φωτεινό Θέμα</span><span class="en">Light Theme</span></strong>
+                                <span class="gr">Λευκό background</span><span class="en">White background</span>
                             </div>
                             <div class="theme-option">
                                 <span class="theme-icon">🌙</span>
-                                <strong>Σκοτεινό Θέμα</strong>
-                                <span>Μαύρο background</span>
+                                <strong><span class="gr">Σκοτεινό Θέμα</span><span class="en">Dark Theme</span></strong>
+                                <span class="gr">Μαύρο background</span><span class="en">Black background</span>
                             </div>
                         </div>
-                        <p class="note">Το σκοτεινό θέμα είναι πιο άνετο για τα μάτια το βράδυ!</p>
+                        <p class="note"><span class="gr">Το σκοτεινό θέμα είναι πιο άνετο για τα μάτια το βράδυ!</span><span class="en">The dark theme is more comfortable for your eyes at night!</span></p>
                     </div>
 
                     <div class="feature-card full-width">
                         <div class="feature-icon">💾</div>
-                        <h3>Αποθήκευση Ρυθμίσεων</h3>
-                        <p><strong>Οι ρυθμίσεις σου αποθηκεύονται αυτόματα!</strong></p>
+                        <h3><span class="gr">Αποθήκευση Ρυθμίσεων</span><span class="en">Save Settings</span></h3>
+                        <p>
+                            <span class="gr"><strong>Οι ρυθμίσεις σου αποθηκεύονται αυτόματα!</strong></span>
+                            <span class="en"><strong>Your settings are saved automatically!</strong></span>
+                        </p>
                         <div class="steps">
                             <div class="step">
                                 <span class="step-number">1</span>
-                                <span class="step-text"><strong>Αλλάζεις</strong> τις ρυθμίσεις</span>
+                                <span class="step-text"><span class="gr"><strong>Αλλάζεις</strong> τις ρυθμίσεις</span><span class="en"><strong>You change</strong> the settings</span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">2</span>
-                                <span class="step-text"><strong>Πάτας</strong> "Save"</span>
+                                <span class="step-text"><span class="gr"><strong>Πάτας</strong> "Save"</span><span class="en"><strong>You press</strong> "Save"</span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">3</span>
-                                <span class="step-text"><strong>Αποθηκεύονται</strong> αυτόματα</span>
+                                <span class="step-text"><span class="gr"><strong>Αποθηκεύονται</strong> αυτόματα</span><span class="en"><strong>They are saved</strong> automatically</span></span>
                             </div>
                             <div class="step">
                                 <span class="step-number">4</span>
-                                <span class="step-text"><strong>Έτοιμο!</strong> Δεν χρειάζεται restart</span>
+                                <span class="step-text"><span class="gr"><strong>Έτοιμο!</strong> Δεν χρειάζεται restart</span><span class="en"><strong>Done!</strong> No restart needed</span></span>
                             </div>
                         </div>
                     </div>
@@ -764,7 +809,8 @@
                 <div class="info-box success">
                     <div class="info-icon">✅</div>
                     <div>
-                        <strong>Personalization:</strong> Κάνε την εφαρμογή δική σου με τις ρυθμίσεις που σου αρέσουν!
+                        <span class="gr"><strong>Εξατομίκευση:</strong> Κάνε την εφαρμογή δική σου με τις ρυθμίσεις που σου αρέσουν!</span>
+                        <span class="en"><strong>Personalization:</strong> Make the app yours with the settings you like!</span>
                     </div>
                 </div>
             </section>
@@ -778,6 +824,7 @@
             </div>
         </footer>
     </div>
+    <!-- Language toggle button removed from here; moved to header -->
 
     <script src="info.js"></script>
 </body>

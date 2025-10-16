@@ -13,11 +13,27 @@ class InfoApp {
 
     setupNavigation() {
         const navButtons = document.querySelectorAll('.nav-button');
-        
+        // Select the responsive nav elements
+        const navToggle = document.querySelector('.nav-toggle');
+        const nav = document.querySelector('.nav');
+
+        // Setup responsive menu toggle functionality
+        if (navToggle && nav) {
+            navToggle.addEventListener('click', () => {
+                const isOpen = nav.classList.toggle('open');
+                navToggle.setAttribute('aria-expanded', isOpen);
+            });
+        }
+
         navButtons.forEach(button => {
             button.addEventListener('click', (e) => {
                 const sectionId = e.currentTarget.dataset.section;
                 this.showSection(sectionId);
+                // On small screens, collapse the menu after a selection is made
+                if (nav && navToggle && window.innerWidth <= 768) {
+                    nav.classList.remove('open');
+                    navToggle.setAttribute('aria-expanded', false);
+                }
             });
         });
 
@@ -153,6 +169,24 @@ class InfoApp {
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new InfoApp();
+});
+
+// Language toggle functionality
+document.addEventListener('DOMContentLoaded', () => {
+    const langToggle = document.getElementById('lang-toggle');
+    if (langToggle) {
+        langToggle.addEventListener('click', () => {
+            const body = document.body;
+            const current = body.getAttribute('data-lang');
+            if (current === 'gr') {
+                body.setAttribute('data-lang', 'en');
+                langToggle.textContent = 'GR';
+            } else {
+                body.setAttribute('data-lang', 'gr');
+                langToggle.textContent = 'EN';
+            }
+        });
+    }
 });
 
 // Add some interactive features

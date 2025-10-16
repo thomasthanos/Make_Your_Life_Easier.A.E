@@ -44,8 +44,10 @@ body {
 }
 
 .container {
-    max-width: 1400px;
-    margin: 0 auto;
+    /* Allow the container to span the full width of the viewport so the navigation is not constrained. */
+    width: 100%;
+    max-width: none;
+    margin: 0;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -118,14 +120,20 @@ body {
     z-index: 100;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+    /* reset flex so nav container remains centered */
+    /* removing display:flex ensures nav children don't force shrink */
 }
 
 .nav-container {
-    max-width: 1200px;
-    margin: 0 auto;
+    /* Center the navigation items by letting the container size to its content and auto margins */
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
     padding: 1rem 2rem;
     display: flex;
     gap: 0.5rem;
+    /* Center navigation items within the container */
+    justify-content: center;
     overflow-x: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--primary) var(--bg-secondary);
@@ -197,6 +205,29 @@ body {
     transform: translateY(-2px);
 }
 
+/* Style the language toggle button similar to nav buttons but with a distinct accent */
+/* Style for the language toggle button in the header */
+.header .lang-toggle {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: var(--gradient-secondary);
+    color: white;
+    border: none;
+    padding: 0.6rem 1rem;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.8rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 110;
+}
+.header .lang-toggle:hover {
+    background: var(--gradient-accent);
+    color: white;
+    box-shadow: var(--shadow);
+}
+
 .nav-button.active::before {
     left: 0;
 }
@@ -214,6 +245,43 @@ body {
 .nav-button.active .nav-icon {
     transform: scale(1.2);
     filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+}
+
+/* Add spacing before English translations when visible */
+.nav-button .en,
+.section-header .en,
+h2 .en,
+h3 .en,
+.section-badge .en {
+    margin-left: 0.25rem;
+}
+
+/* Language toggle button */
+.lang-toggle {
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    padding: 0.6rem 1rem;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.8rem;
+    /* Reset positioning; it will behave like a nav button */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.lang-toggle:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary);
+    color: var(--text-primary);
+    box-shadow: var(--shadow);
+}
+
+/* Language visibility */
+body[data-lang="gr"] .en {
+    display: none;
+}
+body[data-lang="en"] .gr {
+    display: none;
 }
 
 /* Main Content */
@@ -270,7 +338,9 @@ body {
 /* Feature Grid */
 .feature-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    /* Allow cards to stretch evenly by row for a more uniform height */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    /* Let cards adjust height naturally; equal heights can cause shrinkage */
     gap: 1.5rem;
     margin-bottom: 2rem;
 }
@@ -279,10 +349,12 @@ body {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 16px;
-    padding: 1.5rem;
+    /* Reduce internal padding to make cards less tall */
+    padding: 1rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
+    /* Reset to block layout to avoid height shrinkage */
 }
 
 .feature-card::before {
@@ -312,15 +384,17 @@ body {
 }
 
 .feature-icon {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
+    /* Slightly smaller icon and tighter spacing */
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
     display: block;
     /* ΑΦΑΙΡΕΘΗΚΕ το gradient - τώρα έχει φυσικά χρώματα */
 }
 
 .feature-card h3 {
     color: var(--text-primary);
-    font-size: 1.3rem;
+    /* Increase heading size slightly to differentiate from description */
+    font-size: 1.5rem;
     margin-bottom: 1rem;
     font-weight: 700;
 }
@@ -354,14 +428,16 @@ body {
 .steps {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    /* Slightly reduce spacing between steps */
+    gap: 0.75rem;
 }
 
 .step {
     display: flex;
     align-items: flex-start;
     gap: 1rem;
-    padding: 1rem;
+    /* Reduce padding for a more compact look */
+    padding: 0.75rem;
     background: var(--bg-secondary);
     border-radius: 12px;
     border: 1px solid var(--border);
@@ -941,4 +1017,89 @@ body {
     -webkit-text-fill-color: transparent;
     background-clip: text;
     text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+}
+
+/* Responsive Navigation Styles */
+/*
+   The navigation bar now spans the entire width of the page. On small screens a
+   hamburger button appears that allows the user to expand or collapse the menu
+   items. This improves usability on devices where horizontal space is
+   limited and prevents the navigation from overflowing off screen. When the
+   menu is open the hamburger transforms into a close icon via CSS transforms.
+*/
+.nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    padding: 1rem;
+    cursor: pointer;
+    z-index: 200;
+}
+
+.nav-toggle .hamburger,
+.nav-toggle .hamburger::before,
+.nav-toggle .hamburger::after {
+    content: '';
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: var(--text-primary);
+    margin: 5px 0;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.nav-toggle .hamburger::before {
+    top: -7px;
+}
+
+.nav-toggle .hamburger::after {
+    top: 7px;
+}
+
+/* Transform hamburger into an 'X' when menu is open */
+.nav.open .nav-toggle .hamburger {
+    transform: rotate(45deg);
+}
+.nav.open .nav-toggle .hamburger::before {
+    transform: rotate(90deg);
+    top: 0;
+}
+.nav.open .nav-toggle .hamburger::after {
+    opacity: 0;
+}
+
+@media (max-width: 768px) {
+    /* Stack nav content on small screens */
+    .nav {
+        display: flex;
+        flex-direction: column;
+    }
+    .nav-toggle {
+        display: block;
+    }
+    .nav-container {
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        padding: 0;
+    }
+    /* Show the menu when nav has the `open` class */
+    .nav.open .nav-container {
+        display: flex;
+    }
+    .nav-button {
+        width: 100%;
+        border-radius: 0;
+        justify-content: flex-start;
+        padding: 1rem;
+    }
+}
+
+.en {
+    /* font-size: 0.9rem; ΑΦΑΙΡΕΣΕ ΑΥΤΗ ΤΗ ΓΡΑΜΜΗ */
+    color: var(--text-secondary);
+    margin-left: 0.25rem;
 }
