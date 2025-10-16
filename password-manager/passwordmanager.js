@@ -1049,15 +1049,37 @@ async savePassword(e) {
 
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
+
+        // Define the icon character and color class based on the type
+        const icons = {
+            success: { char: '✔', colorClass: 'icon-success' },
+            error:   { char: '✖', colorClass: 'icon-error' },
+            info:    { char: 'ℹ', colorClass: 'icon-info' }
+        };
+        const { char, colorClass } = icons[type] || icons.info;
+
+        // Build the notification HTML structure
         notification.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
-                <span>${message}</span>
+            <div class="notification-inner">
+                <div class="icon-wrapper ${colorClass}">${char}</div>
+                <div class="message-wrapper">${this.escapeHtml(message)}</div>
+                <button class="notification-close" aria-label="Close notification">&times;</button>
             </div>
         `;
 
         document.body.appendChild(notification);
 
+        // Remove the notification when the close button is clicked
+        const closeBtn = notification.querySelector('.notification-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            });
+        }
+
+        // Automatically remove the notification after 4 seconds
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.parentNode.removeChild(notification);
