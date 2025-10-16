@@ -10,7 +10,9 @@ class PasswordManager {
             reused: 0,
             categories: 0
         };
-        this.isCompactMode = false;
+        // Load compact mode preference from localStorage (defaults to false)
+        const storedMode = localStorage.getItem('pmCompactMode');
+        this.isCompactMode = storedMode !== null ? storedMode === 'true' : false;
         this.isAuthenticated = false;
         
         // Initialize auth UI first
@@ -94,9 +96,11 @@ class PasswordManager {
     createCompactToggle() {
         const toggle = document.createElement('button');
         toggle.className = 'compact-toggle';
-        toggle.innerHTML = '📱 Compact Mode';
         toggle.addEventListener('click', () => this.toggleCompactMode());
         document.body.appendChild(toggle);
+        // Apply initial text and styles based on saved compact mode
+        const manager = document.querySelector('.password-manager');
+        this.updateCompactToggleUI(toggle, manager);
     }
 
     toggleCompactMode() {
@@ -107,6 +111,23 @@ class PasswordManager {
         const manager = document.querySelector('.password-manager');
         const toggle = document.querySelector('.compact-toggle');
         
+        // Update the UI based on the new state
+        this.updateCompactToggleUI(toggle, manager);
+        // Persist preference to localStorage
+        localStorage.setItem('pmCompactMode', this.isCompactMode);
+        // Re-render passwords to reflect the change
+        this.renderPasswords();
+    }
+
+    /**
+     * Update the compact toggle button and manager class based on the current
+     * value of isCompactMode. This is used both on initialization and when
+     * toggling the mode.
+     * @param {HTMLElement} toggle - The toggle button element.
+     * @param {HTMLElement} manager - The root password manager container.
+     */
+    updateCompactToggleUI(toggle, manager) {
+        if (!toggle || !manager) return;
         if (this.isCompactMode) {
             manager.classList.add('compact');
             toggle.innerHTML = '📱 Normal Mode';
@@ -120,9 +141,6 @@ class PasswordManager {
             toggle.style.color = 'var(--sidebar-text)';
             toggle.style.borderColor = 'var(--border-color)';
         }
-        
-        // Re-render τα passwords
-        this.renderPasswords();
     }
 
     initializeAnimations() {
