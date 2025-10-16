@@ -875,8 +875,12 @@ async savePassword(e) {
             item.className = 'category-item';
             item.innerHTML = `
                 <input type="text" value="${this.escapeHtml(category.name)}" class="form-input category-name" data-id="${category.id}" style="flex: 1;">
-                <button class="button button-secondary" onclick="pm.updateCategory(${category.id})">Update</button>
-                <button class="button button-danger" onclick="pm.deleteCategory(${category.id})">Delete</button>
+                <button class="button button-secondary icon-btn" onclick="pm.updateCategory(${category.id})" aria-label="Edit category">
+                    <span class="icon">✏️</span>
+                </button>
+                <button class="button button-danger icon-btn" onclick="pm.deleteCategory(${category.id})" aria-label="Delete category">
+                    <span class="icon">🗑️</span>
+                </button>
             `;
             container.appendChild(item);
         });
@@ -961,51 +965,52 @@ async savePassword(e) {
         }
     }
 
-togglePassword(button, passwordId) {
-    const password = this.passwords.find(p => p.id === passwordId);
-    if (!password) return;
+    togglePassword(button, passwordId) {
+        const password = this.passwords.find(p => p.id === passwordId);
+        if (!password) return;
 
-    // Βρείτε το σωστό text element - διαφορετικά για compact vs normal mode
-    let textElement;
-    
-    if (this.isCompactMode) {
-        // Στο compact mode, το text element είναι το πρώτο span μέσα στο compact-value
-        const compactValue = button.closest('.compact-value');
-        textElement = compactValue.querySelector('.compact-text');
-    } else {
-        // Στο normal mode, το text element είναι το προηγούμενο sibling
-        textElement = button.previousElementSibling;
-    }
+        // Find the container that holds the password text
+        const valueContainer = button.closest('.password-value, .compact-value');
+        if (!valueContainer) {
+            console.error('Could not find value container for password toggle');
+            return;
+        }
 
-    if (!textElement) {
-        console.error('Could not find text element for password toggle');
-        return;
+        // Find the text element within that container
+        const textElement = valueContainer.querySelector('.password-text, .compact-text');
+        if (!textElement) {
+            console.error('Could not find text element for password toggle');
+            return;
+        }
+
+        // Determine which hidden class to use based on current mode
+        const hiddenClass = this.isCompactMode ? 'compact-password-hidden' : 'password-hidden';
+
+        // Toggle state: if hidden, show; if visible, hide
+        if (textElement.classList.contains(hiddenClass)) {
+            // Show the plain text password
+            textElement.textContent = password.password;
+            textElement.classList.remove(hiddenClass);
+            // Change icon to indicate ability to hide
+            button.innerHTML = '🙈';
+            button.title = 'Hide password';
+            // Automatically hide again after 30 seconds
+            setTimeout(() => {
+                if (!textElement.classList.contains(hiddenClass)) {
+                    textElement.textContent = '••••••••';
+                    textElement.classList.add(hiddenClass);
+                    button.innerHTML = '👁️';
+                    button.title = 'Reveal password';
+                }
+            }, 30000);
+        } else {
+            // Hide the password and restore bullet characters
+            textElement.textContent = '••••••••';
+            textElement.classList.add(hiddenClass);
+            button.innerHTML = '👁️';
+            button.title = 'Reveal password';
+        }
     }
-    
-    if (textElement.classList.contains('password-hidden') || textElement.classList.contains('compact-password-hidden')) {
-        // Show password
-        textElement.textContent = password.password;
-        textElement.classList.remove('password-hidden', 'compact-password-hidden');
-        button.innerHTML = '🙈';
-        button.title = 'Hide password';
-        
-        // Auto-hide after 30 seconds
-        setTimeout(() => {
-            if (!textElement.classList.contains('password-hidden') && !textElement.classList.contains('compact-password-hidden')) {
-                textElement.textContent = '••••••••';
-                textElement.classList.add(this.isCompactMode ? 'compact-password-hidden' : 'password-hidden');
-                button.innerHTML = '👁️';
-                button.title = 'Reveal password';
-            }
-        }, 30000);
-    } else {
-        // Hide password
-        textElement.textContent = '••••••••';
-        textElement.classList.add(this.isCompactMode ? 'compact-password-hidden' : 'password-hidden');
-        button.innerHTML = '👁️';
-        button.title = 'Reveal password';
-    }
-}
 
     async copyToClipboard(text) {
         try {
