@@ -2564,7 +2564,7 @@ input:checked + .slider:before {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: var(--error-color, #ef4444);
+  background: var(#670000, #a10000);
   opacity: 0.75;
   animation: update-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
@@ -2605,13 +2605,12 @@ input:checked + .slider:before {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  border-radius: 11px;
   background: var(--card-bg);
   transition: background 0.3s ease;
 }
 
 #update-btn:hover .inner {
-  background: var(--card-bg-hover, rgba(0, 0, 0, 0.4));
+  background: var(--card-bg-hover, rgba(0, 0, 0, 0.055));
 }
 
 /* Icon container with gradient and blur overlay */
