@@ -3632,48 +3632,202 @@ function initializeAutoUpdater() {
   const updateButton = document.createElement('button');
   updateButton.id = 'update-btn';
   updateButton.setAttribute('aria-label', 'Check for updates');
+  // Define the default SVG path for the bell icon and error icon.  These
+  // constants will be used to update the icon depending on the update status.
+  const bellIconPath = 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9';
+  const errorIconPath = 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 14a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0-4a1 1 0 0 1-1-1V7a1 1 0 0 1 2 0v4a1 1 0 0 1-1 1Z';
+
+  // Build the update button UI to match the provided design.  It contains
+  // an outer gradient wrapper, an inner content area, a badge (ping + number)
+  // and an extra container which will hold the expanded message, progress
+  // bar and actions.  The extra container is hidden by default and
+  // becomes visible when the button has the `.expanded` class.
   updateButton.innerHTML = `
-    <div class="badge" aria-hidden="true">
+    <div class="badge">
       <span class="ping"></span>
       <span class="num">0</span>
     </div>
-    <div class="icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
-      </svg>
-    </div>
-    <div class="content">
-      <span class="title">New Updates</span>
-      <span class="subtitle">Check your notifications</span>
-    </div>
-    <div class="indicators" aria-hidden="true">
-      <div></div><div></div><div></div>
+    <div class="outer">
+      <div class="inner">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="${bellIconPath}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+          </svg>
+          <div class="icon-blur"></div>
+        </div>
+        <div class="content">
+          <span class="title">New Updates</span>
+          <span class="subtitle">Check your notifications</span>
+        </div>
+        <div class="indicators" aria-hidden="true">
+          <div></div><div></div><div></div>
+        </div>
+      </div>
+      <div class="extra"></div>
     </div>
   `;
   // Hide the button until an update event indicates it should be shown
   updateButton.style.display = 'none';
-  // When the button is clicked, perform a manual update check. Also show
-  // the detailed notification panel so the user can read any messages.
+  // Clicking the update button either triggers a manual update check
+  // (if no update has been announced yet) or toggles the expanded
+  // details panel (if an update is available).  When expanded, the
+  // contents of the extra container are updated based on the latest
+  // update data.
   updateButton.addEventListener('click', () => {
-    // If we have seen an update event, toggle the notification panel.
-    if (lastUpdateData) {
-      // Show the details panel; if it's already visible, hide it.
-      if (updateStatus.style.display === 'none' || updateStatus.style.display === '') {
-        updateStatus.style.display = 'block';
-      } else {
-        updateStatus.style.display = 'none';
-      }
-    } else {
-      // No update known yet – trigger a manual check. When the check
-      // completes the event handler will update the UI accordingly.
+    // If no update data, perform a manual check for updates
+    if (!lastUpdateData) {
       try {
         if (window.api && typeof window.api.checkForUpdates === 'function') {
           window.api.checkForUpdates();
         }
       } catch (_) {}
+      return;
+    }
+    // Otherwise toggle the expanded state
+    const expanded = updateButton.classList.toggle('expanded');
+    if (expanded) {
+      renderExpandedContent(lastUpdateData);
     }
   });
   document.body.appendChild(updateButton);
+
+  // ---------------------------------------------------------------------
+  // Unified update card implementation
+  //
+  // Instead of using the legacy pop‑up panel (#update-status) and floating
+  // button (#update-btn) to notify users about updates, we build a single
+  // card element that appears when there is actionable update information.
+  // The card includes its own title, message, optional progress bar and
+  // action buttons (Download, Restart & Install, Later, Close). It is
+  // initially hidden and shown only via renderUpdateCard().
+  const updateCard = document.createElement('div');
+  updateCard.id = 'update-card';
+  updateCard.style.display = 'none';
+  document.body.appendChild(updateCard);
+
+  /**
+   * Render the unified update card based on the received update status.
+   * This hides the legacy updateStatus/updateButton UI and constructs
+   * the card contents.  Buttons call into the preload API to download
+   * or install updates.  Close/Later simply hides the card.
+   *
+   * @param {object} data - The update event object from the main process
+   */
+  function renderUpdateCard(data) {
+    // Always hide the legacy UI elements if they exist
+    try {
+      updateStatus.style.display = 'none';
+      updateButton.style.display = 'none';
+    } catch (_) {}
+    // Only show for relevant statuses
+    const showStatuses = ['checking', 'available', 'downloading', 'downloaded', 'error'];
+    if (!data || !showStatuses.includes(data.status)) {
+      updateCard.style.display = 'none';
+      updateCard.innerHTML = '';
+      return;
+    }
+    // Choose icon path: use alert icon for error, bell for others
+    const iconPath = data.status === 'error'
+      ? 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 14a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0-4a1 1 0 0 1-1-1V7a1 1 0 0 1 2 0v4a1 1 0 0 1-1 1Z'
+      : 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9';
+    // Determine title, message, progress and actions
+    let titleText = '';
+    let messageText = data.message || '';
+    let actionsHTML = '';
+    let progressHTML = '';
+    switch (data.status) {
+      case 'checking':
+        titleText = 'Checking for Updates';
+        messageText = 'Checking for updates...';
+        actionsHTML = `<button class="btn btn-secondary btn-close">Close</button>`;
+        break;
+      case 'available':
+        titleText = 'Update Available';
+        actionsHTML = `
+          <button class="btn btn-primary btn-download">Download</button>
+          <button class="btn btn-secondary btn-later">Later</button>
+        `;
+        break;
+      case 'downloading':
+        titleText = 'Downloading Update';
+        const percent = data.percent || 0;
+        progressHTML = `
+          <div class="progress-bar">
+            <div class="progress" style="width: ${percent}%;"></div>
+          </div>
+        `;
+        actionsHTML = `<button class="btn btn-secondary btn-later">Later</button>`;
+        break;
+      case 'downloaded':
+        titleText = 'Update Ready';
+        actionsHTML = `
+          <button class="btn btn-primary btn-install">Restart & Install</button>
+          <button class="btn btn-secondary btn-later">Later</button>
+        `;
+        break;
+      case 'error':
+        titleText = 'Update Error';
+        actionsHTML = `<button class="btn btn-secondary btn-close">Close</button>`;
+        break;
+    }
+    // Assemble the HTML for the card
+    const html = `
+      <div class="update-card-inner">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="${iconPath}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+          </svg>
+        </div>
+        <div class="info">
+          <div class="title">${titleText}</div>
+          <div class="message">${messageText}</div>
+          ${progressHTML}
+        </div>
+        <div class="actions">
+          ${actionsHTML}
+        </div>
+      </div>
+    `;
+    updateCard.innerHTML = html;
+    updateCard.style.display = 'flex';
+    // Add event listeners to the action buttons
+    const downloadBtn = updateCard.querySelector('.btn-download');
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', () => {
+        try {
+          if (window.api && typeof window.api.downloadUpdate === 'function') {
+            downloadBtn.disabled = true;
+            downloadBtn.textContent = 'Downloading...';
+            window.api.downloadUpdate();
+          }
+        } catch (_) {}
+      });
+    }
+    const installBtn = updateCard.querySelector('.btn-install');
+    if (installBtn) {
+      installBtn.addEventListener('click', () => {
+        try {
+          if (window.api && typeof window.api.installUpdate === 'function') {
+            installBtn.disabled = true;
+            installBtn.textContent = 'Installing...';
+            window.api.installUpdate();
+          }
+        } catch (_) {}
+      });
+    }
+    const laterBtn = updateCard.querySelector('.btn-later');
+    if (laterBtn) {
+      laterBtn.addEventListener('click', () => {
+        updateCard.style.display = 'none';
+      });
+    }
+    const closeBtn = updateCard.querySelector('.btn-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        updateCard.style.display = 'none';
+      });
+    }
+  }
 
   let currentVersion = '';
 
@@ -3687,12 +3841,146 @@ function initializeAutoUpdater() {
     showUpdateNotification(data);
   });
 
+  /**
+   * Populate the expanded content area of the update button based on
+   * the current update status.  The extra container will contain
+   * a message, optional progress bar and a set of action buttons.  The
+   * buttons call into the preload API and collapse the panel when
+   * appropriate.
+   *
+   * @param {object} data
+   */
+  function renderExpandedContent(data) {
+    const extra = updateButton.querySelector('.extra');
+    if (!extra) return;
+    extra.innerHTML = '';
+    let message = '';
+    let progressHtml = '';
+    let actionsHtml = '';
+    switch (data.status) {
+      case 'checking':
+        message = 'Checking for updates...';
+        actionsHtml = `<button class="btn btn-secondary later">Close</button>`;
+        break;
+      case 'available':
+        message = data.message || '';
+        actionsHtml = `<button class="btn btn-primary download">Download</button><button class="btn btn-secondary later">Later</button>`;
+        break;
+      case 'downloading':
+        message = data.message || 'Downloading update...';
+        const percent = Math.round(data.percent || 0);
+        progressHtml = `<div class="progress-bar"><div class="progress" style="width: ${percent}%;"></div></div>`;
+        actionsHtml = `<button class="btn btn-secondary later">Later</button>`;
+        break;
+      case 'downloaded':
+        message = data.message || 'Update downloaded. Restart to install.';
+        actionsHtml = `<button class="btn btn-primary install">Restart & Install</button><button class="btn btn-secondary later">Later</button>`;
+        break;
+      case 'error':
+        message = `Update error: ${data.message}`;
+        actionsHtml = `<button class="btn btn-secondary later">Close</button>`;
+        break;
+    }
+    if (message) {
+      extra.innerHTML += `<div class="message">${message}</div>`;
+    }
+    if (progressHtml) {
+      extra.innerHTML += progressHtml;
+    }
+    if (actionsHtml) {
+      extra.innerHTML += `<div class="actions">${actionsHtml}</div>`;
+    }
+    // Attach event handlers to the action buttons
+    const downloadBtn = extra.querySelector('.download');
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', () => {
+        downloadBtn.disabled = true;
+        downloadBtn.textContent = 'Downloading...';
+        try {
+          if (window.api && typeof window.api.downloadUpdate === 'function') {
+            window.api.downloadUpdate();
+          }
+        } catch (_) {}
+      });
+    }
+    const installBtn = extra.querySelector('.install');
+    if (installBtn) {
+      installBtn.addEventListener('click', () => {
+        installBtn.disabled = true;
+        installBtn.textContent = 'Installing...';
+        try {
+          if (window.api && typeof window.api.installUpdate === 'function') {
+            window.api.installUpdate();
+          }
+        } catch (_) {}
+      });
+    }
+    const laterBtns = extra.querySelectorAll('.later');
+    laterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        updateButton.classList.remove('expanded');
+      });
+    });
+  }
+
   function showUpdateNotification(data) {
-    // Store the most recent update event so the floating button can
-    // display the correct state when clicked.
+    // Record the most recent update event and update the update button UI.
     lastUpdateData = data;
-    // No longer skip 'checking' or 'not-available' – show for all statuses
-    updateContent.innerHTML = '';
+    // References to elements within the update button
+    const titleEl = updateButton.querySelector('.title');
+    const subtitleEl = updateButton.querySelector('.subtitle');
+    const badgeEl = updateButton.querySelector('.badge');
+    const numEl = badgeEl ? badgeEl.querySelector('.num') : null;
+    const svgPath = updateButton.querySelector('.icon svg path');
+    // Hide by default and remove active/expanded classes
+    updateButton.style.display = 'none';
+    updateButton.classList.remove('active');
+    // Determine collapsed UI based on update status
+    switch (data.status) {
+      case 'available':
+        if (numEl) numEl.textContent = '1';
+        if (titleEl) titleEl.textContent = 'Update Available';
+        if (subtitleEl) subtitleEl.textContent = 'Click to view details';
+        if (svgPath) svgPath.setAttribute('d', bellIconPath);
+        updateButton.style.display = 'flex';
+        updateButton.classList.add('active');
+        break;
+      case 'downloading':
+        if (numEl) numEl.textContent = '1';
+        if (titleEl) titleEl.textContent = 'Downloading...';
+        if (subtitleEl) subtitleEl.textContent = `${Math.round(data.percent || 0)}%`;
+        if (svgPath) svgPath.setAttribute('d', bellIconPath);
+        updateButton.style.display = 'flex';
+        updateButton.classList.add('active');
+        break;
+      case 'downloaded':
+        if (numEl) numEl.textContent = '1';
+        if (titleEl) titleEl.textContent = 'Update Ready';
+        if (subtitleEl) subtitleEl.textContent = 'Click to install';
+        if (svgPath) svgPath.setAttribute('d', bellIconPath);
+        updateButton.style.display = 'flex';
+        updateButton.classList.add('active');
+        break;
+      case 'error':
+        if (numEl) numEl.textContent = '!';
+        if (titleEl) titleEl.textContent = 'Update Error';
+        if (subtitleEl) subtitleEl.textContent = 'Click to view details';
+        if (svgPath) svgPath.setAttribute('d', errorIconPath);
+        updateButton.style.display = 'flex';
+        updateButton.classList.add('active');
+        break;
+      default:
+        // Hide button for non-actionable statuses (e.g. not-available)
+        updateButton.style.display = 'none';
+        updateButton.classList.remove('expanded');
+        updateButton.classList.remove('active');
+        return;
+    }
+    // If expanded, update the extra content
+    if (updateButton.classList.contains('expanded')) {
+      renderExpandedContent(data);
+    }
+    return;
     
     const title = document.createElement('div');
     title.style.cssText = 'font-weight: 600; margin-bottom: 0.5rem; color: var(--accent-color);';

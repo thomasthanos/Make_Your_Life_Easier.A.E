@@ -60,124 +60,6 @@ body {
  * update check and reveals the detailed update panel. See
  * renderer.js for behaviour.
  */
-/* Container for the update button */
-#update-btn {
-  position: fixed;
-  bottom: 90px; /* place above the notification panel */
-  right: 20px;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-color) 100%);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 0.5rem 1rem;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
-  color: var(--text-color);
-  cursor: pointer;
-  transition: background 0.3s ease, transform 0.3s ease;
-  z-index: 1100;
-  overflow: hidden;
-}
-#update-btn:hover {
-  transform: translateY(-2px);
-  background: var(--sidebar-hover);
-}
-/* Icon section inside the update button */
-#update-btn .icon {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-dark) 100%);
-  position: relative;
-  overflow: hidden;
-}
-#update-btn .icon svg {
-  width: 20px;
-  height: 20px;
-  color: #ffffff;
-}
-/* Text content */
-#update-btn .content {
-  display: flex;
-  flex-direction: column;
-  line-height: 1;
-}
-#update-btn .content .title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-color);
-}
-#update-btn .content .subtitle {
-  font-size: 0.7rem;
-  color: var(--accent-color);
-  opacity: 0.8;
-}
-/* Animated trailing dots */
-#update-btn .indicators {
-  margin-left: auto;
-  display: flex;
-  gap: 3px;
-}
-#update-btn .indicators div {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent-color);
-  transition: transform 0.3s ease;
-}
-#update-btn .indicators div:nth-child(2) {
-  background: var(--accent-color-light);
-}
-#update-btn .indicators div:nth-child(3) {
-  background: var(--accent-color-dark);
-}
-#update-btn:hover .indicators div {
-  transform: scale(1.4);
-}
-/* Badge with pulse animation */
-#update-btn .badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-#update-btn .badge .ping {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: var(--error-color);
-  opacity: 0.75;
-  animation: update-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-#update-btn .badge .num {
-  position: relative;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--error-color);
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 700;
-  z-index: 1;
-}
-/* Hide the badge when there is no active update */
-#update-btn:not(.active) .badge {
-  display: none;
-}
 /* Ping animation for the badge */
 @keyframes update-ping {
   0% {
@@ -188,6 +70,144 @@ body {
     transform: scale(2);
     opacity: 0;
   }
+}
+
+/* -----------------------------------------------------------
+ * Update Notification Card
+ * This card replaces the legacy update panel and the floating button.
+ * It expands to show the update status, message, actions and progress
+ * bar. It is only visible when an update event occurs.
+ */
+#update-card {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  /* Give the update card a subtle gradient so it stands out from the rest of the UI. */
+  background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-color) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  z-index: 1100;
+  max-width: 380px;
+  color: var(--text-color);
+  display: none;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+#update-card .update-card-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+#update-card .icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-dark) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#update-card .icon svg {
+  width: 20px;
+  height: 20px;
+  color: #ffffff;
+}
+
+#update-card .info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#update-card .info .title {
+  font-size: 1rem;
+  font-weight: 600;
+  /* Use the lighter accent colour for the title to improve contrast on dark background */
+  color: var(--accent-color-light);
+  margin-bottom: 0.25rem;
+}
+
+#update-card .info .message {
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
+  opacity: 0.85;
+}
+
+#update-card .progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 0.25rem;
+}
+
+#update-card .progress-bar .progress {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light));
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+#update-card .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+#update-card .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s ease;
+}
+
+#update-card .btn-primary {
+  /* Make the primary button match the main accent gradient for consistency */
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
+  color: #fff;
+}
+
+#update-card .btn-primary:hover {
+  background: var(--accent-color-dark);
+}
+
+#update-card .btn-secondary {
+  background: var(--border-color);
+  color: var(--text-color);
+}
+
+#update-card .btn-secondary:hover {
+  background: var(--sidebar-hover);
+  color: var(--text-color);
+}
+
+/* -----------------------------------------------------------------
+ * Hide legacy update UI
+ *
+ * The application previously used a separate pop‑up panel (#update-status)
+ * and a floating button (#update-btn) to notify users about updates.
+ * These elements are now superseded by the unified #update-card, so
+ * permanently hide them to prevent overlapping UIs.  We use !important
+ * to override any inline styles applied by JavaScript.
+ */
+#update-status,
+#update-card {
+  display: none !important;
 }
 
 
@@ -2501,4 +2521,258 @@ input:checked + .slider:before {
   fill: currentColor;
   margin: 0;
   padding: 0;
+}
+
+/* ===========================================================
+ * New Update Button (Expandable)
+ *
+ * This replicates the UI snippet provided by the user. It shows
+ * a small notification badge and animates open to reveal details,
+ * progress and actions when there is an available update.
+ */
+
+#update-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1100;
+  /* hidden by default until activated */
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+
+#update-btn .badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+#update-btn .badge .ping {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--error-color, #ef4444);
+  opacity: 0.75;
+  animation: update-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+#update-btn .badge .num {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--error-color, #ef4444);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+/* Hide badge when inactive */
+#update-btn:not(.active) .badge {
+  display: none;
+}
+
+/* Outer gradient border */
+#update-btn .outer {
+  position: relative;
+  border-radius: 12px;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-color) 100%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+/* Inner content container */
+#update-btn .inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 11px;
+  background: var(--card-bg);
+  transition: background 0.3s ease;
+}
+
+#update-btn:hover .inner {
+  background: var(--card-bg-hover, rgba(0, 0, 0, 0.4));
+}
+
+/* Icon container with gradient and blur overlay */
+#update-btn .icon {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-dark) 100%);
+  overflow: hidden;
+}
+
+#update-btn .icon svg {
+  width: 20px;
+  height: 20px;
+  color: #ffffff;
+  z-index: 2;
+}
+
+#update-btn .icon .icon-blur {
+  position: absolute;
+  inset: 0;
+  background: var(--accent-color);
+  opacity: 0.5;
+  filter: blur(8px);
+  transition: filter 0.3s ease;
+}
+
+#update-btn:hover .icon .icon-blur {
+  filter: blur(12px);
+}
+
+/* Text content */
+#update-btn .content {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+#update-btn .content .title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+#update-btn .content .subtitle {
+  font-size: 0.75rem;
+  color: var(--accent-color);
+  opacity: 0.8;
+}
+
+/* Trailing indicator dots */
+#update-btn .indicators {
+  margin-left: auto;
+  display: flex;
+  gap: 3px;
+}
+
+#update-btn .indicators div {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  transition: transform 0.3s ease;
+}
+
+#update-btn .indicators div:nth-child(2) {
+  background: var(--accent-color-light);
+}
+
+#update-btn .indicators div:nth-child(3) {
+  background: var(--accent-color-dark);
+}
+
+#update-btn:hover .indicators div {
+  transform: scale(1.4);
+}
+
+/* Extra expandable container */
+#update-btn .extra {
+  width: 100%;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  background: var(--card-bg);
+  border-radius: 0 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+#update-btn.expanded .extra {
+  max-height: 200px;
+  opacity: 1;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+/* Message text within extra */
+#update-btn .extra .message {
+  font-size: 0.85rem;
+  color: var(--text-color);
+  opacity: 0.85;
+}
+
+/* Progress bar styles */
+#update-btn .extra .progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+#update-btn .extra .progress-bar .progress {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light));
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+/* Actions container and buttons */
+#update-btn .extra .actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+#update-btn .extra .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+#update-btn .extra .btn-primary {
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
+  color: #ffffff;
+}
+
+#update-btn .extra .btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+#update-btn .extra .btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-color);
+}
+
+#update-btn .extra .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
