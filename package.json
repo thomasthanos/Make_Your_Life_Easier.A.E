@@ -1,6 +1,6 @@
 {
   "name": "make-your-life-easier",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "main": "main.js",
