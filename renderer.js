@@ -3617,6 +3617,64 @@ function initializeAutoUpdater() {
   updateStatus.appendChild(updateContent);
   document.body.appendChild(updateStatus);
 
+  // Track the last update event so that the floating button can
+  // reference it when toggling the notification panel. If this is
+  // null then no update is currently pending.
+  let lastUpdateData = null;
+
+  // Create a floating update notification button. This button stays visible
+  // in the corner and provides a subtle indicator when an update is
+  // available. Clicking it will manually trigger an update check and
+  // reveal the detailed notification panel. The structure loosely
+  // follows the design provided by the user and uses semantic class
+  // names so that styles can be defined in styles.css. See styles.css
+  // for visual details.
+  const updateButton = document.createElement('button');
+  updateButton.id = 'update-btn';
+  updateButton.setAttribute('aria-label', 'Check for updates');
+  updateButton.innerHTML = `
+    <div class="badge" aria-hidden="true">
+      <span class="ping"></span>
+      <span class="num">0</span>
+    </div>
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+      </svg>
+    </div>
+    <div class="content">
+      <span class="title">New Updates</span>
+      <span class="subtitle">Check your notifications</span>
+    </div>
+    <div class="indicators" aria-hidden="true">
+      <div></div><div></div><div></div>
+    </div>
+  `;
+  // Hide the button until an update event indicates it should be shown
+  updateButton.style.display = 'none';
+  // When the button is clicked, perform a manual update check. Also show
+  // the detailed notification panel so the user can read any messages.
+  updateButton.addEventListener('click', () => {
+    // If we have seen an update event, toggle the notification panel.
+    if (lastUpdateData) {
+      // Show the details panel; if it's already visible, hide it.
+      if (updateStatus.style.display === 'none' || updateStatus.style.display === '') {
+        updateStatus.style.display = 'block';
+      } else {
+        updateStatus.style.display = 'none';
+      }
+    } else {
+      // No update known yet – trigger a manual check. When the check
+      // completes the event handler will update the UI accordingly.
+      try {
+        if (window.api && typeof window.api.checkForUpdates === 'function') {
+          window.api.checkForUpdates();
+        }
+      } catch (_) {}
+    }
+  });
+  document.body.appendChild(updateButton);
+
   let currentVersion = '';
 
   // Get current version
@@ -3630,6 +3688,9 @@ function initializeAutoUpdater() {
   });
 
   function showUpdateNotification(data) {
+    // Store the most recent update event so the floating button can
+    // display the correct state when clicked.
+    lastUpdateData = data;
     // No longer skip 'checking' or 'not-available' – show for all statuses
     updateContent.innerHTML = '';
     
@@ -3736,7 +3797,40 @@ function initializeAutoUpdater() {
     }
 
     updateContent.appendChild(buttonContainer);
-    updateStatus.style.display = 'block';
+    // Don't automatically open the update panel; let the user click
+    // the floating button to view details. Clear the panel if the
+    // status is not actionable.
+    updateStatus.style.display = 'none';
+
+    // Update the floating button visibility and text based on the
+    // status. Only show the button when an update is available or
+    // downloaded. Otherwise hide it entirely.
+    const badgeNum = updateButton.querySelector('.num');
+    const titleSpan = updateButton.querySelector('.title');
+    const subtitleSpan = updateButton.querySelector('.subtitle');
+    if (!badgeNum || !titleSpan || !subtitleSpan) return;
+    switch (data.status) {
+      case 'available':
+        badgeNum.textContent = '1';
+        titleSpan.textContent = 'Update Available';
+        subtitleSpan.textContent = 'Click to view details';
+        updateButton.classList.add('active');
+        updateButton.style.display = 'flex';
+        break;
+      case 'downloaded':
+        badgeNum.textContent = '1';
+        titleSpan.textContent = 'Update Ready';
+        subtitleSpan.textContent = 'Click to install';
+        updateButton.classList.add('active');
+        updateButton.style.display = 'flex';
+        break;
+      default:
+        // Hide when there is no actionable update.
+        badgeNum.textContent = '0';
+        updateButton.classList.remove('active');
+        updateButton.style.display = 'none';
+        break;
+    }
   }
 
 }

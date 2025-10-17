@@ -51,6 +51,145 @@ body {
   line-height: 1.6;
 }
 
+/* -----------------------------------------------------------
+ * Update Notification Button
+ *
+ * This floating button appears in the bottom corner of the app. It
+ * signals when an update is available using a small red badge and
+ * subtle pulse animation. Clicking the button triggers a manual
+ * update check and reveals the detailed update panel. See
+ * renderer.js for behaviour.
+ */
+/* Container for the update button */
+#update-btn {
+  position: fixed;
+  bottom: 90px; /* place above the notification panel */
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-color) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.3s ease;
+  z-index: 1100;
+  overflow: hidden;
+}
+#update-btn:hover {
+  transform: translateY(-2px);
+  background: var(--sidebar-hover);
+}
+/* Icon section inside the update button */
+#update-btn .icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-dark) 100%);
+  position: relative;
+  overflow: hidden;
+}
+#update-btn .icon svg {
+  width: 20px;
+  height: 20px;
+  color: #ffffff;
+}
+/* Text content */
+#update-btn .content {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+#update-btn .content .title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+#update-btn .content .subtitle {
+  font-size: 0.7rem;
+  color: var(--accent-color);
+  opacity: 0.8;
+}
+/* Animated trailing dots */
+#update-btn .indicators {
+  margin-left: auto;
+  display: flex;
+  gap: 3px;
+}
+#update-btn .indicators div {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  transition: transform 0.3s ease;
+}
+#update-btn .indicators div:nth-child(2) {
+  background: var(--accent-color-light);
+}
+#update-btn .indicators div:nth-child(3) {
+  background: var(--accent-color-dark);
+}
+#update-btn:hover .indicators div {
+  transform: scale(1.4);
+}
+/* Badge with pulse animation */
+#update-btn .badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+#update-btn .badge .ping {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--error-color);
+  opacity: 0.75;
+  animation: update-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+#update-btn .badge .num {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--error-color);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  z-index: 1;
+}
+/* Hide the badge when there is no active update */
+#update-btn:not(.active) .badge {
+  display: none;
+}
+/* Ping animation for the badge */
+@keyframes update-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
 
 .modal-overlay {
   position: fixed;
