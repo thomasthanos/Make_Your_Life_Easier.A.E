@@ -157,4 +157,11 @@
       "Essential software installation"
     ]
   }
+  ,
+  "app": {
+    "title": "Make Life Easier",
+    "title_high": "Make Life",
+    "title_rest": "Easier",
+    "subtitle": "System Management Tools"
+  }
 }

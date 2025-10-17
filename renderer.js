@@ -126,6 +126,73 @@ const MENU_ICONS = {
     document.documentElement.setAttribute('data-theme', settings.theme);
   }
 
+  // Icons for the theme toggle (sun and moon) using lucide‑style SVGs.  These
+  // inline SVGs allow us to avoid external dependencies and match the
+  // lightweight line‑based aesthetic used elsewhere in the app.
+  const SUN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
+  const MOON_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path></svg>`;
+
+  /**
+   * Update the sidebar header: populate the application title and subtitle
+   * according to the current language, and wire up the theme toggle button.
+   * This function should be called after translations have loaded and the
+   * `settings.theme` value is up to date so that the correct icon is
+   * displayed.  It safely removes any previous click listeners to avoid
+   * duplicate handlers when the app reinitialises.
+   */
+  function updateHeader() {
+    const titleEl = document.querySelector('.app-title');
+    const subtitleEl = document.querySelector('.app-subtitle');
+    if (titleEl) {
+      /*
+       * Use a single element for the application title rather than
+       * splitting into highlight/rest spans.  If the translation
+       * provides an explicit `app.title`, use it; otherwise, build
+       * the title from `title_high` and `title_rest` or fall back
+       * to the default English title.  The CSS applies a gradient
+       * on `.sidebar-header .app-title` so no extra spans are needed.
+       */
+      let fullTitle = 'Make Life Easier';
+      if (translations.app) {
+        if (translations.app.title) {
+          fullTitle = translations.app.title;
+        } else if (translations.app.title_high || translations.app.title_rest) {
+          fullTitle = `${translations.app.title_high || ''}${translations.app.title_rest ? ' ' + translations.app.title_rest : ''}`.trim();
+        }
+      }
+      titleEl.textContent = fullTitle;
+    }
+    if (subtitleEl) {
+      // Fallback to an empty string or a default subtitle when translations are unavailable
+      subtitleEl.textContent = (translations.app && translations.app.subtitle) || 'System Management Tools';
+    }
+    const toggleButton = document.getElementById('theme-toggle');
+    if (toggleButton) {
+      const refreshIcon = () => {
+        toggleButton.innerHTML = settings.theme === 'dark' ? MOON_ICON : SUN_ICON;
+      };
+      refreshIcon();
+      // Clean up any existing listener
+      if (toggleButton._toggleListener) {
+        toggleButton.removeEventListener('click', toggleButton._toggleListener);
+      }
+      const listener = () => {
+        // Toggle the theme between light and dark.  The header toggle
+        // is debounced implicitly by the event loop; no explicit
+        // disabling is necessary.  Rapid clicks should still work
+        // reliably because the state update and icon refresh run
+        // synchronously.
+        const newTheme = settings.theme === 'dark' ? 'light' : 'dark';
+        settings.theme = newTheme;
+        document.documentElement.setAttribute('data-theme', newTheme);
+        saveSettings();
+        refreshIcon();
+      };
+      toggleButton._toggleListener = listener;
+      toggleButton.addEventListener('click', listener);
+    }
+  }
+
   // Build the sidebar menu based on translations
   function renderMenu() {
     const menuList = document.getElementById('menu-list');
@@ -155,6 +222,11 @@ const MENU_ICONS = {
       first.classList.add('active');
       loadPage(first.dataset.key);
     }
+
+    // Update the header after building the menu.  This ensures that the
+    // app title, subtitle and theme toggle reflect the current language and
+    // theme settings each time the menu is rendered.
+    updateHeader();
   }
 
 
@@ -1363,50 +1435,7 @@ async function downloadAndRunAutologin(button, statusElement) {
       langRow.appendChild(langControl);
       container.appendChild(langRow);
 
-      // Theme selector row
-      const themeRow = document.createElement('div');
-      themeRow.className = 'settings-row';
-      
-      const themeLabel = document.createElement('label');
-      themeLabel.className = 'settings-label';
-      // Fallback for theme label
-      themeLabel.textContent = ((translations.general && translations.general.theme) || 'Theme') + ':';
-      
-      const themeControl = document.createElement('div');
-      themeControl.className = 'settings-control';
-      
-      const themeSwitchContainer = document.createElement('div');
-      themeSwitchContainer.className = 'settings-switch';
-      
-      const themeSwitch = document.createElement('label');
-      themeSwitch.className = 'switch';
-      
-      const themeInput = document.createElement('input');
-      themeInput.type = 'checkbox';
-      themeInput.checked = settings.theme === 'dark';
-      
-      const themeSlider = document.createElement('span');
-      themeSlider.className = 'slider';
-      
-      const themeSwitchLabel = document.createElement('span');
-      themeSwitchLabel.className = 'switch-label';
-      // Fallback for dark/light labels
-      themeSwitchLabel.textContent = themeInput.checked ? ((translations.general && translations.general.dark) || 'Dark') : ((translations.general && translations.general.light) || 'Light');
-      
-      themeSwitch.appendChild(themeInput);
-      themeSwitch.appendChild(themeSlider);
-      themeSwitchContainer.appendChild(themeSwitch);
-      themeSwitchContainer.appendChild(themeSwitchLabel);
-      themeControl.appendChild(themeSwitchContainer);
-      
-      // Update label when theme changes, using fallbacks
-      themeInput.addEventListener('change', () => {
-          themeSwitchLabel.textContent = themeInput.checked ? ((translations.general && translations.general.dark) || 'Dark') : ((translations.general && translations.general.light) || 'Light');
-      });
-      
-      themeRow.appendChild(themeLabel);
-      themeRow.appendChild(themeControl);
-      container.appendChild(themeRow);
+      // Theme selector removed: theme toggling is handled via the header toggle
 
       // Save button
       const saveBtn = document.createElement('button');
@@ -1414,8 +1443,9 @@ async function downloadAndRunAutologin(button, statusElement) {
       // Fallback for save button
       saveBtn.textContent = (translations.general && translations.general.save) || 'Save';
       saveBtn.addEventListener('click', async () => {
+          // Update only the language setting.  The theme is controlled via
+          // the header toggle button and should not be modified here.
           settings.lang = langSelect.value;
-          settings.theme = themeInput.checked ? 'dark' : 'light';
           saveSettings();
           await loadTranslations();
           applyTheme();
