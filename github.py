@@ -1506,30 +1506,84 @@ class ModernReleaseManager(QMainWindow):
             return False
 
     def auto_release(self):
-        """Auto release with non-blocking build"""
+        """
+        Perform a quick release without triggering a build.
+
+        This method assumes the project has already been built and that the
+        distribution files are present in the ``dist`` directory. It verifies the
+        project selection and existence of build artifacts, then calls
+        ``create_release`` to publish the release. If required files are missing,
+        it logs an appropriate error and aborts.
+        """
+        # Ensure a project is selected
         if not self.check_project_selected():
             return
-            
-        self.log("Starting auto release process...", "info")
-        
-        def build_and_release():
-            # Build first
-            build_success = self.safe_build_single()
-            
-            if build_success:
-                # Wait a bit for build to complete and check files
-                time.sleep(5)
-                if self.check_dist_files_exist():
-                    self.log("Build successful, proceeding with release...", "success")
-                    # Schedule release creation
-                    QTimer.singleShot(1000, self.create_release)
-                else:
-                    self.log("Build completed but distribution files missing", "error")
-            else:
-                self.log("Build failed, cannot proceed with release", "error")
-        
-        # Start the process
-        threading.Thread(target=build_and_release, daemon=True).start()
+
+        self.log("Starting quick release process...", "info")
+
+        # Check that distribution files exist before releasing
+        if not self.check_dist_files_exist():
+            self.log("Distribution files missing; please build the project before creating a release.", "error")
+            return
+
+        # All checks passed; prepare version automatically if needed
+        version_input = self.version_entry.text().strip() if hasattr(self, 'version_entry') else ""
+        if not version_input:
+            # If no version was manually entered, use the version preview (suggested next version)
+            suggested_version = ""
+            if hasattr(self, 'version_preview') and self.version_preview.text():
+                suggested_version = self.version_preview.text().strip()
+            # Fallback: calculate from current version and release type
+            if not suggested_version and self.version:
+                suggested_version = self.calculate_new_version(self.version, self.release_type)
+            if suggested_version:
+                self.version_entry.setText(suggested_version)
+                self.log(f"Using suggested version: {suggested_version}", "info")
+
+        # Proceed to create the release
+        self.log("Distribution files found, proceeding with release...", "success")
+        self.create_release()
+
+    def auto_release_after_build(self, success: bool):
+        """Handle completion of the build during auto release.
+
+        This slot runs on the Qt main thread when the build_worker emits
+        finished_signal. It checks whether the build was successful and if
+        distribution files exist before creating a new release. Using QTimer
+        ensures that the file system has had a moment to settle before checking.
+
+        Args:
+            success (bool): True if the build_worker reports a successful build.
+        """
+        # Disconnect this slot so it only runs once per auto release
+        sender = self.sender()
+        try:
+            sender.finished_signal.disconnect(self.auto_release_after_build)  # type: ignore
+        except Exception:
+            pass
+
+        if not success:
+            self.log("Build failed, cannot proceed with release", "error")
+            return
+
+        # Schedule a check after a short delay to allow files to be written
+        QTimer.singleShot(1500, self._auto_release_finalize)
+
+    def _auto_release_finalize(self):
+        """Finalize the auto release after the build has finished.
+
+        Checks for distribution files and, if present, creates the release.
+        This method runs on the main thread. It is separated from
+        auto_release_after_build for clarity and easier testing.
+        """
+        if self.check_dist_files_exist():
+            self.log("Build successful, proceeding with release...", "success")
+            # Create the release on the main thread. The create_release
+            # method is safe to call directly here because it handles its own
+            # asynchronous operations.
+            self.create_release()
+        else:
+            self.log("Build completed but distribution files missing", "error")
 
     def create_release(self):
         if not self.check_git_repository() or not self.check_dist_files_exist():
