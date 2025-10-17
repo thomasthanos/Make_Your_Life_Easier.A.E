@@ -705,10 +705,12 @@ async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, 
     const originalText = button.innerHTML;
     const originalBackground = button.style.background;
     
-    button.innerHTML = '⏳ DOWNLOADING...';
-    statusElement.style.display = 'block';
-    statusElement.textContent = `Starting download for ${dlcName}...`;
+    // ΚΡΥΒΟΥΜΕ το status πριν ξεκινήσει - ΜΟΝΟ για errors θα εμφανιστεί
+    statusElement.style.display = 'none';
+    statusElement.textContent = '';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
+
+    button.innerHTML = '⏳ DOWNLOADING...';
 
     const downloadId = `${dlcId}-${Date.now()}`;
 
@@ -718,29 +720,24 @@ async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, 
 
             switch (data.status) {
                 case 'started':
-                    statusElement.textContent = `Downloading ${dlcName}... 0%`;
+                    // ΔΕΝ εμφανίζουμε status για κανονική progress
                     break;
                 case 'progress':
-                    statusElement.textContent = `Downloading ${dlcName}... ${data.percent}%`;
+                    // ΔΕΝ εμφανίζουμε status για κανονική progress
                     button.innerHTML = `⏳ DOWNLOADING... ${data.percent}%`;
                     break;
                 case 'complete':
-                    statusElement.textContent = 'Download complete! Extracting files...';
                     button.innerHTML = '📦 EXTRACTING...';
                     
                     try {
-                        // Extract το zip file με κωδικό 123
                         const result = await window.api.extractArchive(data.path, '123');
                         
                         if (result.success) {
-                            statusElement.textContent = 'Extraction complete! Running installer...';
                             button.innerHTML = '🚀 STARTING INSTALLER...';
                             
                             const exeResult = await runSpecificExe(data.path, dlcName, button, statusElement);
                             
                             if (exeResult.success) {
-                                statusElement.textContent = `${dlcName} installer started successfully! 🎉\nYou can now follow the installation wizard.`;
-                                statusElement.classList.add('status-success');
                                 button.innerHTML = '✅ INSTALLER RUNNING';
                                 button.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
                                 
@@ -750,44 +747,35 @@ async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, 
                                     duration: 5000 
                                 });
 
-                                // ΠΡΟΣΘΗΚΗ: Αυτόματο fade-out του status μετά από 8 δευτερόλεπτα
-                                autoFadeStatus(statusElement, 8000);
-
-                                // ΕΠΑΝΑΦΟΡΑ ΜΟΝΟ ΤΟΥ ΚΟΥΜΠΙΟΥ ΜΕΤΑ ΑΠΟ 10 ΔΕΥΤΕΡΟΛΕΠΤΑ, ΚΡΑΤΑΜΕ ΤΟ STATUS
+                                // ΕΠΑΝΑΦΟΡΑ ΜΟΝΟ ΤΟΥ ΚΟΥΜΠΙΟΥ ΜΕΤΑ ΑΠΟ 10 ΔΕΥΤΕΡΟΛΕΠΤΑ
                                 setTimeout(() => {
                                     button.innerHTML = originalText;
                                     button.disabled = false;
                                     button.style.background = originalBackground;
-                                    // ΔΕΝ αφαιρούμε το status text - αφήνουμε το output ορατό
                                 }, 10000);
                                 
                             } else {
+                                // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
                                 statusElement.textContent = `Extracted but could not run installer: ${exeResult.error}\nPlease try running the installer manually from the extracted folder.`;
-                                statusElement.classList.add('status-warning');
+                                statusElement.classList.add('status-error');
+                                statusElement.style.display = 'block'; // ΜΟΝΟ ΕΔΩ
                                 button.innerHTML = '📂 OPEN FOLDER';
                                 button.disabled = false;
                                 button.style.background = originalBackground;
                                 
-                                // ΠΡΟΣΘΗΚΗ: Αυτόματο fade-out και για error case
-                                autoFadeStatus(statusElement, 10000);
-                                
                                 addOpenFolderButton(button, data.path, dlcName);
-                                // Κρατάμε το status ορατό για manual instructions
                             }
                         } else {
-                            // Δοκιμή χωρίς κωδικό
+                            // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
                             statusElement.textContent = 'Trying extraction without password...';
                             const retryResult = await window.api.extractArchive(data.path, '');
                             
                             if (retryResult.success) {
-                                statusElement.textContent = 'Extraction complete! Running installer...';
                                 button.innerHTML = '🚀 STARTING INSTALLER...';
                                 
                                 const exeResult = await runSpecificExe(data.path, dlcName, button, statusElement);
                                 
                                 if (exeResult.success) {
-                                    statusElement.textContent = `${dlcName} installer started successfully! 🎉\nYou can now follow the installation wizard.`;
-                                    statusElement.classList.add('status-success');
                                     button.innerHTML = '✅ INSTALLER RUNNING';
                                     button.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
                                     
@@ -797,10 +785,6 @@ async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, 
                                         duration: 5000 
                                     });
 
-                                    // ΠΡΟΣΘΗΚΗ: Αυτόματο fade-out του status
-                                    autoFadeStatus(statusElement, 8000);
-
-                                    // ΕΠΑΝΑΦΟΡΑ ΜΟΝΟ ΤΟΥ ΚΟΥΜΠΙΟΥ
                                     setTimeout(() => {
                                         button.innerHTML = originalText;
                                         button.disabled = false;
@@ -808,27 +792,25 @@ async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, 
                                     }, 10000);
                                     
                                 } else {
+                                    // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
                                     statusElement.textContent = `Extracted but could not run installer: ${exeResult.error}\nPlease try running the installer manually from the extracted folder.`;
-                                    statusElement.classList.add('status-warning');
+                                    statusElement.classList.add('status-error');
+                                    statusElement.style.display = 'block'; // ΜΟΝΟ ΕΔΩ
                                     button.innerHTML = '📂 OPEN FOLDER';
                                     button.disabled = false;
                                     button.style.background = originalBackground;
                                     
-                                    // ΠΡΟΣΘΗΚΗ: Αυτόματο fade-out και για error case
-                                    autoFadeStatus(statusElement, 10000);
-                                    
                                     addOpenFolderButton(button, data.path, dlcName);
                                 }
                             } else {
+                                // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
                                 const errMsg = (retryResult && retryResult.error) || 'Unknown error';
                                 statusElement.textContent = `Extraction failed: ${errMsg}\nThe downloaded file has been opened for manual inspection.`;
                                 statusElement.classList.add('status-error');
+                                statusElement.style.display = 'block'; // ΜΟΝΟ ΕΔΩ
                                 button.innerHTML = '🔄 TRY AGAIN';
                                 button.disabled = false;
                                 button.style.background = originalBackground;
-                                
-                                // ΠΡΟΣΘΗΚΗ: Αυτόματο fade-out και για exception case
-                                autoFadeStatus(statusElement, 10000);
                                 
                                 toast(`Failed to extract ${dlcName}`, { 
                                     type: 'error', 
@@ -839,14 +821,13 @@ async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, 
                             }
                         }
                     } catch (error) {
+                        // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
                         statusElement.textContent = `Extraction failed: ${error.message}\nPlease check the downloaded file manually.`;
                         statusElement.classList.add('status-error');
+                        statusElement.style.display = 'block'; // ΜΟΝΟ ΕΔΩ
                         button.innerHTML = '🔄 TRY AGAIN';
                         button.disabled = false;
                         button.style.background = originalBackground;
-                        
-                        // ΠΡΟΣΘΗΚΗ: Αυτόματο fade-out και για exception case
-                        autoFadeStatus(statusElement, 10000);
                         
                         toast(`Failed to extract ${dlcName}`, { 
                             type: 'error', 
@@ -861,14 +842,13 @@ async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, 
                     break;
                     
                 case 'error':
+                    // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
                     statusElement.textContent = `Download error: ${data.error}\nPlease check your internet connection and try again.`;
                     statusElement.classList.add('status-error');
+                    statusElement.style.display = 'block'; // ΜΟΝΟ ΕΔΩ
                     button.innerHTML = originalText;
                     button.disabled = false;
                     button.style.background = originalBackground;
-                    
-                    // ΠΡΟΣΘΗΚΗ: Αυτόματο fade-out και για download error
-                    autoFadeStatus(statusElement, 10000);
                     
                     toast(`Download failed for ${dlcName}`, { 
                         type: 'error', 
@@ -885,14 +865,13 @@ async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, 
         try {
             window.api.downloadStart(downloadId, downloadUrl, `${dlcName.replace(/\s+/g, '_')}.zip`);
         } catch (e) {
+            // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
             statusElement.textContent = `Download failed: ${e.message}\nPlease check your internet connection.`;
             statusElement.classList.add('status-error');
+            statusElement.style.display = 'block'; // ΜΟΝΟ ΕΔΩ
             button.innerHTML = originalText;
             button.disabled = false;
             button.style.background = originalBackground;
-            
-            // ΠΡΟΣΘΗΚΗ: Αυτόματο fade-out και για exception case
-            autoFadeStatus(statusElement, 10000);
             
             toast(`Download failed for ${dlcName}`, { 
                 type: 'error', 
