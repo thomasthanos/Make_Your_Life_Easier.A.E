@@ -130,7 +130,7 @@ ipcMain.handle('show-file-dialog', async () => {
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1100,
-    height: 700,
+    height: 750,
     minWidth: 800,
     minHeight: 600,
     autoHideMenuBar: true,

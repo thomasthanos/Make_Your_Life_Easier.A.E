@@ -163,6 +163,40 @@ const MENU_ICONS = {
     const header = document.getElementById('header');
     header.textContent = text;
   }
+
+  // =======================
+  // Modal for Info Page
+  // Creates and displays a pop‑up overlay with the info page loaded via an iframe.  If a modal
+  // already exists, it will not create another one.  The modal can be closed by clicking the
+  // close button (×) in the top right corner.
+  function openInfoModal() {
+    // Prevent multiple modals
+    if (document.getElementById('info-modal-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'info-modal-overlay';
+    overlay.className = 'modal-overlay';
+    // Create a container to hold the iframe.  The container will shrink
+    // to the size of the loaded page and will be centred via the overlay's
+    // flexbox.  No close button is added here; instead, the info page
+    // includes its own close control.
+    const container = document.createElement('div');
+    container.className = 'modal-container';
+    // Iframe with the info page. Use fallback if the primary file is missing.
+    const iframe = document.createElement('iframe');
+    iframe.src = 'info/info.html';
+    iframe.setAttribute('title', 'Information');
+    iframe.style.border = 'none';
+    // Let the iframe content determine its own width/height.  The modal
+    // container's max-width and max-height constrain it.
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.addEventListener('error', () => {
+      iframe.src = 'info-final.html';
+    });
+    container.appendChild(iframe);
+    overlay.appendChild(container);
+    document.body.appendChild(overlay);
+  }
 // Βοηθητική συνάρτηση για παρακολούθηση διεργασιών
 function trackProcess(cardId, processType, button, statusElement) {
     const processId = `${cardId}-${processType}`;
@@ -1422,99 +1456,19 @@ async function downloadAndRunAutologin(button, statusElement) {
       
       container.appendChild(saveBtn);
 
-      // Append update section for checking app updates. This should work even in non-Electron environments.
-      {
-        const updateSection = document.createElement('div');
-        updateSection.className = 'settings-row';
-        updateSection.style.cssText = 'border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1rem;';
-
-        const updateLabel = document.createElement('div');
-        updateLabel.className = 'settings-label';
-        // Use translation if available, otherwise fallback to English
-        updateLabel.textContent =
-          (translations && translations.pages && translations.pages.updates) ||
-          'Updates:';
-
-        const updateControl = document.createElement('div');
-        updateControl.className = 'settings-control';
-
-        const updateButton = document.createElement('button');
-        updateButton.className = 'button';
-        const versionInfo = document.createElement('div');
-        versionInfo.style.cssText =
-          'margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.7;';
-
-        // Determine if the Electron API is available. If not, disable the update button.
-        const hasAPI =
-          typeof window !== 'undefined' &&
-          window.api &&
-          typeof window.api.checkForUpdates === 'function' &&
-          typeof window.api.getAppVersion === 'function';
-
-        if (hasAPI) {
-          // When API is available, allow checking for updates
-          updateButton.textContent =
-            (translations && translations.actions &&
-              translations.actions.check_updates) ||
-            'Check for Updates';
-          updateButton.disabled = false;
-          updateButton.onclick = () => {
-            updateButton.disabled = true;
-            updateButton.textContent =
-              (translations?.actions &&
-                translations.actions.checking_updates) ||
-              'Checking...';
-            window.api
-              .checkForUpdates()
-              .finally(() => {
-                setTimeout(() => {
-                  updateButton.disabled = false;
-                  updateButton.textContent =
-                    (translations?.actions &&
-                      translations.actions.check_updates) ||
-                    'Check for Updates';
-                }, 3000);
-              });
-          };
-          versionInfo.textContent =
-            (translations && translations.pages &&
-              translations.pages.current_version_loading) ||
-            'Current version: loading...';
-          window.api
-            .getAppVersion()
-            .then((version) => {
-              const tmpl =
-                translations &&
-                translations.pages &&
-                translations.pages.current_version;
-              if (tmpl && typeof tmpl === 'string') {
-                versionInfo.textContent = tmpl.replace('{version}', version);
-              } else {
-                versionInfo.textContent = `Current version: ${version}`;
-              }
-            })
-            .catch(() => {
-              // ignore errors
-            });
-        } else {
-          // If API is not available, disable the button and show that updates are unavailable
-          updateButton.textContent =
-            (translations && translations.actions &&
-              translations.actions.updates_unavailable) ||
-            'Updates unavailable';
-          updateButton.disabled = true;
-          versionInfo.textContent =
-            (translations && translations.pages &&
-              translations.pages.current_version_unavailable) ||
-            'Current version: unavailable';
-        }
-
-        updateControl.appendChild(updateButton);
-        updateControl.appendChild(versionInfo);
-        updateSection.appendChild(updateLabel);
-        updateSection.appendChild(updateControl);
-        container.appendChild(updateSection);
-      }
+      // Add info button next to the save button. Clicking it opens the info page in a new window.
+      const infoBtn = document.createElement('button');
+      infoBtn.className = 'settings-info-btn';
+      infoBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 50 50" fill="currentColor">
+        <path d="M 25 2 C 12.264481 2 2 12.264481 2 25 C 2 37.735519 12.264481 48 25 48 C 37.735519 48 48 37.735519 48 25 C 48 12.264481 37.735519 2 25 2 z M 25 4 C 36.664481 4 46 13.335519 46 25 C 46 36.664481 36.664481 46 25 46 C 13.335519 46 4 36.664481 4 25 C 4 13.335519 13.335519 4 25 4 z M 25 11 A 3 3 0 0 0 25 17 A 3 3 0 0 0 25 11 z M 21 21 L 21 23 L 23 23 L 23 36 L 21 36 L 21 38 L 29 38 L 29 36 L 27 36 L 27 21 L 21 21 z"></path>
+      </svg>`;
+      infoBtn.title = (translations.pages && translations.pages.info) || 'Info';
+      infoBtn.addEventListener('click', () => {
+        // Open the info modal as an in‑app pop‑out.  This replaces navigation with a modal overlay.
+        openInfoModal();
+      });
+      container.appendChild(infoBtn);
 
       return container;
   }

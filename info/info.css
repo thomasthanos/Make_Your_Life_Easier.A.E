@@ -1,1152 +1,346 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+/*
+ * Styles for the Help modal in the Make Your Life Easier application.
+ *
+ * This stylesheet is intentionally compact and self‑contained.  It pulls
+ * colour variables and fonts from the parent application via the
+ * imported ../styles.css file, and then applies specific layouts and
+ * accent styles to mirror the reference design.  Should you wish to
+ * adjust colours or spacing further, consider modifying the CSS custom
+ * properties defined in :root within styles.css.
+ */
 
 :root {
-    /* Colour palette tuned to more closely match the provided dark UI screenshot. */
-    --primary: #3f8cff;            /* primary blue accent */
-    --primary-dark: #2972e0;
-    --secondary: #ffb74d;          /* secondary orange accent */
-    --accent: #bb86fc;             /* purple accent for variety */
-    --danger: #f55f5f;
-    --warning: #ffaa00;
-    --success: #33d17a;
-
-    /* Backgrounds. These values give a deep navy look like the screenshot. */
-    --bg-primary: #070d23;
-    --bg-secondary: #0c1634;
-    --bg-card: #0d1d3b;
-    --bg-hover: #142d5c;
-
-    /* Text colours adjusted for better contrast on dark backgrounds. */
-    --text-primary: #e0e7ff;
-    --text-secondary: #9ba8c7;
-    --text-muted: #6f7c9c;
-
-    /* Border colours tweaked to blend with the darker palette. */
-    --border: #1b2c55;
-    --border-light: #253b72;
-
-    /* Shadows slightly reduced to avoid overpowering the darker backgrounds. */
-    --shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 15px 30px rgba(0, 0, 0, 0.5);
-
-    /* Gradients updated to use the new accent colours. */
-    --gradient-primary: linear-gradient(135deg, #3f8cff 0%, #2972e0 100%);
-    --gradient-secondary: linear-gradient(135deg, #ffb74d 0%, #ff9800 100%);
-    --gradient-accent: linear-gradient(135deg, #bb86fc 0%, #9f6afc 100%);
-    --gradient-bg: linear-gradient(135deg, #070d23 0%, #0c1634 100%);
-    --gradient-nav: linear-gradient(135deg, #0b1430 0%, #0f1a3a 100%);
-}
-
-body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: var(--gradient-bg);
-    color: var(--text-primary);
-    line-height: 1.6;
-    min-height: 100vh;
-}
-
-.container {
-    /* Allow the container to span the full width of the viewport so the navigation is not constrained. */
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Header */
-.header {
-    background: linear-gradient(135deg, #151520 0%, #1e1e2e 100%);
-    border-bottom: 1px solid var(--border);
-    padding: 2rem 0;
-    position: relative;
-    overflow: hidden;
-}
-
-.header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--gradient-primary);
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
-}
-
-.header-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 2rem;
-    text-align: center;
-}
-
-.logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-}
-
-.logo-icon {
-    font-size: 3rem;
-    /* ΑΦΑΙΡΕΘΗΚΕ το gradient - τώρα έχει φυσικά χρώματα */
-}
-
-.logo h1 {
-    font-size: 2.5rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, var(--text-primary) 0%, #00d4ff 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
-}
-
-.subtitle {
-    color: var(--text-secondary);
-    font-size: 1.2rem;
-    max-width: 600px;
-    margin: 0 auto;
-    font-weight: 300;
-}
-
-/* Navigation - FIXED */
-.nav {
-    /* A floating, rounded container for the navigation similar to the reference design. */
-    background: var(--gradient-nav);
-    border: 1px solid var(--border-light);
-    border-radius: 16px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    margin: 1rem 1rem 0;
-    padding: 0.5rem;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    /* Reset flex so nav children don't force shrink */
-}
-
-.nav-container {
-    /* Center the navigation items by letting the container size to its content and auto margins */
-    width: fit-content;
-    margin-left: auto;
-    margin-right: auto;
-    padding: 1rem 2rem;
-    display: flex;
-    gap: 0.5rem;
-    /* Center navigation items within the container */
-    justify-content: center;
-    overflow-x: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--primary) var(--bg-secondary);
-}
-
-.nav-container::-webkit-scrollbar {
-    height: 6px;
-}
-
-.nav-container::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
-    border-radius: 3px;
-}
-
-.nav-container::-webkit-scrollbar-thumb {
-    background: var(--gradient-primary);
-    border-radius: 3px;
-}
-
-.nav-button {
-    /* Navigation buttons styled to resemble the compact pill–shaped controls from the reference. */
-    background: var(--bg-card);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    padding: 0.6rem 0.9rem;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.9rem;
-    line-height: 1;
-    transition: all 0.3s ease;
-    white-space: nowrap;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    flex-shrink: 0;
-    min-width: max-content;
-    position: relative;
-    overflow: hidden;
-}
-
-.nav-button::before {
-    /* Remove the sweeping gradient effect behind the nav buttons. */
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: transparent;
-    transition: left 0.3s ease;
-    z-index: -1;
-}
-
-.nav-button:hover {
-    background: var(--bg-hover);
-    border-color: var(--primary);
-    color: var(--text-primary);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow);
-}
-
-.nav-button:hover::before {
-    left: 0;
-}
-
-.nav-button.active {
-    /* Active state highlights the button with a subtle tint rather than a full gradient. */
-    background: var(--bg-hover);
-    border-color: var(--primary);
-    color: var(--text-primary);
-    box-shadow: 0 8px 20px rgba(63, 140, 255, 0.3);
-    transform: translateY(-2px);
-}
-
-/* Style the language toggle button similar to nav buttons but with a distinct accent */
-/* Style for the language toggle button in the header */
-.header .lang-toggle {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: var(--gradient-secondary);
-    color: white;
-    border: none;
-    padding: 0.6rem 1rem;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.8rem;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 110;
-}
-.header .lang-toggle:hover {
-    background: var(--gradient-accent);
-    color: white;
-    box-shadow: var(--shadow);
-}
-
-.nav-button.active::before {
-    left: 0;
-}
-
-.nav-icon {
-    /* Icons appear in their own coloured squares similar to the reference. */
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.6rem;
-    height: 1.6rem;
-    border-radius: 4px;
-    font-size: 1rem;
-    transition: transform 0.3s ease;
-    margin-right: 0.3rem;
-    /* Default background and colour will be overridden per nav item. */
-    background: var(--bg-hover);
-    color: var(--primary);
-}
-
-/* Colour-code the nav icons to mirror the hues from the screenshot. */
-.nav-button:nth-child(1) .nav-icon { background: #0e2248; color: #3f8cff; }
-.nav-button:nth-child(2) .nav-icon { background: #4a2e1a; color: #ffb74d; }
-.nav-button:nth-child(3) .nav-icon { background: #2d2655; color: #bb86fc; }
-.nav-button:nth-child(4) .nav-icon { background: #44301b; color: #ff7043; }
-.nav-button:nth-child(5) .nav-icon { background: #4f2e2c; color: #ffa726; }
-.nav-button:nth-child(6) .nav-icon { background: #4a3a1a; color: #ffd54f; }
-.nav-button:nth-child(7) .nav-icon { background: #2d2655; color: #bb86fc; }
-.nav-button:nth-child(8) .nav-icon { background: #4c2033; color: #ec407a; }
-.nav-button:nth-child(9) .nav-icon { background: #4a3a1a; color: #ffb74d; }
-.nav-button:nth-child(10) .nav-icon { background: #0c3051; color: #29b6f6; }
-
-.nav-button:hover .nav-icon {
-    transform: scale(1.2);
-}
-
-.nav-button.active .nav-icon {
-    transform: scale(1.2);
-    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
-}
-
-/* Add spacing before English translations when visible */
-.nav-button .en,
-.section-header .en,
-h2 .en,
-h3 .en,
-.section-badge .en {
-    margin-left: 0.25rem;
-}
-
-/* Language toggle button */
-.lang-toggle {
-    background: var(--bg-card);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    padding: 0.6rem 1rem;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.8rem;
-    /* Reset positioning; it will behave like a nav button */
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.lang-toggle:hover {
-    background: var(--bg-hover);
-    border-color: var(--primary);
-    color: var(--text-primary);
-    box-shadow: var(--shadow);
-}
-
-/* Language visibility */
-body[data-lang="gr"] .en {
-    display: none;
-}
-body[data-lang="en"] .gr {
-    display: none;
-}
-
-/* Main Content */
-.content {
-    flex: 1;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2rem;
-    width: 100%;
-}
-
-.section {
-    display: none;
-    animation: fadeInUp 0.6s ease;
-}
-
-.section.active {
-    display: block;
-}
-
-.section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid var(--border);
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.section-header h2 {
-    font-size: 2.2rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
-}
-
-.section-badge {
-    background: var(--gradient-primary);
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
-}
-
-/* Feature Grid */
-.feature-grid {
-    display: grid;
-    /* Allow cards to stretch evenly by row for a more uniform height */
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    /* Let cards adjust height naturally; equal heights can cause shrinkage */
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.feature-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 1.5rem;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.feature-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--gradient-primary);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.feature-card:hover::before {
-    opacity: 1;
-}
-
-.feature-card:hover {
-    transform: translateY(-6px);
-    box-shadow: var(--shadow-lg);
-    border-color: var(--primary);
-}
-
-.feature-card.full-width {
-    grid-column: 1 / -1;
-}
-
-.feature-icon {
-    /* Icons enclosed in rounded squares with coloured backgrounds like in the reference. */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 0.6rem;
-    font-size: 1.4rem;
-    margin-bottom: 1rem;
-    background: var(--bg-hover);
-    border: 1px solid var(--border-light);
-    color: var(--primary);
-}
-
-/* Custom colours for the primary install page cards to better match the reference image. */
-#install .feature-grid .feature-card:nth-of-type(1) .feature-icon {
-    background: #4c213a;
-    color: #ff7bbd;
-}
-#install .feature-grid .feature-card:nth-of-type(2) .feature-icon {
-    background: #223760;
-    color: #5b9bff;
-}
-
-.feature-card h3 {
-    /* Headings use the primary colour to stand out like in the example. */
-    color: var(--primary);
-    font-size: 1.6rem;
-    margin-bottom: 1rem;
-    font-weight: 700;
-}
-
-.feature-card p {
-    color: var(--text-secondary);
-    line-height: 1.6;
-    margin-bottom: 1rem;
-}
-
-.feature-list {
-    list-style: none;
-    color: var(--text-secondary);
-}
-
-.feature-list li {
-    padding: 0.3rem 0;
-    position: relative;
-    padding-left: 1rem;
-}
-
-.feature-list li::before {
-    content: '•';
-    color: var(--primary);
-    position: absolute;
-    left: 0;
-    font-weight: bold;
-}
-
-/* Steps */
-.steps {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    /* No left margin so numbers align with the card edge. */
-    margin-left: 0;
-}
-
-.step {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    padding: 0;
-    background: transparent;
-    border-radius: 0;
-    border: none;
-    transition: none;
-}
-
-.step:hover {
-    /* Disable hover effects on simple lists */
-}
-
-.step-number {
-    background: none;
-    color: var(--primary);
-    min-width: 1.2rem;
-    height: auto;
-    border-radius: 0;
-    display: block;
-    font-weight: 700;
-    font-size: 1rem;
-    flex-shrink: 0;
-    box-shadow: none;
-}
-
-.step-text {
-    color: var(--text-secondary);
-    line-height: 1.4;
-}
-
-/* Process Flow */
-.process-flow {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 1rem;
-}
-
-.flow-step {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem;
-    background: var(--bg-secondary);
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    transition: all 0.3s ease;
-}
-
-.flow-step:hover {
-    border-color: var(--primary);
-}
-
-.flow-number {
-    background: var(--gradient-secondary);
-    color: white;
-    width: 1.75rem;
-    height: 1.75rem;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 0.8rem;
-    flex-shrink: 0;
-}
-
-/* Apps Grid */
-.apps-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-}
-
-.app-item {
-    background: var(--bg-secondary);
-    padding: 1rem;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    text-align: center;
-    transition: all 0.3s ease;
-}
-
-.app-item:hover {
-    border-color: var(--primary);
-    transform: translateY(-5px);
-    box-shadow: var(--shadow);
-}
-
-.app-icon {
-    font-size: 1.8rem;
-    display: block;
-    margin-bottom: 0.5rem;
-    /* ΑΦΑΙΡΕΘΗΚΕ το gradient - τώρα έχει φυσικά χρώματα */
-}
-
-.app-item strong {
-    display: block;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
-    font-weight: 600;
-}
-
-.app-item span {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-}
-
-/* Tool Grid */
-.tool-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    margin-top: 1rem;
-}
-
-.tool-item {
-    background: var(--bg-secondary);
-    padding: 1rem;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    transition: all 0.3s ease;
-}
-
-.tool-item:hover {
-    border-color: var(--primary);
-}
-
-.tool-item strong {
-    color: var(--text-primary);
-    display: block;
-    margin-bottom: 0.25rem;
-    font-weight: 600;
-}
-
-.tool-item span {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-
-/* Capabilities Grid */
-.capabilities-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-}
-
-.capability {
-    background: var(--bg-secondary);
-    padding: 1.5rem 1rem;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    text-align: center;
-    transition: all 0.3s ease;
-}
-
-.capability:hover {
-    border-color: var(--primary);
-    transform: translateY(-5px);
-    box-shadow: var(--shadow);
-}
-
-.capability-icon {
-    font-size: 2rem;
-    display: block;
-    margin-bottom: 0.75rem;
-    /* ΑΦΑΙΡΕΘΗΚΕ το gradient - τώρα έχει φυσικά χρώματα */
-}
-
-.capability strong {
-    display: block;
-    color: var(--text-primary);
-    margin-bottom: 0.5rem;
-    font-size: 1rem;
-    font-weight: 600;
-}
-
-.capability span {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    line-height: 1.4;
-}
-
-/* Video Link */
-.video-link {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    background: var(--bg-secondary);
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    margin-top: 1rem;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    color: inherit;
-}
-
-.video-link:hover {
-    border-color: var(--danger);
-    background: rgba(255, 68, 68, 0.1);
-    transform: translateX(5px);
-}
-
-.video-icon {
-    font-size: 1.5rem;
-    /* ΑΦΑΙΡΕΘΗΚΕ το gradient - τώρα έχει φυσικά χρώματα */
-}
-
-/* BIOS Features */
-.bios-features {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-}
-
-.bios-feature {
-    background: var(--bg-secondary);
-    padding: 1rem;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    transition: all 0.3s ease;
-}
-
-.bios-feature:hover {
-    border-color: var(--primary);
-}
-
-.bios-feature strong {
-    color: var(--text-primary);
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-}
-
-.bios-feature span {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-
-/* Theme Options */
-.theme-options {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin: 1rem 0;
-}
-
-.theme-option {
-    background: var(--bg-secondary);
-    padding: 1rem;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    text-align: center;
-    transition: all 0.3s ease;
-}
-
-.theme-option:hover {
-    border-color: var(--accent);
-    transform: translateY(-5px);
-    box-shadow: var(--shadow);
-}
-
-.theme-icon {
-    font-size: 2rem;
-    display: block;
-    margin-bottom: 0.5rem;
-    /* ΑΦΑΙΡΕΘΗΚΕ το gradient - τώρα έχει φυσικά χρώματα */
-}
-
-.theme-option strong {
-    display: block;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
-    font-weight: 600;
-}
-
-.theme-option span {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-}
-
-/* Info Boxes */
-.info-box {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1.5rem;
-    border-radius: 12px;
-    margin: 2rem 0;
-    border: 1px solid transparent;
-    transition: all 0.3s ease;
-}
-
-.info-box.warning {
-    background: rgba(255, 170, 0, 0.1);
-    border-color: var(--warning);
-}
-
-.info-box.success {
-    background: rgba(0, 255, 136, 0.1);
-    border-color: var(--success);
-}
-
-.info-box:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow);
-}
-
-.info-icon {
-    font-size: 1.5rem;
-    flex-shrink: 0;
-    /* ΑΦΑΙΡΕΘΗΚΕ το gradient - τώρα έχει φυσικά χρώματα */
-}
-
-.info-box div {
+  /* Ensure some fallbacks if this file is loaded outside the main app. */
+  --bg-color: #0f1117;
+  --card-bg: #1a1d25;
+  --text-color: #e2e8f0;
+  --text-secondary: #a5b4d2;
+  --accent-color: #00bfff;
+  --accent-color-light: #1e90ff;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --shadow-color: rgba(0, 0, 0, 0.4);
+  --gradient-primary: linear-gradient(135deg, var(--accent-color-dark, #0066cc), var(--accent-color-light, #1e90ff));
+  /* Additional colours for navigation icons.  These approximate the hues
+   * used in the reference screenshot for each category.  If you wish to
+   * tweak the palette further, adjust these values. */
+  --color-install: #3b61d1;
+  --color-activate: #2eb85c;
+  --color-maintain: #636e8c;
+  --color-crack: #7144bf;
+  --color-dlc: #d78b20;
+  --color-passwords: #c49a2e;
+  --color-spicetify: #a15eea;
+  --color-titus: #db6e8b;
+  --color-bios: #e26a12;
+  --color-settings: #5f647a;
+}
+
+/* Reset some basic elements inside the iframe */
+html, body {
+  /* Full‑size viewport to allow centring of the help card */
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  /* Add vertical padding to prevent the card from touching the very top
+   * of the viewport when the modal first appears.  This also leaves
+   * breathing room at the bottom on taller screens. */
+  padding: 2rem 0;
+  background: transparent;
+  color: var(--text-color);
+  font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+  /* Centre the info card horizontally and (mostly) vertically.  Use
+   * flexbox so the card sits in the middle of the available space.
+   * On very tall modals, the card will sit slightly below centre due
+   * to the vertical padding above. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Centre the card vertically within the iframe. */
+  justify-content: center;
+}
+
+/* Container card with rounded corners and subtle shadow */
+/*
+ * The info-card is centred within the modal with breathing room around it.
+ * It should not span the entire width of the modal, emulating the
+ * proportions seen in the provided reference.  Use a percentage width
+ * with a max limit so it scales with the modal size.
+ */
+    .info-card {
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+      /* Slightly widen the card left and right */
+      width: 95%;
+      max-width: 1300px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px var(--shadow-color);
+      padding: 1.5rem 2rem;
+      box-sizing: border-box;
+      position: relative;
+    }
+
+/* Header containing logo and title */
+.info-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.info-logo {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.info-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(135deg, #215f9c 0% , #1f3d5e 50%, #181b24 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+
+.title-highlight {
+  color: var(--accent-color-light);
+}
+
+/* Close button for the help card.  Placed absolutely within the card and
+ * styled as a small, unobtrusive '×'.  Clicking it will close the
+ * modal overlay via the script embedded in info.js. */
+.info-close-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 1.1rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.6rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  z-index: 1;
+}
+.info-close-btn:hover {
+  color: var(--accent-color-light);
+}
+ol li {
     color: var(--text-secondary);
     line-height: 1.5;
 }
-
-.info-box strong {
-    color: var(--text-primary);
-}
-
-/* Footer */
-.footer {
-    background: var(--bg-secondary);
-    border-top: 1px solid var(--border);
-    padding: 2rem 0;
-    margin-top: 3rem;
-}
-
-.footer-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 2rem;
-    text-align: center;
-}
-
-.footer p {
-    color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-}
-
-.footer-note {
-    font-size: 0.9rem;
-    opacity: 0.8;
-}
-
-/* Notes */
-.note {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    font-style: italic;
-    margin-top: 0.5rem;
-}
-
-/* Animations */
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes glow {
-    0%, 100% {
-        box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
-    }
-    50% {
-        box-shadow: 0 0 30px rgba(0, 212, 255, 0.6);
-    }
-}
-
-/* Responsive Design */
-@media (max-width: 1200px) {
-    .nav-container {
-        padding: 1rem;
-    }
-    
-    .nav-button {
-        padding: 0.7rem 1rem;
-        font-size: 0.8rem;
-    }
-}
-
-@media (max-width: 1024px) {
-    .feature-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .apps-grid {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    }
-    
-    .capabilities-grid {
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    }
-    
-    .theme-options {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    .header-content {
-        padding: 0 1rem;
-    }
-    
-    .logo {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .logo h1 {
-        font-size: 2rem;
-    }
-    
-    .logo-icon {
-        font-size: 2.5rem;
-    }
-    
-    .nav-container {
-        padding: 0.75rem;
-        gap: 0.25rem;
-    }
-    
-    .nav-button {
-        padding: 0.6rem 0.8rem;
-        font-size: 0.75rem;
-    }
-    
-    .nav-icon {
-        font-size: 1rem;
-    }
-    
-    .content {
-        padding: 1rem;
-    }
-    
-    .section-header {
-        flex-direction: column;
-        gap: 1rem;
-        align-items: flex-start;
-    }
-    
-    .section-header h2 {
-        font-size: 1.8rem;
-    }
-    
-    .bios-features {
-        grid-template-columns: 1fr;
-    }
-    
-    .feature-card {
-        padding: 1.25rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .logo h1 {
-        font-size: 1.6rem;
-    }
-    
-    .subtitle {
-        font-size: 1rem;
-    }
-    
-    .nav-button {
-        padding: 0.5rem 0.7rem;
-        font-size: 0.7rem;
-    }
-    
-    .feature-card {
-        padding: 1rem;
-    }
-    
-    .step {
-        padding: 0.75rem;
-    }
-    
-    .apps-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-    
-    .capabilities-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--gradient-primary);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--primary-dark);
-}
-
-/* Selection Color */
-::selection {
-    background: rgba(0, 212, 255, 0.3);
-    color: var(--text-primary);
-}
-
-/* Focus Outline */
-*:focus {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-}
-
-/* Print Styles */
-@media print {
-    .nav,
-    .footer {
-        display: none;
-    }
-    
-    .feature-card {
-        break-inside: avoid;
-        border: 1px solid #000;
-    }
-}
-
-/* FIX για emoji χρώματα - ΟΛΑ τα emoji classes */
-.nav-icon,
-.feature-icon,
-.app-icon,
-.capability-icon,
-.theme-icon,
-.video-icon,
-.info-icon,
-.logo-icon {
-    background: none !important;
-    -webkit-background-clip: initial !important;
-    -webkit-text-fill-color: initial !important;
-    background-clip: initial !important;
-    filter: none !important;
-}
-
-/* Fix για section headers με HTML αλλαγή */
-.section-header h2 {
+/* Navigation bar styling */
+/* Navigation bar.  Items wrap as necessary but preserve consistent
+ * spacing.  The bottom border separates the nav from the content area. */
+.info-nav {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    padding: 0.55rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
 }
 
-.section-emoji {
-    font-size: 2.2rem;
-    background: none !important;
-    -webkit-background-clip: initial !important;
-    -webkit-text-fill-color: initial !important;
-    background-clip: initial !important;
-    filter: none !important;
+/* Base nav item style.  The entire item is clickable and presents a
+ * subtle background with rounded corners.  Each item reserves space
+ * for an icon container on the left. */
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 0.4rem 0.6rem 0.4rem 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.section-header h2 {
-    background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+/* Icon container holds the coloured square behind each emoji. */
+.icon-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 17px;
+      height: 17px;
+      /* Remove the coloured background square from nav icons.  Only the
+       * emoji itself should be coloured. */
+      border-radius: 0;
+      margin-right: 0.3rem;
+      color: var(--nav-color, var(--accent-color));
+      background: transparent;
+      font-size: 1rem;
+      line-height: 1;
 }
 
-/* Responsive Navigation Styles */
-/*
-   The navigation bar now spans the entire width of the page. On small screens a
-   hamburger button appears that allows the user to expand or collapse the menu
-   items. This improves usability on devices where horizontal space is
-   limited and prevents the navigation from overflowing off screen. When the
-   menu is open the hamburger transforms into a close icon via CSS transforms.
-*/
-.nav-toggle {
-    display: none;
-    background: none;
-    border: none;
-    color: var(--text-primary);
-    font-size: 1.5rem;
-    padding: 1rem;
-    cursor: pointer;
-    z-index: 200;
+/* When an item is active, emphasise it by tinting the background and
+ * border using the same colour as its icon. */
+.nav-item.active {
+  background: rgba(var(--nav-color-rgb, 0, 128, 255), 0.2);
+  border-color: var(--nav-color, var(--accent-color));
+  color: var(--text-color);
 }
 
-.nav-toggle .hamburger,
-.nav-toggle .hamburger::before,
-.nav-toggle .hamburger::after {
-    content: '';
-    display: block;
-    width: 24px;
-    height: 2px;
-    background: var(--text-primary);
-    margin: 5px 0;
-    transition: all 0.3s ease;
-    position: relative;
+/* Hover effect to gently highlight items on pointer focus. */
+.nav-item:hover {
+  background: rgba(var(--nav-color-rgb, 0, 128, 255), 0.1);
+  border-color: var(--nav-color, var(--accent-color));
+  color: var(--text-color);
 }
 
-.nav-toggle .hamburger::before {
-    top: -7px;
-}
-
-.nav-toggle .hamburger::after {
-    top: 7px;
-}
-
-/* Transform hamburger into an 'X' when menu is open */
-.nav.open .nav-toggle .hamburger {
-    transform: rotate(45deg);
-}
-.nav.open .nav-toggle .hamburger::before {
-    transform: rotate(90deg);
-    top: 0;
-}
-.nav.open .nav-toggle .hamburger::after {
-    opacity: 0;
-}
-
-@media (max-width: 768px) {
-    /* Stack nav content on small screens */
-    .nav {
-        display: flex;
-        flex-direction: column;
+/* Section wrapper */
+.info-section {
+      /* Hide sections by default; only the active one is displayed.  See
+       * .info-section.active below for the visible state. */
+      display: none;
+      flex-direction: column;
+      gap: 1.25rem;
+      /* Wrap the entire section (heading + content) in a soft panel.  This
+       * mirrors the nested card seen in the reference design where
+       * each feature is contained within its own bordered box. */
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 0.5rem 1.5rem 1.5rem 1.5rem; 
     }
-    .nav-toggle {
-        display: block;
+
+    /* Show only the active section */
+    .info-section.active {
+      display: block;
     }
-    .nav-container {
-        display: none;
-        flex-direction: column;
-        width: 100%;
-        padding: 0;
-    }
-    /* Show the menu when nav has the `open` class */
-    .nav.open .nav-container {
-        display: flex;
-    }
-    .nav-button {
-        width: 100%;
-        border-radius: 0;
-        justify-content: flex-start;
-        padding: 1rem;
-    }
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-color);
+  transform: translateY(-5px);
 }
 
-.en {
-    /* font-size: 0.9rem; ΑΦΑΙΡΕΣΕ ΑΥΤΗ ΤΗ ΓΡΑΜΜΗ */
-    color: var(--text-secondary);
-    margin-left: 0.25rem;
+.section-icon {
+  font-size: 1.6rem;
+  color: var(--accent-color-light);
 }
+
+/* Content columns */
+.section-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+}
+
+.info-column {
+  flex: 1 1 260px;
+  /* Προσθήκη για να διασφαλίσουμε ίδιο ύψος */
+  display: flex;
+  flex-direction: column;
+}
+
+    /* Card container for each column.  Mirrors the dark, rounded panels seen in the
+     * reference image.  Provides a subtle border and background separation from
+     * the overall info card. */
+    .column-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      /* Προσθήκη για ίδιο ύψος */
+      flex: 1;
+      /* Προσθήκη για ίδιο πλάτος */
+      min-height: 200px; /* Μπορείς να αλλάξεις αυτή την τιμή αν χρειαστεί */
+      height: 100%;
+      box-sizing: border-box;
+    }
+
+    /* Header within each column.  Aligns the coloured icon box next to the
+     * heading text and provides consistent spacing. */
+    .column-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      /* Προσθήκη για συνεπή ύψος header */
+      min-height: 40px;
+    }
+
+    /* Container for the icon inside each column header.  Uses a square with
+     * rounded corners and a tinted background matching the accent colour. */
+    .column-icon-container {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      background: rgba(var(--accent-color-light, 30, 144, 255), 0.2);
+      color: var(--accent-color-light);
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    .column-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 0;
+      color: var(--accent-color-light);
+    }
+
+    /* Removed earlier .column-title definition; see updated definition later. */
+
+.info-column p {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin: 0;
+  /* Προσθήκη για καλύτερη κατανομή χώρου */
+  flex: 1;
+}
+
+.usage-list {
+  counter-reset: list-step;
+  padding-left: 1.2rem;
+  margin: 0;
+  color: var(--text-secondary) ;
+  /* Προσθήκη για καλύτερη κατανομή χώρου */
+  flex: 1;
+}
+
+.usage-list li {
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.usage-list li::marker {
+  font-weight: 700;
+  color: var(--accent-color-light);
+}
+
+/* Assign colour variables to each navigation item.  These values feed
+ * into the --nav-color and --nav-color-rgb custom properties used
+ * above, allowing each item to share its hue with the icon square and
+ * active/hover states. */
+.nav-install { --nav-color: var(--color-install); --nav-color-rgb: 59, 97, 209; }
+.nav-activate { --nav-color: var(--color-activate); --nav-color-rgb: 46, 184, 92; }
+.nav-maintain { --nav-color: var(--color-maintain); --nav-color-rgb: 99, 110, 140; }
+.nav-crack { --nav-color: var(--color-crack); --nav-color-rgb: 113, 68, 191; }
+.nav-dlc { --nav-color: var(--color-dlc); --nav-color-rgb: 215, 139, 32; }
+.nav-passwords { --nav-color: var(--color-passwords); --nav-color-rgb: 196, 154, 46; }
+.nav-spicetify { --nav-color: var(--color-spicetify); --nav-color-rgb: 161, 94, 234; }
+.nav-titus { --nav-color: var(--color-titus); --nav-color-rgb: 219, 110, 139; }
+.nav-bios { --nav-color: var(--color-bios); --nav-color-rgb: 226, 106, 18; }
+.nav-settings { --nav-color: var(--color-settings); --nav-color-rgb: 95, 100, 122; }
