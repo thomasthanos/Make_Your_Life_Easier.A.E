@@ -232,8 +232,6 @@ body {
   backdrop-filter: blur(10px);
 }
 
-/* ----- Sidebar header layout modifications ----- */
-/* The sidebar header now contains the app title, a subtitle and a theme toggle.  */
 .sidebar-header {
   display: flex;
   align-items: center;
@@ -244,45 +242,25 @@ body {
 .sidebar-header .title-group {
   display: flex;
   flex-direction: column;
-  /* Allow the title group to take up remaining width, preventing it from
-   * overlapping the theme toggle button.  min-width:0 enables flexbox
-   * truncation for long strings while still allowing wrapping. */
   flex: 1 1 auto;
   min-width: 0;
 }
 
-/* Align text to the left within the sidebar header */
 .sidebar-header .app-title,
 .sidebar-header .app-subtitle {
   text-align: left;
 }
 
-/*
- * Header title styling
- *
- * The title displayed in the sidebar header should span multiple lines if needed
- * (for example, when the Greek translation is long) and still retain a smooth
- * blue gradient across all lines.  To achieve this we apply a linear gradient
- * directly to the text itself via background‑clip and ensure the gradient covers
- * the entire bounding box.  We also avoid forcing a single line so long
- * translations do not overflow over the theme toggle.  The title group is
- * allowed to flex so that the theme toggle remains visible on the right.
- */
 .sidebar-header .app-title {
-  /* Smaller font size so longer translations fit on a single line */
   font-size: 1.55rem;
   font-weight: 700;
   line-height: 1.2;
   margin: 0;
   letter-spacing: normal;
   text-transform: none;
-  /* Keep the title on a single line.  Overflowing text will be clipped
-   * rather than wrapping; this prevents the title from dropping to a second
-   * line when translations are long. */
   white-space: nowrap;
   overflow: hidden;
-  /* Apply the gradient to the entire text */
-background: linear-gradient(90deg,rgba(51, 153, 255, 1) 0%, rgba(51, 153, 255, 1) 50%, rgba(234, 243, 252, 1) 100%);
+  background: linear-gradient(90deg,rgba(51, 153, 255, 1) 0%, rgba(51, 153, 255, 1) 50%, rgba(234, 243, 252, 1) 100%);
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
   background-clip: text !important;
