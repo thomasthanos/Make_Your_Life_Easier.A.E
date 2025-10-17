@@ -2515,6 +2515,7 @@ async function buildMaintenancePage() {
     firstRow.style.gridTemplateColumns = '1fr 1fr';
     firstRow.style.gap = '1.5rem';
     firstRow.style.marginBottom = '1.5rem';
+    firstRow.style.alignItems = 'stretch'; // Προσθήκη για ίδιο ύψος cards
     
     // Delete Temp Files card
     const tempCard = createMaintenanceCard(
@@ -2526,9 +2527,16 @@ async function buildMaintenancePage() {
         false
     );
     
+    // Εφαρμογή ίδιου στυλ στο temp button
+    const tempButton = tempCard.querySelector('button');
+    tempButton.style.height = '40px';
+    tempButton.style.minWidth = '100%';
+    
     // SFC/DISM combined card
     const sfcDismCard = document.createElement('div');
     sfcDismCard.className = 'app-card';
+    sfcDismCard.style.display = 'flex';
+    sfcDismCard.style.flexDirection = 'column';
     
     const sfcDismHeader = document.createElement('div');
     sfcDismHeader.className = 'app-header';
@@ -2559,20 +2567,22 @@ async function buildMaintenancePage() {
     const sfcDismButtons = document.createElement('div');
     sfcDismButtons.style.display = 'flex';
     sfcDismButtons.style.gap = '0.75rem';
-    sfcDismButtons.style.marginTop = '1rem';
-    sfcDismButtons.style.flexWrap = 'wrap';
+    sfcDismButtons.style.marginTop = 'auto'; // Σπρώχνει τα κουμπιά προς τα κάτω
+    sfcDismButtons.style.alignItems = 'center';
     
     const sfcButton = document.createElement('button');
     sfcButton.className = 'button';
     sfcButton.textContent = translations.actions.run_sfc || 'Run SFC';
     sfcButton.style.flex = '1';
-    sfcButton.style.minWidth = '100px';
+    sfcButton.style.minWidth = '0';
+    sfcButton.style.height = '40px';
     
     const dismButton = document.createElement('button');
     dismButton.className = 'button';
     dismButton.textContent = translations.actions.run_dism || 'Run DISM';
     dismButton.style.flex = '1';
-    dismButton.style.minWidth = '100px';
+    dismButton.style.minWidth = '0';
+    dismButton.style.height = '40px';
     
     const sfcDismStatus = document.createElement('pre');
     sfcDismStatus.className = 'status-pre';
@@ -2608,6 +2618,11 @@ async function buildMaintenancePage() {
         false
     );
     
+    // Εφαρμογή ίδιου στυλ στο patch button
+    const patchButton = patchCard.querySelector('button');
+    patchButton.style.height = '40px';
+    patchButton.style.minWidth = '100%';
+    
     // Make Patch My PC card full width
     patchCard.style.gridColumn = '1 / -1';
     
@@ -2621,6 +2636,8 @@ async function buildMaintenancePage() {
 function createMaintenanceCard(name, description, icon, buttonText, taskFunction, requiresAdmin = false) {
     const card = document.createElement('div');
     card.className = 'app-card';
+    card.style.display = 'flex';
+    card.style.flexDirection = 'column';
     
     const header = document.createElement('div');
     header.className = 'app-header';
@@ -2656,7 +2673,7 @@ function createMaintenanceCard(name, description, icon, buttonText, taskFunction
     const button = document.createElement('button');
     button.className = 'button';
     button.textContent = buttonText;
-    button.style.marginTop = '1rem';
+    button.style.marginTop = 'auto'; // Σπρώχνει το κουμπί προς τα κάτω
     
     const status = document.createElement('pre');
     status.className = 'status-pre';
