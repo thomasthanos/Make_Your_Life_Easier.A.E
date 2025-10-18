@@ -4361,6 +4361,11 @@ async function ensureSidebarVersion() {
             await window.api?.loginGoogle?.();
           } catch (err) {
             console.error('Google login failed:', err);
+            // If OAuth credentials are not configured, inform the user
+            const msg = String(err?.message || err);
+            if (msg && /not configured/i.test(msg)) {
+              window.alert('Google login is not available because OAuth credentials are not configured. Please set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI environment variables or provide a configuration file.');
+            }
           }
           // Refresh the user info regardless of outcome
           updateUserInfo();
@@ -4370,6 +4375,10 @@ async function ensureSidebarVersion() {
             await window.api?.loginDiscord?.();
           } catch (err) {
             console.error('Discord login failed:', err);
+            const msg = String(err?.message || err);
+            if (msg && /not configured/i.test(msg)) {
+              window.alert('Discord login is not available because OAuth credentials are not configured. Please set DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET and DISCORD_REDIRECT_URI environment variables or provide a configuration file.');
+            }
           }
           updateUserInfo();
         });

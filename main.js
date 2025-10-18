@@ -4,6 +4,15 @@ const os = require('os');
 const { exec, spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
+// Pull in the Node.js filesystem module at the top of the file so that
+// synchronous fs operations (e.g. reading oauth_config.json) are
+// available before any code references `fs`.  Without this import,
+// attempting to use `fs` will throw a ReferenceError because `fs`
+// would not be defined yet.
+const fs = require('fs');
+
+// Load file system module early so it is available for OAuth configuration
+
 // -----------------------------------------------------------------------------
 // OAuth configuration and utilities
 //
@@ -15,19 +24,57 @@ const { autoUpdater } = require('electron-updater');
 // simple loopback address (e.g. http://localhost) works well in Electron
 // because we intercept the redirect in the embedded BrowserWindow rather
 // than standing up a separate HTTP server.
-// Default OAuth credentials.  These values are fallbacks when no
-// environment variables are provided.  Replace them with your own or set
-// environment variables GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-// GOOGLE_REDIRECT_URI, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET and
-// DISCORD_REDIRECT_URI at runtime.  The redirect URIs must match what
-// you configured on the Google and Discord developer dashboards.
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '631873285931-t7tf96vniouihekuclu3n7po53frl79i.apps.googleusercontent.com';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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';
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5252';
+// OAuth credentials.  These values should be provided via environment
+// variables (e.g. GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
+// and analogous variables for Discord).  To avoid hard‑coding secrets in
+// your source code, you may instead supply them in a local JSON file
+// named `oauth_config.json` located next to this main.js file.  The
+// structure of that file should be:
+// {
+//   "google": {
+//     "clientId": "your‑google‑client‑id",
+//     "clientSecret": "your‑google‑client‑secret",
+//     "redirectUri": "http://localhost:PORT"
+//   },
+//   "discord": {
+//     "clientId": "your‑discord‑client‑id",
+//     "clientSecret": "your‑discord‑client‑secret",
+//     "redirectUri": "http://localhost:PORT"
+//   }
+// }
+//
+// This file should NOT be committed to version control.  Add it to
+// your .gitignore so that your OAuth credentials remain private.  At
+// runtime we attempt to load this file and merge any values found
+// with the environment variables (environment variables always take
+// precedence).
 
-const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1376574986181148854';
-const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || '5BxTRR0S7c-CUQVV-k0y2pib7bnhR6rG';
-const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localhost:5252';
+// Attempt to load OAuth configuration from a local JSON file.  If the
+// file does not exist or cannot be parsed, an empty object is used.
+let oauthConfig = {};
+try {
+  const oauthPath = path.join(__dirname, 'oauth_config.json');
+  if (fs.existsSync(oauthPath)) {
+    const raw = fs.readFileSync(oauthPath, 'utf-8');
+    oauthConfig = JSON.parse(raw);
+  }
+} catch (err) {
+  console.warn('Failed to load oauth_config.json:', err);
+  oauthConfig = {};
+}
+// Helper to read a nested property from the config.  Returns undefined
+// if the parent or property does not exist.
+function getOAuthValue(provider, key) {
+  return oauthConfig && oauthConfig[provider] && oauthConfig[provider][key];
+}
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || getOAuthValue('google', 'clientId') || '';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || getOAuthValue('google', 'clientSecret') || '';
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || getOAuthValue('google', 'redirectUri') || '';
+
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || getOAuthValue('discord', 'clientId') || '';
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || getOAuthValue('discord', 'clientSecret') || '';
+const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || getOAuthValue('discord', 'redirectUri') || '';
 
 // In‑memory storage for the authenticated user's profile.  Once a login
 // completes successfully, this object will be populated with the user's
@@ -334,7 +381,6 @@ ipcMain.handle('install-update', async () => {
 ipcMain.handle('get-app-version', async () => {
   return app.getVersion();
 });
-const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const documentsPath = require('os').homedir() + '/Documents';
