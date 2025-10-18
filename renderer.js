@@ -135,14 +135,7 @@ const MENU_ICONS = {
     return { ensure, update, show, hide };
   })();
 
-  // --------------------------------------------------------------------
-  // Input modality tracking
-  //
-  // Some tooltip behaviours (e.g. showing on focus) should only occur
-  // when the user navigates via keyboard (Tab, arrow keys) and not when
-  // clicking with the mouse.  To support this, track the last
-  // interaction modality.  This allows focus handlers to decide
-  // whether to display a tooltip.
+  // Track whether the last user interaction was via keyboard or pointer.
   let lastInteractionWasKeyboard = false;
   // When any key is pressed, assume keyboard navigation
   document.addEventListener('keydown', () => {
@@ -157,12 +150,7 @@ const MENU_ICONS = {
     lastInteractionWasKeyboard = false;
   }, true);
 
-  /**
-   * Attach custom tooltip handlers to an element.  Elements should have
-   * a `data-tooltip` attribute containing the tooltip text.  The same
-   * handlers are used for hover (mouse), keyboard focus and blur.
-   * A flag on the element prevents multiple attachments.
-   */
+  // Attach custom tooltip handlers to an element with a `data-tooltip` attribute.
   function attachTooltipHandlers(el) {
     if (!el || typeof el.getAttribute !== 'function') return;
     const tip = el.getAttribute('data-tooltip');
@@ -190,10 +178,7 @@ const MENU_ICONS = {
       tooltipManager.hide();
     });
 
-    // When the mouse button is pressed down on the element, immediately hide
-    // any visible tooltip.  Using mousedown instead of click ensures this
-    // handler runs before focus and click events, preventing the tooltip
-    // from reappearing due to pending timers or focus triggers.
+    // Hide tooltip on mousedown to prevent it reappearing due to focus triggers.
     el.addEventListener('mousedown', () => {
       tooltipManager.hide();
     });
