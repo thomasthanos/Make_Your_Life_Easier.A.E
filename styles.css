@@ -842,11 +842,25 @@ body {
   border-radius: 10px;
   width: auto;
   height: 36px;
-  /* Use a semi‑transparent white background so the card stands out against the dark sidebar */
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 2px solid transparent;
+  /* Glassmorphism: emulate the "iQuad" liquid glass effect seen in newer iOS 26 designs.
+     We layer a soft linear gradient with faint radial highlights in opposite corners to
+     create depth.  Opacity values have been reduced further for a subtler, more
+     transparent look. */
+  background:
+    /* Corner highlights */
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 60%),
+    /* Base gradient */
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  /* Enhanced blur and brightness to give the impression of glass layers with depth.
+     Saturation is slightly reduced to keep colours from washing out while still
+     preserving vibrancy. */
+  backdrop-filter: blur(25px) saturate(130%) brightness(1.3);
+  -webkit-backdrop-filter: blur(25px) saturate(130%) brightness(1.3);
+  /* Finer border with even less opacity for a softer edge reminiscent of the iOS glass panels */
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  /* Slightly lighter shadow to match the increased transparency */
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   transition: all 0.5s ease-in-out;
   position: relative;
   /* Allow tooltips for children to extend outside without being clipped */
@@ -856,11 +870,18 @@ body {
 /* When any child button receives focus (e.g. via keyboard),
    highlight the card with a darker overlay and border. */
 .user-info .login-card:focus-within {
-  background-color: rgba(17, 17, 17, 0.5);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 2px solid rgb(27, 27, 27);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  /* Intensify the glass effect when any child button is focused.  We
+     slightly boost the opacity and blur compared to the base state, but keep
+     it airy.  The radial highlights are carried through so the card still
+     feels like liquid glass. */
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 60%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+  backdrop-filter: blur(28px) saturate(140%) brightness(1.35);
+  -webkit-backdrop-filter: blur(28px) saturate(140%) brightness(1.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.35);
 }
 
 /* Style individual provider buttons within the login card.  Each
