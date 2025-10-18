@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, nativeTheme } = require('electron');
 const path = require('path');
 const os = require('os');
 const { exec, spawn } = require('child_process');
@@ -17,11 +17,9 @@ try {
   console.warn('Failed to load oauth_config.json:', err);
   oauthConfig = {};
 }
-// Helper to read a nested property from the config.  Returns undefined
-// if the parent or property does not exist.
-function getOAuthValue(provider, key) {
-  return oauthConfig && oauthConfig[provider] && oauthConfig[provider][key];
-}
+
+app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
+
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '389774067739-qnshev3gbck4firdc787iqhd44omiajs.apps.googleusercontent.com';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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';
@@ -145,14 +143,18 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
       parent: mainWindow,
       modal: true,
       autoHideMenuBar: true,
+      backgroundColor: '#202124',
+      darkTheme: true,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true
       }
     });
+
     const cleanup = () => {
       if (!authWindow.isDestroyed()) authWindow.close();
     };
+
     function handleUrl(url) {
       try {
         const target = new URL(url);
@@ -172,25 +174,123 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
       }
     }
 
+    // Έλεγχος αν είναι Google OAuth
+    function isGoogleOAuth(url) {
+      return url.includes('accounts.google.com') || url.includes('google.com/oauth');
+    }
+
+    // Εφαρμογή dark mode ΜΟΝΟ για Google
+    function applyDarkModeIfGoogle() {
+      const currentUrl = authWindow.webContents.getURL();
+      
+      if (isGoogleOAuth(currentUrl)) {
+        // CSS Injection ΜΟΝΟ για Google
+        authWindow.webContents.insertCSS(`
+          body {
+            background-color: #202124 !important;
+            color: #e8eaed !important;
+          }
+          [class*="background"] {
+            background-color: #202124 !important;
+          }
+          [class*="container"], [class*="wrapper"], [class*="box"] {
+            background-color: #202124 !important;
+            color: #e8eaed !important;
+          }
+          div {
+            background-color: #202124 !important;
+            color: #e8eaed !important;
+          }
+          form {
+            background-color: #202124 !important;
+            color: #e8eaed !important;
+          }
+          .CryPo, .BDE19, .LZgQXe, .Ha17qf, .Or16q {
+            background-color: #202124 !important;
+            color: #e8eaed !important;
+          }
+          
+          /* ΜΟΝΟ Η ΔΙΟΡΘΩΣΗ ΓΙΑ HOVER - ελαφρώς πιο σκούρο */
+          .wehrve:focus, .wehrve:hover, 
+          .mTkos:focus, .mTkos:hover,
+          .TrZEUc:focus, .TrZEUc:hover,
+          .JnOM6e:focus, .JnOM6e:hover {
+            background-color: #1a1c1e !important;
+          }
+        `);
+        
+        // JavaScript για Google
+        authWindow.webContents.executeJavaScript(`
+          // Αλλαγή background και text color σε όλα τα elements
+          document.body.style.backgroundColor = '#202124';
+          document.body.style.color = '#e8eaed';
+          
+          // Αλλαγή σε όλα τα divs
+          const allDivs = document.querySelectorAll('div');
+          allDivs.forEach(div => {
+            div.style.backgroundColor = '#202124';
+            div.style.color = '#e8eaed';
+          });
+          
+          // Αλλαγή σε όλα τα forms
+          const allForms = document.querySelectorAll('form');
+          allForms.forEach(form => {
+            form.style.backgroundColor = '#202124';
+            form.style.color = '#e8eaed';
+          });
+          
+          // Αλλαγή στα συγκεκριμένα class της Google
+          const googleClasses = ['CryPo', 'BDE19', 'LZgQXe', 'Ha17qf', 'Or16q'];
+          googleClasses.forEach(className => {
+            const elements = document.getElementsByClassName(className);
+            for (let element of elements) {
+              element.style.backgroundColor = '#202124';
+              element.style.color = '#e8eaed';
+            }
+          });
+        `);
+      }
+    }
+
+    // Εφαρμογή dark mode κατά τη φόρτωση
+    authWindow.webContents.once('did-finish-load', () => {
+      applyDarkModeIfGoogle();
+    });
+
+    // Εφαρμογή dark mode σε κάθε navigation (για διαφορετικές Google σελίδες)
+    authWindow.webContents.on('did-navigate', () => {
+      setTimeout(() => {
+        applyDarkModeIfGoogle();
+      }, 100);
+    });
+
+    // Εφαρμογή dark mode σε frame φορτώσεις
+    authWindow.webContents.on('frame-loaded', () => {
+      setTimeout(() => {
+        applyDarkModeIfGoogle();
+      }, 50);
+    });
+
     authWindow.webContents.on('will-redirect', (event, url) => {
       handleUrl(url);
     });
+    
     authWindow.webContents.on('will-navigate', (event, url) => {
       handleUrl(url);
     });
+    
     authWindow.webContents.on('did-navigate', (event, url) => {
       handleUrl(url);
     });
+    
     authWindow.on('closed', () => {
-      // If the user closes the authentication window, treat it as a
-      // cancellation rather than an error.  Resolve with null so
-      // downstream handlers can handle this scenario gracefully.
       try {
         resolve(null);
       } catch (e) {
         // If resolve has already been called, ignore any errors.
       }
     });
+    
     authWindow.loadURL(authUrl);
   });
 }
