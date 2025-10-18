@@ -8,7 +8,7 @@
     <meta name="description" content="Make Your Life Easier - A comprehensive tool for system management and productivity" />
     <title>Make Your Life Easier</title>
 
-    <!-- Prevent theme flash -->
+    
     <script>
       (function () {
         try {
@@ -18,19 +18,19 @@
       })();
     </script>
 
-    <!-- Preload critical resources -->
+    
     <link rel="preload" href="styles.css" as="style" />
     <link rel="preload" href="renderer.js" as="script" />
 
-    <!-- Main stylesheet -->
+    
     <link rel="stylesheet" href="styles.css" />
 
-    <!-- Favicon -->
+    
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
 
-    <!-- Custom loader styles -->
+    
     <style>
-      /* Cloud loader animation styles */
+      
       .loader {
         --cloud-color: #4387f4;
         --arrows-color: #80b1ff;
@@ -38,7 +38,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        /* Double the loader size */
+        
         transform: scale(2);
       }
       .loader #cloud {
@@ -83,7 +83,7 @@
         50%  { cx: 50; cy: 45; r: 20; }
         100% { cx: 80; cy: 60; r: 15; }
       }
-      /* Center the loader inside the loading overlay */
+      
       #loading.loading-overlay {
         display: flex;
         align-items: center;
@@ -98,25 +98,16 @@
           <div class="title-group">
             <div class="app-title"></div>
             <div class="app-subtitle"></div>
-            <!-- Version display removed from here; it will appear in the footer instead -->
+            
           </div>
           <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme"></button>
         </div>
         <ul id="menu-list"></ul>
 
         <div class="sidebar-footer">
-          <!-- Display the app version and user account information together at
-               the bottom of the sidebar.  The version text is a simple
-               element (no background or decorative lines) populated via
-               JavaScript.  The user-info container will be filled
-               dynamically with the authenticated user's avatar/name or
-               login buttons. -->
-          <!-- Place the user info before the version so that the account
-               name/avatar appears on the left and the version on the right. -->
+          
           <div class="user-info" id="userInfo"></div>
-          <!-- Use custom tooltip instead of native title attribute.  The
-               default browser tooltip can be distracting when we
-               already provide our own custom tooltip implementation. -->
+          
           <div class="version-wrap" data-tooltip="App version">
             <span id="appVersion" class="version-text">v0.0.0</span>
           </div>
@@ -129,12 +120,12 @@
       </main>
     </div>
 
-    <!-- Renderer script (defer) -->
+    
     <script src="renderer.js" defer></script>
 
-    <!-- Loading overlay -->
+    
     <div id="loading" class="loading-overlay" aria-live="polite">
-      <!-- Custom animated loader replacing the default spinner -->
+      
       <div class="loader" role="status" aria-label="Loading application">
         <svg id="cloud" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
           <defs>

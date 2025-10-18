@@ -1,15 +1,10 @@
-/*
- * Global styles for the Make Your Life Easier application - Modern Dark Theme
- * Cozy, neutral dark color scheme with modern aesthetics - Updated to Electric Blue accents
- * Further spacing improvements to prevent overlaps
- */
-
+/* Styles for the Make Your Life Easier application */
 * {
   box-sizing: border-box;
 }
 
 :root {
-  /* Electric Blue Theme colors */
+  
   --bg-color: #0f1117;
   --card-bg: #1a1d25;
   --text-color: #e2e8f0;
@@ -27,7 +22,7 @@
 }
 
 [data-theme="light"] {
-  /* Light theme variant */
+  
   --bg-color: #f8fafc;
   --card-bg: #ffffff;
   --text-color: #1e293b;
@@ -51,16 +46,8 @@ body {
   line-height: 1.6;
 }
 
-/* -----------------------------------------------------------
- * Update Notification Button
- *
- * This floating button appears in the bottom corner of the app. It
- * signals when an update is available using a small red badge and
- * subtle pulse animation. Clicking the button triggers a manual
- * update check and reveals the detailed update panel. See
- * renderer.js for behaviour.
- */
-/* Ping animation for the badge */
+
+
 @keyframes update-ping {
   0% {
     transform: scale(1);
@@ -72,17 +59,12 @@ body {
   }
 }
 
-/* -----------------------------------------------------------
- * Update Notification Card
- * This card replaces the legacy update panel and the floating button.
- * It expands to show the update status, message, actions and progress
- * bar. It is only visible when an update event occurs.
- */
+
 #update-card {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  /* Give the update card a subtle gradient so it stands out from the rest of the UI. */
+  
   background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-color) 100%);
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -128,7 +110,7 @@ body {
 #update-card .info .title {
   font-size: 1rem;
   font-weight: 600;
-  /* Use the lighter accent colour for the title to improve contrast on dark background */
+  
   color: var(--accent-color-light);
   margin-bottom: 0.25rem;
 }
@@ -177,7 +159,7 @@ body {
 }
 
 #update-card .btn-primary {
-  /* Make the primary button match the main accent gradient for consistency */
+  
   background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
   color: #fff;
 }
@@ -196,15 +178,7 @@ body {
   color: var(--text-color);
 }
 
-/* -----------------------------------------------------------------
- * Hide legacy update UI
- *
- * The application previously used a separate pop‑up panel (#update-status)
- * and a floating button (#update-btn) to notify users about updates.
- * These elements are now superseded by the unified #update-card, so
- * permanently hide them to prevent overlapping UIs.  We use !important
- * to override any inline styles applied by JavaScript.
- */
+
 #update-status,
 #update-card {
   display: none !important;
@@ -248,9 +222,7 @@ body {
   border: none;
 }
 
-/* Style the modal close button to be more subtle and align with the
- * reference design.  It uses no background and a simple '×', turning
- * brighter on hover. */
+
 .modal-close-btn {
   position: absolute;
   top: 8px;
@@ -270,7 +242,7 @@ body {
   color: var(--accent-color-light);
 }
 
-/* Modal header styles */
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -299,7 +271,7 @@ body {
   background-clip: text;
 }
 
-/* Modal nav styles */
+
 .modal-nav {
   display: flex;
   flex-wrap: wrap;
@@ -361,7 +333,7 @@ body {
   height: 100%;
   backdrop-filter: blur(20px);
 }
-/* ===== SIDEBAR ===== */
+
 #sidebar {
   width: 300px;
   background: linear-gradient(180deg, var(--sidebar-bg) 0%, rgba(0, 0, 0, 0.1) 100%);
@@ -383,7 +355,7 @@ body {
   justify-content: space-between;
 }
 
-/* Group the title and subtitle vertically */
+
 .sidebar-header .title-group {
   display: flex;
   flex-direction: column;
@@ -469,13 +441,12 @@ body {
   stroke: currentColor !important;
 }
 
-/* ----- Sidebar header ----- */
+
 .sidebar-header {
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid rgba(255,255,255,0.1);
   position: relative;
-  /* Allow content to spill if the title wraps onto multiple lines.  Hiding
-   * overflow caused the theme toggle to disappear when the title was long. */
+  
   overflow: visible;
 }
 
@@ -512,7 +483,7 @@ body {
 }
 
 
-/* ----- Menu list ----- */
+
 #menu-list {
   list-style: none;
   margin: 0;
@@ -526,7 +497,7 @@ body {
   border-radius: 14px;
 }
 
-/* MENU BUTTONS — GHOST by default (καθόλου bg/border) */
+
 #menu-list button{
   position: relative;
   display: flex;
@@ -551,14 +522,14 @@ body {
     color .2s;
 }
 
-/* Icon holder & SVG */
+
 #menu-list button .mi { width: 22px; height: 22px; flex: 0 0 22px; display: grid; place-items: center; }
 #menu-list button .mi svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 1.8; fill: none; opacity: .9; }
 
-/* Label */
+
 #menu-list button .label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Dot — εμφανίζεται μόνο στο active */
+
 #menu-list button .dot {
   width: 8px; height: 8px; border-radius: 999px;
   background: var(--accent-color);
@@ -566,7 +537,7 @@ body {
   transition: opacity .15s, transform .15s;
 }
 
-/* Hover: διακριτικό, όχι σαν active */
+
 #menu-list button:hover{
   transform: translateX(4px);
   background: rgba(0,0,0,.03);
@@ -581,7 +552,7 @@ body {
   box-shadow: 0 4px 16px rgba(0,0,0,.25);
 }
 
-/* Active: ΛΕΥΚΗ κάρτα (όπως στη φωτό) + dot */
+
 #menu-list button.active{
   background: #fff;
   border-color: rgba(15,23,42,.06);
@@ -592,7 +563,7 @@ body {
 #menu-list button.active .mi svg { color: var(--accent-color); }
 #menu-list button.active .dot { opacity: 1; transform: scale(1); }
 
-/* Dark theme active: ελαφρώς φωτεινότερη κάρτα */
+
 [data-theme="dark"] #menu-list button.active{
   background: rgba(255,255,255,.08);
   border-color: rgba(255,255,255,.10);
@@ -600,7 +571,7 @@ body {
   box-shadow: 0 10px 28px rgba(0,0,0,.35);
 }
 
-/* Scrollbar styling */
+
 #menu-list::-webkit-scrollbar { width: 4px; }
 #menu-list::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 2px; }
 #menu-list::-webkit-scrollbar-thumb {
@@ -608,40 +579,28 @@ body {
   border-radius: 2px;
 }
 
-/* ----- Footer με version κάτω-κάτω ----- */
+
 .sidebar-footer{
   margin-top: auto;
   padding: 12px 14px 16px;
   border-top: 1px solid var(--border-color);
   display: flex;
   align-items: center;
-  /* Align both the version text and the account info across the footer.
-     Using space-between places the version on the left and the user
-     account/login buttons on the right, creating a balanced layout. */
+  
   justify-content: space-between;
 }
-/*
- * Version wrap contains the version badge and optional user info.  It
- * aligns its children horizontally.  Remove the legacy background and
- * border so that the badge styling shines through.
- */
+
 .version-wrap {
-  /* Version wrap horizontally aligns the version text and, if present,
-     decorative elements.  It no longer contains a backdrop or crosshair
-     decoration, since the simplified design requires only plain text. */
+  
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0;
 }
 
-/* Badge styling for the app version.  Inspired by uiverse.io.  Uses
-   backdrop blur and a subtle border/glass effect.  The nested
-   .badge-lines span draws crosshair lines when hovered. */
+
 .version-badge {
-  /* Legacy version badge styling.  It is unused in the current design
-     but retained here for completeness.  Should you wish to revert to
-     a badge with background/blur, this class can be applied. */
+  
   position: relative;
   text-decoration: none;
   padding: 4px 8px;
@@ -654,7 +613,7 @@ body {
   gap: 4px;
 }
 
-/* The inner span holds the decorative lines that animate on hover. */
+
 .version-badge .badge-lines {
   width: 16px;
   height: 16px;
@@ -697,8 +656,7 @@ body {
   animation: rotate 3s ease-in-out;
 }
 
-/* User info next to the version badge.  It will display the
-   logged‑in user's avatar and name when available. */
+
 .user-info {
   display: flex;
   align-items: center;
@@ -708,9 +666,7 @@ body {
   color: var(--sidebar-text);
 }
 
-/* Plain version text.  When the version is displayed in the footer,
-   use this class instead of the badge to avoid any background or
-   decorative elements. */
+
 .version-text {
   color: var(--sidebar-text);
   font-size: 12px;
@@ -725,23 +681,14 @@ body {
   object-fit: cover;
 }
 
-/* Position user info relative so that the logout menu can be absolutely
-   positioned underneath it. */
+
 .user-info {
   position: relative;
   cursor: pointer;
 }
 
-/* Logout dropdown menu.  Hidden by default and shown when the
-   parent `.user-info` has the `show-logout` class. */
-/*
- * Logout dropdown menu styling.
- *
- * These rules implement a modern floating menu with a dark blurred
- * background and subtle border.  To support both fade‑in and fade‑out
- * animations, the element is always present in the DOM and hidden
- * using opacity and a slight translateY offset when not active.
- */
+
+
 .user-info .logout-menu {
   display: flex;
   position: absolute;
@@ -756,16 +703,14 @@ body {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),
               0 0 0 1px rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  /* Hidden state: transparent and slightly translated */
+  
   opacity: 0;
   transform: translateY(6px);
   pointer-events: none;
   transition: opacity 0.25s ease-out, transform 0.25s ease-out;
 }
 
-/* When the parent `.user-info` has the `show-logout` class the menu
-   fades in and slides up into place.  Pointer events are enabled so
-   the button can be clicked. */
+
 .user-info.show-logout .logout-menu {
   opacity: 1;
   transform: translateY(0);
@@ -786,8 +731,7 @@ body {
   color: #a80000;
 }
 
-/* Place the version wrap under the subtitle in the header.  Provide a
-   small margin to separate it from the subtitle. */
+
 .sidebar-header .version-wrap {
   margin-top: 4px;
   display: flex;
@@ -795,12 +739,7 @@ body {
   gap: 6px;
 }
 
-/*
- * Login buttons displayed when no OAuth profile is available.  These
- * are simple text buttons with transparent backgrounds so they blend
- * into the sidebar.  Feel free to adjust colours, padding or replace
- * with icons.  Each has a slight hover effect for affordance.
- */
+
 .user-info .login-btn {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -820,60 +759,38 @@ body {
   border-color: rgba(255, 255, 255, 0.3);
 }
 
-/*
- * Social login card for the user info area.
- * When a user is not authenticated we display a compact card with
- * individual buttons for each provider (e.g. Discord and Google).
- * The design is inspired by a modern Uiverse snippet: a rounded
- * rectangle container with evenly spaced circular buttons.  We adapt
- * the colours and dimensions to fit the existing dark theme of the
- * sidebar.  Each button uses an embedded SVG and transitions
- * smoothly on hover or focus.  The card itself responds to
- * focus-within by increasing contrast and adding a subtle border and
- * shadow.
- */
+
 .user-info .login-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  /* Further reduce padding and overall size for a very small appearance */
+  
   padding: 3px 6px;
   border-radius: 10px;
   width: auto;
   height: 36px;
-  /* Glassmorphism: emulate the "iQuad" liquid glass effect seen in newer iOS 26 designs.
-     We layer a soft linear gradient with faint radial highlights in opposite corners to
-     create depth.  Opacity values have been reduced further for a subtler, more
-     transparent look. */
+  
   background:
-    /* Corner highlights */
     radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%),
     radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 60%),
-    /* Base gradient */
     linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
-  /* Enhanced blur and brightness to give the impression of glass layers with depth.
-     Saturation is slightly reduced to keep colours from washing out while still
-     preserving vibrancy. */
+  
   backdrop-filter: blur(25px) saturate(130%) brightness(1.3);
   -webkit-backdrop-filter: blur(25px) saturate(130%) brightness(1.3);
-  /* Finer border with even less opacity for a softer edge reminiscent of the iOS glass panels */
+  
   border: 1px solid rgba(255, 255, 255, 0.12);
-  /* Slightly lighter shadow to match the increased transparency */
+  
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   transition: all 0.5s ease-in-out;
   position: relative;
-  /* Allow tooltips for children to extend outside without being clipped */
+  
   overflow: visible;
 }
 
-/* When any child button receives focus (e.g. via keyboard),
-   highlight the card with a darker overlay and border. */
+
 .user-info .login-card:focus-within {
-  /* Intensify the glass effect when any child button is focused.  We
-     slightly boost the opacity and blur compared to the base state, but keep
-     it airy.  The radial highlights are carried through so the card still
-     feels like liquid glass. */
+  
   background:
     radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 60%),
     radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%),
@@ -884,11 +801,9 @@ body {
   box-shadow: 0 6px 28px rgba(0, 0, 0, 0.35);
 }
 
-/* Style individual provider buttons within the login card.  Each
-   button is circular with no default border and a small padding to
-   create separation around the embedded SVG. */
+
 .user-info .login-card button {
-  /* Very small circular buttons for the ultra‑compact card */
+  
   width: 26px;
   height: 26px;
   padding: 3px;
@@ -903,41 +818,28 @@ body {
   position: relative;
 }
 
-/* Lighten the button on hover */
+
 .user-info .login-card button:hover {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
-/* When a button receives focus (via tab key), increase the
-   background opacity to provide keyboard navigability feedback. */
+
 .user-info .login-card button:focus {
   outline: none;
   background-color: rgb(255, 255, 255);
 }
 
-/* Ensure provider icons scale uniformly within the buttons */
+
 .user-info .login-card button svg {
   width: 100%;
   height: 100%;
   display: block;
 }
 
-/*
- * Custom tooltip styling.  Elements with a `data-tooltip` attribute
- * will display a modern dark tooltip on hover or focus.  The tooltip
- * text is defined via the attribute value itself.  We keep the
- * tooltip small and rounded with a subtle transition so that it
- * appears gracefully without jarring the UI.  Note: we avoid using
- * the default browser `title` tooltip so that we can fully control
- * the appearance and timing.
- */
-/*
- * Custom tooltip styling has been removed from CSS.  Tooltips are now
- * created and positioned dynamically via JavaScript in renderer.js.
- * Removing these rules prevents conflicts with the JS-driven tooltips.
- */
 
-/* ===== MAIN CONTENT AREA ===== */
+
+
+
 #main {
   flex: 1;
   display: flex;
@@ -968,7 +870,7 @@ body {
   flex-direction: column;
   align-items: stretch;
 }
-/* --- Pulse animation για το dot στο active --- */
+
 #menu-list button.active .dot{
   opacity: 1;
   transform: scale(1);
@@ -976,7 +878,7 @@ body {
   box-shadow: 0 0 0 0 rgba(var(--pulse-rgb, 0,191,255), .5);
 }
 
-/* Light/Dark μικρή λάμψη */
+
 [data-theme="light"] #menu-list button.active .dot{
   box-shadow: 0 0 0 0 rgba(0,191,255,.45);
 }
@@ -984,7 +886,7 @@ body {
   box-shadow: 0 0 0 0 rgba(0,191,255,.35);
 }
 
-/* Keyframes */
+
 @keyframes dotPulse{
   0%, 100%{
     transform: scale(1);
@@ -996,7 +898,7 @@ body {
   }
 }
 
-/* Respect reduced motion */
+
 @media (prefers-reduced-motion: reduce){
   #menu-list button.active .dot{ animation: none; }
 }
@@ -1004,19 +906,19 @@ body {
 #menu-list button:hover svg,
 #menu-list button.active svg { color: var(--accent-color); }
 
-/* ===== MODERN CARD DESIGN ===== */
+
 .card {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 2rem; /* Slightly reduced but still generous */
-  margin-bottom: 2rem; /* Reduced but sufficient to prevent overlap */
+  padding: 2rem; 
+  margin-bottom: 2rem; 
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
-  flex-shrink: 0; /* Prevent cards from shrinking and overlapping */
+  flex-shrink: 0; 
 }
 
 .card::before {
@@ -1036,7 +938,7 @@ body {
 
 .card h2 {
   margin-top: 0;
-  margin-bottom: 1.25rem; /* Adjusted for better internal spacing */
+  margin-bottom: 1.25rem; 
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-color);
@@ -1046,13 +948,13 @@ body {
   background-clip: text;
 }
 
-/* ===== MODERN BUTTONS ===== */
+
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0.875rem 1.75rem;
-  margin: 0.25rem 0.5rem 0.25rem 0; /* Reduced top and bottom margin */
+  margin: 0.25rem 0.5rem 0.25rem 0; 
   border: none;
   border-radius: 12px;
   background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
@@ -1063,7 +965,7 @@ body {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0, 191, 255, 0.3); /* Adjusted for blue */
+  box-shadow: 0 4px 16px rgba(0, 191, 255, 0.3); 
 }
 
 .button::before {
@@ -1083,7 +985,7 @@ body {
 
 .button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 191, 255, 0.4); /* Adjusted for blue */
+  box-shadow: 0 8px 24px rgba(0, 191, 255, 0.4); 
 }
 
 .button:active {
@@ -1096,13 +998,13 @@ body {
   transform: none !important;
 }
 
-/* Secondary button variant */
+
 .button-secondary {
   background: transparent;
   border: 2px solid var(--accent-color);
   color: var(--accent-color);
   box-shadow: none;
-  margin: 0.25rem 0; /* Adjusted margin for secondary buttons */
+  margin: 0.25rem 0; 
 }
 
 .button-secondary:hover {
@@ -1116,16 +1018,16 @@ ol li {
   line-height: 1.6;
 }
 
-/* ===== TABLES ===== */
+
 table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  margin: 2rem 0; /* Increased margin for tables */
+  margin: 2rem 0; 
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  flex-shrink: 0; /* Prevent table overlap */
+  flex-shrink: 0; 
 }
 
 table th {
@@ -1150,7 +1052,7 @@ table tr:hover td {
   background: var(--sidebar-hover);
 }
 
-/* ===== FORM ELEMENTS ===== */
+
 input[type="text"], 
 input[type="password"], 
 input[type="email"],
@@ -1163,16 +1065,16 @@ select {
   color: var(--text-color);
   font-size: 1rem;
   transition: all 0.3s ease;
-  margin-bottom: 1.25rem; /* Adjusted margin */
+  margin-bottom: 1.25rem; 
 }
 
 input:focus, select:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.1); /* Adjusted for blue */
+  box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.1); 
 }
 
-/* ===== MODERN SWITCH ===== */
+
 .switch {
   position: relative;
   display: inline-block;
@@ -1219,31 +1121,31 @@ input:checked + .slider:before {
   transform: translateX(24px);
 }
 
-/* ===== GRID LAYOUTS ===== */
+
 .install-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem; /* Reduced gap for full compress, almost stuck together */
-  margin-top: 1rem; /* Reduced top margin */
-  margin-bottom: 1rem; /* Reduced bottom margin */
-  flex-shrink: 0; /* Prevent grid from shrinking */
-  align-items: start; /* Align items to start, prevent stretching to tallest */
+  gap: 1rem; 
+  margin-top: 1rem; 
+  margin-bottom: 1rem; 
+  flex-shrink: 0; 
+  align-items: start; 
 }
 
 .app-card {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 0.75rem; /* Further reduced padding for full compress */
+  padding: 0.75rem; 
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
-  height: auto; /* Changed to auto to prevent fixed height issues */
-  min-height: 160px; /* Reduced min-height for more compact initial state */
-  max-height: 240px; /* Reduced max-height */
-  overflow-y: auto; /* Scroll if content exceeds */
-  flex-shrink: 0; /* Prevent individual cards from overlapping */
+  height: auto; 
+  min-height: 160px; 
+  max-height: 240px; 
+  overflow-y: auto; 
+  flex-shrink: 0; 
 }
 
 .app-card:hover {
@@ -1253,21 +1155,21 @@ input:checked + .slider:before {
 
 .app-card h3 {
   margin-top: 0;
-  margin-bottom: 0.25rem; /* Further reduced bottom margin for compress */
-  font-size: 1.5rem; /* Increased font size for bigger title */
+  margin-bottom: 0.25rem; 
+  font-size: 1.5rem; 
   font-weight: 600;
   color: var(--accent-color);
 }
 
 .app-card p {
   flex-grow: 1;
-  margin-bottom: 0.25rem; /* Further reduced bottom margin for p */
+  margin-bottom: 0.25rem; 
   color: var(--text-color);
   opacity: 0.8;
   line-height: 1.5;
 }
-/* ===== STATUS PRE STYLING TO PREVENT OVERFLOW ===== */
-/* ===== AUTO-FADE STATUS MESSAGES ===== */
+
+
 .status-pre {
   max-height: 80px;
   overflow-y: auto;
@@ -1300,7 +1202,7 @@ input:checked + .slider:before {
   overflow: hidden;
 }
 
-/* Status colors */
+
 .status-pre.status-success {
   color: var(--success-color);
   border-color: var(--success-color);
@@ -1319,54 +1221,54 @@ input:checked + .slider:before {
   background: rgba(245, 158, 11, 0.1);
 }
 
-/* ===== APP ICONS AND TITLE FLEX ===== */
+
 .app-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem; /* Slightly increased gap for better balance with larger sizes */
-  margin-bottom: 0rem; /* Set to 0 to make button almost stuck to title */
+  gap: 0.75rem; 
+  margin-bottom: 0rem; 
 }
 
 .app-icon {
-  width: 48px; /* Increased size for bigger logo */
+  width: 48px; 
   height: 48px;
   object-fit: contain;
   flex-shrink: 0;
-  border-radius: 6px; /* Smaller border-radius */
+  border-radius: 6px; 
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Button in app-card - reduced top margin to stick closer */
+
 .app-card .button {
-  margin-top: 0rem; /* Zero margin top for almost stuck */
-  margin-bottom: 0.25rem; /* Minimal space below */
+  margin-top: 0rem; 
+  margin-bottom: 0.25rem; 
 }
 
-/* When progress shows, ensure it pushes content down */
+
 .progress-container {
-  margin-top: 0.25rem; /* Reduced top margin for compact */
-  transition: margin-top 0.3s ease; /* Smooth transition if needed */
+  margin-top: 0.25rem; 
+  transition: margin-top 0.3s ease; 
 }
 
-/* Crack installer specific grid for more compact layout */
+
 .install-grid.crack-grid {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* Smaller minmax for compactness */
-  gap: 0.5rem; /* Further reduced gap for compress */
-  align-items: start; /* Prevent row height expansion */
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+  gap: 0.5rem; 
+  align-items: start; 
 }
 
-/* Controls container for tighter spacing */
+
 .controls {
-  margin-top: 0.125rem; /* Reduced top margin */
-  gap: 0.125rem; /* Reduced gap between buttons */
+  margin-top: 0.125rem; 
+  gap: 0.125rem; 
 }
 
-/* Progress container with less margin */
+
 .progress-container {
-  margin-top: 0.25rem; /* Reduced top margin */
+  margin-top: 0.25rem; 
 }
 
-/* ===== SCROLLBAR STYLING ===== */
+
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -1384,7 +1286,7 @@ input:checked + .slider:before {
   background: var(--accent-color-light);
 }
 
-/* ===== STATUS INDICATORS ===== */
+
 .status-success {
   color: var(--success-color);
 }
@@ -1397,7 +1299,7 @@ input:checked + .slider:before {
   color: var(--error-color);
 }
 
-/* ===== LOADING ANIMATIONS ===== */
+
 .loading {
   display: inline-block;
   width: 20px;
@@ -1412,7 +1314,7 @@ input:checked + .slider:before {
   to { transform: rotate(360deg); }
 }
 
-/* ===== RESPONSIVE DESIGN ===== */
+
 @media (max-width: 768px) {
   #app {
     flex-direction: column;
@@ -1431,36 +1333,36 @@ input:checked + .slider:before {
   
   #menu-list li {
     flex-shrink: 0;
-    margin: 0 0.75rem; /* Increased margin on mobile */
+    margin: 0 0.75rem; 
   }
   
   #content {
-    padding: 1.5rem; /* Adjusted for mobile */
+    padding: 1.5rem; 
   }
   
   .install-grid {
     grid-template-columns: 1fr;
-    gap: 1rem; /* Adjusted gap for mobile */
+    gap: 1rem; 
   }
   
   .card {
-    padding: 1.5rem; /* Reduced padding on mobile but still prevents overlap */
+    padding: 1.5rem; 
     margin-bottom: 1.5rem;
   }
   
   .app-card {
-    min-height: 140px; /* Further reduced for mobile compress */
+    min-height: 140px; 
     max-height: 220px;
-    padding: 0.5rem; /* Reduced padding */
+    padding: 0.5rem; 
   }
   
   .app-icon {
-    width: 44px; /* Slightly increased but adjusted for mobile */
+    width: 44px; 
     height: 44px;
   }
   
   .app-header {
-    gap: 0.5rem; /* Adjusted gap for mobile */
+    gap: 0.5rem; 
   }
   
   .status-pre {
@@ -1475,7 +1377,7 @@ input:checked + .slider:before {
   }
 }
 
-/* ===== UTILITY CLASSES ===== */
+
 .text-center { text-align: center; }
 .text-right { text-align: right; }
 .mt-0 { margin-top: 0; }
@@ -1496,14 +1398,14 @@ input:checked + .slider:before {
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1rem; /* Reduced for general grids to match compress */
+  gap: 1rem; 
 }
 
 .hidden {
   display: none;
 }
 
-/* ===== PASSWORD MANAGER SPECIFIC STYLES ===== */
+
 #pwTable {
   margin-top: 2rem;
 }
@@ -1524,7 +1426,7 @@ input:checked + .slider:before {
   min-width: 200px;
 }
 
-/* ===== MODERN TOAST NOTIFICATIONS ===== */
+
 #toast-container {
   position: fixed;
   bottom: 1.5rem;
@@ -1607,7 +1509,7 @@ input:checked + .slider:before {
   animation: toastSlideOut 0.3s cubic-bezier(0.61, 1, 0.88, 1) forwards;
 }
 
-/* Toast icon styling */
+
 .toast-icon {
   width: 24px;
   height: 24px;
@@ -1641,7 +1543,7 @@ input:checked + .slider:before {
   color: var(--warning-color);
 }
 
-/* Toast body styling */
+
 .toast-body {
   flex: 1;
   display: flex;
@@ -1663,7 +1565,7 @@ input:checked + .slider:before {
   line-height: 1.4;
 }
 
-/* Toast close button */
+
 .toast-close {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid var(--border-color);
@@ -1690,7 +1592,7 @@ input:checked + .slider:before {
   transform: scale(1.05);
 }
 
-/* Progress bar for auto-dismiss */
+
 .toast-progress {
   position: absolute;
   bottom: 0;
@@ -1718,7 +1620,7 @@ input:checked + .slider:before {
   to { width: 0%; }
 }
 
-/* Hover effects */
+
 .toast:hover {
   transform: translateY(-2px);
   box-shadow: 
@@ -1727,13 +1629,13 @@ input:checked + .slider:before {
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
-/* Stacking multiple toasts */
+
 #toast-container .toast:nth-child(1) { transform: translateY(0) scale(1); }
 #toast-container .toast:nth-child(2) { transform: translateY(-10px) scale(0.98); opacity: 0.9; }
 #toast-container .toast:nth-child(3) { transform: translateY(-20px) scale(0.96); opacity: 0.8; }
 #toast-container .toast:nth-child(n+4) { transform: translateY(-30px) scale(0.94); opacity: 0.7; }
 
-/* Mobile responsiveness */
+
 @media (max-width: 768px) {
   #toast-container {
     bottom: 1rem;
@@ -1747,7 +1649,7 @@ input:checked + .slider:before {
     max-width: none;
   }
 }
-/* ===== SETTINGS PAGE STYLING ===== */
+
 .settings-container {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
@@ -1800,10 +1702,10 @@ input:checked + .slider:before {
   align-items: center;
 }
 
-/* Modern select styling */
+
 .settings-select {
   width: auto;
-  padding: 0.6rem 2.5rem 0.6rem 1rem; /* Αύξησα το padding-right */
+  padding: 0.6rem 2.5rem 0.6rem 1rem; 
   border: 2px solid var(--border-color);
   border-radius: 10px;
   background: var(--card-bg);
@@ -1815,7 +1717,7 @@ input:checked + .slider:before {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2300bfff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 1rem center; /* Μπορείς να αυξήσεις κι εδώ αν χρειαστεί */
+  background-position: right 1rem center; 
   background-size: 14px;
   height: 42px;
   transform: translateY(10px);
@@ -1827,7 +1729,7 @@ input:checked + .slider:before {
   box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.1);
 }
 
-/* Enhanced switch styling */
+
 .settings-switch {
   position: relative;
   display: inline-flex;
@@ -1887,7 +1789,7 @@ input:checked + .slider:before {
   font-size: 0.95rem;
 }
 
-/* Save button styling */
+
 .settings-save-btn {
   display: inline-flex;
   align-items: center;
@@ -1915,7 +1817,7 @@ input:checked + .slider:before {
   transform: translateY(0);
 }
 
-/* Info button shown next to the save button in Settings. Styled similarly but smaller. */
+
 .settings-info-btn {
   display: inline-flex;
   align-items: center;
@@ -1941,7 +1843,7 @@ input:checked + .slider:before {
   transform: translateY(0);
 }
 
-/* ===== MODERN CHECKBOXES FOR INSTALL APPS ===== */
+
 #content input[type="checkbox"] {
   position: absolute;
   opacity: 0;
@@ -1966,22 +1868,21 @@ input:checked + .slider:before {
 }
 
 #content input[type="checkbox"]:checked + label::before {
-  /* Solid colour fill when checked */
+  
   background-color: #2d8cf0;
-  /* Embed a white checkmark SVG into the checkbox background.  Using a background image ensures the tick remains
-     perfectly centred and does not move when the list item is transformed (e.g. during installation actions). */
+  
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'><polyline points='1 5 4 8 11 1' stroke='%23ffffff' stroke-width='2' fill='none'/></svg>");
   background-repeat: no-repeat;
   background-position: center;
   background-size: 60% 60%;
-  /* Keep the border consistent with the unchecked state */
+  
   border-color: #323232;
-  /* Subtle shadow to maintain the raised effect */
+  
   box-shadow: 3px 3px #323232;
 }
 
 #content input[type="checkbox"]:checked + label::after {
-  /* Hide the separate checkmark pseudo-element because the tick is now drawn via a background-image on ::before */
+  
   display: none;
 }
 
@@ -1995,7 +1896,7 @@ input:checked + .slider:before {
   transform: scale(1.05);
 }
 
-/* Specific styling for install apps list */
+
 #content ul[style*="list-style"] input[type="checkbox"] + label::before {
   margin-right: 1rem;
   margin-top: 0.125rem;
@@ -2006,10 +1907,10 @@ input:checked + .slider:before {
 }
 
 #content ul[style*="list-style"] input[type="checkbox"]:checked + label::after {
-  /* Hide the pseudo-element for list items; the tick is drawn by the background-image on ::before */
+  
   display: none;
 }
-/* Fix για activate/autologin cards συμμετρία ΧΩΡΙΣ scrollbar */
+
 .install-grid[style*="grid-template-columns: 1fr 1fr"] {
   align-items: stretch;
 }
@@ -2018,12 +1919,12 @@ input:checked + .slider:before {
   height: 100%;
   display: flex;
   flex-direction: column;
-  min-height: 220px; /* Ελάχιστο ύψος για συμμετρία */
+  min-height: 220px; 
 }
 
 .install-grid[style*="grid-template-columns: 1fr 1fr"] .app-card .button {
   margin-top: auto;
-  width: calc(100% - 0.5rem); /* Μείωσε ελαφρώς το width για να μην δημιουργεί scrollbar */
+  width: calc(100% - 0.5rem); 
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -2034,13 +1935,13 @@ input:checked + .slider:before {
   align-items: center;
 }
 
-/* Βεβαιώσου ότι το grid container δεν δημιουργεί overflow */
+
 .install-grid {
   overflow: visible;
 }
 
 .app-card {
-  overflow: hidden; /* Αποφεύγει εσωτερικά scrollbars */
+  overflow: hidden; 
 }
 [class="button button-secondary"]:last-child{
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%) !important;
@@ -2051,7 +1952,7 @@ input:checked + .slider:before {
   overflow: hidden;
 }
 
-/* Smooth BIOS Dialog Animations */
+
 .bios-overlay {
   position: fixed;
   top: 0;
@@ -2161,7 +2062,7 @@ input:checked + .slider:before {
   margin-top: 1.5rem;
 }
 
-/* BIOS Specific Button Styles */
+
 .bios-cancel-btn {
   background: transparent;
   border: 2px solid var(--border-color);
@@ -2215,7 +2116,7 @@ input:checked + .slider:before {
   transform: translateY(0);
 }
 
-/* Animations */
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -2245,7 +2146,7 @@ input:checked + .slider:before {
   }
 }
 
-/* Exit animations */
+
 .bios-overlay.fade-out {
   animation: fadeOut 0.3s ease forwards;
 }
@@ -2273,7 +2174,7 @@ input:checked + .slider:before {
     transform: translateY(20px) scale(0.95);
   }
 }
-/* ===== ULTRA COMPACT TUTORIAL CARD ===== */
+
 .tutorial-card-compact {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
@@ -2293,7 +2194,7 @@ input:checked + .slider:before {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* Mobile responsiveness */
+
 @media (max-width: 768px) {
     .tutorial-card-compact {
         margin: 0 1rem;
@@ -2361,12 +2262,9 @@ input:checked + .slider:before {
     .ctt-status.success{border-color:rgba(34,197,94,.5); color:#bff3cd;}
     .ctt-status.error{border-color:rgba(239,68,68,.55); color:#ffd2d2;}
 
-    /* ================================
-   DLC Unlocker — Enhanced Buttons with Card BG Color
-   (scope everything under .dlc-scope)
-=================================== */
+    
 
-/* Layout */
+
 .dlc-scope .dlc-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2380,7 +2278,7 @@ input:checked + .slider:before {
   }
 }
 
-/* Enhanced Cards */
+
 .dlc-scope .dlc-card {
   display: flex;
   flex-direction: column;
@@ -2425,7 +2323,7 @@ input:checked + .slider:before {
   min-height: 40px;
 }
 
-/* Icons / SVG - Keep original style */
+
 .dlc-scope .dlc-icon {
   flex: 0 0 auto;
   display: grid;
@@ -2440,7 +2338,7 @@ input:checked + .slider:before {
   display: block;
 }
 
-/* Enhanced Unified Buttons with Card BG Color */
+
 .dlc-scope .dlc-btn {
   width: 100%;
   height: 52px;
@@ -2512,7 +2410,7 @@ input:checked + .slider:before {
   color: color-mix(in srgb, var(--text-color) 30%, transparent);
 }
 
-/* Same style for both buttons */
+
 .dlc-scope .dlc-btn-sims,
 .dlc-scope .dlc-btn-ea {
   border: 2px solid var(--accent-color);
@@ -2527,7 +2425,7 @@ input:checked + .slider:before {
   color: white;
 }
 
-/* Enhanced Status output */
+
 .dlc-scope .dlc-status {
   display: none;
   margin-top: 1rem;
@@ -2566,7 +2464,7 @@ input:checked + .slider:before {
   color: #ffe7bf;
 }
 
-/* Tutorials area */
+
 .dlc-scope .dlc-tutorials {
   margin-top: 2rem;
   padding-top: 1.5rem;
@@ -2650,7 +2548,7 @@ input:checked + .slider:before {
   opacity: 0.9;
 }
 
-/* Animations */
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -2662,7 +2560,7 @@ input:checked + .slider:before {
   }
 }
 
-/* Loading states */
+
 .dlc-scope .dlc-btn.loading {
   pointer-events: none;
   opacity: 0.8;
@@ -2687,7 +2585,7 @@ input:checked + .slider:before {
   100% { transform: rotate(360deg); }
 }
 
-/* Motion reduction */
+
 @media (prefers-reduced-motion: reduce) {
   .dlc-scope .dlc-btn,
   .dlc-scope .dlc-card,
@@ -2703,7 +2601,7 @@ input:checked + .slider:before {
     display: none;
   }
 }
-/* --- Spicetify UI add-ons --- */
+
 .btn-icon { display:inline-flex; align-items:center; gap:.5rem; }
 .btn-icon svg { width:18px; height:18px; stroke: currentColor; fill: none; }
 
@@ -2716,11 +2614,11 @@ input:checked + .slider:before {
   box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
 }
 
-/* optional: compact card paddings for tool cards like the screenshot */
+
 .app-card.spc { padding: 1.25rem; }
 .app-card .spc-desc { opacity:.85; line-height:1.5; margin: .25rem 0 .75rem; }
 
-/* a single shared status box for the page */
+
 .spc-status { margin-top: .75rem; }
 
 .app-icon svg { color: var(--accent-color, #22c55e); }
@@ -2796,11 +2694,11 @@ input:checked + .slider:before {
 .settings-controls {
   display: flex !important;
   flex-direction: row !important;
-  align-items: center;       /* Κεντράρει κάθετα όλα τα κουμπιά */
+  align-items: center;       
   gap: 10px;
 }
 
-/* Save & Info – ίδιο ύψος */
+
 .settings-save-btn,
 .settings-info-btn {
   display: inline-flex !important;
@@ -2808,27 +2706,16 @@ input:checked + .slider:before {
   justify-content: center;
   height: 36px;
   border-radius: 8px;
-  vertical-align: middle;    /* βοηθά με baseline alignment */
+  vertical-align: middle;    
 }
 
-/* Info – ίδιο ύψος, μικρότερο πλάτος */
-/*
- * The settings info button should visually match the "Save" button so that
- * they look like part of the same control group. Previously the info
- * button used a dark background with an accent-coloured icon. This
- * caused it to stand out in a way that didn’t align with the bright
- * gradient of the save button. To address this, we reuse the same
- * gradient defined for the save button (via CSS variables) and invert
- * the text colour to white. The width is kept narrow to distinguish
- * its secondary role and the extra border is removed for a cleaner
- * appearance.
- */
+
+
 .settings-info-btn {
   width: 36px;
   padding: 0;
   margin: 0;
-  /* Match the gradient used on .settings-save-btn. Use !important to override
-     any conflicting rules defined elsewhere in the stylesheet. */
+  
   background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%) !important;
   color: #ffffff !important;
   border: none !important;
@@ -2837,9 +2724,9 @@ input:checked + .slider:before {
   margin-left: 20px;
 }
 
-/* SVG στο κέντρο */
+
 .settings-info-btn svg {
-  display: block;           /* αφαιρεί “line-height offset” */
+  display: block;           
   width: 18px;
   height: 18px;
   fill: black;
@@ -2847,28 +2734,20 @@ input:checked + .slider:before {
   padding: 0;
 }
 
-/* Enhance the visibility of the outer ring by adding a stroke around the
-   SVG path. Using a low-opacity dark stroke gives the icon a subtle
-   outline without overwhelming the design. */
+
 .settings-info-btn svg path {
   stroke: rgb(0, 0, 0);
   stroke-width: 1px;
 }
 
-/* ===========================================================
- * New Update Button (Expandable)
- *
- * This replicates the UI snippet provided by the user. It shows
- * a small notification badge and animates open to reveal details,
- * progress and actions when there is an available update.
- */
+
 
 #update-btn {
   position: fixed;
   bottom: 20px;
   right: 20px;
   z-index: 1100;
-  /* hidden by default until activated */
+  
   display: none;
   flex-direction: column;
   align-items: flex-start;
@@ -2916,12 +2795,12 @@ input:checked + .slider:before {
   z-index: 1;
 }
 
-/* Hide badge when inactive */
+
 #update-btn:not(.active) .badge {
   display: none;
 }
 
-/* Outer gradient border */
+
 #update-btn .outer {
   position: relative;
   border-radius: 12px;
@@ -2931,7 +2810,7 @@ input:checked + .slider:before {
   overflow: hidden;
 }
 
-/* Inner content container */
+
 #update-btn .inner {
   display: flex;
   align-items: center;
@@ -2945,7 +2824,7 @@ input:checked + .slider:before {
   background: var(--card-bg-hover, rgba(0, 0, 0, 0.4));
 }
 
-/* Icon container with gradient and blur overlay */
+
 #update-btn .icon {
   position: relative;
   width: 40px;
@@ -2978,7 +2857,7 @@ input:checked + .slider:before {
   filter: blur(12px);
 }
 
-/* Text content */
+
 #update-btn .content {
   display: flex;
   flex-direction: column;
@@ -2997,7 +2876,7 @@ input:checked + .slider:before {
   opacity: 0.8;
 }
 
-/* Trailing indicator dots */
+
 #update-btn .indicators {
   margin-left: auto;
   display: flex;
@@ -3024,7 +2903,7 @@ input:checked + .slider:before {
   transform: scale(1.4);
 }
 
-/* Extra expandable container */
+
 #update-btn .extra {
   width: 100%;
   overflow: hidden;
@@ -3047,14 +2926,14 @@ input:checked + .slider:before {
   padding-bottom: 0.75rem;
 }
 
-/* Message text within extra */
+
 #update-btn .extra .message {
   font-size: 0.85rem;
   color: var(--text-color);
   opacity: 0.85;
 }
 
-/* Progress bar styles */
+
 #update-btn .extra .progress-bar {
   width: 100%;
   height: 6px;
@@ -3070,7 +2949,7 @@ input:checked + .slider:before {
   transition: width 0.3s ease;
 }
 
-/* Actions container and buttons */
+
 #update-btn .extra .actions {
   display: flex;
   gap: 0.5rem;
