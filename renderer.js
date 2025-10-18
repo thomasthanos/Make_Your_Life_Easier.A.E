@@ -1468,9 +1468,16 @@ async function downloadAndRunAutologin(button, statusElement) {
       // Add info button next to the save button. Clicking it opens the info page in a new window.
       const infoBtn = document.createElement('button');
       infoBtn.className = 'settings-info-btn';
+      // Embed a stroke on the SVG path to ensure the outline remains visible even on
+      // high‑contrast backgrounds. By specifying a semi‑transparent black stroke
+      // directly within the SVG markup we avoid relying on external CSS to
+      // override the icon style, giving a more predictable appearance across
+      // themes. The stroke-opacity attribute controls how prominent the
+      // outline appears, while the stroke-width determines thickness.
       infoBtn.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 50 50" fill="currentColor">
-        <path d="M 25 2 C 12.264481 2 2 12.264481 2 25 C 2 37.735519 12.264481 48 25 48 C 37.735519 48 48 37.735519 48 25 C 48 12.264481 37.735519 2 25 2 z M 25 4 C 36.664481 4 46 13.335519 46 25 C 46 36.664481 36.664481 46 25 46 C 13.335519 46 4 36.664481 4 25 C 4 13.335519 13.335519 4 25 4 z M 25 11 A 3 3 0 0 0 25 17 A 3 3 0 0 0 25 11 z M 21 21 L 21 23 L 23 23 L 23 36 L 21 36 L 21 38 L 29 38 L 29 36 L 27 36 L 27 21 L 21 21 z"></path>
+        <path d="M 25 2 C 12.264481 2 2 12.264481 2 25 C 2 37.735519 12.264481 48 25 48 C 37.735519 48 48 37.735519 48 25 C 48 12.264481 37.735519 2 25 2 z M 25 4 C 36.664481 4 46 13.335519 46 25 C 46 36.664481 36.664481 46 25 46 C 13.335519 46 4 36.664481 4 25 C 4 13.335519 13.335519 4 25 4 z M 25 11 A 3 3 0 0 0 25 17 A 3 3 0 0 0 25 11 z M 21 21 L 21 23 L 23 23 L 23 36 L 21 36 L 21 38 L 29 38 L 29 36 L 27 36 L 27 21 L 21 21 z"
+              stroke="#ffffffff" stroke-opacity="1" stroke-width="1"></path>
       </svg>`;
       infoBtn.title = (translations.pages && translations.pages.info) || 'Info';
       infoBtn.addEventListener('click', () => {
