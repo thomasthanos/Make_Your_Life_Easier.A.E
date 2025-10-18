@@ -55,18 +55,6 @@ const MENU_ICONS = {
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-computer w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><rect width="14" height="8" x="5" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><path d="M6 18h2"></path><path d="M12 18h6"></path></svg>
   `,
 };
-
-  /* --------------------------------------------------------------------
-   * Global tooltip helper functions
-   *
-   * This module-level code defines a reusable tooltip manager and a helper
-   * to attach tooltip event handlers to any element with a `data-tooltip`
-   * attribute.  The tooltip is created lazily the first time it is
-   * needed and persists in the DOM for reuse.  It appears near the mouse
-   * pointer (or the focused element) and hides when the pointer leaves or
-   * focus is lost.
-   */
-  // Encapsulate tooltip logic to avoid leaking implementation details
   const tooltipManager = (() => {
     let tooltipEl;
     // Create or return the existing tooltip element
@@ -162,8 +150,6 @@ const MENU_ICONS = {
       tooltipManager.hide();
     });
     el.addEventListener('focus', () => {
-      // Show tooltip on focus only when the last interaction was via keyboard.
-      // This prevents tooltips from appearing immediately after a mouse click.
       if (!lastInteractionWasKeyboard) return;
       const rect = el.getBoundingClientRect();
       tooltipManager.show(el, tip, { clientX: rect.right, clientY: rect.bottom });
@@ -177,23 +163,16 @@ const MENU_ICONS = {
       tooltipManager.hide();
     });
   }
-
-  // Global click handler: hide the tooltip and blur the currently focused
-  // element if it has a tooltip when clicking outside of it.  This prevents
-  // lingering tooltips when interacting elsewhere in the app.
   document.addEventListener('click', (ev) => {
     const active = document.activeElement;
     if (active && typeof active.getAttribute === 'function' && active.getAttribute('data-tooltip')) {
       if (!active.contains(ev.target)) {
         tooltipManager.hide();
-        // Blur the active element to trigger its blur handler
         if (typeof active.blur === 'function') {
           active.blur();
         }
       }
     } else {
-      // Hide any visible tooltip if the click target is not within a
-      // tooltip-enabled element
       tooltipManager.hide();
     }
   });
@@ -229,17 +208,12 @@ const MENU_ICONS = {
     }
   })();
 
-  // Persist settings to localStorage whenever they change
   function saveSettings() {
     localStorage.setItem('myAppSettings', JSON.stringify(settings));
   }
 
   let translations = {};
   
-  // Load translation JSON file based on current language.  It first tries
-  // to fetch from the `lang/` subfolder; if that fails (e.g. because
-  // translations are stored at the root level), it falls back to
-  // fetching `${lang}.json` directly.
   async function loadTranslations() {
     const candidates = [`lang/${settings.lang}.json`, `${settings.lang}.json`];
     for (const url of candidates) {
@@ -250,7 +224,6 @@ const MENU_ICONS = {
           return;
         }
       } catch (e) {
-        // ignore and try next candidate
       }
     }
     // If nothing worked, fallback to English empty translations
@@ -262,32 +235,13 @@ const MENU_ICONS = {
     document.documentElement.setAttribute('data-theme', settings.theme);
   }
 
-  // Icons for the theme toggle (sun and moon) using lucide‑style SVGs.  These
-  // inline SVGs allow us to avoid external dependencies and match the
-  // lightweight line‑based aesthetic used elsewhere in the app.
   const SUN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
   const MOON_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path></svg>`;
-
-  /**
-   * Update the sidebar header: populate the application title and subtitle
-   * according to the current language, and wire up the theme toggle button.
-   * This function should be called after translations have loaded and the
-   * `settings.theme` value is up to date so that the correct icon is
-   * displayed.  It safely removes any previous click listeners to avoid
-   * duplicate handlers when the app reinitialises.
-   */
+  
   function updateHeader() {
     const titleEl = document.querySelector('.app-title');
     const subtitleEl = document.querySelector('.app-subtitle');
     if (titleEl) {
-      /*
-       * Use a single element for the application title rather than
-       * splitting into highlight/rest spans.  If the translation
-       * provides an explicit `app.title`, use it; otherwise, build
-       * the title from `title_high` and `title_rest` or fall back
-       * to the default English title.  The CSS applies a gradient
-       * on `.sidebar-header .app-title` so no extra spans are needed.
-       */
       let fullTitle = 'Make Life Easier';
       if (translations.app) {
         if (translations.app.title) {
@@ -313,11 +267,6 @@ const MENU_ICONS = {
         toggleButton.removeEventListener('click', toggleButton._toggleListener);
       }
       const listener = () => {
-        // Toggle the theme between light and dark.  The header toggle
-        // is debounced implicitly by the event loop; no explicit
-        // disabling is necessary.  Rapid clicks should still work
-        // reliably because the state update and icon refresh run
-        // synchronously.
         const newTheme = settings.theme === 'dark' ? 'light' : 'dark';
         settings.theme = newTheme;
         document.documentElement.setAttribute('data-theme', newTheme);
@@ -358,10 +307,6 @@ const MENU_ICONS = {
       first.classList.add('active');
       loadPage(first.dataset.key);
     }
-
-    // Update the header after building the menu.  This ensures that the
-    // app title, subtitle and theme toggle reflect the current language and
-    // theme settings each time the menu is rendered.
     updateHeader();
   }
 
@@ -371,31 +316,17 @@ const MENU_ICONS = {
     const header = document.getElementById('header');
     header.textContent = text;
   }
-
-  // =======================
-  // Modal for Info Page
-  // Creates and displays a pop‑up overlay with the info page loaded via an iframe.  If a modal
-  // already exists, it will not create another one.  The modal can be closed by clicking the
-  // close button (×) in the top right corner.
   function openInfoModal() {
-    // Prevent multiple modals
     if (document.getElementById('info-modal-overlay')) return;
     const overlay = document.createElement('div');
     overlay.id = 'info-modal-overlay';
     overlay.className = 'modal-overlay';
-    // Create a container to hold the iframe.  The container will shrink
-    // to the size of the loaded page and will be centred via the overlay's
-    // flexbox.  No close button is added here; instead, the info page
-    // includes its own close control.
     const container = document.createElement('div');
     container.className = 'modal-container';
-    // Iframe with the info page. Use fallback if the primary file is missing.
     const iframe = document.createElement('iframe');
     iframe.src = 'info/info.html';
     iframe.setAttribute('title', 'Information');
     iframe.style.border = 'none';
-    // Let the iframe content determine its own width/height.  The modal
-    // container's max-width and max-height constrain it.
     iframe.style.width = '100%';
     iframe.style.height = '100%';
     iframe.addEventListener('error', () => {
@@ -1224,12 +1155,6 @@ async function findClipStudioInstaller(extractedDir) {
   });
 }
 
-// Helper function to locate the correct installer executable for non‑Clip Studio projects.
-// For most Adobe applications the installer is named `Set‑up.exe` (with a hyphen).
-// For Microsoft Office we look for `OInstall_x64.exe` (or any file starting with 'oinstall').
-// If none of these are found we return null so the UI can prompt the user to run
-// the installer manually. We deliberately avoid choosing other executables such as
-// cracks or patches.
 async function findProjectInstaller(extractedDir, projectName) {
   try {
     const exeFiles = await window.api.findExeFiles(extractedDir);
@@ -3761,32 +3686,12 @@ function initializeAutoUpdater() {
   const updateContent = document.createElement('div');
   updateStatus.appendChild(updateContent);
   document.body.appendChild(updateStatus);
-
-  // Track the last update event so that the floating button can
-  // reference it when toggling the notification panel. If this is
-  // null then no update is currently pending.
   let lastUpdateData = null;
-
-  // Create a floating update notification button. This button stays visible
-  // in the corner and provides a subtle indicator when an update is
-  // available. Clicking it will manually trigger an update check and
-  // reveal the detailed notification panel. The structure loosely
-  // follows the design provided by the user and uses semantic class
-  // names so that styles can be defined in styles.css. See styles.css
-  // for visual details.
   const updateButton = document.createElement('button');
   updateButton.id = 'update-btn';
   updateButton.setAttribute('aria-label', 'Check for updates');
-  // Define the default SVG path for the bell icon and error icon.  These
-  // constants will be used to update the icon depending on the update status.
   const bellIconPath = 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9';
   const errorIconPath = 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 14a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0-4a1 1 0 0 1-1-1V7a1 1 0 0 1 2 0v4a1 1 0 0 1-1 1Z';
-
-  // Build the update button UI to match the provided design.  It contains
-  // an outer gradient wrapper, an inner content area, a badge (ping + number)
-  // and an extra container which will hold the expanded message, progress
-  // bar and actions.  The extra container is hidden by default and
-  // becomes visible when the button has the `.expanded` class.
   updateButton.innerHTML = `
     <div class="badge">
       <span class="ping"></span>
@@ -3811,18 +3716,8 @@ function initializeAutoUpdater() {
       <div class="extra"></div>
     </div>
   `;
-  // Hide the button until an update event indicates it should be shown.
-  // It will be displayed when there is an actionable update (available,
-  // downloading, downloaded or error).  This ensures that the notification
-  // icon does not clutter the UI when no updates are available.
   updateButton.style.display = 'none';
-  // Clicking the update button either triggers a manual update check
-  // (if no update has been announced yet) or toggles the expanded
-  // details panel (if an update is available).  When expanded, the
-  // contents of the extra container are updated based on the latest
-  // update data.
   updateButton.addEventListener('click', () => {
-    // If no update data, perform a manual check for updates
     if (!lastUpdateData) {
       try {
         if (window.api && typeof window.api.checkForUpdates === 'function') {
@@ -3838,166 +3733,18 @@ function initializeAutoUpdater() {
     }
   });
   document.body.appendChild(updateButton);
-
-  // ---------------------------------------------------------------------
-  // Unified update card implementation
-  //
-  // Instead of using the legacy pop‑up panel (#update-status) and floating
-  // button (#update-btn) to notify users about updates, we build a single
-  // card element that appears when there is actionable update information.
-  // The card includes its own title, message, optional progress bar and
-  // action buttons (Download, Restart & Install, Later, Close). It is
-  // initially hidden and shown only via renderUpdateCard().
   const updateCard = document.createElement('div');
   updateCard.id = 'update-card';
   updateCard.style.display = 'none';
   document.body.appendChild(updateCard);
-
-  /**
-   * Render the unified update card based on the received update status.
-   * This hides the legacy updateStatus/updateButton UI and constructs
-   * the card contents.  Buttons call into the preload API to download
-   * or install updates.  Close/Later simply hides the card.
-   *
-   * @param {object} data - The update event object from the main process
-   */
-  function renderUpdateCard(data) {
-    // Always hide the legacy UI elements if they exist
-    try {
-      updateStatus.style.display = 'none';
-      updateButton.style.display = 'none';
-    } catch (_) {}
-    // Only show for relevant statuses
-    const showStatuses = ['checking', 'available', 'downloading', 'downloaded', 'error'];
-    if (!data || !showStatuses.includes(data.status)) {
-      updateCard.style.display = 'none';
-      updateCard.innerHTML = '';
-      return;
-    }
-    // Choose icon path: use alert icon for error, bell for others
-    const iconPath = data.status === 'error'
-      ? 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 14a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0-4a1 1 0 0 1-1-1V7a1 1 0 0 1 2 0v4a1 1 0 0 1-1 1Z'
-      : 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9';
-    // Determine title, message, progress and actions
-    let titleText = '';
-    let messageText = data.message || '';
-    let actionsHTML = '';
-    let progressHTML = '';
-    switch (data.status) {
-      case 'checking':
-        titleText = 'Checking for Updates';
-        messageText = 'Checking for updates...';
-        actionsHTML = `<button class="btn btn-secondary btn-close">Close</button>`;
-        break;
-      case 'available':
-        titleText = 'Update Available';
-        actionsHTML = `
-          <button class="btn btn-primary btn-download">Download</button>
-          <button class="btn btn-secondary btn-later">Later</button>
-        `;
-        break;
-      case 'downloading':
-        titleText = 'Downloading Update';
-        const percent = data.percent || 0;
-        progressHTML = `
-          <div class="progress-bar">
-            <div class="progress" style="width: ${percent}%;"></div>
-          </div>
-        `;
-        actionsHTML = `<button class="btn btn-secondary btn-later">Later</button>`;
-        break;
-      case 'downloaded':
-        titleText = 'Update Ready';
-        actionsHTML = `
-          <button class="btn btn-primary btn-install">Restart & Install</button>
-          <button class="btn btn-secondary btn-later">Later</button>
-        `;
-        break;
-      case 'error':
-        titleText = 'Update Error';
-        actionsHTML = `<button class="btn btn-secondary btn-close">Close</button>`;
-        break;
-    }
-    // Assemble the HTML for the card
-    const html = `
-      <div class="update-card-inner">
-        <div class="icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="${iconPath}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
-          </svg>
-        </div>
-        <div class="info">
-          <div class="title">${titleText}</div>
-          <div class="message">${messageText}</div>
-          ${progressHTML}
-        </div>
-        <div class="actions">
-          ${actionsHTML}
-        </div>
-      </div>
-    `;
-    updateCard.innerHTML = html;
-    updateCard.style.display = 'flex';
-    // Add event listeners to the action buttons
-    const downloadBtn = updateCard.querySelector('.btn-download');
-    if (downloadBtn) {
-      downloadBtn.addEventListener('click', () => {
-        try {
-          if (window.api && typeof window.api.downloadUpdate === 'function') {
-            downloadBtn.disabled = true;
-            downloadBtn.textContent = 'Downloading...';
-            window.api.downloadUpdate();
-          }
-        } catch (_) {}
-      });
-    }
-    const installBtn = updateCard.querySelector('.btn-install');
-    if (installBtn) {
-      installBtn.addEventListener('click', () => {
-        try {
-          if (window.api && typeof window.api.installUpdate === 'function') {
-            installBtn.disabled = true;
-            installBtn.textContent = 'Installing...';
-            window.api.installUpdate();
-          }
-        } catch (_) {}
-      });
-    }
-    const laterBtn = updateCard.querySelector('.btn-later');
-    if (laterBtn) {
-      laterBtn.addEventListener('click', () => {
-        updateCard.style.display = 'none';
-      });
-    }
-    const closeBtn = updateCard.querySelector('.btn-close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        updateCard.style.display = 'none';
-      });
-    }
-  }
-
-  let currentVersion = '';
-
-  // Get current version
   window.api.getAppVersion().then(version => {
     currentVersion = version;
   });
-
-  // Listen for update events
   window.api.onUpdateStatus((data) => {
     showUpdateNotification(data);
   });
 
-  /**
-   * Populate the expanded content area of the update button based on
-   * the current update status.  The extra container will contain
-   * a message, optional progress bar and a set of action buttons.  The
-   * buttons call into the preload API and collapse the panel when
-   * appropriate.
-   *
-   * @param {object} data
-   */
+
   function renderExpandedContent(data) {
     const extra = updateButton.querySelector('.extra');
     if (!extra) return;
@@ -4092,9 +3839,6 @@ function initializeAutoUpdater() {
     // Determine collapsed UI based on update status
     switch (data.status) {
       case 'available': {
-        // When an update is available, use a generic label for the
-        // collapsed button.  The detailed title and version will be
-        // shown in the expanded panel.
         if (numEl) numEl.textContent = '1';
         if (titleEl) titleEl.textContent = 'Update Available';
         if (subtitleEl) subtitleEl.textContent = 'Click to view details';
@@ -4116,9 +3860,6 @@ function initializeAutoUpdater() {
         break;
       }
       case 'downloaded': {
-        // Once downloaded, encourage the user to install.  Use a
-        // generic label in collapsed view; details will appear
-        // in the expanded panel.
         if (numEl) numEl.textContent = '1';
         if (titleEl) titleEl.textContent = 'Update Ready';
         if (subtitleEl) subtitleEl.textContent = 'Click to install';
@@ -4145,36 +3886,6 @@ function initializeAutoUpdater() {
       renderExpandedContent(data);
     }
     return;
-    
-    // Update the floating button visibility and text based on the
-    // status. Only show the button when an update is available or
-    // downloaded. Otherwise hide it entirely.
-    const badgeNum = updateButton.querySelector('.num');
-    const titleSpan = updateButton.querySelector('.title');
-    const subtitleSpan = updateButton.querySelector('.subtitle');
-    if (!badgeNum || !titleSpan || !subtitleSpan) return;
-    switch (data.status) {
-      case 'available':
-        badgeNum.textContent = '1';
-        titleSpan.textContent = 'Update Available';
-        subtitleSpan.textContent = 'Click to view details';
-        updateButton.classList.add('active');
-        updateButton.style.display = 'flex';
-        break;
-      case 'downloaded':
-        badgeNum.textContent = '1';
-        titleSpan.textContent = 'Update Ready';
-        subtitleSpan.textContent = 'Click to install';
-        updateButton.classList.add('active');
-        updateButton.style.display = 'flex';
-        break;
-      default:
-        // Hide when there is no actionable update.
-        badgeNum.textContent = '0';
-        updateButton.classList.remove('active');
-        updateButton.style.display = 'none';
-        break;
-    }
   }
 
 }
@@ -4194,9 +3905,6 @@ async function ensureSidebarVersion() {
 
   const wrap = document.createElement('div');
   wrap.className = 'version-wrap';
-  // Use our custom tooltip instead of the native title attribute.
-  // The tooltip text is stored in a data attribute which our
-  // attachTooltipHandlers function reads.
   wrap.setAttribute('data-tooltip', 'App version');
 
   wrap.innerHTML = `
@@ -4206,10 +3914,6 @@ async function ensureSidebarVersion() {
     </svg>
     <span id="appVersion">dev</span>
   `;
-
-  // Attach custom tooltip handlers to the version wrapper.  This ensures
-  // that hovering or focusing on the version text uses our custom
-  // tooltip instead of the native browser title.
   attachTooltipHandlers(wrap);
 
   footer.appendChild(wrap);
@@ -4306,8 +4010,6 @@ async function ensureSidebarVersion() {
   const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
   if (!sidebar) return;
 
-  // If a sidebar footer does not exist (e.g. older versions of the
-  // template), create one with the version badge and user info holder.
   if (!sidebar.querySelector('.sidebar-footer')) {
     const footer = document.createElement('div');
     footer.className = 'sidebar-footer';
@@ -4320,8 +4022,6 @@ async function ensureSidebarVersion() {
         <div class="user-info" id="userInfo"></div>
       </div>`;
     sidebar.appendChild(footer);
-    // After inserting the HTML, attach custom tooltip handlers to the version
-    // wrapper.  We look up the element we just added and bind handlers.
     const versionWrapper = footer.querySelector('.version-wrap');
     if (versionWrapper) attachTooltipHandlers(versionWrapper);
   }
@@ -4329,9 +4029,6 @@ async function ensureSidebarVersion() {
   const versionEl = document.getElementById('appVersion');
   const setSafe = (txt) => { if (versionEl) versionEl.textContent = txt; };
 
-  // Set the version once and schedule a correction in case another piece of
-  // code overwrites it with an invalid value (e.g. 0.0.0).  Normalise
-  // versions that begin with `v` and avoid displaying all‑zero versions.
   setSafe(await getAppVersionWithFallback());
   setTimeout(async () => {
     const raw = (versionEl?.textContent || '').trim().replace(/^v/i, '');
@@ -4340,13 +4037,6 @@ async function ensureSidebarVersion() {
     }
   }, 800);
 
-  // Populate or update the user info area.  This function runs
-  // immediately and after each successful login to reflect the latest
-  // authentication state.  It first checks if a user profile is
-  // available via the preload API; if so, it displays the name and
-  // avatar.  Otherwise, it presents login buttons for Google and
-  // Discord.  Clicking a button triggers the corresponding login flow
-  // and refreshes the UI upon completion.
   async function updateUserInfo() {
     const userInfoEl = document.getElementById('userInfo');
     if (!userInfoEl) return;
@@ -4397,8 +4087,6 @@ async function ensureSidebarVersion() {
         userInfoEl._toggleHandler = handler;
         userInfoEl.addEventListener('click', handler);
       } else {
-        // Fallback: show login options.  Display a modern card with
-        // only Google and Discord login buttons styled with SVG icons.
         const card = document.createElement('div');
         card.className = 'login-card';
 
@@ -4428,17 +4116,10 @@ async function ensureSidebarVersion() {
         card.appendChild(googleBtn);
 
         userInfoEl.appendChild(card);
-
-        // --------------------------------------------------------------------
-        // Attach our global custom tooltip handlers to the login buttons.  The
-        // helper function defined at the module level will add the necessary
-        // mouse, focus and blur event listeners.  This avoids duplicating
-        // tooltip logic and ensures consistent behaviour across the app.
         [discordBtn, googleBtn].forEach((btn) => {
           attachTooltipHandlers(btn);
         });
 
-        // Attach click handlers to perform OAuth login
         googleBtn.addEventListener('click', async () => {
           try {
             await window.api?.loginGoogle?.();
