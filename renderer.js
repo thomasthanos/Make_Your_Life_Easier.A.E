@@ -62,6 +62,163 @@ const MENU_ICONS = {
   `,
 };
 
+  /* --------------------------------------------------------------------
+   * Global tooltip helper functions
+   *
+   * This module-level code defines a reusable tooltip manager and a helper
+   * to attach tooltip event handlers to any element with a `data-tooltip`
+   * attribute.  The tooltip is created lazily the first time it is
+   * needed and persists in the DOM for reuse.  It appears near the mouse
+   * pointer (or the focused element) and hides when the pointer leaves or
+   * focus is lost.
+   */
+  // Encapsulate tooltip logic to avoid leaking implementation details
+  const tooltipManager = (() => {
+    let tooltipEl;
+    // Create or return the existing tooltip element
+    function ensure() {
+      if (!tooltipEl) {
+        tooltipEl = document.querySelector('.custom-tooltip');
+        if (!tooltipEl) {
+          tooltipEl = document.createElement('div');
+          tooltipEl.className = 'custom-tooltip';
+          const style = tooltipEl.style;
+          style.position = 'fixed';
+          style.zIndex = '10000';
+          style.pointerEvents = 'none';
+          style.background = 'rgba(30, 30, 30, 0.94)';
+          style.color = '#fff';
+          style.padding = '6px 10px';
+          style.borderRadius = '8px';
+          style.fontSize = '12px';
+          style.lineHeight = '1.2';
+          style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
+          style.opacity = '0';
+          style.transform = 'translateZ(0)';
+          style.transition = 'opacity 0.15s ease-in-out';
+          document.body.appendChild(tooltipEl);
+        }
+      }
+      return tooltipEl;
+    }
+    // Position the tooltip relative to the mouse or target event
+    function update(event, tooltip) {
+      const offset = 6;
+      const rect = tooltip.getBoundingClientRect();
+      let x = event.clientX + offset;
+      let y = event.clientY + offset;
+      if (x + rect.width > window.innerWidth) {
+        x = event.clientX - rect.width - offset;
+      }
+      if (y + rect.height > window.innerHeight) {
+        y = event.clientY - rect.height - offset;
+      }
+      tooltip.style.left = `${x}px`;
+      tooltip.style.top = `${y}px`;
+    }
+    // Show the tooltip with the specified text
+    function show(target, text, event) {
+      const tooltip = ensure();
+      tooltip.textContent = text;
+      clearTimeout(tooltip._showTimer);
+      tooltip._showTimer = setTimeout(() => {
+        tooltip.style.opacity = '1';
+      }, 150);
+      update(event, tooltip);
+    }
+    // Hide the tooltip immediately
+    function hide() {
+      const tooltip = ensure();
+      clearTimeout(tooltip._showTimer);
+      tooltip.style.opacity = '0';
+    }
+    return { ensure, update, show, hide };
+  })();
+
+  // --------------------------------------------------------------------
+  // Input modality tracking
+  //
+  // Some tooltip behaviours (e.g. showing on focus) should only occur
+  // when the user navigates via keyboard (Tab, arrow keys) and not when
+  // clicking with the mouse.  To support this, track the last
+  // interaction modality.  This allows focus handlers to decide
+  // whether to display a tooltip.
+  let lastInteractionWasKeyboard = false;
+  // When any key is pressed, assume keyboard navigation
+  document.addEventListener('keydown', () => {
+    lastInteractionWasKeyboard = true;
+  }, true);
+  // When the mouse is used, switch to pointer mode
+  document.addEventListener('mousedown', () => {
+    lastInteractionWasKeyboard = false;
+  }, true);
+  // Touch interactions also count as pointer interactions
+  document.addEventListener('touchstart', () => {
+    lastInteractionWasKeyboard = false;
+  }, true);
+
+  /**
+   * Attach custom tooltip handlers to an element.  Elements should have
+   * a `data-tooltip` attribute containing the tooltip text.  The same
+   * handlers are used for hover (mouse), keyboard focus and blur.
+   * A flag on the element prevents multiple attachments.
+   */
+  function attachTooltipHandlers(el) {
+    if (!el || typeof el.getAttribute !== 'function') return;
+    const tip = el.getAttribute('data-tooltip');
+    if (!tip) return;
+    if (el._tooltipAttached) return;
+    el._tooltipAttached = true;
+    el.addEventListener('mouseenter', (e) => {
+      tooltipManager.show(el, tip, e);
+    });
+    el.addEventListener('mousemove', (e) => {
+      const tooltip = tooltipManager.ensure();
+      tooltipManager.update(e, tooltip);
+    });
+    el.addEventListener('mouseleave', () => {
+      tooltipManager.hide();
+    });
+    el.addEventListener('focus', () => {
+      // Show tooltip on focus only when the last interaction was via keyboard.
+      // This prevents tooltips from appearing immediately after a mouse click.
+      if (!lastInteractionWasKeyboard) return;
+      const rect = el.getBoundingClientRect();
+      tooltipManager.show(el, tip, { clientX: rect.right, clientY: rect.bottom });
+    });
+    el.addEventListener('blur', () => {
+      tooltipManager.hide();
+    });
+
+    // When the mouse button is pressed down on the element, immediately hide
+    // any visible tooltip.  Using mousedown instead of click ensures this
+    // handler runs before focus and click events, preventing the tooltip
+    // from reappearing due to pending timers or focus triggers.
+    el.addEventListener('mousedown', () => {
+      tooltipManager.hide();
+    });
+  }
+
+  // Global click handler: hide the tooltip and blur the currently focused
+  // element if it has a tooltip when clicking outside of it.  This prevents
+  // lingering tooltips when interacting elsewhere in the app.
+  document.addEventListener('click', (ev) => {
+    const active = document.activeElement;
+    if (active && typeof active.getAttribute === 'function' && active.getAttribute('data-tooltip')) {
+      if (!active.contains(ev.target)) {
+        tooltipManager.hide();
+        // Blur the active element to trigger its blur handler
+        if (typeof active.blur === 'function') {
+          active.blur();
+        }
+      }
+    } else {
+      // Hide any visible tooltip if the click target is not within a
+      // tooltip-enabled element
+      tooltipManager.hide();
+    }
+  });
+
 
 
   function createMenuButton(key, label) {
@@ -1479,7 +1636,9 @@ async function downloadAndRunAutologin(button, statusElement) {
         <path d="M 25 2 C 12.264481 2 2 12.264481 2 25 C 2 37.735519 12.264481 48 25 48 C 37.735519 48 48 37.735519 48 25 C 48 12.264481 37.735519 2 25 2 z M 25 4 C 36.664481 4 46 13.335519 46 25 C 46 36.664481 36.664481 46 25 46 C 13.335519 46 4 36.664481 4 25 C 4 13.335519 13.335519 4 25 4 z M 25 11 A 3 3 0 0 0 25 17 A 3 3 0 0 0 25 11 z M 21 21 L 21 23 L 23 23 L 23 36 L 21 36 L 21 38 L 29 38 L 29 36 L 27 36 L 27 21 L 21 21 z"
               stroke="#ffffffff" stroke-opacity="1" stroke-width="1"></path>
       </svg>`;
-      infoBtn.title = (translations.pages && translations.pages.info) || 'Info';
+      // Use data-tooltip for custom tooltip instead of native title
+      infoBtn.setAttribute('data-tooltip', (translations.pages && translations.pages.info) || 'Info');
+      attachTooltipHandlers(infoBtn);
       infoBtn.addEventListener('click', () => {
         // Open the info modal as an in‑app pop‑out.  This replaces navigation with a modal overlay.
         openInfoModal();
@@ -4164,7 +4323,10 @@ async function ensureSidebarVersion() {
 
   const wrap = document.createElement('div');
   wrap.className = 'version-wrap';
-  wrap.title = 'App version';
+  // Use our custom tooltip instead of the native title attribute.
+  // The tooltip text is stored in a data attribute which our
+  // attachTooltipHandlers function reads.
+  wrap.setAttribute('data-tooltip', 'App version');
 
   wrap.innerHTML = `
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -4173,6 +4335,11 @@ async function ensureSidebarVersion() {
     </svg>
     <span id="appVersion">dev</span>
   `;
+
+  // Attach custom tooltip handlers to the version wrapper.  This ensures
+  // that hovering or focusing on the version text uses our custom
+  // tooltip instead of the native browser title.
+  attachTooltipHandlers(wrap);
 
   footer.appendChild(wrap);
   sidebar.appendChild(footer);
@@ -4211,7 +4378,9 @@ async function ensureSidebarVersion() {
 
   const wrap = document.createElement('div');
   wrap.className = 'version-wrap';
-  
+  // Use data-tooltip instead of title for custom tooltip support
+  wrap.setAttribute('data-tooltip', 'App version');
+
   wrap.innerHTML = `
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
@@ -4219,6 +4388,9 @@ async function ensureSidebarVersion() {
     </svg>
     <span id="appVersion">dev</span>
   `;
+
+  // Attach our custom tooltip handlers
+  attachTooltipHandlers(wrap);
 
   footer.appendChild(wrap);
   sidebar.appendChild(footer);
@@ -4269,7 +4441,7 @@ async function ensureSidebarVersion() {
     const footer = document.createElement('div');
     footer.className = 'sidebar-footer';
     footer.innerHTML = `
-      <div class="version-wrap" title="App version">
+      <div class="version-wrap" data-tooltip="App version">
         <div class="version-badge" id="versionBadge">
           <span id="appVersion">v…</span>
           <span class="badge-lines"></span>
@@ -4277,6 +4449,10 @@ async function ensureSidebarVersion() {
         <div class="user-info" id="userInfo"></div>
       </div>`;
     sidebar.appendChild(footer);
+    // After inserting the HTML, attach custom tooltip handlers to the version
+    // wrapper.  We look up the element we just added and bind handlers.
+    const versionWrapper = footer.querySelector('.version-wrap');
+    if (versionWrapper) attachTooltipHandlers(versionWrapper);
   }
 
   const versionEl = document.getElementById('appVersion');
@@ -4358,8 +4534,8 @@ async function ensureSidebarVersion() {
         // Discord icon button
         const discordBtn = document.createElement('button');
         discordBtn.className = 'login-discord';
-        // Add a tooltip for accessibility and user guidance
-        discordBtn.title = 'Sign in with Discord';
+        // Add a tooltip attribute for a custom tooltip
+        discordBtn.setAttribute('data-tooltip', 'Sign in with Discord');
         discordBtn.innerHTML = `
           <svg fill="#000000" preserveAspectRatio="xMidYMid" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 -28.5 256 256"><g stroke-width="0" id="SVGRepo_bgCarrier"></g><g stroke-linejoin="round" stroke-linecap="round" id="SVGRepo_tracerCarrier"></g><g id="SVGRepo_iconCarrier"> <g> <path fill-rule="nonzero" fill="#5865F2" d="M216.856339,16.5966031 C200.285002,8.84328665 182.566144,3.2084988 164.041564,0 C161.766523,4.11318106 159.108624,9.64549908 157.276099,14.0464379 C137.583995,11.0849896 118.072967,11.0849896 98.7430163,14.0464379 C96.9108417,9.64549908 94.1925838,4.11318106 91.8971895,0 C73.3526068,3.2084988 55.6133949,8.86399117 39.0420583,16.6376612 C5.61752293,67.146514 -3.4433191,116.400813 1.08711069,164.955721 C23.2560196,181.510915 44.7403634,191.567697 65.8621325,198.148576 C71.0772151,190.971126 75.7283628,183.341335 79.7352139,175.300261 C72.104019,172.400575 64.7949724,168.822202 57.8887866,164.667963 C59.7209612,163.310589 61.5131304,161.891452 63.2445898,160.431257 C105.36741,180.133187 151.134928,180.133187 192.754523,160.431257 C194.506336,161.891452 196.298154,163.310589 198.110326,164.667963 C191.183787,168.842556 183.854737,172.420929 176.223542,175.320965 C180.230393,183.341335 184.861538,190.991831 190.096624,198.16893 C211.238746,191.588051 232.743023,181.531619 254.911949,164.955721 C260.227747,108.668201 245.831087,59.8662432 216.856339,16.5966031 Z M85.4738752,135.09489 C72.8290281,135.09489 62.4592217,123.290155 62.4592217,108.914901 C62.4592217,94.5396472 72.607595,82.7145587 85.4738752,82.7145587 C98.3405064,82.7145587 108.709962,94.5189427 108.488529,108.914901 C108.508531,123.290155 98.3405064,135.09489 85.4738752,135.09489 Z M170.525237,135.09489 C157.88039,135.09489 147.510584,123.290155 147.510584,108.914901 C147.510584,94.5396472 157.658606,82.7145587 170.525237,82.7145587 C183.391518,82.7145587 193.761324,94.5189427 193.539891,108.914901 C193.539891,123.290155 183.391518,135.09489 170.525237,135.09489 Z"></path> </g> </g></svg>
         `;
@@ -4368,8 +4544,8 @@ async function ensureSidebarVersion() {
         // Google icon button using the full multi‑colour Google logo
         const googleBtn = document.createElement('button');
         googleBtn.className = 'login-google';
-        // Add a tooltip for accessibility and user guidance
-        googleBtn.title = 'Sign in with Google';
+        // Add a tooltip attribute for a custom tooltip
+        googleBtn.setAttribute('data-tooltip', 'Sign in with Google');
         googleBtn.innerHTML = `
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 0 262 262" preserveAspectRatio="xMidYMid">
             <path d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027" fill="#4285F4"/>
@@ -4381,6 +4557,15 @@ async function ensureSidebarVersion() {
         card.appendChild(googleBtn);
 
         userInfoEl.appendChild(card);
+
+        // --------------------------------------------------------------------
+        // Attach our global custom tooltip handlers to the login buttons.  The
+        // helper function defined at the module level will add the necessary
+        // mouse, focus and blur event listeners.  This avoids duplicating
+        // tooltip logic and ensures consistent behaviour across the app.
+        [discordBtn, googleBtn].forEach((btn) => {
+          attachTooltipHandlers(btn);
+        });
 
         // Attach click handlers to perform OAuth login
         googleBtn.addEventListener('click', async () => {

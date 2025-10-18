@@ -849,6 +849,8 @@ body {
   border: 2px solid transparent;
   transition: all 0.5s ease-in-out;
   position: relative;
+  /* Allow tooltips for children to extend outside without being clipped */
+  overflow: visible;
 }
 
 /* When any child button receives focus (e.g. via keyboard),
@@ -898,6 +900,21 @@ body {
   height: 100%;
   display: block;
 }
+
+/*
+ * Custom tooltip styling.  Elements with a `data-tooltip` attribute
+ * will display a modern dark tooltip on hover or focus.  The tooltip
+ * text is defined via the attribute value itself.  We keep the
+ * tooltip small and rounded with a subtle transition so that it
+ * appears gracefully without jarring the UI.  Note: we avoid using
+ * the default browser `title` tooltip so that we can fully control
+ * the appearance and timing.
+ */
+/*
+ * Custom tooltip styling has been removed from CSS.  Tooltips are now
+ * created and positioned dynamically via JavaScript in renderer.js.
+ * Removing these rules prevents conflicts with the JS-driven tooltips.
+ */
 
 /* ===== MAIN CONTENT AREA ===== */
 #main {

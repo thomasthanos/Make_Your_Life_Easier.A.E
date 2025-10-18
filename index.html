@@ -114,7 +114,10 @@
           <!-- Place the user info before the version so that the account
                name/avatar appears on the left and the version on the right. -->
           <div class="user-info" id="userInfo"></div>
-          <div class="version-wrap" title="App version">
+          <!-- Use custom tooltip instead of native title attribute.  The
+               default browser tooltip can be distracting when we
+               already provide our own custom tooltip implementation. -->
+          <div class="version-wrap" data-tooltip="App version">
             <span id="appVersion" class="version-text">v0.0.0</span>
           </div>
         </div>
