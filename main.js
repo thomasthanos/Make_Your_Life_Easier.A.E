@@ -182,7 +182,14 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
       handleUrl(url);
     });
     authWindow.on('closed', () => {
-      reject(new Error('Authentication window closed'));
+      // If the user closes the authentication window, treat it as a
+      // cancellation rather than an error.  Resolve with null so
+      // downstream handlers can handle this scenario gracefully.
+      try {
+        resolve(null);
+      } catch (e) {
+        // If resolve has already been called, ignore any errors.
+      }
     });
     authWindow.loadURL(authUrl);
   });
