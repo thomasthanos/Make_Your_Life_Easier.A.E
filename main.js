@@ -4,53 +4,8 @@ const os = require('os');
 const { exec, spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
-// Pull in the Node.js filesystem module at the top of the file so that
-// synchronous fs operations (e.g. reading oauth_config.json) are
-// available before any code references `fs`.  Without this import,
-// attempting to use `fs` will throw a ReferenceError because `fs`
 // would not be defined yet.
 const fs = require('fs');
-
-// Load file system module early so it is available for OAuth configuration
-
-// -----------------------------------------------------------------------------
-// OAuth configuration and utilities
-//
-// To enable third‑party login (e.g. Google and Discord), you must register
-// your application with each provider and supply the corresponding client
-// identifiers and secrets.  These values can be provided via environment
-// variables (e.g. GOOGLE_CLIENT_ID) or hard‑coded here.  The redirect URI
-// should match one of the allowed URLs configured for your OAuth client.  A
-// simple loopback address (e.g. http://localhost) works well in Electron
-// because we intercept the redirect in the embedded BrowserWindow rather
-// than standing up a separate HTTP server.
-// OAuth credentials.  These values should be provided via environment
-// variables (e.g. GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
-// and analogous variables for Discord).  To avoid hard‑coding secrets in
-// your source code, you may instead supply them in a local JSON file
-// named `oauth_config.json` located next to this main.js file.  The
-// structure of that file should be:
-// {
-//   "google": {
-//     "clientId": "your‑google‑client‑id",
-//     "clientSecret": "your‑google‑client‑secret",
-//     "redirectUri": "http://localhost:PORT"
-//   },
-//   "discord": {
-//     "clientId": "your‑discord‑client‑id",
-//     "clientSecret": "your‑discord‑client‑secret",
-//     "redirectUri": "http://localhost:PORT"
-//   }
-// }
-//
-// This file should NOT be committed to version control.  Add it to
-// your .gitignore so that your OAuth credentials remain private.  At
-// runtime we attempt to load this file and merge any values found
-// with the environment variables (environment variables always take
-// precedence).
-
-// Attempt to load OAuth configuration from a local JSON file.  If the
-// file does not exist or cannot be parsed, an empty object is used.
 let oauthConfig = {};
 try {
   const oauthPath = path.join(__dirname, 'oauth_config.json');
@@ -76,24 +31,13 @@ const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || getOAuthValue('discor
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || getOAuthValue('discord', 'clientSecret') || '';
 const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || getOAuthValue('discord', 'redirectUri') || '';
 
-// In‑memory storage for the authenticated user's profile.  Once a login
-// completes successfully, this object will be populated with the user's
-// display name and avatar URL.  The renderer can query this via
-// the `get-user-profile` IPC handler.  You may persist this value to disk
-// if you wish to maintain login state across sessions.
 let userProfile = null;
 
-// Determine where to persist the user profile.  Use the user's
-// application data directory so that it survives across sessions.  This
-// helper defers resolving the path until needed to avoid accessing
-// app.getPath() before Electron is ready.
 const getUserProfilePath = () => {
   const p = app.getPath('userData');
   return path.join(p, 'userProfile.json');
 };
 
-// Load the stored user profile from disk, if present.  If the file
-// cannot be read (e.g. first run) then userProfile remains null.
 function loadUserProfile() {
   try {
     const filePath = getUserProfilePath();
@@ -107,9 +51,6 @@ function loadUserProfile() {
   }
 }
 
-// Persist the current user profile to disk.  If no profile is set
-// (userProfile is null), remove any existing profile file.  Errors
-// during saving are logged but do not throw.
 function saveUserProfile() {
   try {
     const filePath = getUserProfilePath();
@@ -126,10 +67,6 @@ function saveUserProfile() {
   }
 }
 
-// Helper: perform an HTTPS POST with URL‑encoded form data and parse the
-// JSON response.  This is used to exchange authorization codes for access
-// tokens.  If the request fails or returns a non‑200 status, the promise
-// rejects with an error message.
 function postForm(url, params) {
   return new Promise((resolve, reject) => {
     const data = new URLSearchParams(params).toString();
@@ -167,9 +104,6 @@ function postForm(url, params) {
   });
 }
 
-// Helper: perform an HTTPS GET and parse the JSON response.  Accepts an
-// optional headers object (e.g. to pass an Authorization header).  On
-// non‑200 status the promise rejects with an error.
 function getJson(url, headers = {}) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
@@ -202,10 +136,6 @@ function getJson(url, headers = {}) {
   });
 }
 
-// Launch an OAuth login flow in a modal BrowserWindow.  The authUrl
-// parameter should be the provider's authorize endpoint with query
-// parameters appended.  The handleCallback function is invoked once the
-// redirect URI is reached and the authorization code can be extracted.
 function openAuthWindow(authUrl, redirectUri, handleCallback) {
   return new Promise((resolve, reject) => {
     const authWindow = new BrowserWindow({
@@ -226,8 +156,6 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
     function handleUrl(url) {
       try {
         const target = new URL(url);
-        // Only proceed if the redirect URI matches exactly; this prevents
-        // accidental interception of intermediate redirects.
         if (url.startsWith(redirectUri)) {
           handleCallback(target)
             .then((result) => {
@@ -243,8 +171,7 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
         // ignore malformed URLs
       }
     }
-    // Some OAuth providers perform a full page redirect (will-navigate)
-    // whereas others use HTTP 302s inside the same page (did-get-redirect-request).
+
     authWindow.webContents.on('will-redirect', (event, url) => {
       handleUrl(url);
     });
@@ -279,12 +206,6 @@ autoUpdater.on('update-available', (info) => {
   console.log('Update available:', info);
   updateAvailable = true;
   if (mainWindow) {
-    // Include the release name if provided by the update server.  Many
-    // providers (e.g. GitHub releases) expose a human‑friendly title via
-    // the `releaseName` property on the info object.  Fallback to the
-    // version string if no title is available.  Compose a rich message
-    // containing the title and version so the renderer can display a
-    // more descriptive notification.
     const title = info.releaseName || '';
     const version = info.version || '';
     const message = title
@@ -325,10 +246,6 @@ autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded:', info);
   updateDownloaded = true;
   if (mainWindow) {
-    // Provide the same releaseName and version fields when the update has
-    // been downloaded so the renderer can continue to display
-    // descriptive information.  Compose a message indicating the
-    // downloaded update and encourage restart/install.
     const title = info.releaseName || '';
     const version = info.version || '';
     const message = title
@@ -440,9 +357,6 @@ function createPasswordManagerWindow() {
 }
 
 app.whenReady().then(() => {
-  // Load any persisted user profile before creating the window.  Doing
-  // this here ensures that the renderer can immediately query a saved
-  // profile via get-user-profile.
   try {
     loadUserProfile();
   } catch {}
@@ -469,19 +383,10 @@ ipcMain.handle('get-system-info', async () => {
   };
 });
 
-// -----------------------------------------------------------------------------
-// OAuth IPC handlers
-//
-// Initiates a login with Google.  Opens the Google authorization page in a
-// modal window and exchanges the resulting code for an access token and
-// user profile.  On success, the global `userProfile` is populated and
-// returned to the caller.  If an error occurs or the user closes the
-// window, a descriptive exception is thrown.
 ipcMain.handle('login-google', async () => {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     throw new Error('Google OAuth credentials not configured');
   }
-  // Build the authorization URL.  The state parameter mitigates CSRF attacks.
   const state = Math.random().toString(36).substring(2);
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
@@ -493,13 +398,11 @@ ipcMain.handle('login-google', async () => {
     state
   });
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-  // Open the OAuth window and wait for the redirect
   const result = await openAuthWindow(authUrl, GOOGLE_REDIRECT_URI, async (redirectUrl) => {
     const code = redirectUrl.searchParams.get('code');
     const returnedState = redirectUrl.searchParams.get('state');
     if (!code) throw new Error('No authorization code received');
     if (returnedState !== state) throw new Error('State mismatch');
-    // Exchange the authorization code for an access token
     const tokenResponse = await postForm('https://oauth2.googleapis.com/token', {
       code,
       client_id: GOOGLE_CLIENT_ID,
@@ -509,7 +412,7 @@ ipcMain.handle('login-google', async () => {
     });
     const accessToken = tokenResponse.access_token;
     if (!accessToken) throw new Error('Failed to obtain Google access token');
-    // Retrieve the user profile
+
     const profile = await getJson('https://www.googleapis.com/oauth2/v3/userinfo', {
       Authorization: `Bearer ${accessToken}`
     });
@@ -518,18 +421,13 @@ ipcMain.handle('login-google', async () => {
       avatar: profile.picture || null,
       provider: 'google'
     };
-    // Persist the profile to disk so that it is available on next launch
     saveUserProfile();
     return userProfile;
   });
   return result;
 });
 
-// Initiates a login with Discord.  Opens the Discord authorization page in a
-// modal window and exchanges the resulting code for an access token and
-// user profile.  On success, the global `userProfile` is populated and
-// returned to the caller.  The OAuth client must be configured with
-// `identify` scope (and optionally `email` if you need it).
+
 ipcMain.handle('login-discord', async () => {
   if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET) {
     throw new Error('Discord OAuth credentials not configured');
