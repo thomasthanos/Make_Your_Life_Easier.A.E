@@ -1849,22 +1849,23 @@ input:checked + .slider:before {
 }
 
 #content input[type="checkbox"]:checked + label::before {
-  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
-  border-color: var(--accent-color);
-  box-shadow: 0 4px 12px rgba(0, 191, 255, 0.3);
+  /* Solid colour fill when checked */
+  background-color: #2d8cf0;
+  /* Embed a white checkmark SVG into the checkbox background.  Using a background image ensures the tick remains
+     perfectly centred and does not move when the list item is transformed (e.g. during installation actions). */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'><polyline points='1 5 4 8 11 1' stroke='%23ffffff' stroke-width='2' fill='none'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 60% 60%;
+  /* Keep the border consistent with the unchecked state */
+  border-color: #323232;
+  /* Subtle shadow to maintain the raised effect */
+  box-shadow: 3px 3px #323232;
 }
 
 #content input[type="checkbox"]:checked + label::after {
-  content: '';
-  position: absolute;
-  left: 7px;
-  top: 50%;
-  transform: translateY(-50%) rotate(-45deg);
-  width: 10px;
-  height: 6px;
-  border-left: 2px solid white;
-  border-bottom: 2px solid white;
-  margin-left: 0.25rem;
+  /* Hide the separate checkmark pseudo-element because the tick is now drawn via a background-image on ::before */
+  display: none;
 }
 
 #content input[type="checkbox"]:focus + label::before {
@@ -1888,9 +1889,8 @@ input:checked + .slider:before {
 }
 
 #content ul[style*="list-style"] input[type="checkbox"]:checked + label::after {
-  left: 18px;
-  top: 49%;
-  transform: translateY(-50%) rotate(-45deg);
+  /* Hide the pseudo-element for list items; the tick is drawn by the background-image on ::before */
+  display: none;
 }
 /* Fix για activate/autologin cards συμμετρία ΧΩΡΙΣ scrollbar */
 .install-grid[style*="grid-template-columns: 1fr 1fr"] {
