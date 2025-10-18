@@ -17,7 +17,7 @@ class AppUpdater {
 
     autoUpdater.on('update-available', (info) => {
       this.sendStatusToWindow('Update available.');
-      
+
       // Ask user if they want to download the update
       dialog.showMessageBox(this.mainWindow, {
         type: 'info',
@@ -48,7 +48,7 @@ class AppUpdater {
 
     autoUpdater.on('update-downloaded', (info) => {
       this.sendStatusToWindow('Update downloaded; will install in 5 seconds');
-      
+
       // Ask user to restart and install update
       dialog.showMessageBox(this.mainWindow, {
         type: 'info',

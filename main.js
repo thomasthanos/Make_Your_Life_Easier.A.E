@@ -310,7 +310,7 @@ const https = require('https');
 const documentsPath = require('os').homedir() + '/Documents';
 const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
 if (!fs.existsSync(pmDirectory)) {
-    fs.mkdirSync(pmDirectory, { recursive: true });
+  fs.mkdirSync(pmDirectory, { recursive: true });
 }
 const pmAuth = new PasswordManagerAuth();
 pmAuth.initialize(pmDirectory);
@@ -326,7 +326,7 @@ ipcMain.handle('show-file-dialog', async () => {
       { name: 'Executables', extensions: ['exe'] }
     ]
   });
- 
+
   return result;
 });
 function createWindow() {
@@ -349,24 +349,24 @@ function createWindow() {
 }
 
 function createPasswordManagerWindow() {
-    const passwordWindow = new BrowserWindow({
-        width: 1600,
-        height: 900,
-        parent: mainWindow,
-        webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
-            nodeIntegration: false,
-            contextIsolation: true
-        }
-    });
-    passwordWindow.loadFile('password-manager/index.html');
-    passwordWindow.setMenuBarVisibility(false);
+  const passwordWindow = new BrowserWindow({
+    width: 1600,
+    height: 900,
+    parent: mainWindow,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+  passwordWindow.loadFile('password-manager/index.html');
+  passwordWindow.setMenuBarVisibility(false);
 }
 
 app.whenReady().then(() => {
   try {
     loadUserProfile();
-  } catch {}
+  } catch { }
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -577,9 +577,9 @@ ipcMain.on('download-start', (event, { id, url, dest }) => {
       activeDownloads.set(id, d);
       mainWindow.webContents.send('download-event', { id, status: 'started', total });
       const cleanup = (errMsg) => {
-        try { res.destroy(); } catch {}
-        try { file.destroy(); } catch {}
-        try { fs.unlink(tempPath, () => {}); } catch {}
+        try { res.destroy(); } catch { }
+        try { file.destroy(); } catch { }
+        try { fs.unlink(tempPath, () => { }); } catch { }
         activeDownloads.delete(id);
         if (errMsg) mainWindow.webContents.send('download-event', { id, status: 'error', error: errMsg });
       };
@@ -617,7 +617,7 @@ ipcMain.on('download-pause', (event, id) => {
   const d = activeDownloads.get(id);
   if (d && d.response) {
     d.paused = true;
-    try { d.response.pause(); } catch {}
+    try { d.response.pause(); } catch { }
     mainWindow.webContents.send('download-event', { id, status: 'paused' });
   }
 });
@@ -625,16 +625,16 @@ ipcMain.on('download-resume', (event, id) => {
   const d = activeDownloads.get(id);
   if (d && d.response) {
     d.paused = false;
-    try { d.response.resume(); } catch {}
+    try { d.response.resume(); } catch { }
     mainWindow.webContents.send('download-event', { id, status: 'resumed' });
   }
 });
 ipcMain.on('download-cancel', (event, id) => {
   const d = activeDownloads.get(id);
   if (d) {
-    try { if (d.response) d.response.destroy(); } catch {}
-    try { if (d.file) d.file.destroy(); } catch {}
-    try { if (d.filePath) fs.unlink(d.filePath, () => {}); } catch {}
+    try { if (d.response) d.response.destroy(); } catch { }
+    try { if (d.file) d.file.destroy(); } catch { }
+    try { if (d.filePath) fs.unlink(d.filePath, () => { }); } catch { }
     activeDownloads.delete(id);
     mainWindow.webContents.send('download-event', { id, status: 'cancelled' });
   }
@@ -648,14 +648,14 @@ ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
           return typeof value === 'string' ? value : match;
         });
       };
-     
+
       const src = expandEnv(sourcePath);
       const dst = expandEnv(destPath);
-     
+
       console.log('Replacing executable with elevated privileges:');
       console.log('Source:', src);
       console.log('Destination:', dst);
-     
+
       if (!fs.existsSync(src)) {
         resolve({ success: false, error: `Source file not found: ${src}` });
         return;
@@ -707,10 +707,10 @@ WScript.Sleep(3000)
       console.log('Requesting UAC elevation for file replacement...');
       exec(`wscript "${vbsFile}"`, (error) => {
         setTimeout(() => {
-          try { fs.unlinkSync(vbsFile); } catch {}
-          try { fs.unlinkSync(psFile); } catch {}
+          try { fs.unlinkSync(vbsFile); } catch { }
+          try { fs.unlinkSync(psFile); } catch { }
         }, 10000);
-       
+
         if (error) {
           console.log('User denied UAC or elevation failed:', error);
           resolve({
@@ -720,7 +720,7 @@ WScript.Sleep(3000)
           });
         } else {
           console.log('UAC accepted, replacement in progress...');
-         
+
           setTimeout(() => {
             if (fs.existsSync(dst)) {
               resolve({
@@ -736,7 +736,7 @@ WScript.Sleep(3000)
           }, 4000);
         }
       });
-     
+
     } catch (err) {
       console.error('Replace exception:', err);
       resolve({ success: false, error: `Exception: ${err.message}` });
@@ -745,17 +745,17 @@ WScript.Sleep(3000)
 });
 async function ensure7za() {
   const candidates = [];
- 
+
   console.log('🔍 Searching for 7za...');
   console.log('Resources path:', process.resourcesPath);
   console.log('__dirname:', __dirname);
   if (process.resourcesPath) {
     candidates.push(path.join(process.resourcesPath, 'bin', '7za.exe'));
     candidates.push(path.join(process.resourcesPath, 'bin', '7z.exe'));
-   
+
     candidates.push(path.join(__dirname, 'bin', '7za.exe'));
     candidates.push(path.join(__dirname, 'bin', '7z.exe'));
-   
+
     const parentDir = path.dirname(process.resourcesPath);
     candidates.push(path.join(parentDir, 'bin', '7za.exe'));
     candidates.push(path.join(parentDir, 'bin', '7z.exe'));
@@ -779,12 +779,12 @@ async function ensure7za() {
     }
   }
   console.log('❌ 7za.exe not found in any location');
- 
+
   console.log('📋 Checked paths:');
   candidates.forEach((candidate, index) => {
     console.log(` ${index + 1}. ${candidate}`);
   });
- 
+
   return null;
 }
 ipcMain.handle('extract-archive', async (event, { filePath, password, destDir }) => {
@@ -1047,10 +1047,10 @@ echo Press any key to close this window...
 pause >nul
 `;
     const batchFile = path.join(os.tmpdir(), `sfc_scan_${Date.now()}.bat`);
-   
+
     try {
       fs.writeFileSync(batchFile, batchScript, 'utf8');
-     
+
       const vbsScript = `
 Set UAC = CreateObject("Shell.Application")
 UAC.ShellExecute "cmd.exe", "/c ""${batchFile.replace(/\\/g, '\\\\')}""", "", "runas", 1
@@ -1060,10 +1060,10 @@ UAC.ShellExecute "cmd.exe", "/c ""${batchFile.replace(/\\/g, '\\\\')}""", "", "r
       console.log('Requesting UAC elevation for SFC scan...');
       exec(`wscript "${vbsFile}"`, (error) => {
         setTimeout(() => {
-          try { fs.unlinkSync(vbsFile); } catch {}
-          try { fs.unlinkSync(batchFile); } catch {}
+          try { fs.unlinkSync(vbsFile); } catch { }
+          try { fs.unlinkSync(batchFile); } catch { }
         }, 10000);
-       
+
         if (error) {
           resolve({
             success: false,
@@ -1077,7 +1077,7 @@ UAC.ShellExecute "cmd.exe", "/c ""${batchFile.replace(/\\/g, '\\\\')}""", "", "r
           });
         }
       });
-     
+
     } catch (error) {
       resolve({ success: false, error: error.message });
     }
@@ -1108,10 +1108,10 @@ echo Press any key to close this window...
 pause >nul
 `;
     const batchFile = path.join(os.tmpdir(), `dism_repair_${Date.now()}.bat`);
-   
+
     try {
       fs.writeFileSync(batchFile, batchScript, 'utf8');
-     
+
       const vbsScript = `
 Set UAC = CreateObject("Shell.Application")
 UAC.ShellExecute "cmd.exe", "/c ""${batchFile.replace(/\\/g, '\\\\')}""", "", "runas", 1
@@ -1121,10 +1121,10 @@ UAC.ShellExecute "cmd.exe", "/c ""${batchFile.replace(/\\/g, '\\\\')}""", "", "r
       console.log('Requesting UAC elevation for DISM repair...');
       exec(`wscript "${vbsFile}"`, (error) => {
         setTimeout(() => {
-          try { fs.unlinkSync(vbsFile); } catch {}
-          try { fs.unlinkSync(batchFile); } catch {}
+          try { fs.unlinkSync(vbsFile); } catch { }
+          try { fs.unlinkSync(batchFile); } catch { }
         }, 10000);
-       
+
         if (error) {
           resolve({
             success: false,
@@ -1138,7 +1138,7 @@ UAC.ShellExecute "cmd.exe", "/c ""${batchFile.replace(/\\/g, '\\\\')}""", "", "r
           });
         }
       });
-     
+
     } catch (error) {
       resolve({ success: false, error: error.message });
     }
@@ -1172,7 +1172,7 @@ Write-Host "Press any key to continue..."
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 `;
     const psFile = path.join(os.tmpdir(), `temp_cleanup_${Date.now()}.ps1`);
-   
+
     try {
       fs.writeFileSync(psFile, psScript, 'utf8');
       console.log('PowerShell script created:', psFile);
@@ -1190,9 +1190,9 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       child.on('spawn', () => {
         console.log('PowerShell cleanup started');
         setTimeout(() => {
-          try { fs.unlinkSync(psFile); } catch {}
+          try { fs.unlinkSync(psFile); } catch { }
         }, 15000);
-       
+
         resolve({
           success: true,
           message: '✅ Temp files cleanup started with Administrator privileges.'
@@ -1204,14 +1204,14 @@ Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -File "${psFile.
 `;
         const elevateFile = path.join(os.tmpdir(), `elevate_${Date.now()}.ps1`);
         fs.writeFileSync(elevateFile, elevateScript);
-       
+
         exec(`powershell -ExecutionPolicy Bypass -File "${elevateFile}"`, (error) => {
           setTimeout(() => {
-            try { fs.unlinkSync(elevateFile); } catch {}
+            try { fs.unlinkSync(elevateFile); } catch { }
           }, 10000);
         });
       }, 1000);
-     
+
     } catch (error) {
       console.log('General error:', error);
       resolve({ success: false, error: error.message });
@@ -1232,8 +1232,8 @@ ipcMain.handle('restart-to-bios', async () => {
     try {
       fs.writeFileSync(vbsPath, vbsContent);
       exec(`cscript //nologo "${vbsPath}"`, (error) => {
-        try { fs.unlinkSync(vbsPath); } catch (e) {}
-        
+        try { fs.unlinkSync(vbsPath); } catch (e) { }
+
         if (error) {
           resolve({
             success: false,
@@ -1258,7 +1258,7 @@ ipcMain.handle('restart-to-bios', async () => {
 ipcMain.handle('password-manager-get-categories', async () => {
   return new Promise((resolve) => {
     const db = new PasswordManagerDB(pmAuth);
-   
+
     const timeout = setTimeout(() => {
       db.close();
       resolve({ success: false, error: 'Database timeout' });
@@ -1278,7 +1278,7 @@ ipcMain.handle('password-manager-get-categories', async () => {
 ipcMain.handle('password-manager-add-category', async (event, name) => {
   return new Promise((resolve) => {
     const db = new PasswordManagerDB(pmAuth);
-    db.addCategory(name, function(err) {
+    db.addCategory(name, function (err) {
       db.close();
       if (err) {
         resolve({ success: false, error: err.message });
@@ -1291,7 +1291,7 @@ ipcMain.handle('password-manager-add-category', async (event, name) => {
 ipcMain.handle('password-manager-update-category', async (event, id, name) => {
   return new Promise((resolve) => {
     const db = new PasswordManagerDB(pmAuth);
-    db.updateCategory(id, name, function(err) {
+    db.updateCategory(id, name, function (err) {
       db.close();
       if (err) {
         resolve({ success: false, error: err.message });
@@ -1304,7 +1304,7 @@ ipcMain.handle('password-manager-update-category', async (event, id, name) => {
 ipcMain.handle('password-manager-delete-category', async (event, id) => {
   return new Promise((resolve) => {
     const db = new PasswordManagerDB(pmAuth);
-    db.deleteCategory(id, function(err) {
+    db.deleteCategory(id, function (err) {
       db.close();
       if (err) {
         resolve({ success: false, error: err.message });
@@ -1317,7 +1317,7 @@ ipcMain.handle('password-manager-delete-category', async (event, id) => {
 ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all') => {
   return new Promise((resolve) => {
     const db = new PasswordManagerDB(pmAuth);
-   
+
     const timeout = setTimeout(() => {
       db.close();
       resolve({ success: false, error: 'Database timeout' });
@@ -1335,41 +1335,41 @@ ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all
   });
 });
 ipcMain.handle('password-manager-add-password', async (event, passwordData) => {
-    return new Promise((resolve) => {
-        console.log('=== ADD PASSWORD REQUEST ===');
-        console.log('Password data received:', {
-            title: passwordData.title,
-            passwordLength: passwordData.password ? passwordData.password.length : 0,
-            hasUsername: !!passwordData.username,
-            hasEmail: !!passwordData.email,
-            hasUrl: !!passwordData.url,
-            hasNotes: !!passwordData.notes
-        });
-       
-        const db = new PasswordManagerDB(pmAuth);
-       
-        const timeout = setTimeout(() => {
-            db.close();
-            resolve({ success: false, error: 'Database timeout' });
-        }, 10000);
-        db.addPassword(passwordData, function(err) {
-            clearTimeout(timeout);
-            db.close();
-            if (err) {
-                console.error('Error adding password:', err);
-                console.error('Error details:', err.message);
-                resolve({ success: false, error: err.message });
-            } else {
-                console.log('Password added successfully, ID:', this.lastID);
-                resolve({ success: true, id: this.lastID });
-            }
-        });
+  return new Promise((resolve) => {
+    console.log('=== ADD PASSWORD REQUEST ===');
+    console.log('Password data received:', {
+      title: passwordData.title,
+      passwordLength: passwordData.password ? passwordData.password.length : 0,
+      hasUsername: !!passwordData.username,
+      hasEmail: !!passwordData.email,
+      hasUrl: !!passwordData.url,
+      hasNotes: !!passwordData.notes
     });
+
+    const db = new PasswordManagerDB(pmAuth);
+
+    const timeout = setTimeout(() => {
+      db.close();
+      resolve({ success: false, error: 'Database timeout' });
+    }, 10000);
+    db.addPassword(passwordData, function (err) {
+      clearTimeout(timeout);
+      db.close();
+      if (err) {
+        console.error('Error adding password:', err);
+        console.error('Error details:', err.message);
+        resolve({ success: false, error: err.message });
+      } else {
+        console.log('Password added successfully, ID:', this.lastID);
+        resolve({ success: true, id: this.lastID });
+      }
+    });
+  });
 });
 ipcMain.handle('password-manager-update-password', async (event, id, passwordData) => {
   return new Promise((resolve) => {
     const db = new PasswordManagerDB(pmAuth);
-    db.updatePassword(id, passwordData, function(err) {
+    db.updatePassword(id, passwordData, function (err) {
       db.close();
       if (err) {
         resolve({ success: false, error: err.message });
@@ -1382,7 +1382,7 @@ ipcMain.handle('password-manager-update-password', async (event, id, passwordDat
 ipcMain.handle('password-manager-delete-password', async (event, id) => {
   return new Promise((resolve) => {
     const db = new PasswordManagerDB(pmAuth);
-    db.deletePassword(id, function(err) {
+    db.deletePassword(id, function (err) {
       db.close();
       if (err) {
         resolve({ success: false, error: err.message });
@@ -1410,59 +1410,59 @@ ipcMain.handle('open-password-manager', async () => {
   return { success: true };
 });
 ipcMain.handle('password-manager-has-master-password', async () => {
-    try {
-        console.log('Checking for master password...');
-       
-        if (!pmAuth.configPath) {
-            console.log('Auth manager not initialized, initializing now...');
-            const documentsPath = require('os').homedir() + '/Documents';
-            const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
-            pmAuth.initialize(pmDirectory);
-        }
-       
-        const result = pmAuth.hasMasterPassword();
-        console.log('Master password exists:', result);
-        return result;
-    } catch (error) {
-        console.error('Error checking master password:', error);
-        return false;
+  try {
+    console.log('Checking for master password...');
+
+    if (!pmAuth.configPath) {
+      console.log('Auth manager not initialized, initializing now...');
+      const documentsPath = require('os').homedir() + '/Documents';
+      const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
+      pmAuth.initialize(pmDirectory);
     }
+
+    const result = pmAuth.hasMasterPassword();
+    console.log('Master password exists:', result);
+    return result;
+  } catch (error) {
+    console.error('Error checking master password:', error);
+    return false;
+  }
 });
 ipcMain.handle('password-manager-create-master-password', async (event, password) => {
-    try {
-        console.log('Creating master password...');
-       
-        if (!pmAuth.configPath) {
-            console.log('Auth manager not initialized, initializing now...');
-            const documentsPath = require('os').homedir() + '/Documents';
-            const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
-            pmAuth.initialize(pmDirectory);
-        }
-       
-        await pmAuth.createMasterPassword(password);
-        return { success: true };
-    } catch (error) {
-        console.error('Error creating master password:', error);
-        return { success: false, error: error.message };
+  try {
+    console.log('Creating master password...');
+
+    if (!pmAuth.configPath) {
+      console.log('Auth manager not initialized, initializing now...');
+      const documentsPath = require('os').homedir() + '/Documents';
+      const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
+      pmAuth.initialize(pmDirectory);
     }
+
+    await pmAuth.createMasterPassword(password);
+    return { success: true };
+  } catch (error) {
+    console.error('Error creating master password:', error);
+    return { success: false, error: error.message };
+  }
 });
 ipcMain.handle('password-manager-authenticate', async (event, password) => {
-    try {
-        console.log('Authenticating...');
-       
-        if (!pmAuth.configPath) {
-            console.log('Auth manager not initialized, initializing now...');
-            const documentsPath = require('os').homedir() + '/Documents';
-            const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
-            pmAuth.initialize(pmDirectory);
-        }
-       
-        await pmAuth.authenticate(password);
-        return { success: true };
-    } catch (error) {
-        console.error('Error authenticating:', error);
-        return { success: false, error: error.message };
+  try {
+    console.log('Authenticating...');
+
+    if (!pmAuth.configPath) {
+      console.log('Auth manager not initialized, initializing now...');
+      const documentsPath = require('os').homedir() + '/Documents';
+      const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
+      pmAuth.initialize(pmDirectory);
     }
+
+    await pmAuth.authenticate(password);
+    return { success: true };
+  } catch (error) {
+    console.error('Error authenticating:', error);
+    return { success: false, error: error.message };
+  }
 });
 ipcMain.handle('password-manager-logout', async () => {
   pmAuth.logout();
@@ -1497,19 +1497,19 @@ ipcMain.handle('find-exe-files', async (event, directoryPath) => {
         resolve([]);
         return;
       }
-     
+
       const executableFiles = [];
-     
+
       function searchDirectory(dir) {
         try {
           const items = fs.readdirSync(dir);
-         
+
           for (const item of items) {
             const fullPath = path.join(dir, item);
-           
+
             try {
               const stat = fs.statSync(fullPath);
-             
+
               if (stat.isDirectory()) {
                 searchDirectory(fullPath);
               } else if (stat.isFile()) {
@@ -1525,7 +1525,7 @@ ipcMain.handle('find-exe-files', async (event, directoryPath) => {
         } catch (error) {
         }
       }
-     
+
       searchDirectory(directoryPath);
       resolve(executableFiles);
     } catch (error) {
@@ -1535,99 +1535,99 @@ ipcMain.handle('find-exe-files', async (event, directoryPath) => {
 });
 // Προσθήκη νέου handler για MSI installers
 ipcMain.handle('run-msi-installer', async (event, msiPath) => {
-    return new Promise((resolve) => {
-        if (process.platform !== 'win32') {
-            resolve({ success: false, error: 'MSI installers are only supported on Windows' });
-            return;
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') {
+      resolve({ success: false, error: 'MSI installers are only supported on Windows' });
+      return;
+    }
+
+    const command = `msiexec /i "${msiPath}"`;
+
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        console.log('MSI execution details:', { error, stdout, stderr });
+
+        // Θεωρούμε επιτυχία αν υπήρχε κάποιο output
+        if (stdout || stderr) {
+          resolve({
+            success: true,
+            message: 'MSI installer started successfully',
+            details: { stdout, stderr }
+          });
+        } else {
+          resolve({
+            success: false,
+            error: error.message,
+            details: { stdout, stderr }
+          });
         }
-        
-        const command = `msiexec /i "${msiPath}"`;
-        
-        exec(command, (error, stdout, stderr) => {
-            if (error) {
-                console.log('MSI execution details:', { error, stdout, stderr });
-                
-                // Θεωρούμε επιτυχία αν υπήρχε κάποιο output
-                if (stdout || stderr) {
-                    resolve({ 
-                        success: true, 
-                        message: 'MSI installer started successfully',
-                        details: { stdout, stderr }
-                    });
-                } else {
-                    resolve({ 
-                        success: false, 
-                        error: error.message,
-                        details: { stdout, stderr }
-                    });
-                }
-            } else {
-                resolve({ 
-                    success: true, 
-                    message: 'MSI installer completed successfully',
-                    details: { stdout, stderr }
-                });
-            }
+      } else {
+        resolve({
+          success: true,
+          message: 'MSI installer completed successfully',
+          details: { stdout, stderr }
         });
+      }
     });
+  });
 });
 // Νέο handler για εκτέλεση installers
 ipcMain.handle('run-installer', async (event, filePath) => {
-    return new Promise((resolve) => {
-        console.log('Running installer:', filePath);
-        
-        if (process.platform === 'win32') {
-            // Χρήση start command για να ανοίξει το αρχείο
-            const command = `start "" "${filePath}"`;
-            
-            exec(command, (error, stdout, stderr) => {
-                if (error) {
-                    console.log('Exec error:', error);
-                    resolve({ success: false, error: error.message });
-                } else {
-                    console.log('Exec success');
-                    resolve({ success: true });
-                }
-            });
+  return new Promise((resolve) => {
+    console.log('Running installer:', filePath);
+
+    if (process.platform === 'win32') {
+      // Χρήση start command για να ανοίξει το αρχείο
+      const command = `start "" "${filePath}"`;
+
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          console.log('Exec error:', error);
+          resolve({ success: false, error: error.message });
         } else {
-            // Για άλλα OS
-            shell.openPath(filePath)
-                .then((error) => {
-                    if (error) {
-                        resolve({ success: false, error: error });
-                    } else {
-                        resolve({ success: true });
-                    }
-                })
-                .catch((error) => {
-                    resolve({ success: false, error: error.message });
-                });
+          console.log('Exec success');
+          resolve({ success: true });
         }
-    });
+      });
+    } else {
+      // Για άλλα OS
+      shell.openPath(filePath)
+        .then((error) => {
+          if (error) {
+            resolve({ success: false, error: error });
+          } else {
+            resolve({ success: true });
+          }
+        })
+        .catch((error) => {
+          resolve({ success: false, error: error.message });
+        });
+    }
+  });
 });
 // Τροποποιημένο main.js
 // Προσθέτουμε νέο handler για reset password manager (διαγραφή config και DB)
 
 ipcMain.handle('password-manager-reset', async () => {
-    try {
-        // Διαγραφή config file
-        if (fs.existsSync(pmAuth.configPath)) {
-            fs.unlinkSync(pmAuth.configPath);
-        }
-        
-        // Διαγραφή DB file
-        const dbPath = path.join(pmAuth.dbDirectory, 'password_manager.db');
-        if (fs.existsSync(dbPath)) {
-            fs.unlinkSync(dbPath);
-        }
-        
-        // Logout και reset auth
-        pmAuth.logout();
-        pmAuth.initialize(); // Re-init
-        
-        return { success: true };
-    } catch (error) {
-        console.error('Error resetting password manager:', error);
-        return { success: false, error: error.message };
+  try {
+    // Διαγραφή config file
+    if (fs.existsSync(pmAuth.configPath)) {
+      fs.unlinkSync(pmAuth.configPath);
     }
+
+    // Διαγραφή DB file
+    const dbPath = path.join(pmAuth.dbDirectory, 'password_manager.db');
+    if (fs.existsSync(dbPath)) {
+      fs.unlinkSync(dbPath);
+    }
+
+    // Logout και reset auth
+    pmAuth.logout();
+    pmAuth.initialize(); // Re-init
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error resetting password manager:', error);
+    return { success: false, error: error.message };
+  }
 });

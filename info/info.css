@@ -1,16 +1,4 @@
-/*
- * Styles for the Help modal in the Make Your Life Easier application.
- *
- * This stylesheet is intentionally compact and self‑contained.  It pulls
- * colour variables and fonts from the parent application via the
- * imported ../styles.css file, and then applies specific layouts and
- * accent styles to mirror the reference design.  Should you wish to
- * adjust colours or spacing further, consider modifying the CSS custom
- * properties defined in :root within styles.css.
- */
-
 :root {
-  /* Ensure some fallbacks if this file is loaded outside the main app. */
   --bg-color: #0f1117;
   --card-bg: #1a1d25;
   --text-color: #e2e8f0;
@@ -20,9 +8,6 @@
   --border-color: rgba(255, 255, 255, 0.1);
   --shadow-color: rgba(0, 0, 0, 0.4);
   --gradient-primary: linear-gradient(135deg, var(--accent-color-dark, #0066cc), var(--accent-color-light, #1e90ff));
-  /* Additional colours for navigation icons.  These approximate the hues
-   * used in the reference screenshot for each category.  If you wish to
-   * tweak the palette further, adjust these values. */
   --color-install: #3b61d1;
   --color-activate: #2eb85c;
   --color-maintain: #636e8c;
@@ -35,42 +20,24 @@
   --color-settings: #5f647a;
 }
 
-/* Reset some basic elements inside the iframe */
 html, body {
-  /* Full‑size viewport to allow centring of the help card */
   height: 100%;
   width: 100%;
   margin: 0;
-  /* Add vertical padding to prevent the card from touching the very top
-   * of the viewport when the modal first appears.  This also leaves
-   * breathing room at the bottom on taller screens. */
   padding: 2rem 0;
   background: transparent;
   color: var(--text-color);
   font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
-  /* Centre the info card horizontally and (mostly) vertically.  Use
-   * flexbox so the card sits in the middle of the available space.
-   * On very tall modals, the card will sit slightly below centre due
-   * to the vertical padding above. */
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Centre the card vertically within the iframe. */
   justify-content: center;
 }
 
-/* Container card with rounded corners and subtle shadow */
-/*
- * The info-card is centred within the modal with breathing room around it.
- * It should not span the entire width of the modal, emulating the
- * proportions seen in the provided reference.  Use a percentage width
- * with a max limit so it scales with the modal size.
- */
     .info-card {
       display: flex;
       flex-direction: column;
       gap: 1.1rem;
-      /* Slightly widen the card left and right */
       width: 95%;
       max-width: 1300px;
       margin: 0 auto;
@@ -83,7 +50,6 @@ html, body {
       position: relative;
     }
 
-/* Header containing logo and title */
 .info-header {
   display: flex;
   align-items: center;
@@ -110,9 +76,6 @@ html, body {
   color: var(--accent-color-light);
 }
 
-/* Close button for the help card.  Placed absolutely within the card and
- * styled as a small, unobtrusive '×'.  Clicking it will close the
- * modal overlay via the script embedded in info.js. */
 .info-close-btn {
   position: absolute;
   top: 0.75rem;
@@ -134,9 +97,7 @@ ol li {
     color: var(--text-secondary);
     line-height: 1.5;
 }
-/* Navigation bar styling */
-/* Navigation bar.  Items wrap as necessary but preserve consistent
- * spacing.  The bottom border separates the nav from the content area. */
+
 .info-nav {
     display: flex;
     flex-wrap: wrap;
@@ -148,9 +109,6 @@ ol li {
     margin: auto;
 }
 
-/* Base nav item style.  The entire item is clickable and presents a
- * subtle background with rounded corners.  Each item reserves space
- * for an icon container on the left. */
 .nav-item {
   display: flex;
   align-items: center;
@@ -167,15 +125,12 @@ ol li {
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-/* Icon container holds the coloured square behind each emoji. */
 .icon-container {
       display: flex;
       align-items: center;
       justify-content: center;
       width: 17px;
       height: 17px;
-      /* Remove the coloured background square from nav icons.  Only the
-       * emoji itself should be coloured. */
       border-radius: 0;
       margin-right: 0.3rem;
       color: var(--nav-color, var(--accent-color));
@@ -184,38 +139,28 @@ ol li {
       line-height: 1;
 }
 
-/* When an item is active, emphasise it by tinting the background and
- * border using the same colour as its icon. */
 .nav-item.active {
   background: rgba(var(--nav-color-rgb, 0, 128, 255), 0.2);
   border-color: var(--nav-color, var(--accent-color));
   color: var(--text-color);
 }
 
-/* Hover effect to gently highlight items on pointer focus. */
 .nav-item:hover {
   background: rgba(var(--nav-color-rgb, 0, 128, 255), 0.1);
   border-color: var(--nav-color, var(--accent-color));
   color: var(--text-color);
 }
 
-/* Section wrapper */
 .info-section {
-      /* Hide sections by default; only the active one is displayed.  See
-       * .info-section.active below for the visible state. */
       display: none;
       flex-direction: column;
       gap: 1.25rem;
-      /* Wrap the entire section (heading + content) in a soft panel.  This
-       * mirrors the nested card seen in the reference design where
-       * each feature is contained within its own bordered box. */
       background: var(--card-bg);
       border: 1px solid var(--border-color);
       border-radius: 16px;
       padding: 0.5rem 1.5rem 1.5rem 1.5rem; 
     }
 
-    /* Show only the active section */
     .info-section.active {
       display: block;
     }
@@ -236,7 +181,6 @@ ol li {
   color: var(--accent-color-light);
 }
 
-/* Content columns */
 .section-content {
   display: flex;
   flex-wrap: wrap;
@@ -245,14 +189,10 @@ ol li {
 
 .info-column {
   flex: 1 1 260px;
-  /* Προσθήκη για να διασφαλίσουμε ίδιο ύψος */
   display: flex;
   flex-direction: column;
 }
 
-    /* Card container for each column.  Mirrors the dark, rounded panels seen in the
-     * reference image.  Provides a subtle border and background separation from
-     * the overall info card. */
     .column-card {
       background: var(--card-bg);
       border: 1px solid var(--border-color);
@@ -261,27 +201,20 @@ ol li {
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
-      /* Προσθήκη για ίδιο ύψος */
       flex: 1;
-      /* Προσθήκη για ίδιο πλάτος */
-      min-height: 200px; /* Μπορείς να αλλάξεις αυτή την τιμή αν χρειαστεί */
+      min-height: 200px; 
       height: 100%;
       box-sizing: border-box;
     }
 
-    /* Header within each column.  Aligns the coloured icon box next to the
-     * heading text and provides consistent spacing. */
     .column-header {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       margin-bottom: 0.5rem;
-      /* Προσθήκη για συνεπή ύψος header */
       min-height: 40px;
     }
 
-    /* Container for the icon inside each column header.  Uses a square with
-     * rounded corners and a tinted background matching the accent colour. */
     .column-icon-container {
       width: 28px;
       height: 28px;
@@ -302,13 +235,10 @@ ol li {
       color: var(--accent-color-light);
     }
 
-    /* Removed earlier .column-title definition; see updated definition later. */
-
 .info-column p {
   font-size: 0.95rem;
   color: var(--text-secondary);
   margin: 0;
-  /* Προσθήκη για καλύτερη κατανομή χώρου */
   flex: 1;
 }
 
@@ -317,7 +247,6 @@ ol li {
   padding-left: 1.2rem;
   margin: 0;
   color: var(--text-secondary) ;
-  /* Προσθήκη για καλύτερη κατανομή χώρου */
   flex: 1;
 }
 
@@ -331,10 +260,6 @@ ol li {
   color: var(--accent-color-light);
 }
 
-/* Assign colour variables to each navigation item.  These values feed
- * into the --nav-color and --nav-color-rgb custom properties used
- * above, allowing each item to share its hue with the icon square and
- * active/hover states. */
 .nav-install { --nav-color: var(--color-install); --nav-color-rgb: 59, 97, 209; }
 .nav-activate { --nav-color: var(--color-activate); --nav-color-rgb: 46, 184, 92; }
 .nav-maintain { --nav-color: var(--color-maintain); --nav-color-rgb: 99, 110, 140; }
