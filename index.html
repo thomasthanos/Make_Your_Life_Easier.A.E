@@ -99,18 +99,24 @@
           <div class="title-group">
             <div class="app-title"></div>
             <div class="app-subtitle"></div>
+            <!-- Version display removed from here; it will appear in the footer instead -->
           </div>
           <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme"></button>
         </div>
         <ul id="menu-list"></ul>
 
         <div class="sidebar-footer">
+          <!-- Display the app version and user account information together at
+               the bottom of the sidebar.  The version text is a simple
+               element (no background or decorative lines) populated via
+               JavaScript.  The user-info container will be filled
+               dynamically with the authenticated user's avatar/name or
+               login buttons. -->
+          <!-- Place the user info before the version so that the account
+               name/avatar appears on the left and the version on the right. -->
+          <div class="user-info" id="userInfo"></div>
           <div class="version-wrap" title="App version">
-            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
-                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            <span id="appVersion">v0.0.0</span>
+            <span id="appVersion" class="version-text">v0.0.0</span>
           </div>
         </div>
       </nav>

@@ -452,7 +452,6 @@ body {
   background: transparent;
   color: var(--text-color);
   cursor: pointer;
-  opacity: 0.6;
 }
 
 .theme-toggle:hover,
@@ -613,19 +612,195 @@ body {
   margin-top: auto;
   padding: 12px 14px 16px;
   border-top: 1px solid var(--border-color);
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  /* Align both the version text and the account info across the footer.
+     Using space-between places the version on the left and the user
+     account/login buttons on the right, creating a balanced layout. */
+  justify-content: space-between;
 }
-.version-wrap{
-  display: inline-flex; align-items: center; gap: 8px;
-  font-size: 12.5px; font-weight: 700;
+/*
+ * Version wrap contains the version badge and optional user info.  It
+ * aligns its children horizontally.  Remove the legacy background and
+ * border so that the badge styling shines through.
+ */
+.version-wrap {
+  /* Version wrap horizontally aligns the version text and, if present,
+     decorative elements.  It no longer contains a backdrop or crosshair
+     decoration, since the simplified design requires only plain text. */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+}
+
+/* Badge styling for the app version.  Inspired by uiverse.io.  Uses
+   backdrop blur and a subtle border/glass effect.  The nested
+   .badge-lines span draws crosshair lines when hovered. */
+.version-badge {
+  /* Legacy version badge styling.  It is unused in the current design
+     but retained here for completeness.  Should you wish to revert to
+     a badge with background/blur, this class can be applied. */
+  position: relative;
+  text-decoration: none;
+  padding: 4px 8px;
   color: var(--sidebar-text);
-  background: rgba(255,255,255,.06);
-  border: 1px solid var(--border-color);
-  padding: 6px 10px;
-  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
-[data-theme="light"] .version-wrap{ background: rgba(0,0,0,.03); }
-.version-wrap svg{ opacity: .85; }
+
+/* The inner span holds the decorative lines that animate on hover. */
+.version-badge .badge-lines {
+  width: 16px;
+  height: 16px;
+  position: absolute;
+  top: -8px;
+  right: -3px;
+  transform: rotate(-20deg);
+  filter: blur(0.5px);
+}
+.version-badge .badge-lines:before,
+.version-badge .badge-lines:after {
+  content: "";
+  position: absolute;
+}
+.version-badge .badge-lines:before {
+  width: 1px;
+  height: 100%;
+  left: 7px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255, 255, 255, 0.7),
+    transparent
+  );
+}
+.version-badge .badge-lines:after {
+  width: 100%;
+  height: 1px;
+  top: 7px;
+  background: linear-gradient(
+    to left,
+    transparent,
+    rgba(255, 255, 255, 0.7),
+    transparent
+  );
+}
+.version-badge:hover .badge-lines:after,
+.version-badge:hover .badge-lines:before {
+  display: block;
+  animation: rotate 3s ease-in-out;
+}
+
+/* User info next to the version badge.  It will display the
+   logged‑in user's avatar and name when available. */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sidebar-text);
+}
+
+/* Plain version text.  When the version is displayed in the footer,
+   use this class instead of the badge to avoid any background or
+   decorative elements. */
+.version-text {
+  color: var(--sidebar-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  user-select: none;
+}
+.user-info img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Position user info relative so that the logout menu can be absolutely
+   positioned underneath it. */
+.user-info {
+  position: relative;
+  cursor: pointer;
+}
+
+/* Logout dropdown menu.  Hidden by default and shown when the
+   parent `.user-info` has the `show-logout` class. */
+.user-info .logout-menu {
+  display: none;
+  position: absolute;
+  /* Position the dropdown above the user info when the footer is at
+     the bottom of the sidebar.  Using bottom instead of top ensures the
+     menu opens upward rather than off-screen. */
+  bottom: calc(100% + 4px);
+  right: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 4px 6px;
+  border-radius: 6px;
+  z-index: 100;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.user-info.show-logout .logout-menu {
+  display: flex;
+}
+
+.user-info .logout-btn {
+  background: none;
+  border: none;
+  color: var(--sidebar-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.user-info .logout-btn:hover {
+  color: var(--accent-color, #3fb3ff);
+}
+
+/* Place the version wrap under the subtitle in the header.  Provide a
+   small margin to separate it from the subtitle. */
+.sidebar-header .version-wrap {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/*
+ * Login buttons displayed when no OAuth profile is available.  These
+ * are simple text buttons with transparent backgrounds so they blend
+ * into the sidebar.  Feel free to adjust colours, padding or replace
+ * with icons.  Each has a slight hover effect for affordance.
+ */
+.user-info .login-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--sidebar-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.user-info .login-btn + .login-btn {
+  margin-left: 4px;
+}
+.user-info .login-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
 
 /* ===== MAIN CONTENT AREA ===== */
 #main {
@@ -2565,7 +2740,7 @@ input:checked + .slider:before {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: var(#670000, #a10000);
+  background: var(--error-color, #ef4444);
   opacity: 0.75;
   animation: update-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
@@ -2606,12 +2781,13 @@ input:checked + .slider:before {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
+  border-radius: 11px;
   background: var(--card-bg);
   transition: background 0.3s ease;
 }
 
 #update-btn:hover .inner {
-  background: var(--card-bg-hover, rgba(0, 0, 0, 0.055));
+  background: var(--card-bg-hover, rgba(0, 0, 0, 0.4));
 }
 
 /* Icon container with gradient and blur overlay */
@@ -2744,7 +2920,6 @@ input:checked + .slider:before {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  margin: auto;
 }
 
 #update-btn .extra .btn {

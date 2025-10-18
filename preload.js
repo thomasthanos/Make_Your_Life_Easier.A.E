@@ -93,6 +93,13 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+  /**
+   * Retrieve basic system information from the main process.  Returns an
+   * object with details such as the current user and hostname.  This
+   * method can be used to display the logged-in user name in the UI.
+   */
+  getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   
   // Listen for update status events
   onUpdateStatus: (callback) => {
@@ -100,7 +107,22 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
     ipcRenderer.on('update-status', listener);
     return () => ipcRenderer.removeListener('update-status', listener);
   },
-runMsiInstaller: (msiPath) => ipcRenderer.invoke('run-msi-installer', msiPath),
-runInstaller: (filePath) => ipcRenderer.invoke('run-installer', filePath),
+  runMsiInstaller: (msiPath) => ipcRenderer.invoke('run-msi-installer', msiPath),
+  runInstaller: (filePath) => ipcRenderer.invoke('run-installer', filePath),
+
+  // -------------------------------------------------------------------------
+  // OAuth methods
+  //
+  // Initiate a login with Google or Discord.  These methods return a
+  // promise that resolves with the user profile (name and avatar URL) on
+  // success or rejects with an error message on failure.  The
+  // getUserProfile method returns the cached profile if the user is
+  // already authenticated.
+  loginGoogle: () => ipcRenderer.invoke('login-google'),
+  loginDiscord: () => ipcRenderer.invoke('login-discord'),
+  getUserProfile: () => ipcRenderer.invoke('get-user-profile'),
+  // Log out the current user and clear any saved profile.  Returns
+  // a promise that resolves when the logout completes.
+  logout: () => ipcRenderer.invoke('logout'),
 
 });

@@ -4256,34 +4256,130 @@ async function ensureSidebarVersion() {
   const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
   if (!sidebar) return;
 
-  // αν δεν υπάρχει footer, φτιάξ’ το
+  // If a sidebar footer does not exist (e.g. older versions of the
+  // template), create one with the version badge and user info holder.
   if (!sidebar.querySelector('.sidebar-footer')) {
     const footer = document.createElement('div');
     footer.className = 'sidebar-footer';
     footer.innerHTML = `
       <div class="version-wrap" title="App version">
-        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
-                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span id="appVersion">v…</span>
+        <div class="version-badge" id="versionBadge">
+          <span id="appVersion">v…</span>
+          <span class="badge-lines"></span>
+        </div>
+        <div class="user-info" id="userInfo"></div>
       </div>`;
     sidebar.appendChild(footer);
   }
 
-  const el = document.getElementById('appVersion');
-  const setSafe = (txt) => { el.textContent = txt; };
+  const versionEl = document.getElementById('appVersion');
+  const setSafe = (txt) => { if (versionEl) versionEl.textContent = txt; };
 
-  // 1η προσπάθεια
+  // Set the version once and schedule a correction in case another piece of
+  // code overwrites it with an invalid value (e.g. 0.0.0).  Normalise
+  // versions that begin with `v` and avoid displaying all‑zero versions.
   setSafe(await getAppVersionWithFallback());
-
-  // Ασφάλεια: αν κάτι την ξαναγράψει σε 0.0.0 μετά από λίγο, ξαναδιορθώνουμε
   setTimeout(async () => {
-    const raw = el.textContent.trim().replace(/^v/i,'');
+    const raw = (versionEl?.textContent || '').trim().replace(/^v/i, '');
     if (!raw || /^0+(?:\.0+){0,3}$/.test(raw)) {
       setSafe(await getAppVersionWithFallback());
     }
   }, 800);
+
+  // Populate or update the user info area.  This function runs
+  // immediately and after each successful login to reflect the latest
+  // authentication state.  It first checks if a user profile is
+  // available via the preload API; if so, it displays the name and
+  // avatar.  Otherwise, it presents login buttons for Google and
+  // Discord.  Clicking a button triggers the corresponding login flow
+  // and refreshes the UI upon completion.
+  async function updateUserInfo() {
+    const userInfoEl = document.getElementById('userInfo');
+    if (!userInfoEl) return;
+    try {
+      // Remove any previous click handler to avoid multiple bindings
+      if (userInfoEl._toggleHandler) {
+        userInfoEl.removeEventListener('click', userInfoEl._toggleHandler);
+        userInfoEl._toggleHandler = null;
+      }
+      const profile = await (window.api?.getUserProfile?.());
+      userInfoEl.innerHTML = '';
+      if (profile && profile.name) {
+        // Show the authenticated user's avatar and name
+        if (profile.avatar) {
+          const img = document.createElement('img');
+          img.src = profile.avatar;
+          img.alt = 'avatar';
+          userInfoEl.appendChild(img);
+        }
+        const span = document.createElement('span');
+        span.textContent = profile.name;
+        userInfoEl.appendChild(span);
+        // Create a hidden logout menu
+        const logoutMenu = document.createElement('div');
+        logoutMenu.className = 'logout-menu';
+        const logoutBtn = document.createElement('button');
+        logoutBtn.className = 'logout-btn';
+        logoutBtn.textContent = 'Logout';
+        logoutMenu.appendChild(logoutBtn);
+        userInfoEl.appendChild(logoutMenu);
+        // Toggle the visibility of the logout menu when clicking on the user
+        const handler = async (e) => {
+          // If the logout button itself was clicked, perform logout
+          if (e.target && e.target.classList.contains('logout-btn')) {
+            e.stopPropagation();
+            try {
+              await window.api?.logout?.();
+            } catch (err) {
+              console.error('Logout failed:', err);
+            }
+            // After logging out, refresh the UI
+            updateUserInfo();
+          } else {
+            // Toggle the dropdown display
+            userInfoEl.classList.toggle('show-logout');
+          }
+        };
+        userInfoEl._toggleHandler = handler;
+        userInfoEl.addEventListener('click', handler);
+      } else {
+        // Fallback: show login options.  Use simple text buttons to
+        // initiate the OAuth flows.  You may replace these with SVG
+        // icons or more elaborate styling.
+        const gBtn = document.createElement('button');
+        gBtn.className = 'login-btn login-google';
+        gBtn.textContent = 'Google';
+        gBtn.title = 'Sign in with Google';
+        const dBtn = document.createElement('button');
+        dBtn.className = 'login-btn login-discord';
+        dBtn.textContent = 'Discord';
+        dBtn.title = 'Sign in with Discord';
+        userInfoEl.appendChild(gBtn);
+        userInfoEl.appendChild(dBtn);
+        gBtn.addEventListener('click', async () => {
+          try {
+            await window.api?.loginGoogle?.();
+          } catch (err) {
+            console.error('Google login failed:', err);
+          }
+          // Refresh the user info regardless of outcome
+          updateUserInfo();
+        });
+        dBtn.addEventListener('click', async () => {
+          try {
+            await window.api?.loginDiscord?.();
+          } catch (err) {
+            console.error('Discord login failed:', err);
+          }
+          updateUserInfo();
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to update user info:', err);
+    }
+  }
+  // Immediately update on initialisation
+  updateUserInfo();
 }
 getAppVersionWithFallback().then(v => console.log('App version resolved =', v));
 
