@@ -145,6 +145,7 @@ ol li {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
+    margin: auto;
 }
 
 /* Base nav item style.  The entire item is clickable and presents a

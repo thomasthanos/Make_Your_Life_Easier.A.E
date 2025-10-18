@@ -452,6 +452,7 @@ body {
   background: transparent;
   color: var(--text-color);
   cursor: pointer;
+  opacity: 0.6;
 }
 
 .theme-toggle:hover,
@@ -2743,6 +2744,7 @@ input:checked + .slider:before {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  margin: auto;
 }
 
 #update-btn .extra .btn {
