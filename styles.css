@@ -452,6 +452,7 @@ body {
   background: transparent;
   color: var(--text-color);
   cursor: pointer;
+  opacity: 0.7;
 }
 
 .theme-toggle:hover,
@@ -2781,7 +2782,6 @@ input:checked + .slider:before {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  border-radius: 11px;
   background: var(--card-bg);
   transition: background 0.3s ease;
 }
@@ -2920,6 +2920,7 @@ input:checked + .slider:before {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  margin: auto;
 }
 
 #update-btn .extra .btn {
