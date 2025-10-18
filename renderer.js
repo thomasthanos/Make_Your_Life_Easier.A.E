@@ -3946,28 +3946,41 @@ function initializeAutoUpdater() {
 
     // Determine collapsed UI based on update status
     switch (data.status) {
-      case 'available':
-        // Show button and activate badge
+      case 'available': {
+        // When an update is available, use a generic label for the
+        // collapsed button.  The detailed title and version will be
+        // shown in the expanded panel.
         if (numEl) numEl.textContent = '1';
         if (titleEl) titleEl.textContent = 'Update Available';
         if (subtitleEl) subtitleEl.textContent = 'Click to view details';
         updateButton.style.display = 'flex';
         updateButton.classList.add('active');
         break;
-      case 'downloading':
+      }
+      case 'downloading': {
+        // During download, show progress in the subtitle.  Keep
+        // the collapsed title generic.
         if (numEl) numEl.textContent = '1';
-        if (titleEl) titleEl.textContent = 'Downloading...';
-        if (subtitleEl) subtitleEl.textContent = `${Math.round(data.percent || 0)}%`;
+        if (titleEl) titleEl.textContent = 'Downloading…';
+        if (subtitleEl) {
+          const percent = Math.round(data.percent || 0);
+          subtitleEl.textContent = `${percent}%`;
+        }
         updateButton.style.display = 'flex';
         updateButton.classList.add('active');
         break;
-      case 'downloaded':
+      }
+      case 'downloaded': {
+        // Once downloaded, encourage the user to install.  Use a
+        // generic label in collapsed view; details will appear
+        // in the expanded panel.
         if (numEl) numEl.textContent = '1';
         if (titleEl) titleEl.textContent = 'Update Ready';
         if (subtitleEl) subtitleEl.textContent = 'Click to install';
         updateButton.style.display = 'flex';
         updateButton.classList.add('active');
         break;
+      }
       case 'error':
         if (numEl) numEl.textContent = '!';
         if (titleEl) titleEl.textContent = 'Update Error';

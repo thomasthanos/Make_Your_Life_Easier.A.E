@@ -22,10 +22,22 @@ autoUpdater.on('update-available', (info) => {
   console.log('Update available:', info);
   updateAvailable = true;
   if (mainWindow) {
+    // Include the release name if provided by the update server.  Many
+    // providers (e.g. GitHub releases) expose a human‑friendly title via
+    // the `releaseName` property on the info object.  Fallback to the
+    // version string if no title is available.  Compose a rich message
+    // containing the title and version so the renderer can display a
+    // more descriptive notification.
+    const title = info.releaseName || '';
+    const version = info.version || '';
+    const message = title
+      ? `${title} (v${version})`
+      : `Update available: v${version}`;
     mainWindow.webContents.send('update-status', {
       status: 'available',
-      message: `Update available: v${info.version}`,
-      version: info.version,
+      message,
+      version,
+      releaseName: title,
       releaseNotes: info.releaseNotes
     });
   }
@@ -56,10 +68,20 @@ autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded:', info);
   updateDownloaded = true;
   if (mainWindow) {
+    // Provide the same releaseName and version fields when the update has
+    // been downloaded so the renderer can continue to display
+    // descriptive information.  Compose a message indicating the
+    // downloaded update and encourage restart/install.
+    const title = info.releaseName || '';
+    const version = info.version || '';
+    const message = title
+      ? `${title} (v${version}) downloaded. Restart to install.`
+      : `v${version} downloaded. Restart to install.`;
     mainWindow.webContents.send('update-status', {
       status: 'downloaded',
-      message: 'Update downloaded. Restart to install.',
-      version: info.version
+      message,
+      version,
+      releaseName: title
     });
   }
 });
