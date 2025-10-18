@@ -1,28 +1,17 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// The preload script exposes a safe API to the renderer process.  By
-// using contextBridge, Node APIs remain inaccessible to the page except
-// through these whitelisted methods.  See the Electron security
-// recommendations for more details.
 contextBridge.exposeInMainWorld('api', {
 
-  // Execute a system command and capture its output.  Use only for
-  // predefined commands; do not pass unsanitized user input.
   runCommand: (command) => ipcRenderer.invoke('run-command', command),
 
-  // Launch a URL in the default web browser.
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
-  // Start a file download with progress reporting. Uses events for progress updates.
   downloadStart: (id, url, dest) => ipcRenderer.send('download-start', { id, url, dest }),
 
-  // Pause a download by ID.
   downloadPause: (id) => ipcRenderer.send('download-pause', id),
 
-  // Resume a paused download by ID.
   downloadResume: (id) => ipcRenderer.send('download-resume', id),
 
-  // Cancel a download by ID.
   downloadCancel: (id) => ipcRenderer.send('download-cancel', id),
 
   restartToBios: () => ipcRenderer.invoke('restart-to-bios'),
@@ -31,19 +20,15 @@ contextBridge.exposeInMainWorld('api', {
 
   openFile: (filePath) => ipcRenderer.invoke('open-file', filePath),
 passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
-  // Extract a password‑protected archive using the bundled 7‑Zip.  Provide the
-  // archive path, the password, and an optional output directory.  Returns
-  // { success, output } or { success, error }.
+
   extractArchive: (filePath, password, destDir) =>
     ipcRenderer.invoke('extract-archive', { filePath, password, destDir }),
 
-  // Replace an executable file at the destination with a file from the extracted archive.
   replaceExe: (sourcePath, destPath) =>
     ipcRenderer.invoke('replace-exe', { sourcePath, destPath }),
 
   isWindows: () => process.platform === 'win32',
   
-  // Listen to download events (progress, complete, error).
   onDownloadEvent: (callback) => {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('download-event', listener);
@@ -54,16 +39,13 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   uninstallSpicetify: () => ipcRenderer.invoke('uninstall-spicetify'),
   fullUninstallSpotify: () => ipcRenderer.invoke('full-uninstall-spotify'),
 
-  // System maintenance
   runSfcScan: () => ipcRenderer.invoke('run-sfc-scan'),
   runDismRepair: () => ipcRenderer.invoke('run-dism-repair'),
   runTempCleanup: () => ipcRenderer.invoke('run-temp-cleanup'),
 
-  // Activation scripts
   runActivateScript: () => ipcRenderer.invoke('run-activate-script'),
   runAutologinScript: () => ipcRenderer.invoke('run-autologin-script'),
 
-  // ===== PASSWORD MANAGER APIs =====
   passwordManagerGetCategories: () => ipcRenderer.invoke('password-manager-get-categories'),
   passwordManagerAddCategory: (name) => ipcRenderer.invoke('password-manager-add-category', name),
   passwordManagerUpdateCategory: (id, name) => ipcRenderer.invoke('password-manager-update-category', id, name),
@@ -74,7 +56,6 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   passwordManagerDeletePassword: (id) => ipcRenderer.invoke('password-manager-delete-password', id),
   passwordManagerSearchPasswords: (query) => ipcRenderer.invoke('password-manager-search-passwords', query),
 
-// Add this to the preload.js API
   openPasswordManager: () => ipcRenderer.invoke('open-password-manager'),
 
   passwordManagerHasMasterPassword: () => ipcRenderer.invoke('password-manager-has-master-password'),
@@ -88,20 +69,13 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
 
     showFileDialog: () => ipcRenderer.invoke('show-file-dialog'),
 
-  // Auto Updater APIs
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 
-  /**
-   * Retrieve basic system information from the main process.  Returns an
-   * object with details such as the current user and hostname.  This
-   * method can be used to display the logged-in user name in the UI.
-   */
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   
-  // Listen for update status events
   onUpdateStatus: (callback) => {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('update-status', listener);
@@ -110,19 +84,9 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   runMsiInstaller: (msiPath) => ipcRenderer.invoke('run-msi-installer', msiPath),
   runInstaller: (filePath) => ipcRenderer.invoke('run-installer', filePath),
 
-  // -------------------------------------------------------------------------
-  // OAuth methods
-  //
-  // Initiate a login with Google or Discord.  These methods return a
-  // promise that resolves with the user profile (name and avatar URL) on
-  // success or rejects with an error message on failure.  The
-  // getUserProfile method returns the cached profile if the user is
-  // already authenticated.
   loginGoogle: () => ipcRenderer.invoke('login-google'),
   loginDiscord: () => ipcRenderer.invoke('login-discord'),
   getUserProfile: () => ipcRenderer.invoke('get-user-profile'),
-  // Log out the current user and clear any saved profile.  Returns
-  // a promise that resolves when the logout completes.
   logout: () => ipcRenderer.invoke('logout'),
 
 });
