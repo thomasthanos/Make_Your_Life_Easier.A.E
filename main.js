@@ -23,13 +23,13 @@ function getOAuthValue(provider, key) {
   return oauthConfig && oauthConfig[provider] && oauthConfig[provider][key];
 }
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || getOAuthValue('google', 'clientId') || '';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || getOAuthValue('google', 'clientSecret') || '';
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || getOAuthValue('google', 'redirectUri') || '';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '389774067739-qnshev3gbck4firdc787iqhd44omiajs.apps.googleusercontent.com';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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';
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5252';
 
-const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || getOAuthValue('discord', 'clientId') || '';
-const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || getOAuthValue('discord', 'clientSecret') || '';
-const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || getOAuthValue('discord', 'redirectUri') || '';
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1329887230482845797';
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || 'ZPK2i6WmbGnBhv7LmyzLwTOoKbaH8nDV';
+const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localhost:5252';
 
 let userProfile = null;
 
