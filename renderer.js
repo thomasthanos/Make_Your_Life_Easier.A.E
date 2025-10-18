@@ -3666,7 +3666,10 @@ function initializeAutoUpdater() {
       <div class="extra"></div>
     </div>
   `;
-  // Hide the button until an update event indicates it should be shown
+  // Hide the button until an update event indicates it should be shown.
+  // It will be displayed when there is an actionable update (available,
+  // downloading, downloaded or error).  This ensures that the notification
+  // icon does not clutter the UI when no updates are available.
   updateButton.style.display = 'none';
   // Clicking the update button either triggers a manual update check
   // (if no update has been announced yet) or toggles the expanded
@@ -3932,16 +3935,22 @@ function initializeAutoUpdater() {
     const badgeEl = updateButton.querySelector('.badge');
     const numEl = badgeEl ? badgeEl.querySelector('.num') : null;
     const svgPath = updateButton.querySelector('.icon svg path');
-    // Hide by default and remove active/expanded classes
+    // Hide the button by default and remove any active/expanded state.
     updateButton.style.display = 'none';
     updateButton.classList.remove('active');
+    // Reset collapsed text to default (will be overridden below for actionable statuses)
+    if (numEl) numEl.textContent = '0';
+    if (titleEl) titleEl.textContent = 'New Updates';
+    if (subtitleEl) subtitleEl.textContent = 'Check your notifications';
+    if (svgPath) svgPath.setAttribute('d', bellIconPath);
+
     // Determine collapsed UI based on update status
     switch (data.status) {
       case 'available':
+        // Show button and activate badge
         if (numEl) numEl.textContent = '1';
         if (titleEl) titleEl.textContent = 'Update Available';
         if (subtitleEl) subtitleEl.textContent = 'Click to view details';
-        if (svgPath) svgPath.setAttribute('d', bellIconPath);
         updateButton.style.display = 'flex';
         updateButton.classList.add('active');
         break;
@@ -3949,7 +3958,6 @@ function initializeAutoUpdater() {
         if (numEl) numEl.textContent = '1';
         if (titleEl) titleEl.textContent = 'Downloading...';
         if (subtitleEl) subtitleEl.textContent = `${Math.round(data.percent || 0)}%`;
-        if (svgPath) svgPath.setAttribute('d', bellIconPath);
         updateButton.style.display = 'flex';
         updateButton.classList.add('active');
         break;
@@ -3957,7 +3965,6 @@ function initializeAutoUpdater() {
         if (numEl) numEl.textContent = '1';
         if (titleEl) titleEl.textContent = 'Update Ready';
         if (subtitleEl) subtitleEl.textContent = 'Click to install';
-        if (svgPath) svgPath.setAttribute('d', bellIconPath);
         updateButton.style.display = 'flex';
         updateButton.classList.add('active');
         break;
@@ -3970,8 +3977,7 @@ function initializeAutoUpdater() {
         updateButton.classList.add('active');
         break;
       default:
-        // Hide button for non-actionable statuses (e.g. not-available)
-        updateButton.style.display = 'none';
+        // For non-actionable statuses (checking, not-available, or unknown), hide the button
         updateButton.classList.remove('expanded');
         updateButton.classList.remove('active');
         return;
