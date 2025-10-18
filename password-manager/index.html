@@ -1,10 +1,12 @@
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VaultGuard - Modern Password Manager</title>
     <link rel="stylesheet" href="passwordmanager.css">
 </head>
+
 <body>
     <div class="password-manager">
         <!-- Application layout: sidebar + main content -->
@@ -35,7 +37,8 @@
                 <div class="pm-controls">
                     <div class="pm-search">
                         <span class="search-icon">🔍</span>
-                        <input type="text" id="searchInput" placeholder="Search passwords, usernames, emails..." class="form-input">
+                        <input type="text" id="searchInput" placeholder="Search passwords, usernames, emails..."
+                            class="form-input">
                     </div>
                 </div>
                 <!-- Password Grid -->
@@ -54,68 +57,62 @@
                 <button class="close-btn" id="closePasswordModal">&times;</button>
             </div>
             <form id="passwordForm">
-            <input type="hidden" id="passwordId">
+                <input type="hidden" id="passwordId">
 
-            <!-- NEW: start grid wrapper -->
-            <div class="pm-form-grid">
-                <div class="form-group">
-                <label class="form-label" for="title">Title *</label>
-                <input type="text" id="title" class="form-input" required placeholder="Enter service name">
+                <!-- NEW: start grid wrapper -->
+                <div class="pm-form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="title">Title *</label>
+                        <input type="text" id="title" class="form-input" required placeholder="Enter service name">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="password">Password *</label>
+                        <input type="password" id="password" class="form-input" required placeholder="Enter password">
+                        <div class="password-strength">
+                            <div class="strength-bar" id="passwordStrength"></div>
+                        </div>
+                        <!-- το Generate το προσθέτει ήδη το JS, θα «κάτσει» σωστά με το CSS παρακάτω -->
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="url">Website URL</label>
+                        <input type="url" id="url" class="form-input" placeholder="https://example.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="category">Category</label>
+                        <select id="category" class="form-select">
+                            <option value="">No Category</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="username">Username</label>
+                        <input type="text" id="username" class="form-input" placeholder="Enter username">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="notes">Notes</label>
+                        <textarea id="notes" class="form-textarea" placeholder="Additional notes..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <!-- index.html -->
+                        <label class="form-label" for="email">Email</label>
+                        <input type="text" id="email" class="form-input" inputmode="email" autocomplete="email"
+                            placeholder="name@domain">
+
+                    </div>
                 </div>
+                <!-- NEW: end grid wrapper -->
 
-                <div class="form-group">
-                <label class="form-label" for="password">Password *</label>
-                <input type="password" id="password" class="form-input" required placeholder="Enter password">
-                <div class="password-strength">
-                    <div class="strength-bar" id="passwordStrength"></div>
+                <div class="form-actions">
+                    <button type="button" class="button button-secondary" id="cancelPasswordBtn">Cancel</button>
+                    <button type="submit" class="button" id="savePasswordBtn">
+                        <span>💾 Save Password</span>
+                    </button>
                 </div>
-                <!-- το Generate το προσθέτει ήδη το JS, θα «κάτσει» σωστά με το CSS παρακάτω -->
-                </div>
-
-                <div class="form-group">
-                <label class="form-label" for="url">Website URL</label>
-                <input type="url" id="url" class="form-input" placeholder="https://example.com">
-                </div>
-
-                <div class="form-group">
-                <label class="form-label" for="category">Category</label>
-                <select id="category" class="form-select">
-                    <option value="">No Category</option>
-                </select>
-                </div>
-
-                <div class="form-group">
-                <label class="form-label" for="username">Username</label>
-                <input type="text" id="username" class="form-input" placeholder="Enter username">
-                </div>
-
-                <div class="form-group">
-                <label class="form-label" for="notes">Notes</label>
-                <textarea id="notes" class="form-textarea" placeholder="Additional notes..."></textarea>
-                </div>
-
-                <div class="form-group">
-<!-- index.html -->
-<label class="form-label" for="email">Email</label>
-<input
-  type="text"
-  id="email"
-  class="form-input"
-  inputmode="email"
-  autocomplete="email"
-  placeholder="name@domain"
->
-
-                </div>
-            </div>
-            <!-- NEW: end grid wrapper -->
-
-            <div class="form-actions">
-                <button type="button" class="button button-secondary" id="cancelPasswordBtn">Cancel</button>
-                <button type="submit" class="button" id="savePasswordBtn">
-                <span>💾 Save Password</span>
-                </button>
-            </div>
             </form>
         </div>
     </div>
@@ -125,7 +122,8 @@
         <div class="modal-content categories-content">
             <div class="modal-header">
                 <h2 class="modal-title">Manage Categories</h2>
-                <button class="close-btn" id="closeCategoriesModal" aria-label="Close categories dialog">&times;</button>
+                <button class="close-btn" id="closeCategoriesModal"
+                    aria-label="Close categories dialog">&times;</button>
             </div>
             <div class="modal-body">
                 <!-- Add new category section -->
@@ -145,6 +143,7 @@
     </div>
     <script src="auth-ui.js"></script>
     <script src="passwordmanager.js"></script>
-    
+
 </body>
+
 </html>

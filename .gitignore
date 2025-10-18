@@ -13,3 +13,5 @@ task.bat
 temp_release_notes.md
 release_notes_2.0.4.md
 oauth_config.json
+!/bin/
+!/bin/7za.exe

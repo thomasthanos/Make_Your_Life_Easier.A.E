@@ -12,9 +12,9 @@ class PasswordManagerAuthUI {
         try {
             const result = await window.api.passwordManagerHasMasterPassword();
             this.hasMasterPassword = result;
-            
+
             this.isInitialized = true;
-            
+
             if (!this.hasMasterPassword) {
                 this.showSetupModal();
             } else {
@@ -28,7 +28,7 @@ class PasswordManagerAuthUI {
 
     showSetupModal() {
         this.closeAuthModal();
-        
+
         const modal = document.createElement('div');
         modal.className = 'auth-modal active';
         modal.innerHTML = `
@@ -41,16 +41,16 @@ class PasswordManagerAuthUI {
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(modal);
         this.authModal = modal;
-        
+
         setTimeout(() => this.attachSetupEventListeners(), 100);
     }
 
     showLoginModal() {
         this.closeAuthModal();
-        
+
         const modal = document.createElement('div');
         modal.className = 'auth-modal active';
         modal.innerHTML = `
@@ -63,10 +63,10 @@ class PasswordManagerAuthUI {
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(modal);
         this.authModal = modal;
-        
+
         setTimeout(() => this.attachLoginEventListeners(), 100);
     }
 
@@ -153,7 +153,7 @@ class PasswordManagerAuthUI {
     togglePasswordVisibility(inputId) {
         const input = document.getElementById(inputId);
         const toggleButton = input.nextElementSibling;
-        
+
         if (input.type === 'password') {
             input.type = 'text';
             toggleButton.textContent = '🙈';
@@ -169,15 +169,15 @@ class PasswordManagerAuthUI {
         const setupForm = document.getElementById('setupForm');
         const masterPassword = document.getElementById('masterPassword');
         const confirmPassword = document.getElementById('confirmPassword');
-        
+
         if (setupForm && masterPassword && confirmPassword) {
             masterPassword.addEventListener('input', (e) => {
                 this.checkPasswordStrength(e.target.value);
                 this.checkPasswordMatch();
             });
-            
+
             confirmPassword.addEventListener('input', this.checkPasswordMatch.bind(this));
-            
+
             setupForm.addEventListener('submit', (e) => this.handleSetup(e));
         }
     }
@@ -185,11 +185,11 @@ class PasswordManagerAuthUI {
     attachLoginEventListeners() {
         const loginForm = document.getElementById('loginForm');
         const forgotLink = document.getElementById('forgotPasswordLink');
-        
+
         if (loginForm) {
             loginForm.addEventListener('submit', (e) => this.handleLogin(e));
         }
-        
+
         if (forgotLink) {
             forgotLink.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -200,7 +200,7 @@ class PasswordManagerAuthUI {
 
     showForgotPasswordModal() {
         this.closeAuthModal();
-        
+
         const modal = document.createElement('div');
         modal.className = 'auth-modal active';
         modal.innerHTML = `
@@ -210,18 +210,18 @@ class PasswordManagerAuthUI {
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(modal);
         this.authModal = modal;
-        
+
         setTimeout(() => {
             const confirmBtn = document.getElementById('confirmResetBtn');
             const cancelBtn = document.getElementById('cancelResetBtn');
-            
+
             if (confirmBtn) {
                 confirmBtn.addEventListener('click', () => this.handlePasswordReset());
             }
-            
+
             if (cancelBtn) {
                 cancelBtn.addEventListener('click', () => {
                     this.closeAuthModal();
@@ -252,7 +252,7 @@ class PasswordManagerAuthUI {
 
         try {
             const result = await window.api.passwordManagerValidatePassword(password);
-            
+
             if (!result.isValid) {
                 container.innerHTML = `
                     <div class="error-alert">
@@ -286,7 +286,7 @@ class PasswordManagerAuthUI {
         const container = document.getElementById('passwordMatch');
         const masterPassword = document.getElementById('masterPassword');
         const confirmPassword = document.getElementById('confirmPassword');
-        
+
         if (!container || !masterPassword || !confirmPassword) return;
 
         if (confirmPassword.value.length === 0) {
@@ -300,11 +300,11 @@ class PasswordManagerAuthUI {
 
     async handleSetup(e) {
         e.preventDefault();
-        
+
         const masterPassword = document.getElementById('masterPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
         const btn = document.getElementById('setupBtn');
-        
+
         if (masterPassword !== confirmPassword) {
             this.showError('Οι κωδικοί δεν ταιριάζουν');
             return;
@@ -321,11 +321,11 @@ class PasswordManagerAuthUI {
 
         try {
             const result = await window.api.passwordManagerCreateMasterPassword(masterPassword);
-            
+
             if (result.success) {
                 this.showSuccess('Master Password δημιουργήθηκε επιτυχώς!');
                 this.closeAuthModal();
-                
+
                 setTimeout(() => {
                     if (window.pm && typeof window.pm.onAuthSuccess === 'function') {
                         window.pm.onAuthSuccess();
@@ -345,20 +345,20 @@ class PasswordManagerAuthUI {
 
     async handleLogin(e) {
         e.preventDefault();
-        
+
         const password = document.getElementById('loginPassword').value;
         const btn = document.getElementById('loginBtn');
-        
+
         btn.disabled = true;
         btn.innerHTML = '<span class="loading"></span> Σύνδεση...';
 
         try {
             const result = await window.api.passwordManagerAuthenticate(password);
-            
+
             if (result.success) {
                 this.showSuccess('Επιτυχής σύνδεση!');
                 this.closeAuthModal();
-                
+
                 setTimeout(() => {
                     if (window.pm && typeof window.pm.onAuthSuccess === 'function') {
                         window.pm.onAuthSuccess();
@@ -381,7 +381,7 @@ class PasswordManagerAuthUI {
             this.authModal.remove();
             this.authModal = null;
         }
-        
+
         const existingModals = document.querySelectorAll('.auth-modal');
         existingModals.forEach(modal => modal.remove());
     }
@@ -404,7 +404,7 @@ class PasswordManagerAuthUI {
 
     showErrorModal(message) {
         this.closeAuthModal();
-        
+
         const modal = document.createElement('div');
         modal.className = 'auth-modal active';
         modal.innerHTML = `

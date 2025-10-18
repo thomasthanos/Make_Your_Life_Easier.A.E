@@ -1,437 +1,415 @@
 <!DOCTYPE html>
 <html lang="el">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Βοήθεια - Make Your Life Easier</title>
-    <!-- Pull in the shared styles from the main application and our own stylesheet -->
-    <link rel="stylesheet" href="../styles.css" />
-    <link rel="stylesheet" href="info.css" />
-  </head>
-  <body>
-    <!-- Main card container.  It centres the help content within the modal and
-         provides a dark panel with soft rounding and a subtle border, just like
-         the reference image. -->
-    <div class="info-card">
-      <!-- Header with logo and gradient title -->
-      <header class="info-header">
-<span class="info-logo" aria-hidden="true">
-<img src="https://i.postimg.cc/xCtJkLGc/hacker.png" alt="Untitled Project" width="45" height="45">
 
-  </span>
-        <h1 class="info-title">
-          <span class="title-highlight">Make</span> Your
-          <span class="title-highlight">Life</span> Easier
-        </h1>
-      </header>
-      <!-- Close button inside the card.  Clicking it will close the
-         * modal overlay by accessing the parent document. -->
-      <button class="info-close-btn" aria-label="Κλείσιμο">&times;</button>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Βοήθεια - Make Your Life Easier</title>
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="info.css" />
+</head>
 
-      <!-- Navigation bar: each item corresponds to a section below.  The
-           data-target attribute links the button to its section.  Only
-           the first item is active on load. -->
-      <nav class="info-nav">
-        <div class="nav-item nav-install active" data-target="section-install">
-          <span class="icon-container" aria-hidden="true">📥</span>
-          <span class="nav-label">Install</span>
-        </div>
-        <div class="nav-item nav-activate" data-target="section-activate">
-          <span class="icon-container" aria-hidden="true">🔓</span>
-          <span class="nav-label">Activate</span>
-        </div>
-        <div class="nav-item nav-maintain" data-target="section-maintain">
-          <span class="icon-container" aria-hidden="true">🛠️</span>
-          <span class="nav-label">Maintain</span>
-        </div>
-        <div class="nav-item nav-crack" data-target="section-crack">
-          <span class="icon-container" aria-hidden="true">🎮</span>
-          <span class="nav-label">Crack</span>
-        </div>
-        <div class="nav-item nav-dlc" data-target="section-dlc">
-          <span class="icon-container" aria-hidden="true">🎁</span>
-          <span class="nav-label">DLC</span>
-        </div>
-        <div class="nav-item nav-passwords" data-target="section-passwords">
-          <span class="icon-container" aria-hidden="true">🔑</span>
-          <span class="nav-label">Passwords</span>
-        </div>
-        <div class="nav-item nav-spicetify" data-target="section-spicetify">
-          <span class="icon-container" aria-hidden="true">🎵</span>
-          <span class="nav-label">Spicetify</span>
-        </div>
-        <div class="nav-item nav-titus" data-target="section-titus">
-          <span class="icon-container" aria-hidden="true">🎧</span>
-          <span class="nav-label">Titus</span>
-        </div>
-        <div class="nav-item nav-bios" data-target="section-bios">
-          <span class="icon-container" aria-hidden="true">⚡</span>
-          <span class="nav-label">BIOS</span>
-        </div>
-        <div class="nav-item nav-settings" data-target="section-settings">
-          <span class="icon-container" aria-hidden="true">⚙️</span>
-          <span class="nav-label">Settings</span>
-        </div>
-      </nav>
-      <!-- Content container.  Only the active section is displayed via CSS.
-           Each section below follows the same structure: a title with
-           an icon and two columns describing what it does and how to use it.
-      -->
-      <div class="info-content">
-        <!-- Install section -->
-        <section id="section-install" class="info-section active">
-          <h2 class="section-title">
-            <span class="section-icon" aria-hidden="true">🎯</span>
-            Εγκατάσταση Εφαρμογών
-          </h2>
-          <div class="section-content">
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">🎯</span>
-                  <h3 class="column-title">Τι κάνει;</h3>
-                </div>
-                <p>
-                  Κατεβάζει και εγκαθιστά προγράμματα αυτόματα! Δεν χρειάζεται να
-                  ψάχνεις στο internet ή να ανησυχείς για ιούς.
-                </p>
-              </div>
-            </div>
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">📄</span>
-                  <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
-                </div>
-                <ol class="usage-list">
-                  <li>Βάλε tick στα προγράμματα που θες</li>
-                  <li>Πάτα "Download Selected"</li>
-                  <li>Περίμενε να κατέβουν</li>
-                  <li>Ακολούθησε τις οδηγίες</li>
-                </ol>
-              </div>
-            </div>
-          </div>
-        </section>
-        <!-- Activate section -->
-         
-        <section id="section-activate" class="info-section">
-          <h2 class="section-title">
-            <span class="section-icon" aria-hidden="true">✅</span>
-            Ενεργοποίηση Windows & Auto Login
-          </h2>
-          <div class="section-content">
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">✅</span>
-                  <h3 class="column-title">Τι κάνει;</h3>
-                </div>
-                <p>
-                  Κάνει το Windows σου πλήρως ενεργοποιημένο! Δεν θα βλέπεις πια μηνύματα
-                  "Activate Windows" και μπορεί να ρυθμίσει αυτόματο login.
-                </p>
-              </div>
-            </div>
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">📄</span>
-                  <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
-                </div>
-                <ol class="usage-list">
-                  <li>Κατέβασε το activation script</li>
-                  <li>Δώσε δικαιώματα διαχειριστή όταν ζητηθεί</li>
-                  <li>Εκτέλεσε το script</li>
-                  <li>Μετά, ενεργοποίησε το Auto Login στις ρυθμίσεις</li>
-                </ol>
-              </div>
-            </div>
-          </div>
-        </section>
-        <!-- Maintain section -->
-        <section id="section-maintain" class="info-section">
-          <h2 class="section-title">
-            <span class="section-icon" aria-hidden="true">🛠️</span>
-            Συντήρηση Συστήματος
-          </h2>
-          <div class="section-content">
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">🛠️</span>
-                  <h3 class="column-title">Τι κάνει;</h3>
-                </div>
-                <p>
-                  Καθαρίζει το σύστημά σου, ελευθερώνει χώρο και διορθώνει μικροπροβλήματα για
-                  καλύτερη απόδοση.
-                </p>
-              </div>
-            </div>
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">📄</span>
-                  <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
-                </div>
-                <ol class="usage-list">
-                  <li>Εκτέλεσε τον καθαριστή δίσκου</li>
-                  <li>Χρησιμοποίησε το εργαλείο απεγκατάστασης για άχρηστες εφαρμογές</li>
-                  <li>Επανεκκίνησε το σύστημά σου</li>
-                  <li>Απόλαυσε βελτιωμένη απόδοση!</li>
-                </ol>
-              </div>
-            </div>
-          </div>
-        </section>
-        <!-- Crack section -->
-        <section id="section-crack" class="info-section">
-          <h2 class="section-title">
-            <span class="section-icon" aria-hidden="true">🎮</span>
-            Crack Tools
-          </h2>
-          <div class="section-content">
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">🎮</span>
-                  <h3 class="column-title">Τι κάνει;</h3>
-                </div>
-                <p>
-                  Παρέχει εργαλεία για την ενεργοποίηση παιχνιδιών ή προγραμμάτων που
-                  έχουν κλειδωμένες δυνατότητες.
-                </p>
-              </div>
-            </div>
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">📄</span>
-                  <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
-                </div>
-                <ol class="usage-list">
-                  <li>Επίλεξε το παιχνίδι ή την εφαρμογή</li>
-                  <li>Τρέξε το κατάλληλο crack εργαλείο</li>
-                  <li>Ακολούθησε τις οδηγίες στην οθόνη</li>
-                  <li>Επανεκκίνησε αν χρειαστεί</li>
-                </ol>
-              </div>
-            </div>
-          </div>
-        </section>
-        <!-- DLC section -->
-        <section id="section-dlc" class="info-section">
-          <h2 class="section-title">
-            <span class="section-icon" aria-hidden="true">🎁</span>
-            DLC Unlocker
-          </h2>
-          <div class="section-content">
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">🎁</span>
-                  <h3 class="column-title">Τι κάνει;</h3>
-                </div>
-                <p>
-                  Ξεκλειδώνει πρόσθετο περιεχόμενο για τα αγαπημένα σου παιχνίδια χωρίς
-                  επιπλέον κόστος.
-                </p>
-              </div>
-            </div>
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">📄</span>
-                  <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
-                </div>
-                <ol class="usage-list">
-                  <li>Επίλεξε το παιχνίδι που θέλεις να ξεκλειδώσεις</li>
-                  <li>Τρέξε το εργαλείο DLC unlocker</li>
-                  <li>Περίμενε να ολοκληρωθεί η διαδικασία</li>
-                  <li>Άνοιξε το παιχνίδι και απόλαυσε το νέο περιεχόμενο</li>
-                </ol>
-              </div>
-            </div>
-          </div>
-        </section>
-        <!-- Passwords section -->
-        <section id="section-passwords" class="info-section">
-          <h2 class="section-title">
-            <span class="section-icon" aria-hidden="true">🔑</span>
-            Password Manager
-          </h2>
-          <div class="section-content">
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">🔑</span>
-                  <h3 class="column-title">Τι κάνει;</h3>
-                </div>
-                <p>
-                  Αποθηκεύει και διαχειρίζεται με ασφάλεια τους κωδικούς σου ώστε να
-                  μην τους ξεχνάς ποτέ.
-                </p>
-              </div>
-            </div>
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">📄</span>
-                  <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
-                </div>
-                <ol class="usage-list">
-                  <li>Δημιούργησε νέο λογαριασμό στο manager</li>
-                  <li>Καταχώρησε τους κωδικούς σου</li>
-                  <li>Χρησιμοποίησε τo auto‑fill για εύκολη σύνδεση</li>
-                  <li>Ανανέωνε τακτικά τους κωδικούς σου</li>
-                </ol>
-              </div>
-            </div>
-          </div>
-        </section>
-        <!-- Spicetify section -->
-        <section id="section-spicetify" class="info-section">
-          <h2 class="section-title">
-            <span class="section-icon" aria-hidden="true">🎵</span>
-            Spicetify
-          </h2>
-          <div class="section-content">
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">🎵</span>
-                  <h3 class="column-title">Τι κάνει;</h3>
-                </div>
-                <p>
-                  Προσαρμόζει την εμφάνιση και τη λειτουργικότητα του Spotify σου με
-                  themes και plugins.
-                </p>
-              </div>
-            </div>
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">📄</span>
-                  <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
-                </div>
-                <ol class="usage-list">
-                  <li>Εγκατέστησε το Spicetify CLI</li>
-                  <li>Επίλεξε ή εγκατέστησε ένα theme</li>
-                  <li>Εφαρμόσε το theme με το αντίστοιχο command</li>
-                  <li>Επανεκκίνησε το Spotify</li>
-                </ol>
-              </div>
-            </div>
-          </div>
-        </section>
-        <!-- Titus section -->
-        <section id="section-titus" class="info-section">
-          <h2 class="section-title">
-            <span class="section-icon" aria-hidden="true">🎧</span>
-            Chris Titus Tools
-          </h2>
-          <div class="section-content">
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">🎧</span>
-                  <h3 class="column-title">Τι κάνει;</h3>
-                </div>
-                <p>
-                  Προσφέρει χρήσιμα scripts και εργαλεία από τον Chris Titus για
-                  βελτιστοποίηση του συστήματος.
-                </p>
-              </div>
-            </div>
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">📄</span>
-                  <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
-                </div>
-                <ol class="usage-list">
-                  <li>Εκτέλεσε το script εγκατάστασης</li>
-                  <li>Επίλεξε τις λειτουργίες που θες</li>
-                  <li>Εκτέλεσε τις εντολές που προτείνει ο οδηγός</li>
-                  <li>Επανεκκίνησε για να εφαρμοστούν οι αλλαγές</li>
-                </ol>
-              </div>
-            </div>
-          </div>
-        </section>
-        <!-- BIOS section -->
-        <section id="section-bios" class="info-section">
-          <h2 class="section-title">
-            <span class="section-icon" aria-hidden="true">⚡</span>
-            BIOS Update
-          </h2>
-          <div class="section-content">
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">⚡</span>
-                  <h3 class="column-title">Τι κάνει;</h3>
-                </div>
-                <p>
-                  Ενημερώνει το BIOS της μητρικής σου πλακέτας. Απαραίτητο για να
-                  υποστηριχθούν νέοι επεξεργαστές και να διορθωθούν bugs.
-                </p>
-              </div>
-            </div>
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">📄</span>
-                  <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
-                </div>
-                <ol class="usage-list">
-                  <li>Κατέβασε το κατάλληλο BIOS από το site του κατασκευαστή</li>
-                  <li>Αποσυμπίεσε το αρχείο σε USB</li>
-                  <li>Επανεκκίνησε και μπες στο BIOS</li>
-                  <li>Χρησιμοποίησε το εργαλείο update BIOS και ακολούθησε τις οδηγίες</li>
-                </ol>
-              </div>
-            </div>
-          </div>
-        </section>
-        <!-- Settings section -->
-        <section id="section-settings" class="info-section">
-          <h2 class="section-title">
-            <span class="section-icon" aria-hidden="true">⚙️</span>
-            Ρυθμίσεις Εφαρμογής
-          </h2>
-          <div class="section-content">
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">⚙️</span>
-                  <h3 class="column-title">Τι κάνει;</h3>
-                </div>
-                <p>
-                  Σου επιτρέπει να αλλάξεις τη γλώσσα, το θέμα και άλλες προτιμήσεις
-                  για την εφαρμογή.
-                </p>
-              </div>
-            </div>
-            <div class="info-column">
-              <div class="column-card">
-                <div class="column-header">
-                  <span class="column-icon-container" aria-hidden="true">📄</span>
-                  <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
-                </div>
-                <ol class="usage-list">
-                  <li>Πήγαινε στις ρυθμίσεις</li>
-                  <li>Επίλεξε τη γλώσσα ή το θέμα που προτιμάς</li>
-                  <li>Αποθήκευσε τις αλλαγές</li>
-                  <li>Κλείσε και άνοιξε πάλι την εφαρμογή αν χρειαστεί</li>
-                </ol>
-              </div>
-            </div>
-          </div>
-        </section>
+<body>
+  <div class="info-card">
+    <header class="info-header">
+      <span class="info-logo" aria-hidden="true">
+        <img src="https://i.postimg.cc/xCtJkLGc/hacker.png" alt="Untitled Project" width="45" height="45">
+
+      </span>
+      <h1 class="info-title">
+        <span class="title-highlight">Make</span> Your
+        <span class="title-highlight">Life</span> Easier
+      </h1>
+    </header>
+    <button class="info-close-btn" aria-label="Κλείσιμο">&times;</button>
+
+    <nav class="info-nav">
+      <div class="nav-item nav-install active" data-target="section-install">
+        <span class="icon-container" aria-hidden="true">📥</span>
+        <span class="nav-label">Install</span>
       </div>
+      <div class="nav-item nav-activate" data-target="section-activate">
+        <span class="icon-container" aria-hidden="true">🔓</span>
+        <span class="nav-label">Activate</span>
+      </div>
+      <div class="nav-item nav-maintain" data-target="section-maintain">
+        <span class="icon-container" aria-hidden="true">🛠️</span>
+        <span class="nav-label">Maintain</span>
+      </div>
+      <div class="nav-item nav-crack" data-target="section-crack">
+        <span class="icon-container" aria-hidden="true">🎮</span>
+        <span class="nav-label">Crack</span>
+      </div>
+      <div class="nav-item nav-dlc" data-target="section-dlc">
+        <span class="icon-container" aria-hidden="true">🎁</span>
+        <span class="nav-label">DLC</span>
+      </div>
+      <div class="nav-item nav-passwords" data-target="section-passwords">
+        <span class="icon-container" aria-hidden="true">🔑</span>
+        <span class="nav-label">Passwords</span>
+      </div>
+      <div class="nav-item nav-spicetify" data-target="section-spicetify">
+        <span class="icon-container" aria-hidden="true">🎵</span>
+        <span class="nav-label">Spicetify</span>
+      </div>
+      <div class="nav-item nav-titus" data-target="section-titus">
+        <span class="icon-container" aria-hidden="true">🎧</span>
+        <span class="nav-label">Titus</span>
+      </div>
+      <div class="nav-item nav-bios" data-target="section-bios">
+        <span class="icon-container" aria-hidden="true">⚡</span>
+        <span class="nav-label">BIOS</span>
+      </div>
+      <div class="nav-item nav-settings" data-target="section-settings">
+        <span class="icon-container" aria-hidden="true">⚙️</span>
+        <span class="nav-label">Settings</span>
+      </div>
+    </nav>
+    <div class="info-content">
+      <section id="section-install" class="info-section active">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">🎯</span>
+          Εγκατάσταση Εφαρμογών
+        </h2>
+        <div class="section-content">
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">🎯</span>
+                <h3 class="column-title">Τι κάνει;</h3>
+              </div>
+              <p>
+                Κατεβάζει και εγκαθιστά προγράμματα αυτόματα! Δεν χρειάζεται να
+                ψάχνεις στο internet ή να ανησυχείς για ιούς.
+              </p>
+            </div>
+          </div>
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">📄</span>
+                <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
+              </div>
+              <ol class="usage-list">
+                <li>Βάλε tick στα προγράμματα που θες</li>
+                <li>Πάτα "Download Selected"</li>
+                <li>Περίμενε να κατέβουν</li>
+                <li>Ακολούθησε τις οδηγίες</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-activate" class="info-section">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">✅</span>
+          Ενεργοποίηση Windows & Auto Login
+        </h2>
+        <div class="section-content">
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">✅</span>
+                <h3 class="column-title">Τι κάνει;</h3>
+              </div>
+              <p>
+                Κάνει το Windows σου πλήρως ενεργοποιημένο! Δεν θα βλέπεις πια μηνύματα
+                "Activate Windows" και μπορεί να ρυθμίσει αυτόματο login.
+              </p>
+            </div>
+          </div>
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">📄</span>
+                <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
+              </div>
+              <ol class="usage-list">
+                <li>Κατέβασε το activation script</li>
+                <li>Δώσε δικαιώματα διαχειριστή όταν ζητηθεί</li>
+                <li>Εκτέλεσε το script</li>
+                <li>Μετά, ενεργοποίησε το Auto Login στις ρυθμίσεις</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="section-maintain" class="info-section">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">🛠️</span>
+          Συντήρηση Συστήματος
+        </h2>
+        <div class="section-content">
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">🛠️</span>
+                <h3 class="column-title">Τι κάνει;</h3>
+              </div>
+              <p>
+                Καθαρίζει το σύστημά σου, ελευθερώνει χώρο και διορθώνει μικροπροβλήματα για
+                καλύτερη απόδοση.
+              </p>
+            </div>
+          </div>
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">📄</span>
+                <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
+              </div>
+              <ol class="usage-list">
+                <li>Εκτέλεσε τον καθαριστή δίσκου</li>
+                <li>Χρησιμοποίησε το εργαλείο απεγκατάστασης για άχρηστες εφαρμογές</li>
+                <li>Επανεκκίνησε το σύστημά σου</li>
+                <li>Απόλαυσε βελτιωμένη απόδοση!</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="section-crack" class="info-section">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">🎮</span>
+          Crack Tools
+        </h2>
+        <div class="section-content">
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">🎮</span>
+                <h3 class="column-title">Τι κάνει;</h3>
+              </div>
+              <p>
+                Παρέχει εργαλεία για την ενεργοποίηση παιχνιδιών ή προγραμμάτων που
+                έχουν κλειδωμένες δυνατότητες.
+              </p>
+            </div>
+          </div>
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">📄</span>
+                <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
+              </div>
+              <ol class="usage-list">
+                <li>Επίλεξε το παιχνίδι ή την εφαρμογή</li>
+                <li>Τρέξε το κατάλληλο crack εργαλείο</li>
+                <li>Ακολούθησε τις οδηγίες στην οθόνη</li>
+                <li>Επανεκκίνησε αν χρειαστεί</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="section-dlc" class="info-section">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">🎁</span>
+          DLC Unlocker
+        </h2>
+        <div class="section-content">
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">🎁</span>
+                <h3 class="column-title">Τι κάνει;</h3>
+              </div>
+              <p>
+                Ξεκλειδώνει πρόσθετο περιεχόμενο για τα αγαπημένα σου παιχνίδια χωρίς
+                επιπλέον κόστος.
+              </p>
+            </div>
+          </div>
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">📄</span>
+                <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
+              </div>
+              <ol class="usage-list">
+                <li>Επίλεξε το παιχνίδι που θέλεις να ξεκλειδώσεις</li>
+                <li>Τρέξε το εργαλείο DLC unlocker</li>
+                <li>Περίμενε να ολοκληρωθεί η διαδικασία</li>
+                <li>Άνοιξε το παιχνίδι και απόλαυσε το νέο περιεχόμενο</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="section-passwords" class="info-section">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">🔑</span>
+          Password Manager
+        </h2>
+        <div class="section-content">
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">🔑</span>
+                <h3 class="column-title">Τι κάνει;</h3>
+              </div>
+              <p>
+                Αποθηκεύει και διαχειρίζεται με ασφάλεια τους κωδικούς σου ώστε να
+                μην τους ξεχνάς ποτέ.
+              </p>
+            </div>
+          </div>
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">📄</span>
+                <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
+              </div>
+              <ol class="usage-list">
+                <li>Δημιούργησε νέο λογαριασμό στο manager</li>
+                <li>Καταχώρησε τους κωδικούς σου</li>
+                <li>Χρησιμοποίησε τo auto‑fill για εύκολη σύνδεση</li>
+                <li>Ανανέωνε τακτικά τους κωδικούς σου</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="section-spicetify" class="info-section">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">🎵</span>
+          Spicetify
+        </h2>
+        <div class="section-content">
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">🎵</span>
+                <h3 class="column-title">Τι κάνει;</h3>
+              </div>
+              <p>
+                Προσαρμόζει την εμφάνιση και τη λειτουργικότητα του Spotify σου με
+                themes και plugins.
+              </p>
+            </div>
+          </div>
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">📄</span>
+                <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
+              </div>
+              <ol class="usage-list">
+                <li>Εγκατέστησε το Spicetify CLI</li>
+                <li>Επίλεξε ή εγκατέστησε ένα theme</li>
+                <li>Εφαρμόσε το theme με το αντίστοιχο command</li>
+                <li>Επανεκκίνησε το Spotify</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="section-titus" class="info-section">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">🎧</span>
+          Chris Titus Tools
+        </h2>
+        <div class="section-content">
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">🎧</span>
+                <h3 class="column-title">Τι κάνει;</h3>
+              </div>
+              <p>
+                Προσφέρει χρήσιμα scripts και εργαλεία από τον Chris Titus για
+                βελτιστοποίηση του συστήματος.
+              </p>
+            </div>
+          </div>
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">📄</span>
+                <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
+              </div>
+              <ol class="usage-list">
+                <li>Εκτέλεσε το script εγκατάστασης</li>
+                <li>Επίλεξε τις λειτουργίες που θες</li>
+                <li>Εκτέλεσε τις εντολές που προτείνει ο οδηγός</li>
+                <li>Επανεκκίνησε για να εφαρμοστούν οι αλλαγές</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="section-bios" class="info-section">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">⚡</span>
+          BIOS Update
+        </h2>
+        <div class="section-content">
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">⚡</span>
+                <h3 class="column-title">Τι κάνει;</h3>
+              </div>
+              <p>
+                Ενημερώνει το BIOS της μητρικής σου πλακέτας. Απαραίτητο για να
+                υποστηριχθούν νέοι επεξεργαστές και να διορθωθούν bugs.
+              </p>
+            </div>
+          </div>
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">📄</span>
+                <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
+              </div>
+              <ol class="usage-list">
+                <li>Κατέβασε το κατάλληλο BIOS από το site του κατασκευαστή</li>
+                <li>Αποσυμπίεσε το αρχείο σε USB</li>
+                <li>Επανεκκίνησε και μπες στο BIOS</li>
+                <li>Χρησιμοποίησε το εργαλείο update BIOS και ακολούθησε τις οδηγίες</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="section-settings" class="info-section">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">⚙️</span>
+          Ρυθμίσεις Εφαρμογής
+        </h2>
+        <div class="section-content">
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">⚙️</span>
+                <h3 class="column-title">Τι κάνει;</h3>
+              </div>
+              <p>
+                Σου επιτρέπει να αλλάξεις τη γλώσσα, το θέμα και άλλες προτιμήσεις
+                για την εφαρμογή.
+              </p>
+            </div>
+          </div>
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">📄</span>
+                <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
+              </div>
+              <ol class="usage-list">
+                <li>Πήγαινε στις ρυθμίσεις</li>
+                <li>Επίλεξε τη γλώσσα ή το θέμα που προτιμάς</li>
+                <li>Αποθήκευσε τις αλλαγές</li>
+                <li>Κλείσε και άνοιξε πάλι την εφαρμογή αν χρειαστεί</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
-    <!-- Attach our script which handles nav interactions -->
-    <script src="info.js"></script>
-  </body>
+  </div>
+  <script src="info.js"></script>
+</body>
+
 </html>
