@@ -734,25 +734,42 @@ body {
 
 /* Logout dropdown menu.  Hidden by default and shown when the
    parent `.user-info` has the `show-logout` class. */
+/*
+ * Logout dropdown menu styling.
+ *
+ * These rules implement a modern floating menu with a dark blurred
+ * background and subtle border.  To support both fade‑in and fade‑out
+ * animations, the element is always present in the DOM and hidden
+ * using opacity and a slight translateY offset when not active.
+ */
 .user-info .logout-menu {
-  display: none;
+  display: flex;
   position: absolute;
-  /* Position the dropdown above the user info when the footer is at
-     the bottom of the sidebar.  Using bottom instead of top ensures the
-     menu opens upward rather than off-screen. */
-  bottom: calc(100% + 4px);
+  bottom: calc(100% + 8px);
   right: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  padding: 4px 6px;
-  border-radius: 6px;
-  z-index: 100;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  background: rgba(15, 15, 15, 0.95);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  padding: 8px 12px;
+  border-radius: 10px;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),
+              0 0 0 1px rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Hidden state: transparent and slightly translated */
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.25s ease-out, transform 0.25s ease-out;
 }
 
+/* When the parent `.user-info` has the `show-logout` class the menu
+   fades in and slides up into place.  Pointer events are enabled so
+   the button can be clicked. */
 .user-info.show-logout .logout-menu {
-  display: flex;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .user-info .logout-btn {
@@ -766,7 +783,7 @@ body {
   border-radius: 4px;
 }
 .user-info .logout-btn:hover {
-  color: var(--accent-color, #3fb3ff);
+  color: #a80000;
 }
 
 /* Place the version wrap under the subtitle in the header.  Provide a
@@ -2678,13 +2695,26 @@ input:checked + .slider:before {
 }
 
 /* Info – ίδιο ύψος, μικρότερο πλάτος */
+/*
+ * The settings info button should visually match the "Save" button so that
+ * they look like part of the same control group. Previously the info
+ * button used a dark background with an accent-coloured icon. This
+ * caused it to stand out in a way that didn’t align with the bright
+ * gradient of the save button. To address this, we reuse the same
+ * gradient defined for the save button (via CSS variables) and invert
+ * the text colour to white. The width is kept narrow to distinguish
+ * its secondary role and the extra border is removed for a cleaner
+ * appearance.
+ */
 .settings-info-btn {
   width: 36px;
   padding: 0;
   margin: 0;
-  background: #1a1d25;
-  color: #00bfff;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  /* Match the gradient used on .settings-save-btn. Use !important to override
+     any conflicting rules defined elsewhere in the stylesheet. */
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
   position: relative;
   top: 2.5px;
   margin-left: 20px;
@@ -2695,9 +2725,17 @@ input:checked + .slider:before {
   display: block;           /* αφαιρεί “line-height offset” */
   width: 18px;
   height: 18px;
-  fill: currentColor;
+  fill: black;
   margin: 0;
   padding: 0;
+}
+
+/* Enhance the visibility of the outer ring by adding a stroke around the
+   SVG path. Using a low-opacity dark stroke gives the icon a subtle
+   outline without overwhelming the design. */
+.settings-info-btn svg path {
+  stroke: rgb(0, 0, 0);
+  stroke-width: 1px;
 }
 
 /* ===========================================================
