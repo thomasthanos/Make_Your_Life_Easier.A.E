@@ -820,6 +820,85 @@ body {
   border-color: rgba(255, 255, 255, 0.3);
 }
 
+/*
+ * Social login card for the user info area.
+ * When a user is not authenticated we display a compact card with
+ * individual buttons for each provider (e.g. Discord and Google).
+ * The design is inspired by a modern Uiverse snippet: a rounded
+ * rectangle container with evenly spaced circular buttons.  We adapt
+ * the colours and dimensions to fit the existing dark theme of the
+ * sidebar.  Each button uses an embedded SVG and transitions
+ * smoothly on hover or focus.  The card itself responds to
+ * focus-within by increasing contrast and adding a subtle border and
+ * shadow.
+ */
+.user-info .login-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  /* Further reduce padding and overall size for a very small appearance */
+  padding: 3px 6px;
+  border-radius: 10px;
+  width: auto;
+  height: 36px;
+  /* Use a semi‑transparent white background so the card stands out against the dark sidebar */
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 2px solid transparent;
+  transition: all 0.5s ease-in-out;
+  position: relative;
+}
+
+/* When any child button receives focus (e.g. via keyboard),
+   highlight the card with a darker overlay and border. */
+.user-info .login-card:focus-within {
+  background-color: rgba(17, 17, 17, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 2px solid rgb(27, 27, 27);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+/* Style individual provider buttons within the login card.  Each
+   button is circular with no default border and a small padding to
+   create separation around the embedded SVG. */
+.user-info .login-card button {
+  /* Very small circular buttons for the ultra‑compact card */
+  width: 26px;
+  height: 26px;
+  padding: 3px;
+  border-radius: 50%;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease-in;
+  position: relative;
+}
+
+/* Lighten the button on hover */
+.user-info .login-card button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* When a button receives focus (via tab key), increase the
+   background opacity to provide keyboard navigability feedback. */
+.user-info .login-card button:focus {
+  outline: none;
+  background-color: rgb(255, 255, 255);
+}
+
+/* Ensure provider icons scale uniformly within the buttons */
+.user-info .login-card button svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 /* ===== MAIN CONTENT AREA ===== */
 #main {
   flex: 1;
