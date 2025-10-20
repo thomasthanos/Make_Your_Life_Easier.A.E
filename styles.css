@@ -19,6 +19,15 @@
   --success-color: #10b981;
   --warning-color: #f59e0b;
   --error-color: #ef4444;
+
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+  --glass-border-top: rgba(255, 255, 255, 0.4);
+  --glass-border-left: rgba(255, 255, 255, 0.3);
+  --glass-bg-hover: rgba(255, 255, 255, 0.15);
+  --glass-border-top-hover: rgba(255, 255, 255, 0.5);
+  --glass-border-left-hover: rgba(255, 255, 255, 0.4);
 }
 
 [data-theme="light"] {
@@ -33,6 +42,15 @@
   --sidebar-text: #475569;
   --sidebar-hover: #e2e8f0;
   --header-bg: #ffffff;
+
+  --glass-bg: rgba(255, 255, 255, 0.4);
+  --glass-border: rgba(0, 0, 0, 0.1);
+  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  --glass-border-top: rgba(0, 0, 0, 0.05);
+  --glass-border-left: rgba(0, 0, 0, 0.03);
+  --glass-bg-hover: rgba(255, 255, 255, 0.5);
+  --glass-border-top-hover: rgba(0, 0, 0, 0.08);
+  --glass-border-left-hover: rgba(0, 0, 0, 0.05);
 }
 
 body {
@@ -3037,14 +3055,14 @@ input:checked+.slider:before {
   display: block;
   width: 18px;
   height: 18px;
-  fill: black;
+  fill: rgb(255, 255, 255);
   margin: 0;
   padding: 0;
 }
 
 
 .settings-info-btn svg path {
-  stroke: rgb(0, 0, 0);
+  stroke: rgb(255, 255, 255);
   stroke-width: 1px;
 }
 
@@ -3295,3 +3313,28 @@ input:checked+.slider:before {
 #update-btn .extra .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+#menu-list button:hover,
+#menu-list button:focus-visible,
+#menu-list button.active {
+  background: var(--glass-bg-hover) !important;
+  border-top: 1px solid var(--glass-border-top-hover) !important;
+  border-left: 1px solid var(--glass-border-left-hover) !important;
+  box-shadow: var(--glass-shadow) !important;
+  border-radius: 20px !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  color: var(--sidebar-text) !important;
+}
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle),
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):hover,
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):active {
+  background: var(--glass-bg) !important;
+  border-top: 1px solid var(--glass-border-top) !important;
+  border-left: 1px solid var(--glass-border-left) !important;
+  box-shadow: var(--glass-shadow) !important;
+  border-radius: 20px !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  color: var(--text-color) !important;
+}
+
