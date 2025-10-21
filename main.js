@@ -1121,200 +1121,203 @@ ipcMain.handle('full-uninstall-spotify', async () => {
   });
 });
 ipcMain.handle('run-sfc-scan', async () => {
-  return new Promise((resolve) => {
-    if (process.platform !== 'win32') {
-      resolve({ success: false, error: 'SFC is only available on Windows' });
-      return;
-    }
-    const batchScript = `@echo off
-echo ========================================
-echo SFC System File Checker
-echo ========================================
-echo.
-echo Starting SFC scan with Administrator privileges...
-echo Process may take 15-30 minutes.
-echo.
-sfc /scannow
-if %errorlevel% equ 0 (
-    echo.
-    echo SFC scan completed SUCCESSFULLY!
-) else (
-    echo.
-    echo SFC scan completed with exit code: %errorlevel%
-)
-echo.
-echo Press any key to close this window...
-pause >nul
-`;
-    const batchFile = path.join(os.tmpdir(), `sfc_scan_${Date.now()}.bat`);
-
-    try {
-      fs.writeFileSync(batchFile, batchScript, 'utf8');
-
-      const vbsScript = `
-Set UAC = CreateObject("Shell.Application")
-UAC.ShellExecute "cmd.exe", "/c ""${batchFile.replace(/\\/g, '\\\\')}""", "", "runas", 1
-`;
-      const vbsFile = path.join(os.tmpdir(), `elevate_sfc_${Date.now()}.vbs`);
-      fs.writeFileSync(vbsFile, vbsScript);
-      console.log('Requesting UAC elevation for SFC scan...');
-      exec(`wscript "${vbsFile}"`, (error) => {
-        setTimeout(() => {
-          try { fs.unlinkSync(vbsFile); } catch { }
-          try { fs.unlinkSync(batchFile); } catch { }
-        }, 10000);
-
-        if (error) {
-          resolve({
-            success: false,
-            error: 'Administrator privileges required. Please accept the UAC prompt.',
-            code: 'UAC_DENIED'
-          });
-        } else {
-          resolve({
-            success: true,
-            message: '✅ SFC scan started with Administrator privileges. Please check the command window for progress.'
-          });
-        }
-      });
-
-    } catch (error) {
-      resolve({ success: false, error: error.message });
-    }
-  });
+  // Simplified implementation: run SFC directly via an elevated PowerShell process without creating temporary scripts
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'SFC is only available on Windows' };
+  }
+  try {
+    // Launch an elevated command prompt that runs sfc /scannow and stays open. The /k switch
+    // tells cmd to execute the command and remain open so the user can see the results.
+    const psCommand = 'Start-Process cmd -ArgumentList "/k sfc /scannow" -Verb RunAs';
+    spawn('powershell.exe', ['-Command', psCommand], {
+      detached: true,
+      stdio: 'ignore'
+    });
+    return { success: true, message: '✅ SFC scan started with Administrator privileges. Please check the command window for progress.' };
+  } catch (error) {
+    return { success: false, error: 'Failed to start SFC scan: ' + error.message };
+  }
 });
 ipcMain.handle('run-dism-repair', async () => {
+  // Simplified implementation: run DISM directly via an elevated PowerShell process without creating temporary scripts
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'DISM is only available on Windows' };
+  }
+  try {
+    // Launch an elevated command prompt that runs DISM RestoreHealth and stays open. The /k switch
+    // keeps the command window open after execution so progress can be monitored.
+    const dismArgs = '/k DISM /Online /Cleanup-Image /RestoreHealth';
+    const psCommand = `Start-Process cmd -ArgumentList "${dismArgs}" -Verb RunAs`;
+    spawn('powershell.exe', ['-Command', psCommand], {
+      detached: true,
+      stdio: 'ignore'
+    });
+    return { success: true, message: '✅ DISM repair started with Administrator privileges. Please check the command window for progress.' };
+  } catch (error) {
+    return { success: false, error: 'Failed to start DISM repair: ' + error.message };
+  }
+});
+ipcMain.handle('run-temp-cleanup', async () => {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+  
   return new Promise((resolve) => {
-    if (process.platform !== 'win32') {
-      resolve({ success: false, error: 'DISM is only available on Windows' });
-      return;
-    }
-    const batchScript = `@echo off
-echo ========================================
-echo DISM System Repair Tool
-echo ========================================
-echo.
-echo Starting DISM repair with Administrator privileges...
-echo.
-DISM /Online /Cleanup-Image /CheckHealth
-echo.
-DISM /Online /Cleanup-Image /ScanHealth
-echo.
-DISM /Online /Cleanup-Image /RestoreHealth
-echo.
-echo DISM repair process completed.
-echo.
-echo Press any key to close this window...
-pause >nul
-`;
-    const batchFile = path.join(os.tmpdir(), `dism_repair_${Date.now()}.bat`);
-
     try {
-      fs.writeFileSync(batchFile, batchScript, 'utf8');
+      console.log('Starting silent temp cleanup with admin privileges...');
+      
+      // PowerShell script που τρέχει σιωπηλά και επιστρέφει αποτέλεσμα
+      const psScript = `
+# Αρχικοποίηση μεταβλητών
+$success = $true
+$results = @()
 
+# Συνάρτηση για καθαρισμό φακέλου
+function Clean-Folder {
+    param([string]$folderPath, [string]$folderName)
+    
+    try {
+        if (Test-Path $folderPath) {
+            $items = Get-ChildItem $folderPath -Force -ErrorAction SilentlyContinue
+            $count = $items.Count
+            if ($count -gt 0) {
+                Remove-Item "$folderPath\\*.*" -Force -Recurse -ErrorAction SilentlyContinue
+                $results += "✓ $folderName: Cleaned $count items"
+            } else {
+                $results += "✓ $folderName: Already clean"
+            }
+        } else {
+            $results += "! $folderName: Folder not found"
+        }
+    }
+    catch {
+        $success = $false
+        $results += "✗ $folderName`: Error: $($_.Exception.Message)"
+    }
+}
+
+# Εκτέλεση καθαρισμού
+Clean-Folder -folderPath "$env:USERPROFILE\\Recent" -folderName "Recent Files"
+Clean-Folder -folderPath "C:\\Windows\\Prefetch" -folderName "Prefetch"
+Clean-Folder -folderPath "C:\\Windows\\Temp" -folderName "Windows Temp"
+Clean-Folder -folderPath "$env:USERPROFILE\\AppData\\Local\\Temp" -folderName "User Temp"
+
+# Επιστροφή αποτελέσματος
+$result = @{
+    success = $success
+    message = if ($success) { "Temporary files cleanup completed successfully" } else { "Cleanup completed with errors" }
+    details = $results -join "`n"
+}
+
+# Επιστροφή JSON για να το διαβάσει το Electron
+ConvertTo-Json -InputObject $result -Compress
+`;
+
+      // Αποθήκευση του PowerShell script
+      const psFile = path.join(os.tmpdir(), `temp_cleanup_silent_${Date.now()}.ps1`);
+      fs.writeFileSync(psFile, psScript, 'utf8');
+      console.log('PowerShell script created at:', psFile);
+
+      // Δημιουργία VBS script για UAC elevation (σιωπηλή εκτέλεση)
       const vbsScript = `
 Set UAC = CreateObject("Shell.Application")
-UAC.ShellExecute "cmd.exe", "/c ""${batchFile.replace(/\\/g, '\\\\')}""", "", "runas", 1
+UAC.ShellExecute "powershell.exe", "-ExecutionPolicy Bypass -WindowStyle Hidden -File ""${psFile.replace(/\\/g, '\\\\')}""", "", "runas", 0
 `;
-      const vbsFile = path.join(os.tmpdir(), `elevate_dism_${Date.now()}.vbs`);
-      fs.writeFileSync(vbsFile, vbsScript);
-      console.log('Requesting UAC elevation for DISM repair...');
-      exec(`wscript "${vbsFile}"`, (error) => {
-        setTimeout(() => {
-          try { fs.unlinkSync(vbsFile); } catch { }
-          try { fs.unlinkSync(batchFile); } catch { }
-        }, 10000);
 
+      const vbsFile = path.join(os.tmpdir(), `elevate_temp_silent_${Date.now()}.vbs`);
+      fs.writeFileSync(vbsFile, vbsScript);
+      console.log('VBS script created at:', vbsFile);
+
+      // Εκτέλεση και αναμονή για αποτέλεσμα
+      const outputFile = path.join(os.tmpdir(), `temp_cleanup_result_${Date.now()}.json`);
+      
+      // Τροποποιημένο PowerShell script που αποθηκεύει το αποτέλεσμα σε αρχείο
+      const finalPsScript = psScript.replace(
+        'ConvertTo-Json -InputObject $result -Compress',
+        `ConvertTo-Json -InputObject $result -Compress | Out-File -FilePath "${outputFile.replace(/\\/g, '\\\\')}" -Encoding UTF8`
+      );
+      
+      fs.writeFileSync(psFile, finalPsScript, 'utf8');
+
+      // Εκτέλεση του VBS script
+      exec(`wscript "${vbsFile}"`, (error) => {
         if (error) {
+          console.error('UAC was denied or failed:', error);
+          cleanupFiles([psFile, vbsFile, outputFile]);
           resolve({
             success: false,
             error: 'Administrator privileges required. Please accept the UAC prompt.',
             code: 'UAC_DENIED'
           });
-        } else {
-          resolve({
-            success: true,
-            message: '✅ DISM repair started with Administrator privileges. Please check the command window for progress.'
-          });
+          return;
         }
+
+        console.log('UAC prompt accepted, waiting for results...');
+        
+        // Αναμονή για το αποτέλεσμα (max 30 seconds)
+        let attempts = 0;
+        const maxAttempts = 30;
+        
+        const checkResult = () => {
+          attempts++;
+          
+          try {
+            if (fs.existsSync(outputFile)) {
+              const resultData = fs.readFileSync(outputFile, 'utf8');
+              const result = JSON.parse(resultData);
+              
+              console.log('Cleanup completed with result:', result);
+              cleanupFiles([psFile, vbsFile, outputFile]);
+              
+              resolve({
+                success: result.success,
+                message: result.message,
+                details: result.details
+              });
+            } else if (attempts >= maxAttempts) {
+              console.log('Timeout waiting for cleanup results');
+              cleanupFiles([psFile, vbsFile, outputFile]);
+              resolve({
+                success: false,
+                error: 'Cleanup timed out. Please try again.',
+                code: 'TIMEOUT'
+              });
+            } else {
+              setTimeout(checkResult, 1000);
+            }
+          } catch (err) {
+            console.error('Error reading results:', err);
+            cleanupFiles([psFile, vbsFile, outputFile]);
+            resolve({
+              success: false,
+              error: 'Failed to read cleanup results: ' + err.message
+            });
+          }
+        };
+        
+        // Αρχή ελέγχου για αποτέλεσμα
+        setTimeout(checkResult, 2000);
       });
+
+      // Βοηθητική συνάρτηση για καθαρισμό αρχείων
+      function cleanupFiles(files) {
+        files.forEach(file => {
+          try {
+            if (fs.existsSync(file)) {
+              fs.unlinkSync(file);
+            }
+          } catch (e) {
+            console.warn('Could not delete file:', file, e.message);
+          }
+        });
+      }
 
     } catch (error) {
-      resolve({ success: false, error: error.message });
-    }
-  });
-});
-ipcMain.handle('run-temp-cleanup', async () => {
-  return new Promise((resolve) => {
-    if (process.platform !== 'win32') {
-      resolve({ success: false, error: 'This feature is only available on Windows' });
-      return;
-    }
-    const psScript = `
-Write-Host "========================================"
-Write-Host " Temporary Files Cleanup"
-Write-Host "========================================"
-Write-Host ""
-Write-Host "1. Cleaning User TEMP folders..."
-Remove-Item -Path "$env:TEMP\\*" -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "2. Cleaning Windows Temp..."
-Remove-Item -Path "C:\\Windows\\Temp\\*" -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "3. Cleaning Prefetch..."
-Remove-Item -Path "C:\\Windows\\Prefetch\\*" -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "4. Cleaning Internet Temp Files..."
-Remove-Item -Path "$env:USERPROFILE\\AppData\\Local\\Microsoft\\Windows\\Temporary Internet Files\\*" -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host ""
-Write-Host "========================================"
-Write-Host " Cleanup completed successfully!"
-Write-Host "========================================"
-Write-Host ""
-Write-Host "Press any key to continue..."
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-`;
-    const psFile = path.join(os.tmpdir(), `temp_cleanup_${Date.now()}.ps1`);
-
-    try {
-      fs.writeFileSync(psFile, psScript, 'utf8');
-      console.log('PowerShell script created:', psFile);
-      const child = spawn('powershell.exe', [
-        '-ExecutionPolicy', 'Bypass',
-        '-File', psFile
-      ], {
-        detached: true,
-        stdio: 'ignore'
+      console.error('Error in temp cleanup:', error);
+      resolve({
+        success: false,
+        error: 'Failed to start temp files cleanup: ' + error.message
       });
-      child.on('error', (error) => {
-        console.log('PowerShell spawn error:', error);
-        resolve({ success: false, error: 'Failed to start cleanup: ' + error.message });
-      });
-      child.on('spawn', () => {
-        console.log('PowerShell cleanup started');
-        setTimeout(() => {
-          try { fs.unlinkSync(psFile); } catch { }
-        }, 15000);
-
-        resolve({
-          success: true,
-          message: '✅ Temp files cleanup started with Administrator privileges.'
-        });
-      });
-      setTimeout(() => {
-        const elevateScript = `
-Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -File "${psFile.replace(/\\/g, '\\\\')}"' -Verb RunAs
-`;
-        const elevateFile = path.join(os.tmpdir(), `elevate_${Date.now()}.ps1`);
-        fs.writeFileSync(elevateFile, elevateScript);
-
-        exec(`powershell -ExecutionPolicy Bypass -File "${elevateFile}"`, (error) => {
-          setTimeout(() => {
-            try { fs.unlinkSync(elevateFile); } catch { }
-          }, 10000);
-        });
-      }, 1000);
-
-    } catch (error) {
-      console.log('General error:', error);
-      resolve({ success: false, error: error.message });
     }
   });
 });
