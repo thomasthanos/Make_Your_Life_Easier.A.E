@@ -1121,41 +1121,80 @@ ipcMain.handle('full-uninstall-spotify', async () => {
   });
 });
 ipcMain.handle('run-sfc-scan', async () => {
-  // Simplified implementation: run SFC directly via an elevated PowerShell process without creating temporary scripts
+  // Execute sfc /scannow in an elevated, hidden PowerShell window and wait for completion
   if (process.platform !== 'win32') {
     return { success: false, error: 'SFC is only available on Windows' };
   }
-  try {
-    // Launch an elevated command prompt that runs sfc /scannow and stays open. The /k switch
-    // tells cmd to execute the command and remain open so the user can see the results.
-    const psCommand = 'Start-Process cmd -ArgumentList "/k sfc /scannow" -Verb RunAs';
-    spawn('powershell.exe', ['-Command', psCommand], {
-      detached: true,
-      stdio: 'ignore'
-    });
-    return { success: true, message: '✅ SFC scan started with Administrator privileges. Please check the command window for progress.' };
-  } catch (error) {
-    return { success: false, error: 'Failed to start SFC scan: ' + error.message };
-  }
+  return new Promise((resolve) => {
+    // Build a PowerShell script that runs the SFC scan and exits with the same exit code
+    const psScript = `
+Write-Host "=== SYSTEM FILE CHECK (SFC) ===" -ForegroundColor Cyan
+Write-Host "Running sfc /scannow..." -ForegroundColor Yellow
+sfc /scannow
+exit $LASTEXITCODE
+`;
+    try {
+      const psFile = path.join(os.tmpdir(), `sfc_scan_${Date.now()}.ps1`);
+      fs.writeFileSync(psFile, psScript, 'utf8');
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      // Launch PowerShell visibly (normal window) and wait for the scan to finish
+      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
+      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
+      child.on('error', (err) => {
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
+      });
+      child.on('exit', (code) => {
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        if (code === 0) {
+          resolve({ success: true, message: '✅ SFC scan completed successfully!' });
+        } else {
+          resolve({ success: false, error: 'SFC scan encountered errors or was cancelled. Please accept the UAC prompt and try again.', code: 'PROCESS_FAILED' });
+        }
+      });
+    } catch (error) {
+      try { if (typeof psFile !== 'undefined' && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+      resolve({ success: false, error: 'Failed to start SFC scan: ' + error.message });
+    }
+  });
 });
 ipcMain.handle('run-dism-repair', async () => {
-  // Simplified implementation: run DISM directly via an elevated PowerShell process without creating temporary scripts
+  // Execute DISM RestoreHealth in an elevated, hidden PowerShell window and wait for completion
   if (process.platform !== 'win32') {
     return { success: false, error: 'DISM is only available on Windows' };
   }
-  try {
-    // Launch an elevated command prompt that runs DISM RestoreHealth and stays open. The /k switch
-    // keeps the command window open after execution so progress can be monitored.
-    const dismArgs = '/k DISM /Online /Cleanup-Image /RestoreHealth';
-    const psCommand = `Start-Process cmd -ArgumentList "${dismArgs}" -Verb RunAs`;
-    spawn('powershell.exe', ['-Command', psCommand], {
-      detached: true,
-      stdio: 'ignore'
-    });
-    return { success: true, message: '✅ DISM repair started with Administrator privileges. Please check the command window for progress.' };
-  } catch (error) {
-    return { success: false, error: 'Failed to start DISM repair: ' + error.message };
-  }
+  return new Promise((resolve) => {
+    // Create a PowerShell script that runs the DISM command and exits with the same exit code
+    const psScript = `
+Write-Host "=== DEPLOYMENT IMAGE SERVICING AND MANAGEMENT (DISM) ===" -ForegroundColor Cyan
+Write-Host "Running DISM /Online /Cleanup-Image /RestoreHealth..." -ForegroundColor Yellow
+DISM /Online /Cleanup-Image /RestoreHealth
+exit $LASTEXITCODE
+`;
+    try {
+      const psFile = path.join(os.tmpdir(), `dism_repair_${Date.now()}.ps1`);
+      fs.writeFileSync(psFile, psScript, 'utf8');
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      // Launch PowerShell visibly (normal window) and wait for the DISM command to finish
+      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
+      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
+      child.on('error', (err) => {
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
+      });
+      child.on('exit', (code) => {
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        if (code === 0) {
+          resolve({ success: true, message: '✅ DISM repair completed successfully!' });
+        } else {
+          resolve({ success: false, error: 'DISM repair encountered errors or was cancelled. Please accept the UAC prompt and try again.', code: 'PROCESS_FAILED' });
+        }
+      });
+    } catch (error) {
+      try { if (typeof psFile !== 'undefined' && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+      resolve({ success: false, error: 'Failed to start DISM repair: ' + error.message });
+    }
+  });
 });
 ipcMain.handle('run-temp-cleanup', async () => {
   // Only supported on Windows

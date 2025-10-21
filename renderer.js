@@ -2771,6 +2771,8 @@ const processStates = new Map();
     sfcDismStatus.className = 'status-pre';
     sfcDismStatus.style.display = 'none';
     sfcDismStatus.style.marginTop = '1rem';
+    // Hide the inline status output for SFC and DISM tasks. All feedback will be provided via toast notifications.
+    sfcDismStatus.dataset.hideStatus = 'true';
 
     sfcButton.addEventListener('click', async () => {
       await runMaintenanceTask(sfcButton, sfcDismStatus, runSfcScan, translations.actions.run_sfc || 'SFC', true);
@@ -2957,49 +2959,34 @@ const processStates = new Map();
 
   // Simplified SFC Scan function - opens CMD window
   async function runSfcScan(statusElement) {
-    statusElement.textContent = 'Starting SFC Scan...\nOpening command window...';
-
+    // Do not update the inline status element for SFC. The button text indicates progress and
+    // a toast will be displayed when the scan finishes or fails.
     try {
       const result = await window.api.runSfcScan();
-
-      if (result.success) {
-        statusElement.textContent = result.message;
-        statusElement.classList.add('status-success');
-        toast('SFC scan started successfully!', { type: 'success', title: 'Maintenance' });
+      if (result && result.success) {
+        toast(result.message || 'SFC scan completed successfully!', { type: 'success', title: 'Maintenance' });
       } else {
-        statusElement.textContent = `Error: ${result.error}`;
-        statusElement.classList.add('status-error');
-        toast('Failed to start SFC scan', { type: 'error', title: 'Maintenance' });
+        toast((result && result.error) || 'SFC scan failed.', { type: 'error', title: 'Maintenance' });
       }
-
     } catch (error) {
-      statusElement.textContent = `Error: ${error.message}`;
-      statusElement.classList.add('status-error');
-      toast('Error starting SFC scan', { type: 'error', title: 'Maintenance' });
+      const msg = (error && error.message) || 'Error running SFC scan';
+      toast(msg, { type: 'error', title: 'Maintenance' });
     }
   }
 
   // Simplified DISM Repair function - opens CMD window
   async function runDismRepair(statusElement) {
-    statusElement.textContent = 'Starting DISM Repair...\nOpening command window...';
-
+    // Do not update the inline status element for DISM. Only display a toast when the repair finishes.
     try {
       const result = await window.api.runDismRepair();
-
-      if (result.success) {
-        statusElement.textContent = result.message;
-        statusElement.classList.add('status-success');
-        toast('DISM repair started successfully!', { type: 'success', title: 'Maintenance' });
+      if (result && result.success) {
+        toast(result.message || 'DISM repair completed successfully!', { type: 'success', title: 'Maintenance' });
       } else {
-        statusElement.textContent = `Error: ${result.error}`;
-        statusElement.classList.add('status-error');
-        toast('Failed to start DISM repair', { type: 'error', title: 'Maintenance' });
+        toast((result && result.error) || 'DISM repair failed.', { type: 'error', title: 'Maintenance' });
       }
-
     } catch (error) {
-      statusElement.textContent = `Error: ${error.message}`;
-      statusElement.classList.add('status-error');
-      toast('Error starting DISM repair', { type: 'error', title: 'Maintenance' });
+      const msg = (error && error.message) || 'Error running DISM repair';
+      toast(msg, { type: 'error', title: 'Maintenance' });
     }
   }
 
