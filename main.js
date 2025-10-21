@@ -1164,153 +1164,100 @@ ipcMain.handle('run-temp-cleanup', async () => {
   
   return new Promise((resolve) => {
     try {
-      console.log('Starting silent temp cleanup with admin privileges...');
+      console.log('Starting temp cleanup with admin privileges...');
       
-      // PowerShell script που τρέχει σιωπηλά και επιστρέφει αποτέλεσμα
+      // Δημιουργία VBS script για UAC elevation
       const psScript = `
-# Αρχικοποίηση μεταβλητών
-$success = $true
-$results = @()
+Write-Host "=== TEMPORARY FILES CLEANUP ===" -ForegroundColor Cyan
+Write-Host "Running with Administrator privileges..." -ForegroundColor Green
+Write-Host ""
 
-# Συνάρτηση για καθαρισμό φακέλου
-function Clean-Folder {
-    param([string]$folderPath, [string]$folderName)
-    
-    try {
-        if (Test-Path $folderPath) {
-            $items = Get-ChildItem $folderPath -Force -ErrorAction SilentlyContinue
-            $count = $items.Count
-            if ($count -gt 0) {
-                Remove-Item "$folderPath\\*.*" -Force -Recurse -ErrorAction SilentlyContinue
-                $results += "✓ $folderName: Cleaned $count items"
-            } else {
-                $results += "✓ $folderName: Already clean"
-            }
-        } else {
-            $results += "! $folderName: Folder not found"
-        }
-    }
-    catch {
-        $success = $false
-        $results += "✗ $folderName`: Error: $($_.Exception.Message)"
-    }
+# Καθαρισμός Recent files
+Write-Host "1. Cleaning Recent files..." -ForegroundColor Yellow
+if (Test-Path "$env:USERPROFILE\\Recent") {
+    Get-ChildItem "$env:USERPROFILE\\Recent\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+    Write-Host "   ✓ Recent files cleaned" -ForegroundColor Green
+} else {
+    Write-Host "   ! Recent folder not found" -ForegroundColor Red
 }
 
-# Εκτέλεση καθαρισμού
-Clean-Folder -folderPath "$env:USERPROFILE\\Recent" -folderName "Recent Files"
-Clean-Folder -folderPath "C:\\Windows\\Prefetch" -folderName "Prefetch"
-Clean-Folder -folderPath "C:\\Windows\\Temp" -folderName "Windows Temp"
-Clean-Folder -folderPath "$env:USERPROFILE\\AppData\\Local\\Temp" -folderName "User Temp"
-
-# Επιστροφή αποτελέσματος
-$result = @{
-    success = $success
-    message = if ($success) { "Temporary files cleanup completed successfully" } else { "Cleanup completed with errors" }
-    details = $results -join "`n"
+# Καθαρισμός Prefetch
+Write-Host "2. Cleaning Prefetch..." -ForegroundColor Yellow
+if (Test-Path "C:\\Windows\\Prefetch") {
+    Get-ChildItem "C:\\Windows\\Prefetch\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+    Write-Host "   ✓ Prefetch cleaned" -ForegroundColor Green
+} else {
+    Write-Host "   ! Prefetch folder not found" -ForegroundColor Red
 }
 
-# Επιστροφή JSON για να το διαβάσει το Electron
-ConvertTo-Json -InputObject $result -Compress
+# Καθαρισμός Windows Temp
+Write-Host "3. Cleaning Windows Temp..." -ForegroundColor Yellow
+if (Test-Path "C:\\Windows\\Temp") {
+    Get-ChildItem "C:\\Windows\\Temp\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+    Write-Host "   ✓ Windows Temp cleaned" -ForegroundColor Green
+} else {
+    Write-Host "   ! Windows Temp folder not found" -ForegroundColor Red
+}
+
+# Καθαρισμός User Temp
+Write-Host "4. Cleaning User Temp..." -ForegroundColor Yellow
+if (Test-Path "$env:USERPROFILE\\AppData\\Local\\Temp") {
+    Get-ChildItem "$env:USERPROFILE\\AppData\\Local\\Temp\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+    Write-Host "   ✓ User Temp cleaned" -ForegroundColor Green
+} else {
+    Write-Host "   ! User Temp folder not found" -ForegroundColor Red
+}
+
+Write-Host ""
+Write-Host "=== CLEANUP COMPLETED ===" -ForegroundColor Cyan
+Write-Host "All temporary files have been cleaned successfully!" -ForegroundColor Green
+Write-Host ""
+Write-Host "Press any key to close this window..." -ForegroundColor Yellow
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 `;
 
       // Αποθήκευση του PowerShell script
-      const psFile = path.join(os.tmpdir(), `temp_cleanup_silent_${Date.now()}.ps1`);
+      const psFile = path.join(os.tmpdir(), `temp_cleanup_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
       console.log('PowerShell script created at:', psFile);
 
-      // Δημιουργία VBS script για UAC elevation (σιωπηλή εκτέλεση)
+      // Δημιουργία VBS script για UAC elevation
       const vbsScript = `
 Set UAC = CreateObject("Shell.Application")
-UAC.ShellExecute "powershell.exe", "-ExecutionPolicy Bypass -WindowStyle Hidden -File ""${psFile.replace(/\\/g, '\\\\')}""", "", "runas", 0
+UAC.ShellExecute "powershell.exe", "-ExecutionPolicy Bypass -WindowStyle Normal -File ""${psFile.replace(/\\/g, '\\\\')}""", "", "runas", 1
 `;
 
-      const vbsFile = path.join(os.tmpdir(), `elevate_temp_silent_${Date.now()}.vbs`);
+      const vbsFile = path.join(os.tmpdir(), `elevate_temp_${Date.now()}.vbs`);
       fs.writeFileSync(vbsFile, vbsScript);
       console.log('VBS script created at:', vbsFile);
 
-      // Εκτέλεση και αναμονή για αποτέλεσμα
-      const outputFile = path.join(os.tmpdir(), `temp_cleanup_result_${Date.now()}.json`);
-      
-      // Τροποποιημένο PowerShell script που αποθηκεύει το αποτέλεσμα σε αρχείο
-      const finalPsScript = psScript.replace(
-        'ConvertTo-Json -InputObject $result -Compress',
-        `ConvertTo-Json -InputObject $result -Compress | Out-File -FilePath "${outputFile.replace(/\\/g, '\\\\')}" -Encoding UTF8`
-      );
-      
-      fs.writeFileSync(psFile, finalPsScript, 'utf8');
-
-      // Εκτέλεση του VBS script
+      // Εκτέλεση του VBS script που θα ζητήσει UAC
       exec(`wscript "${vbsFile}"`, (error) => {
+        // Καθαρισμός των προσωρινών αρχείων
+        setTimeout(() => {
+          try {
+            if (fs.existsSync(psFile)) fs.unlinkSync(psFile);
+            if (fs.existsSync(vbsFile)) fs.unlinkSync(vbsFile);
+          } catch (cleanupError) {
+            console.warn('Cleanup error:', cleanupError.message);
+          }
+        }, 5000);
+
         if (error) {
           console.error('UAC was denied or failed:', error);
-          cleanupFiles([psFile, vbsFile, outputFile]);
           resolve({
             success: false,
             error: 'Administrator privileges required. Please accept the UAC prompt.',
             code: 'UAC_DENIED'
           });
-          return;
+        } else {
+          console.log('UAC prompt accepted, process started');
+          resolve({
+            success: true,
+            message: '✅ Temporary files cleanup started with Administrator privileges. Check the command window for progress.'
+          });
         }
-
-        console.log('UAC prompt accepted, waiting for results...');
-        
-        // Αναμονή για το αποτέλεσμα (max 30 seconds)
-        let attempts = 0;
-        const maxAttempts = 30;
-        
-        const checkResult = () => {
-          attempts++;
-          
-          try {
-            if (fs.existsSync(outputFile)) {
-              const resultData = fs.readFileSync(outputFile, 'utf8');
-              const result = JSON.parse(resultData);
-              
-              console.log('Cleanup completed with result:', result);
-              cleanupFiles([psFile, vbsFile, outputFile]);
-              
-              resolve({
-                success: result.success,
-                message: result.message,
-                details: result.details
-              });
-            } else if (attempts >= maxAttempts) {
-              console.log('Timeout waiting for cleanup results');
-              cleanupFiles([psFile, vbsFile, outputFile]);
-              resolve({
-                success: false,
-                error: 'Cleanup timed out. Please try again.',
-                code: 'TIMEOUT'
-              });
-            } else {
-              setTimeout(checkResult, 1000);
-            }
-          } catch (err) {
-            console.error('Error reading results:', err);
-            cleanupFiles([psFile, vbsFile, outputFile]);
-            resolve({
-              success: false,
-              error: 'Failed to read cleanup results: ' + err.message
-            });
-          }
-        };
-        
-        // Αρχή ελέγχου για αποτέλεσμα
-        setTimeout(checkResult, 2000);
       });
-
-      // Βοηθητική συνάρτηση για καθαρισμό αρχείων
-      function cleanupFiles(files) {
-        files.forEach(file => {
-          try {
-            if (fs.existsSync(file)) {
-              fs.unlinkSync(file);
-            }
-          } catch (e) {
-            console.warn('Could not delete file:', file, e.message);
-          }
-        });
-      }
 
     } catch (error) {
       console.error('Error in temp cleanup:', error);
