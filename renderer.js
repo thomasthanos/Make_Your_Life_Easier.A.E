@@ -1613,56 +1613,99 @@ const processStates = new Map();
    * @param {string} msg The body of the message to display.
    * @param {object} opts Optional settings: title, type and duration.
    */
+  /**
+   * Display a toast notification. Only error types are shown by default.
+   * Success toasts can be triggered, but non‑error types are ignored to
+   * avoid cluttering the UI. The markup for each toast is structured
+   * similarly to UIverse components: an icon in a coloured circle,
+   * followed by a title and message, and a close button on the far right.
+   *
+   * @param {string} msg - The body text of the toast.
+   * @param {Object} opts - Optional parameters: type, title, duration.
+   */
   function toast(msg, opts = {}) {
     const { title = '', type = 'info', duration = 4000 } = opts;
-    // Only show toasts for errors. Other types are ignored to avoid
-    // distracting the user with non‑critical messages.
+
+    // By default, only error toasts are displayed. Success/info/warning
+    // toasts can still be triggered if desired, but they will simply
+    // return without rendering to keep the interface uncluttered.
     if (type !== 'error') {
       return null;
     }
+
     const container = ensureToastContainer();
 
+    // Create the outer toast element and apply a type‑specific class
     const toastEl = document.createElement('div');
-    toastEl.className = `toast ${type}`;
+    toastEl.className = `toast toast-${type}`;
 
-    // Icon based on type
-    const icons = {
-      error: '✕'
-    };
+    // Wrapper for the icon. Use a coloured circular backdrop similar
+    // to the UIverse examples. The icon itself will be inserted
+    // based on the toast type.
+    const iconWrapper = document.createElement('div');
+    iconWrapper.className = 'toast-icon-wrapper';
 
-    const icon = document.createElement('div');
-    icon.className = 'toast-icon';
-    icon.textContent = icons[type] || '';
+    // Determine the SVG icon to use
+    let svg; // will hold an inline SVG element
+    if (type === 'error') {
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'currentColor');
+      svg.setAttribute('class', 'toast-svg-icon');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('fill-rule', 'evenodd');
+      path.setAttribute('clip-rule', 'evenodd');
+      path.setAttribute('d', 'M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z');
+      svg.appendChild(path);
+    } else if (type === 'success') {
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor');
+      svg.setAttribute('stroke-width', '1.5');
+      svg.setAttribute('class', 'toast-svg-icon');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
+      path.setAttribute('d', 'm4.5 12.75 6 6 9-13.5');
+      svg.appendChild(path);
+    }
+    if (svg) {
+      iconWrapper.appendChild(svg);
+    }
 
-    const body = document.createElement('div');
-    body.className = 'toast-body';
-
+    // Container for title and message
+    const content = document.createElement('div');
+    content.className = 'toast-content';
     if (title) {
       const titleEl = document.createElement('div');
       titleEl.className = 'toast-title';
       titleEl.textContent = title;
-      body.appendChild(titleEl);
+      content.appendChild(titleEl);
     }
+    const messageEl = document.createElement('div');
+    messageEl.className = 'toast-message';
+    messageEl.textContent = msg;
+    content.appendChild(messageEl);
 
-    const message = document.createElement('div');
-    message.className = 'toast-message';
-    message.textContent = msg;
-    body.appendChild(message);
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'toast-close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.textContent = '×';
+    closeBtn.onclick = () => dismissToast(toastEl);
 
-    const close = document.createElement('button');
-    close.className = 'toast-close';
-    close.textContent = '×';
-    close.onclick = () => dismissToast(toastEl);
-
-    toastEl.append(icon, body, close);
+    // Assemble toast
+    toastEl.appendChild(iconWrapper);
+    toastEl.appendChild(content);
+    toastEl.appendChild(closeBtn);
     container.appendChild(toastEl);
 
     let timeout;
     if (duration > 0) {
       timeout = setTimeout(() => dismissToast(toastEl), duration);
     }
-
-    // Pause auto‑dismiss when the user hovers over the toast
+    // Pause auto‑dismiss when hovering
     toastEl.addEventListener('mouseenter', () => {
       if (timeout) {
         clearTimeout(timeout);
@@ -1674,7 +1717,6 @@ const processStates = new Map();
         timeout = setTimeout(() => dismissToast(toastEl), duration);
       }
     });
-
     return toastEl;
   }
 
@@ -2339,29 +2381,32 @@ const processStates = new Map();
       const pauseBtn = document.createElement('button');
       pauseBtn.className = 'button button-secondary';
       pauseBtn.textContent = 'Pause';
-      pauseBtn.style.marginLeft = '0.5rem';
       pauseBtn.style.padding = '0.5rem 1rem'; // Compact
       pauseBtn.style.display = 'none';
+
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'button button-secondary';
       cancelBtn.textContent = 'Cancel';
-      cancelBtn.style.marginLeft = '0.5rem';
       cancelBtn.style.padding = '0.5rem 1rem';
       cancelBtn.style.display = 'none';
+
       const controls = document.createElement('div');
       controls.className = 'controls';
       controls.style.display = 'flex';
       controls.style.alignItems = 'center';
       controls.appendChild(pauseBtn);
       controls.appendChild(cancelBtn);
-      // Extra button for Clip Studio to replace the executable in Program Files
+
+      // Extra button for Clip Studio to replace the executable. It will be inserted
+      // alongside the download button rather than inside the controls container.
       const replaceBtn = document.createElement('button');
       replaceBtn.className = 'button button-secondary';
       replaceBtn.textContent = 'Replace EXE';
-      replaceBtn.style.marginLeft = '0.5rem';
-      replaceBtn.style.padding = '0.5rem 1rem';
+      // Narrower width – allow it to size to its content
+      replaceBtn.style.minWidth = 'auto';
+      replaceBtn.style.width = 'auto';
+      replaceBtn.style.padding = '0.5rem 0.75rem';
       replaceBtn.style.display = 'none';
-      controls.appendChild(replaceBtn);
       const isClipStudio = name.toLowerCase().includes('clip studio');
       // Mark this card as part of the crack installer so we can apply custom fade logic
       card.dataset.crackCard = 'true';
@@ -2477,6 +2522,8 @@ const processStates = new Map();
         status.style.display = 'none';
         // Hide the progress bar, as progress will be indicated on the button itself
         progressContainer.style.display = 'none';
+        // Ensure replace button is hidden at start
+        replaceBtn.style.display = 'none';
 
         const downloadId = `${cardId}-${Date.now()}`;
 
@@ -2525,9 +2572,10 @@ const processStates = new Map();
                         // For Clip Studio, prompt user to complete installation and then replace EXE
                         btn.textContent = 'Installation in Progress';
                         completeProcess(cardId, 'download', true);
+                        // Show the replace button next to the download button with a reduced width
                         replaceBtn.style.display = 'inline-block';
                         replaceBtn.disabled = false;
-                        // Show informational toast (will be ignored for non-error types)
+                        // Informational toast (ignored for non-error types)
                         toast('Clip Studio installer started! Complete installation first.', {
                           type: 'info',
                           title: 'Clip Studio'
@@ -2583,6 +2631,8 @@ const processStates = new Map();
               cancelBtn.style.display = 'none';
               progressContainer.style.display = 'none';
               progressFill.style.width = '0%';
+              // Hide replace button on error/cancellation
+              replaceBtn.style.display = 'none';
               if (unsubscribe) unsubscribe();
               break;
             }
@@ -2602,8 +2652,17 @@ const processStates = new Map();
       cancelBtn.addEventListener('click', () => {
         window.api.downloadCancel(downloadId);
       });
+      // Wrap the download and replace buttons in a flex container so they sit
+      // side by side. This wrapper is inserted before the controls.
+      const buttonWrapper = document.createElement('div');
+      buttonWrapper.style.display = 'flex';
+      buttonWrapper.style.alignItems = 'center';
+      buttonWrapper.style.gap = '0.5rem';
+      buttonWrapper.appendChild(btn);
+      buttonWrapper.appendChild(replaceBtn);
+
       card.appendChild(p);
-      card.appendChild(btn);
+      card.appendChild(buttonWrapper);
       card.appendChild(controls);
       card.appendChild(progressContainer);
       card.appendChild(progressBar);
