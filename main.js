@@ -1158,21 +1158,20 @@ ipcMain.handle('run-dism-repair', async () => {
   }
 });
 ipcMain.handle('run-temp-cleanup', async () => {
+  // Only supported on Windows
   if (process.platform !== 'win32') {
     return { success: false, error: 'This feature is only available on Windows' };
   }
-  
+
+  // Begin new implementation: run the PowerShell script with elevation and wait for completion.
   return new Promise((resolve) => {
-    try {
-      console.log('Starting temp cleanup with admin privileges...');
-      
-      // Δημιουργία VBS script για UAC elevation
-      const psScript = `
+    // Define the PowerShell script that performs the cleanup.
+    const psScript = `
 Write-Host "=== TEMPORARY FILES CLEANUP ===" -ForegroundColor Cyan
 Write-Host "Running with Administrator privileges..." -ForegroundColor Green
 Write-Host ""
 
-# Καθαρισμός Recent files
+# 1. Clean Recent files
 Write-Host "1. Cleaning Recent files..." -ForegroundColor Yellow
 if (Test-Path "$env:USERPROFILE\\Recent") {
     Get-ChildItem "$env:USERPROFILE\\Recent\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
@@ -1181,7 +1180,7 @@ if (Test-Path "$env:USERPROFILE\\Recent") {
     Write-Host "   ! Recent folder not found" -ForegroundColor Red
 }
 
-# Καθαρισμός Prefetch
+# 2. Clean Prefetch
 Write-Host "2. Cleaning Prefetch..." -ForegroundColor Yellow
 if (Test-Path "C:\\Windows\\Prefetch") {
     Get-ChildItem "C:\\Windows\\Prefetch\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
@@ -1190,7 +1189,7 @@ if (Test-Path "C:\\Windows\\Prefetch") {
     Write-Host "   ! Prefetch folder not found" -ForegroundColor Red
 }
 
-# Καθαρισμός Windows Temp
+# 3. Clean Windows Temp
 Write-Host "3. Cleaning Windows Temp..." -ForegroundColor Yellow
 if (Test-Path "C:\\Windows\\Temp") {
     Get-ChildItem "C:\\Windows\\Temp\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
@@ -1199,7 +1198,7 @@ if (Test-Path "C:\\Windows\\Temp") {
     Write-Host "   ! Windows Temp folder not found" -ForegroundColor Red
 }
 
-# Καθαρισμός User Temp
+# 4. Clean User Temp
 Write-Host "4. Cleaning User Temp..." -ForegroundColor Yellow
 if (Test-Path "$env:USERPROFILE\\AppData\\Local\\Temp") {
     Get-ChildItem "$env:USERPROFILE\\AppData\\Local\\Temp\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
@@ -1212,61 +1211,38 @@ Write-Host ""
 Write-Host "=== CLEANUP COMPLETED ===" -ForegroundColor Cyan
 Write-Host "All temporary files have been cleaned successfully!" -ForegroundColor Green
 Write-Host ""
-Write-Host "Press any key to close this window..." -ForegroundColor Yellow
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+# Removed interactive pause for hidden execution
 `;
-
-      // Αποθήκευση του PowerShell script
+    try {
+      // Save the script to a temporary file
       const psFile = path.join(os.tmpdir(), `temp_cleanup_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
-      console.log('PowerShell script created at:', psFile);
-
-      // Δημιουργία VBS script για UAC elevation
-      const vbsScript = `
-Set UAC = CreateObject("Shell.Application")
-UAC.ShellExecute "powershell.exe", "-ExecutionPolicy Bypass -WindowStyle Normal -File ""${psFile.replace(/\\/g, '\\\\')}""", "", "runas", 1
-`;
-
-      const vbsFile = path.join(os.tmpdir(), `elevate_temp_${Date.now()}.vbs`);
-      fs.writeFileSync(vbsFile, vbsScript);
-      console.log('VBS script created at:', vbsFile);
-
-      // Εκτέλεση του VBS script που θα ζητήσει UAC
-      exec(`wscript "${vbsFile}"`, (error) => {
-        // Καθαρισμός των προσωρινών αρχείων
-        setTimeout(() => {
-          try {
-            if (fs.existsSync(psFile)) fs.unlinkSync(psFile);
-            if (fs.existsSync(vbsFile)) fs.unlinkSync(vbsFile);
-          } catch (cleanupError) {
-            console.warn('Cleanup error:', cleanupError.message);
-          }
-        }, 5000);
-
-        if (error) {
-          console.error('UAC was denied or failed:', error);
-          resolve({
-            success: false,
-            error: 'Administrator privileges required. Please accept the UAC prompt.',
-            code: 'UAC_DENIED'
-          });
+      // Escape double quotes for embedding in a PowerShell argument
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      // Build a wrapper command that elevates and waits for completion
+      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Hidden -Wait`;
+      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
+      // Handle error events (likely UAC denial)
+      child.on('error', (err) => {
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
+      });
+      child.on('exit', (code) => {
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        if (code === 0) {
+          resolve({ success: true, message: '✅ Temporary files cleanup completed successfully!' });
         } else {
-          console.log('UAC prompt accepted, process started');
-          resolve({
-            success: true,
-            message: '✅ Temporary files cleanup started with Administrator privileges. Check the command window for progress.'
-          });
+          resolve({ success: false, error: 'Administrator privileges required or cleanup failed. Please accept the UAC prompt and try again.', code: 'PROCESS_FAILED' });
         }
       });
-
-    } catch (error) {
-      console.error('Error in temp cleanup:', error);
-      resolve({
-        success: false,
-        error: 'Failed to start temp files cleanup: ' + error.message
-      });
+    } catch (err) {
+      // Attempt to clean up the script file and propagate an error
+      try { if (typeof psFile !== 'undefined' && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+      resolve({ success: false, error: 'Failed to start temp files cleanup: ' + err.message });
     }
   });
+
+  // End of new implementation for run-temp-cleanup
 });
 ipcMain.handle('restart-to-bios', async () => {
   return new Promise((resolve) => {

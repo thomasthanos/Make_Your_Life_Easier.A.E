@@ -1626,10 +1626,10 @@ const processStates = new Map();
   function toast(msg, opts = {}) {
     const { title = '', type = 'info', duration = 4000 } = opts;
 
-    // By default, only error toasts are displayed. Success/info/warning
+    // By default, error and success toasts are displayed. Info and warning
     // toasts can still be triggered if desired, but they will simply
     // return without rendering to keep the interface uncluttered.
-    if (type !== 'error') {
+    if (type !== 'error' && type !== 'success') {
       return null;
     }
 
@@ -2697,14 +2697,17 @@ const processStates = new Map();
     firstRow.style.marginBottom = '1.5rem';
     firstRow.style.alignItems = 'stretch'; // Προσθήκη για ίδιο ύψος cards
 
-    // Delete Temp Files card
+    // Delete Temp Files card. The last boolean argument (true) indicates
+    // that no inline status element should be displayed and that all
+    // feedback will be presented via toast notifications.
     const tempCard = createMaintenanceCard(
       translations.maintenance.delete_temp_files || 'Delete Temp Files',
       translations.maintenance.temp_files_desc || 'Clean TEMP, %TEMP%, and Prefetch folders',
       '🧹',
       translations.actions.clean_temp_files || 'Clean Temp Files',
       cleanTempFiles,
-      false
+      false,
+      true
     );
 
     // Εφαρμογή ίδιου στυλ στο temp button
@@ -2813,7 +2816,10 @@ const processStates = new Map();
   }
 
   // Helper function to create maintenance cards
-  function createMaintenanceCard(name, description, icon, buttonText, taskFunction, requiresAdmin = false) {
+  // Additional boolean argument `hideStatus` controls whether the status element
+  // should be visible. When true, the status <pre> will not display and
+  // feedback will only be shown via toast notifications.
+  function createMaintenanceCard(name, description, icon, buttonText, taskFunction, requiresAdmin = false, hideStatus = false) {
     const card = document.createElement('div');
     card.className = 'app-card';
     card.style.display = 'flex';
@@ -2858,6 +2864,12 @@ const processStates = new Map();
     const status = document.createElement('pre');
     status.className = 'status-pre';
     status.style.display = 'none';
+    // Mark this status element to be hidden if requested. The dataset
+    // attribute allows runMaintenanceTask to detect tasks that should
+    // not display inline output.
+    if (hideStatus) {
+      status.dataset.hideStatus = 'true';
+    }
 
     button.addEventListener('click', async () => {
       await runMaintenanceTask(button, status, taskFunction, name, requiresAdmin);
@@ -2876,27 +2888,38 @@ const processStates = new Map();
     button.disabled = true;
     const originalText = button.textContent;
     button.textContent = 'Running...';
-    statusElement.style.display = 'block';
+    // Check whether the status output should be hidden. A dataset
+    // attribute set on the status element by createMaintenanceCard
+    // indicates that the inline status area should not be displayed.
+    const hideStatus = statusElement && statusElement.dataset && statusElement.dataset.hideStatus === 'true';
 
-    if (requiresAdmin) {
-      statusElement.textContent = `Running ${taskName}...\n⚠️ This task may require Administrator privileges\n`;
-    } else {
-      statusElement.textContent = `Running ${taskName}...\n`;
+    if (!hideStatus) {
+      statusElement.style.display = 'block';
+      if (requiresAdmin) {
+        statusElement.textContent = `Running ${taskName}...\n⚠️ This task may require Administrator privileges\n`;
+      } else {
+        statusElement.textContent = `Running ${taskName}...\n`;
+      }
+      statusElement.classList.remove('status-success', 'status-error', 'status-warning');
     }
-
-    statusElement.classList.remove('status-success', 'status-error', 'status-warning');
 
     try {
       // Pass the button to the taskFunction so it can update its own label during downloads
       await taskFunction(statusElement, button);
     } catch (error) {
-      statusElement.textContent += `\n❌ Error: ${error.message}`;
-      statusElement.classList.add('status-error');
+      if (!hideStatus) {
+        statusElement.textContent += `\n❌ Error: ${error.message}`;
+        statusElement.classList.add('status-error');
+      }
+      // Always show a toast error message
       toast(`Error running ${taskName}`, { type: 'error', title: 'Maintenance' });
     } finally {
       button.disabled = false;
       button.textContent = originalText;
-      autoFadeStatus(statusElement, 8000);
+      // Only fade the status element if it was displayed
+      if (!hideStatus) {
+        autoFadeStatus(statusElement, 8000);
+      }
     }
   }
 
@@ -2980,27 +3003,25 @@ const processStates = new Map();
     }
   }
 
-  // Simplified Temp Files Cleanup function - opens CMD window
+  // Temp Files Cleanup function. This function triggers the backend cleanup process
+  // and displays toast notifications based on its outcome. No inline status is used
+  // for this task because the cleanup may take a while and we only want to notify
+  // the user when it has finished or failed.
   async function cleanTempFiles(statusElement) {
-    statusElement.textContent = 'Starting Temp Files Cleanup...\nOpening command window...';
-
     try {
       const result = await window.api.runTempCleanup();
-
-      if (result.success) {
-        statusElement.textContent = result.message;
-        statusElement.classList.add('status-success');
-        toast('Temp cleanup started successfully!', { type: 'success', title: 'Maintenance' });
+      if (result && result.success) {
+        // On success, display the returned message or a default completion message
+        toast(result.message || 'Temporary files cleanup completed successfully!', { type: 'success', title: 'Maintenance' });
       } else {
-        statusElement.textContent = `Error: ${result.error}`;
-        statusElement.classList.add('status-error');
-        toast('Failed to start temp cleanup', { type: 'error', title: 'Maintenance' });
+        // On failure, determine if the UAC prompt was denied or another error occurred
+        const errorMsg = (result && result.error) || 'Temporary files cleanup failed.';
+        toast(errorMsg, { type: 'error', title: 'Maintenance' });
       }
-
     } catch (error) {
-      statusElement.textContent = `Error: ${error.message}`;
-      statusElement.classList.add('status-error');
-      toast('Error starting temp cleanup', { type: 'error', title: 'Maintenance' });
+      // Unexpected errors
+      const msg = (error && error.message) || 'Error running temp cleanup';
+      toast(msg, { type: 'error', title: 'Maintenance' });
     }
   }
   // Helper function to run maintenance tasks
@@ -3008,20 +3029,31 @@ const processStates = new Map();
     button.disabled = true;
     const originalText = button.textContent;
     button.textContent = 'Running...';
-    statusElement.style.display = 'block';
-    statusElement.textContent = `Running ${taskName}...`;
-    statusElement.classList.remove('status-success', 'status-error', 'status-warning');
+    // Determine whether to hide the status area. A dataset flag
+    // on the status element indicates tasks that should not show inline output.
+    const hideStatus = statusElement && statusElement.dataset && statusElement.dataset.hideStatus === 'true';
 
+    if (!hideStatus) {
+      statusElement.style.display = 'block';
+      statusElement.textContent = `Running ${taskName}...`;
+      statusElement.classList.remove('status-success', 'status-error', 'status-warning');
+    }
     try {
       // Pass the button to the taskFunction so it can update its own label during downloads
       await taskFunction(statusElement, button);
     } catch (error) {
-      statusElement.textContent = `Error: ${error.message}`;
-      statusElement.classList.add('status-error');
+      if (!hideStatus) {
+        statusElement.textContent = `Error: ${error.message}`;
+        statusElement.classList.add('status-error');
+      }
+      // Show an error toast regardless of status visibility
+      toast(`Error running ${taskName}`, { type: 'error', title: 'Maintenance' });
     } finally {
       button.disabled = false;
       button.textContent = originalText;
-      autoFadeStatus(statusElement, 5000);
+      if (!hideStatus) {
+        autoFadeStatus(statusElement, 5000);
+      }
     }
   }
   // Function to download and run Patch My PC
