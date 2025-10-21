@@ -2338,6 +2338,9 @@ const processStates = new Map();
     ];
     const grid = document.createElement('div');
     grid.className = 'install-grid crack-grid'; // Added class for specific styling
+    // Reduce the gap between cards and adjust minimum card width to minimize unused space
+    grid.style.gap = '0.25rem';
+    grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
     projects.forEach(({ name, url, icon }) => {
       const card = document.createElement('div');
       card.className = 'app-card';
@@ -2347,6 +2350,10 @@ const processStates = new Map();
       img.src = icon;
       img.alt = name;
       img.className = 'app-icon';
+      // Enforce consistent dimensions for all icons within the crack installer
+      img.style.width = '48px';
+      img.style.height = '48px';
+      img.style.objectFit = 'contain';
       header.appendChild(img);
       const h3 = document.createElement('h3');
       h3.textContent = name;

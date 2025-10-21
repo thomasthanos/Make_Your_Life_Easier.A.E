@@ -1262,7 +1262,7 @@ input:checked+.slider:before {
 
 .app-card p {
   flex-grow: 1;
-  margin-bottom: 0.25rem;
+  margin-bottom: -10.25rem;
   color: var(--text-color);
   opacity: 0.8;
   line-height: 1.5;
@@ -1352,8 +1352,10 @@ input:checked+.slider:before {
 
 .install-grid.crack-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.5rem;
+  /* Reduce the spacing between crack installer cards for a tighter layout */
+  gap: 0.25rem;
   align-items: start;
+
 }
 
 
@@ -1474,7 +1476,8 @@ input:checked+.slider:before {
 
   .install-grid.crack-grid {
     grid-template-columns: 1fr;
-    gap: 0.5rem;
+    /* Reduce the spacing between crack installer cards on small screens */
+    gap: 0.25rem;
   }
 }
 
@@ -1497,6 +1500,17 @@ input:checked+.slider:before {
 
 .p-0 {
   padding: 0;
+}
+
+/*
+ * Crack installer specific icon sizing
+ * Ensure all PNG icons in the crack installer have the same dimensions
+ * by overriding the default .app-icon settings within this grid. This rule is
+ * placed at the end of the stylesheet to ensure it has higher precedence.
+ */
+.install-grid.crack-grid .app-icon {
+  width: 48px;
+  height: 48px;
 }
 
 .flex {
@@ -3317,36 +3331,29 @@ input:checked+.slider:before {
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Enhanced error toast: refined gradient and cohesive design */
+/* --------------------------------------------------------------------------
+ * Custom toast styles based on Uiverse examples
+ * These rules override the base toast styles defined earlier. They apply a
+ * gentle gradient, coloured text and icon wrappers, and hide the accent bar.
+ */
+
+/* Error toast: soft red gradient and red text */
 .toast.toast-error {
-  background: linear-gradient(135deg, rgba(254, 242, 242, 0.95), rgba(254, 226, 226, 0.9));
-  border: 1px solid rgba(248, 113, 113, 0.3);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
-  border-radius: 10px;
-    stroke: black;
-  fill: black;
+  background: linear-gradient(to bottom, rgba(254, 226, 226, 0.8), rgba(254, 202, 202, 0.6));
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  backdrop-filter: none;
 }
 .toast.toast-error::before {
   display: none;
-    stroke: black;
-  fill: black;
 }
 .toast.toast-error .toast-title,
 .toast.toast-error .toast-message {
-  color: #991b1b; /* Deeper, more elegant red */
-  font-weight: 500;
-    stroke: black;
-  fill: black;
+  color: var(--error-color);
 }
 .toast.toast-error .toast-icon-wrapper {
-  background: linear-gradient(135deg, #fef2f2, #fee2e2);
-  border: 1px solid rgba(248, 113, 113, 0.4);
-  color: #dc2626;
-  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1);
-  border-radius: 8px;
-  stroke: black;
-  fill: black;
+  background: #ffffff;
+  border-color: rgba(239, 68, 68, 0.4);
+  color: var(--error-color);
 }
 
 /* Success toast: dark gradient and green text (for future use) */
