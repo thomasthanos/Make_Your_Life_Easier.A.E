@@ -1553,17 +1553,18 @@ input:checked+.slider:before {
   z-index: 2000;
 }
 
+/*
+ * Toast styling – create a sleek, modern notification card
+ * Uses a subtle glassmorphism effect with blurred backdrop and soft shadow.
+ */
 .toast {
   position: relative;
-  background: var(--card-bg);
+  background: rgba(30, 32, 40, 0.85);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 1.25rem;
-  box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.25),
-    0 8px 24px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
+  padding: 1rem 1.25rem;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
   z-index: 1000;
   animation: toastSlideIn 0.4s cubic-bezier(0.21, 1.02, 0.73, 1);
   max-width: 380px;
@@ -1572,9 +1573,10 @@ input:checked+.slider:before {
   align-items: flex-start;
   gap: 1rem;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
+/* Top accent bar for different toast types */
 .toast::before {
   content: '';
   position: absolute;
@@ -1582,8 +1584,8 @@ input:checked+.slider:before {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
-  opacity: 0.8;
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light));
+  opacity: 1;
 }
 
 .toast.success::before {
@@ -1644,6 +1646,7 @@ input:checked+.slider:before {
   color: var(--success-color);
 }
 
+/* Icon styling for error toasts */
 .toast.error .toast-icon {
   background: rgba(239, 68, 68, 0.15);
   color: var(--error-color);
@@ -1682,9 +1685,10 @@ input:checked+.slider:before {
 }
 
 
+/* Close button styling – subtle transparent button that brightens on hover */
 .toast-close {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
   border-radius: 8px;
   width: 28px;
   height: 28px;
@@ -1693,8 +1697,8 @@ input:checked+.slider:before {
   justify-content: center;
   cursor: pointer;
   color: var(--text-color);
-  opacity: 0.7;
-  transition: all 0.2s ease;
+  opacity: 0.8;
+  transition: background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
   flex-shrink: 0;
   margin-top: 0.1rem;
   font-size: 1.1rem;
@@ -1704,8 +1708,7 @@ input:checked+.slider:before {
 .toast-close:hover {
   opacity: 1;
   background: rgba(255, 255, 255, 0.15);
-  border-color: var(--accent-color);
-  transform: scale(1.05);
+  transform: scale(1.1);
 }
 
 

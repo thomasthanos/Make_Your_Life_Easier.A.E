@@ -1298,10 +1298,14 @@ const processStates = new Map();
   async function downloadAndRunActivate(button, statusElement) {
     button.disabled = true;
     const originalText = button.textContent;
-    button.textContent = 'Downloading...';
-    statusElement.style.display = 'block';
-    statusElement.textContent = 'Downloading activation script...\n⚠️ This requires Administrator privileges\n';
+    // Preserve original text so we can restore it later
+    button.dataset.originalTextActivate = originalText;
+    // Hide the status element for progress; it will only be shown for critical errors
+    statusElement.style.display = 'none';
+    statusElement.textContent = '';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
+    // Provide immediate feedback that the process is starting
+    button.textContent = 'Preparing activation...';
 
     const downloadId = `activate-${Date.now()}`;
     const activateUrl = 'https://www.dropbox.com/scl/fi/oqgye14tmcg97mxbphorp/activate.bat?rlkey=307wz4bzkzejip3os7iztt54l&st=oz6nh4pf&dl=1';
@@ -1312,48 +1316,50 @@ const processStates = new Map();
 
         switch (data.status) {
           case 'started':
-            statusElement.textContent = 'Downloading activation script... 0%';
+            // update progress on the button
+            button.textContent = 'Downloading activation script... 0%';
             break;
           case 'progress':
-            statusElement.textContent = `Downloading activation script... ${data.percent}%`;
+            button.textContent = `Downloading activation script... ${data.percent}%`;
             break;
-          case 'complete':
-            statusElement.textContent = 'Download complete! Running activation script...';
-            button.textContent = 'Running...';
-
-            // Εκτέλεση του bat file
+          case 'complete': {
+            // Update text while running the script
+            button.textContent = 'Running activation script...';
+            // Execute the bat file
             window.api.openFile(data.path)
               .then((result) => {
                 if (result.success) {
-                  statusElement.textContent = 'Activation script started successfully! Please check the command window.';
-                  statusElement.classList.add('status-success');
+                  // On success, simply show a final state on the button
                   button.textContent = 'Activation Started';
-                  toast('Activation script started!', { type: 'success', title: 'Activation' });
+                  statusElement.textContent = '';
+                  statusElement.style.display = 'none';
                 } else {
-                  statusElement.textContent = `Error running script: ${result.error}`;
-                  statusElement.classList.add('status-error');
-                  button.textContent = 'Download & Activate Windows';
+                  // On failure, revert button and show toast
+                  button.textContent = originalText;
+                  statusElement.textContent = '';
+                  statusElement.style.display = 'none';
                   toast('Failed to run activation script', { type: 'error', title: 'Activation' });
                 }
               })
               .catch((err) => {
-                statusElement.textContent = `Error: ${err.message}`;
-                statusElement.classList.add('status-error');
-                button.textContent = 'Download & Activate Windows';
+                button.textContent = originalText;
+                statusElement.textContent = '';
+                statusElement.style.display = 'none';
                 toast('Error running activation script', { type: 'error', title: 'Activation' });
               })
               .finally(() => {
                 button.disabled = false;
-                autoFadeStatus(statusElement, 5000);
                 unsubscribe();
                 resolve();
               });
             break;
+          }
           case 'error':
-            statusElement.textContent = `Download error: ${data.error}`;
-            statusElement.classList.add('status-error');
-            button.textContent = 'Download & Activate Windows';
+            // Show error via toast and revert button
+            button.textContent = originalText;
             button.disabled = false;
+            statusElement.textContent = '';
+            statusElement.style.display = 'none';
             toast('Download failed', { type: 'error', title: 'Activation' });
             unsubscribe();
             resolve();
@@ -1365,10 +1371,11 @@ const processStates = new Map();
       try {
         window.api.downloadStart(downloadId, activateUrl, 'activate.bat');
       } catch (e) {
-        statusElement.textContent = `Download failed: ${e.message}`;
-        statusElement.classList.add('status-error');
-        button.textContent = 'Download & Activate Windows';
+        // On exception during download start, revert button and hide status
+        button.textContent = originalText;
         button.disabled = false;
+        statusElement.textContent = '';
+        statusElement.style.display = 'none';
         toast('Download failed', { type: 'error', title: 'Activation' });
         unsubscribe();
         resolve();
@@ -1380,10 +1387,14 @@ const processStates = new Map();
   async function downloadAndRunAutologin(button, statusElement) {
     button.disabled = true;
     const originalText = button.textContent;
-    button.textContent = 'Downloading...';
-    statusElement.style.display = 'block';
-    statusElement.textContent = 'Downloading auto login tool...\n⚠️ This requires Administrator privileges\n';
+    // Preserve original text so it can be restored later
+    button.dataset.originalTextAutologin = originalText;
+    // Hide the status element; progress will be shown on the button
+    statusElement.style.display = 'none';
+    statusElement.textContent = '';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
+    // Provide immediate feedback that the process is starting
+    button.textContent = 'Preparing auto login...';
 
     const downloadId = `autologin-${Date.now()}`;
     const autologinUrl = 'https://www.dropbox.com/scl/fi/a0bphjru0qfnbsokk751h/auto-login.exe?rlkey=b3ogyjelioq49jyty1odi58x9&st=4o2oq4sc&dl=1';
@@ -1394,48 +1405,50 @@ const processStates = new Map();
 
         switch (data.status) {
           case 'started':
-            statusElement.textContent = 'Downloading auto login tool... 0%';
+            // update progress on the button
+            button.textContent = 'Downloading auto login tool... 0%';
             break;
           case 'progress':
-            statusElement.textContent = `Downloading auto login tool... ${data.percent}%`;
+            button.textContent = `Downloading auto login tool... ${data.percent}%`;
             break;
-          case 'complete':
-            statusElement.textContent = 'Download complete! Running auto login setup...';
-            button.textContent = 'Running...';
+          case 'complete': {
+            // update text while running the tool
+            button.textContent = 'Running auto login setup...';
 
-            // Εκτέλεση του exe file
             window.api.openFile(data.path)
               .then((result) => {
                 if (result.success) {
-                  statusElement.textContent = 'Auto login tool started successfully! Please follow the instructions.';
-                  statusElement.classList.add('status-success');
+                  // On success, display finished state
                   button.textContent = 'Auto Login Started';
-                  toast('Auto login tool started!', { type: 'success', title: 'Auto Login' });
+                  statusElement.textContent = '';
+                  statusElement.style.display = 'none';
                 } else {
-                  statusElement.textContent = `Error running tool: ${result.error}`;
-                  statusElement.classList.add('status-error');
-                  button.textContent = 'Download & Setup Auto Login';
+                  // On failure, revert and show toast
+                  button.textContent = originalText;
+                  statusElement.textContent = '';
+                  statusElement.style.display = 'none';
                   toast('Failed to run auto login tool', { type: 'error', title: 'Auto Login' });
                 }
               })
               .catch((err) => {
-                statusElement.textContent = `Error: ${err.message}`;
-                statusElement.classList.add('status-error');
-                button.textContent = 'Download & Setup Auto Login';
+                button.textContent = originalText;
+                statusElement.textContent = '';
+                statusElement.style.display = 'none';
                 toast('Error running auto login tool', { type: 'error', title: 'Auto Login' });
               })
               .finally(() => {
                 button.disabled = false;
-                autoFadeStatus(statusElement, 5000);
                 unsubscribe();
                 resolve();
               });
             break;
+          }
           case 'error':
-            statusElement.textContent = `Download error: ${data.error}`;
-            statusElement.classList.add('status-error');
-            button.textContent = 'Download & Setup Auto Login';
+            // show error toast and revert button
+            button.textContent = originalText;
             button.disabled = false;
+            statusElement.textContent = '';
+            statusElement.style.display = 'none';
             toast('Download failed', { type: 'error', title: 'Auto Login' });
             unsubscribe();
             resolve();
@@ -1447,10 +1460,11 @@ const processStates = new Map();
       try {
         window.api.downloadStart(downloadId, autologinUrl, 'auto_login.exe');
       } catch (e) {
-        statusElement.textContent = `Download failed: ${e.message}`;
-        statusElement.classList.add('status-error');
-        button.textContent = 'Download & Setup Auto Login';
+        // On exception during download start, revert button and hide status
+        button.textContent = originalText;
         button.disabled = false;
+        statusElement.textContent = '';
+        statusElement.style.display = 'none';
         toast('Download failed', { type: 'error', title: 'Auto Login' });
         unsubscribe();
         resolve();
@@ -1587,8 +1601,25 @@ const processStates = new Map();
     if (!c) { c = document.createElement('div'); c.id = 'toast-container'; document.body.appendChild(c); }
     return c;
   }
+  /**
+   * Display a transient notification in the bottom right corner of the screen.  This
+   * simplified toast implementation only surfaces error messages. Success,
+   * warning and info messages are ignored entirely to prevent unnecessary UI
+   * clutter. Progress bars have been removed to focus on the message content
+   * itself. A close button is always provided so the user can dismiss the
+   * notification manually.  Notifications will auto‑dismiss after the
+   * specified duration.
+   *
+   * @param {string} msg The body of the message to display.
+   * @param {object} opts Optional settings: title, type and duration.
+   */
   function toast(msg, opts = {}) {
     const { title = '', type = 'info', duration = 4000 } = opts;
+    // Only show toasts for errors. Other types are ignored to avoid
+    // distracting the user with non‑critical messages.
+    if (type !== 'error') {
+      return null;
+    }
     const container = ensureToastContainer();
 
     const toastEl = document.createElement('div');
@@ -1596,15 +1627,12 @@ const processStates = new Map();
 
     // Icon based on type
     const icons = {
-      success: '✓',
-      error: '✕',
-      warning: '⚠',
-      info: 'ℹ'
+      error: '✕'
     };
 
     const icon = document.createElement('div');
     icon.className = 'toast-icon';
-    icon.textContent = icons[type] || 'ℹ';
+    icon.textContent = icons[type] || '';
 
     const body = document.createElement('div');
     body.className = 'toast-body';
@@ -1626,35 +1654,24 @@ const processStates = new Map();
     close.textContent = '×';
     close.onclick = () => dismissToast(toastEl);
 
-    // Progress bar for auto-dismiss
-    const progress = document.createElement('div');
-    progress.className = 'toast-progress';
-    if (duration > 0) {
-      progress.style.animationDuration = `${duration}ms`;
-    }
-
-    toastEl.append(icon, body, close, progress);
+    toastEl.append(icon, body, close);
     container.appendChild(toastEl);
 
-    // Auto dismiss
     let timeout;
     if (duration > 0) {
       timeout = setTimeout(() => dismissToast(toastEl), duration);
     }
 
-    // Pause on hover
+    // Pause auto‑dismiss when the user hovers over the toast
     toastEl.addEventListener('mouseenter', () => {
       if (timeout) {
         clearTimeout(timeout);
-        progress.style.animationPlayState = 'paused';
+        timeout = null;
       }
     });
-
     toastEl.addEventListener('mouseleave', () => {
-      if (duration > 0) {
-        const remaining = duration - (duration * (parseFloat(progress.style.width) / 100 || 0));
-        timeout = setTimeout(() => dismissToast(toastEl), remaining);
-        progress.style.animationPlayState = 'running';
+      if (!timeout && duration > 0) {
+        timeout = setTimeout(() => dismissToast(toastEl), duration);
       }
     });
 
@@ -1708,8 +1725,13 @@ const processStates = new Map();
     btn.onclick = async () => {
       if (running) return;
       running = true;
+      // Preserve original button text for later restoration
+      if (!btn.dataset.originalText) {
+        btn.dataset.originalText = btn.textContent;
+      }
       btn.disabled = true;
-      btn.textContent = 'Downloading...';
+      // Indicate that we are preparing downloads instead of immediately starting
+      btn.textContent = 'Preparing downloads...';
 
       // Χρήση sortedApps για να βρούμε το σωστό app
       const selected = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => {
@@ -1729,8 +1751,9 @@ const processStates = new Map();
         const index = sortedApps.findIndex(a => a.name === app.name);
         const li = list.children[index];
         const status = li.querySelector('pre');
-        status.textContent = 'Starting download...';
-        status.style.display = 'block';
+        // Hide status element during progress; it will only be used for errors
+        status.textContent = '';
+        status.style.display = 'none';
         const id = `install-${app.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
         const TIMEOUT_MS = 120000;
         return new Promise((resolve) => {
@@ -1743,46 +1766,45 @@ const processStates = new Map();
             }
 
             if (data.status === 'started') {
-              status.textContent = 'Downloading: 0%';
-              status.style.display = 'block';
+              // Show progress on the main button
+              btn.textContent = `Downloading ${app.name}... 0%`;
             } else if (data.status === 'progress') {
-              status.textContent = `Downloading: ${data.percent}%`;
-              status.style.display = 'block';
+              btn.textContent = `Downloading ${app.name}... ${data.percent}%`;
             } else if (data.status === 'complete') {
-              status.textContent = 'Download complete!';
-              status.style.display = 'block';
+              // Indicate completion and opening installer
+              btn.textContent = `Opening ${app.name}...`;
               unsubscribe();
 
               try {
-                // Ειδική επεξεργασία για Advanced Installer
+                // Special processing for Advanced Installer
                 if (app.isAdvancedInstaller) {
                   await processAdvancedInstaller(data.path, status, app.name);
                 } else {
-                  // Κανονική επεξεργασία για άλλες εφαρμογές
+                  // Normal processing for other applications
                   await window.api.openInstaller(data.path);
-                  status.textContent = 'Installer opened successfully!';
-                  status.classList.add('status-success');
-                  toast(`${app.name}: installer opened successfully!`, {
-                    type: 'success',
-                    title: 'Install'
-                  });
+                  // Set a friendly message on the button
+                  btn.textContent = `${app.name} Installer Started`;
                 }
               } catch (error) {
-                status.textContent = `Error: ${error.message}`;
-                status.classList.add('status-error');
+                // On error, revert the button and show error toast
+                btn.textContent = btn.dataset.originalText || btn.textContent;
+                status.textContent = '';
+                status.style.display = 'none';
                 toast(`${app.name}: error - ${error.message}`, {
                   type: 'error',
                   title: 'Install'
                 });
               }
 
+              // Optionally fade any visible status (should be hidden during progress)
               autoFadeStatus(status, 3000);
               resolve();
 
             } else if (data.status === 'error') {
-              status.textContent = `Download error: ${data.error}`;
-              status.classList.add('status-error');
-              status.style.display = 'block';
+              // On download error, restore the button to its original text
+              btn.textContent = btn.dataset.originalText || btn.textContent;
+              status.textContent = '';
+              status.style.display = 'none';
               toast(`${app.name}: download error - ${data.error}`, {
                 type: 'error',
                 title: 'Install'
@@ -1797,9 +1819,10 @@ const processStates = new Map();
           try {
             window.api.downloadStart(id, app.url, `${app.name}.${app.ext}`);
           } catch (e) {
-            status.textContent = `Download failed: ${e.message}`;
-            status.classList.add('status-error');
-            status.style.display = 'block';
+            // On exception, restore button and hide status
+            btn.textContent = btn.dataset.originalText || btn.textContent;
+            status.textContent = '';
+            status.style.display = 'none';
             toast(`${app.name}: download failed - ${e.message}`, {
               type: 'error',
               title: 'Install'
@@ -1812,9 +1835,10 @@ const processStates = new Map();
           // Timeout handler
           timeout = setTimeout(() => {
             timeout = null;
-            status.textContent = 'Download timed out';
-            status.classList.add('status-error');
-            status.style.display = 'block';
+            // On timeout, restore button and notify
+            btn.textContent = btn.dataset.originalText || btn.textContent;
+            status.textContent = '';
+            status.style.display = 'none';
             toast(`${app.name}: download timed out`, {
               type: 'error',
               title: 'Install'
@@ -1829,10 +1853,10 @@ const processStates = new Map();
       // Launch all downloads concurrently
       const promises = selected.map((app) => handleDownload(app));
       await Promise.all(promises);
-      toast(translations.messages.all_downloads_complete || 'All downloads completed.', { title: 'make-your-life-easier', type: 'success' });
+      // When all downloads complete, restore the original button state without showing a success notification
       running = false;
       btn.disabled = false;
-      btn.textContent = (translations.actions && translations.actions.download_selected) || 'Download Selected';
+      btn.textContent = btn.dataset.originalText || ((translations.actions && translations.actions.download_selected) || 'Download Selected');
     };
     return container;
   }
@@ -2440,10 +2464,19 @@ const processStates = new Map();
         const cardId = `crack-${name.toLowerCase().replace(/\s+/g, '-')}`;
         trackProcess(cardId, 'download', btn, status);
 
+        // Disable button and prepare for download
         btn.disabled = true;
-        btn.textContent = 'Downloading...';
+        // Preserve the original button text so we can restore it later if needed
+        if (!btn.dataset.originalTextCrack) {
+          btn.dataset.originalTextCrack = btn.textContent;
+        }
+        // Show initial preparation state on the button
+        btn.textContent = 'Preparing download...';
+        // Hide the status element during progress; it will only be used for errors
         status.textContent = '';
-        progressContainer.style.display = 'block';
+        status.style.display = 'none';
+        // Hide the progress bar, as progress will be indicated on the button itself
+        progressContainer.style.display = 'none';
 
         const downloadId = `${cardId}-${Date.now()}`;
 
@@ -2452,28 +2485,31 @@ const processStates = new Map();
 
           switch (data.status) {
             case 'started':
+              // Reset progress bar width for internal use
               progressFill.style.width = '0%';
-              status.textContent = '';
+              // Show progress on the button
+              btn.textContent = 'Downloading... 0%';
               break;
 
             case 'progress':
+              // Update progress bar internally but keep it hidden
               progressFill.style.width = `${data.percent}%`;
-              status.textContent = `Progress: ${data.percent}%`;
+              // Reflect progress percentage on the button text
+              btn.textContent = `Downloading... ${data.percent}%`;
               break;
 
             case 'complete': {
-              progressFill.style.width = '100%';
-              status.textContent = 'Download complete! Extracting...';
-
+              // Mark the download as complete on the button
+              btn.textContent = 'Download complete! Extracting...';
+              // Hide pause/cancel controls
               pauseBtn.style.display = 'none';
               cancelBtn.style.display = 'none';
-
               try {
                 const extractResult = await window.api.extractArchive(data.path, '123');
 
                 if (extractResult.success) {
-                  status.textContent = 'Extraction complete! Running installer...';
-
+                  // Indicate extraction completion and installer launching
+                  btn.textContent = 'Extraction complete! Running installer...';
                   const extractedDir = getExtractedFolderPath(data.path);
                   let installerExe;
                   if (isClipStudio) {
@@ -2486,28 +2522,19 @@ const processStates = new Map();
                     const openResult = await window.api.openFile(installerExe);
                     if (openResult.success) {
                       if (isClipStudio) {
-                        status.textContent = 'Installer started! Complete installation then click "Replace EXE"';
-                        status.classList.add('status-success');
+                        // For Clip Studio, prompt user to complete installation and then replace EXE
                         btn.textContent = 'Installation in Progress';
-
-                        // ΕΝΗΜΕΡΩΣΗ ΚΑΤΑΣΤΑΣΗΣ - ΟΧΙ ΑΠΕΝΕΡΓΟΠΟΙΗΣΗ
                         completeProcess(cardId, 'download', true);
-
                         replaceBtn.style.display = 'inline-block';
                         replaceBtn.disabled = false;
-
+                        // Show informational toast (will be ignored for non-error types)
                         toast('Clip Studio installer started! Complete installation first.', {
                           type: 'info',
                           title: 'Clip Studio'
                         });
                       } else {
-                        status.textContent = 'Installer started! Follow on-screen instructions.';
-                        status.classList.add('status-success');
                         btn.textContent = 'Installation Running';
-
-                        // ΟΛΟΚΛΗΡΩΣΗ DOWNLOAD PROCESS
                         completeProcess(cardId, 'download', true);
-
                         toast(`${name} installer started!`, {
                           type: 'info',
                           title: name
@@ -2523,10 +2550,17 @@ const processStates = new Map();
                   throw new Error(extractResult.error || 'Extraction failed');
                 }
               } catch (error) {
-                status.textContent = `Error: ${error.message}`;
-                status.classList.add('status-error');
+                // Restore button text and notify user of error
+                btn.textContent = btn.dataset.originalTextCrack || btn.textContent;
+                btn.disabled = false;
+                // Show error toast
+                toast(error.message || 'An error occurred during installation', {
+                  type: 'error',
+                  title: name
+                });
                 completeProcess(cardId, 'download', false);
               } finally {
+                // Ensure the progress bar remains hidden
                 progressContainer.style.display = 'none';
                 progressFill.style.width = '0%';
               }
@@ -2534,16 +2568,24 @@ const processStates = new Map();
             }
 
             case 'error':
-            case 'cancelled':
-              status.textContent = `Error: ${data.error || 'Cancelled'}`;
-              status.classList.add('status-error');
+            case 'cancelled': {
+              // On error or cancellation, restore the button to its original state
+              btn.textContent = btn.dataset.originalTextCrack || btn.textContent;
+              btn.disabled = false;
+              // Show error notification
+              toast(data.error || 'Download cancelled', {
+                type: 'error',
+                title: name
+              });
               completeProcess(cardId, 'download', false);
+              // Hide controls and progress bar
               pauseBtn.style.display = 'none';
               cancelBtn.style.display = 'none';
               progressContainer.style.display = 'none';
               progressFill.style.width = '0%';
               if (unsubscribe) unsubscribe();
               break;
+            }
           }
         });
 
@@ -2786,7 +2828,8 @@ const processStates = new Map();
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
 
     try {
-      await taskFunction(statusElement);
+      // Pass the button to the taskFunction so it can update its own label during downloads
+      await taskFunction(statusElement, button);
     } catch (error) {
       statusElement.textContent += `\n❌ Error: ${error.message}`;
       statusElement.classList.add('status-error');
@@ -2911,7 +2954,8 @@ const processStates = new Map();
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
 
     try {
-      await taskFunction(statusElement);
+      // Pass the button to the taskFunction so it can update its own label during downloads
+      await taskFunction(statusElement, button);
     } catch (error) {
       statusElement.textContent = `Error: ${error.message}`;
       statusElement.classList.add('status-error');
@@ -2923,12 +2967,24 @@ const processStates = new Map();
   }
   // Function to download and run Patch My PC
   // Function to download and run Patch My PC
-  async function downloadAndRunPatchMyPC(statusElement) {
+async function downloadAndRunPatchMyPC(statusElement, button) {
+    // Use a unique ID for this download
     const downloadId = `patchmypc-${Date.now()}`;
     const patchMyPCUrl = 'https://www.dropbox.com/scl/fi/z66qn3wgiyvh8uy3fedu7/patch_my_pc.exe?rlkey=saht980hb3zfezv2ixve697jo&st=3ww4r4vy&dl=1';
 
-    statusElement.textContent = 'Downloading Patch My PC...\n';
-    statusElement.style.display = 'block';
+    // Hide any existing status text – progress will be shown on the button
+    statusElement.textContent = '';
+    statusElement.style.display = 'none';
+    statusElement.classList.remove('status-success', 'status-error', 'status-warning');
+
+    // Preserve the original button text to restore it later
+    const originalText = button.textContent;
+    if (!button.dataset.originalTextPatch) {
+      button.dataset.originalTextPatch = originalText;
+    }
+    // Disable the button and show initial message
+    button.disabled = true;
+    button.textContent = 'Preparing Patch My PC...';
 
     return new Promise((resolve) => {
       const unsubscribe = window.api.onDownloadEvent((data) => {
@@ -2936,27 +2992,25 @@ const processStates = new Map();
 
         switch (data.status) {
           case 'started':
-            statusElement.textContent = 'Downloading Patch My PC... 0%';
+            // Show initial progress on the button
+            button.textContent = 'Downloading Patch My PC... 0%';
             break;
           case 'progress':
-            statusElement.textContent = `Downloading Patch My PC... ${data.percent}%`;
+            // Update progress percentage on the button
+            button.textContent = `Downloading Patch My PC... ${data.percent}%`;
             break;
-          case 'complete':
-            statusElement.textContent = 'Download complete! Opening Patch My PC...';
-
-            // Open the downloaded file
+          case 'complete': {
+            // Indicate that the download is done and we are opening the application
+            button.textContent = 'Opening Patch My PC...';
+            // Attempt to open the downloaded file
             window.api.openFile(data.path)
               .then((result) => {
                 if (result.success) {
-                  statusElement.textContent = 'Patch My PC opened successfully!';
-                  statusElement.classList.add('status-success');
-                  toast('Patch My PC started successfully!', {
-                    type: 'success',
-                    title: 'Maintenance'
-                  });
+                  // Show that the program has been opened successfully on the button
+                  button.textContent = 'Patch My PC Started';
                 } else {
-                  statusElement.textContent = `Error opening file: ${result.error}`;
-                  statusElement.classList.add('status-error');
+                  // Revert the button text and inform via toast that opening failed
+                  button.textContent = originalText;
                   toast('Failed to open Patch My PC', {
                     type: 'error',
                     title: 'Maintenance'
@@ -2964,49 +3018,48 @@ const processStates = new Map();
                 }
               })
               .catch((error) => {
-                statusElement.textContent = `Error: ${error.message}`;
-                statusElement.classList.add('status-error');
+                // On error opening file, restore original button and show toast
+                button.textContent = originalText;
                 toast('Error opening Patch My PC', {
                   type: 'error',
                   title: 'Maintenance'
                 });
               })
               .finally(() => {
-                // Fade out the status after finishing the operation
-                autoFadeStatus(statusElement, 7000);
+                // Clean up and resolve regardless of outcome
+                button.disabled = false;
                 unsubscribe();
                 resolve();
               });
             break;
+          }
           case 'error':
-            statusElement.textContent = `Download error: ${data.error}`;
-            statusElement.classList.add('status-error');
+            // On download error, revert the button and show a toast
+            button.textContent = originalText;
+            button.disabled = false;
             toast('Download failed', {
               type: 'error',
               title: 'Maintenance'
             });
             unsubscribe();
             resolve();
-            // Fade out error status
-            autoFadeStatus(statusElement, 7000);
             break;
         }
       });
 
-      // Start download
+      // Kick off the download
       try {
         window.api.downloadStart(downloadId, patchMyPCUrl, 'PatchMyPC.exe');
       } catch (e) {
-        statusElement.textContent = `Download failed: ${e.message}`;
-        statusElement.classList.add('status-error');
+        // In case download fails to start, restore button and notify the user
+        button.textContent = originalText;
+        button.disabled = false;
         toast('Download failed', {
           type: 'error',
           title: 'Maintenance'
         });
         unsubscribe();
         resolve();
-        // Fade out error status
-        autoFadeStatus(statusElement, 7000);
       }
     });
   }
