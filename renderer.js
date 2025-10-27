@@ -545,7 +545,7 @@ const processStates = new Map();
         // Windows suggestions and Bing web search.  Results are
         // reported via toast notifications.  Note: additional
         // debloat functionality can be appended here in future.
-        setHeader((translations.menu && translations.menu.debloat) || 'Debloat');
+        setHeader((translations.menu && translations.menu.debloat) || 'Debloat & Windows Tweaks');
         content.appendChild(await buildDebloatPage());
         break;
       case 'password_manager':
@@ -2848,37 +2848,18 @@ const processStates = new Map();
     return container;
   }
 
-  // Build the debloat page.  This page presents a single card with a
-  // descriptive header and a button that executes registry tweaks to
-  // disable Windows notifications suggestions and web search in the
-  // Start menu.  When clicked, the button calls a backend IPC
-  // handler which runs a PowerShell script with elevated
-  // privileges.  Results and errors are surfaced to the user via
-  // toast notifications, and the button is temporarily disabled to
-  // prevent multiple simultaneous runs.
-  /**
-   * Build the Debloat page.  This UI allows the user to select
-   * individual debloat tasks grouped by category, or simply run
-   * a recommended set of tasks.  Each task corresponds to a
-   * registry tweak or system change executed via a PowerShell
-   * script in the main process.  When the "Run Selected Tasks"
-   * button is pressed, an IPC message is sent with the chosen
-   * identifiers to assemble and execute the script.
-   */
+
   async function buildDebloatPage() {
     const container = document.createElement('div');
     container.className = 'card';
-
-    // Page title and description
-    const title = document.createElement('h2');
-    title.textContent = (translations.pages?.debloat_title) || 'Debloat & Windows Tweaks';
-    container.appendChild(title);
-    const desc = document.createElement('p');
-    desc.textContent = (translations.pages?.debloat_desc) ||
+    const alertBox = document.createElement('div');
+    alertBox.className = 'debloat-alert';
+    const alertText = document.createElement('p');
+    alertText.className = 'debloat-alert-content';
+    alertText.textContent = (translations.pages?.debloat_desc) ||
       'Select which debloat operations you wish to apply. Recommended tasks are pre‑selected. Administrator privileges may be required. A restart is recommended after applying changes.';
-    desc.style.opacity = '0.8';
-    desc.style.marginBottom = '1.5rem';
-    container.appendChild(desc);
+    alertBox.appendChild(alertText);
+    container.appendChild(alertBox);
 
     // Define the list of available debloat tasks.  Each task has a
     // unique key, a category for grouping in the UI, a human‑readable

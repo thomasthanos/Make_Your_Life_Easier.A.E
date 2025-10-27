@@ -3,75 +3,95 @@
   box-sizing: border-box;
 }
 
+/* Custom radio inputs for search bar style (from Uiverse.io by Shoh2008)
+   These styles have been optimised for our UI: smaller size, reduced spacing and standard
+   appearance properties for broader browser support. */
 .radio-input .input {
-  /* remove default radio appearance */
-  appearance: none;
+  /* remove default appearance */
   -webkit-appearance: none;
-  /* layout */
+  appearance: none;
   display: inline-block;
-  /* reduce margins to tighten up the vertical spacing */
+  /* compact spacing around each radio */
   margin: 4px 8px 4px 0;
-  /* slightly smaller size for a more balanced look */
+  /* smaller circle dimensions */
   width: 20px;
   height: 20px;
-  border-radius: 50%;
+  border-radius: 10px;
   cursor: pointer;
-  /* visual styling */
-  box-shadow: hsla(0, 0%, 100%, .15) 0 1px 1px,
-    inset hsla(0, 0%, 0%, .5) 0 0 0 1px;
-  background-color: hsla(0, 0%, 0%, .2);
-  /* radial gradient for the fill effect */
-  background-image: radial-gradient(
-    hsla(200, 100%, 90%, 1) 0%,
-    hsla(200, 100%, 70%, 1) 15%,
-    hsla(200, 100%, 60%, .3) 28%,
-    hsla(200, 100%, 30%, 0) 70%
-  );
+  /* 3D inset effect */
+  box-shadow: hsla(0, 0%, 100%, 0.15) 0 1px 1px,
+    inset hsla(0, 0%, 0%, 0.5) 0 0 0 1px;
+  background-color: hsla(0, 0%, 0%, 0.2);
+  background-image: -webkit-radial-gradient(hsla(200, 100%, 90%, 1) 0%, hsla(200, 100%, 70%, 1) 15%, hsla(200, 100%, 60%, 0.3) 28%, hsla(200, 100%, 30%, 0) 70%);
   background-repeat: no-repeat;
-  /* transitions for state changes */
-  transition: background-position .15s cubic-bezier(.8, 0, 1, 1),
-    transform .25s cubic-bezier(.8, 0, 1, 1);
-  -webkit-transition: background-position .15s cubic-bezier(.8, 0, 1, 1),
-    -webkit-transform .25s cubic-bezier(.8, 0, 1, 1);
+  /* smooth animations for fill and click scaling */
+  transition: background-position 0.15s cubic-bezier(0.8, 0, 1, 1),
+    transform 0.25s cubic-bezier(0.8, 0, 1, 1);
+  -webkit-transition: background-position 0.15s cubic-bezier(0.8, 0, 1, 1),
+    -webkit-transform 0.25s cubic-bezier(0.8, 0, 1, 1);
   outline: none;
 }
 
-/* When checked, adjust the timing for the background slide */
+/* Delay the background slide on checked to emphasise selection */
 .radio-input .input:checked {
-  transition: background-position .2s .15s cubic-bezier(0, 0, .2, 1),
-    transform .25s cubic-bezier(0, 0, .2, 1);
-  -webkit-transition: background-position .2s .15s cubic-bezier(0, 0, .2, 1),
-    -webkit-transform .25s cubic-bezier(0, 0, .2, 1);
+  transition: background-position 0.2s 0.15s cubic-bezier(0, 0, 0.2, 1),
+    transform 0.25s cubic-bezier(0, 0, 0.2, 1);
+  -webkit-transition: background-position 0.2s 0.15s cubic-bezier(0, 0, 0.2, 1),
+    -webkit-transform 0.25s cubic-bezier(0, 0, 0.2, 1);
 }
 
-/* Enlarge the control briefly when active */
+/* Provide a subtle scale when active */
 .radio-input .input:active {
   transform: scale(1.5);
+  transition: transform 0.1s cubic-bezier(0, 0, 0.2, 1);
   -webkit-transform: scale(1.5);
-  transition: transform .1s cubic-bezier(0, 0, .2, 1);
-  -webkit-transition: -webkit-transform .1s cubic-bezier(0, 0, .2, 1);
+  -webkit-transition: -webkit-transform 0.1s cubic-bezier(0, 0, 0.2, 1);
 }
 
-/*
- * Direction logic: shift the gradient position up or down to
- * indicate checked/unchecked states.  The default background
- * position corresponds to the unchecked state.  Note that the
- * y‑offset values are tied to the height of the element (20px).
- */
+/* The up/down direction logic */
 .radio-input .input,
 .radio-input .input:active {
   background-position: 0 20px;
 }
 
-/* When checked, slide the gradient up to reveal the filled colour */
+/* On checked, show fill at top */
 .radio-input .input:checked {
   background-position: 0 0;
 }
 
-/* Hide the fill effect on subsequent sibling inputs */
+/* When a later radio is checked, move previous backgrounds up */
 .radio-input .input:checked ~ .input,
 .radio-input .input:checked ~ .input:active {
   background-position: 0 -20px;
+}
+
+/*
+  Notification banner on the Debloat page.
+  This full‑width alert uses the application's accent colours but with a slight
+  variation to distinguish it from regular cards.  It remains visible at all
+  times (no close button) and occupies the entire card width with internal
+  padding on the left and right.
+*/
+.debloat-alert {
+  width: 100%;
+  /* horizontal padding ensures the text doesn’t touch the card edges */
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--accent-color-light);
+  /* subtle gradient using accent colours for a notification look */
+  /* use the card background for a subtle backdrop and accent colours for border & text */
+  background: #171920;
+  color: var(--accent-color);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* Reset default margins for the alert content paragraph */
+.debloat-alert-content {
+  margin: 0;
+  color: white;
+  font-weight: bold;
 }
 
 :root {
