@@ -3024,6 +3024,7 @@ const processStates = new Map();
             appsWrapper.style.marginLeft = '1.5rem';
             appsWrapper.style.marginTop = '0.4rem';
             appsWrapper.style.maxHeight = '200px';
+            appsWrapper.style.paddingRight = '2.1rem';
             appsWrapper.style.overflowY = 'auto';
             if (installedApps.length === 0) {
                 // If no removable apps were detected, inform the user
