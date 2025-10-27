@@ -84,6 +84,27 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   runMsiInstaller: (msiPath) => ipcRenderer.invoke('run-msi-installer', msiPath),
   runInstaller: (filePath) => ipcRenderer.invoke('run-installer', filePath),
 
+  // Execute a simple debloat routine that disables a handful of
+  // Windows suggestions and web search features.  This legacy
+  // handler remains for backward compatibility with earlier
+  // versions of the application.  Prefer using `runDebloatTasks`
+  // with a custom selection of tasks instead.
+  runDebloat: () => ipcRenderer.invoke('run-debloat'),
+
+  /**
+   * Execute a customizable set of debloat tasks.  Pass an array
+   * of string identifiers corresponding to individual actions
+   * defined in the main process.  The backend assembles a
+   * PowerShell script based on the provided selections and
+   * executes it with elevated privileges when required.  The
+   * promise resolves to an object containing a boolean `success`
+   * flag and a message or error description.
+   *
+   * @param {string[]} selectedTasks - The identifiers of the
+   *   debloat tasks the user has chosen.
+   */
+  runDebloatTasks: (selectedTasks) => ipcRenderer.invoke('run-debloat-tasks', selectedTasks),
+
   loginGoogle: () => ipcRenderer.invoke('login-google'),
   loginDiscord: () => ipcRenderer.invoke('login-discord'),
   getUserProfile: () => ipcRenderer.invoke('get-user-profile'),

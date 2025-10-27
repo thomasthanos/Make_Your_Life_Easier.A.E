@@ -2,11 +2,20 @@
 const processStates = new Map();
 
 (() => {
+  // Define the order of pages shown in the sidebar.  A new entry for
+  // "debloat" has been added to provide a one‑click way to disable
+  // unnecessary Windows suggestions and Bing web search in the Start
+  // menu.  Additional debloat actions can be added to this page in
+  // future updates.
   const menuKeys = [
     'settings',
     'install_apps',
     'activate_autologin',
     'system_maintenance',
+    // The debloat page contains a button that performs several
+    // registry tweaks to disable Windows suggestions and Bing web
+    // search results.  See buildDebloatPage() for details.
+    'debloat',
     'crack_installer',
     'spicetify',
     'password_manager',
@@ -54,6 +63,12 @@ const processStates = new Map();
     bios: `
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-computer w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><rect width="14" height="8" x="5" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><path d="M6 18h2"></path><path d="M12 18h6"></path></svg>
   `,
+    // Use a broom icon to symbolise cleaning and debloating.  This
+    // inline SVG is lightweight and matches the existing lucide
+    // styling used for the other menu icons.
+    debloat: `
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-broom w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors"><line x1="3" y1="22" x2="21" y2="22"></line><path d="M10 2l5 5l-5 5"></path><path d="M15 7l5 5"></path><path d="M2 17l5 5"></path></svg>
+    `,
   };
   const tooltipManager = (() => {
     let tooltipEl;
@@ -523,6 +538,15 @@ const processStates = new Map();
       case 'spicetify':
         setHeader((translations.menu && translations.menu.spicetify) || 'spicetify');
         content.appendChild(buildSpicetifyPage());
+        break;
+      case 'debloat':
+        // Build and display the debloat page.  This page exposes a
+        // single button that runs a PowerShell script to disable
+        // Windows suggestions and Bing web search.  Results are
+        // reported via toast notifications.  Note: additional
+        // debloat functionality can be appended here in future.
+        setHeader((translations.menu && translations.menu.debloat) || 'Debloat');
+        content.appendChild(await buildDebloatPage());
         break;
       case 'password_manager':
         setHeader((translations.menu && translations.menu.password_manager) || 'password_manager');
@@ -2820,6 +2844,213 @@ const processStates = new Map();
 
     secondRow.appendChild(patchCard);
     container.appendChild(secondRow);
+
+    return container;
+  }
+
+  // Build the debloat page.  This page presents a single card with a
+  // descriptive header and a button that executes registry tweaks to
+  // disable Windows notifications suggestions and web search in the
+  // Start menu.  When clicked, the button calls a backend IPC
+  // handler which runs a PowerShell script with elevated
+  // privileges.  Results and errors are surfaced to the user via
+  // toast notifications, and the button is temporarily disabled to
+  // prevent multiple simultaneous runs.
+  /**
+   * Build the Debloat page.  This UI allows the user to select
+   * individual debloat tasks grouped by category, or simply run
+   * a recommended set of tasks.  Each task corresponds to a
+   * registry tweak or system change executed via a PowerShell
+   * script in the main process.  When the "Run Selected Tasks"
+   * button is pressed, an IPC message is sent with the chosen
+   * identifiers to assemble and execute the script.
+   */
+  async function buildDebloatPage() {
+    const container = document.createElement('div');
+    container.className = 'card';
+
+    // Page title and description
+    const title = document.createElement('h2');
+    title.textContent = (translations.pages?.debloat_title) || 'Debloat & Windows Tweaks';
+    container.appendChild(title);
+    const desc = document.createElement('p');
+    desc.textContent = (translations.pages?.debloat_desc) ||
+      'Select which debloat operations you wish to apply. Recommended tasks are pre‑selected. Administrator privileges may be required. A restart is recommended after applying changes.';
+    desc.style.opacity = '0.8';
+    desc.style.marginBottom = '1.5rem';
+    container.appendChild(desc);
+
+    // Define the list of available debloat tasks.  Each task has a
+    // unique key, a category for grouping in the UI, a human‑readable
+    // label and a boolean indicating whether it is recommended by
+    // default.  When adding new tasks, ensure the key matches
+    // corresponding logic in the main process.
+    const debloatTasks = [
+      { key: 'removePreinstalledApps', category: 'App Removal', label: 'Remove preinstalled apps', recommended: true },
+      // Telemetry, tracking & suggestions
+      { key: 'disableTelemetry', category: 'Telemetry & Tracking', label: 'Disable telemetry & diagnostic data', recommended: true },
+      { key: 'disableActivityHistory', category: 'Telemetry & Tracking', label: 'Disable activity history', recommended: true },
+      { key: 'disableAppLaunchTracking', category: 'Telemetry & Tracking', label: 'Disable app‑launch tracking', recommended: true },
+      { key: 'disableTargetedAds', category: 'Telemetry & Tracking', label: 'Disable targeted ads & tailored experiences', recommended: true },
+      { key: 'disableTipsSuggestions', category: 'Telemetry & Tracking', label: 'Disable tips, suggestions & ads across Windows', recommended: true },
+      { key: 'disableSpotlight', category: 'Telemetry & Tracking', label: 'Disable Windows Spotlight background (W11 only)', recommended: false },
+      // Bing, Copilot & AI features
+      { key: 'disableBingSearch', category: 'Search, Copilot & AI', label: 'Disable Bing web search & Cortana', recommended: true },
+      { key: 'disableCopilot', category: 'Search, Copilot & AI', label: 'Disable Microsoft Copilot', recommended: true },
+      { key: 'disableStickyKeys', category: 'Search, Copilot & AI', label: 'Disable Sticky Keys shortcut (W11 only)', recommended: false },
+      { key: 'restoreClassicContextMenu', category: 'Search, Copilot & AI', label: 'Restore Windows 10 style context menu (W11 only)', recommended: false },
+      // File Explorer & Taskbar customisation
+      { key: 'showFileExtensions', category: 'Explorer & Taskbar', label: 'Show file extensions for known file types', recommended: true },
+      { key: 'hideSearchIcon', category: 'Explorer & Taskbar', label: 'Hide the search icon/box on the taskbar (W11 only)', recommended: false },
+      { key: 'hideTaskviewButton', category: 'Explorer & Taskbar', label: 'Hide the Task View button (W11 only)', recommended: false },
+      { key: 'disableWidgets', category: 'Explorer & Taskbar', label: 'Disable widgets on taskbar & lockscreen', recommended: true }
+      // Additional tasks can be appended here in the future
+    ];
+
+    // Determine if the platform is Windows; hide the page otherwise.
+    const isWindows = await window.api.isWindows();
+    if (!isWindows) {
+      const warn = document.createElement('p');
+      warn.textContent = 'Debloat tasks are only available on Windows.';
+      warn.style.color = 'var(--error-color)';
+      container.appendChild(warn);
+      return container;
+    }
+
+    // Group tasks by category
+    const groups = {};
+    debloatTasks.forEach((task) => {
+      if (!groups[task.category]) groups[task.category] = [];
+      groups[task.category].push(task);
+    });
+
+    // Create a wrapper for task groups
+    const groupsWrapper = document.createElement('div');
+    groupsWrapper.className = 'debloat-groups';
+    groupsWrapper.style.display = 'flex';
+    groupsWrapper.style.flexDirection = 'column';
+    groupsWrapper.style.gap = '1.2rem';
+
+    // Keep track of checkbox elements by task key for easy access
+    const checkboxMap = new Map();
+
+    Object.keys(groups).forEach((category) => {
+      const tasks = groups[category];
+      const groupCard = document.createElement('div');
+      groupCard.className = 'debloat-group-card';
+      groupCard.style.border = '1px solid var(--border-color, #333)';
+      groupCard.style.borderRadius = '8px';
+      groupCard.style.padding = '1rem';
+      groupCard.style.background = 'var(--card-bg, rgba(255,255,255,0.02))';
+
+      const header = document.createElement('h3');
+      header.textContent = category;
+      header.style.margin = '0 0 0.75rem 0';
+      header.style.fontSize = '1rem';
+      header.style.color = 'var(--primary-color)';
+      groupCard.appendChild(header);
+
+      tasks.forEach((task) => {
+        // Wrap each checkbox and its label in a flex row.  Using a
+        // separate label with a `for` attribute ensures the user
+        // can click the text to toggle the checkbox.  This avoids
+        // issues where nested labels prevent checking/unchecking.
+        const row = document.createElement('div');
+        row.className = 'debloat-task-row';
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.marginBottom = '0.4rem';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.id = `debloat-${task.key}`;
+        cb.checked = task.recommended;
+        // Save the checkbox for later reference
+        checkboxMap.set(task.key, cb);
+        const labelEl = document.createElement('label');
+        labelEl.setAttribute('for', cb.id);
+        labelEl.textContent = task.label;
+        labelEl.style.marginLeft = '0.5rem';
+        row.appendChild(cb);
+        row.appendChild(labelEl);
+        groupCard.appendChild(row);
+      });
+
+      groupsWrapper.appendChild(groupCard);
+    });
+
+    container.appendChild(groupsWrapper);
+
+    // Create a footer with control buttons
+    const footer = document.createElement('div');
+    footer.style.display = 'flex';
+    footer.style.flexWrap = 'wrap';
+    footer.style.gap = '1rem';
+    footer.style.marginTop = '1.5rem';
+
+    // Button to restore recommended selections
+    const defaultBtn = document.createElement('button');
+    // Use the secondary style for the restore button
+    defaultBtn.className = 'button-secondary';
+    defaultBtn.textContent = 'Restore Recommended';
+    defaultBtn.addEventListener('click', () => {
+      debloatTasks.forEach((task) => {
+        const cb = checkboxMap.get(task.key);
+        if (cb) cb.checked = !!task.recommended;
+      });
+    });
+    footer.appendChild(defaultBtn);
+
+    // Run selected tasks button
+    const runBtn = document.createElement('button');
+    runBtn.className = 'button';
+    runBtn.textContent = 'Run Selected Tasks';
+    runBtn.addEventListener('click', async () => {
+      if (runBtn.disabled) return;
+      const selected = [];
+      checkboxMap.forEach((cb, key) => {
+        if (cb.checked) selected.push(key);
+      });
+      if (selected.length === 0) {
+        toast('Please select at least one task.', {
+          type: 'info',
+          title: 'No tasks selected',
+          duration: 5000
+        });
+        return;
+      }
+      const original = runBtn.textContent;
+      runBtn.disabled = true;
+      runBtn.textContent = 'Running...';
+      try {
+        const result = await window.api.runDebloatTasks(selected);
+        if (result && result.success) {
+          toast(result.message || 'Debloat completed successfully', {
+            type: 'success',
+            title: 'Debloat',
+            duration: 7000
+          });
+        } else {
+          const errMsg = (result && result.error) || 'Debloat failed';
+          toast(errMsg, {
+            type: 'error',
+            title: 'Debloat Error',
+            duration: 8000
+          });
+        }
+      } catch (err) {
+        toast(err.message || 'An unexpected error occurred', {
+          type: 'error',
+          title: 'Debloat Error',
+          duration: 8000
+        });
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = original;
+      }
+    });
+    footer.appendChild(runBtn);
+
+    container.appendChild(footer);
 
     return container;
   }

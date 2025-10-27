@@ -1555,6 +1555,168 @@ ipcMain.handle('run-autologin-script', async () => {
     resolve({ success: true, message: 'Autologin script completed' });
   });
 });
+
+// Handler for the debloat operation.  This creates a temporary
+// PowerShell script that disables various Windows suggestions and
+// turns off Bing web search in the Start menu.  It executes the
+// script using Start-Process with RunAs so that the user can
+// approve the elevation via UAC.  On completion, the temporary file
+// is removed.  The handler returns an object indicating success or
+// failure along with a message.
+ipcMain.handle('run-debloat', async () => {
+  // Only supported on Windows
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'Debloat tasks are only supported on Windows' };
+  }
+  return new Promise((resolve) => {
+    // Compose the PowerShell script.  Using Set-ItemProperty to
+    // create or modify registry keys is idempotent.  We wrap each
+    // call in try/catch via -ErrorAction SilentlyContinue.  The
+    // script writes to HKCU for the current user; administrator
+    // privileges are still required for the Policies hive.
+    const psScript = `
+try {
+  Write-Host 'Disabling notification suggestions...' -ForegroundColor Cyan
+  $cdmPath = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager'
+  if (Test-Path $cdmPath) {
+    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-338389Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-338388Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-310093Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-353694Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-353696Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+  }
+  $userEngagePath = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\UserProfileEngagement'
+  if (!(Test-Path $userEngagePath)) {
+    New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'UserProfileEngagement' -Force | Out-Null
+  }
+  Set-ItemProperty -Path $userEngagePath -Name 'ScoobeSystemSettingEnabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+
+      # Also disable Notification Suggestions via SmartOptOut, which controls
+      # the same behaviour referenced under System > Notifications.  See
+      # https://superuser.com/questions/1820188 for details.
+      $smartOptOut = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings\\Windows.ActionCenter.SmartOptOut'
+      if (!(Test-Path $smartOptOut)) {
+        New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings' -Name 'Windows.ActionCenter.SmartOptOut' -Force | Out-Null
+      }
+      Set-ItemProperty -Path $smartOptOut -Name 'Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+  Write-Host 'Disabling Start Menu web search suggestions...' -ForegroundColor Cyan
+  $explorerPath = 'HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer'
+  if (!(Test-Path $explorerPath)) {
+    New-Item -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows' -Name 'Explorer' -Force | Out-Null
+  }
+  Set-ItemProperty -Path $explorerPath -Name 'DisableSearchBoxSuggestions' -Value 1 -Type DWord -ErrorAction SilentlyContinue
+  Write-Host 'Debloat operations finished. A restart is recommended to apply changes.' -ForegroundColor Green
+  exit 0
+} catch {
+  Write-Error $_
+  exit 1
+}
+`;
+    try {
+      const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
+      fs.writeFileSync(psFile, psScript, 'utf8');
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      // Use Start-Process to elevate.  The script will prompt for UAC.
+      const command = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
+      const child = spawn('powershell.exe', ['-Command', command], { windowsHide: true });
+      child.on('error', (err) => {
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        // If an error occurs when spawning, likely the user cancelled UAC
+        resolve({ success: false, error: 'Administrator privileges required or denied. Please accept the UAC prompt and try again.' });
+      });
+      child.on('exit', (code) => {
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        if (code === 0) {
+          resolve({ success: true, message: 'Debloat tasks completed. Please restart your PC to apply all changes.' });
+        } else {
+          resolve({ success: false, error: 'Debloat script reported an error. Please try again.' });
+        }
+      });
+    } catch (error) {
+      resolve({ success: false, error: 'Failed to initiate debloat script: ' + error.message });
+    }
+  });
+});
+
+// Handler for the advanced debloat routine.  This accepts an array
+// of task identifiers from the renderer, constructs a PowerShell
+// script dynamically based on the selected tasks and runs it
+// elevated.  The mapping below defines each action's script
+// fragment.  When expanding the list of tasks in the UI, ensure
+// the corresponding key exists here with the appropriate PowerShell
+// logic.  If an unknown key is passed, it is ignored.
+ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
+  // Only supported on Windows
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'Debloat tasks are only supported on Windows' };
+  }
+  return new Promise((resolve) => {
+    try {
+      // Define script fragments for each task.  Each fragment is
+      // self‑contained and should not exit or break the surrounding
+      // script.  Comments describe the purpose of the tweak.  Many
+      // registry writes are idempotent and simply update existing
+      // values or create new keys where necessary.  Some tasks
+      // interact with HKLM and therefore require elevated rights.
+      const taskMap = {
+        removePreinstalledApps: `# Remove a selection of built‑in Windows apps\n$appNames = @(\n  'Microsoft.3DViewer','Microsoft.MixedReality.Portal','Microsoft.BingNews','Microsoft.BingWeather',\n  'Microsoft.GetHelp','Microsoft.Getstarted','Microsoft.OfficeHub','Microsoft.MicrosoftSolitaireCollection',\n  'Microsoft.OneConnect','Microsoft.People','Microsoft.SkypeApp','Microsoft.WindowsFeedbackHub',\n  'Microsoft.XboxApp','Microsoft.XboxGamingOverlay','Microsoft.XboxIdentityProvider',\n  'Microsoft.XboxSpeechToTextOverlay','Microsoft.YourPhone','Microsoft.ZuneMusic','Microsoft.ZuneVideo','Microsoft.WindowsMaps'\n)\nforeach ($app in $appNames) {\n  Get-AppxPackage -AllUsers -Name $app -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue\n  Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "$app*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue\n}\n`,
+        disableTelemetry: `# Disable telemetry & diagnostic data\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'DataCollection' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection' -Name 'AllowTelemetry' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n`,
+        disableActivityHistory: `# Disable activity history (PublishUserActivities)\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'System' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Name 'PublishUserActivities' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n`,
+        disableAppLaunchTracking: `# Disable app launch tracking\n$advPath = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced'\nSet-ItemProperty -Path $advPath -Name 'Start_TrackProgs' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n`,
+        disableTargetedAds: `# Disable the advertising ID and tailored experiences\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'AdvertisingInfo' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo' -Name 'Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Privacy' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Privacy' -Name 'TailoredExperiencesWithDiagnosticDataEnabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n`,
+        disableTipsSuggestions: `# Disable tips, suggestions and ads across Windows\n$cdm = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager'\nif (Test-Path $cdm) {\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-310093Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-338388Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-338389Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-353694Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-353696Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-338393Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n}\n$adv = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced'\nSet-ItemProperty -Path $adv -Name 'SystemPaneSuggestionsEnabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue\nSet-ItemProperty -Path $adv -Name 'Start_IrisRecommendations' -Value 0 -Type DWord -ErrorAction SilentlyContinue\nSet-ItemProperty -Path $adv -Name 'Start_HighlightProvider' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n`,
+        disableSpotlight: `# Disable Windows Spotlight collection on desktop\nNew-Item -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows' -Name 'CloudContent' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows\\CloudContent' -Name 'DisableSpotlightCollectionOnDesktop' -Value 1 -Type DWord -ErrorAction SilentlyContinue\nSet-ItemProperty -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows\\CloudContent' -Name 'DisableWindowsSpotlightFeatures' -Value 1 -Type DWord -ErrorAction SilentlyContinue\n`,
+        disableBingSearch: `# Disable Bing web search, Cortana & search suggestions\nNew-Item -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows' -Name 'Explorer' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer' -Name 'DisableSearchBoxSuggestions' -Value 1 -Type DWord -ErrorAction SilentlyContinue\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'CortanaConsent' -Value 0 -Type DWord -ErrorAction SilentlyContinue\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'AllowCortana' -Value 0 -Type DWord -ErrorAction SilentlyContinue\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'BingSearchEnabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'Windows Search' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search' -Name 'AllowCortana' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n`,
+        disableCopilot: `# Disable Microsoft Copilot (button and service)\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'ShowCopilotButton' -Value 0 -Type DWord -ErrorAction SilentlyContinue\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'WindowsCopilot' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot' -Name 'TurnOffWindowsCopilot' -Value 1 -Type DWord -ErrorAction SilentlyContinue\n`,
+        disableStickyKeys: `# Disable the Sticky Keys shortcut\nNew-Item -Path 'HKCU:\\Control Panel\\Accessibility' -Name 'StickyKeys' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Control Panel\\Accessibility\\StickyKeys' -Name 'Flags' -Value '510' -Type String -ErrorAction SilentlyContinue\n`,
+        restoreClassicContextMenu: `# Restore Windows 10 style context menu\n$clsid = 'HKCU:\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}'\nNew-Item -Path $clsid -Force | Out-Null\nNew-Item -Path "$clsid\\InprocServer32" -Force | Out-Null\nSet-ItemProperty -Path "$clsid\\InprocServer32" -Name '(Default)' -Value '' -Type String -ErrorAction SilentlyContinue\n`,
+        showFileExtensions: `# Show file extensions for known file types\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'HideFileExt' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n`,
+        hideSearchIcon: `# Hide the search icon/box on the taskbar\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'SearchboxTaskbarMode' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n`,
+        hideTaskviewButton: `# Hide the Task View button on the taskbar\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'ShowTaskViewButton' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n`,
+        disableWidgets: `# Disable widgets on taskbar and lockscreen\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'TaskbarDa' -Value 0 -Type DWord -ErrorAction SilentlyContinue\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft' -Name 'Dsh' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Dsh' -Name 'AllowNewsAndInterests' -Value 0 -Type DWord -ErrorAction SilentlyContinue\n`
+      };
+
+      // Assemble the script by iterating over selected tasks.  Skip
+      // unknown identifiers gracefully.
+      let psScript = 'try {\n';
+      selectedTasks.forEach((key) => {
+        const fragment = taskMap[key];
+        if (fragment) {
+          psScript += fragment + '\n';
+        }
+      });
+      // Always emit a completion message at the end of the script
+      psScript += "Write-Host 'Debloat operations finished. A restart is recommended to apply changes.' -ForegroundColor Green\n";
+      psScript += 'exit 0\n';
+      psScript += '} catch {\n';
+      psScript += '  Write-Error $_\n';
+      psScript += '  exit 1\n';
+      psScript += '}\n';
+
+      // Write the script to a temporary file
+      const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
+      fs.writeFileSync(psFile, psScript, 'utf8');
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      // Use Start-Process to elevate; wait for completion
+      const command = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
+      const child = spawn('powershell.exe', ['-Command', command], { windowsHide: true });
+      child.on('error', (err) => {
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        resolve({ success: false, error: 'Administrator privileges required or denied. Please accept the UAC prompt and try again.' });
+      });
+      child.on('exit', (code) => {
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        if (code === 0) {
+          resolve({ success: true, message: 'Selected debloat tasks completed. Please restart your PC to apply all changes.' });
+        } else {
+          resolve({ success: false, error: 'One or more debloat tasks failed. Please try again.' });
+        }
+      });
+    } catch (err) {
+      resolve({ success: false, error: 'Failed to initiate debloat tasks: ' + err.message });
+    }
+  });
+});
 ipcMain.handle('find-exe-files', async (event, directoryPath) => {
   return new Promise((resolve) => {
     try {
