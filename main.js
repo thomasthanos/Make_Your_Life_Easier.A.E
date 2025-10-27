@@ -1790,10 +1790,15 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
         const modeValue = parseInt(searchBarMode, 10);
         psScript += `Log 'Running task: Set search bar mode to ${modeValue}'\n`;
         psScript += `# Configure the search bar style\n`;
-        psScript += `New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -Force | Out-Null\n`;
-        psScript += `Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'SearchBoxTaskbarMode' -Value ${modeValue} -Type DWord -Force -ErrorAction SilentlyContinue\n`;
-        psScript += `New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer' -Name 'Advanced' -Force | Out-Null\n`;
-        psScript += `Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'SearchBoxTaskbarMode' -Value ${modeValue} -Type DWord -Force -ErrorAction SilentlyContinue\n`;
+        psScript += `$sbMode = ${modeValue}\n`;
+        // Ensure the Search key exists before setting the value
+        psScript += `$searchKey = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search'\n`;
+        psScript += `if (-not (Test-Path $searchKey)) {\n  New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -ItemType Directory -Force | Out-Null\n}\n`;
+        psScript += `Set-ItemProperty -Path $searchKey -Name 'SearchBoxTaskbarMode' -Value $sbMode -Type DWord -Force -ErrorAction SilentlyContinue\n`;
+        // Ensure the Explorer\Advanced key exists
+        psScript += `$advKey = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced'\n`;
+        psScript += `if (-not (Test-Path $advKey)) {\n  New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer' -Name 'Advanced' -ItemType Directory -Force | Out-Null\n}\n`;
+        psScript += `Set-ItemProperty -Path $advKey -Name 'SearchBoxTaskbarMode' -Value $sbMode -Type DWord -Force -ErrorAction SilentlyContinue\n`;
         psScript += `# Restart Explorer to apply the change immediately\n`;
         psScript += `try {\n  Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue\n  Start-Sleep -Seconds 2\n  Start-Process explorer.exe\n} catch {}\n`;
       }
