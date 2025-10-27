@@ -2,6 +2,15 @@
 const processStates = new Map();
 
 (() => {
+
+  /**
+   * Cache for the list of removable preinstalled apps.  Populated on
+   * application startup to avoid expensive PowerShell calls when the
+   * Debloat page is first opened.  The buildDebloatPage() function
+   * will check this cache before falling back to retrieving the list
+   * via IPC.  If null, no cached data has been loaded yet.
+   */
+  let cachedPreinstalledApps = null;
   // Define the order of pages shown in the sidebar.  A new entry for
   // "debloat" has been added to provide a one‑click way to disable
   // unnecessary Windows suggestions and Bing web search in the Start
@@ -2928,14 +2937,22 @@ const processStates = new Map();
     });
 
     // Fetch the list of installed preinstalled apps once at the
-    // beginning.  This will be used for the app removal section.  If
-    // the call fails or returns nothing, we default to an empty list.
+    // beginning.  If cachedPreinstalledApps is populated, use that
+    // immediately to avoid the overhead of invoking PowerShell again.
+    // Otherwise, fall back to fetching via IPC.  If the call fails
+    // or returns nothing, default to an empty list.
     let installedApps = [];
-    try {
-      installedApps = await window.api.getPreinstalledApps();
-    } catch (err) {
-      console.warn('Failed to get preinstalled apps:', err);
-      installedApps = [];
+    if (Array.isArray(cachedPreinstalledApps) && cachedPreinstalledApps.length > 0) {
+      installedApps = cachedPreinstalledApps;
+    } else {
+      try {
+        installedApps = await window.api.getPreinstalledApps();
+        // Save to cache so subsequent openings reuse the result
+        cachedPreinstalledApps = installedApps;
+      } catch (err) {
+        console.warn('Failed to get preinstalled apps:', err);
+        installedApps = [];
+      }
     }
 
     // Create a wrapper for task groups
@@ -4715,6 +4732,22 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     await loadTranslations();
     applyTheme();
     renderMenu();
+
+    // Preload the list of preinstalled apps early in the application
+    // lifecycle.  Fetching this list involves running a PowerShell
+    // command which can take several seconds, causing the Debloat
+    // page to feel sluggish when first opened.  By performing the
+    // retrieval here, in the background, we prime the cache so that
+    // the Debloat page can build immediately when the user selects it.
+    try {
+      if (await window.api.isWindows()) {
+        cachedPreinstalledApps = await window.api.getPreinstalledApps();
+      }
+    } catch (err) {
+      console.warn('Failed to preload preinstalled apps:', err);
+      cachedPreinstalledApps = null;
+    }
+
     await ensureSidebarVersion();   // <-- να υπάρχει αυτό
     initializeAutoUpdater();
   }
