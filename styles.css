@@ -3,6 +3,51 @@
   box-sizing: border-box;
 }
 
+/* Custom radio inputs for search bar style (from Uiverse.io by Shoh2008) */
+.radio-input .input {
+  -webkit-appearance: none;
+  /* remove default */
+  display: block;
+  margin: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  vertical-align: middle;
+  box-shadow: hsla(0,0%,100%,.15) 0 1px 1px, inset hsla(0,0%,0%,.5) 0 0 0 1px;
+  background-color: hsla(0,0%,0%,.2);
+  background-image: -webkit-radial-gradient( hsla(200,100%,90%,1) 0%, hsla(200,100%,70%,1) 15%, hsla(200,100%,60%,.3) 28%, hsla(200,100%,30%,0) 70% );
+  background-repeat: no-repeat;
+  -webkit-transition: background-position .15s cubic-bezier(.8, 0, 1, 1),
+    -webkit-transform .25s cubic-bezier(.8, 0, 1, 1);
+  outline: none;
+}
+
+.radio-input .input:checked {
+  -webkit-transition: background-position .2s .15s cubic-bezier(0, 0, .2, 1),
+    -webkit-transform .25s cubic-bezier(0, 0, .2, 1);
+}
+
+.radio-input .input:active {
+  -webkit-transform: scale(1.5);
+  -webkit-transition: -webkit-transform .1s cubic-bezier(0, 0, .2, 1);
+}
+
+/* The up/down direction logic */
+.radio-input .input,
+.radio-input .input:active {
+  background-position: 0 24px;
+}
+
+.radio-input .input:checked {
+  background-position: 0 0;
+}
+
+.radio-input .input:checked ~ .input,
+.radio-input .input:checked ~ .input:active {
+  background-position: 0 -24px;
+}
+
 :root {
 
   --bg-color: #0f1117;

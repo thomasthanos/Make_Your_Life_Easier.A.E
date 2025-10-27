@@ -3078,8 +3078,10 @@ const processStates = new Map();
           // Render a radio group for tasks that require selecting one of
           // multiple values.  Use the provided choices array.  The
           // recommended value indicates which choice should be
-          // preselected.
+          // preselected.  Apply custom classes to use the fancy
+          // circular radio style defined in styles.css.
           const choiceWrapper = document.createElement('div');
+          choiceWrapper.classList.add('radio-input');
           choiceWrapper.style.display = 'flex';
           choiceWrapper.style.flexDirection = 'column';
           choiceWrapper.style.marginBottom = '0.6rem';
@@ -3099,6 +3101,8 @@ const processStates = new Map();
             radio.id = `${choiceGroupName}-${opt.value}`;
             radio.value = String(opt.value);
             radio.checked = opt.value === task.recommended;
+            // Apply the custom class to get the fancy styling
+            radio.classList.add('input');
             const rLabel = document.createElement('label');
             rLabel.setAttribute('for', radio.id);
             rLabel.textContent = opt.label;
