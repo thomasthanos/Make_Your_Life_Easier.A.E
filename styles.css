@@ -3,49 +3,75 @@
   box-sizing: border-box;
 }
 
-/* Custom radio inputs for search bar style (from Uiverse.io by Shoh2008) */
 .radio-input .input {
+  /* remove default radio appearance */
+  appearance: none;
   -webkit-appearance: none;
-  /* remove default */
-  display: block;
-  margin: 10px;
-  width: 24px;
-  height: 24px;
-  border-radius: 12px;
+  /* layout */
+  display: inline-block;
+  /* reduce margins to tighten up the vertical spacing */
+  margin: 4px 8px 4px 0;
+  /* slightly smaller size for a more balanced look */
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
   cursor: pointer;
-  vertical-align: middle;
-  box-shadow: hsla(0,0%,100%,.15) 0 1px 1px, inset hsla(0,0%,0%,.5) 0 0 0 1px;
-  background-color: hsla(0,0%,0%,.2);
-  background-image: -webkit-radial-gradient( hsla(200,100%,90%,1) 0%, hsla(200,100%,70%,1) 15%, hsla(200,100%,60%,.3) 28%, hsla(200,100%,30%,0) 70% );
+  /* visual styling */
+  box-shadow: hsla(0, 0%, 100%, .15) 0 1px 1px,
+    inset hsla(0, 0%, 0%, .5) 0 0 0 1px;
+  background-color: hsla(0, 0%, 0%, .2);
+  /* radial gradient for the fill effect */
+  background-image: radial-gradient(
+    hsla(200, 100%, 90%, 1) 0%,
+    hsla(200, 100%, 70%, 1) 15%,
+    hsla(200, 100%, 60%, .3) 28%,
+    hsla(200, 100%, 30%, 0) 70%
+  );
   background-repeat: no-repeat;
+  /* transitions for state changes */
+  transition: background-position .15s cubic-bezier(.8, 0, 1, 1),
+    transform .25s cubic-bezier(.8, 0, 1, 1);
   -webkit-transition: background-position .15s cubic-bezier(.8, 0, 1, 1),
     -webkit-transform .25s cubic-bezier(.8, 0, 1, 1);
   outline: none;
 }
 
+/* When checked, adjust the timing for the background slide */
 .radio-input .input:checked {
+  transition: background-position .2s .15s cubic-bezier(0, 0, .2, 1),
+    transform .25s cubic-bezier(0, 0, .2, 1);
   -webkit-transition: background-position .2s .15s cubic-bezier(0, 0, .2, 1),
     -webkit-transform .25s cubic-bezier(0, 0, .2, 1);
 }
 
+/* Enlarge the control briefly when active */
 .radio-input .input:active {
+  transform: scale(1.5);
   -webkit-transform: scale(1.5);
+  transition: transform .1s cubic-bezier(0, 0, .2, 1);
   -webkit-transition: -webkit-transform .1s cubic-bezier(0, 0, .2, 1);
 }
 
-/* The up/down direction logic */
+/*
+ * Direction logic: shift the gradient position up or down to
+ * indicate checked/unchecked states.  The default background
+ * position corresponds to the unchecked state.  Note that the
+ * y‑offset values are tied to the height of the element (20px).
+ */
 .radio-input .input,
 .radio-input .input:active {
-  background-position: 0 24px;
+  background-position: 0 20px;
 }
 
+/* When checked, slide the gradient up to reveal the filled colour */
 .radio-input .input:checked {
   background-position: 0 0;
 }
 
+/* Hide the fill effect on subsequent sibling inputs */
 .radio-input .input:checked ~ .input,
 .radio-input .input:checked ~ .input:active {
-  background-position: 0 -24px;
+  background-position: 0 -20px;
 }
 
 :root {
