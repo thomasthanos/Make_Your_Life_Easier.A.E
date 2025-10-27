@@ -2910,8 +2910,12 @@ const processStates = new Map();
         category: 'Explorer & Taskbar',
         label: 'Search bar style',
         type: 'choice',
-        recommended: 0, // default to hide search bar
+        // Use -1 to indicate that no change should be made.  This
+        // prevents the search bar from being modified every time
+        // tasks are run unless the user explicitly chooses a mode.
+        recommended: -1,
         choices: [
+          { value: -1, label: 'Leave unchanged' },
           { value: 0, label: 'Hide search' },
           { value: 1, label: 'Show search icon only' },
           { value: 2, label: 'Show search box' }
@@ -3021,27 +3025,49 @@ const processStates = new Map();
             appsWrapper.style.marginTop = '0.4rem';
             appsWrapper.style.maxHeight = '200px';
             appsWrapper.style.overflowY = 'auto';
-            // Create a checkbox for each installed app
-            installedApps.forEach((appName) => {
-              const appRow = document.createElement('div');
-              appRow.style.display = 'flex';
-              appRow.style.alignItems = 'center';
-              appRow.style.marginBottom = '0.25rem';
-              const appCb = document.createElement('input');
-              appCb.type = 'checkbox';
-              appCb.id = `debloat-app-${appName}`;
-              appCb.dataset.appName = appName;
-              // Optionally preselect nothing; user must opt‑in
-              appCb.checked = false;
-              const appLabel = document.createElement('label');
-              appLabel.setAttribute('for', appCb.id);
-              appLabel.textContent = appName;
-              appLabel.style.marginLeft = '0.5rem';
-              appRow.appendChild(appCb);
-              appRow.appendChild(appLabel);
-              appsWrapper.appendChild(appRow);
-              appCheckboxMap.set(appName, appCb);
-            });
+            if (installedApps.length === 0) {
+                // If no removable apps were detected, inform the user
+                const info = document.createElement('div');
+                info.innerHTML = `
+                    <div style="color: var(--warning-color); margin-bottom: 0.5rem;">
+                        No removable built‑in apps were detected automatically.
+                    </div>
+                    <div style="font-size: 0.9rem; opacity: 0.8;">
+                        You can still proceed - common bloatware will be targeted.
+                    </div>
+                `;
+                appsWrapper.appendChild(info);
+            } else {
+                // Create a checkbox for each installed app - ONLY FRIENDLY NAME
+                installedApps.forEach((app) => {
+                    const appRow = document.createElement('div');
+                    appRow.style.display = 'flex';
+                    appRow.style.alignItems = 'center';
+                    appRow.style.marginBottom = '0.5rem';
+                    appRow.style.padding = '0.4rem';
+                    appRow.style.borderRadius = '4px';
+                    appRow.style.background = 'rgba(255,255,255,0.03)';
+                    
+                    const appCb = document.createElement('input');
+                    appCb.type = 'checkbox';
+                    appCb.id = `debloat-app-${app.id}`;
+                    appCb.dataset.appId = app.id;
+                    appCb.checked = false;
+                    
+                    const appLabel = document.createElement('label');
+                    appLabel.setAttribute('for', appCb.id);
+                    appLabel.textContent = app.name; // ΜΟΝΟ ΤΟ ΟΝΟΜΑ
+                    appLabel.style.marginLeft = '0.75rem';
+                    appLabel.style.flex = '1';
+                    appLabel.style.fontSize = '0.95rem';
+                    appLabel.style.cursor = 'pointer';
+                    
+                    appRow.appendChild(appCb);
+                    appRow.appendChild(appLabel);
+                    appsWrapper.appendChild(appRow);
+                    appCheckboxMap.set(app.id, appCb);
+                });
+            }
             // Show/hide based on checkbox
             cb.addEventListener('change', () => {
               appsWrapper.style.display = cb.checked ? 'block' : 'none';
@@ -3151,18 +3177,20 @@ const processStates = new Map();
       // task is selected.  Only include names where the checkbox is
       // checked.
       if (selectedTasks.includes('removePreinstalledApps')) {
-        appCheckboxMap.forEach((appCb, appName) => {
-          if (appCb.checked) {
-            removeApps.push(appName);
-          }
-        });
+          appCheckboxMap.forEach((appCb, appId) => {
+              if (appCb.checked) {
+                  removeApps.push(appId); // Χρησιμοποιούμε το ID για removal
+              }
+          });
       }
       // Extract the selected search bar mode from the choice map.  If
       // no entry exists, default to null so the backend can ignore it.
       let searchBarMode = null;
       const modeGetter = choiceMap.get('searchBarMode');
       if (modeGetter) {
-        searchBarMode = modeGetter();
+        const value = modeGetter();
+        // Treat -1 as 'no change'
+        searchBarMode = (value === -1 ? null : value);
       }
       if (selectedTasks.length === 0 && searchBarMode === null) {
         toast('Please select at least one task or configure the search bar.', {

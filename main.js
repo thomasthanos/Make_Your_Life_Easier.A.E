@@ -1838,7 +1838,7 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
           }
         } catch (_) {}
         if (code === 0) {
-          resolve({ success: true, message: 'Selected debloat tasks completed. Please restart your PC to apply all changes.', log: logContents });
+          resolve({ success: true, message: 'Selected debloat tasks completed. Some changes may require a restart to take effect.', log: logContents });
         } else {
           resolve({ success: false, error: 'One or more debloat tasks failed. Please try again.', log: logContents });
         }
@@ -1849,40 +1849,140 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
   });
 });
 
-// Returns a list of removable preinstalled appx package names.
-// The function queries the installed packages for all users using
-// Get-AppxPackage and filters out frameworks and non-removable
-// packages.  The resulting names are returned as an array of
-// strings.  This helper is used by the renderer to present a
-// checkbox list of installed applications for removal.
 ipcMain.handle('get-preinstalled-apps', async () => {
-  // Only run this on Windows.
   if (process.platform !== 'win32') {
     return [];
   }
+  
   return new Promise((resolve) => {
-    // Compose a PowerShell script to gather package names. We
-    // exclude packages marked as frameworks or non-removable, and
-    // filter out well-known system components that should not be
-    // removed (e.g., Microsoft.Store).  The output is a list of
-    // names separated by newlines.
-    const psScript = `Get-AppxPackage -AllUsers | Where-Object { -not $_.IsFramework -and -not $_.NonRemovable } | ` +
-      `Where-Object { $_.Name -notlike 'Microsoft.Store*' -and $_.Name -notlike 'Microsoft.Services.Store.Engagement*' -and $_.Name -notlike 'Microsoft.VCLibs*' -and $_.Name -notlike 'Microsoft.NET.Native*' -and $_.Name -notlike 'Microsoft.UI.Xaml*' } | ` +
-      `Select-Object -ExpandProperty Name | Sort-Object -Unique`;
-    const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psScript], { windowsHide: true });
+    const psScript = `
+# Get all installed AppX packages for current user
+$allPackages = Get-AppxPackage
+
+# Common bloatware packages with friendly names
+$bloatwareMap = @{
+    'Microsoft.BingNews' = 'Microsoft News'
+    'Microsoft.BingWeather' = 'Microsoft Weather' 
+    'Microsoft.GetHelp' = 'Get Help'
+    'Microsoft.Getstarted' = 'Get Started'
+    'Microsoft.MicrosoftSolitaireCollection' = 'Microsoft Solitaire'
+    'Microsoft.People' = 'People'
+    'Microsoft.WindowsFeedbackHub' = 'Feedback Hub'
+    'Microsoft.XboxApp' = 'Xbox App'
+    'Microsoft.XboxGamingOverlay' = 'Xbox Game Bar'
+    'Microsoft.XboxIdentityProvider' = 'Xbox Identity'
+    'Microsoft.YourPhone' = 'Your Phone'
+    'Microsoft.ZuneMusic' = 'Windows Media Player'
+    'Microsoft.ZuneVideo' = 'Movies & TV'
+    'Microsoft.TikTok' = 'TikTok'
+    'Microsoft.Wallet' = 'Microsoft Wallet'
+    'Clipchamp.Clipchamp' = 'Clipchamp'
+    'SpotifyAB.SpotifyMusic' = 'Spotify'
+    'DisneyPlusDisneyPlus' = 'Disney+'
+    'Facebook' = 'Facebook'
+    'Instagram' = 'Instagram'
+    'Twitter' = 'Twitter'
+    'Amazon.com.Amazon' = 'Amazon Shopping'
+    'PandoraMediaInc' = 'Pandora'
+    'AdobeSystemsIncorporated.AdobePhotoshopExpress' = 'Photoshop Express'
+    'CandyCrush' = 'Candy Crush'
+    'Netflix' = 'Netflix'
+    'Microsoft.BingFoodAndDrink' = 'Food & Drink'
+    'Microsoft.BingHealthAndFitness' = 'Health & Fitness'
+    'Microsoft.BingTravel' = 'Bing Travel'
+    'Microsoft.WindowsAlarms' = 'Alarms & Clock'
+    'Microsoft.WindowsCamera' = 'Camera'
+    'Microsoft.WindowsMaps' = 'Maps'
+    'Microsoft.WindowsSoundRecorder' = 'Voice Recorder'
+    'Microsoft.WindowsCommunicationsApps' = 'Mail & Calendar'
+    'Microsoft.Office.OneNote' = 'OneNote'
+    'Microsoft.MicrosoftOfficeHub' = 'Microsoft Office'
+    'Microsoft.SkypeApp' = 'Skype'
+    'Microsoft.MSPaint' = 'Paint 3D'
+    'Microsoft.MicrosoftStickyNotes' = 'Sticky Notes'
+    'Microsoft.MicrosoftEdge' = 'Microsoft Edge'
+}
+
+# Check which ones are actually installed
+$installedApps = @()
+foreach ($appKey in $bloatwareMap.Keys) {
+    $matchingPackages = $allPackages | Where-Object { $_.Name -like "*$appKey*" }
+    if ($matchingPackages) {
+        $installedApps += @{
+            id = $appKey
+            name = $bloatwareMap[$appKey]
+        }
+    }
+}
+
+# Return as JSON
+ConvertTo-Json @($installedApps)
+`;
+
+    const child = spawn('powershell.exe', [
+      '-NoProfile', 
+      '-ExecutionPolicy', 
+      'Bypass', 
+      '-Command', 
+      psScript
+    ], { 
+      windowsHide: true
+    });
+
     let output = '';
+    let errorOutput = '';
+
     child.stdout.on('data', (data) => {
       output += data.toString();
     });
+
     child.stderr.on('data', (data) => {
-      // Suppress errors; just ignore packages we can't list
+      errorOutput += data.toString();
     });
-    child.on('exit', () => {
-      const apps = output.split(/\r?\n/).map((s) => s.trim()).filter((s) => s.length > 0);
-      resolve(apps);
+
+    child.on('exit', (code) => {
+      console.log('PowerShell get-preinstalled-apps exit code:', code);
+      
+      if (code === 0 || code === 1) {
+        try {
+          if (output.trim()) {
+            const apps = JSON.parse(output);
+            console.log('Found preinstalled apps:', apps);
+            resolve(apps);
+          } else {
+            resolve([]);
+          }
+        } catch (parseError) {
+          console.error('Failed to parse PowerShell output:', parseError);
+          resolve(getFallbackApps());
+        }
+      } else {
+        console.error('PowerShell script failed with code:', code);
+        resolve(getFallbackApps());
+      }
+    });
+
+    child.on('error', (error) => {
+      console.error('Failed to spawn PowerShell:', error);
+      resolve(getFallbackApps());
     });
   });
 });
+
+// Helper function for fallback apps
+function getFallbackApps() {
+  return [
+    { id: 'Microsoft.BingNews', name: 'Microsoft News' },
+    { id: 'Microsoft.BingWeather', name: 'Microsoft Weather' },
+    { id: 'Microsoft.Getstarted', name: 'Get Started' },
+    { id: 'Microsoft.MicrosoftSolitaireCollection', name: 'Microsoft Solitaire' },
+    { id: 'Microsoft.YourPhone', name: 'Your Phone' },
+    { id: 'Microsoft.TikTok', name: 'TikTok' },
+    { id: 'SpotifyAB.SpotifyMusic', name: 'Spotify' }
+  ];
+}
+
+
 ipcMain.handle('find-exe-files', async (event, directoryPath) => {
   return new Promise((resolve) => {
     try {
