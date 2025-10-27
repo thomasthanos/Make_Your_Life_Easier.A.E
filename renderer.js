@@ -2882,11 +2882,12 @@ const processStates = new Map();
 
     // Define the list of available debloat tasks.  Each task has a
     // unique key, a category for grouping in the UI, a human‑readable
-    // label and a boolean indicating whether it is recommended by
-    // default.  When adding new tasks, ensure the key matches
+    // label and a default recommended setting.  Some tasks have a
+    // `type` property to indicate special handling (e.g. choice
+    // selection).  When adding new tasks, ensure the key matches
     // corresponding logic in the main process.
     const debloatTasks = [
-      { key: 'removePreinstalledApps', category: 'App Removal', label: 'Remove preinstalled apps', recommended: true },
+      { key: 'removePreinstalledApps', category: 'App Removal', label: 'Remove preinstalled apps', recommended: false },
       // Telemetry, tracking & suggestions
       { key: 'disableTelemetry', category: 'Telemetry & Tracking', label: 'Disable telemetry & diagnostic data', recommended: true },
       { key: 'disableActivityHistory', category: 'Telemetry & Tracking', label: 'Disable activity history', recommended: true },
@@ -2901,11 +2902,28 @@ const processStates = new Map();
       { key: 'restoreClassicContextMenu', category: 'Search, Copilot & AI', label: 'Restore Windows 10 style context menu (W11 only)', recommended: false },
       // File Explorer & Taskbar customisation
       { key: 'showFileExtensions', category: 'Explorer & Taskbar', label: 'Show file extensions for known file types', recommended: true },
-      { key: 'hideSearchIcon', category: 'Explorer & Taskbar', label: 'Hide the search icon/box on the taskbar (W11 only)', recommended: false },
       { key: 'hideTaskviewButton', category: 'Explorer & Taskbar', label: 'Hide the Task View button (W11 only)', recommended: false },
-      { key: 'disableWidgets', category: 'Explorer & Taskbar', label: 'Disable widgets on taskbar & lockscreen', recommended: true }
+      { key: 'disableWidgets', category: 'Explorer & Taskbar', label: 'Disable widgets on taskbar & lockscreen', recommended: true },
+      // Search bar mode selection.  Use a choice instead of a boolean.
+      {
+        key: 'searchBarMode',
+        category: 'Explorer & Taskbar',
+        label: 'Search bar style',
+        type: 'choice',
+        recommended: 0, // default to hide search bar
+        choices: [
+          { value: 0, label: 'Hide search' },
+          { value: 1, label: 'Show search icon only' },
+          { value: 2, label: 'Show search box' }
+        ]
+      }
       // Additional tasks can be appended here in the future
     ];
+
+    // Prepare a log output element reference.  It will be created
+    // later near the footer.  We declare it here so the run
+    // handler can close over it.
+    let logOutput;
 
     // Determine if the platform is Windows; hide the page otherwise.
     const isWindows = await window.api.isWindows();
@@ -2924,6 +2942,17 @@ const processStates = new Map();
       groups[task.category].push(task);
     });
 
+    // Fetch the list of installed preinstalled apps once at the
+    // beginning.  This will be used for the app removal section.  If
+    // the call fails or returns nothing, we default to an empty list.
+    let installedApps = [];
+    try {
+      installedApps = await window.api.getPreinstalledApps();
+    } catch (err) {
+      console.warn('Failed to get preinstalled apps:', err);
+      installedApps = [];
+    }
+
     // Create a wrapper for task groups
     const groupsWrapper = document.createElement('div');
     groupsWrapper.className = 'debloat-groups';
@@ -2931,8 +2960,12 @@ const processStates = new Map();
     groupsWrapper.style.flexDirection = 'column';
     groupsWrapper.style.gap = '1.2rem';
 
-    // Keep track of checkbox elements by task key for easy access
+    // Keep track of checkbox elements by task key for easy access.  In
+    // addition, maintain maps for app removal checkboxes and choice
+    // selections (e.g. search bar mode).
     const checkboxMap = new Map();
+    const appCheckboxMap = new Map();
+    const choiceMap = new Map();
 
     Object.keys(groups).forEach((category) => {
       const tasks = groups[category];
@@ -2951,28 +2984,110 @@ const processStates = new Map();
       groupCard.appendChild(header);
 
       tasks.forEach((task) => {
-        // Wrap each checkbox and its label in a flex row.  Using a
-        // separate label with a `for` attribute ensures the user
-        // can click the text to toggle the checkbox.  This avoids
-        // issues where nested labels prevent checking/unchecking.
-        const row = document.createElement('div');
-        row.className = 'debloat-task-row';
-        row.style.display = 'flex';
-        row.style.alignItems = 'center';
-        row.style.marginBottom = '0.4rem';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.id = `debloat-${task.key}`;
-        cb.checked = task.recommended;
-        // Save the checkbox for later reference
-        checkboxMap.set(task.key, cb);
-        const labelEl = document.createElement('label');
-        labelEl.setAttribute('for', cb.id);
-        labelEl.textContent = task.label;
-        labelEl.style.marginLeft = '0.5rem';
-        row.appendChild(cb);
-        row.appendChild(labelEl);
-        groupCard.appendChild(row);
+        // For tasks that are simple booleans (type undefined), create
+        // a checkbox.  For choice tasks, create radio buttons or a
+        // select as appropriate.
+        if (!task.type || task.type !== 'choice') {
+          // Wrap each checkbox and its label in a flex row.  Using a
+          // separate label with a `for` attribute ensures the user
+          // can click the text to toggle the checkbox.  This avoids
+          // issues where nested labels prevent checking/unchecking.
+          const row = document.createElement('div');
+          row.className = 'debloat-task-row';
+          row.style.display = 'flex';
+          row.style.alignItems = 'center';
+          row.style.marginBottom = '0.4rem';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.id = `debloat-${task.key}`;
+          cb.checked = !!task.recommended;
+          checkboxMap.set(task.key, cb);
+          const labelEl = document.createElement('label');
+          labelEl.setAttribute('for', cb.id);
+          labelEl.textContent = task.label;
+          labelEl.style.marginLeft = '0.5rem';
+          row.appendChild(cb);
+          row.appendChild(labelEl);
+          groupCard.appendChild(row);
+          // If this is the preinstalled apps task, build a list of
+          // installed applications and allow the user to choose which
+          // to remove.  The list is hidden until the checkbox is
+          // checked.  We use a scrollable container to avoid overly
+          // long pages.
+          if (task.key === 'removePreinstalledApps') {
+            const appsWrapper = document.createElement('div');
+            appsWrapper.style.display = cb.checked ? 'block' : 'none';
+            appsWrapper.style.marginLeft = '1.5rem';
+            appsWrapper.style.marginTop = '0.4rem';
+            appsWrapper.style.maxHeight = '200px';
+            appsWrapper.style.overflowY = 'auto';
+            // Create a checkbox for each installed app
+            installedApps.forEach((appName) => {
+              const appRow = document.createElement('div');
+              appRow.style.display = 'flex';
+              appRow.style.alignItems = 'center';
+              appRow.style.marginBottom = '0.25rem';
+              const appCb = document.createElement('input');
+              appCb.type = 'checkbox';
+              appCb.id = `debloat-app-${appName}`;
+              appCb.dataset.appName = appName;
+              // Optionally preselect nothing; user must opt‑in
+              appCb.checked = false;
+              const appLabel = document.createElement('label');
+              appLabel.setAttribute('for', appCb.id);
+              appLabel.textContent = appName;
+              appLabel.style.marginLeft = '0.5rem';
+              appRow.appendChild(appCb);
+              appRow.appendChild(appLabel);
+              appsWrapper.appendChild(appRow);
+              appCheckboxMap.set(appName, appCb);
+            });
+            // Show/hide based on checkbox
+            cb.addEventListener('change', () => {
+              appsWrapper.style.display = cb.checked ? 'block' : 'none';
+            });
+            groupCard.appendChild(appsWrapper);
+          }
+        } else if (task.type === 'choice') {
+          // Render a radio group for tasks that require selecting one of
+          // multiple values.  Use the provided choices array.  The
+          // recommended value indicates which choice should be
+          // preselected.
+          const choiceWrapper = document.createElement('div');
+          choiceWrapper.style.display = 'flex';
+          choiceWrapper.style.flexDirection = 'column';
+          choiceWrapper.style.marginBottom = '0.6rem';
+          const choiceLabel = document.createElement('div');
+          choiceLabel.textContent = task.label;
+          choiceLabel.style.marginBottom = '0.3rem';
+          choiceWrapper.appendChild(choiceLabel);
+          const choiceGroupName = `debloat-choice-${task.key}`;
+          task.choices.forEach((opt) => {
+            const optRow = document.createElement('div');
+            optRow.style.display = 'flex';
+            optRow.style.alignItems = 'center';
+            optRow.style.marginBottom = '0.25rem';
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = choiceGroupName;
+            radio.id = `${choiceGroupName}-${opt.value}`;
+            radio.value = String(opt.value);
+            radio.checked = opt.value === task.recommended;
+            const rLabel = document.createElement('label');
+            rLabel.setAttribute('for', radio.id);
+            rLabel.textContent = opt.label;
+            rLabel.style.marginLeft = '0.5rem';
+            optRow.appendChild(radio);
+            optRow.appendChild(rLabel);
+            choiceWrapper.appendChild(optRow);
+          });
+          // Store a function to read the selected value when running
+          choiceMap.set(task.key, () => {
+            const selectedRadio = choiceWrapper.querySelector(`input[name="${choiceGroupName}"]:checked`);
+            return selectedRadio ? parseInt(selectedRadio.value, 10) : task.recommended;
+          });
+          groupCard.appendChild(choiceWrapper);
+        }
       });
 
       groupsWrapper.appendChild(groupCard);
@@ -2996,6 +3111,23 @@ const processStates = new Map();
       debloatTasks.forEach((task) => {
         const cb = checkboxMap.get(task.key);
         if (cb) cb.checked = !!task.recommended;
+        // Reset any app removal selections when unchecking
+        if (task.key === 'removePreinstalledApps') {
+          appCheckboxMap.forEach((appCb) => {
+            appCb.checked = false;
+          });
+        }
+        // Reset choice selections to the recommended value
+        if (task.type === 'choice') {
+          const getter = choiceMap.get(task.key);
+          // Find all radios associated with this choice and select
+          // the one matching the recommended value
+          const groupName = `debloat-choice-${task.key}`;
+          const radios = document.querySelectorAll(`input[name="${groupName}"]`);
+          radios.forEach((radio) => {
+            radio.checked = parseInt(radio.value, 10) === task.recommended;
+          });
+        }
       });
     });
     footer.appendChild(defaultBtn);
@@ -3006,12 +3138,34 @@ const processStates = new Map();
     runBtn.textContent = 'Run Selected Tasks';
     runBtn.addEventListener('click', async () => {
       if (runBtn.disabled) return;
-      const selected = [];
+      const selectedTasks = [];
+      const removeApps = [];
+      // Determine which boolean tasks are checked.  Do not include
+      // choice tasks here; they are handled separately via choiceMap.
       checkboxMap.forEach((cb, key) => {
-        if (cb.checked) selected.push(key);
+        if (cb.checked) {
+          selectedTasks.push(key);
+        }
       });
-      if (selected.length === 0) {
-        toast('Please select at least one task.', {
+      // Gather selected app package names if the removePreinstalledApps
+      // task is selected.  Only include names where the checkbox is
+      // checked.
+      if (selectedTasks.includes('removePreinstalledApps')) {
+        appCheckboxMap.forEach((appCb, appName) => {
+          if (appCb.checked) {
+            removeApps.push(appName);
+          }
+        });
+      }
+      // Extract the selected search bar mode from the choice map.  If
+      // no entry exists, default to null so the backend can ignore it.
+      let searchBarMode = null;
+      const modeGetter = choiceMap.get('searchBarMode');
+      if (modeGetter) {
+        searchBarMode = modeGetter();
+      }
+      if (selectedTasks.length === 0 && searchBarMode === null) {
+        toast('Please select at least one task or configure the search bar.', {
           type: 'info',
           title: 'No tasks selected',
           duration: 5000
@@ -3022,7 +3176,12 @@ const processStates = new Map();
       runBtn.disabled = true;
       runBtn.textContent = 'Running...';
       try {
-        const result = await window.api.runDebloatTasks(selected);
+        const result = await window.api.runDebloatTasks({ selectedTasks, removeApps, searchBarMode });
+        // Show the log output if available
+        if (result && result.log && logOutput) {
+          logOutput.textContent = result.log;
+          logOutput.style.display = 'block';
+        }
         if (result && result.success) {
           toast(result.message || 'Debloat completed successfully', {
             type: 'success',
@@ -3049,6 +3208,20 @@ const processStates = new Map();
       }
     });
     footer.appendChild(runBtn);
+
+    // Area for displaying the PowerShell log output after running tasks.
+    logOutput = document.createElement('pre');
+    logOutput.className = 'debloat-log-output';
+    logOutput.style.display = 'none';
+    logOutput.style.whiteSpace = 'pre-wrap';
+    logOutput.style.background = 'rgba(0,0,0,0.4)';
+    logOutput.style.padding = '0.75rem';
+    logOutput.style.marginTop = '1rem';
+    logOutput.style.maxHeight = '15rem';
+    logOutput.style.overflowY = 'auto';
+    logOutput.style.fontSize = '0.8rem';
+    logOutput.style.borderRadius = '6px';
+    container.appendChild(logOutput);
 
     container.appendChild(footer);
 
