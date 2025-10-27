@@ -2870,12 +2870,6 @@ const processStates = new Map();
     alertBox.appendChild(alertText);
     container.appendChild(alertBox);
 
-    // Define the list of available debloat tasks.  Each task has a
-    // unique key, a category for grouping in the UI, a human‑readable
-    // label and a default recommended setting.  Some tasks have a
-    // `type` property to indicate special handling (e.g. choice
-    // selection).  When adding new tasks, ensure the key matches
-    // corresponding logic in the main process.
     const debloatTasks = [
       { key: 'removePreinstalledApps', category: 'App Removal', label: 'Remove preinstalled apps', recommended: false },
       // Telemetry, tracking & suggestions
@@ -2900,9 +2894,6 @@ const processStates = new Map();
         category: 'Explorer & Taskbar',
         label: 'Search bar style',
         type: 'choice',
-        // Use -1 to indicate that no change should be made.  This
-        // prevents the search bar from being modified every time
-        // tasks are run unless the user explicitly chooses a mode.
         recommended: -1,
         choices: [
           { value: -1, label: 'Leave unchanged' },
@@ -2911,15 +2902,10 @@ const processStates = new Map();
           { value: 2, label: 'Show search box' }
         ]
       }
-      // Additional tasks can be appended here in the future
     ];
 
-    // Prepare a log output element reference.  It will be created
-    // later near the footer.  We declare it here so the run
-    // handler can close over it.
     let logOutput;
 
-    // Determine if the platform is Windows; hide the page otherwise.
     const isWindows = await window.api.isWindows();
     if (!isWindows) {
       const warn = document.createElement('p');
@@ -2936,11 +2922,7 @@ const processStates = new Map();
       groups[task.category].push(task);
     });
 
-    // Fetch the list of installed preinstalled apps once at the
-    // beginning.  If cachedPreinstalledApps is populated, use that
-    // immediately to avoid the overhead of invoking PowerShell again.
-    // Otherwise, fall back to fetching via IPC.  If the call fails
-    // or returns nothing, default to an empty list.
+
     let installedApps = [];
     if (Array.isArray(cachedPreinstalledApps) && cachedPreinstalledApps.length > 0) {
       installedApps = cachedPreinstalledApps;
@@ -2962,9 +2944,6 @@ const processStates = new Map();
     groupsWrapper.style.flexDirection = 'column';
     groupsWrapper.style.gap = '1.2rem';
 
-    // Keep track of checkbox elements by task key for easy access.  In
-    // addition, maintain maps for app removal checkboxes and choice
-    // selections (e.g. search bar mode).
     const checkboxMap = new Map();
     const appCheckboxMap = new Map();
     const choiceMap = new Map();
@@ -2986,14 +2965,7 @@ const processStates = new Map();
       groupCard.appendChild(header);
 
       tasks.forEach((task) => {
-        // For tasks that are simple booleans (type undefined), create
-        // a checkbox.  For choice tasks, create radio buttons or a
-        // select as appropriate.
         if (!task.type || task.type !== 'choice') {
-          // Wrap each checkbox and its label in a flex row.  Using a
-          // separate label with a `for` attribute ensures the user
-          // can click the text to toggle the checkbox.  This avoids
-          // issues where nested labels prevent checking/unchecking.
           const row = document.createElement('div');
           row.className = 'debloat-task-row';
           row.style.display = 'flex';
@@ -3011,11 +2983,6 @@ const processStates = new Map();
           row.appendChild(cb);
           row.appendChild(labelEl);
           groupCard.appendChild(row);
-          // If this is the preinstalled apps task, build a list of
-          // installed applications and allow the user to choose which
-          // to remove.  The list is hidden until the checkbox is
-          // checked.  We use a scrollable container to avoid overly
-          // long pages.
           if (task.key === 'removePreinstalledApps') {
             const appsWrapper = document.createElement('div');
             appsWrapper.style.display = cb.checked ? 'block' : 'none';
@@ -3074,11 +3041,6 @@ const processStates = new Map();
             groupCard.appendChild(appsWrapper);
           }
         } else if (task.type === 'choice') {
-          // Render a radio group for tasks that require selecting one of
-          // multiple values.  Use the provided choices array.  The
-          // recommended value indicates which choice should be
-          // preselected.  Apply custom classes to use the fancy
-          // circular radio style defined in styles.css.
           const choiceWrapper = document.createElement('div');
           choiceWrapper.classList.add('radio-input');
           choiceWrapper.style.display = 'flex';
@@ -3169,30 +3131,22 @@ const processStates = new Map();
       if (runBtn.disabled) return;
       const selectedTasks = [];
       const removeApps = [];
-      // Determine which boolean tasks are checked.  Do not include
-      // choice tasks here; they are handled separately via choiceMap.
       checkboxMap.forEach((cb, key) => {
         if (cb.checked) {
           selectedTasks.push(key);
         }
       });
-      // Gather selected app package names if the removePreinstalledApps
-      // task is selected.  Only include names where the checkbox is
-      // checked.
       if (selectedTasks.includes('removePreinstalledApps')) {
           appCheckboxMap.forEach((appCb, appId) => {
               if (appCb.checked) {
-                  removeApps.push(appId); // Χρησιμοποιούμε το ID για removal
+                  removeApps.push(appId); 
               }
           });
       }
-      // Extract the selected search bar mode from the choice map.  If
-      // no entry exists, default to null so the backend can ignore it.
       let searchBarMode = null;
       const modeGetter = choiceMap.get('searchBarMode');
       if (modeGetter) {
         const value = modeGetter();
-        // Treat -1 as 'no change'
         searchBarMode = (value === -1 ? null : value);
       }
       if (selectedTasks.length === 0 && searchBarMode === null) {
@@ -3260,9 +3214,6 @@ const processStates = new Map();
   }
 
   // Helper function to create maintenance cards
-  // Additional boolean argument `hideStatus` controls whether the status element
-  // should be visible. When true, the status <pre> will not display and
-  // feedback will only be shown via toast notifications.
   function createMaintenanceCard(name, description, icon, buttonText, taskFunction, requiresAdmin = false, hideStatus = false) {
     const card = document.createElement('div');
     card.className = 'app-card';
@@ -3309,8 +3260,6 @@ const processStates = new Map();
     status.className = 'status-pre';
     status.style.display = 'none';
     // Mark this status element to be hidden if requested. The dataset
-    // attribute allows runMaintenanceTask to detect tasks that should
-    // not display inline output.
     if (hideStatus) {
       status.dataset.hideStatus = 'true';
     }
@@ -3327,14 +3276,10 @@ const processStates = new Map();
   }
 
   // Helper function to run maintenance tasks
-  // Helper function to run maintenance tasks
   async function runMaintenanceTask(button, statusElement, taskFunction, taskName, requiresAdmin = false) {
     button.disabled = true;
     const originalText = button.textContent;
     button.textContent = 'Running...';
-    // Check whether the status output should be hidden. A dataset
-    // attribute set on the status element by createMaintenanceCard
-    // indicates that the inline status area should not be displayed.
     const hideStatus = statusElement && statusElement.dataset && statusElement.dataset.hideStatus === 'true';
 
     if (!hideStatus) {
@@ -3432,10 +3377,6 @@ const processStates = new Map();
     }
   }
 
-  // Temp Files Cleanup function. This function triggers the backend cleanup process
-  // and displays toast notifications based on its outcome. No inline status is used
-  // for this task because the cleanup may take a while and we only want to notify
-  // the user when it has finished or failed.
   async function cleanTempFiles(statusElement) {
     try {
       const result = await window.api.runTempCleanup();
@@ -4734,11 +4675,6 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     renderMenu();
 
     // Preload the list of preinstalled apps early in the application
-    // lifecycle.  Fetching this list involves running a PowerShell
-    // command which can take several seconds, causing the Debloat
-    // page to feel sluggish when first opened.  By performing the
-    // retrieval here, in the background, we prime the cache so that
-    // the Debloat page can build immediately when the user selects it.
     try {
       if (await window.api.isWindows()) {
         cachedPreinstalledApps = await window.api.getPreinstalledApps();

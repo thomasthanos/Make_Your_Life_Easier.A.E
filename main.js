@@ -1557,23 +1557,12 @@ ipcMain.handle('run-autologin-script', async () => {
 });
 
 // Handler for the debloat operation.  This creates a temporary
-// PowerShell script that disables various Windows suggestions and
-// turns off Bing web search in the Start menu.  It executes the
-// script using Start-Process with RunAs so that the user can
-// approve the elevation via UAC.  On completion, the temporary file
-// is removed.  The handler returns an object indicating success or
-// failure along with a message.
+
 ipcMain.handle('run-debloat', async () => {
-  // Only supported on Windows
   if (process.platform !== 'win32') {
     return { success: false, error: 'Debloat tasks are only supported on Windows' };
   }
   return new Promise((resolve) => {
-    // Compose the PowerShell script.  Using Set-ItemProperty to
-    // create or modify registry keys is idempotent.  We wrap each
-    // call in try/catch via -ErrorAction SilentlyContinue.  The
-    // script writes to HKCU for the current user; administrator
-    // privileges are still required for the Policies hive.
     const psScript = `
 try {
   Write-Host 'Disabling notification suggestions...' -ForegroundColor Cyan
@@ -1638,13 +1627,7 @@ try {
   });
 });
 
-// Handler for the advanced debloat routine.  This accepts an array
-// of task identifiers from the renderer, constructs a PowerShell
-// script dynamically based on the selected tasks and runs it
-// elevated.  The mapping below defines each action's script
-// fragment.  When expanding the list of tasks in the UI, ensure
-// the corresponding key exists here with the appropriate PowerShell
-// logic.  If an unknown key is passed, it is ignored.
+
 ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
   // Only supported on Windows
   if (process.platform !== 'win32') {

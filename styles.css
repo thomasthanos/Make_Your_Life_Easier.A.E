@@ -3,28 +3,20 @@
   box-sizing: border-box;
 }
 
-/* Custom radio inputs for search bar style (from Uiverse.io by Shoh2008)
-   These styles have been optimised for our UI: smaller size, reduced spacing and standard
-   appearance properties for broader browser support. */
 .radio-input .input {
-  /* remove default appearance */
   -webkit-appearance: none;
   appearance: none;
   display: inline-block;
-  /* compact spacing around each radio */
   margin: 4px 8px 4px 0;
-  /* smaller circle dimensions */
   width: 20px;
   height: 20px;
   border-radius: 10px;
   cursor: pointer;
-  /* 3D inset effect */
   box-shadow: hsla(0, 0%, 100%, 0.15) 0 1px 1px,
     inset hsla(0, 0%, 0%, 0.5) 0 0 0 1px;
   background-color: hsla(0, 0%, 0%, 0.2);
   background-image: -webkit-radial-gradient(hsla(200, 100%, 90%, 1) 0%, hsla(200, 100%, 70%, 1) 15%, hsla(200, 100%, 60%, 0.3) 28%, hsla(200, 100%, 30%, 0) 70%);
   background-repeat: no-repeat;
-  /* smooth animations for fill and click scaling */
   transition: background-position 0.15s cubic-bezier(0.8, 0, 1, 1),
     transform 0.25s cubic-bezier(0.8, 0, 1, 1);
   -webkit-transition: background-position 0.15s cubic-bezier(0.8, 0, 1, 1),
@@ -32,7 +24,6 @@
   outline: none;
 }
 
-/* Delay the background slide on checked to emphasise selection */
 .radio-input .input:checked {
   transition: background-position 0.2s 0.15s cubic-bezier(0, 0, 0.2, 1),
     transform 0.25s cubic-bezier(0, 0, 0.2, 1);
@@ -40,7 +31,6 @@
     -webkit-transform 0.25s cubic-bezier(0, 0, 0.2, 1);
 }
 
-/* Provide a subtle scale when active */
 .radio-input .input:active {
   transform: scale(1.5);
   transition: transform 0.1s cubic-bezier(0, 0, 0.2, 1);
@@ -48,7 +38,6 @@
   -webkit-transition: -webkit-transform 0.1s cubic-bezier(0, 0, 0.2, 1);
 }
 
-/* The up/down direction logic */
 .radio-input .input,
 .radio-input .input:active {
   background-position: 0 20px;
@@ -65,22 +54,12 @@
   background-position: 0 -20px;
 }
 
-/*
-  Notification banner on the Debloat page.
-  This full‑width alert uses the application's accent colours but with a slight
-  variation to distinguish it from regular cards.  It remains visible at all
-  times (no close button) and occupies the entire card width with internal
-  padding on the left and right.
-*/
 .debloat-alert {
   width: 100%;
-  /* horizontal padding ensures the text doesn’t touch the card edges */
   padding: 1rem 1.25rem;
   margin-bottom: 1.5rem;
   border-radius: 8px;
   border: 1px solid var(--accent-color-light);
-  /* subtle gradient using accent colours for a notification look */
-  /* use the card background for a subtle backdrop and accent colours for border & text */
   background: #171920;
   color: var(--accent-color);
   font-size: 0.9rem;
@@ -1443,7 +1422,6 @@ input:checked+.slider:before {
 
 .install-grid.crack-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  /* Reduce the spacing between crack installer cards for a tighter layout */
   gap: 0.25rem;
   align-items: start;
 
@@ -1593,12 +1571,6 @@ input:checked+.slider:before {
   padding: 0;
 }
 
-/*
- * Crack installer specific icon sizing
- * Ensure all PNG icons in the crack installer have the same dimensions
- * by overriding the default .app-icon settings within this grid. This rule is
- * placed at the end of the stylesheet to ensure it has higher precedence.
- */
 .install-grid.crack-grid .app-icon {
   width: 48px;
   height: 48px;
@@ -1658,10 +1630,7 @@ input:checked+.slider:before {
   z-index: 2000;
 }
 
-/*
- * Toast styling – create a sleek, modern notification card
- * Uses a subtle glassmorphism effect with blurred backdrop and soft shadow.
- */
+
 .toast {
   position: relative;
   background: rgba(30, 32, 40, 0.85);
@@ -3422,13 +3391,7 @@ input:checked+.slider:before {
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* --------------------------------------------------------------------------
- * Custom toast styles based on Uiverse examples
- * These rules override the base toast styles defined earlier. They apply a
- * gentle gradient, coloured text and icon wrappers, and hide the accent bar.
- */
 
-/* Error toast: soft red gradient and red text */
 .toast.toast-error {
   background: linear-gradient(to bottom, rgba(254, 226, 226, 0.8), rgba(254, 202, 202, 0.6));
   border: 1px solid rgba(239, 68, 68, 0.4);
