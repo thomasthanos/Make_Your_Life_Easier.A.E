@@ -587,6 +587,28 @@ body {
   border-radius: 14px;
 }
 
+/* Separator lines between groups of menu items.  The .menu-separator
+   element is an empty li used to visually divide different sections
+   of the sidebar.  A larger variant is used for more significant
+   breaks. */
+#menu-list .menu-separator {
+  height: 0;
+  border-top: 1px solid rgba(15, 23, 42, 0.1);
+  margin: 0.65rem 0;
+  border-radius: 0;
+  list-style: none;
+}
+
+#menu-list .menu-separator-large {
+  border-top-width: 2px;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+[data-theme="dark"] #menu-list .menu-separator {
+  border-top-color: rgba(255, 255, 255, 0.12);
+}
+
 
 #menu-list button {
   position: relative;

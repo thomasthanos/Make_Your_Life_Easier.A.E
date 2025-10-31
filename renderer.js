@@ -16,21 +16,22 @@ const processStates = new Map();
   // unnecessary Windows suggestions and Bing web search in the Start
   // menu.  Additional debloat actions can be added to this page in
   // future updates.
+  // Define the order of pages shown in the sidebar.  The order has been
+  // rearranged to group related actions together more logically.  Each
+  // separator (added in renderMenu) will follow the key listed below
+  // according to the separatorsAfter map defined in renderMenu().
   const menuKeys = [
-    'settings',
-    'install_apps',
-    'activate_autologin',
+    'settings',         // general settings
+    'install_apps',     // install & remove apps
+    'crack_installer',  // installers for cracked apps
     'system_maintenance',
-    // The debloat page contains a button that performs several
-    // registry tweaks to disable Windows suggestions and Bing web
-    // search results.  See buildDebloatPage() for details.
-    'debloat',
-    'crack_installer',
+    'activate_autologin',
+    'bios',
     'spicetify',
     'password_manager',
     'christitus',
-    'dlc_unlocker',
-    'bios'
+    'debloat',
+    'dlc_unlocker'
   ];
   const MENU_ICONS = {
     settings: `
@@ -323,9 +324,28 @@ const processStates = new Map();
     const menuList = document.getElementById('menu-list');
     menuList.innerHTML = '';
 
+    // Define where separators should be inserted.  Keys listed here
+    // will be followed by a separator.  The value indicates the
+    // separator style: 'small' for a standard thin divider and
+    // 'large' for a more prominent divider.
+    const separatorsAfter = {
+      settings: 'small',
+      crack_installer: 'large',
+      bios: 'small',
+      debloat: 'small'
+    };
+
     menuKeys.forEach((key) => {
       const label = (translations.menu && translations.menu[key]) || key;
-      menuList.appendChild(createMenuButton(key, label));
+      const li = createMenuButton(key, label);
+      menuList.appendChild(li);
+      const sepType = separatorsAfter[key];
+      if (sepType) {
+        const sepLi = document.createElement('li');
+        sepLi.className = 'menu-separator';
+        if (sepType === 'large') sepLi.classList.add('menu-separator-large');
+        menuList.appendChild(sepLi);
+      }
     });
 
     // Bind μία φορά
