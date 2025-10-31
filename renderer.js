@@ -76,7 +76,23 @@ const processStates = new Map();
     // inline SVG is lightweight and matches the existing lucide
     // styling used for the other menu icons.
     debloat: `
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-broom w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors"><line x1="3" y1="22" x2="21" y2="22"></line><path d="M10 2l5 5l-5 5"></path><path d="M15 7l5 5"></path><path d="M2 17l5 5"></path></svg>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  class="lucide lucide-broom w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors"
+>
+  <path d="m13 11 9-9"></path>
+  <path d="M14.6 12.6c.8.8.9 2.1.2 3L10 22l-8-8 6.4-4.8c.9-.7 2.2-.6 3 .2z"></path>
+  <path d="m6.8 10.4 6.8 6.8"></path>
+  <path d="m5 17 1.4-1.4"></path>
+</svg>
     `,
   };
   const tooltipManager = (() => {
