@@ -1851,21 +1851,16 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
       const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
       const escapedPsFile = psFile.replace(/"/g, '\\"');
-      // Execute the PowerShell script directly without forcing elevation via Start‑Process.
-      // Running without -Verb RunAs avoids silently failing when the UAC prompt is dismissed
-      // or blocked.  Users should run the app as administrator to ensure privileged tasks succeed.
-      const child = spawn('powershell.exe', [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        psFile
-      ], { windowsHide: true });
+      // Launch the script with elevation so that registry and app removal tasks succeed.
+      // Use Start-Process with -Verb RunAs to prompt the user for admin rights. Wait for
+      // the elevated process to complete before resolving the promise.
+      const command = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
+      const child = spawn('powershell.exe', ['-Command', command], { windowsHide: true });
       child.on('error', (err) => {
         try {
           if (fs.existsSync(psFile)) fs.unlinkSync(psFile);
         } catch (_) {}
-        resolve({ success: false, error: 'Failed to start PowerShell: ' + err.message });
+        resolve({ success: false, error: 'Failed to launch PowerShell: ' + err.message });
       });
       child.on('exit', (code) => {
         // Remove the temporary script file
@@ -1882,7 +1877,9 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
         if (code === 0) {
           resolve({ success: true, message: 'Selected debloat tasks completed. Some changes may require a restart to take effect.', log: logContents });
         } else {
-          resolve({ success: false, error: 'One or more debloat tasks failed. Please try again.', log: logContents });
+          // Exit code 5 typically indicates the UAC prompt was dismissed. Inform the user.
+          const errorMessage = code === 5 ? 'Administrator privileges are required. Please accept the UAC prompt and try again.' : 'One or more debloat tasks failed. Please try again.';
+          resolve({ success: false, error: errorMessage, log: logContents });
         }
       });
     } catch (err) {
