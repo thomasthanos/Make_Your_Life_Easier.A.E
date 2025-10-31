@@ -419,6 +419,10 @@ function stripAnsiCodes(str) {
 }
 let mainWindow;
 const activeDownloads = new Map();
+
+// Keep track of files and directories downloaded or extracted by this app.
+// Items added to this set will be deleted automatically when the app quits.
+const completedDownloads = new Set();
 ipcMain.handle('show-file-dialog', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
@@ -471,6 +475,33 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+// When the application is about to fully quit (after all windows closed),
+// remove any downloaded files or extracted folders that were recorded
+// during runtime. This ensures temporary install files do not
+// accumulate in the user's Downloads folder.  The cleanup runs
+// synchronously because quitting is already in progress.
+app.on('will-quit', () => {
+  try {
+    for (const p of completedDownloads) {
+      try {
+        if (fs.existsSync(p)) {
+          const stat = fs.lstatSync(p);
+          if (stat.isDirectory()) {
+            fs.rmSync(p, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(p);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to delete temporary download', p, err);
+      }
+    }
+    completedDownloads.clear();
+  } catch (e) {
+    console.warn('Error during cleanup on exit:', e);
+  }
 });
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
@@ -700,6 +731,13 @@ ipcMain.on('download-start', (event, { id, url, dest }) => {
             if (err) { cleanup(err.message); return; }
             activeDownloads.delete(id);
             mainWindow.webContents.send('download-event', { id, status: 'complete', path: finalPath });
+
+            // Record the downloaded file for cleanup on exit
+            try {
+              completedDownloads.add(finalPath);
+            } catch (e) {
+              console.warn('Failed to record downloaded file for cleanup:', e);
+            }
           });
         });
       });
@@ -908,6 +946,13 @@ ipcMain.handle('extract-archive', async (event, { filePath, password, destDir })
         fs.rmSync(altDir, { recursive: true, force: true });
       }
       fs.mkdirSync(outDir, { recursive: true });
+
+    // Record the extracted directory for cleanup on exit
+    try {
+      completedDownloads.add(outDir);
+    } catch (e) {
+      console.warn('Failed to record extraction directory for cleanup:', e);
+    }
     } catch (e) {
     }
     const exe = await ensure7za();
