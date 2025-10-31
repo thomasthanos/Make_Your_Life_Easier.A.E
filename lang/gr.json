@@ -10,6 +10,8 @@
     "christitus": "Εργαλειοθήκη Chris Titus",
     "dlc_unlocker": "DLC Unlocker",
     "bios": "BIOS"
+    ,
+    "debloat": "Αφαίρεση bloatware & ρυθμίσεις Windows"
   },
   "general": {
     "language": "Γλώσσα",
@@ -52,6 +54,8 @@
     "crack_desc": "Κατεβάστε τα αντίγραφα project από το Dropbox",
     "dlc_title": "DLC Unlocker",
     "activate_title": "Ενεργοποίηση Windows & Αυτόματη Σύνδεση"
+    ,
+    "debloat_desc": "Επιλέξτε ποιες εργασίες debloat θέλετε να εφαρμοστούν. Οι προτεινόμενες εργασίες είναι προεπιλεγμένες. Μπορεί να απαιτούνται δικαιώματα διαχειριστή. Συνιστάται επανεκκίνηση μετά την εφαρμογή."
   },
   "actions": {
     "check_updates": "Έλεγχος για ενημερώσεις",
@@ -163,5 +167,42 @@
     "title_high": "Κάνε τη ζωή",
     "title_rest": "πιο εύκολη",
     "subtitle": "Εργαλεία Διαχείρισης Συστήματος"
+  }
+  ,
+  "debloat": {
+    "categories": {
+      "App Removal": "Αφαίρεση εφαρμογών",
+      "Telemetry & Tracking": "Τηλεμετρία & παρακολούθηση",
+      "Search, Copilot & AI": "Αναζήτηση, Copilot & AI",
+      "Explorer & Taskbar": "Εξερευνητής & γραμμή εργασιών"
+    },
+    "tasks": {
+      "removePreinstalledApps": "Αφαίρεση προεγκατεστημένων εφαρμογών",
+      "disableTelemetry": "Απενεργοποίηση τηλεμετρίας και διαγνωστικών δεδομένων",
+      "disableActivityHistory": "Απενεργοποίηση ιστορικού δραστηριότητας",
+      "disableAppLaunchTracking": "Απενεργοποίηση παρακολούθησης εκκίνησης εφαρμογών",
+      "disableTargetedAds": "Απενεργοποίηση στοχευμένων διαφημίσεων και εξατομικευμένων εμπειριών",
+      "disableTipsSuggestions": "Απενεργοποίηση συμβουλών, προτάσεων και διαφημίσεων στα Windows",
+      "disableSpotlight": "Απενεργοποίηση του φόντου Windows Spotlight (μόνο σε W11)",
+      "disableBingSearch": "Απενεργοποίηση αναζήτησης Bing στο web και Cortana",
+      "disableCopilot": "Απενεργοποίηση Microsoft Copilot",
+      "disableStickyKeys": "Απενεργοποίηση συντόμευσης Sticky Keys (μόνο σε W11)",
+      "restoreClassicContextMenu": "Επαναφορά μενού περιβάλλοντος τύπου Windows 10 (μόνο σε W11)",
+      "showFileExtensions": "Εμφάνιση επεκτάσεων αρχείων για γνωστούς τύπους αρχείων",
+      "hideTaskviewButton": "Απόκρυψη του κουμπιού Task View (μόνο σε W11)",
+      "disableWidgets": "Απενεργοποίηση widgets στη γραμμή εργασιών και στην οθόνη κλειδώματος",
+      "searchBarMode": "Στυλ γραμμής αναζήτησης"
+    },
+    "choices": {
+      "-1": "Χωρίς αλλαγή",
+      "0": "Απόκρυψη αναζήτησης",
+      "1": "Εμφάνιση μόνο εικονιδίου αναζήτησης",
+      "2": "Εμφάνιση πεδίου αναζήτησης"
+    },
+    "buttons": {
+      "restoreRecommended": "Επαναφορά προτεινόμενων",
+      "runSelectedTasks": "Εκτέλεση επιλεγμένων εργασιών"
+    },
+    "noSelection": "Παρακαλώ επιλέξτε τουλάχιστον μία εργασία ή ρυθμίστε τη γραμμή αναζήτησης."
   }
 }

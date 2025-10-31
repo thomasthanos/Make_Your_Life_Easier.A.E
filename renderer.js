@@ -2994,7 +2994,8 @@ const processStates = new Map();
       groupCard.style.background = 'var(--card-bg, rgba(255,255,255,0.02))';
 
       const header = document.createElement('h3');
-      header.textContent = category;
+      // Translate category heading if available
+      header.textContent = (translations.debloat && translations.debloat.categories && translations.debloat.categories[category]) || category;
       header.style.margin = '0 0 0.75rem 0';
       header.style.fontSize = '1rem';
       header.style.color = 'var(--primary-color)';
@@ -3014,7 +3015,9 @@ const processStates = new Map();
           checkboxMap.set(task.key, cb);
           const labelEl = document.createElement('label');
           labelEl.setAttribute('for', cb.id);
-          labelEl.textContent = task.label;
+          // Translate task label using the task key if provided
+          const translatedTask = (translations.debloat && translations.debloat.tasks && translations.debloat.tasks[task.key]) || task.label;
+          labelEl.textContent = translatedTask;
           labelEl.style.marginLeft = '0.5rem';
           row.appendChild(cb);
           row.appendChild(labelEl);
@@ -3083,7 +3086,9 @@ const processStates = new Map();
           choiceWrapper.style.flexDirection = 'column';
           choiceWrapper.style.marginBottom = '0.6rem';
           const choiceLabel = document.createElement('div');
-          choiceLabel.textContent = task.label;
+          // Translate the overall label for this choice group
+          const translatedChoiceLabel = (translations.debloat && translations.debloat.tasks && translations.debloat.tasks[task.key]) || task.label;
+          choiceLabel.textContent = translatedChoiceLabel;
           choiceLabel.style.marginBottom = '0.3rem';
           choiceWrapper.appendChild(choiceLabel);
           const choiceGroupName = `debloat-choice-${task.key}`;
@@ -3102,7 +3107,10 @@ const processStates = new Map();
             radio.classList.add('input');
             const rLabel = document.createElement('label');
             rLabel.setAttribute('for', radio.id);
-            rLabel.textContent = opt.label;
+            // Translate choice label using the numeric value when available
+            const choiceTranslations = (translations.debloat && translations.debloat.choices) || {};
+            const translatedChoice = choiceTranslations[String(opt.value)] || opt.label;
+            rLabel.textContent = translatedChoice;
             rLabel.style.marginLeft = '0.5rem';
             optRow.appendChild(radio);
             optRow.appendChild(rLabel);
@@ -3133,7 +3141,8 @@ const processStates = new Map();
     const defaultBtn = document.createElement('button');
     // Use the secondary style for the restore button
     defaultBtn.className = 'button-secondary';
-    defaultBtn.textContent = 'Restore Recommended';
+    // Use translation for restore button if available
+    defaultBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.restoreRecommended) || 'Restore Recommended';
     defaultBtn.addEventListener('click', () => {
       debloatTasks.forEach((task) => {
         const cb = checkboxMap.get(task.key);
@@ -3162,7 +3171,8 @@ const processStates = new Map();
     // Run selected tasks button
     const runBtn = document.createElement('button');
     runBtn.className = 'button';
-    runBtn.textContent = 'Run Selected Tasks';
+    // Use translation for run button if available
+    runBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.runSelectedTasks) || 'Run Selected Tasks';
     runBtn.addEventListener('click', async () => {
       if (runBtn.disabled) return;
       const selectedTasks = [];
@@ -3186,7 +3196,8 @@ const processStates = new Map();
         searchBarMode = (value === -1 ? null : value);
       }
       if (selectedTasks.length === 0 && searchBarMode === null) {
-        toast('Please select at least one task or configure the search bar.', {
+        const noSelMsg = (translations.debloat && translations.debloat.noSelection) || 'Please select at least one task or configure the search bar.';
+        toast(noSelMsg, {
           type: 'info',
           title: 'No tasks selected',
           duration: 5000
@@ -3991,21 +4002,30 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     </svg>`;
     icon.src = svgDataUrl(terminalSVG);
 
-    const titles = el('div', null, `
-    <h2 class="ctt-title">Windows Utility</h2>
-    <p class="ctt-sub">COMPREHENSIVE TOOLBOX FOR WINDOWS OPTIMIZATION</p>
-  `);
+    // Build localized titles and subtitle. Use translations if available
+    const titleText = (translations.menu && translations.menu.christitus) || 'Windows Utility';
+    const subtitleText = (translations.christitus_page && translations.christitus_page.subtitle_full) || 'COMPREHENSIVE TOOLBOX FOR WINDOWS OPTIMIZATION';
+    const titleWrapper = el('div');
+    titleWrapper.innerHTML = `
+      <h2 class="ctt-title">${titleText}</h2>
+      <p class="ctt-sub">${subtitleText}</p>
+    `;
     header.appendChild(icon);
-    header.appendChild(titles);
+    header.appendChild(titleWrapper);
     card.appendChild(header);
 
-    // Bullets
-    card.appendChild(el('ul', 'ctt-bullets', `
-    <li>System optimization and tweaks</li>
-    <li>Remove bloatware and unwanted apps</li>
-    <li>Privacy and security enhancements</li>
-    <li>Essential software installation</li>
-  `));
+    // Feature bullet list.  Localize if translations are provided
+    const features = (translations.christitus_page && Array.isArray(translations.christitus_page.features))
+      ? translations.christitus_page.features
+      : [
+          'System optimization and tweaks',
+          'Remove bloatware and unwanted apps',
+          'Privacy and security enhancements',
+          'Essential software installation'
+        ];
+    // Build list HTML
+    const bulletHtml = features.map((item) => `<li>${item}</li>`).join('');
+    card.appendChild(el('ul', 'ctt-bullets', bulletHtml));
 
     // Actions
     const actions = el('div', 'ctt-actions');

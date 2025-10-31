@@ -10,6 +10,8 @@
     "christitus": "Chris Titus Toolbox",
     "dlc_unlocker": "DLC unlocker",
     "bios": "BIOS"
+    ,
+    "debloat": "Debloat & Windows tweaks"
   },
   "general": {
     "language": "Language",
@@ -52,6 +54,8 @@
     "crack_desc": "Download your project backups from Dropbox",
     "dlc_title": "DLC Unlocker",
     "activate_title": "Windows Activation & Auto Login"
+    ,
+    "debloat_desc": "Select which debloat operations you wish to apply. Recommended tasks are pre-selected. Administrator privileges may be required. A restart is recommended after applying changes."
   },
   "actions": {
     "check_updates": "Check for updates",
@@ -163,5 +167,42 @@
     "title_high": "Make Life",
     "title_rest": "Easier",
     "subtitle": "System Management Tools"
+  }
+  ,
+  "debloat": {
+    "categories": {
+      "App Removal": "App Removal",
+      "Telemetry & Tracking": "Telemetry & Tracking",
+      "Search, Copilot & AI": "Search, Copilot & AI",
+      "Explorer & Taskbar": "Explorer & Taskbar"
+    },
+    "tasks": {
+      "removePreinstalledApps": "Remove preinstalled apps",
+      "disableTelemetry": "Disable telemetry & diagnostic data",
+      "disableActivityHistory": "Disable activity history",
+      "disableAppLaunchTracking": "Disable app‑launch tracking",
+      "disableTargetedAds": "Disable targeted ads & tailored experiences",
+      "disableTipsSuggestions": "Disable tips, suggestions & ads across Windows",
+      "disableSpotlight": "Disable Windows Spotlight background (W11 only)",
+      "disableBingSearch": "Disable Bing web search & Cortana",
+      "disableCopilot": "Disable Microsoft Copilot",
+      "disableStickyKeys": "Disable Sticky Keys shortcut (W11 only)",
+      "restoreClassicContextMenu": "Restore Windows 10 style context menu (W11 only)",
+      "showFileExtensions": "Show file extensions for known file types",
+      "hideTaskviewButton": "Hide the Task View button (W11 only)",
+      "disableWidgets": "Disable widgets on taskbar & lockscreen",
+      "searchBarMode": "Search bar style"
+    },
+    "choices": {
+      "-1": "Leave unchanged",
+      "0": "Hide search",
+      "1": "Show search icon only",
+      "2": "Show search box"
+    },
+    "buttons": {
+      "restoreRecommended": "Restore Recommended",
+      "runSelectedTasks": "Run Selected Tasks"
+    },
+    "noSelection": "Please select at least one task or configure the search bar."
   }
 }
