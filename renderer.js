@@ -3060,13 +3060,24 @@ const processStates = new Map();
                     appCb.checked = false;
                     
                     const appLabel = document.createElement('label');
+                    // Associate the label with the checkbox so clicking it toggles the box
                     appLabel.setAttribute('for', appCb.id);
                     appLabel.textContent = app.name; // ΜΟΝΟ ΤΟ ΟΝΟΜΑ
                     appLabel.style.marginLeft = '0.75rem';
                     appLabel.style.flex = '1';
                     appLabel.style.fontSize = '0.95rem';
                     appLabel.style.cursor = 'pointer';
-                    
+                    /*
+                     * Prevent the default mousedown focus behaviour.  This stops
+                     * the browser from scrolling the page to bring the associated
+                     * checkbox into view when the label is clicked.  The toggle
+                     * will still occur automatically because of the `for`
+                     * attribute, but the page will remain stationary.
+                     */
+                    appLabel.addEventListener('mousedown', (evt) => {
+                      evt.preventDefault();
+                    });
+
                     appRow.appendChild(appCb);
                     appRow.appendChild(appLabel);
                     appsWrapper.appendChild(appRow);
