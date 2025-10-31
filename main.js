@@ -1795,15 +1795,22 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
         const safeLabel = task.label.replace(/'/g, "''");
         psScript += `Log 'Running task: ${safeLabel}'\n`;
         if (key === 'removePreinstalledApps') {
-          // If the user has selected specific applications to remove, use
-          // them; otherwise skip removal entirely to avoid deleting a
-          // predefined list.  Build a PowerShell array literal from the
-          // removeApps array.  If removeApps is empty, log and skip.
+          /*
+           * If the user has selected specific applications to remove via the UI,
+           * generate a PowerShell loop that removes only those packages.  If no
+           * specific apps are selected, fall back to the built‑in removal
+           * routine defined on the taskMap entry.  This ensures that ticking
+           * the “Remove preinstalled apps” option without selecting any
+           * individual apps will still remove the default set of bloatware.
+           */
           if (Array.isArray(removeApps) && removeApps.length > 0) {
-            const arrayLiteral = removeApps.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
+            const arrayLiteral = removeApps
+              .map((a) => `'${a.replace(/'/g, "''")}'`)
+              .join(',');
             psScript += `# Remove selected appx packages\n$appNames = @(${arrayLiteral})\nforeach ($app in $appNames) {\n  Get-AppxPackage -AllUsers -Name $app -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue\n  Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like \"$app*\" -or $_.PackageName -like \"$app*\" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue\n}\n`;
           } else {
-            psScript += `Log 'No preinstalled app packages selected for removal; skipping app removal'\n`;
+            // No custom app list; run the default removal script from taskMap
+            psScript += task.script + '\n';
           }
         } else {
           psScript += task.script + '\n';
