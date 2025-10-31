@@ -1851,14 +1851,21 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
       const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
       const escapedPsFile = psFile.replace(/"/g, '\\"');
-      // Use Start-Process to elevate; wait for completion
-      const command = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
-      const child = spawn('powershell.exe', ['-Command', command], { windowsHide: true });
+      // Execute the PowerShell script directly without forcing elevation via Start‑Process.
+      // Running without -Verb RunAs avoids silently failing when the UAC prompt is dismissed
+      // or blocked.  Users should run the app as administrator to ensure privileged tasks succeed.
+      const child = spawn('powershell.exe', [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        psFile
+      ], { windowsHide: true });
       child.on('error', (err) => {
         try {
           if (fs.existsSync(psFile)) fs.unlinkSync(psFile);
         } catch (_) {}
-        resolve({ success: false, error: 'Administrator privileges required or denied. Please accept the UAC prompt and try again.' });
+        resolve({ success: false, error: 'Failed to start PowerShell: ' + err.message });
       });
       child.on('exit', (code) => {
         // Remove the temporary script file
