@@ -3062,21 +3062,23 @@ const processStates = new Map();
                       
                       const appCb = document.createElement('input');
                       appCb.type = 'checkbox';
+                      // Use a unique ID that does not get used as a URL fragment when clicking
                       appCb.id = `debloat-app-${app.id}`;
                       appCb.dataset.appId = app.id;
-                      // Επιλέγουμε ένα app μόνο αν βρίσκεται στη λίστα των προτεινόμενων προς αφαίρεση
+                      // Pre-select an app only if it is in the list of recommended removals
                       appCb.checked = defaultRemoveSet.has(app.id);
-                      
-                      const appLabel = document.createElement('label');
-                      appLabel.setAttribute('for', appCb.id);
+
+                      const appLabel = document.createElement('span');
                       appLabel.textContent = app.name;
                       appLabel.style.marginLeft = '0.75rem';
                       appLabel.style.flex = '1';
                       appLabel.style.fontSize = '0.95rem';
                       appLabel.style.cursor = 'pointer';
-                      
-                      appLabel.addEventListener('mousedown', (evt) => {
+
+                      // Toggle the corresponding checkbox when clicking on the label
+                      appLabel.addEventListener('click', (evt) => {
                         evt.preventDefault();
+                        appCb.checked = !appCb.checked;
                       });
 
                       appRow.appendChild(appCb);
