@@ -2870,398 +2870,382 @@ const processStates = new Map();
 
 
   async function buildDebloatPage() {
-      const container = document.createElement('div');
-      container.className = 'card';
-      const alertBox = document.createElement('div');
-      alertBox.className = 'debloat-alert';
-      const alertText = document.createElement('p');
-      alertText.className = 'debloat-alert-content';
-      alertText.textContent = (translations.pages?.debloat_desc) ||
-        'Select which debloat operations you wish to apply. Recommended tasks are pre‑selected. Administrator privileges may be required. A restart is recommended after applying changes.';
-      alertBox.appendChild(alertText);
-      container.appendChild(alertBox);
+        const container = document.createElement('div');
+        container.className = 'card';
+        const alertBox = document.createElement('div');
+        alertBox.className = 'debloat-alert';
+        const alertText = document.createElement('p');
+        alertText.className = 'debloat-alert-content';
+        alertText.textContent = (translations.pages?.debloat_desc) ||
+          'Select which debloat operations you wish to apply. Recommended tasks are pre‑selected. Administrator privileges may be required. A restart is recommended after applying changes.';
+        alertBox.appendChild(alertText);
+        container.appendChild(alertBox);
 
-      const debloatTasks = [
-        // App Removal
-        { key: 'removePreinstalledApps', category: 'App Removal', label: 'Remove preinstalled apps', recommended: true },
-        
-        // Telemetry, tracking & suggestions
-        { key: 'disableTelemetry', category: 'Telemetry & Tracking', label: 'Disable telemetry & diagnostic data', recommended: true },
-        { key: 'disableActivityHistory', category: 'Telemetry & Tracking', label: 'Disable activity history', recommended: true },
-        { key: 'disableTipsSuggestions', category: 'Telemetry & Tracking', label: 'Disable tips, suggestions & ads across Windows', recommended: true },
-        
-        // Privacy & Security
-        { key: 'disableCortana', category: 'Privacy & Security', label: 'Completely disable Cortana', recommended: true },
-        { key: 'disableLocationServices', category: 'Privacy & Security', label: 'Disable location services', recommended: true },
-        { key: 'disableAdvertisingID', category: 'Privacy & Security', label: 'Disable advertising ID', recommended: true },
-        { key: 'disableTelemetryHost', category: 'Privacy & Security', label: 'Disable Connected User Experiences', recommended: true },
-        { key: 'disableBackgroundApps', category: 'Privacy & Security', label: 'Disable background apps', recommended: true },
+        const debloatTasks = [
+          // App Removal
+          { key: 'removePreinstalledApps', category: 'App Removal', label: 'Remove preinstalled apps', recommended: true },
+          
+          // Telemetry, tracking & suggestions
+          { key: 'disableTelemetry', category: 'Telemetry & Tracking', label: 'Disable telemetry & diagnostic data', recommended: true },
+          { key: 'disableActivityHistory', category: 'Telemetry & Tracking', label: 'Disable activity history', recommended: true },
+          { key: 'disableTipsSuggestions', category: 'Telemetry & Tracking', label: 'Disable tips, suggestions & ads across Windows', recommended: true },
+          
+          // Privacy & Security
+          { key: 'disableCortana', category: 'Privacy & Security', label: 'Completely disable Cortana', recommended: true },
+          { key: 'disableLocationServices', category: 'Privacy & Security', label: 'Disable location services', recommended: true },
+          { key: 'disableAdvertisingID', category: 'Privacy & Security', label: 'Disable advertising ID', recommended: true },
+          { key: 'disableTelemetryHost', category: 'Privacy & Security', label: 'Disable Connected User Experiences', recommended: true },
+          { key: 'disableBackgroundApps', category: 'Privacy & Security', label: 'Disable background apps', recommended: true },
 
-        // Bing, Copilot & AI features
-        { key: 'disableBingSearch', category: 'Search, Copilot & AI', label: 'Disable Bing web search & Cortana', recommended: true },
-        { key: 'disableCopilot', category: 'Search, Copilot & AI', label: 'Disable Microsoft Copilot', recommended: true },
-        
-        // Windows Features & Security
-        { key: 'disableWindowsUpdate', category: 'Windows Features', label: 'Disable automatic Windows updates', recommended: false },
-        { key: 'disableDefender', category: 'Windows Features', label: 'Disable Windows Defender', recommended: false },
-        { key: 'disableFirewall', category: 'Windows Features', label: 'Disable Windows Firewall', recommended: false },
-        { key: 'refreshFirewall', category: 'Windows Features', label: 'Reset Windows Firewall to default', recommended: false },
-        { key: 'disableRemoteAssistance', category: 'Windows Features', label: 'Disable remote assistance', recommended: true },
-        { key: 'disableRemoteDesktop', category: 'Windows Features', label: 'Disable remote desktop', recommended: true },
+          // Bing, Copilot & AI features
+          { key: 'disableBingSearch', category: 'Search, Copilot & AI', label: 'Disable Bing web search & Cortana', recommended: true },
+          { key: 'disableCopilot', category: 'Search, Copilot & AI', label: 'Disable Microsoft Copilot', recommended: true },
+          
+          // Windows Features & Security
+          { key: 'disableWindowsUpdate', category: 'Windows Features', label: 'Disable automatic Windows updates', recommended: false },
+          { key: 'disableDefender', category: 'Windows Features', label: 'Disable Windows Defender', recommended: false },
+          { key: 'disableFirewall', category: 'Windows Features', label: 'Disable Windows Firewall', recommended: false },
+          { key: 'refreshFirewall', category: 'Windows Features', label: 'Reset Windows Firewall to default', recommended: false },
+          { key: 'disableRemoteAssistance', category: 'Windows Features', label: 'Disable remote assistance', recommended: true },
+          { key: 'disableRemoteDesktop', category: 'Windows Features', label: 'Disable remote desktop', recommended: true },
 
-        // File Explorer & Taskbar customisation
-        { key: 'showFileExtensions', category: 'Explorer & Taskbar', label: 'Show file extensions for known file types', recommended: true },
-        { key: 'restoreClassicContextMenu', category: 'Explorer & Taskbar', label: 'Restore Windows 10 style context menu', recommended: true },
-        
-        // Performance & Gaming
-        { key: 'enablePerformanceTweaks', category: 'Performance', label: 'Enable performance tweaks', recommended: true },
-        { key: 'disableAnimations', category: 'Performance', label: 'Disable animations and visual effects', recommended: true },
-        { key: 'disableGameBar', category: 'Performance', label: 'Disable Xbox Game Bar', recommended: true },
-        { key: 'disableOneDrive', category: 'Performance', label: 'Disable OneDrive', recommended: true },
+          // File Explorer & Taskbar customisation
+          { key: 'showFileExtensions', category: 'Explorer & Taskbar', label: 'Show file extensions for known file types', recommended: true },
+          { key: 'restoreClassicContextMenu', category: 'Explorer & Taskbar', label: 'Restore Windows 10 style context menu', recommended: true },
+          
+          // Performance & Gaming
+          { key: 'enablePerformanceTweaks', category: 'Performance', label: 'Enable performance tweaks', recommended: true },
+          { key: 'disableAnimations', category: 'Performance', label: 'Disable animations and visual effects', recommended: true },
+          { key: 'disableGameBar', category: 'Performance', label: 'Disable Xbox Game Bar', recommended: true },
+          { key: 'disableOneDrive', category: 'Performance', label: 'Disable OneDrive', recommended: true },
 
-        // Search bar mode selection
-        {
-          key: 'searchBarMode',
-          category: 'Explorer & Taskbar',
-          label: 'Search bar style',
-          type: 'choice',
-          recommended: 0,
-          choices: [
-            { value: 0, label: 'Hide search' },
-            { value: 1, label: 'Show search icon only' },
-            { value: 2, label: 'Show search box' }
-          ]
-        }
-      ];
-
-      let logOutput;
-
-      const isWindows = await window.api.isWindows();
-      if (!isWindows) {
-        const warn = document.createElement('p');
-        warn.textContent = 'Debloat tasks are only available on Windows.';
-        warn.style.color = 'var(--error-color)';
-        container.appendChild(warn);
-        return container;
-      }
-
-      // Group tasks by category
-      const groups = {};
-      debloatTasks.forEach((task) => {
-        if (!groups[task.category]) groups[task.category] = [];
-        groups[task.category].push(task);
-      });
-
-      let installedApps = [];
-      if (Array.isArray(cachedPreinstalledApps) && cachedPreinstalledApps.length > 0) {
-        installedApps = cachedPreinstalledApps;
-      } else {
-        try {
-          installedApps = await window.api.getPreinstalledApps();
-          cachedPreinstalledApps = installedApps;
-        } catch (err) {
-          console.warn('Failed to get preinstalled apps:', err);
-          installedApps = [];
-        }
-      }
-
-      // Retrieve the list of default removable apps so we can pre-select only those
-      let defaultRemoveSet = new Set();
-      try {
-        const defaultRemoveList = await window.api.getDefaultRemoveApps?.();
-        if (Array.isArray(defaultRemoveList)) {
-          defaultRemoveSet = new Set(defaultRemoveList);
-        }
-      } catch (err) {
-        console.warn('Failed to get default removable apps:', err);
-      }
-
-      // Create a wrapper for task groups
-      const groupsWrapper = document.createElement('div');
-      groupsWrapper.className = 'debloat-groups';
-      groupsWrapper.style.display = 'flex';
-      groupsWrapper.style.flexDirection = 'column';
-      groupsWrapper.style.gap = '1.2rem';
-
-      const checkboxMap = new Map();
-      const appCheckboxMap = new Map();
-      const choiceMap = new Map();
-
-      Object.keys(groups).forEach((category) => {
-        const tasks = groups[category];
-        const groupCard = document.createElement('div');
-        groupCard.className = 'debloat-group-card';
-        groupCard.style.border = '1px solid var(--border-color, #333)';
-        groupCard.style.borderRadius = '8px';
-        groupCard.style.padding = '1rem';
-        groupCard.style.background = 'var(--card-bg, rgba(255,255,255,0.02))';
-
-        const header = document.createElement('h3');
-        header.textContent = (translations.debloat && translations.debloat.categories && translations.debloat.categories[category]) || category;
-        header.style.margin = '0 0 0.75rem 0';
-        header.style.fontSize = '1rem';
-        header.style.color = 'var(--primary-color)';
-        groupCard.appendChild(header);
-
-        tasks.forEach((task) => {
-          if (!task.type || task.type !== 'choice') {
-            const row = document.createElement('div');
-            row.className = 'debloat-task-row';
-            row.style.display = 'flex';
-            row.style.alignItems = 'center';
-            row.style.marginBottom = '0.4rem';
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.id = `debloat-${task.key}`;
-            
-            // ✅ Auto-check το "Remove preinstalled apps" by default
-            if (task.key === 'removePreinstalledApps') {
-              cb.checked = true;
-            } else {
-              cb.checked = !!task.recommended;
-            }
-            
-            checkboxMap.set(task.key, cb);
-            const labelEl = document.createElement('label');
-            labelEl.setAttribute('for', cb.id);
-            const translatedTask = (translations.debloat && translations.debloat.tasks && translations.debloat.tasks[task.key]) || task.label;
-            labelEl.textContent = translatedTask;
-            labelEl.style.marginLeft = '0.5rem';
-            row.appendChild(cb);
-            row.appendChild(labelEl);
-            groupCard.appendChild(row);
-            if (task.key === 'removePreinstalledApps') {
-              const appsWrapper = document.createElement('div');
-              appsWrapper.style.display = cb.checked ? 'block' : 'none';
-              appsWrapper.style.marginLeft = '1.5rem';
-              appsWrapper.style.marginTop = '0.4rem';
-              appsWrapper.style.maxHeight = '200px';
-              appsWrapper.style.paddingRight = '2.1rem';
-              appsWrapper.style.overflowY = 'auto';
-              if (installedApps.length === 0) {
-                  const info = document.createElement('div');
-                  info.innerHTML = `
-                      <div style="color: var(--warning-color); margin-bottom: 0.5rem;">
-                          No removable built‑in apps were detected automatically.
-                      </div>
-                      <div style="font-size: 0.9rem; opacity: 0.8;">
-                          You can still proceed - common bloatware will be targeted.
-                      </div>
-                  `;
-                  appsWrapper.appendChild(info);
-              } else {
-                  // Create a checkbox for each installed app
-                  installedApps.forEach((app) => {
-                      const appRow = document.createElement('div');
-                      appRow.style.display = 'flex';
-                      appRow.style.alignItems = 'center';
-                      appRow.style.marginBottom = '0.5rem';
-                      appRow.style.padding = '0.4rem';
-                      appRow.style.borderRadius = '4px';
-                      appRow.style.background = 'rgba(255,255,255,0.03)';
-                      
-                      const appCb = document.createElement('input');
-                      appCb.type = 'checkbox';
-                      // Use a unique ID that does not get used as a URL fragment when clicking
-                      appCb.id = `debloat-app-${app.id}`;
-                      appCb.dataset.appId = app.id;
-                      // Pre-select an app only if it is in the list of recommended removals
-                      appCb.checked = defaultRemoveSet.has(app.id);
-
-                      const appLabel = document.createElement('label');
-                      // Associate the label with the checkbox ID so that CSS styling applies
-                      appLabel.setAttribute('for', appCb.id);
-                      appLabel.textContent = app.name;
-                      appLabel.style.marginLeft = '0.75rem';
-                      appLabel.style.flex = '1';
-                      appLabel.style.fontSize = '0.95rem';
-                      appLabel.style.cursor = 'pointer';
-
-                      // Prevent the default behaviour (which focuses the hidden checkbox) and toggle manually
-                      appLabel.addEventListener('click', (evt) => {
-                        evt.preventDefault();
-                        appCb.checked = !appCb.checked;
-                      });
-
-                      appRow.appendChild(appCb);
-                      appRow.appendChild(appLabel);
-                      appsWrapper.appendChild(appRow);
-                      appCheckboxMap.set(app.id, appCb);
-                  });
-              }
-              // Show/hide based on checkbox
-              cb.addEventListener('change', () => {
-                appsWrapper.style.display = cb.checked ? 'block' : 'none';
-              });
-              groupCard.appendChild(appsWrapper);
-            }
-          } else if (task.type === 'choice') {
-            const choiceWrapper = document.createElement('div');
-            choiceWrapper.classList.add('radio-input');
-            choiceWrapper.style.display = 'flex';
-            choiceWrapper.style.flexDirection = 'column';
-            choiceWrapper.style.marginBottom = '0.6rem';
-            const choiceLabel = document.createElement('div');
-            const translatedChoiceLabel = (translations.debloat && translations.debloat.tasks && translations.debloat.tasks[task.key]) || task.label;
-            choiceLabel.textContent = translatedChoiceLabel;
-            choiceLabel.style.marginBottom = '0.3rem';
-            choiceWrapper.appendChild(choiceLabel);
-            const choiceGroupName = `debloat-choice-${task.key}`;
-            task.choices.forEach((opt) => {
-              const optRow = document.createElement('div');
-              optRow.style.display = 'flex';
-              optRow.style.alignItems = 'center';
-              optRow.style.marginBottom = '0.25rem';
-              const radio = document.createElement('input');
-              radio.type = 'radio';
-              radio.name = choiceGroupName;
-              radio.id = `${choiceGroupName}-${opt.value}`;
-              radio.value = String(opt.value);
-              radio.checked = opt.value === task.recommended;
-              radio.classList.add('input');
-              const rLabel = document.createElement('label');
-              rLabel.setAttribute('for', radio.id);
-              const choiceTranslations = (translations.debloat && translations.debloat.choices) || {};
-              const translatedChoice = choiceTranslations[String(opt.value)] || opt.label;
-              rLabel.textContent = translatedChoice;
-              rLabel.style.marginLeft = '0.5rem';
-              optRow.appendChild(radio);
-              optRow.appendChild(rLabel);
-              choiceWrapper.appendChild(optRow);
-            });
-            choiceMap.set(task.key, () => {
-              const selectedRadio = choiceWrapper.querySelector(`input[name="${choiceGroupName}"]:checked`);
-              return selectedRadio ? parseInt(selectedRadio.value, 10) : task.recommended;
-            });
-            groupCard.appendChild(choiceWrapper);
+          // Search bar mode selection
+          {
+            key: 'searchBarMode',
+            category: 'Explorer & Taskbar',
+            label: 'Search bar style',
+            type: 'choice',
+            recommended: 0,
+            choices: [
+              { value: 0, label: 'Hide search' },
+              { value: 1, label: 'Show search icon only' },
+              { value: 2, label: 'Show search box' }
+            ]
           }
-        });
+        ];
 
-        groupsWrapper.appendChild(groupCard);
-      });
+        let logOutput;
 
-      container.appendChild(groupsWrapper);
+        const isWindows = await window.api.isWindows();
+        if (!isWindows) {
+          const warn = document.createElement('p');
+          warn.textContent = 'Debloat tasks are only available on Windows.';
+          warn.style.color = 'var(--error-color)';
+          container.appendChild(warn);
+          return container;
+        }
 
-      // Create a footer with control buttons
-      const footer = document.createElement('div');
-      footer.style.display = 'flex';
-      footer.style.flexWrap = 'wrap';
-      footer.style.gap = '1rem';
-      footer.style.marginTop = '1.5rem';
-
-      // Button to restore recommended selections
-      const defaultBtn = document.createElement('button');
-      defaultBtn.className = 'button-secondary';
-      defaultBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.restoreRecommended) || 'Restore Recommended';
-      defaultBtn.addEventListener('click', () => {
+        // Group tasks by category
+        const groups = {};
         debloatTasks.forEach((task) => {
-          const cb = checkboxMap.get(task.key);
-          if (cb) cb.checked = !!task.recommended;
-          if (task.key === 'removePreinstalledApps') {
-            appCheckboxMap.forEach((appCb) => {
-              appCb.checked = false;
-            });
-          }
-          if (task.type === 'choice') {
-            const getter = choiceMap.get(task.key);
-            const groupName = `debloat-choice-${task.key}`;
-            const radios = document.querySelectorAll(`input[name="${groupName}"]`);
-            radios.forEach((radio) => {
-              radio.checked = parseInt(radio.value, 10) === task.recommended;
-            });
-          }
+          if (!groups[task.category]) groups[task.category] = [];
+          groups[task.category].push(task);
         });
-      });
-      footer.appendChild(defaultBtn);
 
-      // Run selected tasks button
-      const runBtn = document.createElement('button');
-      runBtn.className = 'button';
-      runBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.runSelectedTasks) || 'Run Selected Tasks';
-      runBtn.addEventListener('click', async () => {
-        if (runBtn.disabled) return;
-        const selectedTasks = [];
-        const removeApps = [];
-        checkboxMap.forEach((cb, key) => {
-          if (cb.checked) {
-            selectedTasks.push(key);
+        let installedApps = [];
+        if (Array.isArray(cachedPreinstalledApps) && cachedPreinstalledApps.length > 0) {
+          installedApps = cachedPreinstalledApps;
+        } else {
+          try {
+            installedApps = await window.api.getPreinstalledApps();
+            cachedPreinstalledApps = installedApps;
+          } catch (err) {
+            console.warn('Failed to get preinstalled apps:', err);
+            installedApps = [];
           }
-        });
-        if (selectedTasks.includes('removePreinstalledApps')) {
-            appCheckboxMap.forEach((appCb, appId) => {
-                if (appCb.checked) {
-                    removeApps.push(appId); 
+        }
+
+        // Create a wrapper for task groups
+        const groupsWrapper = document.createElement('div');
+        groupsWrapper.className = 'debloat-groups';
+        groupsWrapper.style.display = 'flex';
+        groupsWrapper.style.flexDirection = 'column';
+        groupsWrapper.style.gap = '1.2rem';
+
+        const checkboxMap = new Map();
+        const appCheckboxMap = new Map();
+        const choiceMap = new Map();
+
+        Object.keys(groups).forEach((category) => {
+          const tasks = groups[category];
+          const groupCard = document.createElement('div');
+          groupCard.className = 'debloat-group-card';
+          groupCard.style.border = '1px solid var(--border-color, #333)';
+          groupCard.style.borderRadius = '8px';
+          groupCard.style.padding = '1rem';
+          groupCard.style.background = 'var(--card-bg, rgba(255,255,255,0.02))';
+
+          const header = document.createElement('h3');
+          header.textContent = (translations.debloat && translations.debloat.categories && translations.debloat.categories[category]) || category;
+          header.style.margin = '0 0 0.75rem 0';
+          header.style.fontSize = '1rem';
+          header.style.color = 'var(--primary-color)';
+          groupCard.appendChild(header);
+
+          tasks.forEach((task) => {
+            if (!task.type || task.type !== 'choice') {
+              const row = document.createElement('div');
+              row.className = 'debloat-task-row';
+              row.style.display = 'flex';
+              row.style.alignItems = 'center';
+              row.style.marginBottom = '0.4rem';
+              const cb = document.createElement('input');
+              cb.type = 'checkbox';
+              cb.id = `debloat-${task.key}`;
+              
+              // ✅ Auto-check το "Remove preinstalled apps" by default
+              if (task.key === 'removePreinstalledApps') {
+                cb.checked = true;
+              } else {
+                cb.checked = !!task.recommended;
+              }
+              
+              checkboxMap.set(task.key, cb);
+              const labelEl = document.createElement('label');
+              labelEl.setAttribute('for', cb.id);
+              const translatedTask = (translations.debloat && translations.debloat.tasks && translations.debloat.tasks[task.key]) || task.label;
+              labelEl.textContent = translatedTask;
+              labelEl.style.marginLeft = '0.5rem';
+              row.appendChild(cb);
+              row.appendChild(labelEl);
+              groupCard.appendChild(row);
+              if (task.key === 'removePreinstalledApps') {
+                const appsWrapper = document.createElement('div');
+                appsWrapper.style.display = cb.checked ? 'block' : 'none';
+                appsWrapper.style.marginLeft = '1.5rem';
+                appsWrapper.style.marginTop = '0.4rem';
+                appsWrapper.style.maxHeight = '200px';
+                appsWrapper.style.paddingRight = '2.1rem';
+                appsWrapper.style.overflowY = 'auto';
+                if (installedApps.length === 0) {
+                    const info = document.createElement('div');
+                    info.innerHTML = `
+                        <div style="color: var(--warning-color); margin-bottom: 0.5rem;">
+                            No removable built‑in apps were detected automatically.
+                        </div>
+                        <div style="font-size: 0.9rem; opacity: 0.8;">
+                            You can still proceed - common bloatware will be targeted.
+                        </div>
+                    `;
+                    appsWrapper.appendChild(info);
+                } else {
+                    // Create a checkbox for each installed app
+                    installedApps.forEach((app) => {
+                        const appRow = document.createElement('div');
+                        appRow.style.display = 'flex';
+                        appRow.style.alignItems = 'center';
+                        appRow.style.marginBottom = '0.5rem';
+                        appRow.style.padding = '0.4rem';
+                        appRow.style.borderRadius = '4px';
+                        appRow.style.background = 'rgba(255,255,255,0.03)';
+                        
+                        const appCb = document.createElement('input');
+                        appCb.type = 'checkbox';
+                        appCb.id = `debloat-app-${app.id}`;
+                        appCb.dataset.appId = app.id;
+                        appCb.checked = true; // ✅ ΑΥΤΟ: Check όλα τα apps by default
+                        
+                        const appLabel = document.createElement('label');
+                        appLabel.setAttribute('for', appCb.id);
+                        appLabel.textContent = app.name;
+                        appLabel.style.marginLeft = '0.75rem';
+                        appLabel.style.flex = '1';
+                        appLabel.style.fontSize = '0.95rem';
+                        appLabel.style.cursor = 'pointer';
+                        
+                        appLabel.addEventListener('mousedown', (evt) => {
+                          evt.preventDefault();
+                        });
+
+                        appRow.appendChild(appCb);
+                        appRow.appendChild(appLabel);
+                        appsWrapper.appendChild(appRow);
+                        appCheckboxMap.set(app.id, appCb);
+                    });
                 }
-            });
-        }
-        let searchBarMode = null;
-        const modeGetter = choiceMap.get('searchBarMode');
-        if (modeGetter) {
-          const value = modeGetter();
-          searchBarMode = value;
-        }
-        if (selectedTasks.length === 0 && searchBarMode === null) {
-          const noSelMsg = (translations.debloat && translations.debloat.noSelection) || 'Please select at least one task or configure the search bar.';
-          toast(noSelMsg, {
-            type: 'info',
-            title: 'No tasks selected',
-            duration: 5000
+                // Show/hide based on checkbox
+                cb.addEventListener('change', () => {
+                  appsWrapper.style.display = cb.checked ? 'block' : 'none';
+                });
+                groupCard.appendChild(appsWrapper);
+              }
+            } else if (task.type === 'choice') {
+              const choiceWrapper = document.createElement('div');
+              choiceWrapper.classList.add('radio-input');
+              choiceWrapper.style.display = 'flex';
+              choiceWrapper.style.flexDirection = 'column';
+              choiceWrapper.style.marginBottom = '0.6rem';
+              const choiceLabel = document.createElement('div');
+              const translatedChoiceLabel = (translations.debloat && translations.debloat.tasks && translations.debloat.tasks[task.key]) || task.label;
+              choiceLabel.textContent = translatedChoiceLabel;
+              choiceLabel.style.marginBottom = '0.3rem';
+              choiceWrapper.appendChild(choiceLabel);
+              const choiceGroupName = `debloat-choice-${task.key}`;
+              task.choices.forEach((opt) => {
+                const optRow = document.createElement('div');
+                optRow.style.display = 'flex';
+                optRow.style.alignItems = 'center';
+                optRow.style.marginBottom = '0.25rem';
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = choiceGroupName;
+                radio.id = `${choiceGroupName}-${opt.value}`;
+                radio.value = String(opt.value);
+                radio.checked = opt.value === task.recommended;
+                radio.classList.add('input');
+                const rLabel = document.createElement('label');
+                rLabel.setAttribute('for', radio.id);
+                const choiceTranslations = (translations.debloat && translations.debloat.choices) || {};
+                const translatedChoice = choiceTranslations[String(opt.value)] || opt.label;
+                rLabel.textContent = translatedChoice;
+                rLabel.style.marginLeft = '0.5rem';
+                optRow.appendChild(radio);
+                optRow.appendChild(rLabel);
+                choiceWrapper.appendChild(optRow);
+              });
+              choiceMap.set(task.key, () => {
+                const selectedRadio = choiceWrapper.querySelector(`input[name="${choiceGroupName}"]:checked`);
+                return selectedRadio ? parseInt(selectedRadio.value, 10) : task.recommended;
+              });
+              groupCard.appendChild(choiceWrapper);
+            }
           });
-          return;
-        }
-        const original = runBtn.textContent;
-        runBtn.disabled = true;
-        runBtn.textContent = 'Running...';
-        try {
-          const result = await window.api.runDebloatTasks({ selectedTasks, removeApps, searchBarMode });
-          if (result && result.log && logOutput) {
-            logOutput.textContent = result.log;
-            logOutput.style.display = 'block';
+
+          groupsWrapper.appendChild(groupCard);
+        });
+
+        container.appendChild(groupsWrapper);
+
+        // Create a footer with control buttons
+        const footer = document.createElement('div');
+        footer.style.display = 'flex';
+        footer.style.flexWrap = 'wrap';
+        footer.style.gap = '1rem';
+        footer.style.marginTop = '1.5rem';
+
+        // Button to restore recommended selections
+        const defaultBtn = document.createElement('button');
+        defaultBtn.className = 'button-secondary';
+        defaultBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.restoreRecommended) || 'Restore Recommended';
+        defaultBtn.addEventListener('click', () => {
+          debloatTasks.forEach((task) => {
+            const cb = checkboxMap.get(task.key);
+            if (cb) cb.checked = !!task.recommended;
+            if (task.key === 'removePreinstalledApps') {
+              appCheckboxMap.forEach((appCb) => {
+                appCb.checked = false;
+              });
+            }
+            if (task.type === 'choice') {
+              const getter = choiceMap.get(task.key);
+              const groupName = `debloat-choice-${task.key}`;
+              const radios = document.querySelectorAll(`input[name="${groupName}"]`);
+              radios.forEach((radio) => {
+                radio.checked = parseInt(radio.value, 10) === task.recommended;
+              });
+            }
+          });
+        });
+        footer.appendChild(defaultBtn);
+
+        // Run selected tasks button
+        const runBtn = document.createElement('button');
+        runBtn.className = 'button';
+        runBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.runSelectedTasks) || 'Run Selected Tasks';
+        runBtn.addEventListener('click', async () => {
+          if (runBtn.disabled) return;
+          const selectedTasks = [];
+          const removeApps = [];
+          checkboxMap.forEach((cb, key) => {
+            if (cb.checked) {
+              selectedTasks.push(key);
+            }
+          });
+          if (selectedTasks.includes('removePreinstalledApps')) {
+              appCheckboxMap.forEach((appCb, appId) => {
+                  if (appCb.checked) {
+                      removeApps.push(appId); 
+                  }
+              });
           }
-          if (result && result.success) {
-            toast(result.message || 'Debloat completed successfully', {
-              type: 'success',
-              title: 'Debloat',
-              duration: 7000
+          let searchBarMode = null;
+          const modeGetter = choiceMap.get('searchBarMode');
+          if (modeGetter) {
+            const value = modeGetter();
+            searchBarMode = value;
+          }
+          if (selectedTasks.length === 0 && searchBarMode === null) {
+            const noSelMsg = (translations.debloat && translations.debloat.noSelection) || 'Please select at least one task or configure the search bar.';
+            toast(noSelMsg, {
+              type: 'info',
+              title: 'No tasks selected',
+              duration: 5000
             });
-          } else {
-            const errMsg = (result && result.error) || 'Debloat failed';
-            toast(errMsg, {
+            return;
+          }
+          const original = runBtn.textContent;
+          runBtn.disabled = true;
+          runBtn.textContent = 'Running...';
+          try {
+            const result = await window.api.runDebloatTasks({ selectedTasks, removeApps, searchBarMode });
+            if (result && result.log && logOutput) {
+              logOutput.textContent = result.log;
+              logOutput.style.display = 'block';
+            }
+            if (result && result.success) {
+              toast(result.message || 'Debloat completed successfully', {
+                type: 'success',
+                title: 'Debloat',
+                duration: 7000
+              });
+            } else {
+              const errMsg = (result && result.error) || 'Debloat failed';
+              toast(errMsg, {
+                type: 'error',
+                title: 'Debloat Error',
+                duration: 8000
+              });
+            }
+          } catch (err) {
+            toast(err.message || 'An unexpected error occurred', {
               type: 'error',
               title: 'Debloat Error',
               duration: 8000
             });
+          } finally {
+            runBtn.disabled = false;
+            runBtn.textContent = original;
           }
-        } catch (err) {
-          toast(err.message || 'An unexpected error occurred', {
-            type: 'error',
-            title: 'Debloat Error',
-            duration: 8000
-          });
-        } finally {
-          runBtn.disabled = false;
-          runBtn.textContent = original;
-        }
-      });
-      footer.appendChild(runBtn);
+        });
+        footer.appendChild(runBtn);
 
-      // Area for displaying the PowerShell log output after running tasks.
-      logOutput = document.createElement('pre');
-      logOutput.className = 'debloat-log-output';
-      logOutput.style.display = 'none';
-      logOutput.style.whiteSpace = 'pre-wrap';
-      logOutput.style.background = 'rgba(0,0,0,0.4)';
-      logOutput.style.padding = '0.75rem';
-      logOutput.style.marginTop = '1rem';
-      logOutput.style.maxHeight = '15rem';
-      logOutput.style.overflowY = 'auto';
-      logOutput.style.fontSize = '0.8rem';
-      logOutput.style.borderRadius = '6px';
-      container.appendChild(logOutput);
+        // Area for displaying the PowerShell log output after running tasks.
+        logOutput = document.createElement('pre');
+        logOutput.className = 'debloat-log-output';
+        logOutput.style.display = 'none';
+        logOutput.style.whiteSpace = 'pre-wrap';
+        logOutput.style.background = 'rgba(0,0,0,0.4)';
+        logOutput.style.padding = '0.75rem';
+        logOutput.style.marginTop = '1rem';
+        logOutput.style.maxHeight = '15rem';
+        logOutput.style.overflowY = 'auto';
+        logOutput.style.fontSize = '0.8rem';
+        logOutput.style.borderRadius = '6px';
+        container.appendChild(logOutput);
 
-      container.appendChild(footer);
+        container.appendChild(footer);
 
-      return container;
+        return container;
     }
 
   // Helper function to create maintenance cards
