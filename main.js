@@ -419,10 +419,6 @@ function stripAnsiCodes(str) {
 }
 let mainWindow;
 const activeDownloads = new Map();
-
-// Keep track of files and directories downloaded or extracted by this app.
-// Items added to this set will be deleted automatically when the app quits.
-const completedDownloads = new Set();
 ipcMain.handle('show-file-dialog', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
@@ -475,33 +471,6 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
-});
-
-// When the application is about to fully quit (after all windows closed),
-// remove any downloaded files or extracted folders that were recorded
-// during runtime. This ensures temporary install files do not
-// accumulate in the user's Downloads folder.  The cleanup runs
-// synchronously because quitting is already in progress.
-app.on('will-quit', () => {
-  try {
-    for (const p of completedDownloads) {
-      try {
-        if (fs.existsSync(p)) {
-          const stat = fs.lstatSync(p);
-          if (stat.isDirectory()) {
-            fs.rmSync(p, { recursive: true, force: true });
-          } else {
-            fs.unlinkSync(p);
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to delete temporary download', p, err);
-      }
-    }
-    completedDownloads.clear();
-  } catch (e) {
-    console.warn('Error during cleanup on exit:', e);
-  }
 });
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
@@ -731,13 +700,6 @@ ipcMain.on('download-start', (event, { id, url, dest }) => {
             if (err) { cleanup(err.message); return; }
             activeDownloads.delete(id);
             mainWindow.webContents.send('download-event', { id, status: 'complete', path: finalPath });
-
-            // Record the downloaded file for cleanup on exit
-            try {
-              completedDownloads.add(finalPath);
-            } catch (e) {
-              console.warn('Failed to record downloaded file for cleanup:', e);
-            }
           });
         });
       });
@@ -882,53 +844,48 @@ WScript.Sleep(3000)
   });
 });
 async function ensure7za() {
-    const candidates = [];
+  const candidates = [];
 
-    console.log('🔍 Searching for 7za...');
-    console.log('isPackaged:', isPackaged);
-    console.log('resourcesPath:', resourcesPath);
-    console.log('appPath:', appPath);
-    
-    // Προτεραιότητα: packaged app paths
-    if (isPackaged) {
-        candidates.push(path.join(resourcesPath, 'bin', '7za.exe'));
-        candidates.push(path.join(resourcesPath, 'bin', '7z.exe'));
-        candidates.push(path.join(resourcesPath, 'app.asar.unpacked', 'bin', '7za.exe'));
-        candidates.push(path.join(resourcesPath, 'app.asar.unpacked', 'bin', '7z.exe'));
-    }
-    
-    // Development paths
+  console.log('🔍 Searching for 7za...');
+  console.log('Resources path:', process.resourcesPath);
+  console.log('__dirname:', __dirname);
+  if (process.resourcesPath) {
+    candidates.push(path.join(process.resourcesPath, 'bin', '7za.exe'));
+    candidates.push(path.join(process.resourcesPath, 'bin', '7z.exe'));
+
     candidates.push(path.join(__dirname, 'bin', '7za.exe'));
     candidates.push(path.join(__dirname, 'bin', '7z.exe'));
-    
-    // System paths
-    if (process.platform === 'win32') {
-        const pf = process.env['ProgramFiles'] || 'C:\\Program Files';
-        const pf86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
-        candidates.push(path.join(pf, '7-Zip', '7z.exe'));
-        candidates.push(path.join(pf, '7-Zip', '7za.exe'));
-        candidates.push(path.join(pf86, '7-Zip', '7z.exe'));
-        candidates.push(path.join(pf86, '7-Zip', '7za.exe'));
-    }
-    
-    for (const candidate of candidates) {
-        try {
-            if (fs.existsSync(candidate)) {
-                console.log('✅ FOUND 7za at:', candidate);
-                return candidate;
-            }
-        } catch (err) {
-            console.log('❌ Error checking:', candidate, err.message);
-        }
-    }
-    
-    console.log('❌ 7za.exe not found in any location');
-    console.log('📋 Checked paths:');
-    candidates.forEach((candidate, index) => {
-        console.log(` ${index + 1}. ${candidate}`);
-    });
 
-    return null;
+    const parentDir = path.dirname(process.resourcesPath);
+    candidates.push(path.join(parentDir, 'bin', '7za.exe'));
+    candidates.push(path.join(parentDir, 'bin', '7z.exe'));
+  }
+  if (process.platform === 'win32') {
+    const pf = process.env['ProgramFiles'] || 'C:\\Program Files';
+    const pf86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+    candidates.push(path.join(pf, '7-Zip', '7z.exe'));
+    candidates.push(path.join(pf, '7-Zip', '7za.exe'));
+    candidates.push(path.join(pf86, '7-Zip', '7z.exe'));
+    candidates.push(path.join(pf86, '7-Zip', '7za.exe'));
+  }
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        console.log('✅ FOUND 7za at:', candidate);
+        return candidate;
+      }
+    } catch (err) {
+      console.log('❌ Error checking:', candidate, err.message);
+    }
+  }
+  console.log('❌ 7za.exe not found in any location');
+
+  console.log('📋 Checked paths:');
+  candidates.forEach((candidate, index) => {
+    console.log(` ${index + 1}. ${candidate}`);
+  });
+
+  return null;
 }
 ipcMain.handle('extract-archive', async (event, { filePath, password, destDir }) => {
   return new Promise(async (resolve) => {
@@ -951,13 +908,6 @@ ipcMain.handle('extract-archive', async (event, { filePath, password, destDir })
         fs.rmSync(altDir, { recursive: true, force: true });
       }
       fs.mkdirSync(outDir, { recursive: true });
-
-    // Record the extracted directory for cleanup on exit
-    try {
-      completedDownloads.add(outDir);
-    } catch (e) {
-      console.warn('Failed to record extraction directory for cleanup:', e);
-    }
     } catch (e) {
     }
     const exe = await ensure7za();
@@ -1186,15 +1136,9 @@ exit $LASTEXITCODE
     try {
       const psFile = path.join(os.tmpdir(), `sfc_scan_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
-      // Escape backslashes and double quotes in the temp script path.  Without escaping
-      // backslashes the generated PowerShell command can misinterpret parts of the path.
-      const escapedPsFile = psFile
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"');
-      // Launch PowerShell visibly (normal window) and wait for the scan to finish.  Wrap
-      // the file path in double quotes inside the argument list; the surrounding single
-      // quotes for -ArgumentList prevent PowerShell from splitting on spaces.
-      const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      // Launch PowerShell visibly (normal window) and wait for the scan to finish
+      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
       const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
       child.on('error', (err) => {
         try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
@@ -1230,15 +1174,9 @@ exit $LASTEXITCODE
     try {
       const psFile = path.join(os.tmpdir(), `dism_repair_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
-      // Escape backslashes and double quotes in the temp script path. Without escaping
-      // backslashes the generated PowerShell command can misinterpret parts of the path.
-      const escapedPsFile = psFile
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"');
-      // Launch PowerShell visibly (normal window) and wait for the DISM command to finish.
-      // Wrap the file path in double quotes inside the argument list; the surrounding
-      // single quotes ensure the path is passed as a single argument to PowerShell.
-      const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      // Launch PowerShell visibly (normal window) and wait for the DISM command to finish
+      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
       const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
       child.on('error', (err) => {
         try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
@@ -1318,14 +1256,10 @@ Write-Host ""
       // Save the script to a temporary file
       const psFile = path.join(os.tmpdir(), `temp_cleanup_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
-      // Escape backslashes and double quotes for embedding in a PowerShell argument.
-      const escapedPsFile = psFile
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"');
-      // Build a wrapper command that elevates and waits for completion.  Wrap the
-      // file path in double quotes inside the argument list; the surrounding single
-      // quotes ensure it remains a single argument.
-      const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Hidden -Wait`;
+      // Escape double quotes for embedding in a PowerShell argument
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      // Build a wrapper command that elevates and waits for completion
+      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Hidden -Wait`;
       const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
       // Handle error events (likely UAC denial)
       child.on('error', (err) => {
@@ -1622,320 +1556,402 @@ ipcMain.handle('run-autologin-script', async () => {
   });
 });
 
-// Προσθήκη του get-preinstalled-apps handler
+// Handler for the debloat operation.  This creates a temporary
+
+ipcMain.handle('run-debloat', async () => {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'Debloat tasks are only supported on Windows' };
+  }
+  return new Promise((resolve) => {
+    const psScript = `
+try {
+  Write-Host 'Disabling notification suggestions...' -ForegroundColor Cyan
+  $cdmPath = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager'
+  if (Test-Path $cdmPath) {
+    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-338389Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-338388Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-310093Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-353694Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-353696Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+  }
+  $userEngagePath = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\UserProfileEngagement'
+  if (!(Test-Path $userEngagePath)) {
+    New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'UserProfileEngagement' -Force | Out-Null
+  }
+  Set-ItemProperty -Path $userEngagePath -Name 'ScoobeSystemSettingEnabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+
+      # Also disable Notification Suggestions via SmartOptOut, which controls
+      # the same behaviour referenced under System > Notifications.  See
+      # https://superuser.com/questions/1820188 for details.
+      $smartOptOut = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings\\Windows.ActionCenter.SmartOptOut'
+      if (!(Test-Path $smartOptOut)) {
+        New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings' -Name 'Windows.ActionCenter.SmartOptOut' -Force | Out-Null
+      }
+      Set-ItemProperty -Path $smartOptOut -Name 'Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+  Write-Host 'Disabling Start Menu web search suggestions...' -ForegroundColor Cyan
+  $explorerPath = 'HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer'
+  if (!(Test-Path $explorerPath)) {
+    New-Item -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows' -Name 'Explorer' -Force | Out-Null
+  }
+  Set-ItemProperty -Path $explorerPath -Name 'DisableSearchBoxSuggestions' -Value 1 -Type DWord -ErrorAction SilentlyContinue
+  Write-Host 'Debloat operations finished. A restart is recommended to apply changes.' -ForegroundColor Green
+  exit 0
+} catch {
+  Write-Error $_
+  exit 1
+}
+`;
+    try {
+      const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
+      fs.writeFileSync(psFile, psScript, 'utf8');
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      // Use Start-Process to elevate.  The script will prompt for UAC.
+      const command = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
+      const child = spawn('powershell.exe', ['-Command', command], { windowsHide: true });
+      child.on('error', (err) => {
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        // If an error occurs when spawning, likely the user cancelled UAC
+        resolve({ success: false, error: 'Administrator privileges required or denied. Please accept the UAC prompt and try again.' });
+      });
+      child.on('exit', (code) => {
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        if (code === 0) {
+          resolve({ success: true, message: 'Debloat tasks completed. Please restart your PC to apply all changes.' });
+        } else {
+          resolve({ success: false, error: 'Debloat script reported an error. Please try again.' });
+        }
+      });
+    } catch (error) {
+      resolve({ success: false, error: 'Failed to initiate debloat script: ' + error.message });
+    }
+  });
+});
+
+
+ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
+  // Only supported on Windows
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'Debloat tasks are only supported on Windows' };
+  }
+  return new Promise((resolve) => {
+    try {
+      // If the renderer passes an object containing the selected tasks and
+      // optional extra apps to remove, normalise the input here.  Earlier
+      // versions of the API passed only an array of strings.
+      let selectedArray = selectedTasks;
+      let removeApps = [];
+      let searchBarMode = null;
+      // Support both legacy array format and new object format. When
+      // an object is passed, decompose it into selected tasks, a list
+      // of app package names to remove and an optional search bar
+      // mode value. The search bar mode corresponds to the value of
+      // the SearchBoxTaskbarMode registry entry (0=hide, 1=icon, 2=box).
+      if (selectedTasks && typeof selectedTasks === 'object' && !Array.isArray(selectedTasks)) {
+        selectedArray = selectedTasks.selectedTasks || [];
+        removeApps = Array.isArray(selectedTasks.removeApps) ? selectedTasks.removeApps : [];
+        if (Number.isInteger(selectedTasks.searchBarMode)) {
+          searchBarMode = selectedTasks.searchBarMode;
+        }
+      }
+
+      // Define script fragments and human‑readable labels for each task.  Each
+      // fragment is self‑contained and should not exit or break the surrounding
+      // script.  Use -Force to create values if they do not exist.  Some tasks
+      // restart Explorer to apply changes immediately (e.g. hiding search).
+      const taskMap = {
+        removePreinstalledApps: {
+          label: 'Remove preinstalled apps',
+          script: `# Remove a selection of built‑in Windows apps\n$appNames = @(\n  'Microsoft.3DViewer','Microsoft.MixedReality.Portal','Microsoft.BingNews','Microsoft.BingWeather',\n  'Microsoft.GetHelp','Microsoft.Getstarted','Microsoft.OfficeHub','Microsoft.MicrosoftSolitaireCollection',\n  'Microsoft.OneConnect','Microsoft.People','Microsoft.SkypeApp','Microsoft.WindowsFeedbackHub',\n  'Microsoft.XboxApp','Microsoft.XboxGamingOverlay','Microsoft.XboxIdentityProvider',\n  'Microsoft.XboxSpeechToTextOverlay','Microsoft.YourPhone','Microsoft.ZuneMusic','Microsoft.ZuneVideo',\n  'Microsoft.WindowsMaps','Microsoft.TikTok','Microsoft.Wallet','Clipchamp.Clipchamp',\n  'MicrosoftTeams','Microsoft.OutlookForWindows','Microsoft.GamingApp','SpotifyAB.SpotifyMusic',\n  'DisneyPlusDisneyPlus','AmazonVideo.PrimeVideo','EpicGamesLauncher','Instagram','Facebook'\n)\nforeach ($app in $appNames) {\n  Get-AppxPackage -AllUsers -Name $app -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue\n  Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like \"$app*\" -or $_.PackageName -like \"$app*\" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue\n}\n`
+        },
+        disableTelemetry: {
+          label: 'Disable telemetry & diagnostic data',
+          script: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'DataCollection' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection' -Name 'AllowTelemetry' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+        },
+        disableActivityHistory: {
+          label: 'Disable activity history',
+          script: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'System' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Name 'PublishUserActivities' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+        },
+        disableAppLaunchTracking: {
+          label: 'Disable app‑launch tracking',
+          script: `$advPath = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced'\nSet-ItemProperty -Path $advPath -Name 'Start_TrackProgs' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+        },
+        disableTargetedAds: {
+          label: 'Disable targeted ads & tailored experiences',
+          script: `New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'AdvertisingInfo' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo' -Name 'Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Privacy' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Privacy' -Name 'TailoredExperiencesWithDiagnosticDataEnabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+        },
+        disableTipsSuggestions: {
+          label: 'Disable tips, suggestions & ads across Windows',
+          script: `$cdm = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager'\nif (Test-Path $cdm) {\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-310093Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-338388Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-338389Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-353694Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-353696Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-338393Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n}\n$engagePath = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion'\n# Disable welcome/first‑run experience\nNew-Item -Path $engagePath -Name 'UserProfileEngagement' -Force | Out-Null\nSet-ItemProperty -Path ($engagePath + '\\UserProfileEngagement') -Name 'ScoobeSystemSettingEnabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n$adv = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced'\nSet-ItemProperty -Path $adv -Name 'SystemPaneSuggestionsEnabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path $adv -Name 'Start_IrisRecommendations' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path $adv -Name 'Start_HighlightProvider' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n# Disable privacy experience and consumer features to prevent post‑restart prompts\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'OOBE' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\OOBE' -Name 'DisablePrivacyExperience' -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'CloudContent' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent' -Name 'DisableWindowsConsumerFeatures' -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+        },
+        disableSpotlight: {
+          label: 'Disable Windows Spotlight',
+          script: `New-Item -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows' -Name 'CloudContent' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows\\CloudContent' -Name 'DisableSpotlightCollectionOnDesktop' -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows\\CloudContent' -Name 'DisableWindowsSpotlightFeatures' -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+        },
+        disableBingSearch: {
+          label: 'Disable Bing web search & Cortana',
+          script: `New-Item -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows' -Name 'Explorer' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer' -Name 'DisableSearchBoxSuggestions' -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'CortanaConsent' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'AllowCortana' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'BingSearchEnabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'Windows Search' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search' -Name 'AllowCortana' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+        },
+        disableCopilot: {
+          label: 'Disable Microsoft Copilot',
+          script: `New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'ShowCopilotButton' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'WindowsCopilot' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot' -Name 'TurnOffWindowsCopilot' -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+        },
+        disableStickyKeys: {
+          label: 'Disable Sticky Keys shortcut',
+          script: `New-Item -Path 'HKCU:\\Control Panel\\Accessibility' -Name 'StickyKeys' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Control Panel\\Accessibility\\StickyKeys' -Name 'Flags' -Value '510' -Type String -Force -ErrorAction SilentlyContinue\n`
+        },
+        restoreClassicContextMenu: {
+          label: 'Restore classic context menu',
+          script: `$clsid = 'HKCU:\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}'\nNew-Item -Path $clsid -Force | Out-Null\nNew-Item -Path \"$clsid\\InprocServer32\" -Force | Out-Null\nSet-ItemProperty -Path \"$clsid\\InprocServer32\" -Name '(Default)' -Value '' -Type String -Force -ErrorAction SilentlyContinue\n`
+        },
+        showFileExtensions: {
+          label: 'Show file extensions',
+          script: `Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'HideFileExt' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+        },
+        hideSearchIcon: {
+          label: 'Hide search icon/box',
+          script: `# Hide the search icon/box on the taskbar\n# Set the value in both the Search key and Explorer\x5c\x5cAdvanced to account for recent Windows builds\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'SearchBoxTaskbarMode' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer' -Name 'Advanced' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'SearchBoxTaskbarMode' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n# Restart Explorer to apply the change immediately\ntry {\n  Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue\n  Start-Sleep -Seconds 2\n  Start-Process explorer.exe\n} catch {}\n`
+        },
+        hideTaskviewButton: {
+          label: 'Hide Task View button',
+          script: `Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'ShowTaskViewButton' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+        },
+        disableWidgets: {
+          label: 'Disable widgets',
+          script: `Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'TaskbarDa' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft' -Name 'Dsh' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Dsh' -Name 'AllowNewsAndInterests' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+        }
+      };
+
+      // Choose a unique log file path.  This file will capture debug
+      // information from the script.  After execution, we will read
+      // and return the log contents to the renderer.
+      const logPath = path.join(os.tmpdir(), `debloat_log_${Date.now()}.txt`);
+      const escapedLogPath = logPath.replace(/"/g, '\\"');
+
+      // Assemble the script.  Start with a try/catch and define a
+      // simple logging function that writes timestamped messages to
+      // the log file.  Always initialize the log file by clearing
+      // any previous contents.
+      let psScript = '';
+      psScript += 'try {\n';
+      psScript += `$LogPath = "${escapedLogPath}"\n`;
+      psScript += 'Remove-Item -Path $LogPath -ErrorAction SilentlyContinue\n';
+      psScript += 'function Log {\n';
+      psScript += '  param([string]$Message)\n';
+      psScript += '  $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")\n';
+      psScript += '  Add-Content -Path $LogPath -Value "[$ts] $Message"\n';
+      psScript += '}\n';
+      psScript += 'Log "Debloat script started"\n';
+
+      // Append each selected task, preceded by a log entry.  Skip unknown keys.
+      selectedArray.forEach((key) => {
+        const task = taskMap[key];
+        if (!task) return;
+        // Record which task is running
+        const safeLabel = task.label.replace(/'/g, "''");
+        psScript += `Log 'Running task: ${safeLabel}'\n`;
+        if (key === 'removePreinstalledApps') {
+          // If the user has selected specific applications to remove, use
+          // them; otherwise skip removal entirely to avoid deleting a
+          // predefined list.  Build a PowerShell array literal from the
+          // removeApps array.  If removeApps is empty, log and skip.
+          if (Array.isArray(removeApps) && removeApps.length > 0) {
+            const arrayLiteral = removeApps.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
+            psScript += `# Remove selected appx packages\n$appNames = @(${arrayLiteral})\nforeach ($app in $appNames) {\n  Get-AppxPackage -AllUsers -Name $app -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue\n  Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like \"$app*\" -or $_.PackageName -like \"$app*\" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue\n}\n`;
+          } else {
+            psScript += `Log 'No preinstalled app packages selected for removal; skipping app removal'\n`;
+          }
+        } else {
+          psScript += task.script + '\n';
+        }
+      });
+
+      // After iterating through tasks, apply the search bar mode if
+      // provided.  This task is handled outside the normal taskMap
+      // because it is a multi‑value setting rather than a simple
+      // toggle.  Valid values are 0 (hide), 1 (icon), 2 (box).
+      if (searchBarMode !== null) {
+        const modeValue = parseInt(searchBarMode, 10);
+        psScript += `Log 'Running task: Set search bar mode to ${modeValue}'\n`;
+        psScript += `# Configure the search bar style\n`;
+        psScript += `$sbMode = ${modeValue}\n`;
+        // Ensure the Search key exists before setting the value
+        psScript += `$searchKey = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search'\n`;
+        psScript += `if (-not (Test-Path $searchKey)) {\n  New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -ItemType Directory -Force | Out-Null\n}\n`;
+        psScript += `Set-ItemProperty -Path $searchKey -Name 'SearchBoxTaskbarMode' -Value $sbMode -Type DWord -Force -ErrorAction SilentlyContinue\n`;
+        // Ensure the Explorer\Advanced key exists
+        psScript += `$advKey = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced'\n`;
+        psScript += `if (-not (Test-Path $advKey)) {\n  New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer' -Name 'Advanced' -ItemType Directory -Force | Out-Null\n}\n`;
+        psScript += `Set-ItemProperty -Path $advKey -Name 'SearchBoxTaskbarMode' -Value $sbMode -Type DWord -Force -ErrorAction SilentlyContinue\n`;
+        psScript += `# Restart Explorer to apply the change immediately\n`;
+        psScript += `try {\n  Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue\n  Start-Sleep -Seconds 2\n  Start-Process explorer.exe\n} catch {}\n`;
+      }
+      psScript += 'Log "Debloat operations finished."\n';
+      // Emit a human‑readable completion message.  Provide the log path for reference.
+      psScript += `Write-Host 'Debloat operations finished. A restart is recommended to apply changes. Log: ${escapedLogPath}' -ForegroundColor Green\n`;
+      psScript += 'exit 0\n';
+      psScript += '} catch {\n';
+      psScript += '  Log "ERROR: $_"\n';
+      psScript += '  Write-Error $_\n';
+      psScript += '  exit 1\n';
+      psScript += '}\n';
+
+      // Write the script to a temporary file
+      const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
+      fs.writeFileSync(psFile, psScript, 'utf8');
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      // Use Start-Process to elevate; wait for completion
+      const command = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
+      const child = spawn('powershell.exe', ['-Command', command], { windowsHide: true });
+      child.on('error', (err) => {
+        try {
+          if (fs.existsSync(psFile)) fs.unlinkSync(psFile);
+        } catch (_) {}
+        resolve({ success: false, error: 'Administrator privileges required or denied. Please accept the UAC prompt and try again.' });
+      });
+      child.on('exit', (code) => {
+        // Remove the temporary script file
+        try {
+          if (fs.existsSync(psFile)) fs.unlinkSync(psFile);
+        } catch (_) {}
+        // Read the log file if present
+        let logContents = null;
+        try {
+          if (fs.existsSync(logPath)) {
+            logContents = fs.readFileSync(logPath, 'utf8');
+          }
+        } catch (_) {}
+        if (code === 0) {
+          resolve({ success: true, message: 'Selected debloat tasks completed. Some changes may require a restart to take effect.', log: logContents });
+        } else {
+          resolve({ success: false, error: 'One or more debloat tasks failed. Please try again.', log: logContents });
+        }
+      });
+    } catch (err) {
+      resolve({ success: false, error: 'Failed to initiate debloat tasks: ' + err.message });
+    }
+  });
+});
+
 ipcMain.handle('get-preinstalled-apps', async () => {
-  // Only supported on Windows. Return an empty array on other platforms
   if (process.platform !== 'win32') {
     return [];
   }
-
+  
   return new Promise((resolve) => {
     const psScript = `
-# Βελτιωμένη ανάκτηση εφαρμογών με κατηγοριοποίηση
-try {
-    $allPackages = Get-AppxPackage | Where-Object { 
-        $_.NonRemovable -eq $false -and 
-        $_.SignatureKind -eq "Store" -and
-        $_.IsFramework -eq $false
-    }
-    
-    # Κατηγορίες εφαρμογών
-    $appCategories = @{
-        "Microsoft Apps" = @(
-            "Microsoft.BingNews", "Microsoft.BingWeather", "Microsoft.Getstarted",
-            "Microsoft.MicrosoftSolitaireCollection", "Microsoft.YourPhone"
-        )
-        "Social Media" = @(
-            "Microsoft.TikTok", "Facebook.Facebook", "Instagram.Instagram", 
-            "Twitter.Twitter"
-        )
-        "Xbox & Gaming" = @(
-            "Microsoft.XboxApp", "Microsoft.XboxIdentityProvider", 
-            "Microsoft.XboxGamingOverlay", "ROBLOXCORPORATION.ROBLOX"
-        )
-        "Media & Entertainment" = @(
-            "SpotifyAB.SpotifyMusic", "Microsoft.ZuneMusic", "Microsoft.WindowsPhotos",
-            "Netflix", "Disney.37853FC22B2CE"
-        )
-        "Productivity" = @(
-            "Microsoft.QuickAssist", "Microsoft.PowerAutomateDesktop",
-            "Microsoft.OutlookForWindows", "Microsoft.Todos", "Microsoft.MicrosoftTeams"
-        )
-        "Utilities" = @(
-            "Clipchamp.Clipchamp", "Microsoft.WindowsSoundRecorder",
-            "Microsoft.WindowsAlarms", "Microsoft.WindowsCamera", "Microsoft.WindowsMaps"
-        )
-    }
-    
-    $categorizedApps = @{}
-    $uncategorizedApps = @()
-    
-    foreach ($package in $allPackages) {
-        $foundCategory = $null
-        foreach ($category in $appCategories.Keys) {
-            foreach ($pattern in $appCategories[$category]) {
-                if ($package.Name -like "*$pattern*") {
-                    if (-not $categorizedApps[$category]) {
-                        $categorizedApps[$category] = @()
-                    }
-                    $categorizedApps[$category] += @{
-                        id = $package.Name
-                        name = $package.Name
-                        fullName = $package.PackageFullName
-                        version = $package.Version
-                    }
-                    $foundCategory = $category
-                    break
-                }
-            }
-            if ($foundCategory) { break }
-        }
-        
-        if (-not $foundCategory) {
-            # Προσθήκη μόνο αν δεν είναι system component
-            if ($package.Name -notlike "*Microsoft.Windows.*" -and 
-                $package.Name -notlike "*Microsoft.NET.*" -and
-                $package.Name -notlike "*Microsoft.VCLibs.*" -and
-                $package.Name -notlike "*Microsoft.UI.Xaml*") {
-                $uncategorizedApps += @{
-                    id = $package.Name
-                    name = $package.Name
-                    fullName = $package.PackageFullName
-                    version = $package.Version
-                }
-            }
-        }
-    }
-    
-    # Προσθήκη uncategorized apps σε ξεχωριστή κατηγορία
-    if ($uncategorizedApps.Count -gt 0) {
-        $categorizedApps["Other Apps"] = $uncategorizedApps
-    }
-    
-    ConvertTo-Json -InputObject @{
-        categories = $categorizedApps
-        totalCount = $allPackages.Count
-    } -Compress -Depth 3
-} catch {
-    Write-Error $_
-    "{}"
+# Get all installed AppX packages for current user
+$allPackages = Get-AppxPackage
+
+# Common bloatware packages with friendly names
+$bloatwareMap = @{
+    'Microsoft.BingNews' = 'Microsoft News'
+    'Microsoft.BingWeather' = 'Microsoft Weather' 
+    'Microsoft.GetHelp' = 'Get Help'
+    'Microsoft.Getstarted' = 'Get Started'
+    'Microsoft.MicrosoftSolitaireCollection' = 'Microsoft Solitaire'
+    'Microsoft.People' = 'People'
+    'Microsoft.WindowsFeedbackHub' = 'Feedback Hub'
+    'Microsoft.XboxApp' = 'Xbox App'
+    'Microsoft.XboxGamingOverlay' = 'Xbox Game Bar'
+    'Microsoft.XboxIdentityProvider' = 'Xbox Identity'
+    'Microsoft.YourPhone' = 'Your Phone'
+    'Microsoft.ZuneMusic' = 'Windows Media Player'
+    'Microsoft.ZuneVideo' = 'Movies & TV'
+    'Microsoft.TikTok' = 'TikTok'
+    'Microsoft.Wallet' = 'Microsoft Wallet'
+    'Clipchamp.Clipchamp' = 'Clipchamp'
+    'SpotifyAB.SpotifyMusic' = 'Spotify'
+    'DisneyPlusDisneyPlus' = 'Disney+'
+    'Facebook' = 'Facebook'
+    'Instagram' = 'Instagram'
+    'Twitter' = 'Twitter'
+    'Amazon.com.Amazon' = 'Amazon Shopping'
+    'PandoraMediaInc' = 'Pandora'
+    'AdobeSystemsIncorporated.AdobePhotoshopExpress' = 'Photoshop Express'
+    'CandyCrush' = 'Candy Crush'
+    'Netflix' = 'Netflix'
+    'Microsoft.BingFoodAndDrink' = 'Food & Drink'
+    'Microsoft.BingHealthAndFitness' = 'Health & Fitness'
+    'Microsoft.BingTravel' = 'Bing Travel'
+    'Microsoft.WindowsAlarms' = 'Alarms & Clock'
+    'Microsoft.WindowsCamera' = 'Camera'
+    'Microsoft.WindowsMaps' = 'Maps'
+    'Microsoft.WindowsSoundRecorder' = 'Voice Recorder'
+    'Microsoft.WindowsCommunicationsApps' = 'Mail & Calendar'
+    'Microsoft.Office.OneNote' = 'OneNote'
+    'Microsoft.MicrosoftOfficeHub' = 'Microsoft Office'
+    'Microsoft.SkypeApp' = 'Skype'
+    'Microsoft.MSPaint' = 'Paint 3D'
+    'Microsoft.MicrosoftStickyNotes' = 'Sticky Notes'
+    'Microsoft.MicrosoftEdge' = 'Microsoft Edge'
 }
+
+# Check which ones are actually installed
+$installedApps = @()
+foreach ($appKey in $bloatwareMap.Keys) {
+    $matchingPackages = $allPackages | Where-Object { $_.Name -like "*$appKey*" }
+    if ($matchingPackages) {
+        $installedApps += @{
+            id = $appKey
+            name = $bloatwareMap[$appKey]
+        }
+    }
+}
+
+# Return as JSON
+ConvertTo-Json @($installedApps)
 `;
 
     const child = spawn('powershell.exe', [
-      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psScript
-    ]);
+      '-NoProfile', 
+      '-ExecutionPolicy', 
+      'Bypass', 
+      '-Command', 
+      psScript
+    ], { 
+      windowsHide: true
+    });
 
     let output = '';
-    child.stdout.on('data', (data) => output += data.toString());
-    child.stderr.on('data', (data) => console.error('PS Error:', data.toString()));
-    
+    let errorOutput = '';
+
+    child.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
     child.on('exit', (code) => {
-      try {
-        if (output.trim()) {
-          const result = JSON.parse(output);
-          // If the result has categories, flatten them to a list of app IDs
-          if (result && typeof result === 'object' && result.categories) {
-            // Mapping of known package IDs to human-friendly names
-            const friendlyNames = {
-              'Microsoft.BingNews': 'Microsoft News',
-              'Microsoft.BingWeather': 'Microsoft Weather',
-              'Microsoft.Getstarted': 'Get Started',
-              'Microsoft.MicrosoftSolitaireCollection': 'Microsoft Solitaire',
-              'Microsoft.YourPhone': 'Your Phone',
-              'Microsoft.TikTok': 'TikTok',
-              'Clipchamp.Clipchamp': 'Clipchamp',
-              'Microsoft.XboxApp': 'Xbox',
-              'Microsoft.XboxIdentityProvider': 'Xbox Identity Provider',
-              'Microsoft.XboxGamingOverlay': 'Xbox Game Bar',
-              'Microsoft.WindowsSoundRecorder': 'Sound Recorder',
-              'Microsoft.QuickAssist': 'Quick Assist',
-              'Microsoft.PowerAutomateDesktop': 'Power Automate',
-              'Microsoft.OutlookForWindows': 'Outlook for Windows',
-              'Microsoft.Todos': 'Microsoft To Do',
-              'Microsoft.MicrosoftTeams': 'Microsoft Teams',
-              'Microsoft.GamingApp': 'Microsoft Gaming',
-              'Microsoft.Bing': 'Microsoft Bing',
-              'Microsoft.ZuneMusic': 'Media Player',
-              'Microsoft.WindowsFeedbackHub': 'Feedback Hub',
-              'Microsoft.WindowsAlarms': 'Clock',
-              'Microsoft.WindowsCamera': 'Camera',
-              'Microsoft.SkypeApp': 'Skype',
-              'Microsoft.People': 'People',
-              'Microsoft.WindowsMaps': 'Maps',
-              'Microsoft.Paint': 'Paint',
-              'Microsoft.MSPaint': 'Paint 3D',
-              'SpotifyAB.SpotifyMusic': 'Spotify',
-              'Facebook.Facebook': 'Facebook',
-              'Instagram.Instagram': 'Instagram',
-              'Twitter.Twitter': 'Twitter'
-            };
-            // Helper to derive a name from a package ID when no mapping is found
-            function deriveName(id) {
-              const seg = id.split('.').pop();
-              let name = seg;
-              // Insert space between a lower-case/digit and an uppercase letter
-              name = name.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
-              // Also insert space between consecutive uppercase letters when the next is followed by a lower-case letter
-              name = name.replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
-              return name;
-            }
-            const list = [];
-            for (const key of Object.keys(result.categories)) {
-              const items = result.categories[key];
-              if (Array.isArray(items)) {
-                items.forEach((item) => {
-                  let id;
-                  let baseName;
-                  if (item && typeof item === 'object') {
-                    id = item.id;
-                    baseName = item.name;
-                  } else if (typeof item === 'string') {
-                    id = item;
-                    baseName = undefined;
-                  }
-                  if (!id) return;
-                  // Prefer a friendly name from the mapping, then the item's base name if it's different from the id, else derive from the id
-                  let name;
-                  if (friendlyNames[id]) {
-                    name = friendlyNames[id];
-                  } else if (baseName && baseName !== id) {
-                    name = baseName;
-                  } else {
-                    name = deriveName(id);
-                  }
-                  // Skip entries where the name resolves to a purely numeric string
-                  if (typeof name === 'string' && /^\d+$/.test(name.trim())) {
-                    return;
-                  }
-                  list.push({ id, name });
-                });
-              }
-            }
-            resolve(list);
-            return;
+      console.log('PowerShell get-preinstalled-apps exit code:', code);
+      
+      if (code === 0 || code === 1) {
+        try {
+          if (output.trim()) {
+            const apps = JSON.parse(output);
+            console.log('Found preinstalled apps:', apps);
+            resolve(apps);
+          } else {
+            resolve([]);
           }
-          // If the parsed result is already an array, ensure each element is an object with id/name
-          if (Array.isArray(result)) {
-            const friendlyNames = {
-              'Microsoft.BingNews': 'Microsoft News',
-              'Microsoft.BingWeather': 'Microsoft Weather',
-              'Microsoft.Getstarted': 'Get Started',
-              'Microsoft.MicrosoftSolitaireCollection': 'Microsoft Solitaire',
-              'Microsoft.YourPhone': 'Your Phone',
-              'Microsoft.TikTok': 'TikTok',
-              'Clipchamp.Clipchamp': 'Clipchamp',
-              'Microsoft.XboxApp': 'Xbox',
-              'Microsoft.XboxIdentityProvider': 'Xbox Identity Provider',
-              'Microsoft.XboxGamingOverlay': 'Xbox Game Bar',
-              'Microsoft.WindowsSoundRecorder': 'Sound Recorder',
-              'Microsoft.QuickAssist': 'Quick Assist',
-              'Microsoft.PowerAutomateDesktop': 'Power Automate',
-              'Microsoft.OutlookForWindows': 'Outlook for Windows',
-              'Microsoft.Todos': 'Microsoft To Do',
-              'Microsoft.MicrosoftTeams': 'Microsoft Teams',
-              'Microsoft.GamingApp': 'Microsoft Gaming',
-              'Microsoft.Bing': 'Microsoft Bing',
-              'Microsoft.ZuneMusic': 'Media Player',
-              'Microsoft.WindowsFeedbackHub': 'Feedback Hub',
-              'Microsoft.WindowsAlarms': 'Clock',
-              'Microsoft.WindowsCamera': 'Camera',
-              'Microsoft.SkypeApp': 'Skype',
-              'Microsoft.People': 'People',
-              'Microsoft.WindowsMaps': 'Maps',
-              'Microsoft.Paint': 'Paint',
-              'Microsoft.MSPaint': 'Paint 3D',
-              'SpotifyAB.SpotifyMusic': 'Spotify',
-              'Facebook.Facebook': 'Facebook',
-              'Instagram.Instagram': 'Instagram',
-              'Twitter.Twitter': 'Twitter'
-            };
-            function deriveName(id) {
-              const seg = id.split('.').pop();
-              let name = seg;
-              name = name.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
-              name = name.replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
-              return name;
-            }
-            const list = result.map((item) => {
-              let id;
-              let baseName;
-              if (item && typeof item === 'object') {
-                id = item.id;
-                baseName = item.name;
-              } else if (typeof item === 'string') {
-                id = item;
-                baseName = undefined;
-              }
-              if (!id) return null;
-              let name;
-              if (friendlyNames[id]) {
-                name = friendlyNames[id];
-              } else if (baseName && baseName !== id) {
-                name = baseName;
-              } else {
-                name = deriveName(id);
-              }
-              // Skip entries where the name resolves to a purely numeric string
-              if (typeof name === 'string' && /^\d+$/.test(name.trim())) {
-                return null;
-              }
-              return { id, name };
-            }).filter(Boolean);
-            resolve(list);
-            return;
-          }
-          // Otherwise, resolve with an empty array
-          resolve([]);
-        } else {
-          resolve([]);
+        } catch (parseError) {
+          console.error('Failed to parse PowerShell output:', parseError);
+          resolve(getFallbackApps());
         }
-      } catch {
-        resolve([]);
+      } else {
+        console.error('PowerShell script failed with code:', code);
+        resolve(getFallbackApps());
       }
+    });
+
+    child.on('error', (error) => {
+      console.error('Failed to spawn PowerShell:', error);
+      resolve(getFallbackApps());
     });
   });
 });
 
-// Προσθήκη του get-default-remove-apps handler (legacy instance 1)
-// Ensure previous handlers for the same channel are removed before registering again
-ipcMain.removeHandler('get-default-remove-apps');
-ipcMain.handle('get-default-remove-apps', async () => {
-  return [
-    'Microsoft.BingNews',
-    'Microsoft.BingWeather',
-    'Microsoft.Getstarted',
-    'Microsoft.MicrosoftSolitaireCollection', 
-    'Microsoft.YourPhone',
-    'Microsoft.TikTok',
-    'Clipchamp.Clipchamp',
-    'Microsoft.XboxApp',
-    'Microsoft.XboxIdentityProvider',
-    'Microsoft.XboxGamingOverlay',
-    'Microsoft.WindowsSoundRecorder',
-    'Microsoft.QuickAssist',
-    'Microsoft.PowerAutomateDesktop',
-    'Microsoft.OutlookForWindows',
-    'Microsoft.Todos',
-    'Microsoft.MicrosoftTeams',
-    'Microsoft.GamingApp',
-    'Microsoft.Bing',
-    'Microsoft.ZuneMusic',
-    'Microsoft.WindowsFeedbackHub',
-    'Microsoft.SkypeApp',
-    'Microsoft.People',
-    'Microsoft.WindowsCamera',
-    'Microsoft.WindowsAlarms',
-    'Microsoft.WindowsMaps',
-    'Microsoft.Paint',
-    'Microsoft.MSPaint',
-    'SpotifyAB.SpotifyMusic',
-    'Facebook.Facebook',
-    'Instagram.Instagram',
-    'Twitter.Twitter'
-  ];
-});
-
 // Helper function for fallback apps
 function getFallbackApps() {
   return [
@@ -1945,271 +1961,9 @@ function getFallbackApps() {
     { id: 'Microsoft.MicrosoftSolitaireCollection', name: 'Microsoft Solitaire' },
     { id: 'Microsoft.YourPhone', name: 'Your Phone' },
     { id: 'Microsoft.TikTok', name: 'TikTok' },
-    { id: 'Clipchamp.Clipchamp', name: 'Clipchamp' },
-    { id: 'SpotifyAB.SpotifyMusic', name: 'Spotify' },
-    { id: 'Microsoft.XboxApp', name: 'Xbox' },
-    { id: 'Microsoft.XboxIdentityProvider', name: 'Xbox Identity Provider' },
-    { id: 'Microsoft.XboxGamingOverlay', name: 'Xbox Game Bar' },
-    { id: 'Microsoft.WindowsSoundRecorder', name: 'Sound Recorder' },
-    { id: 'Microsoft.QuickAssist', name: 'Quick Assist' },
-    { id: 'Microsoft.PowerAutomateDesktop', name: 'Power Automate' },
-    { id: 'Microsoft.Paint', name: 'Paint' },
-    { id: 'Microsoft.MSPaint', name: 'Paint 3D' },
-    { id: 'Microsoft.OutlookForWindows', name: 'Outlook for Windows' },
-    { id: 'Microsoft.Todos', name: 'Microsoft To Do' },
-    { id: 'Microsoft.MicrosoftTeams', name: 'Microsoft Teams' },
-    { id: 'Microsoft.Edge', name: 'Microsoft Edge' },
-    { id: 'Microsoft.GamingApp', name: 'Microsoft Gaming' },
-    { id: 'Microsoft.Bing', name: 'Microsoft Bing' },
-    { id: 'Microsoft.ZuneMusic', name: 'Media Player' },
-    { id: 'Microsoft.WindowsFeedbackHub', name: 'Feedback Hub' },
-    { id: 'Microsoft.WindowsAlarms', name: 'Clock' },
-    { id: 'Microsoft.WindowsCamera', name: 'Camera' },
-    { id: 'Microsoft.SkypeApp', name: 'Skype' },
-    { id: 'Microsoft.People', name: 'People' },
-    { id: 'Microsoft.WindowsMaps', name: 'Maps' }
+    { id: 'SpotifyAB.SpotifyMusic', name: 'Spotify' }
   ];
 }
-
-// Προσθήκη του get-default-debloat-tasks handler (legacy instance 1)
-// Ensure previous handlers are removed before re-registering
-ipcMain.removeHandler('get-default-debloat-tasks');
-ipcMain.handle('get-default-debloat-tasks', async () => {
-  return {
-    selectedTasks: [
-      'removePreinstalledApps',
-      'disableTelemetry',
-      'disableActivityHistory', 
-      'disableTipsSuggestions',
-      'disableCortana',
-      'disableLocationServices',
-      'disableAdvertisingID',
-      'disableTelemetryHost',
-      'disableBackgroundApps',
-      'disableBingSearch',
-      'disableCopilot',
-      'disableRemoteAssistance',
-      'disableRemoteDesktop',
-      'showFileExtensions',
-      'restoreClassicContextMenu',
-      'enablePerformanceTweaks',
-      'disableAnimations',
-      'disableGameBar',
-      'disableOneDrive'
-    ],
-    removeApps: [
-      'Microsoft.BingNews',
-      'Microsoft.BingWeather',
-      'Microsoft.Getstarted',
-      'Microsoft.MicrosoftSolitaireCollection',
-      'Microsoft.YourPhone',
-      'Microsoft.TikTok',
-      'Clipchamp.Clipchamp',
-      'Microsoft.XboxApp',
-      'Microsoft.XboxIdentityProvider',
-      'Microsoft.XboxGamingOverlay',
-      'Microsoft.WindowsSoundRecorder',
-      'Microsoft.QuickAssist',
-      'Microsoft.PowerAutomateDesktop',
-      'Microsoft.OutlookForWindows',
-      'Microsoft.Todos',
-      'Microsoft.MicrosoftTeams',
-      'Microsoft.GamingApp',
-      'Microsoft.Bing',
-      'Microsoft.ZuneMusic',
-      'Microsoft.WindowsFeedbackHub',
-      'Microsoft.SkypeApp',
-      'Microsoft.People',
-      'Microsoft.WindowsCamera',
-      'Microsoft.WindowsAlarms',
-      'Microsoft.WindowsMaps',
-      'Microsoft.Paint',
-      'Microsoft.MSPaint',
-      'SpotifyAB.SpotifyMusic',
-      'Facebook.Facebook',
-      'Instagram.Instagram',
-      'Twitter.Twitter'
-    ],
-    searchBarMode: 0
-  };
-});
-
-
-ipcMain.removeHandler('get-default-remove-apps');
-ipcMain.handle('get-default-remove-apps', async () => {
-  return [
-    'Microsoft.BingNews',
-    'Microsoft.BingWeather',
-    'Microsoft.Getstarted',
-    'Microsoft.MicrosoftSolitaireCollection', 
-    'Microsoft.YourPhone',
-    'Microsoft.TikTok',
-    'Clipchamp.Clipchamp',
-    'Microsoft.XboxApp',
-    'Microsoft.XboxIdentityProvider',
-    'Microsoft.XboxGamingOverlay',
-    'Microsoft.WindowsSoundRecorder',
-    'Microsoft.QuickAssist',
-    'Microsoft.PowerAutomateDesktop',
-    'Microsoft.OutlookForWindows',
-    'Microsoft.Todos',
-    'Microsoft.MicrosoftTeams',
-    'Microsoft.GamingApp',
-    'Microsoft.Bing',
-    'Microsoft.ZuneMusic',
-    'Microsoft.WindowsFeedbackHub',
-    'Microsoft.SkypeApp',
-    'Microsoft.People',
-    'Microsoft.WindowsCamera',
-    'Microsoft.WindowsAlarms',
-    'Microsoft.WindowsMaps',
-    'Microsoft.Paint',
-    'Microsoft.MSPaint',
-    'SpotifyAB.SpotifyMusic',
-    'Facebook.Facebook',
-    'Instagram.Instagram',
-    'Twitter.Twitter'
-  ];
-});
-
-// Helper function for fallback apps
-function getFallbackApps() {
-  return [
-    { id: 'Microsoft.BingNews', name: 'Microsoft News' },
-    { id: 'Microsoft.BingWeather', name: 'Microsoft Weather' },
-    { id: 'Microsoft.Getstarted', name: 'Get Started' },
-    { id: 'Microsoft.MicrosoftSolitaireCollection', name: 'Microsoft Solitaire' },
-    { id: 'Microsoft.YourPhone', name: 'Your Phone' },
-    { id: 'Microsoft.TikTok', name: 'TikTok' },
-    { id: 'Clipchamp.Clipchamp', name: 'Clipchamp' },
-    { id: 'SpotifyAB.SpotifyMusic', name: 'Spotify' },
-    { id: 'Microsoft.XboxApp', name: 'Xbox' },
-    { id: 'Microsoft.XboxIdentityProvider', name: 'Xbox Identity Provider' },
-    { id: 'Microsoft.XboxGamingOverlay', name: 'Xbox Game Bar' },
-    { id: 'Microsoft.WindowsSoundRecorder', name: 'Sound Recorder' },
-    { id: 'Microsoft.QuickAssist', name: 'Quick Assist' },
-    { id: 'Microsoft.PowerAutomateDesktop', name: 'Power Automate' },
-    { id: 'Microsoft.Paint', name: 'Paint' },
-    { id: 'Microsoft.MSPaint', name: 'Paint 3D' },
-    { id: 'Microsoft.OutlookForWindows', name: 'Outlook for Windows' },
-    { id: 'Microsoft.Todos', name: 'Microsoft To Do' },
-    { id: 'Microsoft.MicrosoftTeams', name: 'Microsoft Teams' },
-    { id: 'Microsoft.Edge', name: 'Microsoft Edge' },
-    { id: 'Microsoft.GamingApp', name: 'Microsoft Gaming' },
-    { id: 'Microsoft.Bing', name: 'Microsoft Bing' },
-    { id: 'Microsoft.ZuneMusic', name: 'Media Player' },
-    { id: 'Microsoft.WindowsFeedbackHub', name: 'Feedback Hub' },
-    { id: 'Microsoft.WindowsAlarms', name: 'Clock' },
-    { id: 'Microsoft.WindowsCamera', name: 'Camera' },
-    { id: 'Microsoft.SkypeApp', name: 'Skype' },
-    { id: 'Microsoft.People', name: 'People' },
-    { id: 'Microsoft.WindowsMaps', name: 'Maps' }
-  ];
-}
-
-// Προσθήκη του get-default-debloat-tasks handler
-// Remove existing handler to ensure only one registration
-ipcMain.removeHandler('get-default-debloat-tasks');
-ipcMain.handle('get-default-debloat-tasks', async () => {
-  return {
-    selectedTasks: [
-      'removePreinstalledApps',
-      'disableTelemetry',
-      'disableActivityHistory', 
-      'disableTipsSuggestions',
-      'disableCortana',
-      'disableLocationServices',
-      'disableAdvertisingID',
-      'disableTelemetryHost',
-      'disableBackgroundApps',
-      'disableBingSearch',
-      'disableCopilot',
-      'disableRemoteAssistance',
-      'disableRemoteDesktop',
-      'showFileExtensions',
-      'restoreClassicContextMenu',
-      'enablePerformanceTweaks',
-      'disableAnimations',
-      'disableGameBar',
-      'disableOneDrive'
-    ],
-    removeApps: [
-      'Microsoft.BingNews',
-      'Microsoft.BingWeather',
-      'Microsoft.Getstarted',
-      'Microsoft.MicrosoftSolitaireCollection',
-      'Microsoft.YourPhone',
-      'Microsoft.TikTok',
-      'Clipchamp.Clipchamp',
-      'Microsoft.XboxApp',
-      'Microsoft.XboxIdentityProvider',
-      'Microsoft.XboxGamingOverlay',
-      'Microsoft.WindowsSoundRecorder',
-      'Microsoft.QuickAssist',
-      'Microsoft.PowerAutomateDesktop',
-      'Microsoft.OutlookForWindows',
-      'Microsoft.Todos',
-      'Microsoft.MicrosoftTeams',
-      'Microsoft.GamingApp',
-      'Microsoft.Bing',
-      'Microsoft.ZuneMusic',
-      'Microsoft.WindowsFeedbackHub',
-      'Microsoft.SkypeApp',
-      'Microsoft.People',
-      'Microsoft.WindowsCamera',
-      'Microsoft.WindowsAlarms',
-      'Microsoft.WindowsMaps',
-      'Microsoft.Paint',
-      'Microsoft.MSPaint',
-      'SpotifyAB.SpotifyMusic',
-      'Facebook.Facebook',
-      'Instagram.Instagram',
-      'Twitter.Twitter'
-    ],
-    searchBarMode: 0
-  };
-});
-
-
-// Προσθέστε αυτό το handler στο main.js
-// Remove any previously registered handler for this channel to avoid duplicates
-ipcMain.removeHandler('get-default-remove-apps');
-ipcMain.handle('get-default-remove-apps', async () => {
-  return [
-    'Microsoft.BingNews',
-    'Microsoft.BingWeather',
-    'Microsoft.Getstarted',
-    'Microsoft.MicrosoftSolitaireCollection', 
-    'Microsoft.YourPhone',
-    'Microsoft.TikTok',
-    'Clipchamp.Clipchamp',
-    'Microsoft.XboxApp',
-    'Microsoft.XboxIdentityProvider',
-    'Microsoft.XboxGamingOverlay',
-    'Microsoft.WindowsSoundRecorder',
-    'Microsoft.QuickAssist',
-    'Microsoft.PowerAutomateDesktop',
-    'Microsoft.OutlookForWindows',
-    'Microsoft.Todos',
-    'Microsoft.MicrosoftTeams',
-    'Microsoft.GamingApp',
-    'Microsoft.Bing',
-    'Microsoft.ZuneMusic',
-    'Microsoft.WindowsFeedbackHub',
-    'Microsoft.SkypeApp',
-    'Microsoft.People',
-    'Microsoft.WindowsCamera',
-    'Microsoft.WindowsAlarms',
-    'Microsoft.WindowsMaps',
-    'Microsoft.Paint',
-    'Microsoft.MSPaint',
-    'SpotifyAB.SpotifyMusic',
-    'Facebook.Facebook',
-    'Instagram.Instagram',
-    'Twitter.Twitter'
-  ];
-});
-
 
 
 ipcMain.handle('find-exe-files', async (event, directoryPath) => {
@@ -2327,185 +2081,8 @@ ipcMain.handle('run-installer', async (event, filePath) => {
     }
   });
 });
-
-// Αφαίρεση όλων των παλιών handlers
-ipcMain.removeHandler('run-debloat-tasks');
-
-ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
-    if (process.platform !== 'win32') {
-        return { success: false, error: 'Debloat tasks are only supported on Windows' };
-    }
-
-    return new Promise((resolve) => {
-        try {
-            const config = selectedTasks || {};
-            const selectedArray = Array.isArray(config.selectedTasks) ? config.selectedTasks : [];
-            const removeApps = Array.isArray(config.removeApps) ? config.removeApps : [];
-            const searchBarMode = Number.isInteger(config.searchBarMode) ? config.searchBarMode : 0;
-
-            console.log('Starting debloat with tasks:', selectedArray);
-            console.log('App is packaged:', isPackaged);
-
-            // Απλό PowerShell script που τρέχει απευθείας
-            let psScript = `
-# Windows Debloat Script - Running from packaged app
-Write-Host "=== WINDOWS DEBLOAT TOOL ===" -ForegroundColor Cyan
-Write-Host "Running from packaged application" -ForegroundColor Yellow
-Start-Sleep -Seconds 2
-
-# Initialize
-\$completed = 0
-\$total = 0
-
-function Log-Result {
-    param([string]\$Task, [bool]\$Success)
-    \$script:total++
-    if (\$Success) {
-        Write-Host "✓ \$Task" -ForegroundColor Green
-        \$script:completed++
-    } else {
-        Write-Host "✗ \$Task" -ForegroundColor Red
-    }
-}
-`;
-
-            // Προσθήκη tasks
-            if (selectedArray.includes('showFileExtensions')) {
-                psScript += `
-try {
-    New-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "HideFileExt" -Value 0 -PropertyType DWord -Force -ErrorAction Stop
-    Log-Result -Task "Show file extensions" -Success \$true
-} catch {
-    Log-Result -Task "Show file extensions" -Success \$false
-}
-`;
-            }
-
-            if (selectedArray.includes('disableBingSearch')) {
-                psScript += `
-try {
-    New-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search" -Name "BingSearchEnabled" -Value 0 -PropertyType DWord -Force -ErrorAction Stop
-    Log-Result -Task "Disable Bing search" -Success \$true
-} catch {
-    Log-Result -Task "Disable Bing search" -Success \$false
-}
-`;
-            }
-
-            if (selectedArray.includes('disableGameBar')) {
-                psScript += `
-try {
-    New-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "AppCaptureEnabled" -Value 0 -PropertyType DWord -Force -ErrorAction Stop
-    Log-Result -Task "Disable Game Bar" -Success \$true
-} catch {
-    Log-Result -Task "Disable Game Bar" -Success \$false
-}
-`;
-            }
-
-            // Remove apps
-            if (selectedArray.includes('removePreinstalledApps') && removeApps.length > 0) {
-                psScript += `
-# Remove apps
-Write-Host "Removing preinstalled apps..." -ForegroundColor Yellow
-\$appsToRemove = @(${removeApps.map(app => `"${app}"`).join(', ')})
-\$removedCount = 0
-
-foreach (\$app in \$appsToRemove) {
-    try {
-        \$package = Get-AppxPackage -Name "*\$app*" -ErrorAction SilentlyContinue
-        if (\$package) {
-            Remove-AppxPackage -Package \$package.PackageFullName -ErrorAction SilentlyContinue
-            \$removedCount++
-        }
-    } catch {
-        # Continue on error
-    }
-}
-Log-Result -Task "Removed \$removedCount apps" -Success \$true
-`;
-            }
-
-            // Search bar mode
-            psScript += `
-try {
-    New-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search" -Name "SearchBoxTaskbarMode" -Value ${searchBarMode} -PropertyType DWord -Force -ErrorAction Stop
-    Log-Result -Task "Set search bar mode" -Success \$true
-} catch {
-    Log-Result -Task "Set search bar mode" -Success \$false
-}
-`;
-
-            // Final
-            psScript += `
-# Summary
-Write-Host ""
-Write-Host "=== COMPLETED ===" -ForegroundColor Cyan
-Write-Host "Successful: \$completed/\$total tasks" -ForegroundColor White
-
-# Restart Explorer
-try {
-    Stop-Process -Name "explorer" -Force -ErrorAction SilentlyContinue
-    Write-Host "Explorer restarted" -ForegroundColor Green
-} catch {
-    Write-Host "Note: Some changes may require restart" -ForegroundColor Yellow
-}
-
-Write-Host "Window closes in 10 seconds..." -ForegroundColor Gray
-Start-Sleep -Seconds 10
-`;
-
-            // Χρήση temp directory που είναι πάντα προσβάσιμη
-            const tempDir = os.tmpdir();
-            const psFile = path.join(tempDir, `debloat_packaged_${Date.now()}.ps1`);
-            
-            console.log('Writing PS script to:', psFile);
-            fs.writeFileSync(psFile, psScript, 'utf8');
-
-            // Εκτέλεση απευθείας με PowerShell
-            const command = `powershell -NoProfile -ExecutionPolicy Bypass -File "${psFile}"`;
-            
-            console.log('Executing command:', command);
-            
-            const child = spawn('powershell.exe', [
-                '-NoProfile', 
-                '-ExecutionPolicy', 'Bypass', 
-                '-Command', `Start-Process PowerShell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""${psFile}""' -Verb RunAs`
-            ], {
-                detached: true,
-                stdio: 'ignore'
-            });
-
-            child.on('error', (err) => {
-                console.error('Failed to start PowerShell:', err);
-                resolve({
-                    success: false,
-                    error: 'Failed to start debloat process: ' + err.message
-                });
-            });
-
-            child.on('spawn', () => {
-                console.log('PowerShell process started');
-                // Περίμενε λίγο πριν απαντήσεις
-                setTimeout(() => {
-                    resolve({
-                        success: true,
-                        message: 'Debloat process started. Please accept the UAC prompt and check the PowerShell window.'
-                    });
-                }, 3000);
-            });
-
-            child.unref();
-
-        } catch (err) {
-            console.error('Error in debloat handler:', err);
-            resolve({
-                success: false,
-                error: 'Failed to start debloat: ' + err.message
-            });
-        }
-    });
-});
+// Τροποποιημένο main.js
+// Προσθέτουμε νέο handler για reset password manager (διαγραφή config και DB)
 
 ipcMain.handle('password-manager-reset', async () => {
   try {

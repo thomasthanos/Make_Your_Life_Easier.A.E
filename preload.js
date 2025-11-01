@@ -28,15 +28,6 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
     ipcRenderer.invoke('replace-exe', { sourcePath, destPath }),
 
   isWindows: () => process.platform === 'win32',
-
-  /**
-   * Retrieve the list of application package IDs that are recommended for removal.
-   * This invokes the main process handler 'get-default-remove-apps' and returns
-   * an array of strings.
-   *
-   * @returns {Promise<string[]>} The default removable package IDs.
-   */
-  getDefaultRemoveApps: () => ipcRenderer.invoke('get-default-remove-apps'),
   
   onDownloadEvent: (callback) => {
     const listener = (event, data) => callback(data);
