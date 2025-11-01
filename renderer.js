@@ -2965,6 +2965,17 @@ const processStates = new Map();
         }
       }
 
+      // Retrieve the list of default removable apps so we can pre-select only those
+      let defaultRemoveSet = new Set();
+      try {
+        const defaultRemoveList = await window.api.getDefaultRemoveApps?.();
+        if (Array.isArray(defaultRemoveList)) {
+          defaultRemoveSet = new Set(defaultRemoveList);
+        }
+      } catch (err) {
+        console.warn('Failed to get default removable apps:', err);
+      }
+
       // Create a wrapper for task groups
       const groupsWrapper = document.createElement('div');
       groupsWrapper.className = 'debloat-groups';
@@ -3053,7 +3064,8 @@ const processStates = new Map();
                       appCb.type = 'checkbox';
                       appCb.id = `debloat-app-${app.id}`;
                       appCb.dataset.appId = app.id;
-                      appCb.checked = true; // ✅ ΑΥΤΟ: Check όλα τα apps by default
+                      // Επιλέγουμε ένα app μόνο αν βρίσκεται στη λίστα των προτεινόμενων προς αφαίρεση
+                      appCb.checked = defaultRemoveSet.has(app.id);
                       
                       const appLabel = document.createElement('label');
                       appLabel.setAttribute('for', appCb.id);
