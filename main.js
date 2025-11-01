@@ -1602,7 +1602,6 @@ ipcMain.handle('run-autologin-script', async () => {
 });
 
 // Handler for the debloat operation.  This creates a temporary
-
 ipcMain.handle('run-debloat', async () => {
   if (process.platform !== 'win32') {
     return { success: false, error: 'Debloat tasks are only supported on Windows' };
@@ -1672,7 +1671,6 @@ try {
   });
 });
 
-
 ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
   if (process.platform !== 'win32') {
     return { success: false, error: 'Debloat tasks are only supported on Windows' };
@@ -1693,7 +1691,7 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
         }
       }
 
-      // Task definitions - FIXED syntax
+      // Task definitions - ΟΛΑ τα tasks
       const taskMap = {
         removePreinstalledApps: {
           label: 'Remove preinstalled apps',
@@ -1701,31 +1699,59 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
         },
         disableTelemetry: {
           label: 'Disable telemetry & diagnostic data',
-          script: `# Disable telemetry\nWrite-Host "Disabling telemetry..." -ForegroundColor Yellow\nNew-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "DataCollection" -Force | Out-Null\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+          script: `# Disable telemetry (requires admin)\nWrite-Host "Disabling telemetry..." -ForegroundColor Yellow\nNew-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "DataCollection" -Force | Out-Null\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Telemetry disabled" -ForegroundColor Green\n`
         },
         disableActivityHistory: {
           label: 'Disable activity history',
-          script: `# Disable activity history\nWrite-Host "Disabling activity history..." -ForegroundColor Yellow\nNew-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "System" -Force | Out-Null\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System" -Name "PublishUserActivities" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+          script: `# Disable activity history (requires admin)\nWrite-Host "Disabling activity history..." -ForegroundColor Yellow\nNew-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "System" -Force | Out-Null\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System" -Name "PublishUserActivities" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Activity history disabled" -ForegroundColor Green\n`
         },
         disableTipsSuggestions: {
           label: 'Disable tips, suggestions & ads',
-          script: `# Disable tips and suggestions\nWrite-Host "Disabling tips and suggestions..." -ForegroundColor Yellow\n$cdm = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager"\nif (Test-Path $cdm) {\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-338389Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-338388Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n}\n`
+          script: `# Disable tips and suggestions (user registry)\nWrite-Host "Disabling tips and suggestions..." -ForegroundColor Yellow\n$cdm = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager"\nif (Test-Path $cdm) {\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-338389Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-338388Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-310093Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Write-Host "Tips and suggestions disabled" -ForegroundColor Green\n} else {\n  Write-Host "ContentDeliveryManager path not found" -ForegroundColor Yellow\n}\n`
         },
         disableBingSearch: {
           label: 'Disable Bing web search',
-          script: `# Disable Bing search\nWrite-Host "Disabling Bing search..." -ForegroundColor Yellow\nNew-Item -Path "HKCU:\\Software\\Policies\\Microsoft\\Windows" -Name "Explorer" -Force | Out-Null\nSet-ItemProperty -Path "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer" -Name "DisableSearchBoxSuggestions" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+          script: `# Disable Bing search (user registry)\nWrite-Host "Disabling Bing search..." -ForegroundColor Yellow\n$explorerPath = "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer"\nif (-not (Test-Path $explorerPath)) {\n  New-Item -Path "HKCU:\\Software\\Policies\\Microsoft\\Windows" -Name "Explorer" -Force | Out-Null\n}\nSet-ItemProperty -Path $explorerPath -Name "DisableSearchBoxSuggestions" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Bing search disabled" -ForegroundColor Green\n`
         },
         disableCopilot: {
           label: 'Disable Microsoft Copilot',
-          script: `# Disable Copilot\nWrite-Host "Disabling Copilot..." -ForegroundColor Yellow\n$copilotKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"\nif (-not (Test-Path $copilotKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer" -Name "Advanced" -Force | Out-Null\n}\nSet-ItemProperty -Path $copilotKey -Name "ShowCopilotButton" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Copilot disabled successfully" -ForegroundColor Green\n`
+          script: `# Disable Copilot (user registry)\nWrite-Host "Disabling Copilot..." -ForegroundColor Yellow\n$copilotKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"\nif (-not (Test-Path $copilotKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer" -Name "Advanced" -Force | Out-Null\n}\nSet-ItemProperty -Path $copilotKey -Name "ShowCopilotButton" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Copilot disabled successfully" -ForegroundColor Green\n`
         },
         showFileExtensions: {
           label: 'Show file extensions',
-          script: `# Show file extensions\nWrite-Host "Showing file extensions..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "HideFileExt" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+          script: `# Show file extensions (user registry)\nWrite-Host "Showing file extensions..." -ForegroundColor Yellow\n$advancedKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"\nif (-not (Test-Path $advancedKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer" -Name "Advanced" -Force | Out-Null\n}\nSet-ItemProperty -Path $advancedKey -Name "HideFileExt" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "File extensions shown" -ForegroundColor Green\n`
         },
         hideSearchIcon: {
           label: 'Hide search icon/box',
-          script: `# Hide search\nWrite-Host "Hiding search icon..." -ForegroundColor Yellow\nNew-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion" -Name "Search" -Force | Out-Null\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search" -Name "SearchBoxTaskbarMode" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
+          script: `# Hide search (user registry)\nWrite-Host "Hiding search icon..." -ForegroundColor Yellow\n$searchKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search"\nif (-not (Test-Path $searchKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion" -Name "Search" -Force | Out-Null\n}\nSet-ItemProperty -Path $searchKey -Name "SearchBoxTaskbarMode" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Search icon hidden" -ForegroundColor Green\n`
+        },
+        disableOneDrive: {
+          label: 'Disable OneDrive',
+          script: `# Disable OneDrive\nWrite-Host "Disabling OneDrive..." -ForegroundColor Yellow\ntaskkill /f /im OneDrive.exe /t 2>&1 | Out-Null\n%SystemRoot%\\SysWOW64\\OneDriveSetup.exe /uninstall 2>&1 | Out-Null\nreg delete "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "OneDrive" /f 2>&1 | Out-Null\nreg delete "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "OneDrive" /f 2>&1 | Out-Null\nWrite-Host "OneDrive disabled" -ForegroundColor Green\n`
+        },
+        disableGameBar: {
+          label: 'Disable Xbox Game Bar',
+          script: `# Disable Game Bar\nWrite-Host "Disabling Xbox Game Bar..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "AppCaptureEnabled" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\System\\GameConfigStore" -Name "GameDVR_Enabled" -Value 0 -Type DWord -Force\nWrite-Host "Xbox Game Bar disabled" -ForegroundColor Green\n`
+        },
+        disableBackgroundApps: {
+          label: 'Disable background apps',
+          script: `# Disable background apps\nWrite-Host "Disabling background apps..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 1 -Type DWord -Force\nGet-ChildItem "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" | ForEach-Object {\n  Set-ItemProperty -Path $_.PSPath -Name "Disabled" -Value 1 -Type DWord -Force\n}\nWrite-Host "Background apps disabled" -ForegroundColor Green\n`
+        },
+        disableLocationTracking: {
+          label: 'Disable location tracking',
+          script: `# Disable location tracking\nWrite-Host "Disabling location tracking..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors" -Name "DisableLocation" -Value 1 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\DeviceAccess\\Global\\LoCation" -Name "Value" -Value "Deny" -Type String -Force\nWrite-Host "Location tracking disabled" -ForegroundColor Green\n`
+        },
+        enablePerformanceTweaks: {
+          label: 'Enable performance tweaks',
+          script: `# Performance tweaks\nWrite-Host "Applying performance tweaks..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects" -Name "VisualFXSetting" -Value 2 -Type DWord -Force\npowercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 2>&1 | Out-Null\npowercfg -h off 2>&1 | Out-Null\nWrite-Host "Performance tweaks applied" -ForegroundColor Green\n`
+        },
+        disableAnimations: {
+          label: 'Disable animations and visual effects',
+          script: `# Disable animations\nWrite-Host "Disabling animations..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ListviewAlphaSelect" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ListviewShadow" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarAnimations" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "DisablePreviewDesktop" -Value 1 -Type DWord -Force\nWrite-Host "Animations disabled" -ForegroundColor Green\n`
+        },
+        restoreClassicContextMenu: {
+          label: 'Restore classic context menu',
+          script: `# Restore classic context menu\nWrite-Host "Restoring classic context menu..." -ForegroundColor Yellow\n$clsid = "HKCU:\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}"\nNew-Item -Path $clsid -Force | Out-Null\nNew-Item -Path "$clsid\\InprocServer32" -Force | Out-Null\nSet-ItemProperty -Path "$clsid\\InprocServer32" -Name "(Default)" -Value "" -Type String -Force -ErrorAction SilentlyContinue\nWrite-Host "Classic context menu restored" -ForegroundColor Green\n`
         }
       };
 
@@ -1742,7 +1768,8 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
       psScript += '  Add-Content -Path $LogPath -Value "[$ts] $Message"\n';
       psScript += '  Write-Host $Message\n';
       psScript += '}\n';
-      psScript += 'Log "=== DEBLOAT SCRIPT STARTED ==="\n';
+      psScript += 'Log "=== DEBLOAT SCRIPT STARTED ===\'\n';
+      psScript += 'Log "Running with elevated privileges"\n';
 
       // Add selected tasks
       selectedArray.forEach((key) => {
@@ -1761,6 +1788,7 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
               psScript += `Get-AppxPackage -AllUsers -Name "*${appId}*" -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue\n`;
               psScript += `Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like "*${appId}*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue\n`;
             });
+            psScript += 'Write-Host "App removal completed" -ForegroundColor Green\n';
           } else {
             // Remove common bloatware if no specific apps selected
             psScript += `Log 'Removing common bloatware apps'\n`;
@@ -1778,23 +1806,24 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
               'Microsoft.WindowsSoundRecorder',
               'Microsoft.QuickAssist',
               'Microsoft.PowerAutomateDesktop',
-              'Microsoft.Paint',
-              'Microsoft.MSPaint',
               'Microsoft.OutlookForWindows',
               'Microsoft.Todos',
               'Microsoft.MicrosoftTeams',
-              'Microsoft.Edge',
               'Microsoft.GamingApp',
               'Microsoft.Bing',
               'Microsoft.ZuneMusic',
               'Microsoft.WindowsFeedbackHub',
               'Microsoft.WindowsAlarms',
-              'Microsoft.WindowsCamera'
+              'Microsoft.WindowsCamera',
+              'Microsoft.SkypeApp',
+              'Microsoft.People',
+              'Microsoft.WindowsMaps'
             ];
             defaultApps.forEach(appId => {
               psScript += `Get-AppxPackage -AllUsers -Name "*${appId}*" -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue\n`;
               psScript += `Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like "*${appId}*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue\n`;
             });
+            psScript += 'Write-Host "Default apps removal completed" -ForegroundColor Green\n';
           }
         } else {
           psScript += task.script + '\n';
@@ -1804,13 +1833,16 @@ ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
       // Handle search bar mode
       if (searchBarMode !== null) {
         psScript += `Log 'Setting search bar mode to ${searchBarMode}'\n`;
+        psScript += `Write-Host "Setting search bar mode..." -ForegroundColor Yellow\n`;
         psScript += `$searchKey = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search'\n`;
         psScript += `if (-not (Test-Path $searchKey)) {\n  New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -ItemType Directory -Force | Out-Null\n}\n`;
         psScript += `Set-ItemProperty -Path $searchKey -Name 'SearchBoxTaskbarMode' -Value ${searchBarMode} -Type DWord -Force -ErrorAction SilentlyContinue\n`;
+        psScript += `Write-Host "Search bar mode set to ${searchBarMode}" -ForegroundColor Green\n`;
       }
 
-      psScript += 'Log "=== DEBLOAT OPERATIONS COMPLETED ==="\n';
-      psScript += 'Write-Host "Debloat operations finished successfully!" -ForegroundColor Green\n';
+      psScript += 'Log "=== DEBLOAT OPERATIONS COMPLETED ===\'\n';
+      psScript += 'Write-Host "All debloat operations finished successfully!" -ForegroundColor Green\n';
+      psScript += 'Write-Host "Some changes may require a restart to take effect." -ForegroundColor Yellow\n';
       psScript += 'exit 0\n';
       psScript += '} catch {\n';
       psScript += '  Log "ERROR: $_"\n';
@@ -1874,6 +1906,7 @@ try {
     $packages = Get-AppxPackage | Where-Object { $_.NonRemovable -eq $false }
     
     $commonApps = @(
+        # Microsoft Apps
         @{Id="Microsoft.BingNews"; Name="Microsoft News"},
         @{Id="Microsoft.BingWeather"; Name="Microsoft Weather"},
         @{Id="Microsoft.Getstarted"; Name="Get Started"},
@@ -1884,11 +1917,18 @@ try {
         @{Id="SpotifyAB.SpotifyMusic"; Name="Spotify"},
         @{Id="Facebook.Facebook"; Name="Facebook"},
         @{Id="Instagram.Instagram"; Name="Instagram"},
+        @{Id="Twitter.Twitter"; Name="Twitter"},
+        
+        # Xbox & Gaming
         @{Id="Microsoft.XboxApp"; Name="Xbox"},
         @{Id="Microsoft.XboxIdentityProvider"; Name="Xbox Identity Provider"},
         @{Id="Microsoft.XboxGamingOverlay"; Name="Xbox Game Bar"},
         @{Id="Microsoft.XboxSpeechToTextOverlay"; Name="Xbox Speech To Text"},
         @{Id="Microsoft.Xbox.TCUI"; Name="Xbox Live"},
+        @{Id="Microsoft.GamingApp"; Name="Xbox Gaming"},
+        @{Id="Microsoft.XboxGameCallableUI"; Name="Xbox Game Callable UI"},
+        
+        # Productivity
         @{Id="Microsoft.WindowsSoundRecorder"; Name="Sound Recorder"},
         @{Id="Microsoft.QuickAssist"; Name="Quick Assist"},
         @{Id="Microsoft.PowerAutomateDesktop"; Name="Power Automate"},
@@ -1897,65 +1937,104 @@ try {
         @{Id="Microsoft.OutlookForWindows"; Name="Outlook for Windows"},
         @{Id="Microsoft.Todos"; Name="Microsoft To Do"},
         @{Id="Microsoft.MicrosoftTeams"; Name="Microsoft Teams"},
-        @{Id="Microsoft.Edge"; Name="Microsoft Edge"},
-        @{Id="Microsoft.GamingApp"; Name="Microsoft Gaming"},
-        @{Id="Microsoft.Bing"; Name="Microsoft Bing"},
-        @{Id="Microsoft.ZuneMusic"; Name="Media Player"},
-        @{Id="Microsoft.WindowsFeedbackHub"; Name="Feedback Hub"},
-        @{Id="Microsoft.WindowsAlarms"; Name="Clock"},
-        @{Id="Microsoft.WindowsCamera"; Name="Camera"},
-        @{Id="Microsoft.People"; Name="People"},
-        @{Id="Microsoft.WindowsMaps"; Name="Maps"},
-        @{Id="Microsoft.WindowsCommunicationsApps"; Name="Mail and Calendar"},
-        @{Id="Microsoft.SkypeApp"; Name="Skype"},
-        @{Id="Microsoft.MicrosoftStickyNotes"; Name="Sticky Notes"},
-        @{Id="Microsoft.Office.OneNote"; Name="OneNote"},
         @{Id="Microsoft.MicrosoftOfficeHub"; Name="Microsoft Office"},
-        @{Id="Microsoft.GetHelp"; Name="Get Help"},
-        @{Id="Microsoft.WindowsNotepad"; Name="Notepad"},
-        @{Id="Microsoft.WindowsCalculator"; Name="Calculator"},
-        @{Id="Microsoft.ScreenSketch"; Name="Snip & Sketch"},
-        @{Id="Microsoft.WindowsStore"; Name="Microsoft Store"},
+        @{Id="Microsoft.Office.OneNote"; Name="OneNote"},
+        @{Id="Microsoft.MicrosoftStickyNotes"; Name="Sticky Notes"},
+        
+        # Browser & Search
+        @{Id="Microsoft.Edge"; Name="Microsoft Edge"},
+        @{Id="Microsoft.EdgeDevToolsClient"; Name="Edge DevTools"},
+        @{Id="Microsoft.Bing"; Name="Microsoft Bing"},
         @{Id="Microsoft.Cortana"; Name="Cortana"},
+        
+        # Media & Entertainment
+        @{Id="Microsoft.ZuneMusic"; Name="Media Player"},
+        @{Id="Microsoft.ZuneVideo"; Name="Movies & TV"},
+        @{Id="Microsoft.WindowsMediaPlayer"; Name="Windows Media Player"},
+        @{Id="Microsoft.WindowsPhotos"; Name="Photos"},
+        @{Id="Microsoft.WindowsCamera"; Name="Camera"},
+        @{Id="Microsoft.ScreenSketch"; Name="Snip & Sketch"},
+        
+        # Communication
+        @{Id="Microsoft.People"; Name="People"},
+        @{Id="Microsoft.SkypeApp"; Name="Skype"},
+        @{Id="Microsoft.WindowsCommunicationsApps"; Name="Mail and Calendar"},
+        
+        # Utilities
+        @{Id="Microsoft.WindowsAlarms"; Name="Alarms & Clock"},
+        @{Id="Microsoft.WindowsCalculator"; Name="Calculator"},
+        @{Id="Microsoft.WindowsMaps"; Name="Maps"},
+        @{Id="Microsoft.WindowsNotepad"; Name="Notepad"},
+        @{Id="Microsoft.WindowsTerminal"; Name="Windows Terminal"},
+        @{Id="Microsoft.WindowsFeedbackHub"; Name="Feedback Hub"},
+        @{Id="Microsoft.GetHelp"; Name="Get Help"},
+        @{Id="Microsoft.ParentalControls"; Name="Family Safety"},
+        
+        # Store & Purchases
+        @{Id="Microsoft.WindowsStore"; Name="Microsoft Store"},
+        @{Id="Microsoft.StorePurchaseApp"; Name="Store Purchase"},
+        @{Id="Microsoft.Services.Store.Engagement"; Name="Store Engagement"},
+        
+        # Bing Apps Suite
         @{Id="Microsoft.BingFoodAndDrink"; Name="Food & Drink"},
         @{Id="Microsoft.BingHealthAndFitness"; Name="Health & Fitness"},
         @{Id="Microsoft.BingTravel"; Name="Bing Travel"},
         @{Id="Microsoft.BingFinance"; Name="Bing Finance"},
         @{Id="Microsoft.BingSports"; Name="Bing Sports"},
-        @{Id="Microsoft.WindowsPhone"; Name="Phone Companion"},
-        @{Id="Microsoft.Wallet"; Name="Microsoft Wallet"},
-        @{Id="Microsoft.OneConnect"; Name="OneConnect"},
-        @{Id="Microsoft.MicrosoftEdgeDevToolsClient"; Name="Edge DevTools"},
-        @{Id="Microsoft.MicrosoftSolitaireCollection"; Name="Solitaire Collection"},
+        
+        # Games
         @{Id="Microsoft.MicrosoftMahjong"; Name="Mahjong"},
         @{Id="Microsoft.MicrosoftMinesweeper"; Name="Minesweeper"},
+        @{Id="Microsoft.MicrosoftSudoku"; Name="Sudoku"},
+        @{Id="Microsoft.MicrosoftJigsaw"; Name="Jigsaw"},
+        @{Id="Microsoft.MicrosoftSolitaireCollection"; Name="Solitaire Collection"},
+        
+        # Network & Tools
         @{Id="Microsoft.NetworkSpeedTest"; Name="Network Speed Test"},
-        @{Id="Microsoft.ParentalControls"; Name="Family Safety"},
-        @{Id="Microsoft.Windows.Photos"; Name="Photos"},
-        @{Id="Microsoft.WindowsTerminal"; Name="Windows Terminal"},
+        @{Id="Microsoft.PPIProjection"; Name="Wireless Display"},
+        @{Id="Microsoft.ECApp"; Name="EC App"},
+        
+        # Extensions & Runtimes
         @{Id="Microsoft.RawImageExtension"; Name="Raw Image Extension"},
         @{Id="Microsoft.HEIFImageExtension"; Name="HEIF Image Extension"},
         @{Id="Microsoft.VP9VideoExtensions"; Name="VP9 Video Extension"},
         @{Id="Microsoft.HEVCVideoExtension"; Name="HEVC Video Extension"},
         @{Id="Microsoft.WebMediaExtensions"; Name="Web Media Extension"},
         @{Id="Microsoft.WebpImageExtension"; Name="WebP Image Extension"},
-        @{Id="Microsoft.SecHealthUI"; Name="Windows Security"},
-        @{Id="Microsoft.PPIProjection"; Name="Projection"},
-        @{Id="Microsoft.LanguageExperiencePack"; Name="Language Pack"},
         @{Id="Microsoft.VCLibs"; Name="Visual C++ Runtime"},
         @{Id="Microsoft.NET.Native.Framework"; Name=".NET Native Framework"},
         @{Id="Microsoft.NET.Native.Runtime"; Name=".NET Native Runtime"},
         @{Id="Microsoft.UI.Xaml"; Name="UI XAML"},
-        @{Id="Microsoft.Services.Store.Engagement"; Name="Store Engagement"},
-        @{Id="Microsoft.StorePurchaseApp"; Name="Store Purchase"},
+        
+        # System Components (removable)
         @{Id="Microsoft.AAD.BrokerPlugin"; Name="AAD Broker"},
         @{Id="Microsoft.AccountsControl"; Name="Accounts Control"},
-        @{Id="Microsoft.ECApp"; Name="EC App"},
-        @{Id="Microsoft.LockApp"; Name="Lock App"},
-        @{Id="Microsoft.CredDialogHost"; Name="Credential Dialog"},
         @{Id="Microsoft.AsyncTextService"; Name="Async Text Service"},
         @{Id="Microsoft.BioEnrollment"; Name="Bio Enrollment"},
-        @{Id="Microsoft.Cortana"; Name="Cortana"}
+        @{Id="Microsoft.CredDialogHost"; Name="Credential Dialog"},
+        @{Id="Microsoft.LockApp"; Name="Lock App"},
+        @{Id="Microsoft.SecHealthUI"; Name="Windows Security UI"},
+        
+        # Third Party Apps
+        @{Id="AdobeSystemsIncorporated.AdobePhotoshopExpress"; Name="Photoshop Express"},
+        @{Id="Amazon.com.Amazon"; Name="Amazon Shopping"},
+        @{Id="Disney.37853FC22B2CE"; Name="Disney+"},
+        @{Id="Netflix"; Name="Netflix"},
+        @{Id="PandoraMediaInc"; Name="Pandora"},
+        @{Id="DolbyLaboratories.DolbyAccess"; Name="Dolby Access"},
+        @{Id="ROBLOXCORPORATION.ROBLOX"; Name="Roblox"},
+        @{Id="NordSecurity.NordVPN"; Name="NordVPN"},
+        
+        # Windows Experience Packs
+        @{Id="Microsoft.Windows.Client.CBS"; Name="Windows Experience Pack"},
+        @{Id="Microsoft.Windows.ShellExperienceHost"; Name="Shell Experience"},
+        @{Id="Microsoft.Windows.Cortana"; Name="Cortana Experience"},
+        @{Id="Microsoft.Windows.Search"; Name="Windows Search"},
+        
+        # Language & Region
+        @{Id="Microsoft.LanguageExperiencePack"; Name="Language Pack"},
+        @{Id="Microsoft.TextInput"; Name="Text Input"},
+        @{Id="Microsoft.VoiceRecorder"; Name="Voice Recorder"}
     )
     
     $installedApps = @()
@@ -2013,7 +2092,7 @@ try {
   });
 });
 
-// Ενημερωμένη fallback function με περισσότερες εφαρμογές
+// Helper function for fallback apps
 function getFallbackApps() {
   return [
     { id: 'Microsoft.BingNews', name: 'Microsoft News' },
@@ -2041,10 +2120,103 @@ function getFallbackApps() {
     { id: 'Microsoft.ZuneMusic', name: 'Media Player' },
     { id: 'Microsoft.WindowsFeedbackHub', name: 'Feedback Hub' },
     { id: 'Microsoft.WindowsAlarms', name: 'Clock' },
-    { id: 'Microsoft.WindowsCamera', name: 'Camera' }
+    { id: 'Microsoft.WindowsCamera', name: 'Camera' },
+    { id: 'Microsoft.SkypeApp', name: 'Skype' },
+    { id: 'Microsoft.People', name: 'People' },
+    { id: 'Microsoft.WindowsMaps', name: 'Maps' }
   ];
 }
 
+ipcMain.handle('get-default-debloat-tasks', async () => {
+  return {
+    selectedTasks: [
+      'removePreinstalledApps', // ✅ ΑΥΤΟ ΕΙΝΑΙ ΤΩΡΑ CHECKED
+      'disableTelemetry',
+      'disableActivityHistory', 
+      'disableTipsSuggestions',
+      'disableBingSearch',
+      'disableCopilot',
+      'showFileExtensions',
+      'disableOneDrive',
+      'disableGameBar',
+      'disableBackgroundApps',
+      'disableLocationTracking',
+      'enablePerformanceTweaks',
+      'disableAnimations',
+      'restoreClassicContextMenu'
+    ],
+    removeApps: [
+      'Microsoft.BingNews',
+      'Microsoft.BingWeather',
+      'Microsoft.Getstarted',
+      'Microsoft.MicrosoftSolitaireCollection',
+      'Microsoft.YourPhone', 
+      'Microsoft.TikTok',
+      'Clipchamp.Clipchamp',
+      'Microsoft.XboxApp',
+      'Microsoft.XboxIdentityProvider',
+      'Microsoft.XboxGamingOverlay',
+      'Microsoft.WindowsSoundRecorder',
+      'Microsoft.QuickAssist',
+      'Microsoft.PowerAutomateDesktop',
+      'Microsoft.OutlookForWindows',
+      'Microsoft.Todos',
+      'Microsoft.MicrosoftTeams',
+      'Microsoft.GamingApp',
+      'Microsoft.Bing',
+      'Microsoft.ZuneMusic',
+      'Microsoft.WindowsFeedbackHub',
+      'Microsoft.SkypeApp',
+      'Microsoft.People',
+      'Microsoft.WindowsCamera',
+      'Microsoft.WindowsAlarms',
+      'Microsoft.WindowsMaps',
+      'Microsoft.Paint',
+      'Microsoft.MSPaint',
+      'SpotifyAB.SpotifyMusic',
+      'Facebook.Facebook',
+      'Instagram.Instagram',
+      'Twitter.Twitter'
+    ],
+    searchBarMode: 0
+  };
+});
+// Προσθέστε αυτό το handler στο main.js
+ipcMain.handle('get-default-remove-apps', async () => {
+  return [
+    'Microsoft.BingNews',
+    'Microsoft.BingWeather',
+    'Microsoft.Getstarted',
+    'Microsoft.MicrosoftSolitaireCollection', 
+    'Microsoft.YourPhone',
+    'Microsoft.TikTok',
+    'Clipchamp.Clipchamp',
+    'Microsoft.XboxApp',
+    'Microsoft.XboxIdentityProvider',
+    'Microsoft.XboxGamingOverlay',
+    'Microsoft.WindowsSoundRecorder',
+    'Microsoft.QuickAssist',
+    'Microsoft.PowerAutomateDesktop',
+    'Microsoft.OutlookForWindows',
+    'Microsoft.Todos',
+    'Microsoft.MicrosoftTeams',
+    'Microsoft.GamingApp',
+    'Microsoft.Bing',
+    'Microsoft.ZuneMusic',
+    'Microsoft.WindowsFeedbackHub',
+    'Microsoft.SkypeApp',
+    'Microsoft.People',
+    'Microsoft.WindowsCamera',
+    'Microsoft.WindowsAlarms',
+    'Microsoft.WindowsMaps',
+    'Microsoft.Paint',
+    'Microsoft.MSPaint',
+    'SpotifyAB.SpotifyMusic',
+    'Facebook.Facebook',
+    'Instagram.Instagram',
+    'Twitter.Twitter'
+  ];
+});
 ipcMain.handle('find-exe-files', async (event, directoryPath) => {
   return new Promise((resolve) => {
     try {

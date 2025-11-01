@@ -2,24 +2,7 @@
 const processStates = new Map();
 
 (() => {
-
-  /**
-   * Cache for the list of removable preinstalled apps.  Populated on
-   * application startup to avoid expensive PowerShell calls when the
-   * Debloat page is first opened.  The buildDebloatPage() function
-   * will check this cache before falling back to retrieving the list
-   * via IPC.  If null, no cached data has been loaded yet.
-   */
   let cachedPreinstalledApps = null;
-  // Define the order of pages shown in the sidebar.  A new entry for
-  // "debloat" has been added to provide a one‑click way to disable
-  // unnecessary Windows suggestions and Bing web search in the Start
-  // menu.  Additional debloat actions can be added to this page in
-  // future updates.
-  // Define the order of pages shown in the sidebar.  The order has been
-  // rearranged to group related actions together more logically.  Each
-  // separator (added in renderMenu) will follow the key listed below
-  // according to the separatorsAfter map defined in renderMenu().
   const menuKeys = [
     'settings',         // general settings
     'install_apps',     // install & remove apps
@@ -73,9 +56,6 @@ const processStates = new Map();
     bios: `
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-computer w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><rect width="14" height="8" x="5" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><path d="M6 18h2"></path><path d="M12 18h6"></path></svg>
   `,
-    // Use a broom icon to symbolise cleaning and debloating.  This
-    // inline SVG is lightweight and matches the existing lucide
-    // styling used for the other menu icons.
     debloat: `
 <svg
   xmlns="http://www.w3.org/2000/svg"
@@ -585,11 +565,6 @@ const processStates = new Map();
         content.appendChild(buildSpicetifyPage());
         break;
       case 'debloat':
-        // Build and display the debloat page.  This page exposes a
-        // single button that runs a PowerShell script to disable
-        // Windows suggestions and Bing web search.  Results are
-        // reported via toast notifications.  Note: additional
-        // debloat functionality can be appended here in future.
         setHeader((translations.menu && translations.menu.debloat) || 'Debloat & Windows Tweaks');
         content.appendChild(await buildDebloatPage());
         break;
@@ -3002,138 +2977,145 @@ const processStates = new Map();
       groupCard.appendChild(header);
 
       tasks.forEach((task) => {
-        if (!task.type || task.type !== 'choice') {
-          const row = document.createElement('div');
-          row.className = 'debloat-task-row';
-          row.style.display = 'flex';
-          row.style.alignItems = 'center';
-          row.style.marginBottom = '0.4rem';
-          const cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.id = `debloat-${task.key}`;
-          cb.checked = !!task.recommended;
-          checkboxMap.set(task.key, cb);
-          const labelEl = document.createElement('label');
-          labelEl.setAttribute('for', cb.id);
-          // Translate task label using the task key if provided
-          const translatedTask = (translations.debloat && translations.debloat.tasks && translations.debloat.tasks[task.key]) || task.label;
-          labelEl.textContent = translatedTask;
-          labelEl.style.marginLeft = '0.5rem';
-          row.appendChild(cb);
-          row.appendChild(labelEl);
-          groupCard.appendChild(row);
-          if (task.key === 'removePreinstalledApps') {
-            const appsWrapper = document.createElement('div');
-            appsWrapper.style.display = cb.checked ? 'block' : 'none';
-            appsWrapper.style.marginLeft = '1.5rem';
-            appsWrapper.style.marginTop = '0.4rem';
-            appsWrapper.style.maxHeight = '200px';
-            appsWrapper.style.paddingRight = '2.1rem';
-            appsWrapper.style.overflowY = 'auto';
-            if (installedApps.length === 0) {
-                // If no removable apps were detected, inform the user
-                const info = document.createElement('div');
-                info.innerHTML = `
-                    <div style="color: var(--warning-color); margin-bottom: 0.5rem;">
-                        No removable built‑in apps were detected automatically.
-                    </div>
-                    <div style="font-size: 0.9rem; opacity: 0.8;">
-                        You can still proceed - common bloatware will be targeted.
-                    </div>
-                `;
-                appsWrapper.appendChild(info);
-            } else {
-                // Create a checkbox for each installed app - ONLY FRIENDLY NAME
-                installedApps.forEach((app) => {
-                    const appRow = document.createElement('div');
-                    appRow.style.display = 'flex';
-                    appRow.style.alignItems = 'center';
-                    appRow.style.marginBottom = '0.5rem';
-                    appRow.style.padding = '0.4rem';
-                    appRow.style.borderRadius = '4px';
-                    appRow.style.background = 'rgba(255,255,255,0.03)';
-                    
-                    const appCb = document.createElement('input');
-                    appCb.type = 'checkbox';
-                    appCb.id = `debloat-app-${app.id}`;
-                    appCb.dataset.appId = app.id;
-                    appCb.checked = false;
-                    
-                    const appLabel = document.createElement('label');
-                    // Associate the label with the checkbox so clicking it toggles the box
-                    appLabel.setAttribute('for', appCb.id);
-                    appLabel.textContent = app.name; // ΜΟΝΟ ΤΟ ΟΝΟΜΑ
-                    appLabel.style.marginLeft = '0.75rem';
-                    appLabel.style.flex = '1';
-                    appLabel.style.fontSize = '0.95rem';
-                    appLabel.style.cursor = 'pointer';
-                    /*
-                     * Prevent the default mousedown focus behaviour.  This stops
-                     * the browser from scrolling the page to bring the associated
-                     * checkbox into view when the label is clicked.  The toggle
-                     * will still occur automatically because of the `for`
-                     * attribute, but the page will remain stationary.
-                     */
-                    appLabel.addEventListener('mousedown', (evt) => {
-                      evt.preventDefault();
-                    });
+          if (!task.type || task.type !== 'choice') {
+              const row = document.createElement('div');
+              row.className = 'debloat-task-row';
+              row.style.display = 'flex';
+              row.style.alignItems = 'center';
+              row.style.marginBottom = '0.4rem';
+              const cb = document.createElement('input');
+              cb.type = 'checkbox';
+              cb.id = `debloat-${task.key}`;
+              
+              // ✅ ΑΥΤΟ: Check το "Remove preinstalled apps" by default
+              if (task.key === 'removePreinstalledApps') {
+                  cb.checked = true;
+              } else {
+                  cb.checked = !!task.recommended;
+              }
+              
+              checkboxMap.set(task.key, cb);
+              const labelEl = document.createElement('label');
+              labelEl.setAttribute('for', cb.id);
+              // Translate task label using the task key if provided
+              const translatedTask = (translations.debloat && translations.debloat.tasks && translations.debloat.tasks[task.key]) || task.label;
+              labelEl.textContent = translatedTask;
+              labelEl.style.marginLeft = '0.5rem';
+              row.appendChild(cb);
+              row.appendChild(labelEl);
+              groupCard.appendChild(row);
+              if (task.key === 'removePreinstalledApps') {
+                  const appsWrapper = document.createElement('div');
+                  appsWrapper.style.display = cb.checked ? 'block' : 'none';
+                  appsWrapper.style.marginLeft = '1.5rem';
+                  appsWrapper.style.marginTop = '0.4rem';
+                  appsWrapper.style.maxHeight = '200px';
+                  appsWrapper.style.paddingRight = '2.1rem';
+                  appsWrapper.style.overflowY = 'auto';
+                  if (installedApps.length === 0) {
+                      // If no removable apps were detected, inform the user
+                      const info = document.createElement('div');
+                      info.innerHTML = `
+                          <div style="color: var(--warning-color); margin-bottom: 0.5rem;">
+                              No removable built‑in apps were detected automatically.
+                          </div>
+                          <div style="font-size: 0.9rem; opacity: 0.8;">
+                              You can still proceed - common bloatware will be targeted.
+                          </div>
+                      `;
+                      appsWrapper.appendChild(info);
+                  } else {
+                      // Create a checkbox for each installed app - ONLY FRIENDLY NAME
+                      installedApps.forEach((app) => {
+                          const appRow = document.createElement('div');
+                          appRow.style.display = 'flex';
+                          appRow.style.alignItems = 'center';
+                          appRow.style.marginBottom = '0.5rem';
+                          appRow.style.padding = '0.4rem';
+                          appRow.style.borderRadius = '4px';
+                          appRow.style.background = 'rgba(255,255,255,0.03)';
+                          
+                          const appCb = document.createElement('input');
+                          appCb.type = 'checkbox';
+                          appCb.id = `debloat-app-${app.id}`;
+                          appCb.dataset.appId = app.id;
+                          appCb.checked = true; // ✅ ΑΥΤΟ: Check όλα τα apps by default
+                          
+                          const appLabel = document.createElement('label');
+                          // Associate the label with the checkbox so clicking it toggles the box
+                          appLabel.setAttribute('for', appCb.id);
+                          appLabel.textContent = app.name; // ΜΟΝΟ ΤΟ ΟΝΟΜΑ
+                          appLabel.style.marginLeft = '0.75rem';
+                          appLabel.style.flex = '1';
+                          appLabel.style.fontSize = '0.95rem';
+                          appLabel.style.cursor = 'pointer';
+                          /*
+                          * Prevent the default mousedown focus behaviour.  This stops
+                          * the browser from scrolling the page to bring the associated
+                          * checkbox into view when the label is clicked.  The toggle
+                          * will still occur automatically because of the `for`
+                          * attribute, but the page will remain stationary.
+                          */
+                          appLabel.addEventListener('mousedown', (evt) => {
+                            evt.preventDefault();
+                          });
 
-                    appRow.appendChild(appCb);
-                    appRow.appendChild(appLabel);
-                    appsWrapper.appendChild(appRow);
-                    appCheckboxMap.set(app.id, appCb);
-                });
-            }
-            // Show/hide based on checkbox
-            cb.addEventListener('change', () => {
-              appsWrapper.style.display = cb.checked ? 'block' : 'none';
-            });
-            groupCard.appendChild(appsWrapper);
+                          appRow.appendChild(appCb);
+                          appRow.appendChild(appLabel);
+                          appsWrapper.appendChild(appRow);
+                          appCheckboxMap.set(app.id, appCb);
+                      });
+                  }
+                  // Show/hide based on checkbox
+                  cb.addEventListener('change', () => {
+                    appsWrapper.style.display = cb.checked ? 'block' : 'none';
+                  });
+                  groupCard.appendChild(appsWrapper);
+              }
+          } else if (task.type === 'choice') {
+              const choiceWrapper = document.createElement('div');
+              choiceWrapper.classList.add('radio-input');
+              choiceWrapper.style.display = 'flex';
+              choiceWrapper.style.flexDirection = 'column';
+              choiceWrapper.style.marginBottom = '0.6rem';
+              const choiceLabel = document.createElement('div');
+              // Translate the overall label for this choice group
+              const translatedChoiceLabel = (translations.debloat && translations.debloat.tasks && translations.debloat.tasks[task.key]) || task.label;
+              choiceLabel.textContent = translatedChoiceLabel;
+              choiceLabel.style.marginBottom = '0.3rem';
+              choiceWrapper.appendChild(choiceLabel);
+              const choiceGroupName = `debloat-choice-${task.key}`;
+              task.choices.forEach((opt) => {
+                  const optRow = document.createElement('div');
+                  optRow.style.display = 'flex';
+                  optRow.style.alignItems = 'center';
+                  optRow.style.marginBottom = '0.25rem';
+                  const radio = document.createElement('input');
+                  radio.type = 'radio';
+                  radio.name = choiceGroupName;
+                  radio.id = `${choiceGroupName}-${opt.value}`;
+                  radio.value = String(opt.value);
+                  radio.checked = opt.value === task.recommended;
+                  // Apply the custom class to get the fancy styling
+                  radio.classList.add('input');
+                  const rLabel = document.createElement('label');
+                  rLabel.setAttribute('for', radio.id);
+                  // Translate choice label using the numeric value when available
+                  const choiceTranslations = (translations.debloat && translations.debloat.choices) || {};
+                  const translatedChoice = choiceTranslations[String(opt.value)] || opt.label;
+                  rLabel.textContent = translatedChoice;
+                  rLabel.style.marginLeft = '0.5rem';
+                  optRow.appendChild(radio);
+                  optRow.appendChild(rLabel);
+                  choiceWrapper.appendChild(optRow);
+              });
+              // Store a function to read the selected value when running
+              choiceMap.set(task.key, () => {
+                  const selectedRadio = choiceWrapper.querySelector(`input[name="${choiceGroupName}"]:checked`);
+                  return selectedRadio ? parseInt(selectedRadio.value, 10) : task.recommended;
+              });
+              groupCard.appendChild(choiceWrapper);
           }
-        } else if (task.type === 'choice') {
-          const choiceWrapper = document.createElement('div');
-          choiceWrapper.classList.add('radio-input');
-          choiceWrapper.style.display = 'flex';
-          choiceWrapper.style.flexDirection = 'column';
-          choiceWrapper.style.marginBottom = '0.6rem';
-          const choiceLabel = document.createElement('div');
-          // Translate the overall label for this choice group
-          const translatedChoiceLabel = (translations.debloat && translations.debloat.tasks && translations.debloat.tasks[task.key]) || task.label;
-          choiceLabel.textContent = translatedChoiceLabel;
-          choiceLabel.style.marginBottom = '0.3rem';
-          choiceWrapper.appendChild(choiceLabel);
-          const choiceGroupName = `debloat-choice-${task.key}`;
-          task.choices.forEach((opt) => {
-            const optRow = document.createElement('div');
-            optRow.style.display = 'flex';
-            optRow.style.alignItems = 'center';
-            optRow.style.marginBottom = '0.25rem';
-            const radio = document.createElement('input');
-            radio.type = 'radio';
-            radio.name = choiceGroupName;
-            radio.id = `${choiceGroupName}-${opt.value}`;
-            radio.value = String(opt.value);
-            radio.checked = opt.value === task.recommended;
-            // Apply the custom class to get the fancy styling
-            radio.classList.add('input');
-            const rLabel = document.createElement('label');
-            rLabel.setAttribute('for', radio.id);
-            // Translate choice label using the numeric value when available
-            const choiceTranslations = (translations.debloat && translations.debloat.choices) || {};
-            const translatedChoice = choiceTranslations[String(opt.value)] || opt.label;
-            rLabel.textContent = translatedChoice;
-            rLabel.style.marginLeft = '0.5rem';
-            optRow.appendChild(radio);
-            optRow.appendChild(rLabel);
-            choiceWrapper.appendChild(optRow);
-          });
-          // Store a function to read the selected value when running
-          choiceMap.set(task.key, () => {
-            const selectedRadio = choiceWrapper.querySelector(`input[name="${choiceGroupName}"]:checked`);
-            return selectedRadio ? parseInt(selectedRadio.value, 10) : task.recommended;
-          });
-          groupCard.appendChild(choiceWrapper);
-        }
       });
 
       groupsWrapper.appendChild(groupCard);
