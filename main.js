@@ -1181,9 +1181,15 @@ exit $LASTEXITCODE
     try {
       const psFile = path.join(os.tmpdir(), `sfc_scan_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      // Launch PowerShell visibly (normal window) and wait for the scan to finish
-      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
+      // Escape backslashes and double quotes in the temp script path.  Without escaping
+      // backslashes the generated PowerShell command can misinterpret parts of the path.
+      const escapedPsFile = psFile
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"');
+      // Launch PowerShell visibly (normal window) and wait for the scan to finish.  Wrap
+      // the file path in double quotes inside the argument list; the surrounding single
+      // quotes for -ArgumentList prevent PowerShell from splitting on spaces.
+      const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
       const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
       child.on('error', (err) => {
         try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
@@ -1219,9 +1225,15 @@ exit $LASTEXITCODE
     try {
       const psFile = path.join(os.tmpdir(), `dism_repair_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      // Launch PowerShell visibly (normal window) and wait for the DISM command to finish
-      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
+      // Escape backslashes and double quotes in the temp script path. Without escaping
+      // backslashes the generated PowerShell command can misinterpret parts of the path.
+      const escapedPsFile = psFile
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"');
+      // Launch PowerShell visibly (normal window) and wait for the DISM command to finish.
+      // Wrap the file path in double quotes inside the argument list; the surrounding
+      // single quotes ensure the path is passed as a single argument to PowerShell.
+      const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
       const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
       child.on('error', (err) => {
         try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
@@ -1301,10 +1313,14 @@ Write-Host ""
       // Save the script to a temporary file
       const psFile = path.join(os.tmpdir(), `temp_cleanup_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
-      // Escape double quotes for embedding in a PowerShell argument
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      // Build a wrapper command that elevates and waits for completion
-      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Hidden -Wait`;
+      // Escape backslashes and double quotes for embedding in a PowerShell argument.
+      const escapedPsFile = psFile
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"');
+      // Build a wrapper command that elevates and waits for completion.  Wrap the
+      // file path in double quotes inside the argument list; the surrounding single
+      // quotes ensure it remains a single argument.
+      const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Hidden -Wait`;
       const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
       // Handle error events (likely UAC denial)
       child.on('error', (err) => {
@@ -2486,7 +2502,12 @@ exit 0
       const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
       
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      // Escape backslashes and double quotes in the temp script path. Failure to escape
+      // backslashes may result in malformed paths (e.g. "AppData\Loca]") when the
+      // command string is parsed by PowerShell.
+      const escapedPsFile = psFile
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"');
       const command = `Start-Process -FilePath "powershell.exe" -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
       
       const child = spawn('powershell.exe', ['-Command', command], {
