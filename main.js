@@ -2130,27 +2130,32 @@ function getFallbackApps() {
 ipcMain.handle('get-default-debloat-tasks', async () => {
   return {
     selectedTasks: [
-      'removePreinstalledApps', // ✅ ΑΥΤΟ ΕΙΝΑΙ ΤΩΡΑ CHECKED
+      'removePreinstalledApps',
       'disableTelemetry',
       'disableActivityHistory', 
       'disableTipsSuggestions',
+      'disableCortana',
+      'disableLocationServices',
+      'disableAdvertisingID',
+      'disableTelemetryHost',
+      'disableBackgroundApps',
       'disableBingSearch',
       'disableCopilot',
+      'disableRemoteAssistance',
+      'disableRemoteDesktop',
       'showFileExtensions',
-      'disableOneDrive',
-      'disableGameBar',
-      'disableBackgroundApps',
-      'disableLocationTracking',
+      'restoreClassicContextMenu',
       'enablePerformanceTweaks',
       'disableAnimations',
-      'restoreClassicContextMenu'
+      'disableGameBar',
+      'disableOneDrive'
     ],
     removeApps: [
       'Microsoft.BingNews',
       'Microsoft.BingWeather',
       'Microsoft.Getstarted',
       'Microsoft.MicrosoftSolitaireCollection',
-      'Microsoft.YourPhone', 
+      'Microsoft.YourPhone',
       'Microsoft.TikTok',
       'Clipchamp.Clipchamp',
       'Microsoft.XboxApp',
