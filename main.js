@@ -6,6 +6,21 @@ const { autoUpdater } = require('electron-updater');
 
 // would not be defined yet.
 const fs = require('fs');
+
+// -----------------------------------------------------------------------------
+// Attempt to load electron‑sudo for elevated process execution.  When available
+// this module allows running subprocesses with administrative privileges on
+// Windows without relying on nested PowerShell invocations.  If the module
+// is not present (e.g. during development without dependencies installed) we
+// gracefully fall back to spawning a plain PowerShell process.  We detect
+// both CommonJS (v3.x) and ES module (v4.x) exports.
+let Sudoer = null;
+try {
+  const sudoModule = require('electron-sudo');
+  Sudoer = sudoModule.default || sudoModule;
+} catch (e) {
+  Sudoer = null;
+}
 let oauthConfig = {};
 try {
   const oauthPath = path.join(__dirname, 'oauth_config.json');
@@ -18,7 +33,89 @@ try {
   oauthConfig = {};
 }
 
+// -----------------------------------------------------------------------------
+// Debloat script handler using Raphi's online script.  The previous debloat
+// handlers and customisable task lists have been removed in favour of a
+// single remote script execution.  When invoked, this handler downloads
+// and executes the script from https://debloat.raphi.re/ with elevated
+// privileges.  It falls back to using Start‑Process -Verb RunAs if
+// electron‑sudo is not available or fails.
+ipcMain.handle('run-raphi-debloat', async () => {
+  // Only support Windows because the script is Windows specific
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'Debloat is only supported on Windows.' };
+  }
+
+  // Determine the PowerShell executable and construct the script command.
+  const psExe = getPowerShellExe() || 'powershell.exe';
+  const scriptCmd = '& ([scriptblock]::Create((irm "https://debloat.raphi.re/")))';
+
+  /**
+   * Launch PowerShell via Start‑Process with elevation.  This helper returns a
+   * promise that resolves with the execution result once the process exits.
+   */
+  const runViaStartProcess = () => {
+    return new Promise((resolve) => {
+      // Escape quotes inside the command for the argument list
+      const escapedCmd = scriptCmd.replace(/"/g, '\\"');
+      const argList = `-NoProfile -ExecutionPolicy Bypass -Command \"${escapedCmd}\"`;
+      const psCommand = `Start-Process -FilePath \"${psExe}\" -ArgumentList '${argList}' -Verb RunAs -WindowStyle Normal -Wait`;
+      const child = spawn(psExe, ['-Command', psCommand], { windowsHide: false });
+      let stderrData = '';
+      child.stderr.on('data', (buf) => { stderrData += buf.toString(); });
+      child.on('error', (err) => {
+        resolve({ success: false, error: 'Failed to launch PowerShell: ' + err.message });
+      });
+      child.on('exit', (code) => {
+        if (code === 0) {
+          resolve({ success: true, message: 'Debloat script executed successfully. A restart may be required.' });
+        } else {
+          const msg = stderrData.trim() || 'Debloat script failed or was cancelled.';
+          resolve({ success: false, error: msg });
+        }
+      });
+    });
+  };
+
+  // Always run via Start-Process.  Using electron‑sudo for elevation has
+  // caused unhandled errors in some environments (e.g. missing elevate.exe
+  // or invalid callback arguments), so we bypass it entirely and rely on
+  // PowerShell's Start‑Process with -Verb RunAs to obtain administrative
+  // privileges.
+  return await runViaStartProcess();
+});
 app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
+
+/**
+ * Determine the appropriate PowerShell executable to use on Windows.
+ * When running under a 32‑bit Electron process on a 64‑bit OS,
+ * `powershell.exe` may resolve to the 32‑bit version located in
+ * `C:\\Windows\\SysWOW64`.  Many system‑level registry changes (under
+ * HKLM) are only visible through the 64‑bit registry view and will be
+ * silently redirected or dropped when run via the 32‑bit PowerShell.
+ * To ensure debloat tasks reliably modify the correct registry hive,
+ * prefer the 64‑bit PowerShell located under
+ * `System32\\WindowsPowerShell\\v1.0\\powershell.exe`.  When this
+ * executable is unavailable (e.g. on 32‑bit editions of Windows) fall back
+ * to the bare `powershell.exe` on the PATH.
+ *
+ * @returns {string|null} The absolute path to a 64‑bit PowerShell
+ *   executable if available, otherwise `powershell.exe`. Returns
+ *   `null` on non‑Windows platforms.
+ */
+function getPowerShellExe() {
+  if (process.platform !== 'win32') return null;
+  try {
+    const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+    const pwsh64 = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    if (fs.existsSync(pwsh64)) {
+      return pwsh64;
+    }
+  } catch (err) {
+    // Ignore fs errors and fall back to default
+  }
+  return 'powershell.exe';
+}
 
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '389774067739-qnshev3gbck4firdc787iqhd44omiajs.apps.googleusercontent.com';
@@ -1556,401 +1653,7 @@ ipcMain.handle('run-autologin-script', async () => {
   });
 });
 
-// Handler for the debloat operation.  This creates a temporary
-
-ipcMain.handle('run-debloat', async () => {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'Debloat tasks are only supported on Windows' };
-  }
-  return new Promise((resolve) => {
-    const psScript = `
-try {
-  Write-Host 'Disabling notification suggestions...' -ForegroundColor Cyan
-  $cdmPath = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager'
-  if (Test-Path $cdmPath) {
-    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-338389Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-338388Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-310093Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-353694Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path $cdmPath -Name 'SubscribedContent-353696Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
-  }
-  $userEngagePath = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\UserProfileEngagement'
-  if (!(Test-Path $userEngagePath)) {
-    New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'UserProfileEngagement' -Force | Out-Null
-  }
-  Set-ItemProperty -Path $userEngagePath -Name 'ScoobeSystemSettingEnabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
-
-      # Also disable Notification Suggestions via SmartOptOut, which controls
-      # the same behaviour referenced under System > Notifications.  See
-      # https://superuser.com/questions/1820188 for details.
-      $smartOptOut = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings\\Windows.ActionCenter.SmartOptOut'
-      if (!(Test-Path $smartOptOut)) {
-        New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings' -Name 'Windows.ActionCenter.SmartOptOut' -Force | Out-Null
-      }
-      Set-ItemProperty -Path $smartOptOut -Name 'Enabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
-  Write-Host 'Disabling Start Menu web search suggestions...' -ForegroundColor Cyan
-  $explorerPath = 'HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer'
-  if (!(Test-Path $explorerPath)) {
-    New-Item -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows' -Name 'Explorer' -Force | Out-Null
-  }
-  Set-ItemProperty -Path $explorerPath -Name 'DisableSearchBoxSuggestions' -Value 1 -Type DWord -ErrorAction SilentlyContinue
-  Write-Host 'Debloat operations finished. A restart is recommended to apply changes.' -ForegroundColor Green
-  exit 0
-} catch {
-  Write-Error $_
-  exit 1
-}
-`;
-    try {
-      const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
-      fs.writeFileSync(psFile, psScript, 'utf8');
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      // Use Start-Process to elevate.  The script will prompt for UAC.
-      const command = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
-      const child = spawn('powershell.exe', ['-Command', command], { windowsHide: true });
-      child.on('error', (err) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
-        // If an error occurs when spawning, likely the user cancelled UAC
-        resolve({ success: false, error: 'Administrator privileges required or denied. Please accept the UAC prompt and try again.' });
-      });
-      child.on('exit', (code) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
-        if (code === 0) {
-          resolve({ success: true, message: 'Debloat tasks completed. Please restart your PC to apply all changes.' });
-        } else {
-          resolve({ success: false, error: 'Debloat script reported an error. Please try again.' });
-        }
-      });
-    } catch (error) {
-      resolve({ success: false, error: 'Failed to initiate debloat script: ' + error.message });
-    }
-  });
-});
-
-
-ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
-  // Only supported on Windows
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'Debloat tasks are only supported on Windows' };
-  }
-  return new Promise((resolve) => {
-    try {
-      // If the renderer passes an object containing the selected tasks and
-      // optional extra apps to remove, normalise the input here.  Earlier
-      // versions of the API passed only an array of strings.
-      let selectedArray = selectedTasks;
-      let removeApps = [];
-      let searchBarMode = null;
-      // Support both legacy array format and new object format. When
-      // an object is passed, decompose it into selected tasks, a list
-      // of app package names to remove and an optional search bar
-      // mode value. The search bar mode corresponds to the value of
-      // the SearchBoxTaskbarMode registry entry (0=hide, 1=icon, 2=box).
-      if (selectedTasks && typeof selectedTasks === 'object' && !Array.isArray(selectedTasks)) {
-        selectedArray = selectedTasks.selectedTasks || [];
-        removeApps = Array.isArray(selectedTasks.removeApps) ? selectedTasks.removeApps : [];
-        if (Number.isInteger(selectedTasks.searchBarMode)) {
-          searchBarMode = selectedTasks.searchBarMode;
-        }
-      }
-
-      // Define script fragments and human‑readable labels for each task.  Each
-      // fragment is self‑contained and should not exit or break the surrounding
-      // script.  Use -Force to create values if they do not exist.  Some tasks
-      // restart Explorer to apply changes immediately (e.g. hiding search).
-      const taskMap = {
-        removePreinstalledApps: {
-          label: 'Remove preinstalled apps',
-          script: `# Remove a selection of built‑in Windows apps\n$appNames = @(\n  'Microsoft.3DViewer','Microsoft.MixedReality.Portal','Microsoft.BingNews','Microsoft.BingWeather',\n  'Microsoft.GetHelp','Microsoft.Getstarted','Microsoft.OfficeHub','Microsoft.MicrosoftSolitaireCollection',\n  'Microsoft.OneConnect','Microsoft.People','Microsoft.SkypeApp','Microsoft.WindowsFeedbackHub',\n  'Microsoft.XboxApp','Microsoft.XboxGamingOverlay','Microsoft.XboxIdentityProvider',\n  'Microsoft.XboxSpeechToTextOverlay','Microsoft.YourPhone','Microsoft.ZuneMusic','Microsoft.ZuneVideo',\n  'Microsoft.WindowsMaps','Microsoft.TikTok','Microsoft.Wallet','Clipchamp.Clipchamp',\n  'MicrosoftTeams','Microsoft.OutlookForWindows','Microsoft.GamingApp','SpotifyAB.SpotifyMusic',\n  'DisneyPlusDisneyPlus','AmazonVideo.PrimeVideo','EpicGamesLauncher','Instagram','Facebook'\n)\nforeach ($app in $appNames) {\n  Get-AppxPackage -AllUsers -Name $app -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue\n  Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like \"$app*\" -or $_.PackageName -like \"$app*\" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue\n}\n`
-        },
-        disableTelemetry: {
-          label: 'Disable telemetry & diagnostic data',
-          script: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'DataCollection' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection' -Name 'AllowTelemetry' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
-        },
-        disableActivityHistory: {
-          label: 'Disable activity history',
-          script: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'System' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Name 'PublishUserActivities' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
-        },
-        disableAppLaunchTracking: {
-          label: 'Disable app‑launch tracking',
-          script: `$advPath = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced'\nSet-ItemProperty -Path $advPath -Name 'Start_TrackProgs' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
-        },
-        disableTargetedAds: {
-          label: 'Disable targeted ads & tailored experiences',
-          script: `New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'AdvertisingInfo' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo' -Name 'Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Privacy' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Privacy' -Name 'TailoredExperiencesWithDiagnosticDataEnabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
-        },
-        disableTipsSuggestions: {
-          label: 'Disable tips, suggestions & ads across Windows',
-          script: `$cdm = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager'\nif (Test-Path $cdm) {\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-310093Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-338388Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-338389Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-353694Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-353696Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name 'SubscribedContent-338393Enabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n}\n$engagePath = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion'\n# Disable welcome/first‑run experience\nNew-Item -Path $engagePath -Name 'UserProfileEngagement' -Force | Out-Null\nSet-ItemProperty -Path ($engagePath + '\\UserProfileEngagement') -Name 'ScoobeSystemSettingEnabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n$adv = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced'\nSet-ItemProperty -Path $adv -Name 'SystemPaneSuggestionsEnabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path $adv -Name 'Start_IrisRecommendations' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path $adv -Name 'Start_HighlightProvider' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n# Disable privacy experience and consumer features to prevent post‑restart prompts\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'OOBE' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\OOBE' -Name 'DisablePrivacyExperience' -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'CloudContent' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent' -Name 'DisableWindowsConsumerFeatures' -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\n`
-        },
-        disableSpotlight: {
-          label: 'Disable Windows Spotlight',
-          script: `New-Item -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows' -Name 'CloudContent' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows\\CloudContent' -Name 'DisableSpotlightCollectionOnDesktop' -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows\\CloudContent' -Name 'DisableWindowsSpotlightFeatures' -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\n`
-        },
-        disableBingSearch: {
-          label: 'Disable Bing web search & Cortana',
-          script: `New-Item -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows' -Name 'Explorer' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer' -Name 'DisableSearchBoxSuggestions' -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'CortanaConsent' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'AllowCortana' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'BingSearchEnabled' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'Windows Search' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search' -Name 'AllowCortana' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
-        },
-        disableCopilot: {
-          label: 'Disable Microsoft Copilot',
-          script: `New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'ShowCopilotButton' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows' -Name 'WindowsCopilot' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot' -Name 'TurnOffWindowsCopilot' -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\n`
-        },
-        disableStickyKeys: {
-          label: 'Disable Sticky Keys shortcut',
-          script: `New-Item -Path 'HKCU:\\Control Panel\\Accessibility' -Name 'StickyKeys' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Control Panel\\Accessibility\\StickyKeys' -Name 'Flags' -Value '510' -Type String -Force -ErrorAction SilentlyContinue\n`
-        },
-        restoreClassicContextMenu: {
-          label: 'Restore classic context menu',
-          script: `$clsid = 'HKCU:\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}'\nNew-Item -Path $clsid -Force | Out-Null\nNew-Item -Path \"$clsid\\InprocServer32\" -Force | Out-Null\nSet-ItemProperty -Path \"$clsid\\InprocServer32\" -Name '(Default)' -Value '' -Type String -Force -ErrorAction SilentlyContinue\n`
-        },
-        showFileExtensions: {
-          label: 'Show file extensions',
-          script: `Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'HideFileExt' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
-        },
-        hideSearchIcon: {
-          label: 'Hide search icon/box',
-          script: `# Hide the search icon/box on the taskbar\n# Set the value in both the Search key and Explorer\x5c\x5cAdvanced to account for recent Windows builds\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search' -Name 'SearchBoxTaskbarMode' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer' -Name 'Advanced' -Force | Out-Null\nSet-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'SearchBoxTaskbarMode' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n# Restart Explorer to apply the change immediately\ntry {\n  Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue\n  Start-Sleep -Seconds 2\n  Start-Process explorer.exe\n} catch {}\n`
-        },
-        hideTaskviewButton: {
-          label: 'Hide Task View button',
-          script: `Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'ShowTaskViewButton' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
-        },
-        disableWidgets: {
-          label: 'Disable widgets',
-          script: `Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'TaskbarDa' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nNew-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft' -Name 'Dsh' -Force | Out-Null\nSet-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Dsh' -Name 'AllowNewsAndInterests' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n`
-        }
-      };
-
-      // Choose a unique log file path.  This file will capture debug
-      // information from the script.  After execution, we will read
-      // and return the log contents to the renderer.
-      const logPath = path.join(os.tmpdir(), `debloat_log_${Date.now()}.txt`);
-      const escapedLogPath = logPath.replace(/"/g, '\\"');
-
-      // Assemble the script.  Start with a try/catch and define a
-      // simple logging function that writes timestamped messages to
-      // the log file.  Always initialize the log file by clearing
-      // any previous contents.
-      let psScript = '';
-      psScript += 'try {\n';
-      psScript += `$LogPath = "${escapedLogPath}"\n`;
-      psScript += 'Remove-Item -Path $LogPath -ErrorAction SilentlyContinue\n';
-      psScript += 'function Log {\n';
-      psScript += '  param([string]$Message)\n';
-      psScript += '  $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")\n';
-      psScript += '  Add-Content -Path $LogPath -Value "[$ts] $Message"\n';
-      psScript += '}\n';
-      psScript += 'Log "Debloat script started"\n';
-
-      // Append each selected task, preceded by a log entry.  Skip unknown keys.
-      selectedArray.forEach((key) => {
-        const task = taskMap[key];
-        if (!task) return;
-        // Record which task is running
-        const safeLabel = task.label.replace(/'/g, "''");
-        psScript += `Log 'Running task: ${safeLabel}'\n`;
-        if (key === 'removePreinstalledApps') {
-          // If the user has selected specific applications to remove, use
-          // them; otherwise skip removal entirely to avoid deleting a
-          // predefined list.  Build a PowerShell array literal from the
-          // removeApps array.  If removeApps is empty, log and skip.
-          if (Array.isArray(removeApps) && removeApps.length > 0) {
-            const arrayLiteral = removeApps.map(a => `'${a.replace(/'/g, "''")}'`).join(',');
-            psScript += `# Remove selected appx packages\n$appNames = @(${arrayLiteral})\nforeach ($app in $appNames) {\n  Get-AppxPackage -AllUsers -Name $app -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue\n  Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like \"$app*\" -or $_.PackageName -like \"$app*\" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue\n}\n`;
-          } else {
-            psScript += `Log 'No preinstalled app packages selected for removal; skipping app removal'\n`;
-          }
-        } else {
-          psScript += task.script + '\n';
-        }
-      });
-
-      // After iterating through tasks, apply the search bar mode if
-      // provided.  This task is handled outside the normal taskMap
-      // because it is a multi‑value setting rather than a simple
-      // toggle.  Valid values are 0 (hide), 1 (icon), 2 (box).
-      if (searchBarMode !== null) {
-        const modeValue = parseInt(searchBarMode, 10);
-        psScript += `Log 'Running task: Set search bar mode to ${modeValue}'\n`;
-        psScript += `# Configure the search bar style\n`;
-        psScript += `$sbMode = ${modeValue}\n`;
-        // Ensure the Search key exists before setting the value
-        psScript += `$searchKey = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search'\n`;
-        psScript += `if (-not (Test-Path $searchKey)) {\n  New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -ItemType Directory -Force | Out-Null\n}\n`;
-        psScript += `Set-ItemProperty -Path $searchKey -Name 'SearchBoxTaskbarMode' -Value $sbMode -Type DWord -Force -ErrorAction SilentlyContinue\n`;
-        // Ensure the Explorer\Advanced key exists
-        psScript += `$advKey = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced'\n`;
-        psScript += `if (-not (Test-Path $advKey)) {\n  New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer' -Name 'Advanced' -ItemType Directory -Force | Out-Null\n}\n`;
-        psScript += `Set-ItemProperty -Path $advKey -Name 'SearchBoxTaskbarMode' -Value $sbMode -Type DWord -Force -ErrorAction SilentlyContinue\n`;
-        psScript += `# Restart Explorer to apply the change immediately\n`;
-        psScript += `try {\n  Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue\n  Start-Sleep -Seconds 2\n  Start-Process explorer.exe\n} catch {}\n`;
-      }
-      psScript += 'Log "Debloat operations finished."\n';
-      // Emit a human‑readable completion message.  Provide the log path for reference.
-      psScript += `Write-Host 'Debloat operations finished. A restart is recommended to apply changes. Log: ${escapedLogPath}' -ForegroundColor Green\n`;
-      psScript += 'exit 0\n';
-      psScript += '} catch {\n';
-      psScript += '  Log "ERROR: $_"\n';
-      psScript += '  Write-Error $_\n';
-      psScript += '  exit 1\n';
-      psScript += '}\n';
-
-      // Write the script to a temporary file
-      const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
-      fs.writeFileSync(psFile, psScript, 'utf8');
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      // Use Start-Process to elevate; wait for completion
-      const command = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
-      const child = spawn('powershell.exe', ['-Command', command], { windowsHide: true });
-      child.on('error', (err) => {
-        try {
-          if (fs.existsSync(psFile)) fs.unlinkSync(psFile);
-        } catch (_) {}
-        resolve({ success: false, error: 'Administrator privileges required or denied. Please accept the UAC prompt and try again.' });
-      });
-      child.on('exit', (code) => {
-        // Remove the temporary script file
-        try {
-          if (fs.existsSync(psFile)) fs.unlinkSync(psFile);
-        } catch (_) {}
-        // Read the log file if present
-        let logContents = null;
-        try {
-          if (fs.existsSync(logPath)) {
-            logContents = fs.readFileSync(logPath, 'utf8');
-          }
-        } catch (_) {}
-        if (code === 0) {
-          resolve({ success: true, message: 'Selected debloat tasks completed. Some changes may require a restart to take effect.', log: logContents });
-        } else {
-          resolve({ success: false, error: 'One or more debloat tasks failed. Please try again.', log: logContents });
-        }
-      });
-    } catch (err) {
-      resolve({ success: false, error: 'Failed to initiate debloat tasks: ' + err.message });
-    }
-  });
-});
-
-ipcMain.handle('get-preinstalled-apps', async () => {
-  if (process.platform !== 'win32') {
-    return [];
-  }
-  
-  return new Promise((resolve) => {
-    const psScript = `
-# Get all installed AppX packages for current user
-$allPackages = Get-AppxPackage
-
-# Common bloatware packages with friendly names
-$bloatwareMap = @{
-    'Microsoft.BingNews' = 'Microsoft News'
-    'Microsoft.BingWeather' = 'Microsoft Weather' 
-    'Microsoft.GetHelp' = 'Get Help'
-    'Microsoft.Getstarted' = 'Get Started'
-    'Microsoft.MicrosoftSolitaireCollection' = 'Microsoft Solitaire'
-    'Microsoft.People' = 'People'
-    'Microsoft.WindowsFeedbackHub' = 'Feedback Hub'
-    'Microsoft.XboxApp' = 'Xbox App'
-    'Microsoft.XboxGamingOverlay' = 'Xbox Game Bar'
-    'Microsoft.XboxIdentityProvider' = 'Xbox Identity'
-    'Microsoft.YourPhone' = 'Your Phone'
-    'Microsoft.ZuneMusic' = 'Windows Media Player'
-    'Microsoft.ZuneVideo' = 'Movies & TV'
-    'Microsoft.TikTok' = 'TikTok'
-    'Microsoft.Wallet' = 'Microsoft Wallet'
-    'Clipchamp.Clipchamp' = 'Clipchamp'
-    'SpotifyAB.SpotifyMusic' = 'Spotify'
-    'DisneyPlusDisneyPlus' = 'Disney+'
-    'Facebook' = 'Facebook'
-    'Instagram' = 'Instagram'
-    'Twitter' = 'Twitter'
-    'Amazon.com.Amazon' = 'Amazon Shopping'
-    'PandoraMediaInc' = 'Pandora'
-    'AdobeSystemsIncorporated.AdobePhotoshopExpress' = 'Photoshop Express'
-    'CandyCrush' = 'Candy Crush'
-    'Netflix' = 'Netflix'
-    'Microsoft.BingFoodAndDrink' = 'Food & Drink'
-    'Microsoft.BingHealthAndFitness' = 'Health & Fitness'
-    'Microsoft.BingTravel' = 'Bing Travel'
-    'Microsoft.WindowsAlarms' = 'Alarms & Clock'
-    'Microsoft.WindowsCamera' = 'Camera'
-    'Microsoft.WindowsMaps' = 'Maps'
-    'Microsoft.WindowsSoundRecorder' = 'Voice Recorder'
-    'Microsoft.WindowsCommunicationsApps' = 'Mail & Calendar'
-    'Microsoft.Office.OneNote' = 'OneNote'
-    'Microsoft.MicrosoftOfficeHub' = 'Microsoft Office'
-    'Microsoft.SkypeApp' = 'Skype'
-    'Microsoft.MSPaint' = 'Paint 3D'
-    'Microsoft.MicrosoftStickyNotes' = 'Sticky Notes'
-    'Microsoft.MicrosoftEdge' = 'Microsoft Edge'
-}
-
-# Check which ones are actually installed
-$installedApps = @()
-foreach ($appKey in $bloatwareMap.Keys) {
-    $matchingPackages = $allPackages | Where-Object { $_.Name -like "*$appKey*" }
-    if ($matchingPackages) {
-        $installedApps += @{
-            id = $appKey
-            name = $bloatwareMap[$appKey]
-        }
-    }
-}
-
-# Return as JSON
-ConvertTo-Json @($installedApps)
-`;
-
-    const child = spawn('powershell.exe', [
-      '-NoProfile', 
-      '-ExecutionPolicy', 
-      'Bypass', 
-      '-Command', 
-      psScript
-    ], { 
-      windowsHide: true
-    });
-
-    let output = '';
-    let errorOutput = '';
-
-    child.stdout.on('data', (data) => {
-      output += data.toString();
-    });
-
-    child.stderr.on('data', (data) => {
-      errorOutput += data.toString();
-    });
-
-    child.on('exit', (code) => {
-      console.log('PowerShell get-preinstalled-apps exit code:', code);
-      
-      if (code === 0 || code === 1) {
-        try {
-          if (output.trim()) {
-            const apps = JSON.parse(output);
-            console.log('Found preinstalled apps:', apps);
-            resolve(apps);
-          } else {
-            resolve([]);
-          }
-        } catch (parseError) {
-          console.error('Failed to parse PowerShell output:', parseError);
-          resolve(getFallbackApps());
-        }
-      } else {
-        console.error('PowerShell script failed with code:', code);
-        resolve(getFallbackApps());
-      }
-    });
-
-    child.on('error', (error) => {
-      console.error('Failed to spawn PowerShell:', error);
-      resolve(getFallbackApps());
-    });
-  });
-});
+// Debloat handler removed
 
 // Helper function for fallback apps
 function getFallbackApps() {

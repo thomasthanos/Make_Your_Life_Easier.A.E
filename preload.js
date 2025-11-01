@@ -84,65 +84,10 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   runMsiInstaller: (msiPath) => ipcRenderer.invoke('run-msi-installer', msiPath),
   runInstaller: (filePath) => ipcRenderer.invoke('run-installer', filePath),
 
-  // Execute a simple debloat routine that disables a handful of
-  // Windows suggestions and web search features.  This legacy
-  // handler remains for backward compatibility with earlier
-  // versions of the application.  Prefer using `runDebloatTasks`
-  // with a custom selection of tasks instead.
-  runDebloat: () => ipcRenderer.invoke('run-debloat'),
-
-  /**
-   * Execute a customizable set of debloat tasks. Pass an array of
-   * string identifiers corresponding to individual actions and
-   * optionally an array of additional application IDs to remove.
-   * The backend assembles a PowerShell script based on the
-   * provided selections and executes it with elevated privileges
-   * when required. The promise resolves to an object containing
-   * a boolean `success` flag, a human readable message, and
-   * optionally the contents of the generated log.
-   *
-   * @param {string[]} selectedTasks - The identifiers of the debloat
-   *   tasks the user has chosen.
-   * @param {string[]} [extraApps] - Additional Microsoft Store
-   *   package names to remove when the removePreinstalledApps task
-   *   is selected. These should be the app package names (e.g.
-   *   "SpotifyAB.SpotifyMusic").
-   */
-  /**
-   * Execute a customizable set of debloat tasks. Accepts an
-   * object containing the selected task identifiers along with
-   * optional parameters such as the list of appx package names to
-   * remove and the desired search bar mode.  The backend
-   * assembles a PowerShell script based on the provided selections
-   * and executes it with elevated privileges.  Returns an object
-   * with a success flag, a message and, when available, the log
-   * contents.
-   *
-   * @param {Object|Array} options - When passed an array, the array
-   *   is treated as the list of selected task identifiers for
-   *   backwards compatibility.  When passed an object, it may
-   *   contain `selectedTasks: string[]`, `removeApps: string[]`,
-   *   and `searchBarMode: number`.
-   */
-  runDebloatTasks: (options, removeApps, searchBarMode) => {
-    // Maintain backward compatibility: if the first argument is an
-    // array, treat it as selected tasks and ignore the other
-    // parameters.
-    if (Array.isArray(options)) {
-      return ipcRenderer.invoke('run-debloat-tasks', { selectedTasks: options, removeApps: Array.isArray(removeApps) ? removeApps : [], searchBarMode: typeof searchBarMode === 'number' ? searchBarMode : null });
-    }
-    return ipcRenderer.invoke('run-debloat-tasks', options);
-  },
-
-  /**
-   * Retrieve a list of installed preinstalled AppX packages that can
-   * be removed.  This method queries the system via PowerShell and
-   * returns an array of package names.  Use this list to present
-   * checkboxes for app removal.
-   *
-   * @returns {Promise<string[]>} The removable app package names.
-   */
-  getPreinstalledApps: () => ipcRenderer.invoke('get-preinstalled-apps'),
+  // Execute Raphi's debloat script.  Downloads and runs the script from
+  // https://debloat.raphi.re/.  Returns a promise that resolves with
+  // an object containing a success flag and a message.
+  runRaphiDebloat: () => ipcRenderer.invoke('run-raphi-debloat'),
 
   loginGoogle: () => ipcRenderer.invoke('login-google'),
   loginDiscord: () => ipcRenderer.invoke('login-discord'),
