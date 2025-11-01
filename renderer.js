@@ -3068,14 +3068,16 @@ const processStates = new Map();
                       // Pre-select an app only if it is in the list of recommended removals
                       appCb.checked = defaultRemoveSet.has(app.id);
 
-                      const appLabel = document.createElement('span');
+                      const appLabel = document.createElement('label');
+                      // Associate the label with the checkbox ID so that CSS styling applies
+                      appLabel.setAttribute('for', appCb.id);
                       appLabel.textContent = app.name;
                       appLabel.style.marginLeft = '0.75rem';
                       appLabel.style.flex = '1';
                       appLabel.style.fontSize = '0.95rem';
                       appLabel.style.cursor = 'pointer';
 
-                      // Toggle the corresponding checkbox when clicking on the label
+                      // Prevent the default behaviour (which focuses the hidden checkbox) and toggle manually
                       appLabel.addEventListener('click', (evt) => {
                         evt.preventDefault();
                         appCb.checked = !appCb.checked;

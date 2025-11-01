@@ -2013,663 +2013,7 @@ ipcMain.handle('get-default-debloat-tasks', async () => {
   };
 });
 
-// Τώρα το run-debloat-tasks handler
-// Ensure only one handler is registered for this channel by removing any existing handler
-ipcMain.removeHandler('run-debloat-tasks');
-ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'Debloat tasks are only supported on Windows' };
-  }
 
-  return new Promise((resolve) => {
-    const timeoutMs = 300000; // 5 λεπτά timeout
-    
-    const timeout = setTimeout(() => {
-      resolve({ 
-        success: false, 
-        error: 'Operation timed out. Please try again.',
-        code: 'TIMEOUT'
-      });
-    }, timeoutMs);
-
-    try {
-      // Normalize input
-      let selectedArray = selectedTasks;
-      let removeApps = [];
-      let searchBarMode = null;
-
-      if (selectedTasks && typeof selectedTasks === 'object' && !Array.isArray(selectedTasks)) {
-        selectedArray = selectedTasks.selectedTasks || [];
-        removeApps = Array.isArray(selectedTasks.removeApps) ? selectedTasks.removeApps : [];
-        if (Number.isInteger(selectedTasks.searchBarMode)) {
-          searchBarMode = selectedTasks.searchBarMode;
-        }
-      }
-
-      // ΟΛΑ τα tasks με πλήρη implementation
-      const taskMap = {
-        removePreinstalledApps: {
-          label: 'Remove preinstalled apps',
-          script: `# Remove preinstalled apps\nWrite-Host "Removing preinstalled apps..." -ForegroundColor Yellow\n`
-        },
-        disableTelemetry: {
-          label: 'Disable telemetry & diagnostic data',
-          script: `# Disable telemetry (requires admin)\nWrite-Host "Disabling telemetry..." -ForegroundColor Yellow\nNew-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "DataCollection" -Force | Out-Null\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Telemetry disabled" -ForegroundColor Green\n`
-        },
-        disableActivityHistory: {
-          label: 'Disable activity history',
-          script: `# Disable activity history (requires admin)\nWrite-Host "Disabling activity history..." -ForegroundColor Yellow\nNew-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "System" -Force | Out-Null\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System" -Name "PublishUserActivities" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Activity history disabled" -ForegroundColor Green\n`
-        },
-        disableTipsSuggestions: {
-          label: 'Disable tips, suggestions & ads',
-          script: `# Disable tips and suggestions (user registry)\nWrite-Host "Disabling tips and suggestions..." -ForegroundColor Yellow\n$cdm = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager"\nif (Test-Path $cdm) {\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-338389Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-338388Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-310093Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Write-Host "Tips and suggestions disabled" -ForegroundColor Green\n} else {\n  Write-Host "ContentDeliveryManager path not found" -ForegroundColor Yellow\n}\n`
-        },
-        disableBingSearch: {
-          label: 'Disable Bing web search',
-          script: `# Disable Bing search (user registry)\nWrite-Host "Disabling Bing search..." -ForegroundColor Yellow\n$explorerPath = "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer"\nif (-not (Test-Path $explorerPath)) {\n  New-Item -Path "HKCU:\\Software\\Policies\\Microsoft\\Windows" -Name "Explorer" -Force | Out-Null\n}\nSet-ItemProperty -Path $explorerPath -Name "DisableSearchBoxSuggestions" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Bing search disabled" -ForegroundColor Green\n`
-        },
-        disableCopilot: {
-          label: 'Disable Microsoft Copilot',
-          script: `# Disable Copilot (user registry)\nWrite-Host "Disabling Copilot..." -ForegroundColor Yellow\n$copilotKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"\nif (-not (Test-Path $copilotKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer" -Name "Advanced" -Force | Out-Null\n}\nSet-ItemProperty -Path $copilotKey -Name "ShowCopilotButton" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Copilot disabled successfully" -ForegroundColor Green\n`
-        },
-        showFileExtensions: {
-          label: 'Show file extensions',
-          script: `# Show file extensions (user registry)\nWrite-Host "Showing file extensions..." -ForegroundColor Yellow\n$advancedKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"\nif (-not (Test-Path $advancedKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer" -Name "Advanced" -Force | Out-Null\n}\nSet-ItemProperty -Path $advancedKey -Name "HideFileExt" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "File extensions shown" -ForegroundColor Green\n`
-        },
-        hideSearchIcon: {
-          label: 'Hide search icon/box',
-          script: `# Hide search (user registry)\nWrite-Host "Hiding search icon..." -ForegroundColor Yellow\n$searchKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search"\nif (-not (Test-Path $searchKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion" -Name "Search" -Force | Out-Null\n}\nSet-ItemProperty -Path $searchKey -Name "SearchBoxTaskbarMode" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Search icon hidden" -ForegroundColor Green\n`
-        },
-        disableOneDrive: {
-          label: 'Disable OneDrive',
-          script: `# Disable OneDrive\nWrite-Host "Disabling OneDrive..." -ForegroundColor Yellow\ntaskkill /f /im OneDrive.exe /t 2>&1 | Out-Null\n%SystemRoot%\\SysWOW64\\OneDriveSetup.exe /uninstall 2>&1 | Out-Null\nreg delete "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "OneDrive" /f 2>&1 | Out-Null\nreg delete "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "OneDrive" /f 2>&1 | Out-Null\nWrite-Host "OneDrive disabled" -ForegroundColor Green\n`
-        },
-        disableGameBar: {
-          label: 'Disable Xbox Game Bar',
-          script: `# Disable Game Bar\nWrite-Host "Disabling Xbox Game Bar..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "AppCaptureEnabled" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\System\\GameConfigStore" -Name "GameDVR_Enabled" -Value 0 -Type DWord -Force\nWrite-Host "Xbox Game Bar disabled" -ForegroundColor Green\n`
-        },
-        disableBackgroundApps: {
-          label: 'Disable background apps',
-          script: `# Disable background apps\nWrite-Host "Disabling background apps..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 1 -Type DWord -Force\nGet-ChildItem "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" | ForEach-Object {\n  Set-ItemProperty -Path $_.PSPath -Name "Disabled" -Value 1 -Type DWord -Force\n}\nWrite-Host "Background apps disabled" -ForegroundColor Green\n`
-        },
-        disableLocationTracking: {
-          label: 'Disable location tracking',
-          script: `# Disable location tracking\nWrite-Host "Disabling location tracking..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors" -Name "DisableLocation" -Value 1 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\DeviceAccess\\Global\\LoCation" -Name "Value" -Value "Deny" -Type String -Force\nWrite-Host "Location tracking disabled" -ForegroundColor Green\n`
-        },
-        enablePerformanceTweaks: {
-          label: 'Enable performance tweaks',
-          script: `# Performance tweaks\nWrite-Host "Applying performance tweaks..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects" -Name "VisualFXSetting" -Value 2 -Type DWord -Force\npowercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 2>&1 | Out-Null\npowercfg -h off 2>&1 | Out-Null\nWrite-Host "Performance tweaks applied" -ForegroundColor Green\n`
-        },
-        disableAnimations: {
-          label: 'Disable animations and visual effects',
-          script: `# Disable animations\nWrite-Host "Disabling animations..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ListviewAlphaSelect" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ListviewShadow" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarAnimations" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "DisablePreviewDesktop" -Value 1 -Type DWord -Force\nWrite-Host "Animations disabled" -ForegroundColor Green\n`
-        },
-        restoreClassicContextMenu: {
-          label: 'Restore classic context menu',
-          script: `# Restore classic context menu\nWrite-Host "Restoring classic context menu..." -ForegroundColor Yellow\n$clsid = "HKCU:\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}"\nNew-Item -Path $clsid -Force | Out-Null\nNew-Item -Path "$clsid\\InprocServer32" -Force | Out-Null\nSet-ItemProperty -Path "$clsid\\InprocServer32" -Name "(Default)" -Value "" -Type String -Force -ErrorAction SilentlyContinue\nWrite-Host "Classic context menu restored" -ForegroundColor Green\n`
-        },
-        disableCortana: {
-          label: 'Completely disable Cortana',
-          script: `# Disable Cortana\nWrite-Host "Disabling Cortana..." -ForegroundColor Yellow\n$cortanaPath = "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search"\nif (-not (Test-Path $cortanaPath)) {\n  New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "Windows Search" -Force | Out-Null\n}\nSet-ItemProperty -Path $cortanaPath -Name "AllowCortana" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path $cortanaPath -Name "AllowSearchToUseLocation" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path $cortanaPath -Name "DisableWebSearch" -Value 1 -Type DWord -Force\nWrite-Host "Cortana disabled" -ForegroundColor Green\n`
-        },
-        disableWindowsUpdate: {
-          label: 'Disable automatic Windows updates',
-          script: `# Disable Windows Update\nWrite-Host "Disabling automatic Windows updates..." -ForegroundColor Yellow\n$wuPath = "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU"\nif (-not (Test-Path $wuPath)) {\n  New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate" -Name "AU" -Force | Out-Null\n}\nSet-ItemProperty -Path $wuPath -Name "NoAutoUpdate" -Value 1 -Type DWord -Force\nSet-ItemProperty -Path $wuPath -Name "AUOptions" -Value 1 -Type DWord -Force\nWrite-Host "Windows Update disabled" -ForegroundColor Green\n`
-        },
-        disableLocationServices: {
-          label: 'Disable location services',
-          script: `# Disable location services\nWrite-Host "Disabling location services..." -ForegroundColor Yellow\n$locationPath = "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors"\nif (-not (Test-Path $locationPath)) {\n  New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "LocationAndSensors" -Force | Out-Null\n}\nSet-ItemProperty -Path $locationPath -Name "DisableLocation" -Value 1 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DeviceAccess\\Global\\Location" -Name "Value" -Value "Deny" -Type String -Force\nWrite-Host "Location services disabled" -ForegroundColor Green\n`
-        },
-        disableAdvertisingID: {
-          label: 'Disable advertising ID',
-          script: `# Disable advertising ID\nWrite-Host "Disabling advertising ID..." -ForegroundColor Yellow\n$advertisingPath = "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\AdvertisingInfo"\nif (-not (Test-Path $advertisingPath)) {\n  New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "AdvertisingInfo" -Force | Out-Null\n}\nSet-ItemProperty -Path $advertisingPath -Name "DisabledByGroupPolicy" -Value 1 -Type DWord -Force\nWrite-Host "Advertising ID disabled" -ForegroundColor Green\n`
-        },
-        disableTelemetryHost: {
-          label: 'Disable Connected User Experiences',
-          script: `# Disable Connected User Experiences\nWrite-Host "Disabling Connected User Experiences..." -ForegroundColor Yellow\nStop-Service -Name "DiagTrack" -Force -ErrorAction SilentlyContinue\nSet-Service -Name "DiagTrack" -StartupType Disabled -ErrorAction SilentlyContinue\nStop-Service -Name "dmwappushservice" -Force -ErrorAction SilentlyContinue\nSet-Service -Name "dmwappushservice" -StartupType Disabled -ErrorAction SilentlyContinue\nWrite-Host "Connected User Experiences disabled" -ForegroundColor Green\n`
-        },
-        disableRemoteAssistance: {
-          label: 'Disable remote assistance',
-          script: `# Disable remote assistance\nWrite-Host "Disabling remote assistance..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Remote Assistance" -Name "fAllowToGetHelp" -Value 0 -Type DWord -Force\nWrite-Host "Remote assistance disabled" -ForegroundColor Green\n`
-        },
-        disableRemoteDesktop: {
-          label: 'Disable remote desktop',
-          script: `# Disable remote desktop\nWrite-Host "Disabling remote desktop..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" -Name "fDenyTSConnections" -Value 1 -Type DWord -Force\nWrite-Host "Remote desktop disabled" -ForegroundColor Green\n`
-        }
-      };
-
-      const logPath = path.join(os.tmpdir(), `debloat_log_${Date.now()}.txt`);
-      const escapedLogPath = logPath.replace(/"/g, '\\"');
-
-      let psScript = '';
-      psScript += 'try {\n';
-      psScript += `$LogPath = "${escapedLogPath}"\n`;
-      psScript += 'Remove-Item -Path $LogPath -ErrorAction SilentlyContinue\n';
-      psScript += 'function Log {\n';
-      psScript += '  param([string]$Message)\n';
-      psScript += '  $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")\n';
-      psScript += '  Add-Content -Path $LogPath -Value "[$ts] $Message"\n';
-      psScript += '  Write-Host $Message\n';
-      psScript += '}\n';
-      psScript += 'Log "=== DEBLOAT SCRIPT STARTED ===\'\n';
-      psScript += 'Log "Running with elevated privileges"\n';
-
-      // Create backup of current state
-      psScript += 'Log "Creating system state backup..."\n';
-      psScript += `$backupFile = "C:\\DebloatBackup_\$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"\n`;
-      psScript += 'try {\n';
-      psScript += '  "=== DEBLOAT BACKUP ===" | Out-File $backupFile\n';
-      psScript += '  "Backup created on: $(Get-Date)" | Out-File $backupFile -Append\n';
-      psScript += '  "Selected tasks: ' + selectedArray.join(', ') + '" | Out-File $backupFile -Append\n';
-      psScript += '  Log "Backup created: $backupFile"\n';
-      psScript += '} catch {\n';
-      psScript += '  Log "Warning: Could not create backup file"\n';
-      psScript += '}\n';
-
-      // Add selected tasks with improved error handling
-      selectedArray.forEach((key) => {
-        const task = taskMap[key];
-        if (!task) {
-          psScript += `Log "WARNING: Unknown task '${key}' - skipping"\n`;
-          return;
-        }
-        
-        const safeLabel = task.label.replace(/'/g, "''");
-        psScript += `Log 'Running task: ${safeLabel}'\n`;
-        
-        if (key === 'removePreinstalledApps') {
-          // Βελτιωμένο app removal με error handling
-          if (Array.isArray(removeApps) && removeApps.length > 0) {
-            psScript += `Log 'Removing selected apps: ${removeApps.join(', ')}'\n`;
-            removeApps.forEach(appId => {
-              psScript += `Log 'Attempting to remove app: ${appId}'\n`;
-              psScript += `try {\n`;
-              psScript += `  $package = Get-AppxPackage -AllUsers -Name "*${appId}*" -ErrorAction SilentlyContinue\n`;
-              psScript += `  if ($package) {\n`;
-              psScript += `    $removeResult = Remove-AppxPackage -Package $package -ErrorAction SilentlyContinue\n`;
-              psScript += `    if ($removeResult) { Log '✅ Successfully removed: ${appId}' }\n`;
-              psScript += `    else { Log '⚠️ Removal may have failed for: ${appId}' }\n`;
-              psScript += `  } else { Log 'ℹ️ App not found: ${appId}' }\n`;
-              psScript += `} catch { Log '❌ Error removing ${appId}: $($_.Exception.Message)' }\n`;
-              
-              // Προσθήκη provisioned package removal
-              psScript += `try {\n`;
-              psScript += `  $provisioned = Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like "*${appId}*" } -ErrorAction SilentlyContinue\n`;
-              psScript += `  if ($provisioned) {\n`;
-              psScript += `    Remove-AppxProvisionedPackage -PackageName $provisioned.PackageName -Online -ErrorAction SilentlyContinue\n`;
-              psScript += `    Log '✅ Removed provisioned package: ${appId}'\n`;
-              psScript += `  }\n`;
-              psScript += `} catch { Log '❌ Error removing provisioned ${appId}: $($_.Exception.Message)' }\n`;
-            });
-            psScript += 'Write-Host "App removal process completed" -ForegroundColor Green\n';
-          } else {
-            // Remove common bloatware if no specific apps selected
-            psScript += `Log 'Removing common bloatware apps'\n`;
-            const defaultApps = [
-              'Microsoft.BingNews',
-              'Microsoft.BingWeather', 
-              'Microsoft.Getstarted',
-              'Microsoft.MicrosoftSolitaireCollection',
-              'Microsoft.YourPhone',
-              'Microsoft.TikTok',
-              'Clipchamp.Clipchamp',
-              'Microsoft.XboxApp',
-              'Microsoft.XboxIdentityProvider',
-              'Microsoft.XboxGamingOverlay',
-              'Microsoft.WindowsSoundRecorder',
-              'Microsoft.QuickAssist',
-              'Microsoft.PowerAutomateDesktop',
-              'Microsoft.OutlookForWindows',
-              'Microsoft.Todos',
-              'Microsoft.MicrosoftTeams',
-              'Microsoft.GamingApp',
-              'Microsoft.Bing',
-              'Microsoft.ZuneMusic',
-              'Microsoft.WindowsFeedbackHub',
-              'Microsoft.WindowsAlarms',
-              'Microsoft.WindowsCamera',
-              'Microsoft.SkypeApp',
-              'Microsoft.People',
-              'Microsoft.WindowsMaps'
-            ];
-            defaultApps.forEach(appId => {
-              psScript += `try {\n`;
-              psScript += `  $package = Get-AppxPackage -AllUsers -Name "*${appId}*" -ErrorAction SilentlyContinue\n`;
-              psScript += `  if ($package) {\n`;
-              psScript += `    Remove-AppxPackage -Package $package -ErrorAction SilentlyContinue\n`;
-              psScript += `    Log '✅ Removed: ${appId}'\n`;
-              psScript += `  }\n`;
-              psScript += `} catch { Log '⚠️ Failed to remove: ${appId}' }\n`;
-            });
-            psScript += 'Write-Host "Default apps removal completed" -ForegroundColor Green\n';
-          }
-        } else {
-          psScript += task.script + '\n';
-        }
-      });
-
-      // Handle search bar mode
-      if (searchBarMode !== null) {
-        psScript += `Log 'Setting search bar mode to ${searchBarMode}'\n`;
-        psScript += `Write-Host "Setting search bar mode..." -ForegroundColor Yellow\n`;
-        psScript += `$searchKey = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search'\n`;
-        psScript += `if (-not (Test-Path $searchKey)) {\n  New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -ItemType Directory -Force | Out-Null\n}\n`;
-        psScript += `Set-ItemProperty -Path $searchKey -Name 'SearchBoxTaskbarMode' -Value ${searchBarMode} -Type DWord -Force -ErrorAction SilentlyContinue\n`;
-        psScript += `Write-Host "Search bar mode set to ${searchBarMode}" -ForegroundColor Green\n`;
-      }
-
-      psScript += 'Log "=== DEBLOAT OPERATIONS COMPLETED ===\'\n';
-      psScript += 'Write-Host "All debloat operations finished successfully!" -ForegroundColor Green\n';
-      psScript += 'Write-Host "Some changes may require a restart to take effect." -ForegroundColor Yellow\n';
-      psScript += 'Write-Host "Backup saved to: $backupFile" -ForegroundColor Cyan\n';
-      psScript += 'exit 0\n';
-      psScript += '} catch {\n';
-      psScript += '  Log "ERROR: $_"\n';
-      psScript += '  Write-Error $_\n';
-      psScript += '  exit 1\n';
-      psScript += '}\n';
-
-      // Write and execute the script
-      const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
-      fs.writeFileSync(psFile, psScript, 'utf8');
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      
-      const command = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
-      const child = spawn('powershell.exe', ['-Command', command], { 
-        windowsHide: true,
-        timeout: timeoutMs - 10000 // Λίγο πριν το main timeout
-      });
-      
-      child.on('error', (err) => {
-        clearTimeout(timeout);
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
-        
-        if (err.code === 'ETIMEDOUT') {
-          resolve({ 
-            success: false, 
-            error: 'Operation timed out. Please try again.',
-            code: 'TIMEOUT'
-          });
-        } else if (err.code === 'UAC_DENIED' || err.message.includes('denied')) {
-          resolve({ 
-            success: false, 
-            error: 'Administrator privileges required. Please accept the UAC prompt.',
-            code: 'UAC_DENIED'
-          });
-        } else {
-          resolve({ 
-            success: false, 
-            error: 'Failed to start process: ' + err.message,
-            code: 'PROCESS_ERROR'
-          });
-        }
-      });
-      
-      child.on('exit', (code) => {
-        clearTimeout(timeout);
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
-        
-        let logContents = null;
-        try {
-          if (fs.existsSync(logPath)) {
-            logContents = fs.readFileSync(logPath, 'utf8');
-          }
-        } catch (_) {}
-        
-        if (code === 0) {
-          resolve({ 
-            success: true, 
-            message: 'Debloat tasks completed successfully! Some changes may require restart.', 
-            log: logContents 
-          });
-        } else {
-          resolve({ 
-            success: false, 
-            error: 'Debloat tasks failed or were cancelled. Please check the UAC prompt.', 
-            log: logContents 
-          });
-        }
-      });
-      
-    } catch (err) {
-      clearTimeout(timeout);
-      resolve({ 
-        success: false, 
-        error: 'Failed to initiate debloat: ' + err.message,
-        code: 'INIT_ERROR'
-      });
-    }
-  });
-});
-
-// Τώρα το run-debloat-tasks handler
-// Ensure only one handler is registered for this channel by removing any existing handler
-ipcMain.removeHandler('run-debloat-tasks');
-ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'Debloat tasks are only supported on Windows' };
-  }
-
-  return new Promise((resolve) => {
-    const timeoutMs = 300000; // 5 λεπτά timeout
-    
-    const timeout = setTimeout(() => {
-      resolve({ 
-        success: false, 
-        error: 'Operation timed out. Please try again.',
-        code: 'TIMEOUT'
-      });
-    }, timeoutMs);
-
-    try {
-      // Normalize input
-      let selectedArray = selectedTasks;
-      let removeApps = [];
-      let searchBarMode = null;
-
-      if (selectedTasks && typeof selectedTasks === 'object' && !Array.isArray(selectedTasks)) {
-        selectedArray = selectedTasks.selectedTasks || [];
-        removeApps = Array.isArray(selectedTasks.removeApps) ? selectedTasks.removeApps : [];
-        if (Number.isInteger(selectedTasks.searchBarMode)) {
-          searchBarMode = selectedTasks.searchBarMode;
-        }
-      }
-
-      // ΟΛΑ τα tasks με πλήρη implementation
-      const taskMap = {
-        removePreinstalledApps: {
-          label: 'Remove preinstalled apps',
-          script: `# Remove preinstalled apps\nWrite-Host "Removing preinstalled apps..." -ForegroundColor Yellow\n`
-        },
-        disableTelemetry: {
-          label: 'Disable telemetry & diagnostic data',
-          script: `# Disable telemetry (requires admin)\nWrite-Host "Disabling telemetry..." -ForegroundColor Yellow\nNew-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "DataCollection" -Force | Out-Null\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Telemetry disabled" -ForegroundColor Green\n`
-        },
-        disableActivityHistory: {
-          label: 'Disable activity history',
-          script: `# Disable activity history (requires admin)\nWrite-Host "Disabling activity history..." -ForegroundColor Yellow\nNew-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "System" -Force | Out-Null\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System" -Name "PublishUserActivities" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Activity history disabled" -ForegroundColor Green\n`
-        },
-        disableTipsSuggestions: {
-          label: 'Disable tips, suggestions & ads',
-          script: `# Disable tips and suggestions (user registry)\nWrite-Host "Disabling tips and suggestions..." -ForegroundColor Yellow\n$cdm = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager"\nif (Test-Path $cdm) {\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-338389Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-338388Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-310093Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Write-Host "Tips and suggestions disabled" -ForegroundColor Green\n} else {\n  Write-Host "ContentDeliveryManager path not found" -ForegroundColor Yellow\n}\n`
-        },
-        disableBingSearch: {
-          label: 'Disable Bing web search',
-          script: `# Disable Bing search (user registry)\nWrite-Host "Disabling Bing search..." -ForegroundColor Yellow\n$explorerPath = "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer"\nif (-not (Test-Path $explorerPath)) {\n  New-Item -Path "HKCU:\\Software\\Policies\\Microsoft\\Windows" -Name "Explorer" -Force | Out-Null\n}\nSet-ItemProperty -Path $explorerPath -Name "DisableSearchBoxSuggestions" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Bing search disabled" -ForegroundColor Green\n`
-        },
-        disableCopilot: {
-          label: 'Disable Microsoft Copilot',
-          script: `# Disable Copilot (user registry)\nWrite-Host "Disabling Copilot..." -ForegroundColor Yellow\n$copilotKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"\nif (-not (Test-Path $copilotKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer" -Name "Advanced" -Force | Out-Null\n}\nSet-ItemProperty -Path $copilotKey -Name "ShowCopilotButton" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Copilot disabled successfully" -ForegroundColor Green\n`
-        },
-        showFileExtensions: {
-          label: 'Show file extensions',
-          script: `# Show file extensions (user registry)\nWrite-Host "Showing file extensions..." -ForegroundColor Yellow\n$advancedKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"\nif (-not (Test-Path $advancedKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer" -Name "Advanced" -Force | Out-Null\n}\nSet-ItemProperty -Path $advancedKey -Name "HideFileExt" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "File extensions shown" -ForegroundColor Green\n`
-        },
-        hideSearchIcon: {
-          label: 'Hide search icon/box',
-          script: `# Hide search (user registry)\nWrite-Host "Hiding search icon..." -ForegroundColor Yellow\n$searchKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search"\nif (-not (Test-Path $searchKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion" -Name "Search" -Force | Out-Null\n}\nSet-ItemProperty -Path $searchKey -Name "SearchBoxTaskbarMode" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Search icon hidden" -ForegroundColor Green\n`
-        },
-        disableOneDrive: {
-          label: 'Disable OneDrive',
-          script: `# Disable OneDrive\nWrite-Host "Disabling OneDrive..." -ForegroundColor Yellow\ntaskkill /f /im OneDrive.exe /t 2>&1 | Out-Null\n%SystemRoot%\\SysWOW64\\OneDriveSetup.exe /uninstall 2>&1 | Out-Null\nreg delete "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "OneDrive" /f 2>&1 | Out-Null\nreg delete "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "OneDrive" /f 2>&1 | Out-Null\nWrite-Host "OneDrive disabled" -ForegroundColor Green\n`
-        },
-        disableGameBar: {
-          label: 'Disable Xbox Game Bar',
-          script: `# Disable Game Bar\nWrite-Host "Disabling Xbox Game Bar..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "AppCaptureEnabled" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\System\\GameConfigStore" -Name "GameDVR_Enabled" -Value 0 -Type DWord -Force\nWrite-Host "Xbox Game Bar disabled" -ForegroundColor Green\n`
-        },
-        disableBackgroundApps: {
-          label: 'Disable background apps',
-          script: `# Disable background apps\nWrite-Host "Disabling background apps..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 1 -Type DWord -Force\nGet-ChildItem "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" | ForEach-Object {\n  Set-ItemProperty -Path $_.PSPath -Name "Disabled" -Value 1 -Type DWord -Force\n}\nWrite-Host "Background apps disabled" -ForegroundColor Green\n`
-        },
-        disableLocationTracking: {
-          label: 'Disable location tracking',
-          script: `# Disable location tracking\nWrite-Host "Disabling location tracking..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors" -Name "DisableLocation" -Value 1 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\DeviceAccess\\Global\\LoCation" -Name "Value" -Value "Deny" -Type String -Force\nWrite-Host "Location tracking disabled" -ForegroundColor Green\n`
-        },
-        enablePerformanceTweaks: {
-          label: 'Enable performance tweaks',
-          script: `# Performance tweaks\nWrite-Host "Applying performance tweaks..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects" -Name "VisualFXSetting" -Value 2 -Type DWord -Force\npowercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 2>&1 | Out-Null\npowercfg -h off 2>&1 | Out-Null\nWrite-Host "Performance tweaks applied" -ForegroundColor Green\n`
-        },
-        disableAnimations: {
-          label: 'Disable animations and visual effects',
-          script: `# Disable animations\nWrite-Host "Disabling animations..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ListviewAlphaSelect" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ListviewShadow" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarAnimations" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "DisablePreviewDesktop" -Value 1 -Type DWord -Force\nWrite-Host "Animations disabled" -ForegroundColor Green\n`
-        },
-        restoreClassicContextMenu: {
-          label: 'Restore classic context menu',
-          script: `# Restore classic context menu\nWrite-Host "Restoring classic context menu..." -ForegroundColor Yellow\n$clsid = "HKCU:\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}"\nNew-Item -Path $clsid -Force | Out-Null\nNew-Item -Path "$clsid\\InprocServer32" -Force | Out-Null\nSet-ItemProperty -Path "$clsid\\InprocServer32" -Name "(Default)" -Value "" -Type String -Force -ErrorAction SilentlyContinue\nWrite-Host "Classic context menu restored" -ForegroundColor Green\n`
-        },
-        disableCortana: {
-          label: 'Completely disable Cortana',
-          script: `# Disable Cortana\nWrite-Host "Disabling Cortana..." -ForegroundColor Yellow\n$cortanaPath = "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search"\nif (-not (Test-Path $cortanaPath)) {\n  New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "Windows Search" -Force | Out-Null\n}\nSet-ItemProperty -Path $cortanaPath -Name "AllowCortana" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path $cortanaPath -Name "AllowSearchToUseLocation" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path $cortanaPath -Name "DisableWebSearch" -Value 1 -Type DWord -Force\nWrite-Host "Cortana disabled" -ForegroundColor Green\n`
-        },
-        disableWindowsUpdate: {
-          label: 'Disable automatic Windows updates',
-          script: `# Disable Windows Update\nWrite-Host "Disabling automatic Windows updates..." -ForegroundColor Yellow\n$wuPath = "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU"\nif (-not (Test-Path $wuPath)) {\n  New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate" -Name "AU" -Force | Out-Null\n}\nSet-ItemProperty -Path $wuPath -Name "NoAutoUpdate" -Value 1 -Type DWord -Force\nSet-ItemProperty -Path $wuPath -Name "AUOptions" -Value 1 -Type DWord -Force\nWrite-Host "Windows Update disabled" -ForegroundColor Green\n`
-        },
-        disableLocationServices: {
-          label: 'Disable location services',
-          script: `# Disable location services\nWrite-Host "Disabling location services..." -ForegroundColor Yellow\n$locationPath = "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors"\nif (-not (Test-Path $locationPath)) {\n  New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "LocationAndSensors" -Force | Out-Null\n}\nSet-ItemProperty -Path $locationPath -Name "DisableLocation" -Value 1 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DeviceAccess\\Global\\Location" -Name "Value" -Value "Deny" -Type String -Force\nWrite-Host "Location services disabled" -ForegroundColor Green\n`
-        },
-        disableAdvertisingID: {
-          label: 'Disable advertising ID',
-          script: `# Disable advertising ID\nWrite-Host "Disabling advertising ID..." -ForegroundColor Yellow\n$advertisingPath = "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\AdvertisingInfo"\nif (-not (Test-Path $advertisingPath)) {\n  New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "AdvertisingInfo" -Force | Out-Null\n}\nSet-ItemProperty -Path $advertisingPath -Name "DisabledByGroupPolicy" -Value 1 -Type DWord -Force\nWrite-Host "Advertising ID disabled" -ForegroundColor Green\n`
-        },
-        disableTelemetryHost: {
-          label: 'Disable Connected User Experiences',
-          script: `# Disable Connected User Experiences\nWrite-Host "Disabling Connected User Experiences..." -ForegroundColor Yellow\nStop-Service -Name "DiagTrack" -Force -ErrorAction SilentlyContinue\nSet-Service -Name "DiagTrack" -StartupType Disabled -ErrorAction SilentlyContinue\nStop-Service -Name "dmwappushservice" -Force -ErrorAction SilentlyContinue\nSet-Service -Name "dmwappushservice" -StartupType Disabled -ErrorAction SilentlyContinue\nWrite-Host "Connected User Experiences disabled" -ForegroundColor Green\n`
-        },
-        disableRemoteAssistance: {
-          label: 'Disable remote assistance',
-          script: `# Disable remote assistance\nWrite-Host "Disabling remote assistance..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Remote Assistance" -Name "fAllowToGetHelp" -Value 0 -Type DWord -Force\nWrite-Host "Remote assistance disabled" -ForegroundColor Green\n`
-        },
-        disableRemoteDesktop: {
-          label: 'Disable remote desktop',
-          script: `# Disable remote desktop\nWrite-Host "Disabling remote desktop..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" -Name "fDenyTSConnections" -Value 1 -Type DWord -Force\nWrite-Host "Remote desktop disabled" -ForegroundColor Green\n`
-        }
-      };
-
-      const logPath = path.join(os.tmpdir(), `debloat_log_${Date.now()}.txt`);
-      const escapedLogPath = logPath.replace(/"/g, '\\"');
-
-      let psScript = '';
-      psScript += 'try {\n';
-      psScript += `$LogPath = "${escapedLogPath}"\n`;
-      psScript += 'Remove-Item -Path $LogPath -ErrorAction SilentlyContinue\n';
-      psScript += 'function Log {\n';
-      psScript += '  param([string]$Message)\n';
-      psScript += '  $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")\n';
-      psScript += '  Add-Content -Path $LogPath -Value "[$ts] $Message"\n';
-      psScript += '  Write-Host $Message\n';
-      psScript += '}\n';
-      psScript += 'Log "=== DEBLOAT SCRIPT STARTED ===\'\n';
-      psScript += 'Log "Running with elevated privileges"\n';
-
-      // Create backup of current state
-      psScript += 'Log "Creating system state backup..."\n';
-      psScript += `$backupFile = "C:\\DebloatBackup_\$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"\n`;
-      psScript += 'try {\n';
-      psScript += '  "=== DEBLOAT BACKUP ===" | Out-File $backupFile\n';
-      psScript += '  "Backup created on: $(Get-Date)" | Out-File $backupFile -Append\n';
-      psScript += '  "Selected tasks: ' + selectedArray.join(', ') + '" | Out-File $backupFile -Append\n';
-      psScript += '  Log "Backup created: $backupFile"\n';
-      psScript += '} catch {\n';
-      psScript += '  Log "Warning: Could not create backup file"\n';
-      psScript += '}\n';
-
-      // Add selected tasks with improved error handling
-      selectedArray.forEach((key) => {
-        const task = taskMap[key];
-        if (!task) {
-          psScript += `Log "WARNING: Unknown task '${key}' - skipping"\n`;
-          return;
-        }
-        
-        const safeLabel = task.label.replace(/'/g, "''");
-        psScript += `Log 'Running task: ${safeLabel}'\n`;
-        
-        if (key === 'removePreinstalledApps') {
-          // Βελτιωμένο app removal με error handling
-          if (Array.isArray(removeApps) && removeApps.length > 0) {
-            psScript += `Log 'Removing selected apps: ${removeApps.join(', ')}'\n`;
-            removeApps.forEach(appId => {
-              psScript += `Log 'Attempting to remove app: ${appId}'\n`;
-              psScript += `try {\n`;
-              psScript += `  $package = Get-AppxPackage -AllUsers -Name "*${appId}*" -ErrorAction SilentlyContinue\n`;
-              psScript += `  if ($package) {\n`;
-              psScript += `    $removeResult = Remove-AppxPackage -Package $package -ErrorAction SilentlyContinue\n`;
-              psScript += `    if ($removeResult) { Log '✅ Successfully removed: ${appId}' }\n`;
-              psScript += `    else { Log '⚠️ Removal may have failed for: ${appId}' }\n`;
-              psScript += `  } else { Log 'ℹ️ App not found: ${appId}' }\n`;
-              psScript += `} catch { Log '❌ Error removing ${appId}: $($_.Exception.Message)' }\n`;
-              
-              // Προσθήκη provisioned package removal
-              psScript += `try {\n`;
-              psScript += `  $provisioned = Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like "*${appId}*" } -ErrorAction SilentlyContinue\n`;
-              psScript += `  if ($provisioned) {\n`;
-              psScript += `    Remove-AppxProvisionedPackage -PackageName $provisioned.PackageName -Online -ErrorAction SilentlyContinue\n`;
-              psScript += `    Log '✅ Removed provisioned package: ${appId}'\n`;
-              psScript += `  }\n`;
-              psScript += `} catch { Log '❌ Error removing provisioned ${appId}: $($_.Exception.Message)' }\n`;
-            });
-            psScript += 'Write-Host "App removal process completed" -ForegroundColor Green\n';
-          } else {
-            // Remove common bloatware if no specific apps selected
-            psScript += `Log 'Removing common bloatware apps'\n`;
-            const defaultApps = [
-              'Microsoft.BingNews',
-              'Microsoft.BingWeather', 
-              'Microsoft.Getstarted',
-              'Microsoft.MicrosoftSolitaireCollection',
-              'Microsoft.YourPhone',
-              'Microsoft.TikTok',
-              'Clipchamp.Clipchamp',
-              'Microsoft.XboxApp',
-              'Microsoft.XboxIdentityProvider',
-              'Microsoft.XboxGamingOverlay',
-              'Microsoft.WindowsSoundRecorder',
-              'Microsoft.QuickAssist',
-              'Microsoft.PowerAutomateDesktop',
-              'Microsoft.OutlookForWindows',
-              'Microsoft.Todos',
-              'Microsoft.MicrosoftTeams',
-              'Microsoft.GamingApp',
-              'Microsoft.Bing',
-              'Microsoft.ZuneMusic',
-              'Microsoft.WindowsFeedbackHub',
-              'Microsoft.WindowsAlarms',
-              'Microsoft.WindowsCamera',
-              'Microsoft.SkypeApp',
-              'Microsoft.People',
-              'Microsoft.WindowsMaps'
-            ];
-            defaultApps.forEach(appId => {
-              psScript += `try {\n`;
-              psScript += `  $package = Get-AppxPackage -AllUsers -Name "*${appId}*" -ErrorAction SilentlyContinue\n`;
-              psScript += `  if ($package) {\n`;
-              psScript += `    Remove-AppxPackage -Package $package -ErrorAction SilentlyContinue\n`;
-              psScript += `    Log '✅ Removed: ${appId}'\n`;
-              psScript += `  }\n`;
-              psScript += `} catch { Log '⚠️ Failed to remove: ${appId}' }\n`;
-            });
-            psScript += 'Write-Host "Default apps removal completed" -ForegroundColor Green\n';
-          }
-        } else {
-          psScript += task.script + '\n';
-        }
-      });
-
-      // Handle search bar mode
-      if (searchBarMode !== null) {
-        psScript += `Log 'Setting search bar mode to ${searchBarMode}'\n`;
-        psScript += `Write-Host "Setting search bar mode..." -ForegroundColor Yellow\n`;
-        psScript += `$searchKey = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search'\n`;
-        psScript += `if (-not (Test-Path $searchKey)) {\n  New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -ItemType Directory -Force | Out-Null\n}\n`;
-        psScript += `Set-ItemProperty -Path $searchKey -Name 'SearchBoxTaskbarMode' -Value ${searchBarMode} -Type DWord -Force -ErrorAction SilentlyContinue\n`;
-        psScript += `Write-Host "Search bar mode set to ${searchBarMode}" -ForegroundColor Green\n`;
-      }
-
-      psScript += 'Log "=== DEBLOAT OPERATIONS COMPLETED ===\'\n';
-      psScript += 'Write-Host "All debloat operations finished successfully!" -ForegroundColor Green\n';
-      psScript += 'Write-Host "Some changes may require a restart to take effect." -ForegroundColor Yellow\n';
-      psScript += 'Write-Host "Backup saved to: $backupFile" -ForegroundColor Cyan\n';
-      psScript += 'exit 0\n';
-      psScript += '} catch {\n';
-      psScript += '  Log "ERROR: $_"\n';
-      psScript += '  Write-Error $_\n';
-      psScript += '  exit 1\n';
-      psScript += '}\n';
-
-      // Write and execute the script
-      const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
-      fs.writeFileSync(psFile, psScript, 'utf8');
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      
-      const command = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
-      const child = spawn('powershell.exe', ['-Command', command], { 
-        windowsHide: true,
-        timeout: timeoutMs - 10000 // Λίγο πριν το main timeout
-      });
-      
-      child.on('error', (err) => {
-        clearTimeout(timeout);
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
-        
-        if (err.code === 'ETIMEDOUT') {
-          resolve({ 
-            success: false, 
-            error: 'Operation timed out. Please try again.',
-            code: 'TIMEOUT'
-          });
-        } else if (err.code === 'UAC_DENIED' || err.message.includes('denied')) {
-          resolve({ 
-            success: false, 
-            error: 'Administrator privileges required. Please accept the UAC prompt.',
-            code: 'UAC_DENIED'
-          });
-        } else {
-          resolve({ 
-            success: false, 
-            error: 'Failed to start process: ' + err.message,
-            code: 'PROCESS_ERROR'
-          });
-        }
-      });
-      
-      child.on('exit', (code) => {
-        clearTimeout(timeout);
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
-        
-        let logContents = null;
-        try {
-          if (fs.existsSync(logPath)) {
-            logContents = fs.readFileSync(logPath, 'utf8');
-          }
-        } catch (_) {}
-        
-        if (code === 0) {
-          resolve({ 
-            success: true, 
-            message: 'Debloat tasks completed successfully! Some changes may require restart.', 
-            log: logContents 
-          });
-        } else {
-          resolve({ 
-            success: false, 
-            error: 'Debloat tasks failed or were cancelled. Please check the UAC prompt.', 
-            log: logContents 
-          });
-        }
-      });
-      
-    } catch (err) {
-      clearTimeout(timeout);
-      resolve({ 
-        success: false, 
-        error: 'Failed to initiate debloat: ' + err.message,
-        code: 'INIT_ERROR'
-      });
-    }
-  });
-});
 
 // Προσθήκη του get-default-remove-apps handler (legacy instance 2)
 // Remove any previously registered handler for this channel to avoid duplicates
@@ -2808,335 +2152,7 @@ ipcMain.handle('get-default-debloat-tasks', async () => {
   };
 });
 
-// Αφαίρεση του παλιού run-debloat handler και αντικατάσταση με το νέο run-debloat-tasks
-// Τώρα το run-debloat-tasks handler
-// Ensure only one handler is registered by removing any existing handler.
-ipcMain.removeHandler('run-debloat-tasks');
-ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'Debloat tasks are only supported on Windows' };
-  }
 
-  return new Promise((resolve) => {
-    const timeoutMs = 300000; // 5 λεπτά timeout
-    
-    const timeout = setTimeout(() => {
-      resolve({ 
-        success: false, 
-        error: 'Operation timed out. Please try again.',
-        code: 'TIMEOUT'
-      });
-    }, timeoutMs);
-
-    try {
-      // Normalize input
-      let selectedArray = selectedTasks;
-      let removeApps = [];
-      let searchBarMode = null;
-
-      if (selectedTasks && typeof selectedTasks === 'object' && !Array.isArray(selectedTasks)) {
-        selectedArray = selectedTasks.selectedTasks || [];
-        removeApps = Array.isArray(selectedTasks.removeApps) ? selectedTasks.removeApps : [];
-        if (Number.isInteger(selectedTasks.searchBarMode)) {
-          searchBarMode = selectedTasks.searchBarMode;
-        }
-      }
-
-      // ΟΛΑ τα tasks με πλήρη implementation
-      const taskMap = {
-        removePreinstalledApps: {
-          label: 'Remove preinstalled apps',
-          script: `# Remove preinstalled apps\nWrite-Host "Removing preinstalled apps..." -ForegroundColor Yellow\n`
-        },
-        disableTelemetry: {
-          label: 'Disable telemetry & diagnostic data',
-          script: `# Disable telemetry (requires admin)\nWrite-Host "Disabling telemetry..." -ForegroundColor Yellow\nNew-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "DataCollection" -Force | Out-Null\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Telemetry disabled" -ForegroundColor Green\n`
-        },
-        disableActivityHistory: {
-          label: 'Disable activity history',
-          script: `# Disable activity history (requires admin)\nWrite-Host "Disabling activity history..." -ForegroundColor Yellow\nNew-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "System" -Force | Out-Null\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System" -Name "PublishUserActivities" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Activity history disabled" -ForegroundColor Green\n`
-        },
-        disableTipsSuggestions: {
-          label: 'Disable tips, suggestions & ads',
-          script: `# Disable tips and suggestions (user registry)\nWrite-Host "Disabling tips and suggestions..." -ForegroundColor Yellow\n$cdm = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager"\nif (Test-Path $cdm) {\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-338389Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-338388Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Set-ItemProperty -Path $cdm -Name "SubscribedContent-310093Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\n  Write-Host "Tips and suggestions disabled" -ForegroundColor Green\n} else {\n  Write-Host "ContentDeliveryManager path not found" -ForegroundColor Yellow\n}\n`
-        },
-        disableBingSearch: {
-          label: 'Disable Bing web search',
-          script: `# Disable Bing search (user registry)\nWrite-Host "Disabling Bing search..." -ForegroundColor Yellow\n$explorerPath = "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer"\nif (-not (Test-Path $explorerPath)) {\n  New-Item -Path "HKCU:\\Software\\Policies\\Microsoft\\Windows" -Name "Explorer" -Force | Out-Null\n}\nSet-ItemProperty -Path $explorerPath -Name "DisableSearchBoxSuggestions" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Bing search disabled" -ForegroundColor Green\n`
-        },
-        disableCopilot: {
-          label: 'Disable Microsoft Copilot',
-          script: `# Disable Copilot (user registry)\nWrite-Host "Disabling Copilot..." -ForegroundColor Yellow\n$copilotKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"\nif (-not (Test-Path $copilotKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer" -Name "Advanced" -Force | Out-Null\n}\nSet-ItemProperty -Path $copilotKey -Name "ShowCopilotButton" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Copilot disabled successfully" -ForegroundColor Green\n`
-        },
-        showFileExtensions: {
-          label: 'Show file extensions',
-          script: `# Show file extensions (user registry)\nWrite-Host "Showing file extensions..." -ForegroundColor Yellow\n$advancedKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"\nif (-not (Test-Path $advancedKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer" -Name "Advanced" -Force | Out-Null\n}\nSet-ItemProperty -Path $advancedKey -Name "HideFileExt" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "File extensions shown" -ForegroundColor Green\n`
-        },
-        hideSearchIcon: {
-          label: 'Hide search icon/box',
-          script: `# Hide search (user registry)\nWrite-Host "Hiding search icon..." -ForegroundColor Yellow\n$searchKey = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search"\nif (-not (Test-Path $searchKey)) {\n  New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion" -Name "Search" -Force | Out-Null\n}\nSet-ItemProperty -Path $searchKey -Name "SearchBoxTaskbarMode" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue\nWrite-Host "Search icon hidden" -ForegroundColor Green\n`
-        },
-        disableOneDrive: {
-          label: 'Disable OneDrive',
-          script: `# Disable OneDrive\nWrite-Host "Disabling OneDrive..." -ForegroundColor Yellow\ntaskkill /f /im OneDrive.exe /t 2>&1 | Out-Null\n%SystemRoot%\\SysWOW64\\OneDriveSetup.exe /uninstall 2>&1 | Out-Null\nreg delete "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "OneDrive" /f 2>&1 | Out-Null\nreg delete "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "OneDrive" /f 2>&1 | Out-Null\nWrite-Host "OneDrive disabled" -ForegroundColor Green\n`
-        },
-        disableGameBar: {
-          label: 'Disable Xbox Game Bar',
-          script: `# Disable Game Bar\nWrite-Host "Disabling Xbox Game Bar..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "AppCaptureEnabled" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\System\\GameConfigStore" -Name "GameDVR_Enabled" -Value 0 -Type DWord -Force\nWrite-Host "Xbox Game Bar disabled" -ForegroundColor Green\n`
-        },
-        disableBackgroundApps: {
-          label: 'Disable background apps',
-          script: `# Disable background apps\nWrite-Host "Disabling background apps..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 1 -Type DWord -Force\nGet-ChildItem "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" | ForEach-Object {\n  Set-ItemProperty -Path $_.PSPath -Name "Disabled" -Value 1 -Type DWord -Force\n}\nWrite-Host "Background apps disabled" -ForegroundColor Green\n`
-        },
-        disableLocationTracking: {
-          label: 'Disable location tracking',
-          script: `# Disable location tracking\nWrite-Host "Disabling location tracking..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors" -Name "DisableLocation" -Value 1 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\DeviceAccess\\Global\\LoCation" -Name "Value" -Value "Deny" -Type String -Force\nWrite-Host "Location tracking disabled" -ForegroundColor Green\n`
-        },
-        enablePerformanceTweaks: {
-          label: 'Enable performance tweaks',
-          script: `# Performance tweaks\nWrite-Host "Applying performance tweaks..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects" -Name "VisualFXSetting" -Value 2 -Type DWord -Force\npowercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 2>&1 | Out-Null\npowercfg -h off 2>&1 | Out-Null\nWrite-Host "Performance tweaks applied" -ForegroundColor Green\n`
-        },
-        disableAnimations: {
-          label: 'Disable animations and visual effects',
-          script: `# Disable animations\nWrite-Host "Disabling animations..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ListviewAlphaSelect" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ListviewShadow" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarAnimations" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "DisablePreviewDesktop" -Value 1 -Type DWord -Force\nWrite-Host "Animations disabled" -ForegroundColor Green\n`
-        },
-        restoreClassicContextMenu: {
-          label: 'Restore classic context menu',
-          script: `# Restore classic context menu\nWrite-Host "Restoring classic context menu..." -ForegroundColor Yellow\n$clsid = "HKCU:\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}"\nNew-Item -Path $clsid -Force | Out-Null\nNew-Item -Path "$clsid\\InprocServer32" -Force | Out-Null\nSet-ItemProperty -Path "$clsid\\InprocServer32" -Name "(Default)" -Value "" -Type String -Force -ErrorAction SilentlyContinue\nWrite-Host "Classic context menu restored" -ForegroundColor Green\n`
-        },
-        disableCortana: {
-          label: 'Completely disable Cortana',
-          script: `# Disable Cortana\nWrite-Host "Disabling Cortana..." -ForegroundColor Yellow\n$cortanaPath = "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search"\nif (-not (Test-Path $cortanaPath)) {\n  New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "Windows Search" -Force | Out-Null\n}\nSet-ItemProperty -Path $cortanaPath -Name "AllowCortana" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path $cortanaPath -Name "AllowSearchToUseLocation" -Value 0 -Type DWord -Force\nSet-ItemProperty -Path $cortanaPath -Name "DisableWebSearch" -Value 1 -Type DWord -Force\nWrite-Host "Cortana disabled" -ForegroundColor Green\n`
-        },
-        disableWindowsUpdate: {
-          label: 'Disable automatic Windows updates',
-          script: `# Disable Windows Update\nWrite-Host "Disabling automatic Windows updates..." -ForegroundColor Yellow\n$wuPath = "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU"\nif (-not (Test-Path $wuPath)) {\n  New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate" -Name "AU" -Force | Out-Null\n}\nSet-ItemProperty -Path $wuPath -Name "NoAutoUpdate" -Value 1 -Type DWord -Force\nSet-ItemProperty -Path $wuPath -Name "AUOptions" -Value 1 -Type DWord -Force\nWrite-Host "Windows Update disabled" -ForegroundColor Green\n`
-        },
-        disableLocationServices: {
-          label: 'Disable location services',
-          script: `# Disable location services\nWrite-Host "Disabling location services..." -ForegroundColor Yellow\n$locationPath = "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors"\nif (-not (Test-Path $locationPath)) {\n  New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "LocationAndSensors" -Force | Out-Null\n}\nSet-ItemProperty -Path $locationPath -Name "DisableLocation" -Value 1 -Type DWord -Force\nSet-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DeviceAccess\\Global\\Location" -Name "Value" -Value "Deny" -Type String -Force\nWrite-Host "Location services disabled" -ForegroundColor Green\n`
-        },
-        disableAdvertisingID: {
-          label: 'Disable advertising ID',
-          script: `# Disable advertising ID\nWrite-Host "Disabling advertising ID..." -ForegroundColor Yellow\n$advertisingPath = "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\AdvertisingInfo"\nif (-not (Test-Path $advertisingPath)) {\n  New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows" -Name "AdvertisingInfo" -Force | Out-Null\n}\nSet-ItemProperty -Path $advertisingPath -Name "DisabledByGroupPolicy" -Value 1 -Type DWord -Force\nWrite-Host "Advertising ID disabled" -ForegroundColor Green\n`
-        },
-        disableTelemetryHost: {
-          label: 'Disable Connected User Experiences',
-          script: `# Disable Connected User Experiences\nWrite-Host "Disabling Connected User Experiences..." -ForegroundColor Yellow\nStop-Service -Name "DiagTrack" -Force -ErrorAction SilentlyContinue\nSet-Service -Name "DiagTrack" -StartupType Disabled -ErrorAction SilentlyContinue\nStop-Service -Name "dmwappushservice" -Force -ErrorAction SilentlyContinue\nSet-Service -Name "dmwappushservice" -StartupType Disabled -ErrorAction SilentlyContinue\nWrite-Host "Connected User Experiences disabled" -ForegroundColor Green\n`
-        },
-        disableRemoteAssistance: {
-          label: 'Disable remote assistance',
-          script: `# Disable remote assistance\nWrite-Host "Disabling remote assistance..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Remote Assistance" -Name "fAllowToGetHelp" -Value 0 -Type DWord -Force\nWrite-Host "Remote assistance disabled" -ForegroundColor Green\n`
-        },
-        disableRemoteDesktop: {
-          label: 'Disable remote desktop',
-          script: `# Disable remote desktop\nWrite-Host "Disabling remote desktop..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" -Name "fDenyTSConnections" -Value 1 -Type DWord -Force\nWrite-Host "Remote desktop disabled" -ForegroundColor Green\n`
-        }
-      };
-
-      const logPath = path.join(os.tmpdir(), `debloat_log_${Date.now()}.txt`);
-      const escapedLogPath = logPath.replace(/"/g, '\\"');
-
-      let psScript = '';
-      psScript += 'try {\n';
-      psScript += `$LogPath = "${escapedLogPath}"\n`;
-      psScript += 'Remove-Item -Path $LogPath -ErrorAction SilentlyContinue\n';
-      psScript += 'function Log {\n';
-      psScript += '  param([string]$Message)\n';
-      psScript += '  $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")\n';
-      psScript += '  Add-Content -Path $LogPath -Value "[$ts] $Message"\n';
-      psScript += '  Write-Host $Message\n';
-      psScript += '}\n';
-      psScript += 'Log "=== DEBLOAT SCRIPT STARTED ===\'\n';
-      psScript += 'Log "Running with elevated privileges"\n';
-
-      // Create backup of current state
-      psScript += 'Log "Creating system state backup..."\n';
-      psScript += `$backupFile = "C:\\DebloatBackup_\$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"\n`;
-      psScript += 'try {\n';
-      psScript += '  "=== DEBLOAT BACKUP ===" | Out-File $backupFile\n';
-      psScript += '  "Backup created on: $(Get-Date)" | Out-File $backupFile -Append\n';
-      psScript += '  "Selected tasks: ' + selectedArray.join(', ') + '" | Out-File $backupFile -Append\n';
-      psScript += '  Log "Backup created: $backupFile"\n';
-      psScript += '} catch {\n';
-      psScript += '  Log "Warning: Could not create backup file"\n';
-      psScript += '}\n';
-
-      // Add selected tasks with improved error handling
-      selectedArray.forEach((key) => {
-        const task = taskMap[key];
-        if (!task) {
-          psScript += `Log "WARNING: Unknown task '${key}' - skipping"\n`;
-          return;
-        }
-        
-        const safeLabel = task.label.replace(/'/g, "''");
-        psScript += `Log 'Running task: ${safeLabel}'\n`;
-        
-        if (key === 'removePreinstalledApps') {
-          // Βελτιωμένο app removal με error handling
-          if (Array.isArray(removeApps) && removeApps.length > 0) {
-            psScript += `Log 'Removing selected apps: ${removeApps.join(', ')}'\n`;
-            removeApps.forEach(appId => {
-              psScript += `Log 'Attempting to remove app: ${appId}'\n`;
-              psScript += `try {\n`;
-              psScript += `  $package = Get-AppxPackage -AllUsers -Name "*${appId}*" -ErrorAction SilentlyContinue\n`;
-              psScript += `  if ($package) {\n`;
-              psScript += `    $removeResult = Remove-AppxPackage -Package $package -ErrorAction SilentlyContinue\n`;
-              psScript += `    if ($removeResult) { Log '✅ Successfully removed: ${appId}' }\n`;
-              psScript += `    else { Log '⚠️ Removal may have failed for: ${appId}' }\n`;
-              psScript += `  } else { Log 'ℹ️ App not found: ${appId}' }\n`;
-              psScript += `} catch { Log '❌ Error removing ${appId}: $($_.Exception.Message)' }\n`;
-              
-              // Προσθήκη provisioned package removal
-              psScript += `try {\n`;
-              psScript += `  $provisioned = Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like "*${appId}*" } -ErrorAction SilentlyContinue\n`;
-              psScript += `  if ($provisioned) {\n`;
-              psScript += `    Remove-AppxProvisionedPackage -PackageName $provisioned.PackageName -Online -ErrorAction SilentlyContinue\n`;
-              psScript += `    Log '✅ Removed provisioned package: ${appId}'\n`;
-              psScript += `  }\n`;
-              psScript += `} catch { Log '❌ Error removing provisioned ${appId}: $($_.Exception.Message)' }\n`;
-            });
-            psScript += 'Write-Host "App removal process completed" -ForegroundColor Green\n';
-          } else {
-            // Remove common bloatware if no specific apps selected
-            psScript += `Log 'Removing common bloatware apps'\n`;
-            const defaultApps = [
-              'Microsoft.BingNews',
-              'Microsoft.BingWeather', 
-              'Microsoft.Getstarted',
-              'Microsoft.MicrosoftSolitaireCollection',
-              'Microsoft.YourPhone',
-              'Microsoft.TikTok',
-              'Clipchamp.Clipchamp',
-              'Microsoft.XboxApp',
-              'Microsoft.XboxIdentityProvider',
-              'Microsoft.XboxGamingOverlay',
-              'Microsoft.WindowsSoundRecorder',
-              'Microsoft.QuickAssist',
-              'Microsoft.PowerAutomateDesktop',
-              'Microsoft.OutlookForWindows',
-              'Microsoft.Todos',
-              'Microsoft.MicrosoftTeams',
-              'Microsoft.GamingApp',
-              'Microsoft.Bing',
-              'Microsoft.ZuneMusic',
-              'Microsoft.WindowsFeedbackHub',
-              'Microsoft.WindowsAlarms',
-              'Microsoft.WindowsCamera',
-              'Microsoft.SkypeApp',
-              'Microsoft.People',
-              'Microsoft.WindowsMaps'
-            ];
-            defaultApps.forEach(appId => {
-              psScript += `try {\n`;
-              psScript += `  $package = Get-AppxPackage -AllUsers -Name "*${appId}*" -ErrorAction SilentlyContinue\n`;
-              psScript += `  if ($package) {\n`;
-              psScript += `    Remove-AppxPackage -Package $package -ErrorAction SilentlyContinue\n`;
-              psScript += `    Log '✅ Removed: ${appId}'\n`;
-              psScript += `  }\n`;
-              psScript += `} catch { Log '⚠️ Failed to remove: ${appId}' }\n`;
-            });
-            psScript += 'Write-Host "Default apps removal completed" -ForegroundColor Green\n';
-          }
-        } else {
-          psScript += task.script + '\n';
-        }
-      });
-
-      // Handle search bar mode
-      if (searchBarMode !== null) {
-        psScript += `Log 'Setting search bar mode to ${searchBarMode}'\n`;
-        psScript += `Write-Host "Setting search bar mode..." -ForegroundColor Yellow\n`;
-        psScript += `$searchKey = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search'\n`;
-        psScript += `if (-not (Test-Path $searchKey)) {\n  New-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion' -Name 'Search' -ItemType Directory -Force | Out-Null\n}\n`;
-        psScript += `Set-ItemProperty -Path $searchKey -Name 'SearchBoxTaskbarMode' -Value ${searchBarMode} -Type DWord -Force -ErrorAction SilentlyContinue\n`;
-        psScript += `Write-Host "Search bar mode set to ${searchBarMode}" -ForegroundColor Green\n`;
-      }
-
-      psScript += 'Log "=== DEBLOAT OPERATIONS COMPLETED ===\'\n';
-      psScript += 'Write-Host "All debloat operations finished successfully!" -ForegroundColor Green\n';
-      psScript += 'Write-Host "Some changes may require a restart to take effect." -ForegroundColor Yellow\n';
-      psScript += 'Write-Host "Backup saved to: $backupFile" -ForegroundColor Cyan\n';
-      psScript += 'exit 0\n';
-      psScript += '} catch {\n';
-      psScript += '  Log "ERROR: $_"\n';
-      psScript += '  Write-Error $_\n';
-      psScript += '  exit 1\n';
-      psScript += '}\n';
-
-      // Write and execute the script
-      const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
-      fs.writeFileSync(psFile, psScript, 'utf8');
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      
-      const command = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
-      const child = spawn('powershell.exe', ['-Command', command], { 
-        windowsHide: true,
-        timeout: timeoutMs - 10000 // Λίγο πριν το main timeout
-      });
-      
-      child.on('error', (err) => {
-        clearTimeout(timeout);
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
-        
-        if (err.code === 'ETIMEDOUT') {
-          resolve({ 
-            success: false, 
-            error: 'Operation timed out. Please try again.',
-            code: 'TIMEOUT'
-          });
-        } else if (err.code === 'UAC_DENIED' || err.message.includes('denied')) {
-          resolve({ 
-            success: false, 
-            error: 'Administrator privileges required. Please accept the UAC prompt.',
-            code: 'UAC_DENIED'
-          });
-        } else {
-          resolve({ 
-            success: false, 
-            error: 'Failed to start process: ' + err.message,
-            code: 'PROCESS_ERROR'
-          });
-        }
-      });
-      
-      child.on('exit', (code) => {
-        clearTimeout(timeout);
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
-        
-        let logContents = null;
-        try {
-          if (fs.existsSync(logPath)) {
-            logContents = fs.readFileSync(logPath, 'utf8');
-          }
-        } catch (_) {}
-        
-        if (code === 0) {
-          resolve({ 
-            success: true, 
-            message: 'Debloat tasks completed successfully! Some changes may require restart.', 
-            log: logContents 
-          });
-        } else {
-          resolve({ 
-            success: false, 
-            error: 'Debloat tasks failed or were cancelled. Please check the UAC prompt.', 
-            log: logContents 
-          });
-        }
-      });
-      
-    } catch (err) {
-      clearTimeout(timeout);
-      resolve({ 
-        success: false, 
-        error: 'Failed to initiate debloat: ' + err.message,
-        code: 'INIT_ERROR'
-      });
-    }
-  });
-});
 // Προσθέστε αυτό το handler στο main.js
 // Remove any previously registered handler for this channel to avoid duplicates
 ipcMain.removeHandler('get-default-remove-apps');
@@ -3293,8 +2309,256 @@ ipcMain.handle('run-installer', async (event, filePath) => {
     }
   });
 });
-// Τροποποιημένο main.js
-// Προσθέτουμε νέο handler για reset password manager (διαγραφή config και DB)
+
+// Αφαίρεση όλων των παλιών handlers
+ipcMain.removeHandler('run-debloat-tasks');
+ipcMain.removeHandler('run-debloat-tasks-legacy1');
+ipcMain.removeHandler('run-debloat-tasks-legacy2');
+ipcMain.removeHandler('run-debloat-tasks-legacy3');
+
+ipcMain.handle('run-debloat-tasks', async (event, selectedTasks) => {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'Debloat tasks are only supported on Windows' };
+  }
+
+  return new Promise((resolve) => {
+    const timeoutMs = 300000; // 5 λεπτά timeout
+    const timeout = setTimeout(() => {
+      resolve({
+        success: false,
+        error: 'Operation timed out. Please try again.',
+        code: 'TIMEOUT'
+      });
+    }, timeoutMs);
+
+    try {
+      // Normalize input
+      const config = selectedTasks || {};
+      const selectedArray = Array.isArray(config.selectedTasks) ? config.selectedTasks : [];
+      const removeApps = Array.isArray(config.removeApps) ? config.removeApps : [];
+      const searchBarMode = Number.isInteger(config.searchBarMode) ? config.searchBarMode : null;
+
+      console.log('Debloat config received:', {
+        selectedTasks: selectedArray,
+        removeApps: removeApps,
+        searchBarMode: searchBarMode
+      });
+
+      // Build PowerShell script
+      let psScript = `
+# Windows Debloat Script
+# Generated by MakeYourLifeEasier App
+
+Write-Host "=== WINDOWS DEBLOAT TOOL ===" -ForegroundColor Cyan
+Write-Host "Starting debloat operations..." -ForegroundColor Yellow
+Write-Host ""
+
+function Execute-Task {
+    param([string]$TaskName, [scriptblock]$ScriptBlock)
+    
+    Write-Host "Executing: $TaskName" -ForegroundColor Yellow
+    try {
+        & $ScriptBlock
+        Write-Host "✓ $TaskName completed" -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "✗ $TaskName failed: $_" -ForegroundColor Red
+        return $false
+    }
+    Write-Host ""
+}
+`;
+
+      // Add selected tasks
+      if (selectedArray.includes('removePreinstalledApps') && removeApps.length > 0) {
+        psScript += `
+# Remove preinstalled apps
+Execute-Task "Remove Preinstalled Apps" {
+    $appsToRemove = @(${removeApps.map(app => `"${app}"`).join(', ')})
+    foreach ($app in $appsToRemove) {
+        Write-Host "  Removing: $app" -ForegroundColor Gray
+        try {
+            # Remove for current user
+            Get-AppxPackage -Name "*$app*" -ErrorAction SilentlyContinue | Remove-AppxPackage -ErrorAction SilentlyContinue
+            # Remove for all users
+            Get-AppxPackage -AllUsers -Name "*$app*" -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+            # Remove provisioned packages
+            Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like "*$app*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+            Write-Host "    ✓ Removed: $app" -ForegroundColor Green
+        } catch {
+            Write-Host "    ⚠️ Could not remove: $app" -ForegroundColor Yellow
+        }
+    }
+}
+`;
+      }
+
+      if (selectedArray.includes('disableTelemetry')) {
+        psScript += `
+# Disable telemetry
+Execute-Task "Disable Telemetry" {
+    New-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\DataCollection" -Name "AllowTelemetry" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+}
+`;
+      }
+
+      if (selectedArray.includes('disableCortana')) {
+        psScript += `
+# Disable Cortana
+Execute-Task "Disable Cortana" {
+    New-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search" -Name "AllowCortana" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search" -Name "AllowCortana" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+}
+`;
+      }
+
+      if (selectedArray.includes('showFileExtensions')) {
+        psScript += `
+# Show file extensions
+Execute-Task "Show File Extensions" {
+    New-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "HideFileExt" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue
+}
+`;
+      }
+
+      if (selectedArray.includes('disableBingSearch')) {
+        psScript += `
+# Disable Bing search
+Execute-Task "Disable Bing Search" {
+    New-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search" -Name "BingSearchEnabled" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search" -Name "CortanaConsent" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+}
+`;
+      }
+
+      if (selectedArray.includes('disableOneDrive')) {
+        psScript += `
+# Disable OneDrive
+Execute-Task "Disable OneDrive" {
+    # Kill OneDrive process
+    taskkill /f /im OneDrive.exe /t 2>&1 | Out-Null
+    # Uninstall OneDrive
+    %SystemRoot%\\SysWOW64\\OneDriveSetup.exe /uninstall 2>&1 | Out-Null
+    # Remove from startup
+    Remove-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" -Name "OneDrive" -ErrorAction SilentlyContinue
+}
+`;
+      }
+
+      if (selectedArray.includes('disableGameBar')) {
+        psScript += `
+# Disable Xbox Game Bar
+Execute-Task "Disable Xbox Game Bar" {
+    New-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "AppCaptureEnabled" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue
+    New-ItemProperty -Path "HKCU:\\System\\GameConfigStore" -Name "GameDVR_Enabled" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue
+}
+`;
+      }
+
+      // Search bar mode setting
+      if (searchBarMode !== null) {
+        psScript += `
+# Set search bar mode
+Execute-Task "Set Search Bar Mode" {
+    New-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search" -Name "SearchBoxTaskbarMode" -Value ${searchBarMode} -PropertyType DWord -Force -ErrorAction SilentlyContinue
+}
+`;
+      }
+
+      // Final script section
+      psScript += `
+Write-Host ""
+Write-Host "=== DEBLOAT OPERATIONS COMPLETED ===" -ForegroundColor Cyan
+Write-Host "All operations finished!" -ForegroundColor Green
+Write-Host "Some changes may require a restart to take full effect." -ForegroundColor Yellow
+
+# Restart Explorer to apply UI changes
+Write-Host "Restarting Explorer to apply changes..." -ForegroundColor Yellow
+try {
+    Stop-Process -Name "explorer" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    Write-Host "✓ Explorer restarted" -ForegroundColor Green
+} catch {
+    Write-Host "⚠️ Could not restart Explorer" -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "Debloat process completed successfully!" -ForegroundColor Green
+exit 0
+`;
+
+      // Execute the script with elevation
+      const psFile = path.join(os.tmpdir(), `debloat_${Date.now()}.ps1`);
+      fs.writeFileSync(psFile, psScript, 'utf8');
+      
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      const command = `Start-Process -FilePath "powershell.exe" -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
+      
+      const child = spawn('powershell.exe', ['-Command', command], {
+        windowsHide: false,
+        timeout: timeoutMs - 30000
+      });
+
+      let output = '';
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+        console.log('Debloat Output:', data.toString());
+      });
+
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+        console.error('Debloat Error:', data.toString());
+      });
+
+      child.on('error', (err) => {
+        clearTimeout(timeout);
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        
+        if (err.message.includes('denied')) {
+          resolve({
+            success: false,
+            error: 'Administrator privileges required. Please accept the UAC prompt.',
+            code: 'UAC_DENIED'
+          });
+        } else {
+          resolve({
+            success: false,
+            error: 'Failed to start debloat process: ' + err.message,
+            code: 'PROCESS_ERROR'
+          });
+        }
+      });
+
+      child.on('exit', (code) => {
+        clearTimeout(timeout);
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        
+        if (code === 0) {
+          resolve({
+            success: true,
+            message: 'Debloat tasks completed successfully! Some changes may require restart.',
+            output: output
+          });
+        } else {
+          resolve({
+            success: false,
+            error: 'Debloat process exited with errors. Please check the UAC prompt.',
+            output: output
+          });
+        }
+      });
+
+    } catch (err) {
+      clearTimeout(timeout);
+      resolve({
+        success: false,
+        error: 'Failed to initiate debloat: ' + err.message,
+        code: 'INIT_ERROR'
+      });
+    }
+  });
+});
 
 ipcMain.handle('password-manager-reset', async () => {
   try {
