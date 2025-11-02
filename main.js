@@ -538,6 +538,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 750,
+    icon: path.join(__dirname, 'hacker.ico'),
     minWidth: 800,
     minHeight: 600,
     autoHideMenuBar: true,
