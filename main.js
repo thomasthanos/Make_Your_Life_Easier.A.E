@@ -4,7 +4,8 @@ const os = require('os');
 const { exec, spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
-// would not be defined yet.
+// The built-in fs module provides file system operations.  We require
+// it here near the top so it is available throughout the file.
 const fs = require('fs');
 
 // -----------------------------------------------------------------------------
@@ -77,11 +78,6 @@ ipcMain.handle('run-raphi-debloat', async () => {
     });
   };
 
-  // Always run via Start-Process.  Using electron‑sudo for elevation has
-  // caused unhandled errors in some environments (e.g. missing elevate.exe
-  // or invalid callback arguments), so we bypass it entirely and rely on
-  // PowerShell's Start‑Process with -Verb RunAs to obtain administrative
-  // privileges.
   return await runViaStartProcess();
 });
 app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
@@ -681,26 +677,44 @@ ipcMain.handle('login-discord', async () => {
   return result;
 });
 
-// Return the cached user profile (if any).  The renderer can call this
-// method to determine whether a user is currently logged in and display
-// their details.  If no user is logged in, this will return null.
 ipcMain.handle('get-user-profile', async () => {
   return userProfile;
 });
 
-// Clear the current user profile and remove any persisted data.  This
-// handler is invoked when the user chooses to log out via the UI.
 ipcMain.handle('logout', async () => {
   userProfile = null;
   saveUserProfile();
   return { success: true };
 });
 ipcMain.handle('run-command', async (event, command) => {
+  if (typeof command !== 'string' || !command.trim()) {
+    return { error: 'Invalid command' };
+  }
+  if (/[^a-zA-Z0-9_\.\-\s]/.test(command)) {
+    return { error: 'Command contains invalid characters' };
+  }
+  const parts = command.trim().split(/\s+/);
+  const cmd = parts.shift();
   return new Promise((resolve) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) resolve({ error: error.message, stdout, stderr });
-      else resolve({ stdout, stderr });
-    });
+    try {
+      const child = spawn(cmd, parts, { shell: false, windowsHide: true });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (data) => { stdout += data.toString(); });
+      child.stderr.on('data', (data) => { stderr += data.toString(); });
+      child.on('error', (err) => {
+        resolve({ error: err.message, stdout, stderr });
+      });
+      child.on('close', (code) => {
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          resolve({ error: `Command exited with code ${code}`, stdout, stderr });
+        }
+      });
+    } catch (err) {
+      resolve({ error: err.message });
+    }
   });
 });
 ipcMain.handle('open-external', async (event, url) => {
@@ -725,7 +739,13 @@ ipcMain.handle('open-installer', async (event, filePath) => {
   return { success: true };
 });
 function clientFor(url) { return url.startsWith('https:') ? https : http; }
-function sanitizeName(name) { return String(name).replace(/[^a-zA-Z0-9._-]/g, '_'); }
+function sanitizeName(name) {
+  let cleaned = String(name).replace(/\./g, '');
+  cleaned = cleaned.replace(/[^a-zA-Z0-9_-]/g, '_');
+  cleaned = cleaned.replace(/_+/g, '_');
+  cleaned = cleaned.replace(/^_+/, '');
+  return cleaned || 'unnamed';
+}
 function extFromUrl(u) { const m = String(u).match(/\.([a-zA-Z0-9]+)(?:\?|$)/); return m ? `.${m[1]}` : ''; }
 ipcMain.on('download-start', (event, { id, url, dest }) => {
   const downloadsDir = path.join(os.homedir(), 'Downloads');
@@ -774,11 +794,19 @@ ipcMain.on('download-start', (event, { id, url, dest }) => {
       activeDownloads.set(id, d);
       mainWindow.webContents.send('download-event', { id, status: 'started', total });
       const cleanup = (errMsg) => {
-        try { res.destroy(); } catch { }
-        try { file.destroy(); } catch { }
+        try { res.removeAllListeners(); res.destroy(); } catch { }
+        try {
+          file.removeAllListeners();
+          // Close the file handle before destroying it to flush buffers
+          file.close(() => {
+            try { file.destroy(); } catch { }
+          });
+        } catch { }
         try { fs.unlink(tempPath, () => { }); } catch { }
         activeDownloads.delete(id);
-        if (errMsg) mainWindow.webContents.send('download-event', { id, status: 'error', error: errMsg });
+        if (errMsg) {
+          mainWindow.webContents.send('download-event', { id, status: 'error', error: errMsg });
+        }
       };
       res.on('data', (chunk) => {
         if (d.paused) return;
@@ -829,8 +857,20 @@ ipcMain.on('download-resume', (event, id) => {
 ipcMain.on('download-cancel', (event, id) => {
   const d = activeDownloads.get(id);
   if (d) {
-    try { if (d.response) d.response.destroy(); } catch { }
-    try { if (d.file) d.file.destroy(); } catch { }
+    try {
+      if (d.response) {
+        d.response.removeAllListeners();
+        d.response.destroy();
+      }
+    } catch { }
+    try {
+      if (d.file) {
+        d.file.removeAllListeners();
+        d.file.close(() => {
+          try { d.file.destroy(); } catch { }
+        });
+      }
+    } catch { }
     try { if (d.filePath) fs.unlink(d.filePath, () => { }); } catch { }
     activeDownloads.delete(id);
     mainWindow.webContents.send('download-event', { id, status: 'cancelled' });
@@ -918,19 +958,20 @@ WScript.Sleep(3000)
         } else {
           console.log('UAC accepted, replacement in progress...');
 
-          setTimeout(() => {
+          // Poll for the destination file to appear instead of waiting a fixed
+          // timeout.  This reduces race conditions where the copy takes
+          // variable time.  We check every second for up to 15 seconds.
+          let waited = 0;
+          const interval = setInterval(() => {
+            waited += 1000;
             if (fs.existsSync(dst)) {
-              resolve({
-                success: true,
-                message: '✅ File replacement completed successfully!'
-              });
-            } else {
-              resolve({
-                success: false,
-                error: 'Replacement may have failed. The destination file was not found.'
-              });
+              clearInterval(interval);
+              resolve({ success: true, message: '✅ File replacement completed successfully!' });
+            } else if (waited >= 15000) {
+              clearInterval(interval);
+              resolve({ success: false, error: 'Replacement may have failed. The destination file was not found.' });
             }
-          }, 4000);
+          }, 1000);
         }
       });
 
@@ -1653,9 +1694,6 @@ ipcMain.handle('run-autologin-script', async () => {
   });
 });
 
-// Debloat handler removed
-
-// Helper function for fallback apps
 function getFallbackApps() {
   return [
     { id: 'Microsoft.BingNews', name: 'Microsoft News' },
@@ -1784,8 +1822,6 @@ ipcMain.handle('run-installer', async (event, filePath) => {
     }
   });
 });
-// Τροποποιημένο main.js
-// Προσθέτουμε νέο handler για reset password manager (διαγραφή config και DB)
 
 ipcMain.handle('password-manager-reset', async () => {
   try {
