@@ -876,6 +876,24 @@ ipcMain.on('download-cancel', (event, id) => {
     mainWindow.webContents.send('download-event', { id, status: 'cancelled' });
   }
 });
+// -----------------------------------------------------------------------------
+// Check if a file exists on disk.  Expands environment variables like
+// %USERNAME% before testing.  Returns a boolean.
+ipcMain.handle('file-exists', async (event, filePath) => {
+  try {
+    const expandEnv = (input) => {
+      return String(input).replace(/%([^%]+)%/g, (match, name) => {
+        const value = process.env[name];
+        return typeof value === 'string' ? value : match;
+      });
+    };
+    const expanded = expandEnv(filePath);
+    return fs.existsSync(expanded);
+  } catch {
+    return false;
+  }
+});
+
 ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
   return new Promise((resolve) => {
     try {
@@ -894,7 +912,14 @@ ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
       console.log('Destination:', dst);
 
       if (!fs.existsSync(src)) {
-        resolve({ success: false, error: `Source file not found: ${src}` });
+        resolve({ success: false, error: `Source file not found: ${src}`, code: 'SRC_MISSING' });
+        return;
+      }
+
+      // Ensure the destination exists so we don't attempt to replace a file
+      // that isn't present (e.g. when the application hasn't been installed yet).
+      if (!fs.existsSync(dst)) {
+        resolve({ success: false, error: `Destination file not found: ${dst}`, code: 'DEST_MISSING' });
         return;
       }
       const psScript = `

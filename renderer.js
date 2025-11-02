@@ -2498,6 +2498,10 @@ const processStates = new Map();
 
         replaceBtn.disabled = true;
         replaceBtn.textContent = 'Replacing...';
+        // Ensure the status element is visible when replacement starts so that
+        // error or progress messages are displayed to the user.  It may have
+        // been hidden during download/extraction.
+        status.style.display = '';
         status.textContent = 'Starting replacement process...';
 
         try {
@@ -2520,7 +2524,20 @@ const processStates = new Map();
               title: 'Crack Installer'
             });
           } else {
-            if (result.code === 'UAC_DENIED') {
+            // Handle specific error codes returned from main process
+            if (result.code === 'SRC_MISSING') {
+              status.textContent = '❌ Source file missing. The downloaded EXE may have been removed or the install was cancelled.';
+              toast('Patch file not found. Please re-download the installer or check your antivirus.', {
+                type: 'error',
+                title: 'Replace EXE'
+              });
+            } else if (result.code === 'DEST_MISSING') {
+              status.textContent = '❌ Clip Studio appears not to be installed or the destination file is missing.';
+              toast('Clip Studio does not seem to be installed. Please install it first.', {
+                type: 'error',
+                title: 'Replace EXE'
+              });
+            } else if (result.code === 'UAC_DENIED') {
               status.textContent = '❌ Administrator privileges required.\nPlease try again and accept UAC prompt.';
               showManualReplacementInstructions(sourcePath, targetPath);
             } else {

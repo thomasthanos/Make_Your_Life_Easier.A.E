@@ -27,6 +27,14 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   replaceExe: (sourcePath, destPath) =>
     ipcRenderer.invoke('replace-exe', { sourcePath, destPath }),
 
+  /**
+   * Check whether a file exists on disk.  Accepts a path containing
+   * environment variables such as %USERNAME% which will be expanded on
+   * the main process side.  Resolves to true if the file exists,
+   * otherwise false.
+   */
+  fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
+
   isWindows: () => process.platform === 'win32',
   
   onDownloadEvent: (callback) => {
