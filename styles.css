@@ -2626,31 +2626,6 @@ input:checked+.slider:before {
   font-weight: 700;
 }
 
-.ctt-status {
-  margin-top: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  background: rgba(255, 255, 255, .04);
-  border: 1px solid rgba(120, 144, 156, .22);
-  color: #cfe3f3;
-  display: none;
-}
-
-.ctt-status.show {
-  display: block;
-}
-
-.ctt-status.success {
-  border-color: rgba(34, 197, 94, .5);
-  color: #bff3cd;
-}
-
-.ctt-status.error {
-  border-color: rgba(239, 68, 68, .55);
-  color: #ffd2d2;
-}
-
 
 
 
@@ -3514,9 +3489,9 @@ input:checked+.slider:before {
   -webkit-backdrop-filter: blur(8px) !important;
   color: var(--sidebar-text) !important;
 }
-button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle),
-button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):hover,
-button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):active {
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn),
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):hover,
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):active {
   background: var(--glass-bg) !important;
   border-top: 1px solid var(--glass-border-top) !important;
   border-left: 1px solid var(--glass-border-left) !important;
@@ -3525,5 +3500,159 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
   color: var(--text-color) !important;
+}
+
+/* ------------------------------------------------------------------
+   Error Card UI
+   These styles define a terminal-like card used to display error
+   messages. The container is positioned in the bottom right of the
+   viewport and each card has its own header and body areas.  Colours
+   and fonts align with the existing theme variables.
+   ------------------------------------------------------------------ */
+#error-container {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  z-index: 1200;
+}
+
+.error-card {
+  padding: 1rem;
+  overflow: hidden;
+  border: 1px solid #c5c5c5;
+  border-radius: 12px;
+  background-color: #d9d9d92f;
+  backdrop-filter: blur(8px);
+  min-width: 344px;
+  color: var(--text-color);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.error-card .error-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: relative;
+  z-index: 10;
+  border: 0.5px solid #525252;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.error-card .error-terminal {
+  display: flex;
+  flex-direction: column;
+}
+
+.error-card .error-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  min-height: 40px;
+  padding-inline: 12px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  background-color: #202425;
+}
+
+.error-card .error-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 2.5rem;
+  user-select: none;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8e8e8e;
+}
+
+.error-card .error-title svg {
+  height: 18px;
+  width: 18px;
+  margin-top: 2px;
+  /* Use a blue colour for the terminal icon similar to the original UI */
+  color: #006adc;
+}
+
+.error-card .error-body {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border-bottom-right-radius: 8px;
+  border-bottom-left-radius: 8px;
+  overflow-x: auto;
+  padding: 1rem;
+  line-height: 19px;
+  color: white;
+  background-color: black;
+  white-space: pre;
+}
+
+/* Close button styling similar to the copy_toggle in the original snippet */
+.error-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: 0.65px solid #c1c2c5;
+  /* Only separate the close button from the copy button */
+  margin-left: 0.5rem;
+  border-radius: 6px;
+  background-color: #202425;
+  color: #8e8e8e;
+  cursor: pointer;
+}
+.error-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: 0.65px solid #c1c2c5;
+  /* Push the copy button group to the far right of the header */
+  margin-left: auto;
+  border-radius: 6px;
+  background-color: #202425;
+  color: #8e8e8e;
+  cursor: pointer;
+}
+.error-copy > svg {
+  width: 20px;
+  height: 20px;
+}
+.error-copy:active > svg > path,
+.error-copy:focus-within > svg > path {
+  animation: clipboard-check 500ms linear forwards;
+}
+.error-close > svg {
+  width: 20px;
+  height: 20px;
+}
+.error-close:active > svg > path,
+.error-close:focus-within > svg > path {
+  animation: clipboard-check 500ms linear forwards;
+}
+
+/* Preformatted error message layout similar to the terminal UI */
+.error-card .error-pre {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  text-wrap: nowrap;
+  white-space: pre;
+  background-color: transparent;
+  overflow: hidden;
+  box-sizing: border-box;
+  font-size: 16px;
+}
+.error-card .error-pre .error-msg {
+  color: #e34ba9;
+  white-space: pre;
 }
 

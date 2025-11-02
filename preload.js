@@ -92,6 +92,14 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   runMsiInstaller: (msiPath) => ipcRenderer.invoke('run-msi-installer', msiPath),
   runInstaller: (filePath) => ipcRenderer.invoke('run-installer', filePath),
 
+  /**
+   * Launch the Chris Titus Windows Utility script.  Executes a PowerShell command
+   * that downloads and runs the script directly.  Returns a promise that
+   * resolves once the process exits.  On Windows this will open a new
+   * PowerShell window for the user to follow the prompts.
+   */
+  runChrisTitus: () => ipcRenderer.invoke('run-christitus'),
+
   // Execute Raphi's debloat script.  Downloads and runs the script from
   // https://debloat.raphi.re/.  Returns a promise that resolves with
   // an object containing a success flag and a message.

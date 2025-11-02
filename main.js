@@ -8,6 +8,18 @@ const { autoUpdater } = require('electron-updater');
 // it here near the top so it is available throughout the file.
 const fs = require('fs');
 
+// Keep track of files that were successfully downloaded during this session.  Each
+// entry in this array corresponds to the final path of a completed download.
+// When the application is closing, these files will be deleted if they still
+// exist on disk.  This helps prevent leftover installers or archives from
+// accumulating in the user's Downloads folder.
+const downloadedFiles = [];
+
+// Keep track of directories that were created during archive extraction.  These
+// directories are removed on application exit if they still exist, ensuring
+// that temporary extraction folders do not persist across sessions.
+const extractedDirs = [];
+
 // -----------------------------------------------------------------------------
 // Attempt to load electron‑sudo for elevated process execution.  When available
 // this module allows running subprocesses with administrative privileges on
@@ -568,6 +580,32 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
+
+// Before the application quits, delete any files that were downloaded during
+// this session.  This prevents unused installer files from persisting in
+// the user's Downloads directory.  Use a synchronous unlink to ensure
+// removal completes before the process exits.
+app.on('before-quit', () => {
+  for (const filePath of downloadedFiles) {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (err) {
+      console.warn('Failed to delete downloaded file:', filePath, err);
+    }
+  }
+  // Remove extracted directories
+  for (const dirPath of extractedDirs) {
+    try {
+      if (fs.existsSync(dirPath)) {
+        fs.rmSync(dirPath, { recursive: true, force: true });
+      }
+    } catch (err) {
+      console.warn('Failed to delete extracted directory:', dirPath, err);
+    }
+  }
+});
 ipcMain.handle('get-system-info', async () => {
   return {
     platform: os.platform(),
@@ -717,6 +755,42 @@ ipcMain.handle('run-command', async (event, command) => {
     }
   });
 });
+
+// Execute the Chris Titus Windows Utility script via PowerShell.  This handler
+// runs a predefined PowerShell command that downloads and executes the
+// script from christitus.com.  The command is executed without shell
+// interpolation, and output is captured for potential logging.  Errors
+// are returned back to the renderer for user feedback.
+ipcMain.handle('run-christitus', async () => {
+  return new Promise((resolve) => {
+    try {
+      const psExe = getPowerShellExe() || 'powershell';
+      const args = [
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-Command',
+        'irm christitus.com/win | iex'
+      ];
+      const child = spawn(psExe, args, { shell: false, windowsHide: false });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (data) => { stdout += data.toString(); });
+      child.stderr.on('data', (data) => { stderr += data.toString(); });
+      child.on('error', (err) => {
+        resolve({ error: err.message, stdout, stderr });
+      });
+      child.on('close', (code) => {
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          resolve({ error: `Command exited with code ${code}`, stdout, stderr });
+        }
+      });
+    } catch (err) {
+      resolve({ error: err.message });
+    }
+  });
+});
 ipcMain.handle('open-external', async (event, url) => {
   await shell.openExternal(url);
 });
@@ -821,9 +895,15 @@ ipcMain.on('download-start', (event, { id, url, dest }) => {
       res.pipe(file);
       file.once('finish', () => {
         file.close(() => {
-          fs.rename(tempPath, finalPath, (err) => {
+            fs.rename(tempPath, finalPath, (err) => {
             if (err) { cleanup(err.message); return; }
             activeDownloads.delete(id);
+            // Record the completed download so it can be cleaned up on exit
+            try {
+              downloadedFiles.push(finalPath);
+            } catch (_) {
+              // Ignore if push fails for some reason
+            }
             mainWindow.webContents.send('download-event', { id, status: 'complete', path: finalPath });
           });
         });
@@ -1071,6 +1151,14 @@ ipcMain.handle('extract-archive', async (event, { filePath, password, destDir })
         fs.rmSync(altDir, { recursive: true, force: true });
       }
       fs.mkdirSync(outDir, { recursive: true });
+      // Record the extraction directory so it can be cleaned up when the app quits
+      try {
+        if (!extractedDirs.includes(outDir)) {
+          extractedDirs.push(outDir);
+        }
+      } catch (_) {
+        // ignore errors adding to the list
+      }
     } catch (e) {
     }
     const exe = await ensure7za();

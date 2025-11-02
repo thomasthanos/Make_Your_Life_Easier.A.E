@@ -475,14 +475,11 @@ const processStates = new Map();
     button.disabled = false;
 
     if (success) {
-      status.textContent = 'Process completed successfully!';
-      status.classList.add('status-success');
+      // Display completion message via toast rather than the status element
+      toast('Process completed successfully!', { type: 'success' });
     } else {
-      status.textContent = 'Process completed with issues';
-      status.classList.add('status-warning');
+      toast('Process completed with issues', { type: 'error' });
     }
-
-    autoFadeStatus(status, 3000);
   }
 
   // Επαναφορά replace button
@@ -1638,21 +1635,22 @@ const processStates = new Map();
   // Fixed function to open installer
   const openInstaller = async (app, filePath, status, index) => {
     try {
-      status.textContent = 'Opening installer...';
+      // Show progress via toast instead of the status element
+      toast('Opening installer...', { type: 'success' });
 
       // Use the new openFile method
       const result = await window.api.openFile(filePath);
 
       if (result.success) {
-        status.textContent = 'Installer opened successfully!';
-        status.classList.add('status-success');
+        // Notify successful launch via toast instead of updating the status element
+        toast('Installer opened successfully!', { type: 'success' });
       } else {
         throw new Error(result.error);
       }
 
     } catch (err) {
-      status.textContent = `Error: ${err.message}`;
-      status.classList.add('status-error');
+      // Display the error using a toast and avoid populating the status element
+      toast(`Error: ${err.message}`, { type: 'error' });
       console.error('Error opening installer:', err);
     } finally {
       // Always mark as complete and clean up
@@ -1669,6 +1667,205 @@ const processStates = new Map();
     let c = document.getElementById('toast-container');
     if (!c) { c = document.createElement('div'); c.id = 'toast-container'; document.body.appendChild(c); }
     return c;
+  }
+
+  // Ensure the container used for error cards exists, creating it on demand.
+  function ensureErrorContainer() {
+    let c = document.getElementById('error-container');
+    if (!c) {
+      c = document.createElement('div');
+      c.id = 'error-container';
+      // Positioning is handled via CSS (#error-container styles)
+      document.body.appendChild(c);
+    }
+    return c;
+  }
+
+  // Maintain a single error card instance when multiple errors are shown
+  // This allows stacking multiple error lines within one terminal UI.  Each
+  // new error message will append a new line to the existing card instead of
+  // creating a separate card.  A palette of colours is defined for the
+  // leading dash so that each message line can have a distinct visual marker.
+  let currentErrorCard = null;
+  let errorPaletteIndex = 0;
+  const errorBulletColours = ['#575757', '#e34ba9', '#80b1ff', '#f59e0b', '#10b981'];
+
+  /**
+   * Display an error message using a terminal‑style card in the bottom right.
+   * Each call will append a new card to the error container.  Cards will
+   * automatically fade out and remove themselves after a short delay.
+   *
+   * @param {string} msg - The error message to display.
+   * @param {object} [opts] - Optional parameters: title and duration.
+   */
+  function showErrorCard(msg, opts = {}) {
+    const { title = 'Error', duration = 6000 } = opts;
+    // Normalise the message to a string.  If it contains newline characters,
+    // split into separate lines and add each line individually.  This
+    // prevents messages containing '\n' from being rendered on a single line.
+    msg = String(msg);
+    if (msg.includes('\n')) {
+      const parts = msg.split(/\n+/).filter(p => p.trim() !== '');
+      for (const part of parts) {
+        showErrorCard(part, opts);
+      }
+      return;
+    }
+    const container = ensureErrorContainer();
+
+    // If a card already exists and is still connected, append the new message
+    if (currentErrorCard && currentErrorCard.isConnected) {
+      // Determine the colour for the leading dash, cycling through the palette
+      const bulletColour = errorBulletColours[errorPaletteIndex % errorBulletColours.length];
+      errorPaletteIndex++;
+      // Create a new line container for the message
+      const line = document.createElement('div');
+      line.className = 'error-line';
+      // Create the dash and message spans
+      const dashSpan = document.createElement('span');
+      dashSpan.textContent = '- ';
+      dashSpan.style.color = bulletColour;
+      const msgSpan = document.createElement('span');
+      msgSpan.className = 'error-msg';
+      msgSpan.textContent = msg;
+      // Assemble the line
+      line.appendChild(dashSpan);
+      line.appendChild(msgSpan);
+      currentErrorCard.bodyEl.appendChild(line);
+      // Update the copy button handler to include all messages
+      currentErrorCard.copyBtn.onclick = () => {
+        try {
+          const text = currentErrorCard.bodyEl.innerText.replace(/\n+$/g, '');
+          navigator.clipboard.writeText(text);
+          toast('All error messages copied to clipboard!', { type: 'success', title: 'Clipboard' });
+        } catch (e) {
+          toast('Failed to copy', { type: 'error', title: 'Clipboard' });
+        }
+      };
+      return;
+    }
+
+    // Otherwise create a new card from scratch
+    // Build the card structure
+    const card = document.createElement('div');
+    card.className = 'error-card';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'error-wrap';
+
+    const terminal = document.createElement('div');
+    terminal.className = 'error-terminal';
+
+    // Header with Terminal icon and close button
+    const head = document.createElement('div');
+    head.className = 'error-head';
+    const titleEl = document.createElement('p');
+    titleEl.className = 'error-title';
+    // Terminal icon (blue arrow in square)
+    const termIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    termIcon.setAttribute('viewBox', '0 0 24 24');
+    termIcon.setAttribute('width', '16px');
+    termIcon.setAttribute('height', '16px');
+    termIcon.setAttribute('stroke-linejoin', 'round');
+    termIcon.setAttribute('stroke-linecap', 'round');
+    termIcon.setAttribute('stroke-width', '2');
+    termIcon.setAttribute('stroke', 'currentColor');
+    termIcon.setAttribute('fill', 'none');
+    const tPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    tPath.setAttribute('d', 'M7 15L10 12L7 9M13 15H17M7.8 21H16.2C17.8802 21 18.7202 21 19.362 20.673C19.9265 20.3854 20.3854 19.9265 20.673 19.362C21 18.7202 21 17.8802 21 16.2V7.8C21 6.11984 21 5.27976 20.673 4.63803C20.3854 4.07354 19.9265 3.6146 19.362 3.32698C18.7202 3 17.8802 3 16.2 3H7.8C6.11984 3 5.27976 3 4.63803 3.32698C4.07354 3.6146 3.6146 4.07354 3.32698 4.63803C3 5.27976 3 6.11984 3 7.8V16.2C3 17.8802 3 18.7202 3.32698 19.362C3.6146 19.9265 4.07354 20.3854 4.63803 20.673C5.27976 21 6.11984 21 7.8 21Z');
+    termIcon.appendChild(tPath);
+    titleEl.appendChild(termIcon);
+    titleEl.appendChild(document.createTextNode(' Terminal'));
+    head.appendChild(titleEl);
+    // Copy button
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'error-copy';
+    // Clipboard icon
+    const copySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    copySvg.setAttribute('viewBox', '0 0 24 24');
+    copySvg.setAttribute('width', '16px');
+    copySvg.setAttribute('height', '16px');
+    copySvg.setAttribute('stroke-linejoin', 'round');
+    copySvg.setAttribute('stroke-linecap', 'round');
+    copySvg.setAttribute('stroke-width', '2');
+    copySvg.setAttribute('stroke', 'currentColor');
+    copySvg.setAttribute('fill', 'none');
+    const cp1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    cp1.setAttribute('d', 'M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2');
+    const cp2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    cp2.setAttribute('d', 'M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z');
+    copySvg.appendChild(cp1);
+    copySvg.appendChild(cp2);
+    copyBtn.appendChild(copySvg);
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'error-close';
+    // Close icon (simple X)
+    const closeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    closeSvg.setAttribute('viewBox', '0 0 24 24');
+    closeSvg.setAttribute('width', '16px');
+    closeSvg.setAttribute('height', '16px');
+    closeSvg.setAttribute('stroke-linejoin', 'round');
+    closeSvg.setAttribute('stroke-linecap', 'round');
+    closeSvg.setAttribute('stroke-width', '2');
+    closeSvg.setAttribute('stroke', 'currentColor');
+    closeSvg.setAttribute('fill', 'none');
+    const cPath1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    cPath1.setAttribute('d', 'M6 6L18 18');
+    const cPath2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    cPath2.setAttribute('d', 'M6 18L18 6');
+    closeSvg.appendChild(cPath1);
+    closeSvg.appendChild(cPath2);
+    closeBtn.appendChild(closeSvg);
+    // Assemble header: copy and close are appended after the title
+    head.appendChild(copyBtn);
+    head.appendChild(closeBtn);
+    // Body: container for error lines
+    const body = document.createElement('div');
+    body.className = 'error-body';
+    // Determine colour for first message dash
+    const firstColour = errorBulletColours[errorPaletteIndex % errorBulletColours.length];
+    errorPaletteIndex++;
+    // Create first line
+    const firstLine = document.createElement('div');
+    firstLine.className = 'error-line';
+    const firstDash = document.createElement('span');
+    firstDash.textContent = '- ';
+    firstDash.style.color = firstColour;
+    const firstMsg = document.createElement('span');
+    firstMsg.className = 'error-msg';
+    firstMsg.textContent = msg;
+    firstLine.appendChild(firstDash);
+    firstLine.appendChild(firstMsg);
+    body.appendChild(firstLine);
+    // Assemble elements
+    terminal.appendChild(head);
+    terminal.appendChild(body);
+    wrap.appendChild(terminal);
+    card.appendChild(wrap);
+    container.appendChild(card);
+    // Store references on the card for reuse
+    card.bodyEl = body;
+    card.copyBtn = copyBtn;
+    // Copy entire body content
+    copyBtn.onclick = () => {
+      try {
+        const text = card.bodyEl.innerText.replace(/\n+$/g, '');
+        navigator.clipboard.writeText(text);
+        toast('Error message copied to clipboard!', { type: 'success', title: 'Clipboard' });
+      } catch (e) {
+        toast('Failed to copy', { type: 'error', title: 'Clipboard' });
+      }
+    };
+    // Close handler removes the card and clears currentErrorCard
+    closeBtn.onclick = () => {
+      card.remove();
+      currentErrorCard = null;
+    };
+    // Assign the newly created card to the global reference
+    currentErrorCard = card;
+
+    // No auto dismissal; users must close manually
   }
   /**
    * Display a transient notification in the bottom right corner of the screen.  This
@@ -1695,10 +1892,16 @@ const processStates = new Map();
   function toast(msg, opts = {}) {
     const { title = '', type = 'info', duration = 4000 } = opts;
 
-    // By default, error and success toasts are displayed. Info and warning
-    // toasts can still be triggered if desired, but they will simply
-    // return without rendering to keep the interface uncluttered.
-    if (type !== 'error' && type !== 'success') {
+    // When the type is error, render using the terminal-style error card and
+    // suppress the toast UI entirely.  Use the provided title or fall back
+    // to a default.
+    if (type === 'error') {
+      showErrorCard(msg, { title: title || 'Error', duration });
+      return null;
+    }
+
+    // For non-error types, ignore info and warning messages to reduce UI clutter
+    if (type !== 'success') {
       return null;
     }
 
@@ -2502,18 +2705,20 @@ const processStates = new Map();
         // error or progress messages are displayed to the user.  It may have
         // been hidden during download/extraction.
         status.style.display = '';
-        status.textContent = 'Starting replacement process...';
+        // Show replacement start via toast instead of updating the status element
+        toast('Starting replacement process...', { type: 'success', title: 'Replace EXE' });
 
         try {
           const sourcePath = 'C:\\Users\\%USERNAME%\\Downloads\\Clip_Studio\\CLIPStudioPaint.exe';
           const targetPath = 'C:\\Program Files\\CELSYS\\CLIP STUDIO 1.5\\CLIP STUDIO PAINT\\CLIPStudioPaint.exe';
 
-          status.textContent = 'Requesting Administrator privileges...\n⚠️ Please accept the UAC prompt';
+          // Notify the user about the UAC prompt via toast instead of the status element
+          toast('Requesting Administrator privileges...\n⚠️ Please accept the UAC prompt', { type: 'error', title: 'Replace EXE' });
 
           const result = await window.api.replaceExe(sourcePath, targetPath);
 
           if (result.success) {
-            status.textContent = '✅ Replacement successful! Clip Studio is now activated.';
+            // Do not update the status element; rely on the existing success toast instead
             status.classList.add('status-success');
 
             // ΟΛΟΚΛΗΡΩΣΗ REPLACE PROCESS ΜΕ ΕΠΙΤΥΧΙΑ
@@ -2526,22 +2731,20 @@ const processStates = new Map();
           } else {
             // Handle specific error codes returned from main process
             if (result.code === 'SRC_MISSING') {
-              status.textContent = '❌ Source file missing. The downloaded EXE may have been removed or the install was cancelled.';
               toast('Patch file not found. Please re-download the installer or check your antivirus.', {
                 type: 'error',
                 title: 'Replace EXE'
               });
             } else if (result.code === 'DEST_MISSING') {
-              status.textContent = '❌ Clip Studio appears not to be installed or the destination file is missing.';
               toast('Clip Studio does not seem to be installed. Please install it first.', {
                 type: 'error',
                 title: 'Replace EXE'
               });
             } else if (result.code === 'UAC_DENIED') {
-              status.textContent = '❌ Administrator privileges required.\nPlease try again and accept UAC prompt.';
               showManualReplacementInstructions(sourcePath, targetPath);
             } else {
-              status.textContent = `❌ Replacement failed: ${result.error}`;
+              // Show the failure message via toast when no specific error code matches
+              toast(`Replacement failed: ${result.error}`, { type: 'error', title: 'Replace EXE' });
             }
             status.classList.add('status-error');
 
@@ -2549,7 +2752,8 @@ const processStates = new Map();
             completeProcess(cardId, 'replace', false);
           }
         } catch (error) {
-          status.textContent = `Replacement failed: ${error.message}`;
+          // Display any error from the replacement process via toast instead of updating the status element
+          toast(`Replacement failed: ${error.message}`, { type: 'error', title: 'Replace EXE' });
           status.classList.add('status-error');
           completeProcess(cardId, 'replace', false);
         }
@@ -3777,12 +3981,22 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     // Status
     const status = el('div', 'ctt-status');
     card.appendChild(status);
+    // Display status messages exclusively via toast notifications and keep the status
+    // element hidden.  The status element's class is reset to the base class
+    // without the 'show' or type modifiers to prevent it from becoming visible.
     const setStatus = (msg, type = '') => {
-      status.className = 'ctt-status show' + (type ? ' ' + type : '');
-      status.textContent = msg || '';
+      // Reset to base class to hide any previous status
+      status.className = 'ctt-status';
+      status.textContent = '';
+      if (msg) {
+        // Determine toast type: treat any non-empty type containing 'error' as error
+        const toastType = (type && type.toLowerCase().includes('error')) ? 'error' : 'success';
+        toast(msg, { type: toastType });
+      }
     };
 
     // Actions wiring
+    // PowerShell command used as a fallback when the native bridge is not available.
     const psCmd = [
       'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
       `"irm christitus.com/win | iex"`
@@ -3792,10 +4006,26 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       try {
         launchBtn.disabled = true;
         setStatus('Downloading & launching Windows Utility...');
-        if (window.api?.runCommand) {
-          await window.api.runCommand(psCmd);
-          setStatus('Utility launched in a new PowerShell window. Follow the on-screen prompts.', 'success');
+        // Prefer the dedicated Chris Titus launcher via the Electron bridge
+        if (window.api?.runChrisTitus) {
+          const result = await window.api.runChrisTitus();
+          if (result && !result.error) {
+            setStatus('Utility launched in a new PowerShell window. Follow the on-screen prompts.', 'success');
+          } else {
+            const errMsg = result && result.error ? result.error : 'Unknown error';
+            setStatus('Failed to launch: ' + errMsg, 'error');
+          }
+        } else if (window.api?.runCommand) {
+          // Fall back to runCommand, which may not support special characters
+          const runResult = await window.api.runCommand(psCmd);
+          if (runResult && !runResult.error) {
+            setStatus('Utility launched in a new PowerShell window. Follow the on-screen prompts.', 'success');
+          } else {
+            const errMsg = runResult && runResult.error ? runResult.error : 'Unknown error';
+            setStatus('Failed to launch: ' + errMsg, 'error');
+          }
         } else {
+          // As a last resort, copy the command to the clipboard
           await navigator.clipboard.writeText(psCmd);
           setStatus('Electron bridge not found. Command copied to clipboard — run in elevated PowerShell.', 'error');
         }
