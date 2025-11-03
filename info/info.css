@@ -56,10 +56,13 @@ html, body {
   background: transparent;
   color: var(--text-color);
   font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+  /* Center the info card vertically and horizontally */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* Prevent page scrolling; the card will handle its own scrolling */
+  overflow-y: hidden;
 }
 
 .info-card {
@@ -76,6 +79,14 @@ html, body {
   padding: 1.5rem 2rem;
   box-sizing: border-box;
   position: relative;
+
+  /* Prevent the card from exceeding most of the viewport height. This ensures
+     the entire dialog stays visible and centered; the content inside will scroll if needed. */
+  max-height: 90vh;
+
+  /* Remove the vertical scroll from the entire card so that the header and
+     navigation remain visible. The scrolling will be applied to the
+     content area instead. */
 }
 
 .info-header {
@@ -135,13 +146,18 @@ html, body {
   overflow-y: hidden;
   width: 100%;
   margin: 0 auto;
+
+  /* Prevent the navigation bar from shrinking when the content area grows.
+     This keeps the menu buttons at a consistent size even with long text. */
+  flex-shrink: 0;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  padding: 0.4rem 0.6rem 0.4rem 0.3rem;
-  font-size: 0.75rem;
+  /* Increase padding and font size to make navigation buttons more legible */
+  padding: 0.5rem 0.8rem 0.5rem 0.4rem;
+  font-size: 0.85rem;
   font-weight: 600;
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -191,6 +207,19 @@ html, body {
 
 .info-section.active {
   display: block;
+}
+
+/* Make the scroll area limited to the content section so that the
+   navigation bar and header remain visible when there is a lot of text.
+   The max-height value reserves space for the header, nav and padding. */
+.info-content {
+  overflow-y: auto;
+  /* Allow the content area to grow and take available space within the card */
+  flex-grow: 1;
+
+  /* Remove fixed max-height; scrolling will occur naturally when content
+     exceeds the available space in the card. */
+  max-height: none;
 }
 
 .section-title {

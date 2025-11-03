@@ -68,25 +68,58 @@ document.addEventListener('DOMContentLoaded', () => {
       if (cards[0]) {
         const whatTitleEl = cards[0].querySelector('.column-title');
         const whatDescEl = cards[0].querySelector('p');
+        const featureList = cards[0].querySelector('.feature-list');
         
         if (whatTitleEl) whatTitleEl.textContent = data.whatTitle;
         if (whatDescEl) whatDescEl.textContent = data.whatDesc;
+        
+        // Update feature lists
+        if (featureList && data.features) {
+          featureList.innerHTML = data.features;
+        }
       }
 
       // Second card - How to use
       if (cards[1]) {
         const howTitleEl = cards[1].querySelector('.column-title');
         const stepsList = cards[1].querySelector('.usage-list');
+        const warningNote = cards[1].querySelector('.warning-note');
         
         if (howTitleEl) howTitleEl.textContent = data.howTitle;
-        if (stepsList) {
+        if (stepsList && data.steps) {
           stepsList.innerHTML = data.steps.map(step => 
             `<li>${step}</li>`
           ).join('');
         }
+        if (warningNote && data.warning) {
+          warningNote.innerHTML = data.warning;
+        }
       }
     });
+
+    // Update close button aria-label
+    const closeBtn = document.querySelector('.info-close-btn');
+    if (closeBtn) {
+      closeBtn.setAttribute('aria-label', lang === 'en' ? 'Close' : 'Κλείσιμο');
+    }
+
+    // Update page title
+    document.title = lang === 'en' ? 'Help - Make Your Life Easier' : 'Βοήθεια - Make Your Life Easier';
   }
 
   applyLanguage();
+
+  // Listen for language changes from parent window
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'myAppSettings') {
+      applyLanguage();
+    }
+  });
+
+  // Also listen for message events in case the parent window communicates via postMessage
+  window.addEventListener('message', (event) => {
+    if (event.data.type === 'languageChange') {
+      applyLanguage();
+    }
+  });
 });
