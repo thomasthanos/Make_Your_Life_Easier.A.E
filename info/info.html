@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="el">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -14,7 +13,6 @@
     <header class="info-header">
       <span class="info-logo" aria-hidden="true">
         <img src="https://i.postimg.cc/xCtJkLGc/hacker.png" alt="Untitled Project" width="45" height="45">
-
       </span>
       <h1 class="info-title">
         <span class="title-highlight">Make</span> Your
@@ -24,52 +22,57 @@
     <button class="info-close-btn" aria-label="Κλείσιμο">&times;</button>
 
     <nav class="info-nav">
+      <div class="nav-item nav-settings" data-target="section-settings">
+        <span class="icon-container" aria-hidden="true">⚙️</span>
+        <span class="nav-label">Settings</span>
+      </div>
       <div class="nav-item nav-install active" data-target="section-install">
         <span class="icon-container" aria-hidden="true">📥</span>
         <span class="nav-label">Install</span>
-      </div>
-      <div class="nav-item nav-activate" data-target="section-activate">
-        <span class="icon-container" aria-hidden="true">🔓</span>
-        <span class="nav-label">Activate</span>
-      </div>
-      <div class="nav-item nav-maintain" data-target="section-maintain">
-        <span class="icon-container" aria-hidden="true">🛠️</span>
-        <span class="nav-label">Maintain</span>
       </div>
       <div class="nav-item nav-crack" data-target="section-crack">
         <span class="icon-container" aria-hidden="true">🎮</span>
         <span class="nav-label">Crack</span>
       </div>
-      <div class="nav-item nav-dlc" data-target="section-dlc">
-        <span class="icon-container" aria-hidden="true">🎁</span>
-        <span class="nav-label">DLC</span>
+      <div class="nav-item nav-maintain" data-target="section-maintain">
+        <span class="icon-container" aria-hidden="true">🛠️</span>
+        <span class="nav-label">Maintain</span>
       </div>
-      <div class="nav-item nav-passwords" data-target="section-passwords">
-        <span class="icon-container" aria-hidden="true">🔑</span>
-        <span class="nav-label">Passwords</span>
-      </div>
-      <div class="nav-item nav-spicetify" data-target="section-spicetify">
-        <span class="icon-container" aria-hidden="true">🎵</span>
-        <span class="nav-label">Spicetify</span>
-      </div>
-      <div class="nav-item nav-titus" data-target="section-titus">
-        <span class="icon-container" aria-hidden="true">🎧</span>
-        <span class="nav-label">Titus</span>
+      <div class="nav-item nav-activate" data-target="section-activate">
+        <span class="icon-container" aria-hidden="true">🔓</span>
+        <span class="nav-label">Activate</span>
       </div>
       <div class="nav-item nav-bios" data-target="section-bios">
         <span class="icon-container" aria-hidden="true">⚡</span>
         <span class="nav-label">BIOS</span>
       </div>
-      <div class="nav-item nav-settings" data-target="section-settings">
-        <span class="icon-container" aria-hidden="true">⚙️</span>
-        <span class="nav-label">Settings</span>
+      <div class="nav-item nav-spicetify" data-target="section-spicetify">
+        <span class="icon-container" aria-hidden="true">🎵</span>
+        <span class="nav-label">Spicetify</span>
+      </div>
+      <div class="nav-item nav-passwords" data-target="section-passwords">
+        <span class="icon-container" aria-hidden="true">🔑</span>
+        <span class="nav-label">Passwords</span>
+      </div>
+      <div class="nav-item nav-titus" data-target="section-titus">
+        <span class="icon-container" aria-hidden="true">🎧</span>
+        <span class="nav-label">Titus</span>
+      </div>
+      <div class="nav-item nav-debloat" data-target="section-debloat">
+        <span class="icon-container" aria-hidden="true">🧹</span>
+        <span class="nav-label">Debloat</span>
+      </div>
+      <div class="nav-item nav-dlc" data-target="section-dlc">
+        <span class="icon-container" aria-hidden="true">🎁</span>
+        <span class="nav-label">DLC</span>
       </div>
     </nav>
+
     <div class="info-content">
       <section id="section-install" class="info-section active">
         <h2 class="section-title">
           <span class="section-icon" aria-hidden="true">🎯</span>
-          Εγκατάσταση Εφαρμογών
+          <span class="section-title-text">Εγκατάσταση Εφαρμογών</span>
         </h2>
         <div class="section-content">
           <div class="info-column">
@@ -104,7 +107,7 @@
       <section id="section-activate" class="info-section">
         <h2 class="section-title">
           <span class="section-icon" aria-hidden="true">✅</span>
-          Ενεργοποίηση Windows & Auto Login
+          <span class="section-title-text">Ενεργοποίηση Windows & Auto Login</span>
         </h2>
         <div class="section-content">
           <div class="info-column">
@@ -135,10 +138,11 @@
           </div>
         </div>
       </section>
+
       <section id="section-maintain" class="info-section">
         <h2 class="section-title">
           <span class="section-icon" aria-hidden="true">🛠️</span>
-          Συντήρηση Συστήματος
+          <span class="section-title-text">Συντήρηση Συστήματος</span>
         </h2>
         <div class="section-content">
           <div class="info-column">
@@ -169,10 +173,11 @@
           </div>
         </div>
       </section>
+
       <section id="section-crack" class="info-section">
         <h2 class="section-title">
           <span class="section-icon" aria-hidden="true">🎮</span>
-          Crack Tools
+          <span class="section-title-text">Crack Εργαλεία</span>
         </h2>
         <div class="section-content">
           <div class="info-column">
@@ -203,10 +208,11 @@
           </div>
         </div>
       </section>
+
       <section id="section-dlc" class="info-section">
         <h2 class="section-title">
           <span class="section-icon" aria-hidden="true">🎁</span>
-          DLC Unlocker
+          <span class="section-title-text">DLC Unlocker</span>
         </h2>
         <div class="section-content">
           <div class="info-column">
@@ -237,10 +243,11 @@
           </div>
         </div>
       </section>
+
       <section id="section-passwords" class="info-section">
         <h2 class="section-title">
           <span class="section-icon" aria-hidden="true">🔑</span>
-          Password Manager
+          <span class="section-title-text">Διαχειριστής Κωδικών</span>
         </h2>
         <div class="section-content">
           <div class="info-column">
@@ -271,10 +278,11 @@
           </div>
         </div>
       </section>
+
       <section id="section-spicetify" class="info-section">
         <h2 class="section-title">
           <span class="section-icon" aria-hidden="true">🎵</span>
-          Spicetify
+          <span class="section-title-text">Spicetify</span>
         </h2>
         <div class="section-content">
           <div class="info-column">
@@ -305,10 +313,11 @@
           </div>
         </div>
       </section>
+
       <section id="section-titus" class="info-section">
         <h2 class="section-title">
           <span class="section-icon" aria-hidden="true">🎧</span>
-          Chris Titus Tools
+          <span class="section-title-text">Εργαλεία Chris Titus</span>
         </h2>
         <div class="section-content">
           <div class="info-column">
@@ -339,10 +348,11 @@
           </div>
         </div>
       </section>
+
       <section id="section-bios" class="info-section">
         <h2 class="section-title">
           <span class="section-icon" aria-hidden="true">⚡</span>
-          BIOS Update
+          <span class="section-title-text">Ενημέρωση BIOS</span>
         </h2>
         <div class="section-content">
           <div class="info-column">
@@ -373,10 +383,46 @@
           </div>
         </div>
       </section>
+
+      <section id="section-debloat" class="info-section">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">🧹</span>
+          <span class="section-title-text">Αφαίρεση bloatware & ρυθμίσεις Windows</span>
+        </h2>
+        <div class="section-content">
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">🧹</span>
+                <h3 class="column-title">Τι κάνει;</h3>
+              </div>
+              <p>
+                Καθαρίζει το σύστημά σου από περιττές προεγκατεστημένες εφαρμογές (bloatware) και τροποποιεί τις ρυθμίσεις των Windows για να
+                βελτιώσει την απόδοση, την ασφάλεια και την ιδιωτικότητα.
+              </p>
+            </div>
+          </div>
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">📄</span>
+                <h3 class="column-title">Πώς το Χρησιμοποιώ;</h3>
+              </div>
+              <ol class="usage-list">
+                <li>Επίλεξε τις εργασίες καθαρισμού που θέλεις να εκτελέσεις</li>
+                <li>Πάτησε «Εκτέλεση» για να ξεκινήσει η διαδικασία</li>
+                <li>Δώσε δικαιώματα διαχειριστή αν ζητηθεί</li>
+                <li>Επανεκκίνησε το σύστημα για να εφαρμοστούν οι αλλαγές</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="section-settings" class="info-section">
         <h2 class="section-title">
           <span class="section-icon" aria-hidden="true">⚙️</span>
-          Ρυθμίσεις Εφαρμογής
+          <span class="section-title-text">Ρυθμίσεις Εφαρμογής</span>
         </h2>
         <div class="section-content">
           <div class="info-column">
@@ -409,7 +455,7 @@
       </section>
     </div>
   </div>
+  <script src="translations.js"></script>
   <script src="info.js"></script>
 </body>
-
 </html>
