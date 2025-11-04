@@ -2,15 +2,15 @@
   "menu": {
     "settings": "Settings",
     "install_apps": "Install Apps",
-    "activate_autologin": "Windows Activation & Auto Login",
+    "activate_autologin": "Activate & Auto Login",
     "system_maintenance": "System Maintenance",
-    "crack_installer": "Install Professional Software",
-    "spicetify": "Customize Spotify",
+    "crack_installer": "Crack Apps",
+    "spicetify": "Spicetify Spotify",
     "password_manager": "Password Manager",
-    "christitus": "Windows Optimization",
-    "dlc_unlocker": "Game DLC Unlocker",
+    "christitus": "Christitus",
+    "dlc_unlocker": "DLC Unlocker",
     "bios": "BIOS Settings",
-    "debloat": "Clean & Optimize Windows"
+    "debloat": "Debloat"
   },
   "general": {
     "language": "Language",

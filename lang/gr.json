@@ -2,15 +2,15 @@
   "menu": {
     "settings": "Ρυθμίσεις",
     "install_apps": "Εγκατάσταση Εφαρμογών",
-    "activate_autologin": "Ενεργοποίηση Windows & Αυτόματη Σύνδεση",
+    "activate_autologin": "Activate & Auto Login",
     "system_maintenance": "Συντήρηση Συστήματος",
-    "crack_installer": "Εγκατάσταση Επαγγελματικού Λογισμικού",
-    "spicetify": "Προσαρμογή Spotify",
+    "crack_installer": "Crack Apps",
+    "spicetify": "Spicetify Spotify",
     "password_manager": "Διαχειριστής Κωδικών",
-    "christitus": "Βελτιστοποίηση Windows",
-    "dlc_unlocker": "Ξεκλείδωμα DLC Παιχνιδιών",
+    "christitus": "Christitus",
+    "dlc_unlocker": "Ξεκλείδωμα DLC",
     "bios": "Ρυθμίσεις BIOS",
-    "debloat": "Καθαρισμός & Βελτιστοποίηση Windows"
+    "debloat": "Debloat"
   },
   "general": {
     "language": "Γλώσσα",
