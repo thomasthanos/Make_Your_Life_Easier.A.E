@@ -1111,18 +1111,8 @@ body {
   flex-shrink: 0;
 }
 
-.card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
-}
 
 .card:hover {
-  transform: translateY(-2px);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
 }
 
@@ -1422,7 +1412,6 @@ input:checked+.slider:before {
   object-fit: contain;
   flex-shrink: 0;
   border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 
@@ -1915,7 +1904,6 @@ input:checked+.slider:before {
 .settings-row:hover {
   background: rgba(255, 255, 255, 0.05);
   border-color: var(--accent-color);
-  transform: translateX(4px);
 }
 
 .settings-label {
@@ -2534,7 +2522,23 @@ input:checked+.slider:before {
   text-transform: uppercase;
   color: rgba(220, 234, 248, .85);
 }
+/* Christitus Tough Tools - Light mode text colors */
+[data-theme="light"] .ctt-bullets li {
+  color: #000000; /* Μαύρο κείμενο για τις λίστες */
+}
 
+[data-theme="light"] .ctt-sub {
+  color: #000000; /* Μαύρο κείμενο για το subtitle */
+  opacity: 0.8; /* Προαιρετικό: λίγο διαφανές για καλύτερη αισθητική */
+}
+
+[data-theme="light"] .ctt-title {
+  color: #000000; /* Μαύρο κείμενο για τον τίτλο */
+}
+
+[data-theme="light"] .ctt-card {
+  color: #000000; /* Γενικό μαύρο κείμενο για την κάρτα */
+}
 .ctt-bullets {
   margin: 12px 0 16px;
   padding: 0;
@@ -3136,7 +3140,14 @@ input:checked+.slider:before {
   stroke-width: 1px;
 }
 
+/* Settings info button styles for light mode only */
+[data-theme="light"] .settings-info-btn svg {
+  fill: rgb(0, 0, 0);
+}
 
+[data-theme="light"] .settings-info-btn svg path {
+  stroke: rgb(0, 0, 0);
+}
 
 #update-btn {
   position: fixed;
@@ -3652,3 +3663,105 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   white-space: pre;
 }
 
+/* Logout menu for light mode */
+[data-theme="light"] .user-info .logout-menu {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .user-info .logout-btn {
+  color: #475569;
+}
+
+[data-theme="light"] .user-info .logout-btn:hover {
+  color: #dc2626;
+}
+
+[data-theme="light"] .user-info .login-card {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0) 60%),
+    radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0) 60%),
+    linear-gradient(135deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.01) 100%);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #475569;
+}
+
+[data-theme="light"] .user-info .login-card:focus-within {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(0, 0, 0, 0.12) 0%, rgba(0, 0, 0, 0) 60%),
+    radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0) 60%),
+    linear-gradient(135deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.02) 100%);
+  border: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+[data-theme="light"] .user-info .login-card button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .user-info .login-card button:focus {
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .version-text {
+    color: #000000;
+    background: 
+        radial-gradient(circle at 20% 20%, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0) 60%),
+        radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.03) 0%, rgba(0, 0, 0, 0) 60%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px) saturate(180%);
+    -webkit-backdrop-filter: blur(10px) saturate(180%);
+    font-weight: 600;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.8);
+}
+
+.card > h2 , .settings-title{
+  display: none !important;
+}
+
+.card > p {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-color);
+  padding: 0.75rem 1rem 0.75rem 1.5rem;
+  border-radius: 8px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  position: relative;
+}
+
+.card > p strong {
+  color: var(--accent-color);
+}
+
+.card > p a {
+  color: var(--accent-color);
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.card > p a:hover {
+  color: var(--accent-color-dark);
+}
+
+.card > p::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  border-radius: 4px;
+  background: var(--accent-color);
+  opacity: 0.8;
+}

@@ -1,17 +1,16 @@
 {
   "menu": {
     "settings": "Settings",
-    "install_apps": "Install apps",
-    "activate_autologin": "Activate / Autologin",
-    "system_maintenance": "System maintenance",
-    "crack_installer": "Crack apps installer",
-    "spicetify": "Spicetify Spotify",
-    "password_manager": "Password manager",
-    "christitus": "Chris Titus Toolbox",
-    "dlc_unlocker": "DLC unlocker",
-    "bios": "BIOS"
-    ,
-    "debloat": "Debloat & Windows tweaks"
+    "install_apps": "Install Apps",
+    "activate_autologin": "Windows Activation & Auto Login",
+    "system_maintenance": "System Maintenance",
+    "crack_installer": "Install Professional Software",
+    "spicetify": "Customize Spotify",
+    "password_manager": "Password Manager",
+    "christitus": "Windows Optimization",
+    "dlc_unlocker": "Game DLC Unlocker",
+    "bios": "BIOS Settings",
+    "debloat": "Clean & Optimize Windows"
   },
   "general": {
     "language": "Language",
@@ -40,46 +39,56 @@
     "cancel": "Cancel"
   },
   "pages": {
-    "settings_title": "Application settings",
-    "install_title": "Install selected applications",
-    "maintenance_title": "System maintenance tasks",
-    "spicetify_title": "Install Spicetify",
-"spicetify_desc": "Spicetify adds themes and customizations to Spotify for better experience.",
-    "password_title": "Password manager",
-    "info_title": "System details",
-    "bios_title": "BIOS information",
-    "install_desc": "Select apps to download. We will open each installer automatically after the download finishes.",
-    "maintenance_desc": "Perform various system maintenance tasks to keep your computer running smoothly.",
-    "crack_title": "Project installer",
-    "crack_desc": "Download your project backups from Dropbox",
-    "dlc_title": "DLC Unlocker",
-    "activate_title": "Windows Activation & Auto Login"
-    ,
-    "debloat_desc": "Select which debloat operations you wish to apply. Recommended tasks are pre-selected. Administrator privileges may be required. A restart is recommended after applying changes."
+    "settings_title": "Application Settings",
+    "install_title": "Install Popular Applications",
+    "maintenance_title": "Maintenance & Optimization",
+    "spicetify_title": "Customize Spotify",
+    "spicetify_desc": "Add themes and customizations to Spotify for a more personalized listening experience",
+    "password_title": "Password Manager",
+    "info_title": "System Details",
+    "bios_title": "BIOS Information",
+    "install_desc": "Download and install your favorite apps automatically. Just select what you need and let the program do the rest!",
+    "maintenance_desc": "Clean up and optimize your system for faster and more stable performance",
+    "debloat_raphi_desc": "Downloads and executes the Raphi debloat script via PowerShell. Requires administrator rights and internet connection. Warning: This script will perform system optimizations and removals. Proceed with caution.",
+    "crack_title": "Professional Software Installation",
+    "crack_desc": "Complete installation of popular software like Photoshop, Office, and more - ready to use right away. May require administrator privileges.",
+    "dlc_title": "Unlock Game Content",
+    "dlc_desc": "Access all additional content (DLC) for your favorite games. The program automatically downloads and installs everything needed!",
+    "activate_title": "Windows Activation & Auto Login",
+    "activate_desc": "Activate Windows and set up password-free auto login - quick and simple",
+    "debloat_desc": "Remove unwanted programs and optimize Windows settings for better performance and enhanced privacy"
   },
   "actions": {
     "check_updates": "Check for updates",
     "create_restore_point": "Create restore point",
     "clean_temp": "Clean temporary files",
     "open_spicetify": "Open Spicetify website",
-    "open_password_manager": "Open password manager",
+    "open_password_manager": "Launch Password Manager",
     "scan_repair": "Scan & repair",
     "download_patch": "Download Patch My PC",
     "download": "Download",
     "install_spicetify": "Install Spicetify",
     "uninstall_spicetify": "Uninstall Spicetify",
     "full_uninstall_spotify": "Full uninstall Spotify",
-    "activate_windows": "Download & Activate Windows",
-    "setup_autologin": "Download & Auto Login",
+    "activate_windows": "Activate Windows",
+    "setup_autologin": "Auto Login",
     "download_selected": "Download Selected",
     "run_sfc": "Run SFC",
     "run_dism": "Run DISM",
     "clean_temp_files": "Clean Temp Files",
-    "download_run": "Download & Run"
+    "download_run": "Download & Run",
+    "install": "Install"
   },
   "messages": {
-    "bios_instructions": "To access the BIOS/UEFI settings, please restart your computer and press the designated key (often F2, F10, Del or Esc) during startup. Modern operating systems do not allow entering BIOS directly from within apps.",
-    "password_warning": "This simple password manager stores credentials locally. Do not use for sensitive data.",
+    "bios_instructions": "Restart into BIOS for advanced hardware settings. Make sure to save all your work before proceeding!",
+    "password_warning": "This simple password manager stores credentials locally. Do not use it for sensitive data.",
+    "encrypted_storage": "Military-grade encryption",
+    "local_storage": "Local device storage only",
+    "quick_access": "One-click auto-fill",
+    "secure_search": "Secure encrypted search",
+    "admin_required": "Administrator rights needed",
+    "debloat_changes": "system optimizations and removals",
+    "installation_started": "Installation started! Follow the instructions in the installer window.",
     "install_spicetify_success": "Spicetify installed successfully! Restart Spotify to see the changes.",
     "install_spicetify_error": "Error installing Spicetify",
     "uninstall_spicetify_success": "Spicetify uninstalled successfully!",
@@ -99,110 +108,100 @@
     "download_timed_out": "Download timed out"
   },
   "maintenance": {
-    "delete_temp_files": "Delete Temp Files",
-    "temp_files_desc": "Clean TEMP, %TEMP%, and Prefetch folders",
-    "system_file_repair": "System File Repair",
-    "system_file_desc": "SFC Scan & DISM Repair system tools (Admin required)",
-    "patch_my_pc": "Patch My PC",
-    "patch_my_pc_desc": "Update third-party applications automatically"
+    "delete_temp_files": "Clean Cache",
+    "temp_files_desc": "Delete temporary files for space",
+    "system_file_repair": "SFC Scan",
+    "system_file_desc": "Scan and repair system files",
+    "patch_my_pc": "Update Applications",
+    "patch_my_pc_desc": "Automatically update all installed applications with one click"
   },
   "dlc": {
-    "sims_installer": "Sims Installer",
-    "sims_desc": "Complete Sims DLC package with all expansions",
-    "ea_unlocker": "EA Unlocker", 
-    "ea_desc": "Unlock all EA games DLC content and features",
-    "download_sims": "DOWNLOAD SIMS INSTALLER",
-    "download_ea": "DOWNLOAD EA UNLOCKER",
-    "tutorial_title": "EA DLC Unlocker & Sims 4 Updater Guide",
-    "tutorial_desc": "📁 <strong>EA DLC Unlocker:</strong> General tool for unlocking DLCs in EA games<br>🎮 <strong>Sims 4 Updater:</strong> Specialized for The Sims 4 with updates & repairs"
+    "sims_installer": "Install DLC Sims",
+    "sims_desc": "Downloads and installs all DLC automatically",
+    "ea_unlocker": "EA Unlocker",
+    "ea_desc": "Patches DLC",
+    "download_sims": "DOWNLOAD & INSTALL SIMS",
+    "download_ea": "DOWNLOAD & INSTALL EA UNLOCKER",
+    "tutorial_title": "EA DLC Unlocker & Sims 4 Installer Guide",
+    "tutorial_desc": "🎮 <strong>EA DLC Unlocker:</strong> General tool for unlocking content in EA games<br>🏠 <strong>Sims 4 Installer:</strong> Specialized for The Sims 4 with all DLCs and expansions"
   },
   "activation": {
     "activate_windows": "Activate Windows",
-    "activate_desc": "Download and run Windows activation script (requires Administrator)",
+    "activate_desc": "Automatic activation - click and done",
     "auto_login": "Auto Login",
-    "auto_login_desc": "Download and setup automatic login without password"
+    "auto_login_desc": "Set up password-free automatic login - perfect for personal computers"
   },
   "apps": {
     "betterdiscord": {
       "name": "BetterDiscord",
-      "description": "Enhanced Discord client"
+      "description": ""
     },
     "discord_ptb": {
       "name": "Discord PTB",
-      "description": "Public Test Build of Discord"
+      "description": ""
     },
     "discord": {
       "name": "Discord",
-      "description": "Official Discord client"
+      "description": ""
     },
     "epic_games": {
       "name": "Epic Games",
-      "description": "Epic Games Launcher"
+      "description": ""
     },
     "ubisoft_connect": {
       "name": "Ubisoft Connect",
-      "description": "Ubisoft game launcher"
+      "description": ""
     },
     "spotify": {
       "name": "Spotify",
-      "description": "Spotify music streaming client"
+      "description": ""
     },
     "advanced_installer": {
       "name": "Advanced Installer",
-      "description": "Professional Windows installer authoring tool"
+      "description": ""
+    },
+    "clip_studio_paint": {
+      "name": "Clip Studio Paint",
+      "description": ""
+    },
+    "encoder": {
+      "name": "Media Encoder",
+      "description": ""
+    },
+    "illustrator": {
+      "name": "Illustrator",
+      "description": ""
+    },
+    "lightroom_classic": {
+      "name": "Lightroom Classic",
+      "description": ""
+    },
+    "office": {
+      "name": "Office",
+      "description": ""
+    },
+    "photoshop": {
+      "name": "Photoshop",
+      "description": ""
+    },
+    "premiere": {
+      "name": "Premiere",
+      "description": ""
     }
   },
   "christitus_page": {
     "subtitle_full": "Comprehensive toolbox for Windows optimization",
     "features": [
-      "System optimization and tweaks",
-      "Remove bloatware and unwanted apps",
+      "System optimization and performance tweaks",
+      "Remove bloatware and unwanted applications",
       "Privacy and security enhancements",
-      "Essential software installation"
+      "Essential software installation and management"
     ]
-  }
-  ,
+  },
   "app": {
     "title": "Make Life Easier",
     "title_high": "Make Life",
     "title_rest": "Easier",
-    "subtitle": "System Management Tools"
-  }
-  ,
-  "debloat": {
-    "categories": {
-      "App Removal": "App Removal",
-      "Telemetry & Tracking": "Telemetry & Tracking",
-      "Search, Copilot & AI": "Search, Copilot & AI",
-      "Explorer & Taskbar": "Explorer & Taskbar"
-    },
-    "tasks": {
-      "removePreinstalledApps": "Remove preinstalled apps",
-      "disableTelemetry": "Disable telemetry & diagnostic data",
-      "disableActivityHistory": "Disable activity history",
-      "disableAppLaunchTracking": "Disable app‑launch tracking",
-      "disableTargetedAds": "Disable targeted ads & tailored experiences",
-      "disableTipsSuggestions": "Disable tips, suggestions & ads across Windows",
-      "disableSpotlight": "Disable Windows Spotlight background (W11 only)",
-      "disableBingSearch": "Disable Bing web search & Cortana",
-      "disableCopilot": "Disable Microsoft Copilot",
-      "disableStickyKeys": "Disable Sticky Keys shortcut (W11 only)",
-      "restoreClassicContextMenu": "Restore Windows 10 style context menu (W11 only)",
-      "showFileExtensions": "Show file extensions for known file types",
-      "hideTaskviewButton": "Hide the Task View button (W11 only)",
-      "disableWidgets": "Disable widgets on taskbar & lockscreen",
-      "searchBarMode": "Search bar style"
-    },
-    "choices": {
-      "-1": "Leave unchanged",
-      "0": "Hide search",
-      "1": "Show search icon only",
-      "2": "Show search box"
-    },
-    "buttons": {
-      "restoreRecommended": "Restore Recommended",
-      "runSelectedTasks": "Run Selected Tasks"
-    },
-    "noSelection": "Please select at least one task or configure the search bar."
+    "subtitle": "Smart System Management Tools"
   }
 }

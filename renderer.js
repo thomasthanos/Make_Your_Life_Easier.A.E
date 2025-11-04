@@ -2,24 +2,7 @@
 const processStates = new Map();
 
 (() => {
-
-  /**
-   * Cache for the list of removable preinstalled apps.  Populated on
-   * application startup to avoid expensive PowerShell calls when the
-   * Debloat page is first opened.  The buildDebloatPage() function
-   * will check this cache before falling back to retrieving the list
-   * via IPC.  If null, no cached data has been loaded yet.
-   */
   let cachedPreinstalledApps = null;
-  // Define the order of pages shown in the sidebar.  A new entry for
-  // "debloat" has been added to provide a one‑click way to disable
-  // unnecessary Windows suggestions and Bing web search in the Start
-  // menu.  Additional debloat actions can be added to this page in
-  // future updates.
-  // Define the order of pages shown in the sidebar.  The order has been
-  // rearranged to group related actions together more logically.  Each
-  // separator (added in renderMenu) will follow the key listed below
-  // according to the separatorsAfter map defined in renderMenu().
   const menuKeys = [
     'settings',         // general settings
     'install_apps',     // install & remove apps
@@ -617,6 +600,18 @@ const processStates = new Map();
     const container = document.createElement('div');
     container.className = 'card';
 
+    // Add a heading and description for the Activate/Autologin page.  Without this
+    // the page displayed two cards without any context.  The description uses
+    // a dedicated translation key if available.
+    const title = document.createElement('h2');
+    title.textContent = (translations.pages && translations.pages.activate_title) || 'Windows Activation & Auto Login';
+    container.appendChild(title);
+    const desc = document.createElement('p');
+    desc.textContent = (translations.pages && translations.pages.activate_desc) || 'Use these tools to activate Windows and configure automatic login without a password.';
+    desc.style.opacity = '0.8';
+    desc.style.marginBottom = '1.5rem';
+    container.appendChild(desc);
+
     // Activate Windows card
     const activateCard = document.createElement('div');
     activateCard.className = 'app-card fixed-height';
@@ -635,7 +630,7 @@ const processStates = new Map();
     activateName.textContent = translations.activation.activate_windows || 'Activate Windows';
     activateName.style.margin = '0 0 0.5rem 0';
     const activateDesc = document.createElement('p');
-    activateDesc.textContent = translations.activation.activate_desc || 'Download and run Windows activation script (requires Administrator)';
+    activateDesc.textContent = translations.activation.activate_desc || 'Downloads and runs the Windows activation script. Administrator rights required';
     activateDesc.style.margin = '0';
     activateDesc.style.opacity = '0.8';
     activateDesc.style.fontSize = '0.9rem';
@@ -682,7 +677,7 @@ const processStates = new Map();
     autologinName.textContent = translations.activation.auto_login || 'Auto Login';
     autologinName.style.margin = '0 0 0.5rem 0';
     const autologinDesc = document.createElement('p');
-    autologinDesc.textContent = translations.activation.auto_login_desc || 'Download and setup automatic login without password';
+    autologinDesc.textContent = translations.activation.auto_login_desc || 'Downloads and sets up automatic login without a password';
     autologinDesc.style.margin = '0';
     autologinDesc.style.opacity = '0.8';
     autologinDesc.style.fontSize = '0.9rem';
@@ -730,6 +725,16 @@ const processStates = new Map();
     const container = document.createElement('div');
     container.className = 'card dlc-scope';
 
+    // Add a page heading and description for the DLC unlocker. Without a title and
+    // description the page can feel incomplete. Use translation keys when available.
+    const pageTitle = document.createElement('h2');
+    pageTitle.textContent = (translations.pages && translations.pages.dlc_title) || 'DLC Unlocker';
+    container.appendChild(pageTitle);
+    const pageDesc = document.createElement('p');
+    pageDesc.textContent = (translations.pages && translations.pages.dlc_desc) || 'Choose the appropriate tool to unlock DLCs for EA games and The Sims. Use the Sims Installer for the complete Sims DLC package or the EA Unlocker to access all EA game content.';
+    pageDesc.style.opacity = '0.8';
+    pageDesc.style.marginBottom = '1.5rem';
+    container.appendChild(pageDesc);
 
     // Grid
     const grid = document.createElement('div');
@@ -940,7 +945,7 @@ const processStates = new Map();
               if (result.success) {
                 button.innerHTML = '🚀 STARTING INSTALLER...';
 
-                const exeResult = await runSpecificExe(data.path, dlcName, button, statusElement);
+                const exeResult = await runSpecificExe(data.path, dlcId, dlcName, button, statusElement);
 
                 if (exeResult.success) {
                   button.innerHTML = '✅ INSTALLER RUNNING';
@@ -953,22 +958,36 @@ const processStates = new Map();
                   });
 
                   // ΕΠΑΝΑΦΟΡΑ ΜΟΝΟ ΤΟΥ ΚΟΥΜΠΙΟΥ ΜΕΤΑ ΑΠΟ 10 ΔΕΥΤΕΡΟΛΕΠΤΑ
+                  // Reset the button state after a brief delay.  Previously
+                  // this waited 10s which left the “running” state lingering
+                  // even after the installer window closed.  Reduce to 4s.
                   setTimeout(() => {
                     button.innerHTML = originalText;
                     button.disabled = false;
                     button.style.background = originalBackground;
-                  }, 10000);
+                  }, 4000);
 
                 } else {
-                  // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
-                  statusElement.textContent = `Extracted but could not run installer: ${exeResult.error}\nPlease try running the installer manually from the extracted folder.`;
-                  statusElement.classList.add('status-error');
-                  statusElement.style.display = 'block'; // ΜΟΝΟ ΕΔΩ
-                  button.innerHTML = '📂 OPEN FOLDER';
+                  // Display errors in the terminal UI rather than the in‑card status element
+                  const errMsg = `Extracted but could not run installer: ${exeResult.error}\nPlease try running the installer manually from the extracted folder.`;
+                  // Hide the status element to avoid "status-error" class flashing
+                  statusElement.textContent = '';
+                  // Remove any status classes and hide the element entirely
+                  statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
+                  statusElement.style.display = 'none';
+                  // Show an error card with the DLC name as the title
+                  try {
+                    showErrorCard(errMsg, { title: dlcName });
+                  } catch (_) {
+                    // Fallback: if showErrorCard is unavailable, use statusElement
+                    statusElement.textContent = errMsg;
+                    statusElement.classList.add('status-error');
+                    statusElement.style.display = 'block';
+                  }
+                  // Restore the original button state instead of showing a manual extract button
+                  button.innerHTML = originalText;
                   button.disabled = false;
                   button.style.background = originalBackground;
-
-                  addOpenFolderButton(button, data.path, dlcName);
                 }
               } else {
                 // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
@@ -978,7 +997,7 @@ const processStates = new Map();
                 if (retryResult.success) {
                   button.innerHTML = '🚀 STARTING INSTALLER...';
 
-                  const exeResult = await runSpecificExe(data.path, dlcName, button, statusElement);
+                  const exeResult = await runSpecificExe(data.path, dlcId, dlcName, button, statusElement);
 
                   if (exeResult.success) {
                     button.innerHTML = '✅ INSTALLER RUNNING';
@@ -990,33 +1009,51 @@ const processStates = new Map();
                       duration: 5000
                     });
 
+                    // Shorter delay for resetting the button state after success
                     setTimeout(() => {
                       button.innerHTML = originalText;
                       button.disabled = false;
                       button.style.background = originalBackground;
-                    }, 10000);
+                    }, 4000);
 
                   } else {
-                    // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
-                    statusElement.textContent = `Extracted but could not run installer: ${exeResult.error}\nPlease try running the installer manually from the extracted folder.`;
-                    statusElement.classList.add('status-error');
-                    statusElement.style.display = 'block'; // ΜΟΝΟ ΕΔΩ
-                    button.innerHTML = '📂 OPEN FOLDER';
+                    // Display errors in the terminal UI rather than the in‑card status element
+                    const errMsg = `Extracted but could not run installer: ${exeResult.error}\nPlease try running the installer manually from the extracted folder.`;
+                    statusElement.textContent = '';
+                    statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
+                    statusElement.style.display = 'none';
+                    try {
+                      showErrorCard(errMsg, { title: dlcName });
+                    } catch (_) {
+                      statusElement.textContent = errMsg;
+                      statusElement.classList.add('status-error');
+                      statusElement.style.display = 'block';
+                    }
+                    // Restore the original button instead of showing a manual extract button
+                    button.innerHTML = originalText;
                     button.disabled = false;
                     button.style.background = originalBackground;
-
-                    addOpenFolderButton(button, data.path, dlcName);
                   }
                 } else {
-                  // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
+                  // Extraction failed after both attempts; report via error container
                   const errMsg = (retryResult && retryResult.error) || 'Unknown error';
-                  statusElement.textContent = `Extraction failed: ${errMsg}\nThe downloaded file has been opened for manual inspection.`;
-                  statusElement.classList.add('status-error');
-                  statusElement.style.display = 'block'; // ΜΟΝΟ ΕΔΩ
+                  const fullMsg = `Extraction failed: ${errMsg}\nThe downloaded file has been opened for manual inspection.`;
+                  // Hide status element
+                  statusElement.textContent = '';
+                  statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
+                  statusElement.style.display = 'none';
+                    
+                  try {
+                    showErrorCard(fullMsg, { title: dlcName });
+                  } catch (_) {
+                    // Fallback to statusElement if necessary
+                    statusElement.textContent = fullMsg;
+                    statusElement.classList.add('status-error');
+                    statusElement.style.display = 'block';
+                  }
                   button.innerHTML = '🔄 TRY AGAIN';
                   button.disabled = false;
                   button.style.background = originalBackground;
-
                   toast(`Failed to extract ${dlcName}`, {
                     type: 'error',
                     title: 'DLC Unlocker',
@@ -1026,14 +1063,23 @@ const processStates = new Map();
                 }
               }
             } catch (error) {
-              // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
-              statusElement.textContent = `Extraction failed: ${error.message}\nPlease check the downloaded file manually.`;
-              statusElement.classList.add('status-error');
-              statusElement.style.display = 'block'; // ΜΟΝΟ ΕΔΩ
+              // Extraction errored; display via error card rather than status element
+              const fullMsg = `Extraction failed: ${error.message}\nPlease check the downloaded file manually.`;
+              // Hide status element completely
+              statusElement.textContent = '';
+              statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
+              statusElement.style.display = 'none';
+              try {
+                showErrorCard(fullMsg, { title: dlcName });
+              } catch (_) {
+                // Fallback to statusElement if error container is unavailable
+                statusElement.textContent = fullMsg;
+                statusElement.classList.add('status-error');
+                statusElement.style.display = 'block';
+              }
               button.innerHTML = '🔄 TRY AGAIN';
               button.disabled = false;
               button.style.background = originalBackground;
-
               toast(`Failed to extract ${dlcName}`, {
                 type: 'error',
                 title: 'DLC Unlocker',
@@ -1089,22 +1135,19 @@ const processStates = new Map();
     });
   }
   // Function για να τρέξει συγκεκριμένο exe file με pattern matching
-  async function runSpecificExe(zipPath, dlcName, button, statusElement) {
+  // Run the appropriate installer for a DLC based on its ID rather than the translated name.
+  async function runSpecificExe(zipPath, dlcId, dlcName, button, statusElement) {
     return new Promise((resolve) => {
       setTimeout(async () => {
         const extractedDir = getExtractedFolderPath(zipPath);
 
-        // Pattern matching για κάθε DLC
+        // Pattern matching based on dlcId.  Using dlcId avoids
+        // translations from interfering with the pattern detection.
         let exePatterns = [];
-
-        if (dlcName === 'Sims Installer') {
-          exePatterns = [
-            /sims-4-updater-v.*\.exe$/i
-          ];
-        } else if (dlcName === 'EA Unlocker') {
-          exePatterns = [
-            /setup\.bat$/i,
-          ];
+        if (dlcId === 'sims-installer') {
+          exePatterns = [/sims-4-updater-v.*\.exe$/i];
+        } else if (dlcId === 'ea-unlocker') {
+          exePatterns = [/setup\.bat$/i];
         }
 
         if (exePatterns.length > 0) {
@@ -2475,6 +2518,18 @@ const processStates = new Map();
     const container = document.createElement('div');
     container.className = 'card';
 
+    // Add a heading and description for the Spicetify page.  Many users reported that
+    // this page lacked a description entirely.  The heading uses the title key and
+    // the paragraph uses the same description as the first card for consistency.
+    const pageTitle = document.createElement('h2');
+    pageTitle.textContent = translations.pages?.spicetify_title || 'Install Spicetify';
+    container.appendChild(pageTitle);
+    const pageDesc = document.createElement('p');
+    pageDesc.textContent = translations.pages?.spicetify_desc || 'Adds themes and customizations to Spotify for a better experience.';
+    pageDesc.style.opacity = '0.8';
+    pageDesc.style.marginBottom = '1.5rem';
+    container.appendChild(pageDesc);
+
     // Grid: δύο στήλες στο πάνω row, full-width το κάτω
     const grid = document.createElement('div');
     grid.className = 'install-grid';
@@ -2548,7 +2603,7 @@ const processStates = new Map();
     const installCard = makeCard(
       ICON_INSTALL_SPICETIFY,
       translations.actions?.install_spicetify || 'Install Spicetify',
-      translations.pages?.spicetify_desc || 'Download and install Spicetify to customize Spotify',
+      translations.pages?.spicetify_desc || 'Adds themes and customizations to Spotify for a better experience.',
       translations.actions?.install || 'Install',
       (btn) => runAction(
         () => window.api.installSpicetify(),
@@ -2561,7 +2616,7 @@ const processStates = new Map();
     const uninstallCard = makeCard(
       ICON_UNINSTALL_SPICETIFY,
       translations.actions?.uninstall_spicetify || 'Uninstall Spicetify',
-      translations.general?.not_implemented || 'Remove Spicetify while keeping Spotify',
+      translations.general?.not_implemented || 'Completely remove Spicetify and restore Spotify to its default state',
       translations.general?.cancel || 'Cancel',
       (btn) => runAction(
         () => window.api.uninstallSpicetify(),
@@ -2598,22 +2653,75 @@ const processStates = new Map();
 
   // Build crack installer page - more compact grid with progress and pause
   async function buildCrackInstallerPage() {
-    const container = createCard('crack_title', '');
+    // Provide a meaningful description for the crack installer page instead of leaving it blank.
+    const crackDesc = (translations.pages && translations.pages.crack_desc) || 'Download backups of your projects from Dropbox';
+    const container = createCard('crack_title', crackDesc);
     const projects = [
-      { name: 'Clip Studio', url: 'https://www.dropbox.com/scl/fi/kx8gqow9zfian7g8ocqg3/Clip-Studio-Paint.zip?rlkey=wz4b7kfkchzgnsq9tpnp40rcw&st=rmp98tmo&dl=1', icon: 'https://i.postimg.cc/HLrJgc2G/clipstudio.png' },
-      { name: 'Encoder', url: 'https://www.dropbox.com/scl/fi/mw4sk0dvdk2r8ux9g1lfc/encoder.zip?rlkey=qwnelw8d920jlum14n1x44zku&st=70gqw7ba&dl=1', icon: 'https://i.postimg.cc/tCGFN5zh/mediaencoder.png' },
-      { name: 'Illustrator', url: 'https://www.dropbox.com/scl/fi/aw95btp46onbyhk50gn7b/Illustrator.zip?rlkey=mvklovmenagfasuhr6clorbfj&st=0ds5v39w&dl=1', icon: 'https://i.postimg.cc/W1nm3kg2/illustrator.png' },
-      { name: 'Lightroom Classic', url: 'https://www.dropbox.com/scl/fi/0p9rln704lc3qgqtjad9n/Lightroom-Classic.zip?rlkey=gp29smsg6t8oxhox80661k4gu&st=cdv50zpy&dl=1', icon: 'https://i.postimg.cc/K8rfMVSR/lightroom-classic.png' },
-      { name: 'Office', url: 'https://www.dropbox.com/scl/fi/pcfv8ft3egcq4x6jzigny/Office2024.zip?rlkey=qbic04ie56dvoxzk1smri0hoo&st=1r1veinx&dl=1', icon: 'https://i.postimg.cc/fb8JmWgm/office.png' },
-      { name: 'Photoshop', url: 'https://www.dropbox.com/scl/fi/8vf3d46sq1wj1rb55r4jz/Photoshop.zip?rlkey=6u0dpbfnqopfndwcwq1082f7a&st=5u4v6m3x&dl=1', icon: 'https://i.postimg.cc/HnzW5d2w/photoshop.png' },
-      { name: 'Premiere', url: 'https://www.dropbox.com/scl/fi/1yqqufgow2v4rc93l6wu4/premiere.zip?rlkey=49ymly6zgzufwtijnf2se35tc&st=5i77afac&dl=1', icon: 'https://i.postimg.cc/g2JjVX1j/premiere-pro.png' }
+      // Each project includes a unique key used for translations, a fallback name,
+      // a default description and its download URL and icon. Descriptions provide
+      // context rather than leaving cards blank.
+      {
+        key: 'clip_studio_paint',
+        fallbackName: 'Clip Studio Paint',
+        desc: 'Digital painting and illustration software',
+        url: 'https://www.dropbox.com/scl/fi/kx8gqow9zfian7g8ocqg3/Clip-Studio-Paint.zip?rlkey=wz4b7kfkchzgnsq9tpnp40rcw&st=rmp98tmo&dl=1',
+        icon: 'https://i.postimg.cc/HLrJgc2G/clipstudio.png'
+      },
+      {
+        key: 'encoder',
+        fallbackName: 'Media Encoder',
+        desc: 'Tool for encoding multimedia content',
+        url: 'https://www.dropbox.com/scl/fi/mw4sk0dvdk2r8ux9g1lfc/encoder.zip?rlkey=qwnelw8d920jlum14n1x44zku&st=70gqw7ba&dl=1',
+        icon: 'https://i.postimg.cc/tCGFN5zh/mediaencoder.png'
+      },
+      {
+        key: 'illustrator',
+        fallbackName: 'Illustrator',
+        desc: 'Vector graphics and illustration tool',
+        url: 'https://www.dropbox.com/scl/fi/aw95btp46onbyhk50gn7b/Illustrator.zip?rlkey=mvklovmenagfasuhr6clorbfj&st=0ds5v39w&dl=1',
+        icon: 'https://i.postimg.cc/W1nm3kg2/illustrator.png'
+      },
+      {
+        key: 'lightroom_classic',
+        fallbackName: 'Adobe Lightroom Classic',
+        desc: 'Photo editing and organising application',
+        url: 'https://www.dropbox.com/scl/fi/0p9rln704lc3qgqtjad9n/Lightroom-Classic.zip?rlkey=gp29smsg6t8oxhox80661k4gu&st=cdv50zpy&dl=1',
+        icon: 'https://i.postimg.cc/K8rfMVSR/lightroom-classic.png'
+      },
+      {
+        key: 'office',
+        fallbackName: 'Office',
+        desc: 'Microsoft Office suite (Word, Excel, etc.)',
+        url: 'https://www.dropbox.com/scl/fi/pcfv8ft3egcq4x6jzigny/Office2024.zip?rlkey=qbic04ie56dvoxzk1smri0hoo&st=1r1veinx&dl=1',
+        icon: 'https://i.postimg.cc/fb8JmWgm/office.png'
+      },
+      {
+        key: 'photoshop',
+        fallbackName: 'Photoshop',
+        desc: 'Image editing and graphic design software',
+        url: 'https://www.dropbox.com/scl/fi/8vf3d46sq1wj1rb55r4jz/Photoshop.zip?rlkey=6u0dpbfnqopfndwcwq1082f7a&st=5u4v6m3x&dl=1',
+        icon: 'https://i.postimg.cc/HnzW5d2w/photoshop.png'
+      },
+      {
+        key: 'premiere',
+        fallbackName: 'Premiere',
+        desc: 'Video editing software',
+        url: 'https://www.dropbox.com/scl/fi/1yqqufgow2v4rc93l6wu4/premiere.zip?rlkey=49ymly6zgzufwtijnf2se35tc&st=5i77afac&dl=1',
+        icon: 'https://i.postimg.cc/g2JjVX1j/premiere-pro.png'
+      }
     ];
     const grid = document.createElement('div');
     grid.className = 'install-grid crack-grid'; // Added class for specific styling
     // Reduce the gap between cards and adjust minimum card width to minimize unused space
     grid.style.gap = '0.25rem';
     grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
-    projects.forEach(({ name, url, icon }) => {
+    projects.forEach((project) => {
+      const { key, fallbackName, desc, url, icon } = project;
+      // Resolve the display name and description from translations if available, otherwise use fallback values.
+      const name = (translations.apps && translations.apps[key] && translations.apps[key].name) || fallbackName;
+      // Do not display individual descriptions within each card. We only show the page-level description above.
+      const description = '';
+
       const card = document.createElement('div');
       card.className = 'app-card';
       const header = document.createElement('div');
@@ -2632,10 +2740,12 @@ const processStates = new Map();
       header.appendChild(h3);
       card.appendChild(header);
       const p = document.createElement('p');
-      p.textContent = ''; // Description if needed
+      p.textContent = '';
       const btn = document.createElement('button');
       btn.className = 'button';
-      btn.textContent = 'Download ' + name;
+      // Prefix the download button label with a localized verb if available.
+      const downloadLabel = (translations.actions && translations.actions.download) || 'Download';
+      btn.textContent = `${downloadLabel} ${name}`;
       // Store the original button text so we can restore it after installation
       btn.dataset.originalText = btn.textContent;
       const status = document.createElement('pre');
@@ -2686,17 +2796,19 @@ const processStates = new Map();
       replaceBtn.style.width = 'auto';
       replaceBtn.style.padding = '0.5rem 0.75rem';
       replaceBtn.style.display = 'none';
-      const isClipStudio = name.toLowerCase().includes('clip studio');
+      // Identify the Clip Studio card using its key rather than the translated name.
+      const isClipStudio = key === 'clip_studio_paint';
       // Mark this card as part of the crack installer so we can apply custom fade logic
       card.dataset.crackCard = 'true';
-      const downloadId = `crack-${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+      // Use the project key to build a stable downloadId irrespective of translation.
+      const downloadId = `crack-${key}-${Date.now()}`;
       let isPaused = false;
       let unsubscribe;
 
       // SIMPLE REPLACE BUTTON - WITH Clip_Studio FOLDER
       // Αντικατάσταση του replace button event listener
       replaceBtn.addEventListener('click', async () => {
-        const cardId = `crack-${name.toLowerCase().replace(/\s+/g, '-')}`;
+        const cardId = `crack-${key}`;
         trackProcess(cardId, 'replace', replaceBtn, status);
 
         replaceBtn.disabled = true;
@@ -2803,7 +2915,7 @@ const processStates = new Map();
       btn.addEventListener('click', () => {
         if (unsubscribe) unsubscribe();
 
-        const cardId = `crack-${name.toLowerCase().replace(/\s+/g, '-')}`;
+        const cardId = `crack-${key}`;
         trackProcess(cardId, 'download', btn, status);
 
         // Disable button and prepare for download

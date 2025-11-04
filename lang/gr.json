@@ -1,24 +1,23 @@
 {
   "menu": {
     "settings": "Ρυθμίσεις",
-    "install_apps": "Εγκατάσταση εφαρμογών",
-    "activate_autologin": "Ενεργοποίηση / Αυτόματη σύνδεση",
-    "system_maintenance": "Συντήρηση συστήματος",
-    "crack_installer": "Crack εφαρμογών",
-    "spicetify": "Spicetify Spotify",
-    "password_manager": "Διαχειριστής κωδικών",
-    "christitus": "Εργαλειοθήκη Chris Titus",
-    "dlc_unlocker": "DLC Unlocker",
-    "bios": "BIOS"
-    ,
-    "debloat": "Αφαίρεση bloatware & ρυθμίσεις Windows"
+    "install_apps": "Εγκατάσταση Εφαρμογών",
+    "activate_autologin": "Ενεργοποίηση Windows & Αυτόματη Σύνδεση",
+    "system_maintenance": "Συντήρηση Συστήματος",
+    "crack_installer": "Εγκατάσταση Επαγγελματικού Λογισμικού",
+    "spicetify": "Προσαρμογή Spotify",
+    "password_manager": "Διαχειριστής Κωδικών",
+    "christitus": "Βελτιστοποίηση Windows",
+    "dlc_unlocker": "Ξεκλείδωμα DLC Παιχνιδιών",
+    "bios": "Ρυθμίσεις BIOS",
+    "debloat": "Καθαρισμός & Βελτιστοποίηση Windows"
   },
   "general": {
     "language": "Γλώσσα",
     "theme": "Θέμα",
     "dark": "Σκοτεινό",
     "light": "Φωτεινό",
-    "not_implemented": "Αυτό θα αφαιρέσει πλήρως το Spicetify και θα επαναφέρει το Spotify στην αρχική του κατάσταση.",
+    "not_implemented": "Αφαιρει το Spicetify και θα επαναφέρει το Spotify",
     "open": "Άνοιγμα",
     "install": "Εγκατάσταση",
     "run": "Εκτέλεση",
@@ -40,35 +39,37 @@
     "cancel": "Ακύρωση"
   },
   "pages": {
-    "settings_title": "Ρυθμίσεις εφαρμογής",
-    "install_title": "Εγκατάσταση επιλεγμένων εφαρμογών",
-    "maintenance_title": "Εργασίες συντήρησης συστήματος",
-    "spicetify_title": "Εγκατάσταση Spicetify",
-"spicetify_desc": "Το Spicetify προσθέτει θέματα και προσαρμογές στο Spotify για καλύτερη εμπειρία.",
-    "password_title": "Διαχειριστής κωδικών",
-    "info_title": "Λεπτομέρειες συστήματος",
-    "bios_title": "Πληροφορίες BIOS",
-    "install_desc": "Επιλέξτε εφαρμογές για λήψη. Θα ανοίξουμε αυτόματα τον εγκαταστάτη μετά την ολοκλήρωση της λήψης.",
-    "maintenance_desc": "Εκτελέστε διάφορες εργασίες συντήρησης συστήματος για να διατηρήσετε τον υπολογιστή σας να λειτουργεί ομαλά.",
-    "crack_title": "Εγκαταστάτης project",
-    "crack_desc": "Κατεβάστε τα αντίγραφα project από το Dropbox",
-    "dlc_title": "DLC Unlocker",
-    "activate_title": "Ενεργοποίηση Windows & Αυτόματη Σύνδεση"
-    ,
-    "debloat_desc": "Επιλέξτε ποιες εργασίες debloat θέλετε να εφαρμοστούν. Οι προτεινόμενες εργασίες είναι προεπιλεγμένες. Μπορεί να απαιτούνται δικαιώματα διαχειριστή. Συνιστάται επανεκκίνηση μετά την εφαρμογή."
+    "settings_title": "Ρυθμίσεις",
+    "install_title": "Εγκατάσταση Εφαρμογών",
+    "maintenance_title": "Συντήρηση",
+    "spicetify_title": "Spotify",
+    "spicetify_desc": "Προσαρμόστε το Spotify με θέματα και ρυθμίσεις",
+    "password_title": "Κωδικοί",
+    "info_title": "Σύστημα",
+    "bios_title": "BIOS",
+    "install_desc": "Αυτόματη εγκατάσταση δημοφιλών εφαρμογών εύκολα και γρήγορα",
+    "maintenance_desc": "Καθαρισμός και βελτιστοποίηση για καλύτερη απόδοση",
+    "crack_title": "Επαγγελματικό Λογισμικό",
+    "crack_desc": "Αυτόματη λήψη και εγκατάσταση επαγγελματικών εφαρμογών (π.χ. Photoshop, Office). Μπορεί να απαιτείται δικαιώματα διαχειριστή.",
+    "dlc_title": "DLC Παιχνιδιών",
+    "dlc_desc": "Αυτόματο κατέβασμα και εγκατάσταση πρόσθετου περιεχομένου",
+    "activate_title": "Ενεργοποίηση Windows",
+    "activate_desc": "Γρήγορη ενεργοποίηση και αυτόματη σύνδεση",
+    "debloat_desc": "Αφαίρεση περιττών προγραμμάτων και βελτιστοποίηση ρυθμίσεων",
+    "debloat_raphi_desc": "Εκτελεί το σενάριο καθαρισμού Raphi (PowerShell). Απαιτούνται δικαιώματα διαχειριστή και σύνδεση στο διαδίκτυο."
   },
   "actions": {
-    "check_updates": "Έλεγχος για ενημερώσεις",
-    "create_restore_point": "Δημιουργία σημείου επαναφοράς",
-    "clean_temp": "Καθαρισμός προσωρινών αρχείων",
-    "open_spicetify": "Άνοιγμα σελίδας Spicetify",
-    "open_password_manager": "Άνοιγμα διαχειριστή κωδικών",
-    "scan_repair": "Έλεγχος & επιδιόρθωση",
+    "check_updates": "Έλεγχος για Ενημερώσεις",
+    "create_restore_point": "Δημιουργία Σημείου Επαναφοράς",
+    "clean_temp": "Καθαρισμός Προσωρινών Αρχείων",
+    "open_spicetify": "Άνοιγμα Ιστοσελίδας Spicetify",
+    "open_password_manager": "Άνοιγμα Διαχειριστή Κωδικών",
+    "scan_repair": "Έλεγχος & Επιδιόρθωση",
     "download_patch": "Λήψη Patch My PC",
     "download": "Λήψη",
-    "install_spicetify": "Εγκατάσταση Spicetify",
-    "uninstall_spicetify": "Απεγκατάσταση Spicetify",
-    "full_uninstall_spotify": "Πλήρης απεγκατάσταση Spotify",
+    "install_spicetify": "Install Spicetify",
+    "uninstall_spicetify": "Uninstall Spicetify",
+    "full_uninstall_spotify": "Πλήρης Απεγκατάσταση Spotify",
     "activate_windows": "Ενεργοποίηση Windows",
     "setup_autologin": "Αυτόματη Σύνδεση",
     "download_selected": "Λήψη Επιλεγμένων",
@@ -76,9 +77,10 @@
     "run_dism": "Εκτέλεση DISM",
     "clean_temp_files": "Καθαρισμός Προσωρινών",
     "download_run": "Λήψη & Εκτέλεση"
+    ,"install": "Εγκατάσταση"
   },
   "messages": {
-    "bios_instructions": "Για να εισέλθετε στο BIOS/UEFI, κάντε επανεκκίνηση του υπολογιστή σας και πατήστε το κατάλληλο πλήκτρο (συνήθως F2, F10, Del ή Esc) κατά την εκκίνηση. Τα σύγχρονα λειτουργικά συστήματα δεν επιτρέπουν πρόσβαση στο BIOS μέσα από εφαρμογές.",
+    "bios_instructions": "Επανεκκίνηση στο BIOS για προχωρημένες ρυθμίσεις υλικού. Αποθηκεύστε όλη σας την εργασία πριν προχωρήσετε!",
     "password_warning": "Αυτός ο απλός διαχειριστής κωδικών αποθηκεύει τα διαπιστευτήρια τοπικά. Μην τον χρησιμοποιείτε για ευαίσθητα δεδομένα.",
     "install_spicetify_success": "Το Spicetify εγκαταστάθηκε επιτυχώς! Επανεκκινήστε το Spotify για να δείτε τις αλλαγές.",
     "install_spicetify_error": "Σφάλμα κατά την εγκατάσταση του Spicetify",
@@ -96,113 +98,108 @@
     "extraction_failed": "Αποτυχία εξαγωγής",
     "installer_started": "Ο εγκαταστάτης ξεκίνησε επιτυχώς!",
     "could_not_open": "Δεν μπόρεσε να ανοίξει αυτόματα",
-    "download_timed_out": "Έληξε ο χρόνος λήψης"
+    "download_timed_out": "Έληξε ο χρόνος λήψης",
+    "installation_started": "Η εγκατάσταση ξεκίνησε! Ακολουθήστε τις οδηγίες στον εγκαταστάτη."
+    ,"encrypted_storage": "Κρυπτογράφηση στρατιωτικού επιπέδου"
+    ,"local_storage": "Αποθήκευση μόνο στη συσκευή"
+    ,"quick_access": "Συμπλήρωση με ένα κλικ"
+    ,"secure_search": "Ασφαλής κρυπτογραφημένη αναζήτηση"
   },
   "maintenance": {
-    "delete_temp_files": "Καθαρισμός Προσωρινών",
-    "temp_files_desc": "Καθαρισμός φακέλων TEMP, %TEMP% και Prefetch",
-    "system_file_repair": "Επιδιόρθωση Συστήματος",
-    "system_file_desc": "SFC & DISM (Απαιτείται Διαχειριστής)",
-    "patch_my_pc": "Patch My PC",
-    "patch_my_pc_desc": "Αυτόματη ενημέρωση εφαρμογών τρίτων"
+    "delete_temp_files": "Καθαρισμός Cache",
+    "temp_files_desc": "Διαγραφή προσωρινών αρχείων για χώρο",
+    "system_file_repair": "SFC Scan",
+    "system_file_desc": "Έλεγχος και επιδιόρθωση αρχείων συστήματος",
+    "patch_my_pc": "Ενημέρωση Εφαρμογών",
+    "patch_my_pc_desc": "Αυτόματη ενημέρωση όλων των εγκατεστημένων εφαρμογών με ένα κλικ"
   },
   "dlc": {
-    "sims_installer": "Sims Installer",
-    "sims_desc": "Πλήρες πακέτο Sims DLC με όλες τις επεκτάσεις",
+    "sims_installer": "Install DLC Sims",
+    "sims_desc": "Κατεβάζει και εγκαθιστά όλα τα DLC αυτόματα",
     "ea_unlocker": "EA Unlocker",
-    "ea_desc": "Ξεκλείδωμα όλου του περιεχομένου DLC και λειτουργιών παιχνιδιών EA",
-    "download_sims": "ΛΗΨΗ SIMS INSTALLER",
-    "download_ea": "ΛΗΨΗ EA UNLOCKER",
-    "tutorial_title": "Οδηγός EA DLC Unlocker & Sims 4 Updater",
-    "tutorial_desc": "📁 <strong>EA DLC Unlocker:</strong> Γενικό εργαλείο για ξεκλείδωμα DLCs σε παιχνίδια EA<br>🎮 <strong>Sims 4 Updater:</strong> Εξειδικευμένο για The Sims 4 με ενημερώσεις & επισκευές"
+    "ea_desc": "Κανει patch τα DLC",
+    "download_sims": "ΚΑΤΕΒΑΣΜΑ & ΕΓΚΑΤΑΣΤΑΣΗ SIMS",
+    "download_ea": "ΚΑΤΕΒΑΣΜΑ & ΕΓΚΑΤΑΣΤΑΣΗ EA UNLOCKER",
+    "tutorial_title": "Οδηγός EA DLC Unlocker & Sims 4 Installer",
+    "tutorial_desc": "🎮 <strong>EA DLC Unlocker:</strong> Γενικό εργαλείο για ξεκλείδωμα περιεχομένου σε παιχνίδια EA<br>🏠 <strong>Sims 4 Installer:</strong> Εξειδικευμένο για The Sims 4 με όλα τα DLC και επεκτάσεις"
   },
   "activation": {
     "activate_windows": "Ενεργοποίηση Windows",
-    "activate_desc": "Εκτέλεση script ενεργοποίησης (Απαιτεί Διαχειριστή)",
+    "activate_desc": "Αυτόματη ενεργοποίηση - κλικ και τελείωσε",
     "auto_login": "Αυτόματη Σύνδεση",
-    "auto_login_desc": "Ρύθμιση αυτόματης σύνδεσης χωρίς κωδικό"
+    "auto_login_desc": "Ρυθμίζει αυτόματη σύνδεση χωρίς κωδικό - ιδανικό για προσωπικούς υπολογιστές"
   },
   "apps": {
     "betterdiscord": {
       "name": "BetterDiscord",
-      "description": "Βελτιωμένος client του Discord"
+      "description": ""
     },
     "discord_ptb": {
       "name": "Discord PTB",
-      "description": "Δημόσια δοκιμαστική έκδοση (PTB) του Discord"
+      "description": ""
     },
     "discord": {
       "name": "Discord",
-      "description": "Επίσημη εφαρμογή του Discord"
+      "description": ""
     },
     "epic_games": {
       "name": "Epic Games",
-      "description": "Epic Games Launcher"
+      "description": ""
     },
     "ubisoft_connect": {
       "name": "Ubisoft Connect",
-      "description": "Εκκινητής παιχνιδιών της Ubisoft"
+      "description": ""
     },
     "spotify": {
       "name": "Spotify",
-      "description": "Εφαρμογή streaming μουσικής της Spotify"
+      "description": ""
     },
     "advanced_installer": {
       "name": "Advanced Installer",
-      "description": "Επαγγελματικό εργαλείο δημιουργίας εγκαταστάσεων για Windows"
+      "description": ""
+    },
+    "clip_studio_paint": {
+      "name": "Clip Studio Paint",
+      "description": ""
+    },
+    "encoder": {
+      "name": "Media Encoder",
+      "description": ""
+    },
+    "illustrator": {
+      "name": "Illustrator",
+      "description": ""
+    },
+    "lightroom_classic": {
+      "name": "Lightroom Classic",
+      "description": ""
+    },
+    "office": {
+      "name": "Office",
+      "description": ""
+    },
+    "photoshop": {
+      "name": "Photoshop",
+      "description": ""
+    },
+    "premiere": {
+      "name": "Premiere",
+      "description": ""
     }
   },
   "christitus_page": {
     "subtitle_full": "Πλήρης εργαλειοθήκη για βελτιστοποίηση των Windows",
     "features": [
-      "Βελτιστοποίηση συστήματος και ρυθμίσεις",
+      "Βελτιστοποίηση συστήματος και ρυθμίσεις απόδοσης",
       "Αφαίρεση bloatware και ανεπιθύμητων εφαρμογών",
       "Βελτιώσεις ιδιωτικότητας και ασφάλειας",
-      "Εγκατάσταση βασικού λογισμικού"
+      "Εγκατάσταση βασικού και απαραίτητου λογισμικού"
     ]
-  }
-  ,
+  },
   "app": {
     "title": "Κάνε τη ζωή πιο εύκολη",
     "title_high": "Κάνε τη ζωή",
     "title_rest": "πιο εύκολη",
-    "subtitle": "Εργαλεία Διαχείρισης Συστήματος"
-  }
-  ,
-  "debloat": {
-    "categories": {
-      "App Removal": "Αφαίρεση εφαρμογών",
-      "Telemetry & Tracking": "Τηλεμετρία & παρακολούθηση",
-      "Search, Copilot & AI": "Αναζήτηση, Copilot & AI",
-      "Explorer & Taskbar": "Εξερευνητής & γραμμή εργασιών"
-    },
-    "tasks": {
-      "removePreinstalledApps": "Αφαίρεση προεγκατεστημένων εφαρμογών",
-      "disableTelemetry": "Απενεργοποίηση τηλεμετρίας και διαγνωστικών δεδομένων",
-      "disableActivityHistory": "Απενεργοποίηση ιστορικού δραστηριότητας",
-      "disableAppLaunchTracking": "Απενεργοποίηση παρακολούθησης εκκίνησης εφαρμογών",
-      "disableTargetedAds": "Απενεργοποίηση στοχευμένων διαφημίσεων και εξατομικευμένων εμπειριών",
-      "disableTipsSuggestions": "Απενεργοποίηση συμβουλών, προτάσεων και διαφημίσεων στα Windows",
-      "disableSpotlight": "Απενεργοποίηση του φόντου Windows Spotlight (μόνο σε W11)",
-      "disableBingSearch": "Απενεργοποίηση αναζήτησης Bing στο web και Cortana",
-      "disableCopilot": "Απενεργοποίηση Microsoft Copilot",
-      "disableStickyKeys": "Απενεργοποίηση συντόμευσης Sticky Keys (μόνο σε W11)",
-      "restoreClassicContextMenu": "Επαναφορά μενού περιβάλλοντος τύπου Windows 10 (μόνο σε W11)",
-      "showFileExtensions": "Εμφάνιση επεκτάσεων αρχείων για γνωστούς τύπους αρχείων",
-      "hideTaskviewButton": "Απόκρυψη του κουμπιού Task View (μόνο σε W11)",
-      "disableWidgets": "Απενεργοποίηση widgets στη γραμμή εργασιών και στην οθόνη κλειδώματος",
-      "searchBarMode": "Στυλ γραμμής αναζήτησης"
-    },
-    "choices": {
-      "-1": "Χωρίς αλλαγή",
-      "0": "Απόκρυψη αναζήτησης",
-      "1": "Εμφάνιση μόνο εικονιδίου αναζήτησης",
-      "2": "Εμφάνιση πεδίου αναζήτησης"
-    },
-    "buttons": {
-      "restoreRecommended": "Επαναφορά προτεινόμενων",
-      "runSelectedTasks": "Εκτέλεση επιλεγμένων εργασιών"
-    },
-    "noSelection": "Παρακαλώ επιλέξτε τουλάχιστον μία εργασία ή ρυθμίστε τη γραμμή αναζήτησης."
+    "subtitle": "Έξυπνα Εργαλεία Διαχείρισης Συστήματος"
   }
 }
