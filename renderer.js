@@ -1603,18 +1603,120 @@ const processStates = new Map();
     const langControl = document.createElement('div');
     langControl.className = 'settings-control';
 
+    // Create a hidden native select element to hold the selected language.
+    // We keep this element so that the existing save handler remains
+    // compatible with the rest of the application.  The select is
+    // hidden from view and synchronised with a custom UI component.
     const langSelect = document.createElement('select');
     langSelect.className = 'settings-select';
+    langSelect.style.display = 'none';
 
-    [['en', 'English'], ['gr', 'Ελληνικά']].forEach(([value, label]) => {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = label;
-      if (settings.lang === value) option.selected = true;
-      langSelect.appendChild(option);
+    // Determine available language codes dynamically.  If the loaded
+    // translation defines a `language_names` map, use its keys;
+    // otherwise fall back to English and Greek.
+    const languageCodes = (translations.language_names && Object.keys(translations.language_names).length > 0)
+      ? Object.keys(translations.language_names)
+      : ['en', 'gr'];
+
+    // Helper to map a language code to a display label.  If a
+    // `language_names` entry exists for the code, use it; otherwise
+    // default to a capitalised code.
+    function getLanguageLabel(code) {
+      // Prefer custom names from translations if available
+      if (translations.language_names && Object.prototype.hasOwnProperty.call(translations.language_names, code)) {
+        return translations.language_names[code];
+      }
+      // Provide explicit fallbacks for common codes to avoid
+      // displaying "En"/"Gr".  Add more mappings here as needed.
+      if (code === 'en') return 'English';
+      if (code === 'gr') return 'Ελληνικά';
+      // Otherwise default to a capitalised code
+      return code.charAt(0).toUpperCase() + code.slice(1);
+    }
+
+    // Populate the hidden select with all language options and track
+    // the current selection.
+    let currentLang = settings.lang;
+    languageCodes.forEach((code) => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = getLanguageLabel(code);
+      if (settings.lang === code) opt.selected = true;
+      langSelect.appendChild(opt);
+    });
+
+    // Build a custom select UI for improved styling control.  This
+    // component contains a display area showing the current language
+    // and an arrow, plus a list of options that appears on demand.
+    const customSelect = document.createElement('div');
+    customSelect.className = 'custom-select';
+
+    const display = document.createElement('div');
+    display.className = 'custom-select-display';
+    const displayLabel = document.createElement('span');
+    displayLabel.className = 'custom-select-text';
+    displayLabel.textContent = getLanguageLabel(currentLang);
+    const arrowIcon = document.createElement('span');
+    arrowIcon.className = 'custom-select-arrow';
+    arrowIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
+    display.appendChild(displayLabel);
+    display.appendChild(arrowIcon);
+    customSelect.appendChild(display);
+
+    const optionsList = document.createElement('ul');
+    optionsList.className = 'custom-select-options';
+    // Track which option is currently selected so that we can
+    // highlight it in the drop‑down
+    let selectedItem = null;
+    languageCodes.forEach((code) => {
+      const li = document.createElement('li');
+      li.dataset.value = code;
+      li.textContent = getLanguageLabel(code);
+      if (settings.lang === code) {
+        li.classList.add('selected');
+        selectedItem = li;
+      }
+      li.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Update hidden select value
+        langSelect.value = code;
+        // Update display text
+        displayLabel.textContent = getLanguageLabel(code);
+        // Update selected class for visual feedback
+        if (selectedItem) selectedItem.classList.remove('selected');
+        li.classList.add('selected');
+        selectedItem = li;
+        // Close dropdown
+        customSelect.classList.remove('open');
+      });
+      optionsList.appendChild(li);
+    });
+    customSelect.appendChild(optionsList);
+
+    // Toggle the dropdown visibility when clicking the display area.
+    // Also add a class to the settings row to suppress its hover effect
+    // while the dropdown is open.
+    display.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const willOpen = !customSelect.classList.contains('open');
+      customSelect.classList.toggle('open');
+      // langRow is available via closure
+      if (willOpen) {
+        langRow.classList.add('dropdown-open');
+      } else {
+        langRow.classList.remove('dropdown-open');
+      }
+    });
+    // Close the dropdown when clicking outside the component
+    document.addEventListener('click', () => {
+      if (customSelect.classList.contains('open')) {
+        customSelect.classList.remove('open');
+        langRow.classList.remove('dropdown-open');
+      }
     });
 
     langControl.appendChild(langSelect);
+    langControl.appendChild(customSelect);
     langRow.appendChild(langLabel);
     langRow.appendChild(langControl);
     container.appendChild(langRow);
