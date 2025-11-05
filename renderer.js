@@ -2169,11 +2169,23 @@ const processStates = new Map();
 
     // Χρήση των sortedApps
     sortedApps.forEach((app, i) => {
-      const li = document.createElement('li'); li.style.display = 'flex'; li.style.alignItems = 'center'; li.style.padding = '1rem'; li.style.border = '1px solid var(--border-color)'; li.style.borderRadius = '12px'; li.style.marginBottom = '0.75rem'; li.style.background = 'var(--card-bg)';
-      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = `app-${i}`; cb.style.marginRight = '1rem'; cb.style.width = '18px'; cb.style.height = '18px'; cb.style.accentColor = 'var(--accent-color)';
+      // Create a list item for each app.  Use a dedicated CSS class
+      // instead of inline styles to allow more sophisticated theming (shadows,
+      // hover effects, etc.) via styles.css.  This class will be styled
+      // as .app-list-item.
+      const li = document.createElement('li');
+      li.className = 'app-list-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = `app-${i}`;
+      // Use a CSS class to control spacing, sizing and accent colour via styles.css
+      cb.className = 'app-checkbox';
       const label = document.createElement('label'); label.htmlFor = cb.id; label.style.flex = '1'; label.style.display = 'flex'; label.style.alignItems = 'center';
       const text = document.createElement('div'); const n = document.createElement('span'); n.textContent = app.name; n.style.fontWeight = '600'; n.style.fontSize = '1.1rem'; const p = document.createElement('p'); p.textContent = app.description; p.style.margin = '0'; p.style.opacity = '0.8'; p.style.fontSize = '0.9rem'; text.append(n, p); label.append(text);
-      const status = document.createElement('pre'); status.className = 'status-pre'; status.style.marginLeft = 'auto'; status.style.fontSize = '0.85rem'; status.style.opacity = '0.8';
+      const status = document.createElement('pre');
+      // Add two classes: status-pre (existing styling) and app-status for
+      // app‑specific tweaks defined in styles.css.
+      status.className = 'status-pre app-status';
       li.append(cb, label, status); list.appendChild(li);
     });
     container.appendChild(list);
@@ -3826,262 +3838,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 
   // Προσθήκη των νέων στύλ στο υπάρχον CSS
   const passwordManagerStyles = `
-.password-manager-card {
-    max-width: 520px;
-    margin: 0 auto;
-    padding: 2rem;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 18px;
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-    backdrop-filter: blur(10px);
-    min-height: 360px;
-    height: auto;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-}
 
-.password-warning-banner {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1.25rem;
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.06) 100%);
-    border: 1px solid var(--warning-color);
-    border-radius: 14px;
-    margin-bottom: 2rem;
-    backdrop-filter: blur(8px);
-    position: relative;
-    overflow: hidden;
-    min-height: 80px;
-}
-
-.password-warning-banner::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--warning-color) 0%, #fbbf24 100%);
-}
-
-.warning-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: rgba(245, 158, 11, 0.15);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    margin-top: 0.1rem;
-}
-
-.warning-icon svg {
-    width: 20px;
-    height: 20px;
-    color: var(--warning-color);
-}
-
-.warning-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-height: 44px;
-}
-
-.warning-title {
-    font-weight: 700;
-    color: var(--warning-color);
-    margin-bottom: 0.5rem;
-    font-size: 1.1rem;
-}
-
-.warning-text {
-    color: var(--text-color);
-    opacity: 0.9;
-    line-height: 1.5;
-    font-size: 0.95rem;
-}
-
-.password-features {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 2rem;
-    flex: 1;
-}
-
-.feature-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    transition: all 0.2s ease;
-    min-height: 60px;
-}
-
-.feature-item:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: var(--accent-color);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.feature-icon {
-    font-size: 1.4rem;
-    width: 28px;
-    text-align: center;
-    flex-shrink: 0;
-}
-
-.feature-text {
-    color: var(--text-color);
-    font-size: 0.95rem;
-    font-weight: 600;
-    opacity: 0.9;
-    line-height: 1.4;
-}
-
-.password-actions {
-    display: flex;
-    justify-content: center;
-    margin-top: auto;
-}
-
-.password-manager-btn {
-    width: 100%;
-    padding: 1.25rem 2rem;
-    font-size: 1.1rem;
-    font-weight: 700;
-    border-radius: 14px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-    max-width: none;
-    min-height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-}
-
-.password-manager-btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.6s ease;
-}
-
-.password-manager-btn:hover::before {
-    left: 100%;
-}
-
-.password-manager-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 28px rgba(0, 191, 255, 0.4);
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-    .password-manager-card {
-        padding: 1.75rem;
-        margin: 0 1rem;
-        max-width: none;
-        min-height: 340px;
-    }
-    
-    .password-features {
-        grid-template-columns: 1fr;
-        gap: 0.875rem;
-        margin-bottom: 1.75rem;
-    }
-    
-    .feature-item {
-        padding: 0.875rem;
-        min-height: 56px;
-    }
-    
-    .password-warning-banner {
-        padding: 1.125rem;
-        margin-bottom: 1.75rem;
-        min-height: 76px;
-    }
-    
-    .warning-icon {
-        width: 40px;
-        height: 40px;
-    }
-    
-    .warning-icon svg {
-        width: 18px;
-        height: 18px;
-    }
-    
-    .password-manager-btn {
-        padding: 1.125rem 1.75rem;
-        font-size: 1.05rem;
-        min-height: 56px;
-    }
-}
-
-@media (max-width: 480px) {
-    .password-manager-card {
-        padding: 1.5rem;
-        margin: 0 0.75rem;
-        border-radius: 16px;
-        min-height: 320px;
-    }
-    
-    .password-features {
-        gap: 0.75rem;
-    }
-    
-    .feature-item {
-        padding: 0.75rem;
-        min-height: 52px;
-        gap: 0.625rem;
-    }
-    
-    .feature-icon {
-        font-size: 1.3rem;
-        width: 24px;
-    }
-    
-    .feature-text {
-        font-size: 0.9rem;
-    }
-    
-    .password-warning-banner {
-        padding: 1rem;
-        gap: 0.75rem;
-        min-height: 72px;
-    }
-    
-    .warning-title {
-        font-size: 1rem;
-    }
-    
-    .warning-text {
-        font-size: 0.9rem;
-    }
-    
-    .password-manager-btn {
-        padding: 1rem 1.5rem;
-        font-size: 1rem;
-        min-height: 52px;
-    }
-}
 `;
 
   // Προσθήκη των στύλ στο document αν δεν υπάρχουν ήδη

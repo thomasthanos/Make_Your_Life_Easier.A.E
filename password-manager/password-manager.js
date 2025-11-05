@@ -4,12 +4,98 @@ class PasswordManager {
         this.passwords = [];
         this.currentCategory = 'all';
         this.currentEditingId = null;
+
+        // Determine language for UI.  Try to read myAppSettings.lang from localStorage,
+        // fall back to the <html> lang attribute.  Treat 'gr' and 'el' as Greek.
+        let langSetting = null;
+        try {
+            const settings = JSON.parse(localStorage.getItem('myAppSettings'));
+            if (settings && typeof settings.lang === 'string' && settings.lang.length > 0) {
+                langSetting = settings.lang.toLowerCase();
+            }
+        } catch (e) {
+            // ignore errors
+        }
+        const docLang = (document.documentElement.lang || 'en').toLowerCase();
+        const selectedLang = langSetting || docLang;
+        this.lang = (selectedLang.startsWith('gr') || selectedLang.startsWith('el')) ? 'gr' : 'en';
+
+        // Basic translations for the simpler password manager interface
+        this.translations = {
+            en: {
+                all: 'All',
+                no_passwords_found_title: 'No passwords found',
+                no_passwords_found_sub: 'Add your first password to get started',
+                add_password_modal_title: 'Add Password',
+                edit_password_modal_title: 'Edit Password',
+                update: 'Update',
+                delete: 'Delete',
+                username_label: 'Username:',
+                email_label: 'Email:',
+                password_label: 'Password:',
+                url_label: 'URL:',
+                notes_label: 'Notes:',
+                add_category_placeholder: 'New category name',
+                add_category_button: 'Add',
+                close_category_button: 'Close',
+                copy_username: 'Copy username',
+                copy_email: 'Copy email',
+                copy_password: 'Copy password',
+                reveal_password: 'Reveal password',
+                hide_password: 'Hide password',
+                update_category: 'Update',
+                delete_category: 'Delete',
+                no_categories: 'No categories found'
+            },
+            gr: {
+                all: 'Όλα',
+                no_passwords_found_title: 'Δεν βρέθηκαν κωδικοί',
+                no_passwords_found_sub: 'Προσθέστε τον πρώτο σας κωδικό για να ξεκινήσετε',
+                add_password_modal_title: 'Προσθήκη Κωδικού',
+                edit_password_modal_title: 'Επεξεργασία Κωδικού',
+                update: 'Ενημέρωση',
+                delete: 'Διαγραφή',
+                username_label: 'Χρήστης:',
+                email_label: 'Email:',
+                password_label: 'Κωδικός:',
+                url_label: 'URL:',
+                notes_label: 'Σημειώσεις:',
+                add_category_placeholder: 'Όνομα νέας κατηγορίας',
+                add_category_button: 'Προσθήκη',
+                close_category_button: 'Κλείσιμο',
+                copy_username: 'Αντιγραφή ονόματος χρήστη',
+                copy_email: 'Αντιγραφή email',
+                copy_password: 'Αντιγραφή κωδικού',
+                reveal_password: 'Προβολή κωδικού',
+                hide_password: 'Απόκρυψη κωδικού',
+                update_category: 'Ενημέρωση',
+                delete_category: 'Διαγραφή',
+                no_categories: 'Δεν βρέθηκαν κατηγορίες'
+            }
+        };
         
         // Wait a bit for APIs to be available
         setTimeout(() => {
             this.initializeEventListeners();
             this.loadData();
         }, 1000);
+    }
+
+    /**
+     * Translate a key using the current language.  Falls back to English or
+     * returns the key itself if no translation exists.  This helper makes it
+     * easy to internationalize the simpler password manager UI.
+     * @param {string} key
+     * @returns {string}
+     */
+    t(key) {
+        if (this.translations && this.translations[this.lang] && this.translations[this.lang][key]) {
+            return this.translations[this.lang][key];
+        }
+        if (this.translations && this.translations.en && this.translations.en[key]) {
+            return this.translations.en[key];
+        }
+        return key;
     }
 
     initializeEventListeners() {
@@ -114,7 +200,7 @@ class PasswordManager {
         // All categories button
         const allBtn = document.createElement('button');
         allBtn.className = `category-btn ${this.currentCategory === 'all' ? 'active' : ''}`;
-        allBtn.textContent = 'All';
+        allBtn.textContent = this.t('all');
         allBtn.addEventListener('click', () => this.filterByCategory('all'));
         container.appendChild(allBtn);
 
@@ -147,8 +233,8 @@ class PasswordManager {
             grid.innerHTML = `
                 <div class="empty-state">
                     <i>🔒</i>
-                    <h3>No passwords found</h3>
-                    <p>Add your first password to get started</p>
+                    <h3>${this.t('no_passwords_found_title')}</h3>
+                    <p>${this.t('no_passwords_found_sub')}</p>
                 </div>
             `;
             return;
@@ -165,37 +251,37 @@ class PasswordManager {
                 </div>
                 ${password.category_name ? `<span class="password-category">${this.escapeHtml(password.category_name)}</span>` : ''}
                 <div class="password-field">
-                    <span class="password-label">Username:</span>
+                    <span class="password-label">${this.t('username_label')}</span>
                     <div class="password-value">
                         <span class="password-text">${password.username ? this.escapeHtml(password.username) : '—'}</span>
-                        ${password.username ? `<button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.username)}')" title="Copy username">📋</button>` : ''}
+                        ${password.username ? `<button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.username)}')" title="${this.t('copy_username')}">📋</button>` : ''}
                     </div>
                 </div>
                 <div class="password-field">
-                    <span class="password-label">Email:</span>
+                    <span class="password-label">${this.t('email_label')}</span>
                     <div class="password-value">
                         <span class="password-text">${password.email ? this.escapeHtml(password.email) : '—'}</span>
-                        ${password.email ? `<button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.email)}')" title="Copy email">📋</button>` : ''}
+                        ${password.email ? `<button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.email)}')" title="${this.t('copy_email')}">📋</button>` : ''}
                     </div>
                 </div>
                 <div class="password-field">
-                    <span class="password-label">Password:</span>
+                    <span class="password-label">${this.t('password_label')}</span>
                     <div class="password-value">
                         <span class="password-text password-hidden">••••••••</span>
-                        <button class="reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="Reveal password">👁️</button>
-                        <button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.password)}')" title="Copy password">📋</button>
+                        <button class="reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="${this.t('reveal_password')}">👁️</button>
+                        <button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.password)}')" title="${this.t('copy_password')}">📋</button>
                     </div>
                 </div>
                 ${password.url ? `
                 <div class="password-field">
-                    <span class="password-label">URL:</span>
+                    <span class="password-label">${this.t('url_label')}</span>
                     <div class="password-value">
                         <span class="password-text"><a href="${this.escapeHtml(password.url)}" target="_blank" style="color: var(--accent-color);">${this.escapeHtml(password.url)}</a></span>
                     </div>
                 </div>` : ''}
                 ${password.notes ? `
                 <div class="password-field">
-                    <span class="password-label">Notes:</span>
+                    <span class="password-label">${this.t('notes_label')}</span>
                     <div class="password-value">
                         <span class="password-text">${this.escapeHtml(password.notes)}</span>
                     </div>
@@ -217,10 +303,10 @@ class PasswordManager {
         const form = document.getElementById('passwordForm');
 
         if (passwordId) {
-            title.textContent = 'Edit Password';
+            title.textContent = this.t('edit_password_modal_title');
             this.fillPasswordForm(passwordId);
         } else {
-            title.textContent = 'Add Password';
+            title.textContent = this.t('add_password_modal_title');
             form.reset();
             document.getElementById('passwordId').value = '';
         }
@@ -348,7 +434,7 @@ class PasswordManager {
         container.innerHTML = '';
 
         if (this.categories.length === 0) {
-            container.innerHTML = '<p style="text-align: center; opacity: 0.7;">No categories found</p>';
+            container.innerHTML = `<p style="text-align: center; opacity: 0.7;">${this.t('no_categories')}</p>`;
             return;
         }
 
@@ -357,8 +443,8 @@ class PasswordManager {
             item.className = 'category-item';
             item.innerHTML = `
                 <input type="text" value="${this.escapeHtml(category.name)}" class="form-input category-name" data-id="${category.id}" style="flex: 1;">
-                <button class="button button-secondary" onclick="pm.updateCategory(${category.id})">Update</button>
-                <button class="button button-danger" onclick="pm.deleteCategory(${category.id})">Delete</button>
+                <button class="button button-secondary" onclick="pm.updateCategory(${category.id})">${this.t('update_category')}</button>
+                <button class="button button-danger" onclick="pm.deleteCategory(${category.id})">${this.t('delete_category')}</button>
             `;
             container.appendChild(item);
         });

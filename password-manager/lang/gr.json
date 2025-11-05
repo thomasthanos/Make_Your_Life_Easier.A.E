@@ -1,0 +1,49 @@
+{
+  "sidebar": {
+    "add_password": "+ Προσθήκη Κωδικού",
+    "manage_categories": "Διαχείριση Κατηγοριών",
+    "total_passwords": "ΣΥΝΟΛΟ ΚΩΔΙΚΩΝ",
+    "categories": "ΚΑΤΗΓΟΡΙΕΣ",
+    "weak_passwords": "ΑΣΘΕΝΕΙΣ ΚΩΔΙΚΟΙ",
+    "reused": "ΕΠΑΝΑΧΡΗΣΗ",
+    "all": "Όλα"
+  },
+  "main": {
+    "search_placeholder": "Αναζήτηση κωδικών, χρηστών, emails...",
+    "no_passwords_title": "Δεν υπάρχουν κωδικοί",
+    "no_passwords_subtitle": "Προσθέστε τον πρώτο σας κωδικό για να ασφαλίσετε τη ψηφιακή ζωή σας",
+    "add_first_password": "Προσθέστε τον πρώτο σας κωδικό"
+  },
+  "password_modal": {
+    "add_title": "Προσθήκη Νέου Κωδικού",
+    "edit_title": "Επεξεργασία Κωδικού",
+    "title_label": "Τίτλος *",
+    "password_label": "Κωδικός *",
+    "url_label": "Ιστοσελίδα URL",
+    "category_label": "Κατηγορία",
+    "username_label": "Χρήστης",
+    "notes_label": "Σημειώσεις",
+    "email_label": "Email",
+    "no_category_option": "Καμία Κατηγορία",
+    "save": "Αποθήκευση Κωδικού",
+    "cancel": "Ακύρωση"
+  },
+  "category_modal": {
+    "title": "Διαχείριση Κατηγοριών",
+    "new_category_placeholder": "Όνομα νέας κατηγορίας",
+    "add": "Προσθήκη",
+    "close": "Κλείσιμο"
+  },
+  "compact_toggle": {
+    "compact_mode": "\uD83D\uDCF1 Συμπαγής Λειτουργία",
+    "normal_mode": "\uD83D\uDCF1 Κανονική Λειτουργία"
+  },
+  "empty_state": {
+    "icon": "\uD83D\uDD12",
+    "title": "Δεν βρέθηκαν κωδικοί",
+    "subtitle": "Προσθέστε τον πρώτο σας κωδικό για να ξεκινήσετε"
+  },
+  "notifications": {
+    "password_manager_unlocked": "Ο διαχειριστής κωδικών ξεκλειδώθηκε!"
+  }
+}

@@ -19,10 +19,150 @@ class PasswordManager {
         this.authUI = new PasswordManagerAuthUI();
         this.observeCards = () => {}; // Προσωρινή κενή συνάρτηση
 
+        // Determine the application language.  First check the saved settings in localStorage (myAppSettings.lang).
+        // Fall back to the <html> lang attribute.  Accept both "gr" and "el" codes as Greek. Default to English otherwise.
+        let langSetting = null;
+        try {
+            const settings = JSON.parse(localStorage.getItem('myAppSettings'));
+            if (settings && typeof settings.lang === 'string' && settings.lang.length > 0) {
+                langSetting = settings.lang.toLowerCase();
+            }
+        } catch (e) {
+            // ignore parsing errors
+        }
+        const docLang = (document.documentElement.lang || 'en').toLowerCase();
+        const selectedLang = langSetting || docLang;
+        this.lang = (selectedLang.startsWith('gr') || selectedLang.startsWith('el')) ? 'gr' : 'en';
+        // Translation table for key UI strings used in the password manager.  Extend as needed.
+        this.translations = {
+            en: {
+                add_password_btn: '+ Add Password',
+                manage_categories_btn: '🏷️ Manage Categories',
+                search_placeholder: 'Search passwords, usernames, emails...',
+                cancel: 'Cancel',
+                save_password: '💾 Save Password',
+                no_category_option: 'No Category',
+                title_label: 'Title *',
+                password_label: 'Password *',
+                url_label: 'Website URL',
+                category_label: 'Category',
+                username_label: 'Username',
+                notes_label: 'Notes',
+                email_label: 'Email',
+                title_placeholder: 'Enter service name',
+                password_placeholder: 'Enter password',
+                url_placeholder: 'https://example.com',
+                username_placeholder: 'Enter username',
+                notes_placeholder: 'Additional notes...',
+                email_placeholder: 'name@domain',
+                modal_add_title: 'Add New Password',
+                modal_edit_title: 'Edit Password',
+                all_categories: 'All',
+                no_passwords_yet: 'No Passwords Yet',
+                first_password_desc: 'Add your first password to secure your digital life',
+                add_first_password: 'Add Your First Password'
+                ,
+                // Additional keys for stats, labels and various UI texts
+                stats_total: 'Total Passwords',
+                stats_categories: 'Categories',
+                stats_weak: 'Weak Passwords',
+                stats_reused: 'Reused',
+                category_no_results: 'No categories found',
+                category_create_first: 'Create your first category to organize passwords',
+                edit: 'Edit',
+                delete: 'Delete',
+                username_field: 'Username',
+                email_field: 'Email',
+                password_field: 'Password',
+                website_field: 'Website',
+                notes_field: 'Notes',
+                last_updated_field: 'Last Updated',
+                unknown: 'Unknown',
+                no_username_email: 'No username/email',
+                open_website: 'Open website',
+                open_in_browser: 'Open in default browser',
+                copy_username: 'Copy username',
+                copy_email: 'Copy email',
+                copy_password: 'Copy password',
+                reveal_password: 'Reveal password',
+                hide_password: 'Hide password',
+                strong_password_generated: 'Strong password generated!',
+                copied_to_clipboard: 'Copied to clipboard!',
+                failed_copy: 'Failed to copy to clipboard. Please copy manually.'
+                ,
+                password_manager_unlocked: 'Password Manager unlocked!'
+                ,
+                compact_mode: '📱 Compact Mode',
+                normal_mode: '📱 Normal Mode'
+            },
+            gr: {
+                add_password_btn: '+ Προσθήκη Κωδικού',
+                manage_categories_btn: '🏷️ Διαχείριση Κατηγοριών',
+                search_placeholder: 'Αναζήτηση κωδικών, usernames, emails...',
+                cancel: 'Ακύρωση',
+                save_password: '💾 Αποθήκευση Κωδικού',
+                no_category_option: 'Χωρίς Κατηγορία',
+                title_label: 'Τίτλος *',
+                password_label: 'Κωδικός *',
+                url_label: 'Ιστότοπος URL',
+                category_label: 'Κατηγορία',
+                username_label: 'Όνομα χρήστη',
+                notes_label: 'Σημειώσεις',
+                email_label: 'Email',
+                title_placeholder: 'Όνομα υπηρεσίας',
+                password_placeholder: 'Κωδικός',
+                url_placeholder: 'https://example.com',
+                username_placeholder: 'Όνομα χρήστη',
+                notes_placeholder: 'Επιπλέον σημειώσεις...',
+                email_placeholder: 'όνομα@domain',
+                modal_add_title: 'Προσθήκη Νέου Κωδικού',
+                modal_edit_title: 'Επεξεργασία Κωδικού',
+                all_categories: 'Όλα',
+                no_passwords_yet: 'Δεν υπάρχουν κωδικοί ακόμα',
+                first_password_desc: 'Προσθέστε τον πρώτο σας κωδικό για να ασφαλίσετε την ψηφιακή σας ζωή',
+                add_first_password: 'Προσθέστε τον πρώτο σας κωδικό'
+                ,
+                // Additional keys for stats, labels and various UI texts in Greek
+                stats_total: 'Σύνολο Κωδικών',
+                stats_categories: 'Κατηγορίες',
+                stats_weak: 'Αδύναμοι Κωδικοί',
+                stats_reused: 'Επαναχρησιμοποιημένοι',
+                category_no_results: 'Δεν βρέθηκαν κατηγορίες',
+                category_create_first: 'Δημιουργήστε την πρώτη σας κατηγορία για να οργανώσετε κωδικούς',
+                edit: 'Επεξεργασία',
+                delete: 'Διαγραφή',
+                username_field: 'Όνομα χρήστη',
+                email_field: 'Email',
+                password_field: 'Κωδικός',
+                website_field: 'Ιστοσελίδα',
+                notes_field: 'Σημειώσεις',
+                last_updated_field: 'Τελευταία ενημέρωση',
+                unknown: 'Άγνωστο',
+                no_username_email: 'Χωρίς όνομα χρήστη/email',
+                open_website: 'Άνοιγμα ιστοσελίδας',
+                open_in_browser: 'Άνοιγμα στον προεπιλεγμένο browser',
+                copy_username: 'Αντιγραφή ονόματος χρήστη',
+                copy_email: 'Αντιγραφή email',
+                copy_password: 'Αντιγραφή κωδικού',
+                reveal_password: 'Προβολή κωδικού',
+                hide_password: 'Απόκρυψη κωδικού',
+                strong_password_generated: 'Δημιουργήθηκε ισχυρός κωδικός!',
+                copied_to_clipboard: 'Αντιγράφηκε στο πρόχειρο!',
+                failed_copy: 'Αποτυχία αντιγραφής στο πρόχειρο. Αντιγράψτε χειροκίνητα.'
+                ,
+                password_manager_unlocked: 'Ο διαχειριστής κωδικών ξεκλειδώθηκε!'
+                ,
+                compact_mode: '📱 Συμπαγής Λειτουργία',
+                normal_mode: '📱 Κανονική Λειτουργία'
+            }
+        };
+
         setTimeout(() => {
             this.initializeEventListeners();
             this.initializeAuth();
             this.initializeAnimations();
+            // Apply translations once the DOM is ready
+            this.applyTranslations();
         }, 1000);
     }
 
@@ -38,7 +178,8 @@ class PasswordManager {
     async onAuthSuccess() {
         this.isAuthenticated = true;
         await this.loadData();
-        this.showSuccess('Password Manager unlocked!');
+        // Use translated notification when the password manager is unlocked
+        this.showSuccess(this.t('password_manager_unlocked'));
     }
 
     initializeEventListeners() {
@@ -130,13 +271,15 @@ class PasswordManager {
         if (!toggle || !manager) return;
         if (this.isCompactMode) {
             manager.classList.add('compact');
-            toggle.innerHTML = '📱 Normal Mode';
+            // Use translated label for normal mode
+            toggle.innerHTML = this.t('normal_mode');
             toggle.style.background = 'var(--accent-color)';
             toggle.style.color = 'white';
             toggle.style.borderColor = 'var(--accent-color)';
         } else {
             manager.classList.remove('compact');
-            toggle.innerHTML = '📱 Compact Mode';
+            // Use translated label for compact mode
+            toggle.innerHTML = this.t('compact_mode');
             toggle.style.background = 'var(--card-bg)';
             toggle.style.color = 'var(--sidebar-text)';
             toggle.style.borderColor = 'var(--border-color)';
@@ -265,22 +408,23 @@ class PasswordManager {
 
     renderStats() {
         const container = document.getElementById('statsContainer');
+        // Use translated labels for stats
         container.innerHTML = `
             <div class="stat-card">
                 <span class="stat-number">${this.stats.total}</span>
-                <span class="stat-label">Total Passwords</span>
+                <span class="stat-label">${this.t('stats_total')}</span>
             </div>
             <div class="stat-card">
                 <span class="stat-number">${this.stats.categories}</span>
-                <span class="stat-label">Categories</span>
+                <span class="stat-label">${this.t('stats_categories')}</span>
             </div>
             <div class="stat-card">
                 <span class="stat-number">${this.stats.weak}</span>
-                <span class="stat-label">Weak Passwords</span>
+                <span class="stat-label">${this.t('stats_weak')}</span>
             </div>
             <div class="stat-card">
                 <span class="stat-number">${this.stats.reused}</span>
-                <span class="stat-label">Reused</span>
+                <span class="stat-label">${this.t('stats_reused')}</span>
             </div>
         `;
     }
@@ -334,7 +478,8 @@ class PasswordManager {
         
         document.getElementById('password').value = password;
         this.checkPasswordStrength(password);
-        this.showSuccess('Strong password generated!');
+        // Use translated success message for password generation
+        this.showSuccess(this.t('strong_password_generated'));
     }
 
     async loadCategories() {
@@ -373,7 +518,9 @@ class PasswordManager {
 
         const allBtn = document.createElement('button');
         allBtn.className = `category-btn ${this.currentCategory === 'all' ? 'active' : ''}`;
-        allBtn.innerHTML = '<span>🌐 All</span>';
+        // Use translated label for the "All" button if available
+        const allLabel = typeof this.t === 'function' ? this.t('all_categories') : 'All';
+        allBtn.innerHTML = `<span>🌐 ${allLabel}</span>`;
         allBtn.addEventListener('click', () => this.filterByCategory('all'));
         container.appendChild(allBtn);
 
@@ -388,7 +535,9 @@ class PasswordManager {
 
     renderCategorySelect() {
         const select = document.getElementById('category');
-        select.innerHTML = '<option value="">No Category</option>';
+        // Set the first option using translated "No Category" if available
+        const noCat = typeof this.t === 'function' ? this.t('no_category_option') : 'No Category';
+        select.innerHTML = `<option value="">${noCat}</option>`;
         
         this.categories.forEach(category => {
             const option = document.createElement('option');
@@ -403,13 +552,16 @@ renderPasswords() {
     const grid = document.getElementById('passwordsGrid');
     
     if (this.passwords.length === 0) {
+        const noPasswords = typeof this.t === 'function' ? this.t('no_passwords_yet') : 'No Passwords Yet';
+        const firstDesc = typeof this.t === 'function' ? this.t('first_password_desc') : 'Add your first password to secure your digital life';
+        const firstBtn = typeof this.t === 'function' ? this.t('add_first_password') : 'Add Your First Password';
         grid.innerHTML = `
             <div class="empty-state">
                 <i>🔒</i>
-                <h3>No Passwords Yet</h3>
-                <p>Add your first password to secure your digital life</p>
+                <h3>${noPasswords}</h3>
+                <p>${firstDesc}</p>
                 <button class="button" onclick="pm.openPasswordModal()" style="margin-top: 1rem;">
-                    Add Your First Password
+                    ${firstBtn}
                 </button>
             </div>
         `;
@@ -439,7 +591,7 @@ renderPasswords() {
                             <span class="compact-text" title="${this.escapeHtml(password.username)}">
                                 👤 ${this.escapeHtml(password.username)}
                             </span>
-                            <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.username)}')" title="Copy username">📋</button>
+                            <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.username)}')" title="${this.t('copy_username')}">📋</button>
                         </div>
                     </div>
                 `);
@@ -453,24 +605,24 @@ renderPasswords() {
                             <span class="compact-text" title="${this.escapeHtml(password.email)}">
                                 📧 ${this.escapeHtml(password.email)}
                             </span>
-                            <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.email)}')" title="Copy email">📋</button>
+                            <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.email)}')" title="${this.t('copy_email')}">📋</button>
                         </div>
                     </div>
                 `);
             }
             
             // If no username or email, show placeholder
-            if (loginFields.length === 0) {
-                loginFields.push(`
+                if (loginFields.length === 0) {
+                    loginFields.push(`
                     <div class="compact-field">
                         <div class="compact-value">
                             <span class="compact-text" style="opacity: 0.7;">
-                                👤 No username/email
+                                👤 ${this.t('no_username_email')}
                             </span>
                         </div>
                     </div>
-                `);
-            }
+                    `);
+                }
             
             // Add URL field if exists
             let urlField = '';
@@ -488,7 +640,7 @@ renderPasswords() {
                             <span class="compact-text" title="${this.escapeHtml(password.url)}">
                                 🌐 ${this.escapeHtml(displayUrl)}
                             </span>
-                            <button class="compact-action-btn" onclick="pm.openExternal('${this.escapeHtml(password.url)}')" title="Open website">🔗</button>
+                            <button class="compact-action-btn" onclick="pm.openExternal('${this.escapeHtml(password.url)}')" title="${this.t('open_website')}">🔗</button>
                         </div>
                     </div>
                 `;
@@ -529,8 +681,8 @@ renderPasswords() {
                     <div class="compact-value">
                         <span class="strength-dot strength-${strength}" aria-hidden="true"></span>
                         <span class="compact-text compact-password-hidden">••••••••</span>
-                        <button class="compact-reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="Reveal password">👁️</button>
-                        <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.password)}')" title="Copy password">📋</button>
+                        <button class="compact-reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="${this.t('reveal_password')}">👁️</button>
+                        <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.password)}')" title="${this.t('copy_password')}">📋</button>
                     </div>
                 </div>
                 
@@ -575,8 +727,8 @@ renderPasswords() {
                 <div class="password-header">
                     <h3 class="password-title">${this.escapeHtml(password.title)}</h3>
                     <div class="password-actions">
-                        <button class="action-btn" onclick="pm.editPassword(${password.id})" title="Edit">✏️</button>
-                        <button class="action-btn" onclick="pm.deletePassword(${password.id})" title="Delete">🗑️</button>
+                        <button class="action-btn" onclick="pm.editPassword(${password.id})" title="${this.t('edit')}">✏️</button>
+                        <button class="action-btn" onclick="pm.deletePassword(${password.id})" title="${this.t('delete')}">🗑️</button>
                     </div>
                 </div>
                 
@@ -584,35 +736,35 @@ renderPasswords() {
                 <div class="password-category">${this.escapeHtml(password.category_name)}</div>` : ''}
                 
                 <div class="password-field">
-                    <span class="password-label">Username</span>
+                    <span class="password-label">${this.t('username_field')}</span>
                     <div class="password-value">
                         <span class="password-text">${password.username ? this.escapeHtml(password.username) : '—'}</span>
-                        ${password.username ? `<button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.username)}')" title="Copy username">📋</button>` : ''}
+                        ${password.username ? `<button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.username)}')" title="${this.t('copy_username')}">📋</button>` : ''}
                     </div>
                 </div>
                 
                 <div class="password-field">
-                    <span class="password-label">Email</span>
+                    <span class="password-label">${this.t('email_field')}</span>
                     <div class="password-value">
                         <span class="password-text">${password.email ? this.escapeHtml(password.email) : '—'}</span>
-                        ${password.email ? `<button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.email)}')" title="Copy email">📋</button>` : ''}
+                        ${password.email ? `<button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.email)}')" title="${this.t('copy_email')}">📋</button>` : ''}
                     </div>
                 </div>
                 
                 <div class="password-field">
-                    <span class="password-label">Password ${strengthIcons[strength]}</span>
+                    <span class="password-label">${this.t('password_field')} ${strengthIcons[strength]}</span>
                     <div class="password-value">
                         <span class="password-text password-hidden">••••••••</span>
-                        <button class="reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="Reveal password">👁️</button>
-                        <button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.password)}')" title="Copy password">📋</button>
+                        <button class="reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="${this.t('reveal_password')}">👁️</button>
+                        <button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.password)}')" title="${this.t('copy_password')}">📋</button>
                     </div>
                 </div>
                 
                 ${password.url ? `
                 <div class="password-field">
-                    <span class="password-label">Website</span>
+                    <span class="password-label">${this.t('website_field')}</span>
                     <div class="password-value">
-                        <button class="website-link-btn" onclick="pm.openExternal('${this.escapeHtml(password.url)}')" title="Open in default browser">
+                            <button class="website-link-btn" onclick="pm.openExternal('${this.escapeHtml(password.url)}')" title="${this.t('open_in_browser')}">
                             🌐 ${this.escapeHtml(displayUrl)}
                         </button>
                     </div>
@@ -620,14 +772,14 @@ renderPasswords() {
                 
                 ${password.notes ? `
                 <div class="password-field">
-                    <span class="password-label">Notes</span>
+                    <span class="password-label">${this.t('notes_field')}</span>
                     <div class="password-value">
                         <span class="password-text">${this.escapeHtml(password.notes)}</span>
                     </div>
                 </div>` : ''}
                 
                 <div class="password-field">
-                    <span class="password-label">Last Updated</span>
+                    <span class="password-label">${this.t('last_updated_field')}</span>
                     <div class="password-value">
                         <span class="password-text">${password.updated_at ? new Date(password.updated_at).toLocaleDateString() : '—'}</span>
                     </div>
@@ -663,10 +815,12 @@ renderPasswords() {
         const form = document.getElementById('passwordForm');
 
         if (passwordId) {
-            title.textContent = 'Edit Password';
+            // Set translated edit title if translation function is available
+            title.textContent = typeof this.t === 'function' ? this.t('modal_edit_title') : 'Edit Password';
             this.fillPasswordForm(passwordId);
         } else {
-            title.textContent = 'Add New Password';
+            // Set translated add title if translation function is available
+            title.textContent = typeof this.t === 'function' ? this.t('modal_add_title') : 'Add New Password';
             form.reset();
             document.getElementById('passwordId').value = '';
             document.getElementById('passwordStrength').className = 'strength-bar';
@@ -687,6 +841,83 @@ renderPasswords() {
         const generateBtn = document.querySelector('.generate-password-btn');
         if (generateBtn) {
             generateBtn.remove();
+        }
+    }
+
+    /**
+     * Translate a given key using the current language.  Falls back to English if the key
+     * or language is missing.
+     * @param {string} key
+     * @returns {string}
+     */
+    t(key) {
+        if (this.translations && this.translations[this.lang] && this.translations[this.lang][key]) {
+            return this.translations[this.lang][key];
+        }
+        return (this.translations && this.translations.en && this.translations.en[key]) || key;
+    }
+
+    /**
+     * Apply translated text to various static UI elements.  This method should be called
+     * after the DOM is ready (e.g. after event listeners are attached).
+     */
+    applyTranslations() {
+        try {
+            // Update button labels
+            const addBtnSpan = document.querySelector('#addPasswordBtn span');
+            if (addBtnSpan) addBtnSpan.textContent = this.t('add_password_btn');
+            const manageCatSpan = document.querySelector('#manageCategoriesBtn span');
+            if (manageCatSpan) manageCatSpan.textContent = this.t('manage_categories_btn');
+
+            // Update search placeholder
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.placeholder = this.t('search_placeholder');
+
+            // Update modal titles and buttons
+            const passwordModalTitle = document.getElementById('passwordModalTitle');
+            if (passwordModalTitle) passwordModalTitle.textContent = this.t('modal_add_title');
+            const cancelBtn = document.getElementById('cancelPasswordBtn');
+            if (cancelBtn) cancelBtn.textContent = this.t('cancel');
+            const saveBtnSpan = document.querySelector('#savePasswordBtn span');
+            if (saveBtnSpan) saveBtnSpan.textContent = this.t('save_password');
+
+            // Update form labels
+            const labelMap = {
+                'title': 'title_label',
+                'password': 'password_label',
+                'url': 'url_label',
+                'category': 'category_label',
+                'username': 'username_label',
+                'notes': 'notes_label',
+                'email': 'email_label'
+            };
+            for (const inputId in labelMap) {
+                const label = document.querySelector(`label[for='${inputId}']`);
+                if (label) label.textContent = this.t(labelMap[inputId]);
+            }
+
+            // Update placeholders for inputs
+            const placeholderMap = {
+                'title': 'title_placeholder',
+                'password': 'password_placeholder',
+                'url': 'url_placeholder',
+                'username': 'username_placeholder',
+                'notes': 'notes_placeholder',
+                'email': 'email_placeholder'
+            };
+            for (const inputId in placeholderMap) {
+                const input = document.getElementById(inputId);
+                if (input) input.placeholder = this.t(placeholderMap[inputId]);
+            }
+
+            // Update category select first option
+            const categorySelect = document.getElementById('category');
+            if (categorySelect) {
+                const firstOption = categorySelect.querySelector('option[value=""]');
+                if (firstOption) firstOption.textContent = this.t('no_category_option');
+            }
+        } catch (err) {
+            console.error('Error applying translations:', err);
         }
     }
 
@@ -879,10 +1110,11 @@ async savePassword(e) {
         container.innerHTML = '';
 
         if (this.categories.length === 0) {
+            // Use translated strings for empty categories message
             container.innerHTML = `
                 <div style="text-align: center; padding: 2rem; color: var(--sidebar-text); opacity: 0.7;">
-                    <p>No categories found</p>
-                    <p style="font-size: 0.9rem; margin-top: 0.5rem;">Create your first category to organize passwords</p>
+                    <p>${this.t('category_no_results')}</p>
+                    <p style="font-size: 0.9rem; margin-top: 0.5rem;">${this.t('category_create_first')}</p>
                 </div>
             `;
             return;
@@ -1011,14 +1243,14 @@ async savePassword(e) {
             textElement.classList.remove(hiddenClass);
             // Change icon to indicate ability to hide
             button.innerHTML = '🙈';
-            button.title = 'Hide password';
+            button.title = this.t('hide_password');
             // Automatically hide again after 30 seconds
             setTimeout(() => {
                 if (!textElement.classList.contains(hiddenClass)) {
                     textElement.textContent = '••••••••';
                     textElement.classList.add(hiddenClass);
                     button.innerHTML = '👁️';
-                    button.title = 'Reveal password';
+                    button.title = this.t('reveal_password');
                 }
             }, 30000);
         } else {
@@ -1026,14 +1258,14 @@ async savePassword(e) {
             textElement.textContent = '••••••••';
             textElement.classList.add(hiddenClass);
             button.innerHTML = '👁️';
-            button.title = 'Reveal password';
+            button.title = this.t('reveal_password');
         }
     }
 
     async copyToClipboard(text) {
         try {
             await navigator.clipboard.writeText(text);
-            this.showSuccess('Copied to clipboard!');
+            this.showSuccess(this.t('copied_to_clipboard'));
         } catch (error) {
             const textArea = document.createElement('textarea');
             textArea.value = text;
@@ -1041,9 +1273,9 @@ async savePassword(e) {
             textArea.select();
             try {
                 document.execCommand('copy');
-                this.showSuccess('Copied to clipboard!');
+                this.showSuccess(this.t('copied_to_clipboard'));
             } catch (fallbackError) {
-                this.showError('Failed to copy to clipboard. Please copy manually.');
+                this.showError(this.t('failed_copy'));
             }
             document.body.removeChild(textArea);
         }

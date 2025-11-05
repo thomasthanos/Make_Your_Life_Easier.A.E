@@ -1,3 +1,47 @@
+
+/*
+ * Application list items (Install Apps page)
+ *
+ * These rules give the install apps list a more polished look with
+ * rounded corners, subtle shadows and hover feedback. The markup is
+ * created dynamically in renderer.js with class names applied to each
+ * <li> (`app-list-item`), the checkbox (`app-checkbox`), and the status
+ * element (`app-status`).
+ */
+.app-list-item {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.app-list-item:hover {
+  background: var(--sidebar-hover);
+  border-color: var(--accent-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Checkbox within an app list item */
+.app-list-item input[type='checkbox'],
+.app-checkbox {
+  margin-right: 1rem;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-color);
+  flex-shrink: 0;
+}
+
+/* Status text aligned to the right within an app list item */
+.app-list-item .app-status,
+.app-list-item .status-pre {
+  margin-left: auto;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
 /* Styles for the Make Your Life Easier application */
 * {
   box-sizing: border-box;
@@ -673,6 +717,7 @@ body {
 
 
 #menu-list button:hover {
+  transform: translateX(4px);
   background: rgba(0, 0, 0, .03);
   border-color: rgba(15, 23, 42, .06);
   color: var(--sidebar-text);
@@ -3737,19 +3782,47 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 .card > h2 , .settings-title{
   display: none !important;
 }
-
 .card > p {
   margin-top: 0;
   margin-bottom: 1rem;
   font-size: 0.95rem;
   line-height: 1.6;
-  color: var(--text-color);
-  padding: 0.75rem 1rem 0.75rem 1.5rem;
+  color: #e5c0009e;
+  padding: 1rem 1.25rem 1rem 1.5rem;
   border-radius: 8px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
   position: relative;
+  transition: all 0.3s ease;
+}
+
+/* Light mode */
+[data-theme="light"] .card > p {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Dark mode */
+[data-theme="dark"] .card > p {
+  background: rgba(30, 30, 40, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Subtle hover effect */
+.card > p:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .card > p:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .card > p:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .card > p strong {
@@ -3766,17 +3839,45 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   color: var(--accent-color-dark);
 }
 
+/* Fixed accent bar - simpler and more reliable */
 .card > p::before {
   content: "";
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 50%;
   left: 0;
-  width: 4px;
-  border-radius: 4px;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  border-radius: 0 2px 2px 0;
   background: var(--accent-color);
-  opacity: 0.8;
+  opacity: 0.7;
+  transition: all 0.3s ease;
 }
+
+.card > p:hover::before {
+  opacity: 1;
+  height: 70%;
+}
+
+/* Alternative: Top border accent (if the sidebar style doesn't work well) */
+/*
+.card > p {
+  border-left: 3px solid var(--accent-color);
+}
+*/
+
+/* Or subtle background accent */
+/*
+.card > p {
+  background: 
+    linear-gradient(90deg, 
+      var(--accent-color) 0%, 
+      var(--accent-color) 3px, 
+      transparent 3px, 
+      transparent 100%),
+    var(--glass-bg);
+}
+*/
 
 /*
  * Custom language select UI
@@ -3928,4 +4029,362 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 
   /* Animate the background colour, colour and shadow when changing selection */
   transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+.password-manager-card {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 2.5rem;
+    background: linear-gradient(135deg, 
+        rgba(26, 29, 37, 0.9) 0%, 
+        rgba(32, 36, 48, 0.8) 50%, 
+        rgba(38, 42, 56, 0.7) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 24px;
+    box-shadow: 
+        0 12px 40px rgba(0, 0, 0, 0.4),
+        0 8px 25px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(20px);
+    min-height: 380px;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+}
+
+.password-manager-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(0, 191, 255, 0.6) 50%, 
+        transparent 100%);
+}
+
+.password-warning-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, 
+        rgba(245, 158, 11, 0.25) 0%, 
+        rgba(245, 158, 11, 0.15) 50%, 
+        rgba(245, 158, 11, 0.08) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 16px;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(15px);
+    position: relative;
+    overflow: hidden;
+    min-height: 85px;
+    box-shadow: 
+        0 6px 20px rgba(245, 158, 11, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.password-warning-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, 
+        #f59e0b 0%, 
+        #fbbf24 50%, 
+        #f59e0b 100%);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+}
+
+.warning-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, 
+        rgba(245, 158, 11, 0.3) 0%, 
+        rgba(245, 158, 11, 0.2) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+    border: 1px solid rgba(245, 158, 11, 0.5);
+    box-shadow: 
+        0 4px 12px rgba(245, 158, 11, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.warning-icon svg {
+    width: 22px;
+    height: 22px;
+    color: #fbbf24;
+}
+
+.warning-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 48px;
+}
+
+.warning-title {
+    font-weight: 700;
+    color: #fbbf24;
+    margin-bottom: 0.5rem;
+    font-size: 1.2rem;
+    text-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+.warning-text {
+    color: #e2e8f0;
+    opacity: 0.9;
+    line-height: 1.5;
+    font-size: 1rem;
+}
+
+.password-features {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+    flex: 1;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.08) 0%, 
+        rgba(255, 255, 255, 0.05) 50%, 
+        rgba(255, 255, 255, 0.02) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    transition: all 0.3s ease;
+    min-height: 70px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.feature-item:hover {
+    background: linear-gradient(135deg, 
+        rgba(0, 191, 255, 0.2) 0%, 
+        rgba(0, 191, 255, 0.15) 50%, 
+        rgba(0, 191, 255, 0.1) 100%);
+    border-color: rgba(0, 191, 255, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 
+        0 8px 25px rgba(0, 191, 255, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.feature-icon {
+    font-size: 1.6rem;
+    width: 32px;
+    text-align: center;
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+    filter: drop-shadow(0 0 6px rgba(0, 191, 255, 0.3));
+}
+
+.feature-item:hover .feature-icon {
+    transform: scale(1.1);
+}
+
+.feature-text {
+    color: #e2e8f0;
+    font-size: 1rem;
+    font-weight: 600;
+    opacity: 0.9;
+    line-height: 1.4;
+    transition: all 0.3s ease;
+}
+
+.feature-item:hover .feature-text {
+    opacity: 1;
+    color: #00bfff;
+}
+
+.password-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: auto;
+}
+
+.password-manager-btn {
+    width: 100%;
+    padding: 1.25rem 2.5rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+    border-radius: 16px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    max-width: none;
+    min-height: 65px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background: linear-gradient(135deg, 
+        #00bfff 0%, 
+        #1e90ff 100%);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 
+        0 8px 25px rgba(0, 191, 255, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+.password-manager-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 12px 35px rgba(0, 191, 255, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    background: linear-gradient(135deg, 
+        #1e90ff 0%, 
+        #00bfff 100%);
+}
+
+.password-manager-btn:active {
+    transform: translateY(0);
+}
+
+/* Light mode adjustments */
+[data-theme="light"] .password-manager-card {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.9) 0%, 
+        rgba(255, 255, 255, 0.7) 50%, 
+        rgba(255, 255, 255, 0.5) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .feature-item {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.7) 0%, 
+        rgba(255, 255, 255, 0.5) 50%, 
+        rgba(255, 255, 255, 0.3) 100%);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .feature-text {
+    color: #1e293b;
+}
+
+[data-theme="light"] .warning-text {
+    color: #475569;
+}
+
+[data-theme="light"] .password-warning-banner {
+    background: linear-gradient(135deg, 
+        rgba(245, 158, 11, 0.15) 0%, 
+        rgba(245, 158, 11, 0.1) 50%, 
+        rgba(245, 158, 11, 0.05) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .password-manager-card {
+        padding: 2rem;
+        margin: 0 1rem;
+        max-width: none;
+        min-height: 360px;
+    }
+    
+    .password-features {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        margin-bottom: 1.75rem;
+    }
+    
+    .feature-item {
+        padding: 1rem;
+        min-height: 65px;
+    }
+    
+    .password-warning-banner {
+        padding: 1.25rem;
+        margin-bottom: 1.75rem;
+        min-height: 80px;
+    }
+    
+    .warning-icon {
+        width: 44px;
+        height: 44px;
+    }
+    
+    .warning-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .password-manager-btn {
+        padding: 1.125rem 2rem;
+        font-size: 1.1rem;
+        min-height: 60px;
+    }
+}
+
+@media (max-width: 480px) {
+    .password-manager-card {
+        padding: 1.75rem;
+        margin: 0 0.75rem;
+        min-height: 340px;
+    }
+    
+    .password-features {
+        gap: 0.875rem;
+    }
+    
+    .feature-item {
+        padding: 0.875rem;
+        min-height: 60px;
+        gap: 0.875rem;
+    }
+    
+    .feature-icon {
+        font-size: 1.4rem;
+        width: 28px;
+    }
+    
+    .feature-text {
+        font-size: 0.95rem;
+    }
+    
+    .password-warning-banner {
+        padding: 1.125rem;
+        gap: 1rem;
+        min-height: 75px;
+    }
+    
+    .warning-title {
+        font-size: 1.1rem;
+    }
+    
+    .warning-text {
+        font-size: 0.95rem;
+    }
+    
+    .password-manager-btn {
+        padding: 1rem 1.75rem;
+        font-size: 1.05rem;
+        min-height: 55px;
+    }
 }

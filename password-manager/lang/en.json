@@ -1,0 +1,49 @@
+{
+  "sidebar": {
+    "add_password": "+ Add Password",
+    "manage_categories": "Manage Categories",
+    "total_passwords": "TOTAL PASSWORDS",
+    "categories": "CATEGORIES",
+    "weak_passwords": "WEAK PASSWORDS",
+    "reused": "REUSED",
+    "all": "All"
+  },
+  "main": {
+    "search_placeholder": "Search passwords, usernames, emails...",
+    "no_passwords_title": "No Passwords Yet",
+    "no_passwords_subtitle": "Add your first password to secure your digital life",
+    "add_first_password": "Add Your First Password"
+  },
+  "password_modal": {
+    "add_title": "Add New Password",
+    "edit_title": "Edit Password",
+    "title_label": "Title *",
+    "password_label": "Password *",
+    "url_label": "Website URL",
+    "category_label": "Category",
+    "username_label": "Username",
+    "notes_label": "Notes",
+    "email_label": "Email",
+    "no_category_option": "No Category",
+    "save": "Save Password",
+    "cancel": "Cancel"
+  },
+  "category_modal": {
+    "title": "Manage Categories",
+    "new_category_placeholder": "New category name",
+    "add": "Add",
+    "close": "Close"
+  },
+  "compact_toggle": {
+    "compact_mode": "\uD83D\uDCF1 Compact Mode",
+    "normal_mode": "\uD83D\uDCF1 Normal Mode"
+  },
+  "empty_state": {
+    "icon": "\uD83D\uDD12",
+    "title": "No passwords found",
+    "subtitle": "Add your first password to get started"
+  },
+  "notifications": {
+    "password_manager_unlocked": "Password Manager unlocked!"
+  }
+}

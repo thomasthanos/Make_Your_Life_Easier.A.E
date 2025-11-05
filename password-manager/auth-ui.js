@@ -4,6 +4,100 @@ class PasswordManagerAuthUI {
         this.isInitialized = false;
         this.hasMasterPassword = false;
         this.authModal = null;
+
+        /**
+         * Determine the language.  Check the saved settings in
+         * localStorage (`myAppSettings.lang`) and fall back to the
+         * `<html lang>` attribute.  Any value starting with "gr" or
+         * "el" is considered Greek; all other values default to
+         * English.
+         */
+        let lang = 'en';
+        try {
+            const settings = JSON.parse(localStorage.getItem('myAppSettings'));
+            if (settings && typeof settings.lang === 'string' && settings.lang.length > 0) {
+                lang = settings.lang.toLowerCase();
+            }
+        } catch (e) {
+            // ignore parsing errors
+        }
+        if (!lang || lang === 'en') {
+            const docLang = (document.documentElement.lang || '').toLowerCase();
+            if (docLang) {
+                lang = docLang;
+            }
+        }
+        this.lang = (lang.startsWith('gr') || lang.startsWith('el')) ? 'gr' : 'en';
+
+        // Translation table
+        this.translations = {
+            en: {
+                setup_title: 'Create!',
+                login_title: 'Login!',
+                create_master_placeholder: 'Master Password (min 8 chars)',
+                confirm_placeholder: 'Confirm',
+                create_button: 'Create',
+                login_placeholder: 'Master Password',
+                login_button: 'START',
+                forgot_link: 'Forgot your password?',
+                forgot_title: 'Forgot your password?',
+                irreversible_action: 'This action is irreversible!',
+                forgot_warning_1: 'If you forgot your Master Password, the only solution is to completely reset the Password Manager.',
+                forgot_warning_delete: 'This will delete:',
+                forgot_list_passwords: 'All stored passwords',
+                forgot_list_categories: 'All categories',
+                forgot_list_settings: 'All settings',
+                forgot_warning_2: 'You will have to recreate everything from scratch.',
+                reset_button: 'Reset Password',
+                cancel_button: 'Cancel',
+                warning_prefix: '⚠️',
+                warning_attention: 'Attention:',
+                warning_reset_note: 'If you forget your Master Password, your data will be unrecoverable.',
+                error_title: 'Error',
+                error_close: 'Close'
+            },
+            gr: {
+                setup_title: 'Δημιουργία!',
+                login_title: 'Σύνδεση!',
+                create_master_placeholder: 'Master Password (τουλάχιστον 8 χαρακτήρες)',
+                confirm_placeholder: 'Επιβεβαίωση',
+                create_button: 'Δημιουργία',
+                login_placeholder: 'Master Password',
+                login_button: 'ΕΚΚΙΝΗΣΗ',
+                forgot_link: 'Ξεχάσατε τον κωδικό σας;',
+                forgot_title: 'Ξεχάσατε τον κωδικό;',
+                irreversible_action: 'Αυτή η ενέργεια είναι μη αναστρέψιμη!',
+                forgot_warning_1: 'Αν ξεχάσατε τον Master Password σας, η μόνη λύση είναι η πλήρης επαναφορά του Password Manager.',
+                forgot_warning_delete: 'Αυτό θα διαγράψει:',
+                forgot_list_passwords: 'Όλα τα αποθηκευμένα passwords',
+                forgot_list_categories: 'Όλες τις κατηγορίες',
+                forgot_list_settings: 'Όλες τις ρυθμίσεις',
+                forgot_warning_2: 'Θα πρέπει να ξαναδημιουργήσετε όλα από την αρχή.',
+                reset_button: 'Επαναφορά Password Manager',
+                cancel_button: 'Ακύρωση',
+                warning_prefix: '⚠️',
+                warning_attention: 'Προσοχή:',
+                warning_reset_note: 'Αν ξεχάσετε τον Master Password, τα δεδομένα σας θα είναι μη ανακτήσιμα.',
+                error_title: 'Σφάλμα',
+                error_close: 'Κλείσιμο'
+            }
+        };
+    }
+
+    // Translation helper
+    t(key) {
+        if (this.translations[this.lang] && this.translations[this.lang][key]) {
+            return this.translations[this.lang][key];
+        }
+        return (this.translations['en'] && this.translations['en'][key]) || key;
+    }
+
+    // Translation helper
+    t(key) {
+        if (this.translations[this.lang] && this.translations[this.lang][key]) {
+            return this.translations[this.lang][key];
+        }
+        return (this.translations['en'] && this.translations['en'][key]) || key;
     }
 
     async initialize() {
@@ -36,7 +130,7 @@ class PasswordManagerAuthUI {
                 <div class="auth-modal-content">
                     ${this.createSetupForm()}
                     <div class="auth-modal-warning">
-                        ⚠️ <strong>Προσοχή:</strong> Αν ξεχάσετε τον Master Password, τα δεδομένα σας θα είναι μη ανακτήσιμα.
+                        ${this.t('warning_prefix')} <strong>${this.t('warning_attention')}</strong> ${this.t('warning_reset_note')}
                     </div>
                 </div>
             </div>
@@ -58,7 +152,7 @@ class PasswordManagerAuthUI {
                 <div class="auth-modal-content">
                     ${this.createLoginForm()}
                     <div class="auth-modal-warning">
-                        ⚠️ <strong>Προσοχή:</strong> Αν ξεχάσετε τον Master Password, τα δεδομένα σας θα είναι μη ανακτήσιμα.
+                        ${this.t('warning_prefix')} <strong>${this.t('warning_attention')}</strong> ${this.t('warning_reset_note')}
                     </div>
                 </div>
             </div>
@@ -73,14 +167,14 @@ class PasswordManagerAuthUI {
     createSetupForm() {
         return `
             <div class="card">
-                <h4 class="title">Δημιουργία!</h4>
+                <h4 class="title">${this.t('setup_title')}</h4>
                 <form id="setupForm" class="auth-form">
                     <div class="field">
                         <svg class="input-icon" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
                             <path d="M80 192V144C80 64.47 144.5 0 224 0C303.5 0 368 64.47 368 144V192H384C419.3 192 448 220.7 448 256V448C448 483.3 419.3 512 384 512H64C28.65 512 0 483.3 0 448V256C0 220.7 28.65 192 64 192H80zM144 192H304V144C304 99.82 268.2 64 224 64C179.8 64 144 99.82 144 144V192z"></path>
                         </svg>
                         <input type="password" id="masterPassword" class="input-field password-input" 
-                               placeholder="Master Password (min 8 chars)" required
+                               placeholder="${this.t('create_master_placeholder')}" required
                                minlength="8" autocomplete="new-password">
                         <button type="button" class="password-toggle" onclick="pmAuthUI.togglePasswordVisibility('masterPassword')">👁️</button>
                     </div>
@@ -91,13 +185,13 @@ class PasswordManagerAuthUI {
                             <path d="M80 192V144C80 64.47 144.5 0 224 0C303.5 0 368 64.47 368 144V192H384C419.3 192 448 220.7 448 256V448C448 483.3 419.3 512 384 512H64C28.65 512 0 483.3 0 448V256C0 220.7 28.65 192 64 192H80zM144 192H304V144C304 99.82 268.2 64 224 64C179.8 64 144 99.82 144 144V192z"></path>
                         </svg>
                         <input type="password" id="confirmPassword" class="input-field password-input" 
-                               placeholder="Επιβεβαίωση" required
+                               placeholder="${this.t('confirm_placeholder')}" required
                                autocomplete="new-password">
                         <button type="button" class="password-toggle" onclick="pmAuthUI.togglePasswordVisibility('confirmPassword')">👁️</button>
                     </div>
                     <div id="passwordMatch" class="password-match"></div>
                     
-                    <button class="btn" type="submit" id="setupBtn">Δημιουργία</button>
+                    <button class="btn" type="submit" id="setupBtn">${this.t('create_button')}</button>
                 </form>
             </div>
         `;
@@ -106,17 +200,17 @@ class PasswordManagerAuthUI {
     createLoginForm() {
         return `
             <div class="card">
-                <h4 class="title">Σύνδεση!</h4>
+                <h4 class="title">${this.t('login_title')}</h4>
                 <form id="loginForm" class="auth-form">
                     <div class="field">
                         <svg class="input-icon" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
                             <path d="M80 192V144C80 64.47 144.5 0 224 0C303.5 0 368 64.47 368 144V192H384C419.3 192 448 220.7 448 256V448C448 483.3 419.3 512 384 512H64C28.65 512 0 483.3 0 448V256C0 220.7 28.65 192 64 192H80zM144 192H304V144C304 99.82 268.2 64 224 64C179.8 64 144 99.82 144 144V192z"></path>
                         </svg>
-                        <input autocomplete="off" id="loginPassword" placeholder="Master Password" class="input-field password-input" name="logpass" type="password" required autofocus>
+                        <input autocomplete="off" id="loginPassword" placeholder="${this.t('login_placeholder')}" class="input-field password-input" name="logpass" type="password" required autofocus>
                         <button type="button" class="password-toggle" onclick="pmAuthUI.togglePasswordVisibility('loginPassword')">👁️</button>
                     </div>
-                    <button class="btn" type="submit" id="loginBtn">ΕΚΚΙΝΗΣΗ</button>
-                    <a href="#" class="btn-link" id="forgotPasswordLink">Ξεχάσατε τον κωδικό σας;</a>
+                    <button class="btn" type="submit" id="loginBtn">${this.t('login_button')}</button>
+                    <a href="#" class="btn-link" id="forgotPasswordLink">${this.t('forgot_link')}</a>
                 </form>
             </div>
         `;
@@ -125,25 +219,25 @@ class PasswordManagerAuthUI {
     createForgotPasswordModal() {
         return `
             <div class="card">
-                <h4 class="title">Ξεχάσατε τον κωδικό;</h4>
+                <h4 class="title">${this.t('forgot_title')}</h4>
                 <div class="forgot-password-content">
-                    <div class="warning-icon">⚠️</div>
+                    <div class="warning-icon">${this.t('warning_prefix')}</div>
                     <p class="forgot-warning-text">
-                        <strong>Αυτή η ενέργεια είναι μη αναστρέψιμη!</strong><br><br>
-                        Αν ξεχάσατε τον Master Password σας, η μόνη λύση είναι η πλήρης επαναφορά του Password Manager.
-                        Αυτό θα διαγράψει:
+                        <strong>${this.t('irreversible_action')}</strong><br><br>
+                        ${this.t('forgot_warning_1')}
+                        ${this.t('forgot_warning_delete')}
                     </p>
                     <ul class="forgot-list">
-                        <li>Όλα τα αποθηκευμένα passwords</li>
-                        <li>Όλες τις κατηγορίες</li>
-                        <li>Όλες τις ρυθμίσεις</li>
+                        <li>${this.t('forgot_list_passwords')}</li>
+                        <li>${this.t('forgot_list_categories')}</li>
+                        <li>${this.t('forgot_list_settings')}</li>
                     </ul>
                     <p class="forgot-warning-text">
-                        Θα πρέπει να ξαναδημιουργήσετε όλα από την αρχή.
+                        ${this.t('forgot_warning_2')}
                     </p>
                     <div class="forgot-actions">
-                        <button class="btn btn-danger" id="confirmResetBtn">Επαναφορά Password Manager</button>
-                        <button class="btn btn-secondary" id="cancelResetBtn">Ακύρωση</button>
+                        <button class="btn btn-danger" id="confirmResetBtn">${this.t('reset_button')}</button>
+                        <button class="btn btn-secondary" id="cancelResetBtn">${this.t('cancel_button')}</button>
                     </div>
                 </div>
             </div>
@@ -202,7 +296,7 @@ class PasswordManagerAuthUI {
         this.closeAuthModal();
 
         const modal = document.createElement('div');
-        modal.className = 'auth-modal active';
+        modal.className = 'auth-modal active forgot-modal';
         modal.innerHTML = `
             <div class="auth-modal-overlay">
                 <div class="auth-modal-content">
@@ -411,14 +505,14 @@ class PasswordManagerAuthUI {
             <div class="auth-modal-overlay">
                 <div class="auth-modal-content">
                     <div class="auth-modal-header">
-                        <h2>❌ Σφάλμα</h2>
+                        <h2>❌ ${this.t('error_title')}</h2>
                     </div>
                     <div class="auth-modal-body">
                         <p>${message}</p>
                     </div>
                     <div class="form-actions">
                         <button class="button" onclick="this.closest('.auth-modal').remove(); location.reload();">
-                            Κλείσιμο
+                            ${this.t('error_close')}
                         </button>
                     </div>
                 </div>
@@ -430,312 +524,7 @@ class PasswordManagerAuthUI {
 
 // Προσθήκη των απαραίτητων CSS styles
 const authStyles = `
-.auth-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(15, 17, 23, 0.95);
-    backdrop-filter: blur(10px);
-    z-index: 10000;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-}
 
-.auth-modal.active {
-    display: flex;
-    animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-.auth-modal-overlay {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 3rem;
-    max-width: 450px;
-    width: 100%;
-    text-align: center;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    position: relative;
-}
-
-.auth-modal-warning {
-    background: rgba(245, 158, 11, 0.1);
-    border: 1px solid var(--warning-color);
-    border-radius: 8px;
-    padding: 1.25rem;
-    margin-top: 2rem;
-    text-align: left;
-    font-size: 0.9rem;
-    color: var(--sidebar-text);
-}
-
-.auth-modal-warning strong {
-    color: var(--warning-color);
-}
-
-/* Card Styles */
-.card {
-    width: 100%;
-    padding: 1.9rem 1.2rem;
-    text-align: center;
-    background: #2a2b38;
-    border-radius: 8px;
-}
-
-.field {
-    margin-top: .5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: .5em;
-    background-color: #1f2029;
-    border-radius: 4px;
-    padding: .5em 1em;
-    position: relative;
-}
-
-.input-icon {
-    height: 1em;
-    width: 1em;
-    fill: #ffeba7;
-}
-
-.input-field {
-    background: none;
-    border: none;
-    outline: none;
-    width: 100%;
-    color: #d3d3d3;
-    font-size: 0.9rem;
-    padding-right: 2.5rem;
-}
-
-.password-toggle {
-    background: none;
-    border: none;
-    color: #ffeba7;
-    cursor: pointer;
-    padding: 0.25rem;
-    border-radius: 4px;
-    position: absolute;
-    right: 0.5rem;
-    top: 50%;
-    transform: translateY(-50%);
-    transition: all 0.2s ease;
-}
-
-.password-toggle:hover {
-    background: rgba(255, 235, 167, 0.1);
-    transform: translateY(-50%) scale(1.1);
-}
-
-.title {
-    margin-bottom: 1rem;
-    font-size: 1.5em;
-    font-weight: 500;
-    color: #f5f5f5;
-}
-
-.btn {
-    margin: 1rem;
-    border: none;
-    border-radius: 4px;
-    font-weight: bold;
-    font-size: .8em;
-    text-transform: uppercase;
-    padding: 0.6em 1.2em;
-    background-color: #ffeba7;
-    color: #5e6681;
-    box-shadow: 0 8px 24px 0 rgb(255 235 167 / 20%);
-    transition: all .3s ease-in-out;
-    cursor: pointer;
-    width: calc(100% - 2rem);
-}
-
-.btn-danger {
-    background-color: #ef4444;
-    color: white;
-}
-
-.btn-danger:hover {
-    background-color: #dc2626;
-}
-
-.btn-secondary {
-    background-color: #6b7280;
-    color: white;
-}
-
-.btn-secondary:hover {
-    background-color: #4b5563;
-}
-
-.btn-link {
-    color: #f5f5f5;
-    display: block;
-    font-size: .75em;
-    transition: color .3s ease-out;
-    text-decoration: none;
-    margin-top: 0.5rem;
-}
-
-.field input:focus::placeholder {
-    opacity: 0;
-    transition: opacity .3s;
-}
-
-.btn:hover {
-    background-color: #5e6681;
-    color: #ffeba7;
-    box-shadow: 0 8px 24px 0 rgb(16 39 112 / 20%);
-    transform: translateY(-1px);
-}
-
-.btn-link:hover {
-    color: #ffeba7;
-    text-decoration: underline;
-}
-
-.btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none !important;
-}
-
-/* Password Strength */
-.password-strength-container {
-    margin: 1rem 0;
-}
-
-.password-match {
-    margin: 0.5rem 0;
-    font-size: 0.8rem;
-}
-
-.match-success {
-    color: #10b981;
-}
-
-.match-error {
-    color: #ef4444;
-}
-
-.error-alert {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid #ef4444;
-    border-radius: 8px;
-    padding: 1rem;
-    text-align: left;
-    margin: 1rem 0;
-}
-
-.error-svg {
-    width: 1.25rem;
-    height: 1.25rem;
-    color: #ef4444;
-}
-
-.error-prompt-heading {
-    font-weight: 600;
-    color: #ef4444;
-    margin-bottom: 0.5rem;
-}
-
-.error-prompt-list {
-    list-style-type: disc;
-    margin-left: 1rem;
-    color: #d1d5db;
-    font-size: 0.8rem;
-}
-
-.flex {
-    display: flex;
-    gap: 0.75rem;
-}
-
-.flex-shrink-0 {
-    flex-shrink: 0;
-}
-
-.loading {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255,255,255,.3);
-    border-radius: 50%;
-    border-top-color: #fff;
-    animation: spin 1s ease-in-out infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-/* Forgot Password Styles */
-.forgot-password-content {
-    text-align: left;
-}
-
-.warning-icon {
-    font-size: 3rem;
-    text-align: center;
-    margin-bottom: 1rem;
-}
-
-.forgot-warning-text {
-    color: #d1d5db;
-    margin-bottom: 1rem;
-    line-height: 1.5;
-}
-
-.forgot-warning-text strong {
-    color: #ef4444;
-}
-
-.forgot-list {
-    color: #d1d5db;
-    margin: 1rem 0;
-    padding-left: 1.5rem;
-}
-
-.forgot-list li {
-    margin-bottom: 0.5rem;
-}
-
-.forgot-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 1.5rem;
-}
-
-@media (max-width: 480px) {
-    .auth-modal {
-        padding: 1rem;
-    }
-    
-    .auth-modal-overlay {
-        padding: 2rem 1.5rem;
-    }
-    
-    .card {
-        padding: 1.5rem 1rem;
-    }
-    
-    .forgot-actions {
-        flex-direction: column;
-    }
-}
 `;
 
 // Εισαγωγή των styles στο document
