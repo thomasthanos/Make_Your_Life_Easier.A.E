@@ -100,7 +100,7 @@ async createTables() {
                 console.log('Categories table ready');
             });
 
-            // Passwords table - FIXED: password field is now NULLABLE
+            // Passwords table - includes image column to store logos/icons.  The password field is nullable.
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS passwords (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -108,9 +108,10 @@ async createTables() {
                     title TEXT NOT NULL,
                     username TEXT,
                     email TEXT,
-                    password TEXT,  -- CHANGED: Removed NOT NULL constraint
+                    password TEXT,  -- password field is nullable in case encryption is used
                     url TEXT,
                     notes TEXT,
+                    image TEXT,
                     encrypted_data TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -123,6 +124,24 @@ async createTables() {
                     return;
                 }
                 console.log('Passwords table ready');
+                // Ensure the image column exists for existing databases.  If not, attempt to add it.
+                this.db.all("PRAGMA table_info(passwords)", (tableErr, columns) => {
+                    if (tableErr) {
+                        console.error('Failed to inspect passwords table:', tableErr);
+                        return;
+                    }
+                    const hasImage = Array.isArray(columns) && columns.some(col => col.name === 'image');
+                    if (!hasImage) {
+                        console.log('Adding image column to passwords table...');
+                        this.db.run("ALTER TABLE passwords ADD COLUMN image TEXT", (alterErr) => {
+                            if (alterErr) {
+                                console.error('Error adding image column:', alterErr);
+                            } else {
+                                console.log('Image column added successfully');
+                            }
+                        });
+                    }
+                });
             });
 
             // Insert default category
@@ -255,7 +274,7 @@ async getPasswords(callback) {
         }
 
         this.db.all(`
-            SELECT p.id, p.category_id, p.title, p.username, p.email, p.password, p.url, p.notes, p.encrypted_data, p.created_at, p.updated_at, c.name as category_name 
+            SELECT p.id, p.category_id, p.title, p.username, p.email, p.password, p.url, p.notes, p.image, p.encrypted_data, p.created_at, p.updated_at, c.name as category_name 
             FROM passwords p 
             LEFT JOIN categories c ON p.category_id = c.id 
             ORDER BY p.title
@@ -340,7 +359,7 @@ async addPassword(passwordData, callback) {
             return;
         }
 
-        const { category_id, title, username, email, password, url, notes } = passwordData;
+        const { category_id, title, username, email, password, url, notes, image } = passwordData;
         
         console.log('Adding password with encryption...');
         console.log('Title:', title);
@@ -380,29 +399,31 @@ async addPassword(passwordData, callback) {
         }
 
         if (encryptedData) {
-            // Store encrypted - χρησιμοποιούμε μόνο τα βασικά πεδία + encrypted_data
+            // Store encrypted data along with the image (unencrypted)
             this.db.run(`
-                INSERT INTO passwords (category_id, title, encrypted_data) 
-                VALUES (?, ?, ?)
+                INSERT INTO passwords (category_id, title, encrypted_data, image) 
+                VALUES (?, ?, ?, ?)
             `, [
-                category_id || null, 
-                title.trim(), 
-                JSON.stringify(encryptedData)
+                category_id || null,
+                title.trim(),
+                JSON.stringify(encryptedData),
+                image || null
             ], callback);
         } else {
-            // Store as plain text (fallback) - χρησιμοποιούμε όλα τα πεδία
+            // Store as plain text (fallback) - include the image column
             console.log('Using plain text fallback');
             this.db.run(`
-                INSERT INTO passwords (category_id, title, username, email, password, url, notes) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO passwords (category_id, title, username, email, password, url, notes, image) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `, [
-                category_id || null, 
-                title.trim(), 
-                username ? username.trim() : null, 
-                email ? email.trim() : null, 
-                password, 
-                url ? url.trim() : null, 
-                notes ? notes.trim() : null
+                category_id || null,
+                title.trim(),
+                username ? username.trim() : null,
+                email ? email.trim() : null,
+                password,
+                url ? url.trim() : null,
+                notes ? notes.trim() : null,
+                image || null
             ], callback);
         }
     } catch (error) {
@@ -420,7 +441,7 @@ async updatePassword(id, passwordData, callback) {
             return;
         }
 
-        const { category_id, title, username, email, password, url, notes } = passwordData;
+        const { category_id, title, username, email, password, url, notes, image } = passwordData;
         
         console.log('Updating password with encryption...');
 
@@ -456,32 +477,34 @@ async updatePassword(id, passwordData, callback) {
         }
 
         if (encryptedData) {
-            // Update with encrypted data
+            // Update encrypted data and image separately
             this.db.run(`
                 UPDATE passwords 
-                SET category_id = ?, title = ?, encrypted_data = ?, updated_at = CURRENT_TIMESTAMP 
+                SET category_id = ?, title = ?, encrypted_data = ?, image = ?, updated_at = CURRENT_TIMESTAMP 
                 WHERE id = ?
             `, [
-                category_id || null, 
-                title.trim(), 
-                JSON.stringify(encryptedData), 
+                category_id || null,
+                title.trim(),
+                JSON.stringify(encryptedData),
+                image || null,
                 id
             ], callback);
         } else {
-            // Update as plain text (fallback)
+            // Update as plain text (fallback) including image
             console.log('Using plain text fallback for update');
             this.db.run(`
                 UPDATE passwords 
-                SET category_id = ?, title = ?, username = ?, email = ?, password = ?, url = ?, notes = ?, updated_at = CURRENT_TIMESTAMP 
+                SET category_id = ?, title = ?, username = ?, email = ?, password = ?, url = ?, notes = ?, image = ?, updated_at = CURRENT_TIMESTAMP 
                 WHERE id = ?
             `, [
-                category_id || null, 
-                title.trim(), 
-                username ? username.trim() : null, 
-                email ? email.trim() : null, 
-                password, 
-                url ? url.trim() : null, 
-                notes ? notes.trim() : null, 
+                category_id || null,
+                title.trim(),
+                username ? username.trim() : null,
+                email ? email.trim() : null,
+                password,
+                url ? url.trim() : null,
+                notes ? notes.trim() : null,
+                image || null,
                 id
             ], callback);
         }

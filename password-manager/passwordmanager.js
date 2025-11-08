@@ -14,6 +14,11 @@ class PasswordManager {
         const storedMode = localStorage.getItem('pmCompactMode');
         this.isCompactMode = storedMode !== null ? storedMode === 'true' : false;
         this.isAuthenticated = false;
+
+        // Optional Imgur client token used for uploading images.  If you wish to
+        // upload selected images to Imgur rather than store them locally, set
+        // this property or save 'imgurToken' in localStorage to your Client ID.
+        this.imgurToken = null;
         
         // Initialize auth UI first
         this.authUI = new PasswordManagerAuthUI();
@@ -64,8 +69,10 @@ class PasswordManager {
                 ,
                 // Additional keys for stats, labels and various UI texts
                 stats_total: 'Total Passwords',
-                stats_categories: 'Categories',
+                // Number of passwords that are considered strong
+                stats_strong: 'Strong',
                 stats_weak: 'Weak Passwords',
+                stats_categories: 'Categories',
                 stats_reused: 'Reused',
                 category_no_results: 'No categories found',
                 category_create_first: 'Create your first category to organize passwords',
@@ -79,7 +86,8 @@ class PasswordManager {
                 last_updated_field: 'Last Updated',
                 unknown: 'Unknown',
                 no_username_email: 'No username/email',
-                open_website: 'Open website',
+                // Text for the bottom link on each card
+                open_website: 'Visit site',
                 open_in_browser: 'Open in default browser',
                 copy_username: 'Copy username',
                 copy_email: 'Copy email',
@@ -94,6 +102,8 @@ class PasswordManager {
                 ,
                 compact_mode: '📱 Compact Mode',
                 normal_mode: '📱 Normal Mode'
+                ,
+                new_category_prompt: 'Enter new category name:'
             },
             gr: {
                 add_password_btn: '+ Προσθήκη Κωδικού',
@@ -124,8 +134,10 @@ class PasswordManager {
                 ,
                 // Additional keys for stats, labels and various UI texts in Greek
                 stats_total: 'Σύνολο Κωδικών',
-                stats_categories: 'Κατηγορίες',
+                // Number of passwords that are considered strong
+                stats_strong: 'Ισχυροί',
                 stats_weak: 'Αδύναμοι Κωδικοί',
+                stats_categories: 'Κατηγορίες',
                 stats_reused: 'Επαναχρησιμοποιημένοι',
                 category_no_results: 'Δεν βρέθηκαν κατηγορίες',
                 category_create_first: 'Δημιουργήστε την πρώτη σας κατηγορία για να οργανώσετε κωδικούς',
@@ -139,7 +151,8 @@ class PasswordManager {
                 last_updated_field: 'Τελευταία ενημέρωση',
                 unknown: 'Άγνωστο',
                 no_username_email: 'Χωρίς όνομα χρήστη/email',
-                open_website: 'Άνοιγμα ιστοσελίδας',
+                // Text for the bottom link on each card (Greek)
+                open_website: 'Επίσκεψη ιστότοπου',
                 open_in_browser: 'Άνοιγμα στον προεπιλεγμένο browser',
                 copy_username: 'Αντιγραφή ονόματος χρήστη',
                 copy_email: 'Αντιγραφή email',
@@ -154,8 +167,36 @@ class PasswordManager {
                 ,
                 compact_mode: '📱 Συμπαγής Λειτουργία',
                 normal_mode: '📱 Κανονική Λειτουργία'
+                ,
+                new_category_prompt: 'Εισάγετε νέα κατηγορία:'
             }
         };
+
+        // Flag to ensure event listeners are only bound once.  Without this guard,
+        // multiple invocations of initializeEventListeners can attach duplicate
+        // listeners leading to duplicate actions (e.g. saving passwords twice).
+        this.eventsInitialized = false;
+
+        // Flag to ensure that the password data is only loaded once per
+        // authentication.  This prevents loadData from being called
+        // repeatedly if onAuthSuccess is invoked multiple times.
+        this.isDataLoaded = false;
+
+        // -------------------------------------------------------------------------
+        // Inline SVG icons used throughout the UI
+        // Define commonly used icons as properties on the PasswordManager instance so
+        // they can be referenced in render methods and toggling logic without
+        // redefining them repeatedly.  Using SVG markup rather than emojis
+        // ensures the icons are consistent across platforms and avoids the
+        // appearance of emoji characters when toggling password visibility.
+        this.svgCopy = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
+        // Eye icon (used when the password is hidden and can be revealed)
+        this.svgEye = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`;
+        // Eye-off icon (used when the password is visible and can be hidden)
+        // Sourced from the Bootstrap Icons "eye-slash" symbol (see
+        // https://icons.getbootstrap.com/icons/eye-slash/).  We set the viewBox
+        // to 16 to match the original design but it scales automatically via CSS.
+        this.svgEyeOff = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="svg-icon"><path fill="currentColor" d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7 7 0 0 0-2.79.588l.77.771A6 6 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755q-.247.248-.517.486z"/><path fill="currentColor" d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829"/><path fill="currentColor" d="M3.35 5.47q-.27.24-.518.487A13 13 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7 7 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12z"/></svg>`;
 
         setTimeout(() => {
             this.initializeEventListeners();
@@ -176,24 +217,51 @@ class PasswordManager {
     }
     // Νέα μέθοδος που καλείται όταν η πιστοποίηση είναι επιτυχής
     async onAuthSuccess() {
+        // Prevent reloading data multiple times if onAuthSuccess is called again.
+        if (this.isDataLoaded) {
+            return;
+        }
+
         this.isAuthenticated = true;
+        // Load all categories and passwords once after authentication
         await this.loadData();
+        this.isDataLoaded = true;
         // Use translated notification when the password manager is unlocked
         this.showSuccess(this.t('password_manager_unlocked'));
     }
 
     initializeEventListeners() {
+        // Prevent attaching duplicate event listeners if this method is called
+        // more than once.  Duplicate listeners cause handlers (like savePassword)
+        // to fire multiple times, resulting in duplicated actions and logs.
+        if (this.eventsInitialized) {
+            return;
+        }
+        this.eventsInitialized = true;
+
         // Password modal
         document.getElementById('addPasswordBtn').addEventListener('click', () => this.openPasswordModal());
         document.getElementById('closePasswordModal').addEventListener('click', () => this.closePasswordModal());
         document.getElementById('cancelPasswordBtn').addEventListener('click', () => this.closePasswordModal());
         document.getElementById('passwordForm').addEventListener('submit', (e) => this.savePassword(e));
 
-        // Categories modal
-        document.getElementById('manageCategoriesBtn').addEventListener('click', () => this.openCategoriesModal());
-        document.getElementById('closeCategoriesModal').addEventListener('click', () => this.closeCategoriesModal());
-        document.getElementById('closeCategoriesBtn').addEventListener('click', () => this.closeCategoriesModal());
-        document.getElementById('addCategoryBtn').addEventListener('click', () => this.addCategory());
+        // Categories modal: Only attach listeners if the elements exist
+        const manageBtn = document.getElementById('manageCategoriesBtn');
+        if (manageBtn) {
+            manageBtn.addEventListener('click', () => this.openCategoriesModal());
+        }
+        const closeCategoriesModal = document.getElementById('closeCategoriesModal');
+        if (closeCategoriesModal) {
+            closeCategoriesModal.addEventListener('click', () => this.closeCategoriesModal());
+        }
+        const closeCategoriesBtn = document.getElementById('closeCategoriesBtn');
+        if (closeCategoriesBtn) {
+            closeCategoriesBtn.addEventListener('click', () => this.closeCategoriesModal());
+        }
+        const addCategoryBtn = document.getElementById('addCategoryBtn');
+        if (addCategoryBtn) {
+            addCategoryBtn.addEventListener('click', () => this.addCategory());
+        }
 
         // Search with debounce
         let searchTimeout;
@@ -210,8 +278,28 @@ class PasswordManager {
             this.addGeneratePasswordButton();
         });
 
-        // Compact mode toggle
-        this.createCompactToggle();
+        // Image file selection
+        const imageFileInput = document.getElementById('imageFile');
+        if (imageFileInput) {
+            imageFileInput.addEventListener('change', (e) => this.handleImageSelection(e));
+            // Bind the click on the upload box to trigger the hidden file input
+            const uploadBox = document.getElementById('imageUploadBox');
+            if (uploadBox) {
+                uploadBox.addEventListener('click', () => {
+                    // Trigger the file input when the box is clicked
+                    imageFileInput.click();
+                });
+            }
+        }
+
+        // Compact mode toggle: use the grid toggle button in the header instead of a standalone button
+        const gridToggleBtn = document.getElementById('gridToggle');
+        if (gridToggleBtn) {
+            gridToggleBtn.addEventListener('click', () => this.toggleCompactMode());
+            // Initialize the toggle button UI with the correct label and colours
+            const manager = document.querySelector('.password-manager');
+            this.updateCompactToggleUI(gridToggleBtn, manager);
+        }
 
         // Close modals on backdrop click
         document.getElementById('passwordModal').addEventListener('click', (e) => {
@@ -220,6 +308,79 @@ class PasswordManager {
         document.getElementById('categoriesModal').addEventListener('click', (e) => {
             if (e.target === e.currentTarget) this.closeCategoriesModal();
         });
+
+        // Inline add category functionality within the add password modal
+        const inlineCatBtn = document.getElementById('addCategoryInline');
+        const inlineWrapper = document.getElementById('inlineCategoryInputWrapper');
+        const inlineNameInput = document.getElementById('inlineCategoryName');
+        const inlineSaveBtn = document.getElementById('inlineCatSaveBtn');
+        const inlineCancelBtn = document.getElementById('inlineCatCancelBtn');
+
+        if (inlineCatBtn && inlineWrapper && inlineNameInput) {
+            inlineCatBtn.addEventListener('click', () => {
+                // Show the inline input and hide the plus button and select
+                inlineCatBtn.classList.add('hidden');
+                inlineWrapper.classList.remove('hidden');
+                // Hide the category select so the input uses full width
+                const selectEl = document.getElementById('category');
+                if (selectEl) {
+                    selectEl.classList.add('hidden');
+                }
+                inlineNameInput.value = '';
+                inlineNameInput.focus();
+            });
+        }
+        // Save new category inline
+        if (inlineSaveBtn && inlineWrapper && inlineCatBtn && inlineNameInput) {
+            inlineSaveBtn.addEventListener('click', async () => {
+                const name = inlineNameInput.value ? inlineNameInput.value.trim() : '';
+                if (!name) {
+                    this.showError('Παρακαλώ εισάγετε όνομα κατηγορίας.');
+                    return;
+                }
+                // Check for duplicates (case-insensitive)
+                if (this.categories.some(cat => cat.name.toLowerCase() === name.toLowerCase())) {
+                    this.showError('Υπάρχει ήδη κατηγορία με αυτό το όνομα.');
+                    return;
+                }
+                try {
+                    const result = await window.api.passwordManagerAddCategory(name);
+                    if (result && result.success) {
+                        await this.loadCategories();
+                        // Find and select the new category in the modal select
+                        const newCat = this.categories.find(cat => cat.name.toLowerCase() === name.toLowerCase());
+                        const selectEl = document.getElementById('category');
+                        if (newCat && selectEl) selectEl.value = newCat.id;
+                        this.showSuccess('Κατηγορία προστέθηκε με επιτυχία!');
+                    } else {
+                        this.showError('Αποτυχία προσθήκης κατηγορίας: ' + (result && result.error ? result.error : 'Άγνωστο σφάλμα'));
+                    }
+                } catch (error) {
+                    this.showError('Σφάλμα κατά την προσθήκη κατηγορίας: ' + error.message);
+                }
+                // Hide the inline input and show the plus button and select again
+                inlineWrapper.classList.add('hidden');
+                inlineCatBtn.classList.remove('hidden');
+                const selectEl = document.getElementById('category');
+                if (selectEl) {
+                    selectEl.classList.remove('hidden');
+                }
+                inlineNameInput.value = '';
+            });
+        }
+        // Cancel adding new category inline
+        if (inlineCancelBtn && inlineWrapper && inlineCatBtn && inlineNameInput) {
+            inlineCancelBtn.addEventListener('click', () => {
+                // Hide inline input and show the select and plus button again
+                inlineWrapper.classList.add('hidden');
+                inlineCatBtn.classList.remove('hidden');
+                const selectEl = document.getElementById('category');
+                if (selectEl) {
+                    selectEl.classList.remove('hidden');
+                }
+                inlineNameInput.value = '';
+            });
+        }
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
@@ -268,21 +429,35 @@ class PasswordManager {
      * @param {HTMLElement} manager - The root password manager container.
      */
     updateCompactToggleUI(toggle, manager) {
+        // Update the layout class on the root manager
         if (!toggle || !manager) return;
         if (this.isCompactMode) {
             manager.classList.add('compact');
-            // Use translated label for normal mode
-            toggle.innerHTML = this.t('normal_mode');
-            toggle.style.background = 'var(--accent-color)';
-            toggle.style.color = 'white';
-            toggle.style.borderColor = 'var(--accent-color)';
+            // When compact mode is enabled highlight the toggle with the accent colour
+            toggle.classList.add('active');
         } else {
             manager.classList.remove('compact');
-            // Use translated label for compact mode
-            toggle.innerHTML = this.t('compact_mode');
-            toggle.style.background = 'var(--card-bg)';
-            toggle.style.color = 'var(--sidebar-text)';
-            toggle.style.borderColor = 'var(--border-color)';
+            toggle.classList.remove('active');
+        }
+        // Always set an accessible label using translations but do not display the text
+        const labelKey = this.isCompactMode ? 'normal_mode' : 'compact_mode';
+        toggle.setAttribute('aria-label', this.t(labelKey));
+        // Ensure the grid icon markup is present on every update.  The HTML
+        // structure for the icon is defined here so CSS can style the nine
+        // coloured squares.  This prevents the toggle label from being
+        // exposed in the UI and instead relies on the aria-label for screen
+        // readers.
+        if (!toggle.querySelector('.icon-grid')) {
+            // Remove existing contents
+            toggle.innerHTML = '';
+            const icon = document.createElement('div');
+            icon.className = 'icon-grid';
+            // Populate nine child spans for the coloured squares
+            for (let i = 0; i < 9; i++) {
+                const sq = document.createElement('span');
+                icon.appendChild(sq);
+            }
+            toggle.appendChild(icon);
         }
     }
 
@@ -346,43 +521,169 @@ class PasswordManager {
         if (existingBtn) {
             existingBtn.remove();
         }
+        // Remove existing visibility toggle if any
+        const existingToggle = formGroup.querySelector('.toggle-visibility-btn');
+        if (existingToggle) {
+            existingToggle.remove();
+        }
         
         const generateBtn = document.createElement('button');
         generateBtn.type = 'button';
         generateBtn.className = 'button generate-password-btn';
         generateBtn.setAttribute('aria-label', 'Generate strong password');
         
-        // ΠΡΟΣΘΕΣΕ ΜΟΝΟ ΤΟ ΖΑΡΙ ΣΤΟ INNERHTML
-        generateBtn.innerHTML = '🎲'; // ΜΟΝΟ ΤΟ EMOJI
+        // Only the dice icon for the generator button
+        generateBtn.innerHTML = '🎲';
         
         generateBtn.addEventListener('click', () => {
             this.generateStrongPassword();
         });
         
         formGroup.appendChild(generateBtn);
+
+        // Create a toggle visibility button for the password field
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'button toggle-visibility-btn';
+        toggleBtn.setAttribute('aria-label', 'Toggle password visibility');
+        
+        // Event listener to toggle the password input type and update icon state
+        toggleBtn.addEventListener('click', () => {
+            const input = document.getElementById('password');
+            if (input.type === 'password') {
+                input.type = 'text';
+                toggleBtn.classList.add('visible');
+            } else {
+                input.type = 'password';
+                toggleBtn.classList.remove('visible');
+            }
+        });
+        
+        formGroup.appendChild(toggleBtn);
     }
 
     async loadData() {
+        // If the Electron preload APIs are unavailable or if we're operating with a stub
+        // implementation (provided in index.html), populate the interface with
+        // demonstration data.  This branch runs before any authentication logic to
+        // allow viewing the UI outside of the Electron environment.  A stub
+        // implementation sets `window.api.isStub = true`.
+        if (!window.api || window.api.isStub) {
+            console.warn('Password manager APIs are not available; using sample data for demonstration.');
+            // Mark authenticated to enable interactions
+            this.isAuthenticated = true;
+            // Demo categories
+            this.categories = [
+                { id: 1, name: 'Email' },
+                { id: 2, name: 'Development' },
+                { id: 3, name: 'Entertainment' }
+            ];
+            // Demo passwords. One password (abc123) is intentionally weak.
+            this.passwords = [
+                {
+                    id: 1,
+                    category_id: 1,
+                    title: 'Gmail',
+                    username: 'user',
+                    email: 'user@gmail.com',
+                    password: 'abc123',
+                    url: '',
+                    notes: '',
+                    updated_at: '2024-01-15'
+                },
+                {
+                    id: 2,
+                    category_id: 2,
+                    title: 'GitHub',
+                    username: 'developer',
+                    email: 'dev@example.com',
+                    password: 'Str0ngP@ssword!',
+                    url: '',
+                    notes: '',
+                    updated_at: '2024-02-20'
+                },
+                {
+                    id: 3,
+                    category_id: 3,
+                    title: 'Netflix',
+                    username: 'viewer',
+                    email: 'viewer@example.com',
+                    password: 'Anoth3r$trong1',
+                    url: '',
+                    notes: '',
+                    updated_at: '2024-03-10'
+                },
+                {
+                    id: 4,
+                    category_id: 2,
+                    title: 'AWS Console',
+                    username: 'admin',
+                    email: 'admin@company.com',
+                    password: 'S3cur3P@ss!',
+                    url: '',
+                    notes: '',
+                    updated_at: '2024-01-05'
+                },
+                {
+                    id: 5,
+                    category_id: 2,
+                    title: 'dfg',
+                    username: 'dfg',
+                    email: 'thomasthanos28@gmail.com',
+                    password: 'Difficult!Pass5',
+                    url: '',
+                    notes: '',
+                    updated_at: '2025-11-08'
+                },
+                {
+                    id: 6,
+                    category_id: 2,
+                    title: 'Discord',
+                    username: 'Thomas2873',
+                    email: 'thomasthanos28@gmail.com',
+                    password: 'B3stP@ss6$',
+                    url: '',
+                    notes: '',
+                    updated_at: '2025-11-08'
+                }
+            ];
+            // Attach the category name to each password for easier display
+            this.passwords.forEach(p => {
+                const cat = this.categories.find(c => c.id === p.category_id);
+                p.category_name = cat ? cat.name : '';
+                // Also restore any locally stored image for the password.  When a user
+                // uploads a logo/image for a password in demo mode, it is stored
+                // under the key `passwordImage-<id>`.  Without this step the image
+                // would disappear on page refresh.
+                const storedImg = localStorage.getItem('passwordImage-' + p.id);
+                if (storedImg) {
+                    p.image = storedImg;
+                }
+            });
+            // Render demonstration data
+            this.renderCategories();
+            this.renderCategorySelect();
+            this.calculateStats();
+            this.renderPasswords();
+            return;
+        }
+
+        // If using real APIs, ensure the user is authenticated before loading
         if (!this.isAuthenticated) {
             console.log('Not authenticated, skipping data load');
             return;
         }
 
         console.log('Loading password manager data...');
-        
-        if (!window.api) {
-            this.showError('Password manager APIs are not available.');
-            return;
-        }
 
         const requiredApis = [
             'passwordManagerGetCategories',
             'passwordManagerGetPasswords',
             'passwordManagerAddPassword'
         ];
-        
+
         const missingApis = requiredApis.filter(api => typeof window.api[api] !== 'function');
-        
+
         if (missingApis.length > 0) {
             this.showError(`Missing password manager APIs: ${missingApis.join(', ')}`);
             return;
@@ -393,40 +694,42 @@ class PasswordManager {
     }
 
     calculateStats() {
+        // Calculate the total number of stored passwords
         this.stats.total = this.passwords.length;
+        // Calculate number of categories
         this.stats.categories = this.categories.length;
+        // Count weak passwords using the getPasswordStrength helper
         this.stats.weak = this.passwords.filter(p => this.getPasswordStrength(p.password) === 'weak').length;
-        
+        // Count strong passwords (any password that is not considered weak)
+        this.stats.strong = this.passwords.filter(p => this.getPasswordStrength(p.password) !== 'weak').length;
+        // Determine how many passwords are reused (same password appears more than once)
         const passwordCounts = {};
         this.passwords.forEach(p => {
             passwordCounts[p.password] = (passwordCounts[p.password] || 0) + 1;
         });
         this.stats.reused = Object.values(passwordCounts).filter(count => count > 1).length;
-
+        // Render the updated statistics on the UI
         this.renderStats();
     }
 
     renderStats() {
         const container = document.getElementById('statsContainer');
-        // Use translated labels for stats
-        container.innerHTML = `
+        if (!container) return;
+        // Build an array of statistic objects including an icon, value and translated label
+        const statsArray = [
+            { icon: '🔒', value: this.stats.total, label: this.t('stats_total') },
+            { icon: '🛡️', value: this.stats.strong || 0, label: this.t('stats_strong') },
+            { icon: '⚠️', value: this.stats.weak, label: this.t('stats_weak') },
+            { icon: '📂', value: this.stats.categories, label: this.t('stats_categories') }
+        ];
+        // Compose the HTML for each stat card
+        container.innerHTML = statsArray.map(({ icon, value, label }) => `
             <div class="stat-card">
-                <span class="stat-number">${this.stats.total}</span>
-                <span class="stat-label">${this.t('stats_total')}</span>
+                <div class="stat-icon">${icon}</div>
+                <span class="stat-number">${value}</span>
+                <span class="stat-label">${label}</span>
             </div>
-            <div class="stat-card">
-                <span class="stat-number">${this.stats.categories}</span>
-                <span class="stat-label">${this.t('stats_categories')}</span>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number">${this.stats.weak}</span>
-                <span class="stat-label">${this.t('stats_weak')}</span>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number">${this.stats.reused}</span>
-                <span class="stat-label">${this.t('stats_reused')}</span>
-            </div>
-        `;
+        `).join('');
     }
 
     getPasswordStrength(password) {
@@ -502,6 +805,15 @@ class PasswordManager {
             const result = await window.api.passwordManagerGetPasswords(categoryId);
             if (result.success) {
                 this.passwords = result.passwords;
+            // Attach any locally stored images back to the passwords, but only if the DB didn't provide one
+            this.passwords.forEach(p => {
+                if (!p.image) {
+                    const storedImg = localStorage.getItem('passwordImage-' + p.id);
+                    if (storedImg) {
+                        p.image = storedImg;
+                    }
+                }
+            });
                 this.renderPasswords();
                 this.calculateStats();
             } else {
@@ -568,227 +880,154 @@ renderPasswords() {
         return;
     }
 
-    // ULTRA COMPACT MODE
-    if (this.isCompactMode) {
-        console.log('Rendering COMPACT mode cards');
+    // COMPACT MODE
+        // Define reusable SVG icons for copy, eye (reveal), vertical ellipsis, edit and delete.
+        const svgCopy = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
+        const svgEye = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`;
+        const svgDots = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><circle cx="12" cy="5" r="1.5" fill="currentColor"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor"></circle><circle cx="12" cy="19" r="1.5" fill="currentColor"></circle></svg>`;
+        const svgEdit = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.004 1.004 0 0 0 0-1.42l-2.34-2.34a1.004 1.004 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.82z"/></svg>`;
+        const svgDelete = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zm3.46-9.12l1.41-1.41L12 10.59l1.12-1.12 1.42 1.42L13.41 12l1.13 1.12-1.42 1.42L12 13.41l-1.12 1.13-1.42-1.42L10.59 12l-1.13-1.12zm7.54-7.88V4H7V2h5.5l1-1h5v1h-3.54z"/></svg>`;
+
+        if (this.isCompactMode) {
+        // Render a simplified card with only the service title, category, password row, and bottom row
         grid.innerHTML = this.passwords.map(password => {
-            const strength = this.getPasswordStrength(password.password);
-            const strengthIcons = {
-                'weak': '🔴',
-                'medium': '🟡', 
-                'strong': '🟢',
-                'very-strong': '🔵'
-            };
-            
-            // Build login fields - ALWAYS show both if they exist
-            let loginFields = [];
-            
-            // ALWAYS show username if exists
-            if (password.username) {
-                loginFields.push(`
-                    <div class="compact-field">
-                        <div class="compact-value">
-                            <span class="compact-text" title="${this.escapeHtml(password.username)}">
-                                👤 ${this.escapeHtml(password.username)}
-                            </span>
-                            <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.username)}')" title="${this.t('copy_username')}">📋</button>
-                        </div>
-                    </div>
-                `);
+            const title = this.escapeHtml(password.title);
+            // Determine the category name on the fly to ensure it exists even in demo mode
+            let categoryName = '';
+            if (password.category_name) {
+                categoryName = this.escapeHtml(password.category_name);
+            } else {
+                const catObj = this.categories.find(c => c.id === password.category_id);
+                categoryName = catObj ? this.escapeHtml(catObj.name) : '';
             }
-            
-            // ALWAYS show email if exists  
-            if (password.email) {
-                loginFields.push(`
-                    <div class="compact-field">
-                        <div class="compact-value">
-                            <span class="compact-text" title="${this.escapeHtml(password.email)}">
-                                📧 ${this.escapeHtml(password.email)}
-                            </span>
-                            <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.email)}')" title="${this.t('copy_email')}">📋</button>
-                        </div>
-                    </div>
-                `);
-            }
-            
-            // If no username or email, show placeholder
-                if (loginFields.length === 0) {
-                    loginFields.push(`
-                    <div class="compact-field">
-                        <div class="compact-value">
-                            <span class="compact-text" style="opacity: 0.7;">
-                                👤 ${this.t('no_username_email')}
-                            </span>
-                        </div>
-                    </div>
-                    `);
-                }
-            
-            // Add URL field if exists
-            let urlField = '';
+            const updatedDate = password.updated_at ? new Date(password.updated_at).toLocaleDateString() : '—';
+            // Determine if we should show the visit link
+            let visitLink = '';
             if (password.url) {
-                let displayUrl = password.url;
+                let displayUrl = '';
                 try {
-                    const url = new URL(password.url);
-                    displayUrl = url.hostname.replace('www.', '');
+                    const urlObj = new URL(password.url);
+                    displayUrl = urlObj.hostname.replace('www.', '');
                 } catch (e) {
-                    // Keep original URL if parsing fails
+                    displayUrl = password.url;
                 }
-                urlField = `
-                    <div class="compact-field">
-                        <div class="compact-value">
-                            <span class="compact-text" title="${this.escapeHtml(password.url)}">
-                                🌐 ${this.escapeHtml(displayUrl)}
-                            </span>
-                            <button class="compact-action-btn" onclick="pm.openExternal('${this.escapeHtml(password.url)}')" title="${this.t('open_website')}">🔗</button>
-                        </div>
-                    </div>
-                `;
+                visitLink = `<a href="#" onclick="pm.openExternal('${this.escapeHtml(password.url)}')" title="${this.t('open_in_browser')}">${this.t('open_website') || 'Visit site'}</a>`;
             }
-            
-            // Add notes field if exists (truncated)
-            let notesField = '';
-            if (password.notes) {
-                const truncatedNotes = password.notes.length > 50 ? 
-                    password.notes.substring(0, 50) + '...' : password.notes;
-                notesField = `
-                    <div class="compact-field">
-                        <div class="compact-value">
-                            <span class="compact-text" title="${this.escapeHtml(password.notes)}">
-                                📝 ${this.escapeHtml(truncatedNotes)}
-                            </span>
-                        </div>
-                    </div>
-                `;
+            // Determine image or fallback initial for the service
+            let imageHtml = '';
+            const imgSrc = this.getImageForPassword(password.id);
+            if (imgSrc) {
+                imageHtml = `<img src="${imgSrc}" class="card-image" alt="" />`;
+            } else {
+                const initial = title.trim().charAt(0).toUpperCase();
+                imageHtml = `<div class="card-image initial">${initial}</div>`;
             }
-            
             return `
-            <div class="compact-password-card">
+            <div class="compact-password-card" data-password-id="${password.id}">
                 <div class="compact-header">
-                    <h3 class="compact-title" title="${this.escapeHtml(password.title)}">
-                        ${this.escapeHtml(password.title)}
+                    <h3 class="compact-title">
+                        <span class="title-glass">
+                            ${imageHtml}
+                            ${title}
+                        </span>
                     </h3>
                     <div class="compact-actions">
-                        <button class="compact-action-btn" onclick="pm.editPassword(${password.id})" title="Edit">✏️</button>
-                        <button class="compact-action-btn" onclick="pm.deletePassword(${password.id})" title="Delete">🗑️</button>
+                        <button class="menu-btn" onclick="pm.toggleActionMenu(event, this)" title="${this.t('options') || 'Options'}">${svgDots}</button>
+                        <div class="actions-menu">
+                            <button class="action-item edit" onclick="pm.editPassword(${password.id})" title="${this.t('edit')}">${svgEdit} <span>${this.t('edit')}</span></button>
+                            <button class="action-item delete" onclick="pm.deletePassword(${password.id})" title="${this.t('delete')}">${svgDelete} <span>${this.t('delete')}</span></button>
+                        </div>
                     </div>
                 </div>
-                
-                ${loginFields.join('')}
-                
-                <!-- Password Field -->
-                <div class="compact-field">
-                    <div class="compact-value">
-                        <span class="strength-dot strength-${strength}" aria-hidden="true"></span>
-                        <span class="compact-text compact-password-hidden">••••••••</span>
-                        <button class="compact-reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="${this.t('reveal_password')}">👁️</button>
-                        <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.password)}')" title="${this.t('copy_password')}">📋</button>
-                    </div>
+                ${categoryName ? `<div class="compact-category">${categoryName}</div>` : ''}
+                <div class="compact-password-row">
+                    <span class="compact-text compact-password-hidden">••••••••</span>
+                    <!-- Reveal (eye) button toggles password visibility -->
+                    <button class="compact-reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="${this.t('reveal_password')}">${svgEye}</button>
+                    <!-- Copy button to copy the password to clipboard -->
+                    <button class="compact-copy-btn" onclick="pm.copyField(${password.id}, 'password')" title="${this.t('copy_password')}">${svgCopy}</button>
                 </div>
-                
-                ${urlField}
-                ${notesField}
-                
-                <!-- Last Updated -->
-                <div class="compact-field" style="font-size: 0.8em; opacity: 0.7;">
-                    <div class="compact-value">
-                        <span class="compact-text">
-                            📅 ${password.updated_at ? new Date(password.updated_at).toLocaleDateString() : 'Unknown'}
-                        </span>
-                    </div>
+                <div class="compact-bottom">
+                    ${visitLink}
+                    <span class="compact-date">${updatedDate}</span>
                 </div>
             </div>
             `;
         }).join('');
     } else {
-        // NORMAL MODE - Original detailed view
-        // ... keep the existing normal mode code unchanged
+        // NORMAL MODE
+        // Render cards with service title, category, username/email lines, password row, and bottom row
         grid.innerHTML = this.passwords.map(password => {
-            const strength = this.getPasswordStrength(password.password);
-            const strengthIcons = {
-                'weak': '🔴',
-                'medium': '🟡', 
-                'strong': '🟢',
-                'very-strong': '🔵'
-            };
-            
-            let displayUrl = '—';
-            try {
-                if (password.url) {
-                    const url = new URL(password.url);
-                    displayUrl = url.hostname.replace('www.', '');
-                }
-            } catch (e) {
-                displayUrl = password.url;
+            const title = this.escapeHtml(password.title);
+            // Determine the category name on the fly to ensure it exists even in demo mode
+            let categoryName = '';
+            if (password.category_name) {
+                categoryName = this.escapeHtml(password.category_name);
+            } else {
+                const catObj = this.categories.find(c => c.id === password.category_id);
+                categoryName = catObj ? this.escapeHtml(catObj.name) : '';
             }
-            
+            const updatedDate = password.updated_at ? new Date(password.updated_at).toLocaleDateString() : '—';
+            const username = password.username ? this.escapeHtml(password.username) : '';
+            const email = password.email ? this.escapeHtml(password.email) : '';
+            let visitLink = '';
+            if (password.url) {
+                let displayUrl = '';
+                try {
+                    const urlObj = new URL(password.url);
+                    displayUrl = urlObj.hostname.replace('www.', '');
+                } catch (e) {
+                    displayUrl = password.url;
+                }
+                visitLink = `<a href="#" onclick="pm.openExternal('${this.escapeHtml(password.url)}')" title="${this.t('open_in_browser')}">${this.t('open_website') || 'Visit site'}</a>`;
+            }
+            // Determine image or fallback initial for the service
+            let imageHtml = '';
+            const imgSrc = this.getImageForPassword(password.id);
+            if (imgSrc) {
+                imageHtml = `<img src="${imgSrc}" class="card-image" alt="" />`;
+            } else {
+                const initial = title.trim().charAt(0).toUpperCase();
+                imageHtml = `<div class="card-image initial">${initial}</div>`;
+            }
             return `
-            <div class="password-card">
+            <div class="password-card" data-password-id="${password.id}">
                 <div class="password-header">
-                    <h3 class="password-title">${this.escapeHtml(password.title)}</h3>
+                    <h3 class="password-title">
+                        <span class="title-glass">
+                            ${imageHtml}
+                            ${title}
+                        </span>
+                    </h3>
                     <div class="password-actions">
-                        <button class="action-btn" onclick="pm.editPassword(${password.id})" title="${this.t('edit')}">✏️</button>
-                        <button class="action-btn" onclick="pm.deletePassword(${password.id})" title="${this.t('delete')}">🗑️</button>
+                        <!-- Menu trigger button with vertical ellipsis -->
+                        <button class="menu-btn" onclick="pm.toggleActionMenu(event, this)" title="${this.t('options') || 'Options'}">${svgDots}</button>
+                        <!-- Hidden actions dropdown (edit/delete) -->
+                        <div class="actions-menu">
+                            <button class="action-item edit" onclick="pm.editPassword(${password.id})" title="${this.t('edit')}">${svgEdit} <span>${this.t('edit')}</span></button>
+                            <button class="action-item delete" onclick="pm.deletePassword(${password.id})" title="${this.t('delete')}">${svgDelete} <span>${this.t('delete')}</span></button>
+                        </div>
                     </div>
                 </div>
-                
-                ${password.category_name ? `
-                <div class="password-category">${this.escapeHtml(password.category_name)}</div>` : ''}
-                
-                <div class="password-field">
-                    <span class="password-label">${this.t('username_field')}</span>
-                    <div class="password-value">
-                        <span class="password-text">${password.username ? this.escapeHtml(password.username) : '—'}</span>
-                        ${password.username ? `<button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.username)}')" title="${this.t('copy_username')}">📋</button>` : ''}
-                    </div>
+                ${categoryName ? `<div class="password-category">${categoryName}</div>` : ''}
+                ${username ? `<div class="password-info-line"><span class="info-value">${username}</span><button class="copy-info-btn" onclick="pm.copyField(${password.id}, 'username')" title="${this.t('copy_username')}">${svgCopy}</button></div>` : ''}
+                ${email ? `<div class="password-info-line"><span class="info-value">${email}</span><button class="copy-info-btn" onclick="pm.copyField(${password.id}, 'email')" title="${this.t('copy_email')}">${svgCopy}</button></div>` : ''}
+                <div class="password-row">
+                    <span class="password-text password-hidden">••••••••</span>
+                    <!-- Reveal (eye) button toggles password visibility -->
+                    <button class="reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="${this.t('reveal_password')}">${svgEye}</button>
+                    <!-- Copy button to copy the password to clipboard -->
+                    <button class="copy-password-btn" onclick="pm.copyField(${password.id}, 'password')" title="${this.t('copy_password')}">${svgCopy}</button>
                 </div>
-                
-                <div class="password-field">
-                    <span class="password-label">${this.t('email_field')}</span>
-                    <div class="password-value">
-                        <span class="password-text">${password.email ? this.escapeHtml(password.email) : '—'}</span>
-                        ${password.email ? `<button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.email)}')" title="${this.t('copy_email')}">📋</button>` : ''}
-                    </div>
-                </div>
-                
-                <div class="password-field">
-                    <span class="password-label">${this.t('password_field')} ${strengthIcons[strength]}</span>
-                    <div class="password-value">
-                        <span class="password-text password-hidden">••••••••</span>
-                        <button class="reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="${this.t('reveal_password')}">👁️</button>
-                        <button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.password)}')" title="${this.t('copy_password')}">📋</button>
-                    </div>
-                </div>
-                
-                ${password.url ? `
-                <div class="password-field">
-                    <span class="password-label">${this.t('website_field')}</span>
-                    <div class="password-value">
-                            <button class="website-link-btn" onclick="pm.openExternal('${this.escapeHtml(password.url)}')" title="${this.t('open_in_browser')}">
-                            🌐 ${this.escapeHtml(displayUrl)}
-                        </button>
-                    </div>
-                </div>` : ''}
-                
-                ${password.notes ? `
-                <div class="password-field">
-                    <span class="password-label">${this.t('notes_field')}</span>
-                    <div class="password-value">
-                        <span class="password-text">${this.escapeHtml(password.notes)}</span>
-                    </div>
-                </div>` : ''}
-                
-                <div class="password-field">
-                    <span class="password-label">${this.t('last_updated_field')}</span>
-                    <div class="password-value">
-                        <span class="password-text">${password.updated_at ? new Date(password.updated_at).toLocaleDateString() : '—'}</span>
-                    </div>
+                <div class="password-bottom">
+                    ${visitLink}
+                    <span class="updated-date">${updatedDate}</span>
                 </div>
             </div>
             `;
         }).join('');
     }
-
+    // After rendering, apply entrance animations
     this.observeCards();
 }
 
@@ -818,12 +1057,26 @@ renderPasswords() {
             // Set translated edit title if translation function is available
             title.textContent = typeof this.t === 'function' ? this.t('modal_edit_title') : 'Edit Password';
             this.fillPasswordForm(passwordId);
+            // Show existing image preview when editing
+            const password = this.passwords.find(p => p.id === passwordId);
+            if (password) {
+                this.setUploadBoxImage(password.image || null);
+            }
         } else {
             // Set translated add title if translation function is available
             title.textContent = typeof this.t === 'function' ? this.t('modal_add_title') : 'Add New Password';
             form.reset();
             document.getElementById('passwordId').value = '';
             document.getElementById('passwordStrength').className = 'strength-bar';
+
+            // Reset image inputs for new passwords
+            const imgData = document.getElementById('imageData');
+            if (imgData) imgData.value = '';
+            const imgFile = document.getElementById('imageFile');
+            if (imgFile) imgFile.value = '';
+
+            // Reset the upload box to show the placeholder
+            this.setUploadBoxImage(null);
         }
 
         modal.classList.add('active');
@@ -841,6 +1094,10 @@ renderPasswords() {
         const generateBtn = document.querySelector('.generate-password-btn');
         if (generateBtn) {
             generateBtn.remove();
+        }
+        const toggleBtn = document.querySelector('.toggle-visibility-btn');
+        if (toggleBtn) {
+            toggleBtn.remove();
         }
     }
 
@@ -933,6 +1190,14 @@ renderPasswords() {
         document.getElementById('password').value = password.password;
         document.getElementById('url').value = password.url || '';
         document.getElementById('notes').value = password.notes || '';
+
+        // If an image is stored, prefill hidden input
+        const imgData = document.getElementById('imageData');
+        if (imgData) imgData.value = password.image || '';
+
+        // Clear any previously selected file in the file input
+        const imgFile = document.getElementById('imageFile');
+        if (imgFile) imgFile.value = '';
         
         this.checkPasswordStrength(password.password);
     }
@@ -945,14 +1210,16 @@ async savePassword(e) {
         return;
     }
 
-    const passwordData = {
+        const passwordData = {
         title: document.getElementById('title').value.trim(),
         category_id: document.getElementById('category').value || null,
         username: document.getElementById('username').value.trim(), // ΑΦΗΣΤΕ ΑΥΤΟ ΧΩΡΙΣ null
         email: document.getElementById('email').value.trim(), // ΑΦΗΣΤΕ ΑΥΤΟ ΧΩΡΙΣ null
         password: document.getElementById('password').value,
         url: document.getElementById('url').value.trim() || null,
-        notes: document.getElementById('notes').value.trim() || null
+        notes: document.getElementById('notes').value.trim() || null,
+        // Persist the image data/URL if provided
+        image: document.getElementById('imageData') ? document.getElementById('imageData').value || null : null
     };
 
     console.log('Saving password data:', {
@@ -1011,9 +1278,63 @@ async savePassword(e) {
         saveBtn.disabled = false;
 
         if (result.success) {
+            // We might be in editing mode; capture the current editing id **before** closing the modal,
+            // because `closePasswordModal()` resets `this.currentEditingId` to null.  We need this value
+            // later to correctly store/update the image.
+            const editingId = this.currentEditingId;
+            // Close the modal immediately to give user feedback
             this.closePasswordModal();
+
+            // Determine the ID to use for storing the image before reloading.
+            // If editing, it's the previously captured editingId; if adding, we will infer after load.
+            let storedId = editingId || null;
+
+            // If editing an existing password and an image is provided, persist the image immediately so
+            // the upcoming load picks it up.  This also updates the in-memory password to reflect the new
+            // image until reload.
+            if (storedId && passwordData.image) {
+                // Update the existing password object in memory so it re-renders immediately.
+                const existing = this.passwords.find(p => p.id === storedId);
+                if (existing) {
+                    existing.image = passwordData.image;
+                }
+            }
+
+            // Reload passwords for the current category (from API or demo data)
             await this.loadPasswords(this.currentCategory);
-            this.showSuccess(`Password ${this.currentEditingId ? 'updated' : 'saved'} successfully!`);
+
+            // If adding a new password (no storedId) and an image is provided, determine the new ID.
+            // We assume the new password appears at the end of the list returned by the API; if your API
+            // sorts differently, this logic may need adjustment.
+            if (!storedId && passwordData.image) {
+                const lastPassword = this.passwords[this.passwords.length - 1];
+                if (lastPassword) {
+                    storedId = lastPassword.id;
+                    // Update the password object's image property
+                    lastPassword.image = passwordData.image;
+                }
+            }
+
+            // After persisting the image, ensure the rendered cards show the latest images
+            // by updating each password's image property from localStorage
+            this.passwords.forEach(p => {
+                const img = localStorage.getItem('passwordImage-' + p.id);
+                if (img) {
+                    p.image = img;
+                }
+            });
+            // Re-render the grid to reflect any updated images immediately
+            this.renderPasswords();
+            this.calculateStats();
+
+            // After re-rendering, update the specific card's image immediately if we know which password was saved
+            if (passwordData.image && storedId) {
+                this.updatePasswordImageInUI(storedId, passwordData.image);
+            }
+
+            // Show a success message. Use editingId instead of this.currentEditingId because the latter
+            // was reset when we closed the modal.
+            this.showSuccess(`Password ${editingId ? 'updated' : 'saved'} successfully!`);
         } else {
             this.showError('Failed to save password: ' + (result.error || 'Unknown error'));
         }
@@ -1059,19 +1380,139 @@ async savePassword(e) {
     return true;
     }
 
+    /**
+     * Prompt the user with a custom confirmation dialog before deleting a
+     * password record. If the user confirms, proceed to delete the
+     * password via the API and refresh the list. Uses a glass-themed modal
+     * instead of the default browser confirm to better integrate with the
+     * overall UI.
+     *
+     * @param {number|string} passwordId The ID of the password to delete
+     */
     async deletePassword(passwordId) {
-        if (!confirm('Are you sure you want to delete this password? This action cannot be undone.')) return;
+        // Retrieve the password object to display its title in the confirm
+        const password = this.passwords.find(p => p.id === passwordId);
+        const confirmed = await this.showDeleteConfirm(password);
+        if (!confirmed) return;
 
         try {
             const result = await window.api.passwordManagerDeletePassword(passwordId);
             if (result.success) {
                 await this.loadPasswords(this.currentCategory);
-                this.showSuccess('Password deleted successfully!');
+                // Use translation helper if available
+                const msg = typeof this.t === 'function' ? this.t('deleted_successfully') : 'Password deleted successfully!';
+                this.showSuccess(msg);
             } else {
-                this.showError('Failed to delete password: ' + result.error);
+                const errMsg = typeof this.t === 'function' ? this.t('delete_failed') : 'Failed to delete password: ';
+                this.showError(errMsg + result.error);
             }
         } catch (error) {
-            this.showError('Error deleting password: ' + error.message);
+            const errMsg = typeof this.t === 'function' ? this.t('delete_error') : 'Error deleting password: ';
+            this.showError(errMsg + error.message);
+        }
+    }
+
+    /**
+     * Display a modal asking the user to confirm deletion of a password.
+     * The modal shows the password's title in the message to provide
+     * context. Returns a Promise that resolves to true if the user
+     * confirms, or false otherwise.
+     *
+     * @param {Object} password The password record to be deleted
+     * @returns {Promise<boolean>} Resolves with true if confirmed, false otherwise
+     */
+    showDeleteConfirm(password) {
+        return new Promise(resolve => {
+            const modal = document.getElementById('deleteConfirmModal');
+            const closeBtn = document.getElementById('deleteConfirmClose');
+            const cancelBtn = document.getElementById('deleteCancelBtn');
+            const confirmBtn = document.getElementById('deleteConfirmBtn');
+            const titleEl = document.getElementById('deleteConfirmTitle');
+            const messageEl = document.getElementById('deleteConfirmMessage');
+
+            // Populate title and message using the password information and translations.
+            // If a translation is unavailable (often returned as the key itself),
+            // fall back to a sensible default in Greek.
+            const defaultTitle = 'Επιβεβαίωση Διαγραφής';
+            const defaultMsg = `Είστε σίγουροι ότι θέλετε να διαγράψετε τον κωδικό «${password?.title ?? ''}»; Η ενέργεια δεν μπορεί να αναιρεθεί.`;
+            let translatedTitle = null;
+            let translatedMsg = null;
+            if (typeof this.t === 'function') {
+                const maybeTitle = this.t('delete_confirm_title');
+                // Only use translation if it exists and is different from the key
+                if (maybeTitle && maybeTitle !== 'delete_confirm_title') {
+                    translatedTitle = maybeTitle;
+                }
+                // Try to get a message with interpolation if provided by the translation system
+                const maybeMsg = this.t('delete_confirm_message', { title: password?.title });
+                if (maybeMsg && maybeMsg !== 'delete_confirm_message') {
+                    translatedMsg = maybeMsg;
+                }
+            }
+            titleEl.textContent = translatedTitle || defaultTitle;
+            messageEl.textContent = translatedMsg || defaultMsg;
+
+            // Show the modal
+            modal.classList.add('active');
+
+            // Helper to clean up listeners and hide modal
+            const cleanup = () => {
+                modal.classList.remove('active');
+                // Remove event listeners to avoid multiple bindings
+                closeBtn.removeEventListener('click', onCancel);
+                cancelBtn.removeEventListener('click', onCancel);
+                confirmBtn.removeEventListener('click', onConfirm);
+            };
+
+            const onCancel = () => {
+                cleanup();
+                resolve(false);
+            };
+
+            const onConfirm = () => {
+                cleanup();
+                resolve(true);
+            };
+
+            closeBtn.addEventListener('click', onCancel);
+            cancelBtn.addEventListener('click', onCancel);
+            confirmBtn.addEventListener('click', onConfirm);
+        });
+    }
+
+    /**
+     * Update the upload box UI to display either a placeholder or an image preview.
+     * When a URL is provided, the placeholder is hidden and a preview image is
+     * shown. When no URL is provided, any existing preview is removed and the
+     * placeholder is restored.
+     *
+     * @param {string|null} url The image URL or data URI to display, or null to reset
+     */
+    setUploadBoxImage(url) {
+        const uploadBox = document.getElementById('imageUploadBox');
+        if (!uploadBox) return;
+        const placeholder = uploadBox.querySelector('.upload-placeholder');
+        let previewImg = uploadBox.querySelector('.upload-preview');
+        if (url) {
+            // Hide placeholder
+            if (placeholder) placeholder.style.display = 'none';
+            // Create preview image if it doesn't exist
+            if (!previewImg) {
+                previewImg = document.createElement('img');
+                previewImg.className = 'upload-preview';
+                uploadBox.appendChild(previewImg);
+            }
+            previewImg.src = url;
+            previewImg.alt = 'Image preview';
+        } else {
+            // Remove preview image if present
+            if (previewImg) {
+                previewImg.remove();
+            }
+            // Show placeholder
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+            }
         }
     }
 
@@ -1092,6 +1533,90 @@ async savePassword(e) {
         } catch (error) {
             this.showError('Error searching: ' + error.message);
         }
+    }
+
+    /**
+     * Retrieve stored image for a password from localStorage.  If no image is
+     * stored, returns null.
+     * @param {number|string} id
+     * @returns {string|null}
+     */
+    getImageForPassword(id) {
+        // First check if the password object has an image property (from the database).
+        const pwObj = this.passwords ? this.passwords.find(p => p.id === id) : null;
+        if (pwObj && pwObj.image) {
+            return pwObj.image;
+        }
+        // Fallback to localStorage for backward compatibility
+        try {
+            const img = localStorage.getItem('passwordImage-' + id);
+            return img || null;
+        } catch (ex) {
+            return null;
+        }
+    }
+
+    /**
+     * Handle image selection from the file input.  The selected file is either
+     * uploaded to Imgur (if an API token is available) or converted to a data
+     * URI and stored in the hidden #imageData input.  If the upload fails or no
+     * token is provided, the local data URI will be used.
+     *
+     * @param {Event} e
+     */
+    async handleImageSelection(e) {
+        const file = e.target && e.target.files && e.target.files[0];
+        if (!file) return;
+
+        // Hidden input where the image (data URI or uploaded URL) will be stored
+        const hiddenInput = document.getElementById('imageData');
+        if (!hiddenInput) return;
+
+        // Read the file as a Data URL for preview/fallback
+        const reader = new FileReader();
+        reader.onload = async () => {
+            let imageUrl = reader.result; // default to data URI for local preview and fallback
+
+            // Attempt to upload to Imgur if a token or client ID is available.  Some users
+            // may configure their own Imgur client ID via `this.imgurToken` or save it
+            // under 'imgurToken' in localStorage.  If none is set, a default client ID
+            // string can be provided.  If uploading fails for any reason (e.g. network
+            // issues or invalid token), we silently fall back to using the local data URI.
+            // Look for a user‑supplied Imgur client token or ID.  Do not fall back
+            // to a hard‑coded default here.  If none is provided, skip the upload
+            // entirely and simply use the local Data URI.  This avoids hitting
+            // Imgur with anonymous requests that often result in errors (e.g. 429).
+            const token = this.imgurToken || localStorage.getItem('imgurToken');
+            if (token) {
+                try {
+                    const formData = new FormData();
+                    formData.append('image', file);
+
+                    const res = await fetch('https://api.imgur.com/3/image', {
+                        method: 'POST',
+                        headers: {
+                            Authorization: token.startsWith('Client-ID') ? token : 'Client-ID ' + token
+                        },
+                        body: formData
+                    });
+
+                    const data = await res.json();
+                    if (data && data.success && data.data && data.data.link) {
+                        imageUrl = data.data.link;
+                    } else {
+                        console.warn('Imgur upload failed, using data URI instead:', data);
+                    }
+                } catch (err) {
+                    console.error('Error uploading to Imgur:', err);
+                    // Use data URI fallback
+                }
+            }
+
+            // Persist the resulting URL/data URI in the hidden input and update the preview
+            hiddenInput.value = imageUrl;
+            this.setUploadBoxImage(imageUrl);
+        };
+        reader.readAsDataURL(file);
     }
 
     openCategoriesModal() {
@@ -1215,14 +1740,38 @@ async savePassword(e) {
         }
     }
 
+    /**
+     * Show the inline category input inside the add password modal.
+     * This method toggles visibility of the hidden input and hides the plus button.
+     * The actual save/cancel logic is handled via event listeners initialized
+     * in initializeEventListeners().
+     */
+    promptAddCategoryInline() {
+        // Toggle visibility of inline category input
+        const plusBtn = document.getElementById('addCategoryInline');
+        const wrapper = document.getElementById('inlineCategoryInputWrapper');
+        const nameInput = document.getElementById('inlineCategoryName');
+        if (plusBtn && wrapper) {
+            plusBtn.classList.add('hidden');
+            wrapper.classList.remove('hidden');
+            if (nameInput) {
+                nameInput.value = '';
+                nameInput.focus();
+            }
+        }
+    }
+
     togglePassword(button, passwordId) {
         const password = this.passwords.find(p => p.id === passwordId);
         if (!password) return;
 
-        // Find the container that holds the password text
-        const valueContainer = button.closest('.password-value, .compact-value');
+        // Find the container that holds the password text.  In the redesigned
+        // layout, the password toggle button sits within a row element rather
+        // than a .password-value/.compact-value container, so look for the
+        // closest password row instead.
+        const valueContainer = button.closest('.password-row, .compact-password-row');
         if (!valueContainer) {
-            console.error('Could not find value container for password toggle');
+            console.error('Could not find password row for password toggle');
             return;
         }
 
@@ -1241,15 +1790,16 @@ async savePassword(e) {
             // Show the plain text password
             textElement.textContent = password.password;
             textElement.classList.remove(hiddenClass);
-            // Change icon to indicate ability to hide
-            button.innerHTML = '🙈';
+            // Swap to the eye‑off icon to indicate the password can be hidden
+            button.innerHTML = this.svgEyeOff;
             button.title = this.t('hide_password');
             // Automatically hide again after 30 seconds
             setTimeout(() => {
+                // Only proceed if the password is still visible
                 if (!textElement.classList.contains(hiddenClass)) {
                     textElement.textContent = '••••••••';
                     textElement.classList.add(hiddenClass);
-                    button.innerHTML = '👁️';
+                    button.innerHTML = this.svgEye;
                     button.title = this.t('reveal_password');
                 }
             }, 30000);
@@ -1257,7 +1807,7 @@ async savePassword(e) {
             // Hide the password and restore bullet characters
             textElement.textContent = '••••••••';
             textElement.classList.add(hiddenClass);
-            button.innerHTML = '👁️';
+            button.innerHTML = this.svgEye;
             button.title = this.t('reveal_password');
         }
     }
@@ -1281,6 +1831,56 @@ async savePassword(e) {
         }
     }
 
+    /**
+     * Copy a specified field from a password record to the clipboard.  This
+     * helper finds the password object by its id and then copies the
+     * requested field (e.g. 'username', 'email', 'password') if it exists.
+     * Using this indirection avoids exposing the raw value in the HTML and
+     * keeps the copy logic centralized.
+     *
+     * @param {number|string} passwordId The ID of the password record
+     * @param {string} field The field name to copy ('username', 'email', 'password')
+     */
+    copyField(passwordId, field) {
+        const pwd = this.passwords.find(p => p.id === passwordId);
+        if (pwd && pwd[field]) {
+            this.copyToClipboard(pwd[field]);
+        }
+    }
+
+    /**
+     * Toggle the visibility of the actions dropdown menu for edit/delete.
+     * When a menu is opened, all other open menus are closed. Clicking
+     * outside of the menu will close it automatically.
+     * @param {Event} event The click event
+     * @param {HTMLElement} btn The button that triggered the menu
+     */
+    toggleActionMenu(event, btn) {
+        event.stopPropagation();
+        // The next sibling of the button is the actions menu
+        const menu = btn.nextElementSibling;
+        if (!menu) return;
+        const isVisible = menu.classList.contains('show');
+        // Hide all other open menus
+        document.querySelectorAll('.actions-menu.show').forEach(m => {
+            if (m !== menu) m.classList.remove('show');
+        });
+        // Toggle this menu
+        if (isVisible) {
+            menu.classList.remove('show');
+        } else {
+            menu.classList.add('show');
+            // Attach one-time listener to close when clicking outside
+            const onClickOutside = (e) => {
+                if (!menu.contains(e.target) && e.target !== btn) {
+                    menu.classList.remove('show');
+                    document.removeEventListener('click', onClickOutside);
+                }
+            };
+            document.addEventListener('click', onClickOutside);
+        }
+    }
+
     showSuccess(message) {
         this.showNotification(message, 'success');
     }
@@ -1289,18 +1889,39 @@ async savePassword(e) {
         this.showNotification(message, 'error');
     }
 
+    /**
+     * Display a toast-like notification message near the top right of the
+     * viewport. The notification includes a colored accent bar, an icon
+     * corresponding to the type (success, error, info) and a close button.
+     * Only one notification is displayed at a time; any existing toast
+     * messages are removed before the new one is shown. Notifications
+     * automatically disappear after a short delay or when the user clicks
+     * the close button.
+     *
+     * @param {string} message The message to display to the user
+     * @param {'success' | 'error' | 'info'} type The notification type
+     */
     showNotification(message, type = 'info') {
-        const existingNotifications = document.querySelectorAll('.notification');
-        existingNotifications.forEach(notification => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        });
+        // Remove any existing notifications so only one is visible at a time
+        document.querySelectorAll('.notification').forEach(el => el.remove());
 
+        // Create a wrapper container if it doesn't already exist. This
+        // container anchors notifications at the top-right of the viewport
+        let container = document.querySelector('.notifications-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'notifications-container';
+            document.body.appendChild(container);
+        }
+
+        // Create the notification element with appropriate type class
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
 
-        // Define the icon character and color class based on the type
+        // Icon definitions for each type. We use simple unicode
+        // characters here; styling is handled via CSS classes. If
+        // additional icons are desired, they can be replaced with
+        // inline SVG markup instead.
         const icons = {
             success: { char: '✔', colorClass: 'icon-success' },
             error:   { char: '✖', colorClass: 'icon-error' },
@@ -1308,33 +1929,60 @@ async savePassword(e) {
         };
         const { char, colorClass } = icons[type] || icons.info;
 
-        // Build the notification HTML structure
+        // Construct the inner markup. escapeHtml is used on the
+        // message to avoid injecting HTML into the DOM. The close
+        // button uses the multiplication sign (×) for a minimalist look.
         notification.innerHTML = `
             <div class="notification-inner">
                 <div class="icon-wrapper ${colorClass}">${char}</div>
                 <div class="message-wrapper">${this.escapeHtml(message)}</div>
-                <button class="notification-close" aria-label="Close notification">&times;</button>
+                <button class="notification-close" aria-label="Close">×</button>
             </div>
         `;
 
-        document.body.appendChild(notification);
+        // Append the notification to the container
+        container.appendChild(notification);
 
-        // Remove the notification when the close button is clicked
-        const closeBtn = notification.querySelector('.notification-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
+        // Hook up the close button to remove the notification
+        const closeButton = notification.querySelector('.notification-close');
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                notification.remove();
             });
         }
 
         // Automatically remove the notification after 4 seconds
         setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
+            notification.remove();
         }, 4000);
+    }
+
+    /**
+     * Immediately update the displayed image for a given password card in the UI.  This helper
+     * searches for the card by its data attribute (data-password-id) and either updates the
+     * existing <img> element's src or replaces an initial placeholder div with a proper <img>.
+     *
+     * @param {number|string} passwordId The ID of the password whose card should be updated.
+     * @param {string} imageUrl The URL or data URI of the image to display.
+     */
+    updatePasswordImageInUI(passwordId, imageUrl) {
+        if (!passwordId || !imageUrl) return;
+        const passwordCard = document.querySelector(`[data-password-id="${passwordId}"]`);
+        if (passwordCard) {
+            const imgElement = passwordCard.querySelector('.card-image');
+            if (imgElement) {
+                if (imgElement.tagName === 'IMG') {
+                    imgElement.src = imageUrl;
+                } else {
+                    // Replace a div with initial letter with an img element
+                    const newImg = document.createElement('img');
+                    newImg.className = 'card-image';
+                    newImg.src = imageUrl;
+                    newImg.alt = '';
+                    imgElement.replaceWith(newImg);
+                }
+            }
+        }
     }
 
     escapeHtml(text) {
