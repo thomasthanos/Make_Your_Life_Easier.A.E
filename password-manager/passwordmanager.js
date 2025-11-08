@@ -172,37 +172,16 @@ class PasswordManager {
             }
         };
 
-        // Flag to ensure event listeners are only bound once.  Without this guard,
-        // multiple invocations of initializeEventListeners can attach duplicate
-        // listeners leading to duplicate actions (e.g. saving passwords twice).
         this.eventsInitialized = false;
-
-        // Flag to ensure that the password data is only loaded once per
-        // authentication.  This prevents loadData from being called
-        // repeatedly if onAuthSuccess is invoked multiple times.
         this.isDataLoaded = false;
-
-        // -------------------------------------------------------------------------
-        // Inline SVG icons used throughout the UI
-        // Define commonly used icons as properties on the PasswordManager instance so
-        // they can be referenced in render methods and toggling logic without
-        // redefining them repeatedly.  Using SVG markup rather than emojis
-        // ensures the icons are consistent across platforms and avoids the
-        // appearance of emoji characters when toggling password visibility.
         this.svgCopy = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
-        // Eye icon (used when the password is hidden and can be revealed)
         this.svgEye = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`;
-        // Eye-off icon (used when the password is visible and can be hidden)
-        // Sourced from the Bootstrap Icons "eye-slash" symbol (see
-        // https://icons.getbootstrap.com/icons/eye-slash/).  We set the viewBox
-        // to 16 to match the original design but it scales automatically via CSS.
         this.svgEyeOff = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="svg-icon"><path fill="currentColor" d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7 7 0 0 0-2.79.588l.77.771A6 6 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755q-.247.248-.517.486z"/><path fill="currentColor" d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829"/><path fill="currentColor" d="M3.35 5.47q-.27.24-.518.487A13 13 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7 7 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12z"/></svg>`;
 
         setTimeout(() => {
             this.initializeEventListeners();
             this.initializeAuth();
             this.initializeAnimations();
-            // Apply translations once the DOM is ready
             this.applyTranslations();
         }, 1000);
     }
@@ -888,6 +867,19 @@ renderPasswords() {
         const svgEdit = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.004 1.004 0 0 0 0-1.42l-2.34-2.34a1.004 1.004 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.82z"/></svg>`;
         const svgDelete = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zm3.46-9.12l1.41-1.41L12 10.59l1.12-1.12 1.42 1.42L13.41 12l1.13 1.12-1.42 1.42L12 13.41l-1.12 1.13-1.42-1.42L10.59 12l-1.13-1.12zm7.54-7.88V4H7V2h5.5l1-1h5v1h-3.54z"/></svg>`;
 
+        // Inline user and mail icons for username/email rows.  These icons provide
+        // a visual cue indicating the purpose of each field, similar to input
+        // adornments in the provided design reference.  They are defined here
+        // alongside other inline icons to keep them scoped to the render method
+        // and avoid polluting the class scope.
+        const svgUser = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.31 0-10 1.67-10 5v3h20v-3c0-3.33-6.69-5-10-5z"/></svg>`;
+        const svgMail = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg>`;
+
+        // A lock icon to visually identify the password row.  Displayed to the
+        // left of the obscured/visible password value.  The design uses a
+        // minimal padlock shape that blends well with the rest of the icons.
+        const svgLock = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zm-5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm-3-7V7a3 3 0 0 1 6 0v2H9z"/></svg>`;
+
         if (this.isCompactMode) {
         // Render a simplified card with only the service title, category, password row, and bottom row
         grid.innerHTML = this.passwords.map(password => {
@@ -901,6 +893,13 @@ renderPasswords() {
                 categoryName = catObj ? this.escapeHtml(catObj.name) : '';
             }
             const updatedDate = password.updated_at ? new Date(password.updated_at).toLocaleDateString() : '—';
+            // Pull username/email for compact display (prefer email if present)
+            const username = password.username ? this.escapeHtml(password.username) : '';
+            const email = password.email ? this.escapeHtml(password.email) : '';
+            const infoValue = email || username;
+            const infoIcon = email ? svgMail : (username ? svgUser : '');
+            const infoField = email ? 'email' : (username ? 'username' : '');
+            const infoTitle = email ? this.t('copy_email') : (username ? this.t('copy_username') : '');
             // Determine if we should show the visit link
             let visitLink = '';
             if (password.url) {
@@ -922,15 +921,16 @@ renderPasswords() {
                 const initial = title.trim().charAt(0).toUpperCase();
                 imageHtml = `<div class="card-image initial">${initial}</div>`;
             }
-            return `
+                return `
             <div class="compact-password-card" data-password-id="${password.id}">
                 <div class="compact-header">
-                    <h3 class="compact-title">
-                        <span class="title-glass">
-                            ${imageHtml}
-                            ${title}
-                        </span>
-                    </h3>
+                    <div class="compact-main">
+                        ${imageHtml}
+                        <div class="compact-headings">
+                            <h3 class="compact-title">${title}</h3>
+                            ${categoryName ? `<div class="compact-category-footer">${categoryName}</div>` : ''}
+                        </div>
+                    </div>
                     <div class="compact-actions">
                         <button class="menu-btn" onclick="pm.toggleActionMenu(event, this)" title="${this.t('options') || 'Options'}">${svgDots}</button>
                         <div class="actions-menu">
@@ -939,8 +939,13 @@ renderPasswords() {
                         </div>
                     </div>
                 </div>
-                ${categoryName ? `<div class="compact-category">${categoryName}</div>` : ''}
+                ${infoValue ? `<div class="compact-info-line">
+                    <span class="info-icon">${infoIcon}</span>
+                    <span class="info-value">${infoValue}</span>
+                    <button class="compact-copy-btn" onclick="pm.copyField(${password.id}, '${infoField}')" title="${infoTitle}">${svgCopy}</button>
+                </div>` : ''}
                 <div class="compact-password-row">
+                    <span class="password-icon">${svgLock}</span>
                     <span class="compact-text compact-password-hidden">••••••••</span>
                     <!-- Reveal (eye) button toggles password visibility -->
                     <button class="compact-reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="${this.t('reveal_password')}">${svgEye}</button>
@@ -993,12 +998,13 @@ renderPasswords() {
             return `
             <div class="password-card" data-password-id="${password.id}">
                 <div class="password-header">
-                    <h3 class="password-title">
-                        <span class="title-glass">
-                            ${imageHtml}
-                            ${title}
-                        </span>
-                    </h3>
+                    <div class="password-main">
+                        ${imageHtml}
+                        <div class="password-headings">
+                            <h3 class="password-title">${title}</h3>
+                            ${categoryName ? `<div class="password-category-footer">${categoryName}</div>` : ''}
+                        </div>
+                    </div>
                     <div class="password-actions">
                         <!-- Menu trigger button with vertical ellipsis -->
                         <button class="menu-btn" onclick="pm.toggleActionMenu(event, this)" title="${this.t('options') || 'Options'}">${svgDots}</button>
@@ -1009,10 +1015,18 @@ renderPasswords() {
                         </div>
                     </div>
                 </div>
-                ${categoryName ? `<div class="password-category">${categoryName}</div>` : ''}
-                ${username ? `<div class="password-info-line"><span class="info-value">${username}</span><button class="copy-info-btn" onclick="pm.copyField(${password.id}, 'username')" title="${this.t('copy_username')}">${svgCopy}</button></div>` : ''}
-                ${email ? `<div class="password-info-line"><span class="info-value">${email}</span><button class="copy-info-btn" onclick="pm.copyField(${password.id}, 'email')" title="${this.t('copy_email')}">${svgCopy}</button></div>` : ''}
+                ${username ? `<div class="password-info-line">
+                    <span class="info-icon">${svgUser}</span>
+                    <span class="info-value">${username}</span>
+                    <button class="copy-info-btn" onclick="pm.copyField(${password.id}, 'username')" title="${this.t('copy_username')}">${svgCopy}</button>
+                </div>` : ''}
+                ${email ? `<div class="password-info-line">
+                    <span class="info-icon">${svgMail}</span>
+                    <span class="info-value">${email}</span>
+                    <button class="copy-info-btn" onclick="pm.copyField(${password.id}, 'email')" title="${this.t('copy_email')}">${svgCopy}</button>
+                </div>` : ''}
                 <div class="password-row">
+                    <span class="password-icon">${svgLock}</span>
                     <span class="password-text password-hidden">••••••••</span>
                     <!-- Reveal (eye) button toggles password visibility -->
                     <button class="reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="${this.t('reveal_password')}">${svgEye}</button>
@@ -1517,15 +1531,29 @@ async savePassword(e) {
     }
 
     async searchPasswords(query) {
+        // If the query is empty, reload passwords for the current category.
         if (!query.trim()) {
-            this.loadPasswords(this.currentCategory);
+            await this.loadPasswords(this.currentCategory);
             return;
         }
 
+        // For search, reload all passwords for the current category and then
+        // filter on the client side.  This avoids relying on the backend to
+        // search across encrypted fields.  Sensitive fields are available in
+        // this.passwords after decryption via the API.
         try {
-            const result = await window.api.passwordManagerSearchPasswords(query);
+            // Always fetch fresh data from the current category before filtering
+            const result = await window.api.passwordManagerGetPasswords(this.currentCategory);
             if (result.success) {
-                this.passwords = result.passwords;
+                const allPasswords = result.passwords;
+                const lower = query.toLowerCase();
+                // Filter by title, username, email, url, or notes.  Any missing
+                // property is treated as empty string.
+                this.passwords = allPasswords.filter(p => {
+                    return [p.title, p.username, p.email, p.url, p.notes]
+                        .map(v => (v || '').toString().toLowerCase())
+                        .some(field => field.includes(lower));
+                });
                 this.renderPasswords();
             } else {
                 this.showError('Search failed: ' + result.error);
@@ -1918,10 +1946,6 @@ async savePassword(e) {
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
 
-        // Icon definitions for each type. We use simple unicode
-        // characters here; styling is handled via CSS classes. If
-        // additional icons are desired, they can be replaced with
-        // inline SVG markup instead.
         const icons = {
             success: { char: '✔', colorClass: 'icon-success' },
             error:   { char: '✖', colorClass: 'icon-error' },
@@ -1929,9 +1953,6 @@ async savePassword(e) {
         };
         const { char, colorClass } = icons[type] || icons.info;
 
-        // Construct the inner markup. escapeHtml is used on the
-        // message to avoid injecting HTML into the DOM. The close
-        // button uses the multiplication sign (×) for a minimalist look.
         notification.innerHTML = `
             <div class="notification-inner">
                 <div class="icon-wrapper ${colorClass}">${char}</div>

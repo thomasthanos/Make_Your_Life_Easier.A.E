@@ -401,15 +401,23 @@ class PasswordManager {
     }
 
     async searchPasswords(query) {
+        // Empty query resets the list
         if (!query.trim()) {
-            this.loadPasswords(this.currentCategory);
+            await this.loadPasswords(this.currentCategory);
             return;
         }
 
         try {
-            const result = await window.api.passwordManagerSearchPasswords(query);
+            // Reload passwords for the current category then perform client‑side filtering
+            const result = await window.api.passwordManagerGetPasswords(this.currentCategory);
             if (result.success) {
-                this.passwords = result.passwords;
+                const allPasswords = result.passwords;
+                const lower = query.toLowerCase();
+                this.passwords = allPasswords.filter(p => {
+                    return [p.title, p.username, p.email, p.url, p.notes]
+                        .map(v => (v || '').toString().toLowerCase())
+                        .some(field => field.includes(lower));
+                });
                 this.renderPasswords();
             } else {
                 this.showError('Search failed: ' + result.error);

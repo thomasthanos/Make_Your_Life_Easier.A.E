@@ -4,16 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VaultGuard Password Manager</title>
-    <!-- Link to the main stylesheet -->
     <link rel="stylesheet" href="passwordmanager.css" />
   </head>
   <body>
-    <!-- Add the password-manager class so JS can toggle compact mode -->
     <div class="app-container password-manager">
-      <!-- Sidebar with logo and categories -->
       <aside class="sidebar">
         <div class="logo">
-          <!-- A simple lock emoji for the logo icon -->
           <span class="logo-icon">🔐</span>
           <div>
             <div class="app-name">VaultGuard</div>
@@ -21,17 +17,12 @@
           </div>
         </div>
         <div class="categories-label">CATEGORIES</div>
-        <!-- Category buttons will be injected into this container by the JS -->
         <div id="categoriesContainer" class="categories"></div>
       </aside>
-      <!-- Main content area -->
       <main class="main">
-        <!-- Statistics and actions header -->
         <header class="header">
           <button id="sidebarToggle" class="sidebar-toggle">☰</button>
-          <!-- Stats container populated dynamically by JS -->
           <div id="statsContainer" class="stats-container"></div>
-          <!-- Search and action buttons -->
           <div class="header-actions">
             <div class="search-container">
               <input
@@ -39,43 +30,35 @@
                 type="text"
                 placeholder="Αναζήτηση passwords, usernames, emails..."
               />
-              <!-- Grid toggle button only displays an icon.  Text labels are added via aria-label on state changes. -->
-              <button id="gridToggle" class="grid-toggle compact-toggle" title="Toggle layout"></button>
             </div>
+            <button id="gridToggle" class="grid-toggle compact-toggle" title="Toggle layout"></button>
             <button id="addPasswordBtn" class="add-password-btn">
               <span>+ Προσθήκη Κωδικού</span>
             </button>
           </div>
         </header>
-        <!-- Grid of password cards -->
         <section id="passwordsGrid" class="passwords-grid"></section>
       </main>
     </div>
 
-    <!-- Password Modal -->
     <div id="passwordModal" class="modal">
       <div class="modal-content">
         <button id="closePasswordModal" class="close-btn" title="Κλείσιμο">×</button>
         <h2 id="passwordModalTitle">Προσθήκη Νέου Κωδικού</h2>
         <form id="passwordForm">
-          <!-- Hidden ID field for edit mode -->
           <input type="hidden" id="passwordId" />
-          <!-- Upload box for optional image/logo -->
           <div class="form-group full">
             <label for="imageFile">Εικόνα / Logo</label>
             <div class="upload-box" id="imageUploadBox">
               <input type="file" id="imageFile" accept="image/*" hidden />
               <div class="upload-placeholder">
-                <!-- Use a simple arrow character so the colour can be styled via CSS -->
                 <div class="upload-icon">⬆</div>
                 <div>Κλικ για ανέβασμα</div>
                 <small>PNG, JPG, GIF</small>
               </div>
             </div>
-            <!-- Hidden field to store Base64 image data -->
             <input type="hidden" id="imageData" />
           </div>
-          <!-- Title -->
           <div class="form-group full">
             <label for="title">Τίτλος *</label>
             <input
@@ -85,7 +68,6 @@
               required
             />
           </div>
-          <!-- Username and Email -->
           <div class="two-cols">
             <div class="form-group">
               <label for="username">Username</label>
@@ -100,7 +82,6 @@
               />
             </div>
           </div>
-          <!-- Password -->
           <div class="form-group full">
             <label for="password">Κωδικός *</label>
             <input
@@ -109,10 +90,8 @@
               placeholder="••••••••"
               required
             />
-            <!-- Strength indicator -->
             <div id="passwordStrength" class="password-strength-container"></div>
           </div>
-          <!-- URL and Category -->
           <div class="two-cols">
             <div class="form-group">
               <label for="url">Website URL</label>
@@ -120,11 +99,9 @@
             </div>
             <div class="form-group">
               <label for="category">Κατηγορία</label>
-              <!-- Wrapper for the category select, plus button and inline input -->
               <div class="category-select-wrapper">
                 <select id="category"></select>
                 <button type="button" id="addCategoryInline" class="add-category-inline-btn" title="Νέα κατηγορία">+</button>
-                <!-- Hidden inline new category input -->
                 <div id="inlineCategoryInputWrapper" class="inline-category-input hidden">
                   <input type="text" id="inlineCategoryName" placeholder="Νέα κατηγορία" />
                   <button type="button" id="inlineCatSaveBtn" class="btn-small save-btn-inline" title="Αποθήκευση">✓</button>
@@ -133,7 +110,6 @@
               </div>
             </div>
           </div>
-          <!-- Notes -->
           <div class="form-group full">
             <label for="notes">Σημειώσεις</label>
             <textarea
@@ -142,7 +118,6 @@
               placeholder="Προσθέστε επιπλέον σημειώσεις..."
             ></textarea>
           </div>
-          <!-- Modal action buttons -->
           <div class="modal-actions">
             <button type="button" id="cancelPasswordBtn" class="btn cancel-btn">
               Ακύρωση
@@ -155,16 +130,11 @@
       </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
     <div id="deleteConfirmModal" class="modal">
       <div class="modal-content">
-        <!-- Close button for the confirm modal -->
         <button id="deleteConfirmClose" class="close-btn" title="Κλείσιμο">×</button>
-        <!-- Title for the confirmation dialog -->
         <h3 id="deleteConfirmTitle">Επιβεβαίωση Διαγραφής</h3>
-        <!-- Dynamic message explaining which password will be deleted -->
         <p id="deleteConfirmMessage"></p>
-        <!-- Action buttons -->
         <div class="modal-actions">
           <button id="deleteCancelBtn" class="btn-secondary">Ακύρωση</button>
           <button id="deleteConfirmBtn" class="btn-danger">Διαγραφή</button>
@@ -172,14 +142,11 @@
       </div>
     </div>
 
-    <!-- Categories Modal -->
     <div id="categoriesModal" class="modal">
       <div class="modal-content">
         <button id="closeCategoriesModal" class="close-btn" title="Κλείσιμο">×</button>
         <h2>Διαχείριση Κατηγοριών</h2>
-        <!-- Existing categories list populated by JS -->
         <div id="categoriesList" class="categories-list"></div>
-        <!-- Add new category -->
         <div class="new-category">
           <input
             type="text"
@@ -198,9 +165,7 @@
       </div>
     </div>
 
-    <!-- Import authentication UI first so PasswordManager can reference it -->
     <script src="auth-ui.js"></script>
-    <!-- Import the password manager script -->
     <script src="passwordmanager.js"></script>
   </body>
 </html>

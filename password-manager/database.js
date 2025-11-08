@@ -5,7 +5,6 @@ const os = require('os');
 
 class PasswordManagerDB {
 
-
     async initializeDatabase() {
         try {
             const documentsPath = this.getDocumentsPath();
@@ -100,17 +99,18 @@ async createTables() {
                 console.log('Categories table ready');
             });
 
-            // Passwords table - includes image column to store logos/icons.  The password field is nullable.
+            // Passwords table.  We avoid storing sensitive fields in plain text.  All sensitive
+            // values (username, email, password, url, notes) will be persisted only in
+            // encrypted_data as either an encrypted payload or a plain JSON object if
+            // encryption is not available.  The table therefore includes only the
+            // columns we truly need: id, category_id, title, image, encrypted_data and
+            // timestamps.  The image column stores a data URI or external URL to the
+            // service logo.
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS passwords (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     category_id INTEGER,
                     title TEXT NOT NULL,
-                    username TEXT,
-                    email TEXT,
-                    password TEXT,  -- password field is nullable in case encryption is used
-                    url TEXT,
-                    notes TEXT,
                     image TEXT,
                     encrypted_data TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -124,24 +124,6 @@ async createTables() {
                     return;
                 }
                 console.log('Passwords table ready');
-                // Ensure the image column exists for existing databases.  If not, attempt to add it.
-                this.db.all("PRAGMA table_info(passwords)", (tableErr, columns) => {
-                    if (tableErr) {
-                        console.error('Failed to inspect passwords table:', tableErr);
-                        return;
-                    }
-                    const hasImage = Array.isArray(columns) && columns.some(col => col.name === 'image');
-                    if (!hasImage) {
-                        console.log('Adding image column to passwords table...');
-                        this.db.run("ALTER TABLE passwords ADD COLUMN image TEXT", (alterErr) => {
-                            if (alterErr) {
-                                console.error('Error adding image column:', alterErr);
-                            } else {
-                                console.log('Image column added successfully');
-                            }
-                        });
-                    }
-                });
             });
 
             // Insert default category
@@ -171,23 +153,7 @@ async createTables() {
     });
 }
 
-  getDocumentsPath() {
-    // Try to get OneDrive Documents path first
-    const oneDrivePaths = [
-      path.join(os.homedir(), 'OneDrive', 'Documents'),
-      path.join(os.homedir(), 'OneDrive - Personal', 'Documents'),
-      path.join(os.homedir(), 'Documents')
-    ];
 
-    for (const oneDrivePath of oneDrivePaths) {
-      if (fs.existsSync(oneDrivePath)) {
-        return oneDrivePath;
-      }
-    }
-
-    // Fallback to regular Documents
-    return path.join(os.homedir(), 'Documents');
-  }
 
   // Wait for database to be ready
   async waitForDB() {
@@ -274,9 +240,9 @@ async getPasswords(callback) {
         }
 
         this.db.all(`
-            SELECT p.id, p.category_id, p.title, p.username, p.email, p.password, p.url, p.notes, p.image, p.encrypted_data, p.created_at, p.updated_at, c.name as category_name 
-            FROM passwords p 
-            LEFT JOIN categories c ON p.category_id = c.id 
+            SELECT p.id, p.category_id, p.title, p.image, p.encrypted_data, p.created_at, p.updated_at, c.name as category_name
+            FROM passwords p
+            LEFT JOIN categories c ON p.category_id = c.id
             ORDER BY p.title
         `, (err, rows) => {
             if (err) {
@@ -286,37 +252,51 @@ async getPasswords(callback) {
 
             console.log('Retrieved', rows.length, 'passwords, attempting decryption...');
 
-            // Προσπάθεια αποκρυπτογράφησης
+            // Προσπάθεια αποκρυπτογράφησης ή ανάγνωσης μη κρυπτογραφημένων δεδομένων από το πεδίο encrypted_data.
             const processedRows = rows.map(row => {
-                // Αν υπάρχει encrypted_data, προσπάθησε να το αποκρυπτογραφήσεις
-                if (row.encrypted_data && this.authManager && this.authManager.isAuthenticated) {
+                // Always attempt to parse the encrypted_data field if it exists.  This field may
+                // contain either an encrypted payload (with iv, data, authTag) or a plain
+                // JSON object with the sensitive fields when encryption is not available.
+                if (row.encrypted_data) {
                     try {
-                        console.log('Attempting to decrypt row ID:', row.id);
-                        const encryptedData = JSON.parse(row.encrypted_data);
-                        const decrypted = this.authManager.decryptData(encryptedData);
-                        
-                        console.log('Decryption successful for row ID:', row.id);
-                        
-                        return {
-                            ...row,
-                            username: decrypted.username,
-                            email: decrypted.email,
-                            password: decrypted.password,
-                            url: decrypted.url,
-                            notes: decrypted.notes
-                        };
-                    } catch (decryptError) {
-                        console.error('Failed to decrypt row ID:', row.id, decryptError.message);
-                        // Επιστροφή των plain text δεδομένων αν η αποκρυπτογράφηση αποτύχει
-                        return row;
+                        const parsed = JSON.parse(row.encrypted_data);
+                        let decrypted;
+                        // If the parsed object has the expected encryption keys and we are
+                        // authenticated, attempt decryption.  Otherwise treat it as plain JSON.
+                        if (this.authManager && this.authManager.isAuthenticated && parsed && parsed.iv && parsed.data && parsed.authTag) {
+                            console.log('Attempting to decrypt row ID:', row.id);
+                            decrypted = this.authManager.decryptData(parsed);
+                            console.log('Decryption successful for row ID:', row.id);
+                        } else if (!parsed.iv) {
+                            // No iv indicates this is already plain JSON
+                            decrypted = parsed;
+                        }
+                        if (decrypted) {
+                            return {
+                                ...row,
+                                username: decrypted.username || null,
+                                email: decrypted.email || null,
+                                password: decrypted.password || null,
+                                url: decrypted.url || null,
+                                notes: decrypted.notes || null
+                            };
+                        }
+                    } catch (err) {
+                        console.error('Failed to parse or decrypt row ID:', row.id, err.message);
                     }
-                } else {
-                    // Αν δεν υπάρχει encrypted_data ή δεν είμαστε authenticated, επέστρεψε τα plain text δεδομένα
-                    console.log('No encrypted data or not authenticated for row ID:', row.id);
-                    return row;
                 }
+                // If there is no encrypted_data or parsing/decryption failed, ensure
+                // sensitive fields are present (set to null) so UI can display
+                return {
+                    ...row,
+                    username: row.username || null,
+                    email: row.email || null,
+                    password: row.password || null,
+                    url: row.url || null,
+                    notes: row.notes || null
+                };
             });
-            
+
             callback(null, processedRows);
         });
     } catch (error) {
@@ -376,56 +356,50 @@ async addPassword(passwordData, callback) {
             return;
         }
 
-        // Προσπάθεια κρυπτογράφησης
-        let encryptedData = null;
+        // Attempt to encrypt sensitive data.  If encryption is not available, we
+        // still persist the sensitive fields inside encrypted_data as a plain
+        // JSON object.  This ensures we never persist username/email/password/url/notes
+        // in separate columns.
+        let dataToStore;
         try {
+            const sensitiveData = {
+                username: username || null,
+                email: email || null,
+                password: password,
+                url: url || null,
+                notes: notes || null
+            };
             if (this.authManager && this.authManager.isAuthenticated) {
-                const sensitiveData = {
-                    username: username || null,
-                    email: email || null,
-                    password: password,
-                    url: url || null,
-                    notes: notes || null
-                };
                 console.log('Attempting to encrypt data...');
-                encryptedData = this.authManager.encryptData(sensitiveData);
-                console.log('Encryption successful, encrypted data length:', JSON.stringify(encryptedData).length);
+                dataToStore = this.authManager.encryptData(sensitiveData);
+                console.log('Encryption successful, encrypted data length:', JSON.stringify(dataToStore).length);
             } else {
-                console.warn('Auth manager not authenticated, using plain text');
+                console.warn('Auth manager not authenticated, storing sensitive data in plain JSON');
+                dataToStore = sensitiveData;
             }
         } catch (authError) {
             console.error('Encryption failed:', authError.message);
-            // Συνεχίζουμε με plain text αν η κρυπτογράφηση αποτύχει
+            // Fall back to plain JSON if encryption fails
+            dataToStore = {
+                username: username || null,
+                email: email || null,
+                password: password,
+                url: url || null,
+                notes: notes || null
+            };
         }
 
-        if (encryptedData) {
-            // Store encrypted data along with the image (unencrypted)
-            this.db.run(`
-                INSERT INTO passwords (category_id, title, encrypted_data, image) 
-                VALUES (?, ?, ?, ?)
-            `, [
-                category_id || null,
-                title.trim(),
-                JSON.stringify(encryptedData),
-                image || null
-            ], callback);
-        } else {
-            // Store as plain text (fallback) - include the image column
-            console.log('Using plain text fallback');
-            this.db.run(`
-                INSERT INTO passwords (category_id, title, username, email, password, url, notes, image) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `, [
-                category_id || null,
-                title.trim(),
-                username ? username.trim() : null,
-                email ? email.trim() : null,
-                password,
-                url ? url.trim() : null,
-                notes ? notes.trim() : null,
-                image || null
-            ], callback);
-        }
+        // Persist the record.  Sensitive data (encrypted or plain) is stored
+        // exclusively in the encrypted_data column.
+        this.db.run(`
+            INSERT INTO passwords (category_id, title, image, encrypted_data)
+            VALUES (?, ?, ?, ?)
+        `, [
+            category_id || null,
+            title.trim(),
+            image || null,
+            JSON.stringify(dataToStore)
+        ], callback);
     } catch (error) {
         console.error('Error in addPassword:', error);
         callback(error, null);
@@ -456,58 +430,48 @@ async updatePassword(id, passwordData, callback) {
             return;
         }
 
-        // Προσπάθεια κρυπτογράφησης
-        let encryptedData = null;
+        // Attempt to encrypt updated sensitive data.  If encryption is not available,
+        // the sensitive fields are stored in plain JSON within the encrypted_data column.
+        let dataToStore;
         try {
+            const sensitiveData = {
+                username: username || null,
+                email: email || null,
+                password: password,
+                url: url || null,
+                notes: notes || null
+            };
             if (this.authManager && this.authManager.isAuthenticated) {
-                const sensitiveData = {
-                    username: username || null,
-                    email: email || null,
-                    password: password,
-                    url: url || null,
-                    notes: notes || null
-                };
-                encryptedData = this.authManager.encryptData(sensitiveData);
+                console.log('Attempting to encrypt data for update...');
+                dataToStore = this.authManager.encryptData(sensitiveData);
                 console.log('Encryption successful for update');
             } else {
-                console.warn('Auth manager not authenticated for update, using plain text');
+                console.warn('Auth manager not authenticated for update; storing plain JSON');
+                dataToStore = sensitiveData;
             }
         } catch (authError) {
             console.error('Encryption failed for update:', authError.message);
+            dataToStore = {
+                username: username || null,
+                email: email || null,
+                password: password,
+                url: url || null,
+                notes: notes || null
+            };
         }
 
-        if (encryptedData) {
-            // Update encrypted data and image separately
-            this.db.run(`
-                UPDATE passwords 
-                SET category_id = ?, title = ?, encrypted_data = ?, image = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            `, [
-                category_id || null,
-                title.trim(),
-                JSON.stringify(encryptedData),
-                image || null,
-                id
-            ], callback);
-        } else {
-            // Update as plain text (fallback) including image
-            console.log('Using plain text fallback for update');
-            this.db.run(`
-                UPDATE passwords 
-                SET category_id = ?, title = ?, username = ?, email = ?, password = ?, url = ?, notes = ?, image = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            `, [
-                category_id || null,
-                title.trim(),
-                username ? username.trim() : null,
-                email ? email.trim() : null,
-                password,
-                url ? url.trim() : null,
-                notes ? notes.trim() : null,
-                image || null,
-                id
-            ], callback);
-        }
+        // Update the record.  Sensitive data is stored solely in encrypted_data.
+        this.db.run(`
+            UPDATE passwords
+            SET category_id = ?, title = ?, image = ?, encrypted_data = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [
+            category_id || null,
+            title.trim(),
+            image || null,
+            JSON.stringify(dataToStore),
+            id
+        ], callback);
     } catch (error) {
         console.error('Error in updatePassword:', error);
         callback(error, null);
@@ -540,13 +504,16 @@ async updatePassword(id, passwordData, callback) {
       }
 
       const searchTerm = `%${query}%`;
+      // We no longer store sensitive fields in separate columns.  Search is
+      // therefore limited to the title.  Additional filtering can be
+      // implemented client-side after decrypting the data.
       this.db.all(`
-        SELECT p.*, c.name as category_name 
-        FROM passwords p 
-        LEFT JOIN categories c ON p.category_id = c.id 
-        WHERE p.title LIKE ? OR p.username LIKE ? OR p.email LIKE ? OR p.url LIKE ? OR p.notes LIKE ?
+        SELECT p.id, p.category_id, p.title, p.image, p.encrypted_data, p.created_at, p.updated_at, c.name as category_name
+        FROM passwords p
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE p.title LIKE ?
         ORDER BY p.title
-      `, [searchTerm, searchTerm, searchTerm, searchTerm, searchTerm], callback);
+      `, [searchTerm], callback);
     } catch (error) {
       callback(error, null);
     }

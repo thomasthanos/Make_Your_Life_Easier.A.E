@@ -34,7 +34,10 @@ class PasswordManagerAuthUI {
             en: {
                 setup_title: 'Create!',
                 login_title: 'Login!',
-                create_master_placeholder: 'Master Password (min 8 chars)',
+                // Placeholder text for the master password input (no length hint)
+                create_master_placeholder: 'Master Password',
+                // Hint shown below the master password input
+                create_master_hint: 'Minimum 8 characters',
                 confirm_placeholder: 'Confirm',
                 create_button: 'Create',
                 login_placeholder: 'Master Password',
@@ -54,12 +57,18 @@ class PasswordManagerAuthUI {
                 warning_attention: 'Attention:',
                 warning_reset_note: 'If you forget your Master Password, your data will be unrecoverable.',
                 error_title: 'Error',
-                error_close: 'Close'
+                error_close: 'Close',
+                // Titles for the show/hide password buttons
+                show_password: 'Show password',
+                hide_password: 'Hide password'
             },
             gr: {
                 setup_title: 'Δημιουργία!',
                 login_title: 'Σύνδεση!',
-                create_master_placeholder: 'Master Password (τουλάχιστον 8 χαρακτήρες)',
+                // Placeholder text for the master password input (no length hint)
+                create_master_placeholder: 'Master Password',
+                // Hint shown below the master password input
+                create_master_hint: 'Τουλάχιστον 8 χαρακτήρες',
                 confirm_placeholder: 'Επιβεβαίωση',
                 create_button: 'Δημιουργία',
                 login_placeholder: 'Master Password',
@@ -79,7 +88,10 @@ class PasswordManagerAuthUI {
                 warning_attention: 'Προσοχή:',
                 warning_reset_note: 'Αν ξεχάσετε τον Master Password, τα δεδομένα σας θα είναι μη ανακτήσιμα.',
                 error_title: 'Σφάλμα',
-                error_close: 'Κλείσιμο'
+                error_close: 'Κλείσιμο',
+                // Titles for the show/hide password buttons
+                show_password: 'Εμφάνιση κωδικού',
+                hide_password: 'Απόκρυψη κωδικού'
             }
         };
     }
@@ -169,25 +181,47 @@ class PasswordManagerAuthUI {
             <div class="card">
                 <h4 class="title">${this.t('setup_title')}</h4>
                 <form id="setupForm" class="auth-form">
-                    <div class="field">
-                        <svg class="input-icon" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M80 192V144C80 64.47 144.5 0 224 0C303.5 0 368 64.47 368 144V192H384C419.3 192 448 220.7 448 256V448C448 483.3 419.3 512 384 512H64C28.65 512 0 483.3 0 448V256C0 220.7 28.65 192 64 192H80zM144 192H304V144C304 99.82 268.2 64 224 64C179.8 64 144 99.82 144 144V192z"></path>
+                    <div class="field has-hint">
+                        <!-- Lock icon for password field -->
+                        <svg class="input-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4M4.5 7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7zM8 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/>
                         </svg>
                         <input type="password" id="masterPassword" class="input-field password-input" 
                                placeholder="${this.t('create_master_placeholder')}" required
                                minlength="8" autocomplete="new-password">
-                        <button type="button" class="password-toggle" onclick="pmAuthUI.togglePasswordVisibility('masterPassword')">👁️</button>
+                        <button type="button" class="password-toggle" onclick="pmAuthUI.togglePasswordVisibility('masterPassword')" title="${this.t('show_password')}">
+                            <svg class="eye-open-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12 C3 7, 8 4, 12 4 C16 4, 21 7, 23 12 C21 17, 16 20, 12 20 C8 20, 3 17, 1 12 Z"/>
+                                <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>
+                            </svg>
+                            <svg class="eye-closed-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+                                <path d="M1 12 C3 7, 8 4, 12 4 C16 4, 21 7, 23 12 C21 17, 16 20, 12 20 C8 20, 3 17, 1 12 Z"/>
+                                <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </button>
                     </div>
+                    <!-- Hint for minimum password length displayed below the first password field -->
+                    <div class="input-hint">${this.t('create_master_hint')}</div>
                     <div id="passwordStrength" class="password-strength-container"></div>
                     
                     <div class="field">
-                        <svg class="input-icon" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M80 192V144C80 64.47 144.5 0 224 0C303.5 0 368 64.47 368 144V192H384C419.3 192 448 220.7 448 256V448C448 483.3 419.3 512 384 512H64C28.65 512 0 483.3 0 448V256C0 220.7 28.65 192 64 192H80zM144 192H304V144C304 99.82 268.2 64 224 64C179.8 64 144 99.82 144 144V192z"></path>
+                        <!-- Lock icon for confirm password field -->
+                        <svg class="input-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4M4.5 7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7zM8 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/>
                         </svg>
                         <input type="password" id="confirmPassword" class="input-field password-input" 
                                placeholder="${this.t('confirm_placeholder')}" required
                                autocomplete="new-password">
-                        <button type="button" class="password-toggle" onclick="pmAuthUI.togglePasswordVisibility('confirmPassword')">👁️</button>
+                        <button type="button" class="password-toggle" onclick="pmAuthUI.togglePasswordVisibility('confirmPassword')" title="${this.t('show_password')}">
+                            <svg class="eye-open-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12 C3 7, 8 4, 12 4 C16 4, 21 7, 23 12 C21 17, 16 20, 12 20 C8 20, 3 17, 1 12 Z"/>
+                                <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>
+                            </svg>
+                            <svg class="eye-closed-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+                                <path d="M1 12 C3 7, 8 4, 12 4 C16 4, 21 7, 23 12 C21 17, 16 20, 12 20 C8 20, 3 17, 1 12 Z"/>
+                                <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </button>
                     </div>
                     <div id="passwordMatch" class="password-match"></div>
                     
@@ -203,11 +237,21 @@ class PasswordManagerAuthUI {
                 <h4 class="title">${this.t('login_title')}</h4>
                 <form id="loginForm" class="auth-form">
                     <div class="field">
-                        <svg class="input-icon" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M80 192V144C80 64.47 144.5 0 224 0C303.5 0 368 64.47 368 144V192H384C419.3 192 448 220.7 448 256V448C448 483.3 419.3 512 384 512H64C28.65 512 0 483.3 0 448V256C0 220.7 28.65 192 64 192H80zM144 192H304V144C304 99.82 268.2 64 224 64C179.8 64 144 99.82 144 144V192z"></path>
+                        <!-- Lock icon for login password field -->
+                        <svg class="input-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4M4.5 7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7zM8 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/>
                         </svg>
                         <input autocomplete="off" id="loginPassword" placeholder="${this.t('login_placeholder')}" class="input-field password-input" name="logpass" type="password" required autofocus>
-                        <button type="button" class="password-toggle" onclick="pmAuthUI.togglePasswordVisibility('loginPassword')">👁️</button>
+                        <button type="button" class="password-toggle" onclick="pmAuthUI.togglePasswordVisibility('loginPassword')" title="${this.t('show_password')}">
+                            <svg class="eye-open-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12 C3 7, 8 4, 12 4 C16 4, 21 7, 23 12 C21 17, 16 20, 12 20 C8 20, 3 17, 1 12 Z"/>
+                                <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>
+                            </svg>
+                            <svg class="eye-closed-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+                                <path d="M1 12 C3 7, 8 4, 12 4 C16 4, 21 7, 23 12 C21 17, 16 20, 12 20 C8 20, 3 17, 1 12 Z"/>
+                                <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </button>
                     </div>
                     <button class="btn" type="submit" id="loginBtn">${this.t('login_button')}</button>
                     <a href="#" class="btn-link" id="forgotPasswordLink">${this.t('forgot_link')}</a>
@@ -245,17 +289,28 @@ class PasswordManagerAuthUI {
     }
 
     togglePasswordVisibility(inputId) {
+        // Retrieve the target input and its associated toggle button
         const input = document.getElementById(inputId);
+        if (!input) return;
         const toggleButton = input.nextElementSibling;
+        if (!toggleButton) return;
 
+        // Locate the eye icons inside the toggle button
+        const eyeOpen = toggleButton.querySelector('.eye-open-icon');
+        const eyeClosed = toggleButton.querySelector('.eye-closed-icon');
+
+        // Toggle the input type and update icon visibility and tooltip
         if (input.type === 'password') {
             input.type = 'text';
-            toggleButton.textContent = '🙈';
-            toggleButton.title = 'Απόκρυψη κωδικού';
+            if (eyeOpen) eyeOpen.style.display = 'none';
+            if (eyeClosed) eyeClosed.style.display = 'inline';
+            // Use translation keys if available
+            toggleButton.title = this.t('hide_password');
         } else {
             input.type = 'password';
-            toggleButton.textContent = '👁️';
-            toggleButton.title = 'Εμφάνιση κωδικού';
+            if (eyeOpen) eyeOpen.style.display = 'inline';
+            if (eyeClosed) eyeClosed.style.display = 'none';
+            toggleButton.title = this.t('show_password');
         }
     }
 
