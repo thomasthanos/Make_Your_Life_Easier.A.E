@@ -47,8 +47,8 @@ class PasswordManager {
                 cancel: 'Cancel',
                 save_password: '💾 Save Password',
                 no_category_option: 'No Category',
-                title_label: 'Title *',
-                password_label: 'Password *',
+                title_label: 'Title',
+                password_label: 'Password',
                 url_label: 'Website URL',
                 category_label: 'Category',
                 username_label: 'Username',
@@ -104,6 +104,15 @@ class PasswordManager {
                 normal_mode: '📱 Normal Mode'
                 ,
                 new_category_prompt: 'Enter new category name:'
+                ,
+                // New validation message: username or email is required
+                username_or_email_required: 'Either Username or Email is required.'
+                ,
+                // Email format error
+                invalid_email_format: 'Invalid email format.'
+                ,
+                // URL required error
+                url_required: 'Website URL is required.'
             },
             gr: {
                 add_password_btn: '+ Προσθήκη Κωδικού',
@@ -112,8 +121,8 @@ class PasswordManager {
                 cancel: 'Ακύρωση',
                 save_password: '💾 Αποθήκευση Κωδικού',
                 no_category_option: 'Χωρίς Κατηγορία',
-                title_label: 'Τίτλος *',
-                password_label: 'Κωδικός *',
+                title_label: 'Τίτλος',
+                password_label: 'Κωδικός',
                 url_label: 'Ιστότοπος URL',
                 category_label: 'Κατηγορία',
                 username_label: 'Όνομα χρήστη',
@@ -169,6 +178,15 @@ class PasswordManager {
                 normal_mode: '📱 Κανονική Λειτουργία'
                 ,
                 new_category_prompt: 'Εισάγετε νέα κατηγορία:'
+                ,
+                // New validation message in Greek: one of username or email is mandatory
+                username_or_email_required: 'Το πεδίο “Όνομα χρήστη” ή “Email” είναι υποχρεωτικό.'
+                ,
+                // Email format error in Greek
+                invalid_email_format: 'Μη έγκυρη μορφή email.'
+                ,
+                // URL required error in Greek
+                url_required: 'Το πεδίο Ιστότοπος είναι υποχρεωτικό.'
             }
         };
 
@@ -295,12 +313,16 @@ class PasswordManager {
             this.updateCompactToggleUI(gridToggleBtn, manager);
         }
 
-        // Close modals on backdrop click
-        document.getElementById('passwordModal').addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) this.closePasswordModal();
-        });
+        // Close categories modal when clicking on its backdrop
         document.getElementById('categoriesModal').addEventListener('click', (e) => {
             if (e.target === e.currentTarget) this.closeCategoriesModal();
+        });
+        // Prevent closing the password modal when clicking outside of the modal
+        // content.  This listener intentionally does nothing on backdrop clicks
+        // so that accidental clicks do not close the form.
+        document.getElementById('passwordModal').addEventListener('click', (e) => {
+            // e.target === e.currentTarget indicates a click on the backdrop, but we
+            // ignore it to keep the modal open.
         });
 
         // Inline add category functionality within the add password modal
@@ -319,6 +341,11 @@ class PasswordManager {
                 const selectEl = document.getElementById('category');
                 if (selectEl) {
                     selectEl.classList.add('hidden');
+                    // Also hide the custom select wrapper if present
+                    const customSelect = document.getElementById('customCategorySelect');
+                    if (customSelect) {
+                        customSelect.classList.add('hidden');
+                    }
                 }
                 inlineNameInput.value = '';
                 inlineNameInput.focus();
@@ -358,6 +385,11 @@ class PasswordManager {
                 const selectEl = document.getElementById('category');
                 if (selectEl) {
                     selectEl.classList.remove('hidden');
+                    // Show the custom select again
+                    const customSelect = document.getElementById('customCategorySelect');
+                    if (customSelect) {
+                        customSelect.classList.remove('hidden');
+                    }
                 }
                 inlineNameInput.value = '';
             });
@@ -371,6 +403,10 @@ class PasswordManager {
                 const selectEl = document.getElementById('category');
                 if (selectEl) {
                     selectEl.classList.remove('hidden');
+                    const customSelect = document.getElementById('customCategorySelect');
+                    if (customSelect) {
+                        customSelect.classList.remove('hidden');
+                    }
                 }
                 inlineNameInput.value = '';
             });
@@ -526,34 +562,81 @@ class PasswordManager {
         generateBtn.className = 'button generate-password-btn';
         generateBtn.setAttribute('aria-label', 'Generate strong password');
         
-        // Only the dice icon for the generator button
+        // Use a simple dice emoji for the generator button as requested
         generateBtn.innerHTML = '🎲';
         
         generateBtn.addEventListener('click', () => {
             this.generateStrongPassword();
         });
         
-        formGroup.appendChild(generateBtn);
+        // We'll append the buttons later as part of a combined container.
 
         // Create a toggle visibility button for the password field
+        // Define SVG icons for showing and hiding the password.  The eye open
+        // icon is used when the password is visible, and the crossed eye is
+        // used when the password is hidden.  Both icons inherit the
+        // current text colour via `currentColor`.
+        const eyeClosedIcon = `
+            <svg width="1.4em" height="1.4em" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 5C7 5 3.05 9.55 2 12c1.05 2.45 5 7 10 7s8.95-4.55 10-7c-1.05-2.45-5-7-10-7z" stroke="currentColor" stroke-width="2" fill="none" />
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none" />
+              <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" stroke-width="2" />
+            </svg>`;
+        const eyeOpenIcon = `
+            <svg width="1.4em" height="1.4em" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 5C7 5 3.05 9.55 2 12c1.05 2.45 5 7 10 7s8.95-4.55 10-7c-1.05-2.45-5-7-10-7z" stroke="currentColor" stroke-width="2" fill="none" />
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none" />
+            </svg>`;
+
         const toggleBtn = document.createElement('button');
         toggleBtn.type = 'button';
         toggleBtn.className = 'button toggle-visibility-btn';
         toggleBtn.setAttribute('aria-label', 'Toggle password visibility');
+        // Insert the closed eye icon initially (password hidden)
+        toggleBtn.innerHTML = eyeClosedIcon;
         
         // Event listener to toggle the password input type and update icon state
         toggleBtn.addEventListener('click', () => {
             const input = document.getElementById('password');
             if (input.type === 'password') {
                 input.type = 'text';
+                toggleBtn.innerHTML = eyeOpenIcon;
                 toggleBtn.classList.add('visible');
             } else {
                 input.type = 'password';
+                toggleBtn.innerHTML = eyeClosedIcon;
                 toggleBtn.classList.remove('visible');
             }
         });
         
-        formGroup.appendChild(toggleBtn);
+        // Create a container for both icons to ensure proper positioning without overlap
+        const iconsContainer = document.createElement('div');
+        iconsContainer.className = 'password-icons-container';
+        // Append the visibility toggle first so that it appears to the left
+        // of the dice generator button.  Users requested the eye icon on the
+        // left and the dice on the right.
+        iconsContainer.appendChild(toggleBtn);
+        iconsContainer.appendChild(generateBtn);
+        formGroup.appendChild(iconsContainer);
+
+        // Dynamically align the icons container so that it is vertically centered
+        // relative to the password input.  Because the form group contains a label
+        // above the input, using CSS alone results in the icons being centered
+        // between the label and the bottom of the group.  By computing the
+        // positioning in JavaScript, we ensure that the icons align with the
+        // vertical centre of the input itself, regardless of label height.
+        // We defer the calculation to the next animation frame to ensure the
+        // browser has computed the layout and the icons container has its height.
+        requestAnimationFrame(() => {
+            const passwordRect = passwordField.getBoundingClientRect();
+            const groupRect = formGroup.getBoundingClientRect();
+            const iconsRect = iconsContainer.getBoundingClientRect();
+            // Offset from the top of the form group to the centre of the input minus
+            // half the height of the icons.  This positions the icons container
+            // vertically aligned with the password field.
+            const offsetTop = passwordRect.top - groupRect.top + (passwordRect.height - iconsRect.height) / 2;
+            iconsContainer.style.top = `${offsetTop}px`;
+        });
     }
 
     async loadData() {
@@ -851,6 +934,90 @@ class PasswordManager {
             option.textContent = category.name;
             select.appendChild(option);
         });
+
+        // After populating the native <select>, create a custom dropdown
+        this.renderCustomSelect();
+    }
+
+    /**
+     * Replace the native <select> element for categories with a custom styled
+     * dropdown.  This function hides the original select element and builds
+     * an accessible custom widget that mirrors its options and state.  The
+     * custom dropdown supports opening, selecting and closing behaviours, and
+     * updates the underlying select value accordingly.  It can be called
+     * repeatedly to rebuild the custom UI after the select options change.
+     */
+    renderCustomSelect() {
+        const selectEl = document.getElementById('category');
+        if (!selectEl) return;
+        // Identify the wrapper that contains the select and the add button
+        const wrapper = selectEl.closest('.category-select-wrapper');
+        if (!wrapper) return;
+        // Remove any previously created custom select
+        const existingCustom = wrapper.querySelector('.custom-select');
+        if (existingCustom) {
+            existingCustom.remove();
+        }
+        // Create container
+        const custom = document.createElement('div');
+        custom.className = 'custom-select';
+        custom.setAttribute('id', 'customCategorySelect');
+        // Create display element that shows the selected option
+        const display = document.createElement('div');
+        display.className = 'select-display';
+        // Determine the currently selected option's text
+        let selectedOption = selectEl.options[selectEl.selectedIndex];
+        // If no option is selected (value may be ''), pick the first option for display
+        if (!selectedOption) {
+            selectedOption = selectEl.options[0];
+        }
+        display.textContent = selectedOption ? selectedOption.textContent : '';
+        custom.appendChild(display);
+        // Create the options list container
+        const optionsList = document.createElement('div');
+        optionsList.className = 'select-options';
+        // Populate the list from the native select options
+        Array.from(selectEl.options).forEach(option => {
+            const item = document.createElement('div');
+            item.textContent = option.textContent;
+            item.dataset.value = option.value;
+            // Mark the currently selected option
+            if (option.value === selectEl.value) {
+                item.classList.add('selected');
+            }
+            // Click handler: update the native select and display
+            item.addEventListener('click', (e) => {
+                // Update underlying select value
+                selectEl.value = option.value;
+                // Trigger change event in case other listeners exist
+                const changeEvent = new Event('change', { bubbles: true });
+                selectEl.dispatchEvent(changeEvent);
+                // Update display text
+                display.textContent = option.textContent;
+                // Highlight selected
+                optionsList.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+                item.classList.add('selected');
+                // Close list
+                custom.classList.remove('open');
+            });
+            optionsList.appendChild(item);
+        });
+        custom.appendChild(optionsList);
+        // Toggle list on display click
+        display.addEventListener('click', (e) => {
+            e.stopPropagation();
+            custom.classList.toggle('open');
+        });
+        // Close list when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!custom.contains(e.target)) {
+                custom.classList.remove('open');
+            }
+        });
+        // Insert custom select before the original select
+        wrapper.insertBefore(custom, selectEl);
+        // Hide the original select element from view but keep it in the DOM for form submission
+        selectEl.style.display = 'none';
     }
 
 renderPasswords() {
@@ -1281,9 +1448,41 @@ async savePassword(e) {
         return;
     }
 
+    // Validation: either username or email must be provided
+    const usernameValRequired = passwordData.username;
+    const emailValRequired = passwordData.email;
+    if (!usernameValRequired && !emailValRequired) {
+        // Use translation key if available, otherwise fallback to default English message
+        const errorMsg = typeof this.t === 'function' ? this.t('username_or_email_required') : 'Either Username or Email is required.';
+        this.showError(errorMsg);
+        const usernameInput = document.getElementById('username');
+        const emailInput = document.getElementById('email');
+        if (usernameInput) usernameInput.classList.add('shake');
+        if (emailInput) emailInput.classList.add('shake');
+        setTimeout(() => {
+            if (usernameInput) usernameInput.classList.remove('shake');
+            if (emailInput) emailInput.classList.remove('shake');
+        }, 500);
+        return;
+    }
+
+    // Validation: URL is required
+    const urlValRequired = passwordData.url;
+    if (!urlValRequired) {
+        const errorMsg = typeof this.t === 'function' ? this.t('url_required') : 'Website URL is required.';
+        this.showError(errorMsg);
+        const urlInput = document.getElementById('url');
+        if (urlInput) urlInput.classList.add('shake');
+        setTimeout(() => {
+            if (urlInput) urlInput.classList.remove('shake');
+        }, 500);
+        return;
+    }
+
     const emailVal = document.getElementById('email').value.trim();
     if (emailVal && !this.isValidEmailUnicode(emailVal)) {
-        this.showError('Invalid email format.');
+        const errMsg = typeof this.t === 'function' ? this.t('invalid_email_format') : 'Invalid email format.';
+        this.showError(errMsg);
         document.getElementById('email').classList.add('shake');
         setTimeout(() => document.getElementById('email').classList.remove('shake'), 500);
         return;
@@ -1403,6 +1602,8 @@ async savePassword(e) {
     // domain: labels με γράμματα/αριθμούς/παύλες (Unicode), χωρισμένα με τελείες
     const label = /^[\p{L}\p{M}\p{N}]+(?:[\p{L}\p{M}\p{N}-]*[\p{L}\p{M}\p{N}])?$/u;
     const labels = domain.split('.');
+    // Απαιτείται τουλάχιστον ένα σημείο στο domain (π.χ. example.com) για πιο αυστηρό έλεγχο.
+    if (labels.length < 2) return false;
     if (labels.some(l => !l || !label.test(l))) return false;
     // local: οτιδήποτε εκτός από κενό/χωρίς @/χωρίς κενό διάστημα
     if (/[^\S\r\n]/.test(local)) return false;
