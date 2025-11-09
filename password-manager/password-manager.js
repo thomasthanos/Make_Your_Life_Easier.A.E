@@ -45,7 +45,9 @@ class PasswordManager {
                 hide_password: 'Hide password',
                 update_category: 'Update',
                 delete_category: 'Delete',
-                no_categories: 'No categories found'
+                no_categories: 'No categories found',
+                // Label used when a password has no category assigned
+                no_category_option: 'No Category'
             },
             gr: {
                 all: 'Όλα',
@@ -70,7 +72,9 @@ class PasswordManager {
                 hide_password: 'Απόκρυψη κωδικού',
                 update_category: 'Ενημέρωση',
                 delete_category: 'Διαγραφή',
-                no_categories: 'Δεν βρέθηκαν κατηγορίες'
+                no_categories: 'Δεν βρέθηκαν κατηγορίες',
+                // Label used when a password has no category assigned
+                no_category_option: 'Χωρίς Κατηγορία'
             }
         };
         
@@ -216,7 +220,8 @@ class PasswordManager {
 
     renderCategorySelect() {
         const select = document.getElementById('category');
-        select.innerHTML = '<option value="">No Category</option>';
+        // Set the first option to a special value 'no_category' so it persists in the database
+        select.innerHTML = `<option value="no_category">${this.t('no_category_option')}</option>`;
         
         this.categories.forEach(category => {
             const option = document.createElement('option');
@@ -249,7 +254,26 @@ class PasswordManager {
                         <button class="action-btn" onclick="pm.deletePassword(${password.id})" title="Delete">🗑️</button>
                     </div>
                 </div>
-                ${password.category_name ? `<span class="password-category">${this.escapeHtml(password.category_name)}</span>` : ''}
+                ${
+                    (() => {
+                        // If a category_name is stored and non-empty, display it
+                        if (password.category_name) {
+                            return `<span class="password-category">${this.escapeHtml(password.category_name)}</span>`;
+                        }
+                        // If no category is assigned (null, undefined, empty or special 'no_category'),
+                        // show the translated "No Category"
+                        if (!password.category_id || password.category_id === 'no_category') {
+                            return `<span class="password-category">${this.t('no_category_option')}</span>`;
+                        }
+                        // Otherwise attempt to find the category name from the loaded categories
+                        const foundCat = this.categories.find(cat => String(cat.id) === String(password.category_id));
+                        if (foundCat) {
+                            return `<span class="password-category">${this.escapeHtml(foundCat.name)}</span>`;
+                        }
+                        // Unknown category ID; render nothing
+                        return '';
+                    })()
+                }
                 <div class="password-field">
                     <span class="password-label">${this.t('username_label')}</span>
                     <div class="password-value">
@@ -326,7 +350,15 @@ class PasswordManager {
 
         document.getElementById('passwordId').value = password.id;
         document.getElementById('title').value = password.title;
-        document.getElementById('category').value = password.category_id || '';
+        // If no category or the special 'no_category' value is stored, select the 'no_category' option
+        const categorySelect = document.getElementById('category');
+        if (categorySelect) {
+            if (!password.category_id || password.category_id === 'no_category') {
+                categorySelect.value = 'no_category';
+            } else {
+                categorySelect.value = password.category_id;
+            }
+        }
         document.getElementById('username').value = password.username || '';
         document.getElementById('email').value = password.email || '';
         document.getElementById('password').value = password.password;
@@ -343,9 +375,25 @@ class PasswordManager {
             return;
         }
 
+        // Build the payload including a human‑readable category_name.  If a
+        // category is selected (not the special 'no_category'), look up its
+        // name from the cached categories array; fall back to the option text.
+        const catSelect = document.getElementById('category');
+        const catId = catSelect ? catSelect.value : 'no_category';
+        let catName = '';
+        if (catId && catId !== 'no_category') {
+            const found = this.categories.find(c => String(c.id) === catId);
+            if (found) {
+                catName = found.name;
+            } else if (catSelect) {
+                const opt = catSelect.options[catSelect.selectedIndex];
+                if (opt) catName = opt.textContent.trim();
+            }
+        }
         const passwordData = {
             title: document.getElementById('title').value,
-            category_id: document.getElementById('category').value || null,
+            category_id: catId || 'no_category',
+            category_name: catName,
             username: document.getElementById('username').value || null,
             email: document.getElementById('email').value || null,
             password: document.getElementById('password').value,
