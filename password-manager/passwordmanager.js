@@ -271,6 +271,21 @@ class PasswordManager {
             }
         }
 
+        // Auto‑fetch site logo when the user finishes entering a URL and no
+        // image has been selected.  When the URL input loses focus (blur),
+        // attempt to retrieve the favicon for the domain if the hidden
+        // imageData input is empty.  This does not override a manually
+        // uploaded image.
+        const urlInput = document.getElementById('url');
+        if (urlInput) {
+            urlInput.addEventListener('blur', (e) => {
+                const urlValue = e.target.value ? e.target.value.trim() : '';
+                if (urlValue) {
+                    this.fetchSiteLogo(urlValue);
+                }
+            });
+        }
+
         // Compact mode toggle: use the grid toggle button in the header instead of a standalone button
         const gridToggleBtn = document.getElementById('gridToggle');
         if (gridToggleBtn) {
@@ -1645,6 +1660,45 @@ async savePassword(e) {
             this.setUploadBoxImage(imageUrl);
         };
         reader.readAsDataURL(file);
+    }
+
+    /**
+     * Attempt to automatically fetch a favicon or logo for the given website
+     * URL when the user has not manually selected an image.  This helper
+     * extracts the hostname from the provided URL and constructs a link to
+     * Google's favicon API (or any similar service) to retrieve a 128×128 icon.
+     * If the hidden image input (#imageData) is already populated (e.g.
+     * because the user uploaded a file), the function does nothing.  On
+     * success it sets the hidden input's value to the remote URL and updates
+     * the upload box preview.
+     *
+     * @param {string} urlString The website URL provided by the user
+     */
+    async fetchSiteLogo(urlString) {
+        if (!urlString) return;
+        // Do not override a user‑selected image
+        const hiddenInput = document.getElementById('imageData');
+        if (!hiddenInput || (hiddenInput.value && hiddenInput.value.trim() !== '')) {
+            return;
+        }
+        try {
+            const urlObj = new URL(urlString);
+            const domain = urlObj.hostname;
+            // Construct the URL to fetch the favicon.  Google’s favicon API
+            // returns a PNG icon for the specified domain and size.  Other
+            // services such as Clearbit (https://logo.clearbit.com/) could also
+            // be used here.
+            const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+            // Directly set the hidden input and preview to the remote URL.  We
+            // intentionally avoid fetching the image here because browsers will
+            // handle caching and CORS on the <img> element.  If the URL
+            // resolves to a valid image, the preview will show it; otherwise
+            // the default placeholder remains.
+            hiddenInput.value = logoUrl;
+            this.setUploadBoxImage(logoUrl);
+        } catch (err) {
+            console.error('Error fetching site logo:', err);
+        }
     }
 
     openCategoriesModal() {
