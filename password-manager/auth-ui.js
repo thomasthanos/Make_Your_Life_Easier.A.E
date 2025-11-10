@@ -5,13 +5,6 @@ class PasswordManagerAuthUI {
         this.hasMasterPassword = false;
         this.authModal = null;
 
-        /**
-         * Determine the language.  Check the saved settings in
-         * localStorage (`myAppSettings.lang`) and fall back to the
-         * `<html lang>` attribute only if no explicit preference is set.
-         * Any value starting with "gr" or "el" is considered Greek;
-         * all other values default to English.
-         */
         let selectedLang = null;
         try {
             const settings = JSON.parse(localStorage.getItem('myAppSettings'));

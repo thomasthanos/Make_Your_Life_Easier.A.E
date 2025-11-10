@@ -389,9 +389,10 @@ class PasswordManagerDB {
 
             const { category_id, category_name, title, username, email, password, url, notes, image } = passwordData;
             
-            console.log('Adding password with encryption...');
+            // Log generic information; avoid logging password lengths or other
+            // sensitive metadata.  Title is safe to log.
+            console.log('Adding password entry');
             console.log('Title:', title);
-            console.log('Password length:', password ? password.length : 0);
 
             if (!title || !title.trim()) {
                 callback(new Error('Title is required'), null);
@@ -403,44 +404,38 @@ class PasswordManagerDB {
                 return;
             }
 
-            let dataToStore;
+            // Assemble sensitive data
+            const sensitiveData = {
+                username: username || '',
+                email: email || '',
+                password: password,
+                url: url || '',
+                notes: notes || ''
+            };
             try {
-                const sensitiveData = {
-                    username: username || '',
-                    email: email || '',
-                    password: password,
-                    url: url || '',
-                    notes: notes || ''
-                };
-                if (this.authManager && this.authManager.isAuthenticated) {
-                    console.log('Attempting to encrypt data...');
-                    dataToStore = this.authManager.encryptData(sensitiveData);
-                    console.log('Encryption successful, encrypted data length:', JSON.stringify(dataToStore).length);
-                } else {
-                    console.warn('Auth manager not authenticated, storing sensitive data in plain JSON');
-                    dataToStore = sensitiveData;
+                if (!this.authManager || !this.authManager.isAuthenticated) {
+                    // Refuse to store unencrypted data.  Do not fall back to
+                    // plain JSON when the user has not authenticated.  This
+                    // prevents accidental leakage of secrets【395143299479830†L194-L204】.
+                    callback(new Error('User must be authenticated to add a password'), null);
+                    return;
                 }
+                // Encrypt sensitive fields
+                const encrypted = this.authManager.encryptData(sensitiveData);
+                this.db.run(`
+                    INSERT INTO passwords (category_id, category_name, title, image, encrypted_data)
+                    VALUES (?, ?, ?, ?, ?)
+                `, [
+                    (category_id ? category_id : null),
+                    (category_name ? category_name : (category_id ? '' : 'no_category')),
+                    title.trim(),
+                    (image ? image : ''),
+                    JSON.stringify(encrypted)
+                ], callback);
             } catch (authError) {
-                console.error('Encryption failed:', authError.message);
-                dataToStore = {
-                    username: username || '',
-                    email: email || '',
-                    password: password,
-                    url: url || '',
-                    notes: notes || ''
-                };
+                // Do not store sensitive data when encryption fails
+                callback(authError, null);
             }
-
-            this.db.run(`
-                INSERT INTO passwords (category_id, category_name, title, image, encrypted_data)
-                VALUES (?, ?, ?, ?, ?)
-            `, [
-                (category_id ? category_id : null),
-                (category_name ? category_name : (category_id ? '' : 'no_category')),
-                title.trim(),
-                (image ? image : ''),
-                JSON.stringify(dataToStore)
-            ], callback);
         } catch (error) {
             console.error('Error in addPassword:', error);
             callback(error, null);
@@ -470,46 +465,35 @@ class PasswordManagerDB {
                 return;
             }
 
-            let dataToStore;
+            // Assemble sensitive data
+            const sensitiveData = {
+                username: username || '',
+                email: email || '',
+                password: password,
+                url: url || '',
+                notes: notes || ''
+            };
             try {
-                const sensitiveData = {
-                    username: username || '',
-                    email: email || '',
-                    password: password,
-                    url: url || '',
-                    notes: notes || ''
-                };
-                if (this.authManager && this.authManager.isAuthenticated) {
-                    console.log('Attempting to encrypt data for update...');
-                    dataToStore = this.authManager.encryptData(sensitiveData);
-                    console.log('Encryption successful for update');
-                } else {
-                    console.warn('Auth manager not authenticated for update; storing plain JSON');
-                    dataToStore = sensitiveData;
+                if (!this.authManager || !this.authManager.isAuthenticated) {
+                    callback(new Error('User must be authenticated to update a password'), null);
+                    return;
                 }
+                const encrypted = this.authManager.encryptData(sensitiveData);
+                this.db.run(`
+                    UPDATE passwords
+                    SET category_id = ?, category_name = ?, title = ?, image = ?, encrypted_data = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                `, [
+                    (category_id ? category_id : null),
+                    (category_name ? category_name : (category_id ? '' : 'no_category')),
+                    title.trim(),
+                    (image ? image : ''),
+                    JSON.stringify(encrypted),
+                    id
+                ], callback);
             } catch (authError) {
-                console.error('Encryption failed for update:', authError.message);
-                dataToStore = {
-                    username: username || '',
-                    email: email || '',
-                    password: password,
-                    url: url || '',
-                    notes: notes || ''
-                };
+                callback(authError, null);
             }
-
-            this.db.run(`
-                UPDATE passwords
-                SET category_id = ?, category_name = ?, title = ?, image = ?, encrypted_data = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            `, [
-                (category_id ? category_id : null),
-                (category_name ? category_name : (category_id ? '' : 'no_category')),
-                title.trim(),
-                (image ? image : ''),
-                JSON.stringify(dataToStore),
-                id
-            ], callback);
         } catch (error) {
             console.error('Error in updatePassword:', error);
             callback(error, null);
