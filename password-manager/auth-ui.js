@@ -8,111 +8,92 @@ class PasswordManagerAuthUI {
         /**
          * Determine the language.  Check the saved settings in
          * localStorage (`myAppSettings.lang`) and fall back to the
-         * `<html lang>` attribute.  Any value starting with "gr" or
-         * "el" is considered Greek; all other values default to
-         * English.
+         * `<html lang>` attribute only if no explicit preference is set.
+         * Any value starting with "gr" or "el" is considered Greek;
+         * all other values default to English.
          */
-        let lang = 'en';
+        let selectedLang = null;
         try {
             const settings = JSON.parse(localStorage.getItem('myAppSettings'));
             if (settings && typeof settings.lang === 'string' && settings.lang.length > 0) {
-                lang = settings.lang.toLowerCase();
+                selectedLang = settings.lang.toLowerCase();
             }
         } catch (e) {
             // ignore parsing errors
         }
-        if (!lang || lang === 'en') {
-            const docLang = (document.documentElement.lang || '').toLowerCase();
-            if (docLang) {
-                lang = docLang;
-            }
+        // If no saved language, use the document's lang attribute
+        if (!selectedLang) {
+            const docLang = (document.documentElement.lang || 'en').toLowerCase();
+            selectedLang = docLang;
         }
-        this.lang = (lang.startsWith('gr') || lang.startsWith('el')) ? 'gr' : 'en';
+        this.lang = (selectedLang.startsWith('gr') || selectedLang.startsWith('el')) ? 'gr' : 'en';
 
-        // Translation table
-        this.translations = {
-            en: {
-                setup_title: 'Create!',
-                login_title: 'Login!',
-                // Placeholder text for the master password input (no length hint)
-                create_master_placeholder: 'Master Password',
-                // Hint shown below the master password input
-                create_master_hint: 'Minimum 8 characters',
-                confirm_placeholder: 'Confirm',
-                create_button: 'Create',
-                login_placeholder: 'Master Password',
-                login_button: 'START',
-                forgot_link: 'Forgot your password?',
-                forgot_title: 'Forgot your password?',
-                irreversible_action: 'This action is irreversible!',
-                forgot_warning_1: 'If you forgot your Master Password, the only solution is to completely reset the Password Manager.',
-                forgot_warning_delete: 'This will delete:',
-                forgot_list_passwords: 'All stored passwords',
-                forgot_list_categories: 'All categories',
-                forgot_list_settings: 'All settings',
-                forgot_warning_2: 'You will have to recreate everything from scratch.',
-                reset_button: 'Reset Password',
-                cancel_button: 'Cancel',
-                warning_prefix: '⚠️',
-                warning_attention: 'Attention:',
-                warning_reset_note: 'If you forget your Master Password, your data will be unrecoverable.',
-                error_title: 'Error',
-                error_close: 'Close',
-                // Titles for the show/hide password buttons
-                show_password: 'Show password',
-                hide_password: 'Hide password'
-            },
-            gr: {
-                setup_title: 'Δημιουργία!',
-                login_title: 'Σύνδεση!',
-                // Placeholder text for the master password input (no length hint)
-                create_master_placeholder: 'Master Password',
-                // Hint shown below the master password input
-                create_master_hint: 'Τουλάχιστον 8 χαρακτήρες',
-                confirm_placeholder: 'Επιβεβαίωση',
-                create_button: 'Δημιουργία',
-                login_placeholder: 'Master Password',
-                login_button: 'ΕΚΚΙΝΗΣΗ',
-                forgot_link: 'Ξεχάσατε τον κωδικό σας;',
-                forgot_title: 'Ξεχάσατε τον κωδικό;',
-                irreversible_action: 'Αυτή η ενέργεια είναι μη αναστρέψιμη!',
-                forgot_warning_1: 'Αν ξεχάσατε τον Master Password σας, η μόνη λύση είναι η πλήρης επαναφορά του Password Manager.',
-                forgot_warning_delete: 'Αυτό θα διαγράψει:',
-                forgot_list_passwords: 'Όλα τα αποθηκευμένα passwords',
-                forgot_list_categories: 'Όλες τις κατηγορίες',
-                forgot_list_settings: 'Όλες τις ρυθμίσεις',
-                forgot_warning_2: 'Θα πρέπει να ξαναδημιουργήσετε όλα από την αρχή.',
-                reset_button: 'Επαναφορά Password Manager',
-                cancel_button: 'Ακύρωση',
-                warning_prefix: '⚠️',
-                warning_attention: 'Προσοχή:',
-                warning_reset_note: 'Αν ξεχάσετε τον Master Password, τα δεδομένα σας θα είναι μη ανακτήσιμα.',
-                error_title: 'Σφάλμα',
-                error_close: 'Κλείσιμο',
-                // Titles for the show/hide password buttons
-                show_password: 'Εμφάνιση κωδικού',
-                hide_password: 'Απόκρυψη κωδικού'
-            }
-        };
+        // Placeholder for translations; will be loaded from external JSON files
+        this.translations = { en: {}, gr: {} };
     }
 
-    // Translation helper
-    t(key) {
-        if (this.translations[this.lang] && this.translations[this.lang][key]) {
-            return this.translations[this.lang][key];
+    /**
+     * Translation helper. Looks up a key in the current language and
+     * falls back to English if the key is missing. If a params object is
+     * provided, any placeholders in the translation string formatted as
+     * `{placeholder}` will be replaced with the corresponding values.
+     *
+     * @param {string} key The translation key to look up.
+     * @param {Object} [params] Optional map of placeholder values.
+     * @returns {string} The translated string with any placeholders replaced.
+     */
+    t(key, params = {}) {
+        let translation;
+        if (this.translations && this.translations[this.lang] && this.translations[this.lang][key]) {
+            translation = this.translations[this.lang][key];
+        } else if (this.translations && this.translations.en && this.translations.en[key]) {
+            translation = this.translations.en[key];
+        } else {
+            translation = key;
         }
-        return (this.translations['en'] && this.translations['en'][key]) || key;
+        if (typeof translation === 'string' && params && Object.keys(params).length > 0) {
+            return translation.replace(/\{([^}]+)\}/g, (match, p1) => {
+                return Object.prototype.hasOwnProperty.call(params, p1) ? params[p1] : match;
+            });
+        }
+        return translation;
     }
 
-    // Translation helper
-    t(key) {
-        if (this.translations[this.lang] && this.translations[this.lang][key]) {
-            return this.translations[this.lang][key];
+    /**
+     * Load translations for the auth UI. Fetches the English base translations
+     * and then overlays the selected language. Translation files live in the
+     * top‑level `lang` folder. If any fetch fails, the translations object
+     * will remain with whatever data is available and missing keys will fall
+     * back to English or the key itself.
+     */
+    async loadTranslations() {
+        try {
+            const enResponse = await fetch('lang/en.json');
+            const enData = await enResponse.json();
+            let langData = {};
+            if (this.lang && this.lang !== 'en') {
+                try {
+                    const langResponse = await fetch(`lang/${this.lang}.json`);
+                    langData = await langResponse.json();
+                } catch (err) {
+                    console.error('Failed to load language file:', err);
+                }
+            }
+            this.translations = {
+                en: enData,
+                [this.lang]: { ...enData, ...langData }
+            };
+        } catch (error) {
+            console.error('Error loading translations:', error);
+            // leave translations as empty objects on failure
         }
-        return (this.translations['en'] && this.translations['en'][key]) || key;
     }
 
     async initialize() {
+        // Load translations before any UI is rendered.  Ensures
+        // translation keys are available when building the modals.
+        await this.loadTranslations();
+
         if (this.isInitialized) return;
 
         try {
@@ -128,7 +109,8 @@ class PasswordManagerAuthUI {
             }
         } catch (error) {
             console.error('Auth initialization error:', error);
-            this.showErrorModal('Σφάλμα αρχικοποίησης: ' + error.message);
+            // Use translated prefix for initialization errors
+            this.showErrorModal(this.t('init_error_prefix') + error.message);
         }
     }
 
@@ -384,14 +366,14 @@ class PasswordManagerAuthUI {
         try {
             const result = await window.api.passwordManagerReset();
             if (result.success) {
-                this.showSuccess('Ο Password Manager επαναφέρθηκε επιτυχώς! Μπορείτε τώρα να δημιουργήσετε νέο Master Password.');
+                this.showSuccess(this.t('reset_success'));
                 this.closeAuthModal();
                 this.showSetupModal();
             } else {
-                this.showError('Σφάλμα επαναφοράς: ' + result.error);
+                this.showError(this.t('reset_error_prefix') + result.error);
             }
         } catch (error) {
-            this.showError('Σφάλμα: ' + error.message);
+            this.showError(this.t('general_error_prefix') + error.message);
         }
     }
 
@@ -412,11 +394,11 @@ class PasswordManagerAuthUI {
                                 </svg>
                             </div>
                             <div class="error-prompt-container">
-                                <p class="error-prompt-heading">Ο κωδικός σας δεν είναι αρκετά ισχυρός</p>
+                                <p class="error-prompt-heading">${this.t('password_strength_error_heading')}</p>
                                 <div class="error-prompt-wrap">
                                     <ul class="error-prompt-list" role="list">
-                                        <li>Ο κωδικός πρέπει να έχει τουλάχιστον 8 χαρακτήρες</li>
-                                        <li>Πρέπει να περιλαμβάνει κεφαλαία, πεζά, αριθμούς και ειδικούς χαρακτήρες</li>
+                                        <li>${this.t('password_strength_error_hint1')}</li>
+                                        <li>${this.t('password_strength_error_hint2')}</li>
                                     </ul>
                                 </div>
                             </div>
@@ -441,9 +423,9 @@ class PasswordManagerAuthUI {
         if (confirmPassword.value.length === 0) {
             container.innerHTML = '';
         } else if (masterPassword.value === confirmPassword.value) {
-            container.innerHTML = '<div class="match-success">✓ Οι κωδικοί ταιριάζουν</div>';
+            container.innerHTML = '<div class="match-success">' + this.t('password_match_success') + '</div>';
         } else {
-            container.innerHTML = '<div class="match-error">✗ Οι κωδικοί δεν ταιριάζουν</div>';
+            container.innerHTML = '<div class="match-error">' + this.t('password_match_error') + '</div>';
         }
     }
 
@@ -455,24 +437,24 @@ class PasswordManagerAuthUI {
         const btn = document.getElementById('setupBtn');
 
         if (masterPassword !== confirmPassword) {
-            this.showError('Οι κωδικοί δεν ταιριάζουν');
+            this.showError(this.t('passwords_do_not_match_error'));
             return;
         }
 
         const strengthResult = await window.api.passwordManagerValidatePassword(masterPassword);
         if (!strengthResult.isValid) {
-            this.showError('Ο κωδικός είναι πολύ αδύναμος. Βελτιώστε τον σύμφωνα με τις οδηγίες.');
+            this.showError(this.t('weak_password_error'));
             return;
         }
 
         btn.disabled = true;
-        btn.innerHTML = '<span class="loading"></span> Δημιουργία...';
+        btn.innerHTML = '<span class="loading"></span> ' + this.t('setup_loading');
 
         try {
             const result = await window.api.passwordManagerCreateMasterPassword(masterPassword);
 
             if (result.success) {
-                this.showSuccess('Master Password δημιουργήθηκε επιτυχώς!');
+                this.showSuccess(this.t('setup_success'));
                 this.closeAuthModal();
 
                 setTimeout(() => {
@@ -481,14 +463,14 @@ class PasswordManagerAuthUI {
                     }
                 }, 1000);
             } else {
-                this.showError('Σφάλμα δημιουργίας: ' + result.error);
+                this.showError(this.t('setup_error_prefix') + result.error);
                 btn.disabled = false;
-                btn.innerHTML = 'Δημιουργία';
+                btn.innerHTML = this.t('create_button');
             }
         } catch (error) {
-            this.showError('Σφάλμα: ' + error.message);
+            this.showError(this.t('general_error_prefix') + error.message);
             btn.disabled = false;
-            btn.innerHTML = 'Δημιουργία';
+            btn.innerHTML = this.t('create_button');
         }
     }
 
@@ -499,13 +481,13 @@ class PasswordManagerAuthUI {
         const btn = document.getElementById('loginBtn');
 
         btn.disabled = true;
-        btn.innerHTML = '<span class="loading"></span> Σύνδεση...';
+        btn.innerHTML = '<span class="loading"></span> ' + this.t('login_loading');
 
         try {
             const result = await window.api.passwordManagerAuthenticate(password);
 
             if (result.success) {
-                this.showSuccess('Επιτυχής σύνδεση!');
+                this.showSuccess(this.t('login_success'));
                 this.closeAuthModal();
 
                 setTimeout(() => {
@@ -514,14 +496,14 @@ class PasswordManagerAuthUI {
                     }
                 }, 500);
             } else {
-                this.showError('Λανθασμένος Master Password');
+                this.showError(this.t('login_incorrect'));
                 btn.disabled = false;
-                btn.innerHTML = 'ΕΚΚΙΝΗΣΗ';
+                btn.innerHTML = this.t('login_button');
             }
         } catch (error) {
-            this.showError('Σφάλμα σύνδεσης: ' + error.message);
+            this.showError(this.t('login_error_prefix') + error.message);
             btn.disabled = false;
-            btn.innerHTML = 'ΕΚΚΙΝΗΣΗ';
+            btn.innerHTML = this.t('login_button');
         }
     }
 

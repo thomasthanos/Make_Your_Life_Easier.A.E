@@ -31,130 +31,17 @@ class PasswordManager {
         const selectedLang = langSetting || docLang;
         this.lang = (selectedLang.startsWith('gr') || selectedLang.startsWith('el')) ? 'gr' : 'en';
         
-        this.translations = {
-            en: {
-                add_password_btn: '+ Add Password',
-                manage_categories_btn: '🏷️ Manage Categories',
-                search_placeholder: 'Search passwords, usernames, emails...',
-                cancel: 'Cancel',
-                save_password: '💾 Save Password',
-                no_category_option: 'No Category',
-                title_label: 'Title',
-                password_label: 'Password',
-                url_label: 'Website URL',
-                category_label: 'Category',
-                username_label: 'Username',
-                notes_label: 'Notes',
-                email_label: 'Email',
-                title_placeholder: 'Enter service name',
-                password_placeholder: 'Enter password',
-                url_placeholder: 'https://example.com',
-                username_placeholder: 'Enter username',
-                notes_placeholder: 'Additional notes...',
-                email_placeholder: 'name@domain',
-                modal_add_title: 'Add New Password',
-                modal_edit_title: 'Edit Password',
-                all_categories: 'All',
-                no_passwords_yet: 'No Passwords Yet',
-                first_password_desc: 'Add your first password to secure your digital life',
-                add_first_password: 'Add Your First Password',
-                stats_total: 'Total Passwords',
-                stats_strong: 'Strong',
-                stats_weak: 'Weak Passwords',
-                stats_categories: 'Categories',
-                stats_reused: 'Reused',
-                category_no_results: 'No categories found',
-                category_create_first: 'Create your first category to organize passwords',
-                edit: 'Edit',
-                delete: 'Delete',
-                username_field: 'Username',
-                email_field: 'Email',
-                password_field: 'Password',
-                website_field: 'Website',
-                notes_field: 'Notes',
-                last_updated_field: 'Last Updated',
-                unknown: 'Unknown',
-                no_username_email: 'No username/email',
-                open_website: 'Visit site',
-                open_in_browser: 'Open in default browser',
-                copy_username: 'Copy username',
-                copy_email: 'Copy email',
-                copy_password: 'Copy password',
-                reveal_password: 'Reveal password',
-                hide_password: 'Hide password',
-                strong_password_generated: 'Strong password generated!',
-                copied_to_clipboard: 'Copied to clipboard!',
-                failed_copy: 'Failed to copy to clipboard. Please copy manually.',
-                password_manager_unlocked: 'Password Manager unlocked!',
-                compact_mode: '📱 Compact Mode',
-                normal_mode: '📱 Normal Mode',
-                new_category_prompt: 'Enter new category name:',
-                username_or_email_required: 'Either Username or Email is required.',
-                invalid_email_format: 'Invalid email format.',
-                url_required: 'Website URL is required.'
-            },
-            gr: {
-                add_password_btn: '+ Προσθήκη Κωδικού',
-                manage_categories_btn: '🏷️ Διαχείριση Κατηγοριών',
-                search_placeholder: 'Αναζήτηση κωδικών, usernames, emails...',
-                cancel: 'Ακύρωση',
-                save_password: '💾 Αποθήκευση Κωδικού',
-                no_category_option: 'Χωρίς Κατηγορία',
-                title_label: 'Τίτλος',
-                password_label: 'Κωδικός',
-                url_label: 'Ιστότοπος URL',
-                category_label: 'Κατηγορία',
-                username_label: 'Όνομα χρήστη',
-                notes_label: 'Σημειώσεις',
-                email_label: 'Email',
-                title_placeholder: 'Όνομα υπηρεσίας',
-                password_placeholder: 'Κωδικός',
-                url_placeholder: 'https://example.com',
-                username_placeholder: 'Όνομα χρήστη',
-                notes_placeholder: 'Επιπλέον σημειώσεις...',
-                email_placeholder: 'όνομα@domain',
-                modal_add_title: 'Προσθήκη Νέου Κωδικού',
-                modal_edit_title: 'Επεξεργασία Κωδικού',
-                all_categories: 'Όλα',
-                no_passwords_yet: 'Δεν υπάρχουν κωδικοί ακόμα',
-                first_password_desc: 'Προσθέστε τον πρώτο σας κωδικό για να ασφαλίσετε την ψηφιακή σας ζωή',
-                add_first_password: 'Προσθέστε τον πρώτο σας κωδικό',
-                stats_total: 'Σύνολο Κωδικών',
-                stats_strong: 'Ισχυροί',
-                stats_weak: 'Αδύναμοι Κωδικοί',
-                stats_categories: 'Κατηγορίες',
-                stats_reused: 'Επαναχρησιμοποιημένοι',
-                category_no_results: 'Δεν βρέθηκαν κατηγορίες',
-                category_create_first: 'Δημιουργήστε την πρώτη σας κατηγορία για να οργανώσετε κωδικούς',
-                edit: 'Επεξεργασία',
-                delete: 'Διαγραφή',
-                username_field: 'Όνομα χρήστη',
-                email_field: 'Email',
-                password_field: 'Κωδικός',
-                website_field: 'Ιστοσελίδα',
-                notes_field: 'Σημειώσεις',
-                last_updated_field: 'Τελευταία ενημέρωση',
-                unknown: 'Άγνωστο',
-                no_username_email: 'Χωρίς όνομα χρήστη/email',
-                open_website: 'Επίσκεψη ιστότοπου',
-                open_in_browser: 'Άνοιγμα στον προεπιλεγμένο browser',
-                copy_username: 'Αντιγραφή ονόματος χρήστη',
-                copy_email: 'Αντιγραφή email',
-                copy_password: 'Αντιγραφή κωδικού',
-                reveal_password: 'Προβολή κωδικού',
-                hide_password: 'Απόκρυψη κωδικού',
-                strong_password_generated: 'Δημιουργήθηκε ισχυρός κωδικός!',
-                copied_to_clipboard: 'Αντιγράφηκε στο πρόχειρο!',
-                failed_copy: 'Αποτυχία αντιγραφής στο πρόχειρο. Αντιγράψτε χειροκίνητα.',
-                password_manager_unlocked: 'Ο διαχειριστής κωδικών ξεκλειδώθηκε!',
-                compact_mode: '📱 Συμπαγής Λειτουργία',
-                normal_mode: '📱 Κανονική Λειτουργία',
-                new_category_prompt: 'Εισάγετε νέα κατηγορία:',
-                username_or_email_required: 'Το πεδίο "Όνομα χρήστη" ή "Email" είναι υποχρεωτικό.',
-                invalid_email_format: 'Μη έγκυρη μορφή email.',
-                url_required: 'Το πεδίο Ιστότοπος είναι υποχρεωτικό.'
-            }
-        };
+        // Placeholder for translations; will be populated from external JSON files
+        this.translations = { en: {}, gr: {} };
+
+        // Load translations then initialize UI and authentication.  Once
+        // translations are available, static elements can be translated.
+        this.loadTranslations().then(() => {
+            this.initializeEventListeners();
+            this.initializeAuth();
+            this.initializeAnimations();
+            this.applyTranslations();
+        });
 
         this.eventsInitialized = false;
         this.isDataLoaded = false;
@@ -162,12 +49,7 @@ class PasswordManager {
         this.svgEye = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`;
         this.svgEyeOff = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="svg-icon"><path fill="currentColor" d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7 7 0 0 0-2.79.588l.77.771A6 6 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755q-.247.248-.517.486z"/><path fill="currentColor" d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829"/><path fill="currentColor" d="M3.35 5.47q-.27.24-.518.487A13 13 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7 7 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12z"/></svg>`;
 
-        setTimeout(() => {
-            this.initializeEventListeners();
-            this.initializeAuth();
-            this.initializeAnimations();
-            this.applyTranslations();
-        }, 1000);
+        // Removed the delayed initialization; translations are loaded first.
     }
 
     async initializeAuth() {
@@ -290,12 +172,14 @@ class PasswordManager {
         if (inlineSaveBtn && inlineWrapper && inlineCatBtn && inlineNameInput) {
             inlineSaveBtn.addEventListener('click', async () => {
                 const name = inlineNameInput.value ? inlineNameInput.value.trim() : '';
+                // Validate category name using translation keys
                 if (!name) {
-                    this.showError('Παρακαλώ εισάγετε όνομα κατηγορίας.');
+                    this.showError(this.t('category_name_required'));
                     return;
                 }
+                // Check for duplicate names
                 if (this.categories.some(cat => cat.name.toLowerCase() === name.toLowerCase())) {
-                    this.showError('Υπάρχει ήδη κατηγορία με αυτό το όνομα.');
+                    this.showError(this.t('category_exists'));
                     return;
                 }
                 try {
@@ -305,12 +189,13 @@ class PasswordManager {
                         const newCat = this.categories.find(cat => cat.name.toLowerCase() === name.toLowerCase());
                         const selectEl = document.getElementById('category');
                         if (newCat && selectEl) selectEl.value = newCat.id;
-                        this.showSuccess('Κατηγορία προστέθηκε με επιτυχία!');
+                        this.showSuccess(this.t('category_added_successfully'));
                     } else {
-                        this.showError('Αποτυχία προσθήκης κατηγορίας: ' + (result && result.error ? result.error : 'Άγνωστο σφάλμα'));
+                        const err = result && result.error ? result.error : this.t('unknown_error');
+                        this.showError(this.t('add_category_failed') + err);
                     }
                 } catch (error) {
-                    this.showError('Σφάλμα κατά την προσθήκη κατηγορίας: ' + error.message);
+                    this.showError(this.t('add_category_error') + error.message);
                 }
                 inlineWrapper.classList.add('hidden');
                 inlineCatBtn.classList.remove('hidden');
@@ -464,7 +349,8 @@ class PasswordManager {
         const generateBtn = document.createElement('button');
         generateBtn.type = 'button';
         generateBtn.className = 'button generate-password-btn';
-        generateBtn.setAttribute('aria-label', 'Generate strong password');
+        // Accessible label for generate password button
+        generateBtn.setAttribute('aria-label', this.t('generate_password_label'));
         generateBtn.innerHTML = '🎲';
         
         generateBtn.addEventListener('click', () => {
@@ -486,7 +372,8 @@ class PasswordManager {
         const toggleBtn = document.createElement('button');
         toggleBtn.type = 'button';
         toggleBtn.className = 'button toggle-visibility-btn';
-        toggleBtn.setAttribute('aria-label', 'Toggle password visibility');
+        // Accessible label for toggle password visibility
+        toggleBtn.setAttribute('aria-label', this.t('toggle_password_visibility'));
         toggleBtn.innerHTML = eyeClosedIcon;
         
         toggleBtn.addEventListener('click', () => {
@@ -625,7 +512,8 @@ class PasswordManager {
         const missingApis = requiredApis.filter(api => typeof window.api[api] !== 'function');
 
         if (missingApis.length > 0) {
-            this.showError(`Missing password manager APIs: ${missingApis.join(', ')}`);
+            // Show a generic error if required APIs are missing
+            this.showError(this.t('password_manager_apis_unavailable'));
             return;
         }
 
@@ -730,10 +618,10 @@ class PasswordManager {
                 this.renderCategories();
                 this.renderCategorySelect();
             } else {
-                this.showError('Failed to load categories: ' + result.error);
+                this.showError(this.t('load_categories_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error loading categories: ' + error.message);
+            this.showError(this.t('load_categories_error') + error.message);
         }
     }
 
@@ -753,10 +641,10 @@ class PasswordManager {
                 this.renderPasswords();
                 this.calculateStats();
             } else {
-                this.showError('Failed to load passwords: ' + result.error);
+                this.showError(this.t('load_passwords_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error loading passwords: ' + error.message);
+            this.showError(this.t('load_passwords_error') + error.message);
         }
     }
 
@@ -1106,30 +994,108 @@ renderPasswords() {
         }
     }
 
-    t(key) {
+    /**
+     * Translation helper.  Looks up a key in the current language and falls
+     * back to English if the key is missing.  If a params object is
+     * provided, any placeholders in the translation string formatted as
+     * `{placeholder}` will be replaced with the corresponding values.
+     *
+     * @param {string} key The translation key to look up.
+     * @param {Object} [params] Optional map of placeholder values.
+     * @returns {string} The translated string with any placeholders replaced.
+     */
+    t(key, params = {}) {
+        let translation;
         if (this.translations && this.translations[this.lang] && this.translations[this.lang][key]) {
-            return this.translations[this.lang][key];
+            translation = this.translations[this.lang][key];
+        } else if (this.translations && this.translations.en && this.translations.en[key]) {
+            translation = this.translations.en[key];
+        } else {
+            translation = key;
         }
-        return (this.translations && this.translations.en && this.translations.en[key]) || key;
+        if (typeof translation === 'string' && params && Object.keys(params).length > 0) {
+            return translation.replace(/\{([^}]+)\}/g, (match, p1) => {
+                return Object.prototype.hasOwnProperty.call(params, p1) ? params[p1] : match;
+            });
+        }
+        return translation;
+    }
+
+    /**
+     * Load translations for the password manager UI.  This method fetches the
+     * English base translations and then overlays the selected language.  The
+     * translation files live in the top‑level `lang` folder.  If any fetch
+     * fails, the translations object will remain with whatever data is
+     * available and missing keys will fall back to English or the key itself.
+     */
+    async loadTranslations() {
+        try {
+            // Fetch the English base translations
+            const enResponse = await fetch('lang/en.json');
+            const enData = await enResponse.json();
+            let langData = {};
+            if (this.lang && this.lang !== 'en') {
+                try {
+                    const langResponse = await fetch(`lang/${this.lang}.json`);
+                    langData = await langResponse.json();
+                } catch (err) {
+                    console.error('Failed to load language file:', err);
+                }
+            }
+            this.translations = {
+                en: enData,
+                [this.lang]: { ...enData, ...langData }
+            };
+        } catch (error) {
+            console.error('Error loading translations:', error);
+            // leave translations as empty objects on failure
+        }
     }
 
     applyTranslations() {
         try {
+            // Top bar and buttons
             const addBtnSpan = document.querySelector('#addPasswordBtn span');
             if (addBtnSpan) addBtnSpan.textContent = this.t('add_password_btn');
             const manageCatSpan = document.querySelector('#manageCategoriesBtn span');
             if (manageCatSpan) manageCatSpan.textContent = this.t('manage_categories_btn');
 
+            // Search placeholder
             const searchInput = document.getElementById('searchInput');
             if (searchInput) searchInput.placeholder = this.t('search_placeholder');
 
+            // Application tagline and categories label
+            const tagline = document.querySelector('.app-tagline');
+            if (tagline) tagline.textContent = this.t('app_tagline');
+            const categoriesLabel = document.querySelector('.categories-label');
+            if (categoriesLabel) categoriesLabel.textContent = this.t('categories_label');
+
+            // Grid toggle title
+            const gridToggle = document.getElementById('gridToggle');
+            if (gridToggle) gridToggle.title = this.t('toggle_layout');
+
+            // Modal titles and buttons
             const passwordModalTitle = document.getElementById('passwordModalTitle');
             if (passwordModalTitle) passwordModalTitle.textContent = this.t('modal_add_title');
             const cancelBtn = document.getElementById('cancelPasswordBtn');
-            if (cancelBtn) cancelBtn.textContent = this.t('cancel');
+            if (cancelBtn) cancelBtn.textContent = this.t('cancel_button');
             const saveBtnSpan = document.querySelector('#savePasswordBtn span');
             if (saveBtnSpan) saveBtnSpan.textContent = this.t('save_password');
 
+            // Image / logo label and upload text
+            const imageLabel = document.querySelector("label[for='imageFile']");
+            if (imageLabel) imageLabel.textContent = this.t('image_label');
+            const uploadPlaceholder = document.querySelector('#imageUploadBox .upload-placeholder');
+            if (uploadPlaceholder) {
+                const children = uploadPlaceholder.children;
+                // children[1] should be the text "Click to upload"
+                if (children && children.length >= 3) {
+                    children[1].textContent = this.t('upload_click');
+                    children[2].textContent = this.t('upload_formats');
+                }
+            }
+
+            // Labels for form fields
             const labelMap = {
                 'title': 'title_label',
                 'password': 'password_label',
@@ -1144,6 +1110,7 @@ renderPasswords() {
                 if (label) label.textContent = this.t(labelMap[inputId]);
             }
 
+            // Placeholders for form inputs
             const placeholderMap = {
                 'title': 'title_placeholder',
                 'password': 'password_placeholder',
@@ -1157,11 +1124,32 @@ renderPasswords() {
                 if (input) input.placeholder = this.t(placeholderMap[inputId]);
             }
 
+            // Category select first option text
             const categorySelect = document.getElementById('category');
             if (categorySelect) {
                 const firstOption = categorySelect.querySelector('option[value=""]');
                 if (firstOption) firstOption.textContent = this.t('no_category_option');
             }
+
+            // Categories modal translations
+            const catModalTitle = document.querySelector('#categoriesModal h2');
+            if (catModalTitle) catModalTitle.textContent = this.t('manage_categories_title');
+            const newCatInput = document.getElementById('newCategoryName');
+            if (newCatInput) newCatInput.placeholder = this.t('new_category_placeholder');
+            const addCatBtn = document.getElementById('addCategoryBtn');
+            if (addCatBtn) addCatBtn.textContent = this.t('add_category_btn');
+            const closeCatBtn = document.getElementById('closeCategoriesBtn');
+            if (closeCatBtn) closeCatBtn.textContent = this.t('close_button');
+            const closeCatModal = document.getElementById('closeCategoriesModal');
+            if (closeCatModal) closeCatModal.title = this.t('close_button');
+
+            // Delete confirmation modal buttons
+            const delCancelBtn = document.getElementById('deleteCancelBtn');
+            if (delCancelBtn) delCancelBtn.textContent = this.t('cancel_button');
+            const delConfirmBtn = document.getElementById('deleteConfirmBtn');
+            if (delConfirmBtn) delConfirmBtn.textContent = this.t('delete_button');
+            const delCloseBtn = document.getElementById('deleteConfirmClose');
+            if (delCloseBtn) delCloseBtn.title = this.t('close_button');
         } catch (err) {
             console.error('Error applying translations:', err);
         }
@@ -1200,7 +1188,8 @@ async savePassword(e) {
     e.preventDefault();
 
     if (!window.api || typeof window.api.passwordManagerAddPassword !== 'function') {
-        this.showError('Password manager is not available.');
+        // Password manager APIs are unavailable
+        this.showError(this.t('password_manager_unavailable'));
         return;
     }
 
@@ -1241,21 +1230,24 @@ async savePassword(e) {
     });
 
     if (!passwordData.title) {
-        this.showError('Title is required.');
+        // Title is a required field
+        this.showError(this.t('title_required'));
         document.getElementById('title').classList.add('shake');
         setTimeout(() => document.getElementById('title').classList.remove('shake'), 500);
         return;
     }
 
     if (!passwordData.password) {
-        this.showError('Password is required.');
+        // Password is a required field
+        this.showError(this.t('password_required'));
         document.getElementById('password').classList.add('shake');
         setTimeout(() => document.getElementById('password').classList.remove('shake'), 500);
         return;
     }
 
     if (passwordData.password.trim().length === 0) {
-        this.showError('Password cannot be empty.');
+        // Password cannot be empty whitespace
+        this.showError(this.t('password_empty'));
         document.getElementById('password').classList.add('shake');
         setTimeout(() => document.getElementById('password').classList.remove('shake'), 500);
         return;
@@ -1279,8 +1271,8 @@ async savePassword(e) {
 
     const urlValRequired = passwordData.url;
     if (!urlValRequired) {
-        const errorMsg = typeof this.t === 'function' ? this.t('url_required') : 'Website URL is required.';
-        this.showError(errorMsg);
+        // URL is required
+        this.showError(this.t('url_required'));
         const urlInput = document.getElementById('url');
         if (urlInput) urlInput.classList.add('shake');
         setTimeout(() => {
@@ -1355,13 +1347,19 @@ async savePassword(e) {
                 this.updatePasswordImageInUI(storedId, passwordData.image);
             }
 
-            this.showSuccess(`Password ${editingId ? 'updated' : 'saved'} successfully!`);
+            // Show success message depending on whether we updated or created
+            if (editingId) {
+                this.showSuccess(this.t('password_updated_successfully'));
+            } else {
+                this.showSuccess(this.t('password_saved_successfully'));
+            }
         } else {
-            this.showError('Failed to save password: ' + (result.error || 'Unknown error'));
+            const errMsg = result.error || this.t('unknown_error');
+            this.showError(this.t('save_password_failed') + errMsg);
         }
     } catch (error) {
         console.error('Save password error:', error);
-        this.showError('Error saving password: ' + error.message);
+        this.showError(this.t('save_password_error') + error.message);
         
         const saveBtn = document.getElementById('savePasswordBtn');
         saveBtn.innerHTML = '<span>💾 Save Password</span>';
@@ -1407,14 +1405,15 @@ async savePassword(e) {
             const result = await window.api.passwordManagerDeletePassword(passwordId);
             if (result.success) {
                 await this.loadPasswords(this.currentCategory);
-                const msg = typeof this.t === 'function' ? this.t('deleted_successfully') : 'Password deleted successfully!';
+                // Successfully deleted
+                const msg = typeof this.t === 'function' ? this.t('password_deleted_successfully') : 'Password deleted successfully!';
                 this.showSuccess(msg);
             } else {
-                const errMsg = typeof this.t === 'function' ? this.t('delete_failed') : 'Failed to delete password: ';
+                const errMsg = typeof this.t === 'function' ? this.t('delete_password_failed') : 'Failed to delete password: ';
                 this.showError(errMsg + result.error);
             }
         } catch (error) {
-            const errMsg = typeof this.t === 'function' ? this.t('delete_error') : 'Error deleting password: ';
+            const errMsg = typeof this.t === 'function' ? this.t('delete_password_error') : 'Error deleting password: ';
             this.showError(errMsg + error.message);
         }
     }
@@ -1428,8 +1427,9 @@ async savePassword(e) {
             const titleEl = document.getElementById('deleteConfirmTitle');
             const messageEl = document.getElementById('deleteConfirmMessage');
 
-            const defaultTitle = 'Επιβεβαίωση Διαγραφής';
-            const defaultMsg = `Είστε σίγουροι ότι θέλετε να διαγράψετε τον κωδικό «${password?.title ?? ''}»; Η ενέργεια δεν μπορεί να αναιρεθεί.`;
+            // Default English fallback values if translations are missing
+            const defaultTitle = 'Confirm Deletion';
+            const defaultMsg = `Are you sure you want to delete “${password?.title ?? ''}”? This action cannot be undone.`;
             let translatedTitle = null;
             let translatedMsg = null;
             if (typeof this.t === 'function') {
@@ -1512,10 +1512,10 @@ async savePassword(e) {
                 });
                 this.renderPasswords();
             } else {
-                this.showError('Search failed: ' + result.error);
+                this.showError(this.t('search_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error searching: ' + error.message);
+            this.showError(this.t('search_error') + error.message);
         }
     }
 
@@ -1637,14 +1637,14 @@ async savePassword(e) {
         const name = nameInput.value.trim();
 
         if (!name) {
-            this.showError('Please enter a category name');
+            this.showError(this.t('category_name_required'));
             nameInput.classList.add('shake');
             setTimeout(() => nameInput.classList.remove('shake'), 500);
             return;
         }
 
         if (this.categories.some(cat => cat.name.toLowerCase() === name.toLowerCase())) {
-            this.showError('A category with this name already exists.');
+            this.showError(this.t('category_exists'));
             nameInput.classList.add('shake');
             setTimeout(() => nameInput.classList.remove('shake'), 500);
             return;
@@ -1656,12 +1656,12 @@ async savePassword(e) {
                 nameInput.value = '';
                 await this.loadCategories();
                 this.renderCategoriesList();
-                this.showSuccess('Category added successfully!');
+                this.showSuccess(this.t('category_added_successfully'));
             } else {
-                this.showError('Failed to add category: ' + result.error);
+                this.showError(this.t('add_category_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error adding category: ' + error.message);
+            this.showError(this.t('add_category_error') + error.message);
         }
     }
 
@@ -1670,7 +1670,7 @@ async savePassword(e) {
         const name = input.value.trim();
 
         if (!name) {
-            this.showError('Category name cannot be empty');
+            this.showError(this.t('category_name_empty'));
             input.classList.add('shake');
             setTimeout(() => input.classList.remove('shake'), 500);
             return;
@@ -1681,12 +1681,12 @@ async savePassword(e) {
             if (result.success) {
                 await this.loadCategories();
                 this.renderCategoriesList();
-                this.showSuccess('Category updated successfully!');
+                this.showSuccess(this.t('category_updated_successfully'));
             } else {
-                this.showError('Failed to update category: ' + result.error);
+                this.showError(this.t('update_category_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error updating category: ' + error.message);
+            this.showError(this.t('update_category_error') + error.message);
         }
     }
 
@@ -1694,7 +1694,9 @@ async savePassword(e) {
         const category = this.categories.find(c => c.id === categoryId);
         if (!category) return;
 
-        if (!confirm(`Are you sure you want to delete the category "${category.name}"? Passwords in this category will be moved to "No Category".`)) return;
+        // Confirm deletion using translated message
+        const confirmMsg = this.t('delete_category_confirm', { categoryName: category.name });
+        if (!confirm(confirmMsg)) return;
 
         try {
             const result = await window.api.passwordManagerDeleteCategory(categoryId);
@@ -1702,12 +1704,12 @@ async savePassword(e) {
                 await this.loadCategories();
                 this.renderCategoriesList();
                 await this.loadPasswords(this.currentCategory);
-                this.showSuccess('Category deleted successfully!');
+                this.showSuccess(this.t('category_deleted_successfully'));
             } else {
-                this.showError('Failed to delete category: ' + result.error);
+                this.showError(this.t('delete_category_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error deleting category: ' + error.message);
+            this.showError(this.t('delete_category_error') + error.message);
         }
     }
 

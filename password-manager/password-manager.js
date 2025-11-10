@@ -20,69 +20,20 @@ class PasswordManager {
         const selectedLang = langSetting || docLang;
         this.lang = (selectedLang.startsWith('gr') || selectedLang.startsWith('el')) ? 'gr' : 'en';
 
-        // Basic translations for the simpler password manager interface
-        this.translations = {
-            en: {
-                all: 'All',
-                no_passwords_found_title: 'No passwords found',
-                no_passwords_found_sub: 'Add your first password to get started',
-                add_password_modal_title: 'Add Password',
-                edit_password_modal_title: 'Edit Password',
-                update: 'Update',
-                delete: 'Delete',
-                username_label: 'Username:',
-                email_label: 'Email:',
-                password_label: 'Password:',
-                url_label: 'URL:',
-                notes_label: 'Notes:',
-                add_category_placeholder: 'New category name',
-                add_category_button: 'Add',
-                close_category_button: 'Close',
-                copy_username: 'Copy username',
-                copy_email: 'Copy email',
-                copy_password: 'Copy password',
-                reveal_password: 'Reveal password',
-                hide_password: 'Hide password',
-                update_category: 'Update',
-                delete_category: 'Delete',
-                no_categories: 'No categories found',
-                // Label used when a password has no category assigned
-                no_category_option: 'No Category'
-            },
-            gr: {
-                all: 'Όλα',
-                no_passwords_found_title: 'Δεν βρέθηκαν κωδικοί',
-                no_passwords_found_sub: 'Προσθέστε τον πρώτο σας κωδικό για να ξεκινήσετε',
-                add_password_modal_title: 'Προσθήκη Κωδικού',
-                edit_password_modal_title: 'Επεξεργασία Κωδικού',
-                update: 'Ενημέρωση',
-                delete: 'Διαγραφή',
-                username_label: 'Χρήστης:',
-                email_label: 'Email:',
-                password_label: 'Κωδικός:',
-                url_label: 'URL:',
-                notes_label: 'Σημειώσεις:',
-                add_category_placeholder: 'Όνομα νέας κατηγορίας',
-                add_category_button: 'Προσθήκη',
-                close_category_button: 'Κλείσιμο',
-                copy_username: 'Αντιγραφή ονόματος χρήστη',
-                copy_email: 'Αντιγραφή email',
-                copy_password: 'Αντιγραφή κωδικού',
-                reveal_password: 'Προβολή κωδικού',
-                hide_password: 'Απόκρυψη κωδικού',
-                update_category: 'Ενημέρωση',
-                delete_category: 'Διαγραφή',
-                no_categories: 'Δεν βρέθηκαν κατηγορίες',
-                // Label used when a password has no category assigned
-                no_category_option: 'Χωρίς Κατηγορία'
-            }
-        };
-        
-        // Wait a bit for APIs to be available
-        setTimeout(() => {
+        // Placeholder translations object – will be populated from external JSON files
+        this.translations = { en: {}, gr: {} };
+
+        // Load translations from the external language JSON files and then
+        // initialize UI listeners and load existing data.  We defer
+        // initialization until after translations are available so that
+        // labels and messages are properly localized from the start.
+        this.loadTranslations().then(() => {
             this.initializeEventListeners();
             this.loadData();
-        }, 1000);
+        });
+        
+        // Remove the artificial delay previously used to wait for APIs.  The
+        // initialization is now performed after translations load.
     }
 
     /**
@@ -93,13 +44,51 @@ class PasswordManager {
      * @returns {string}
      */
     t(key) {
-        if (this.translations && this.translations[this.lang] && this.translations[this.lang][key]) {
-            return this.translations[this.lang][key];
+        // Enhanced translation helper: supports placeholder substitution.  If the
+        // current language dictionary contains the key, use it; otherwise fall back
+        // to English.  If neither language has the key, return the key itself.
+        const args = Array.from(arguments).slice(1);
+        const placeholders = args[0] && typeof args[0] === 'object' ? args[0] : {};
+        const langDict = (this.translations && this.translations[this.lang]) || {};
+        const enDict = (this.translations && this.translations.en) || {};
+        let text = langDict[key] || enDict[key] || key;
+        // Replace {placeholders} in the string with provided values
+        Object.keys(placeholders).forEach(p => {
+            text = text.replace(new RegExp('{' + p + '}', 'g'), placeholders[p]);
+        });
+        return text;
+    }
+
+    /**
+     * Load translations from JSON files.  This method fetches the English
+     * translation as a base and then overlays the selected language.  If
+     * fetching fails for any reason, the translations object will remain
+     * partially populated, and missing keys will fall back to the English
+     * value or the key itself.
+     */
+    async loadTranslations() {
+        try {
+            // Always load English as the base dictionary
+            const enResponse = await fetch('password-manager/lang/en.json');
+            const enData = await enResponse.json();
+            let langData = {};
+            // Load the selected language if not English
+            if (this.lang && this.lang !== 'en') {
+                try {
+                    const langResponse = await fetch(`password-manager/lang/${this.lang}.json`);
+                    langData = await langResponse.json();
+                } catch (err) {
+                    console.error('Failed to load language file:', err);
+                }
+            }
+            this.translations = {
+                en: enData,
+                [this.lang]: { ...enData, ...langData }
+            };
+        } catch (error) {
+            console.error('Error loading translations:', error);
+            // If translation loading fails, leave translations as empty objects
         }
-        if (this.translations && this.translations.en && this.translations.en[key]) {
-            return this.translations.en[key];
-        }
-        return key;
     }
 
     initializeEventListeners() {
@@ -133,7 +122,8 @@ class PasswordManager {
         console.log('window.api:', window.api);
         
         if (!window.api) {
-            this.showError('Password manager APIs are not available. The application may not be running in Electron.');
+            // Localized error if API is missing (likely not running in Electron)
+            this.showError(this.t('password_manager_apis_unavailable'));
             return;
         }
 
@@ -169,11 +159,11 @@ class PasswordManager {
                 console.log('Categories loaded successfully:', this.categories.length);
             } else {
                 console.error('Failed to load categories:', result.error);
-                this.showError('Failed to load categories: ' + result.error);
+                this.showError(this.t('load_categories_failed') + result.error);
             }
         } catch (error) {
             console.error('Error loading categories:', error);
-            this.showError('Error loading categories: ' + error.message);
+            this.showError(this.t('load_categories_error') + error.message);
         }
     }
 
@@ -189,11 +179,11 @@ class PasswordManager {
                 console.log('Passwords loaded successfully:', this.passwords.length);
             } else {
                 console.error('Failed to load passwords:', result.error);
-                this.showError('Failed to load passwords: ' + result.error);
+                this.showError(this.t('load_passwords_failed') + result.error);
             }
         } catch (error) {
             console.error('Error loading passwords:', error);
-            this.showError('Error loading passwords: ' + error.message);
+            this.showError(this.t('load_passwords_error') + error.message);
         }
     }
 
@@ -371,7 +361,7 @@ class PasswordManager {
 
         // Check if API is available
         if (!window.api || typeof window.api.passwordManagerAddPassword !== 'function') {
-            this.showError('Password manager is not available. Please restart the application.');
+            this.showError(this.t('password_manager_unavailable'));
             return;
         }
 
@@ -403,7 +393,7 @@ class PasswordManager {
 
         // Validate required fields
         if (!passwordData.title.trim() || !passwordData.password.trim()) {
-            this.showError('Title and password are required fields.');
+            this.showError(this.t('title_password_required'));
             return;
         }
 
@@ -418,13 +408,14 @@ class PasswordManager {
             if (result.success) {
                 this.closePasswordModal();
                 this.loadPasswords(this.currentCategory);
-                this.showSuccess('Password saved successfully!');
+                this.showSuccess(this.t('password_saved_successfully'));
             } else {
-                this.showError('Failed to save password: ' + (result.error || 'Unknown error'));
+                const errDetail = result.error || this.t('unknown_error');
+                this.showError(this.t('save_password_failed') + errDetail);
             }
         } catch (error) {
             console.error('Save password error:', error);
-            this.showError('Error saving password: ' + error.message);
+            this.showError(this.t('save_password_error') + error.message);
         }
     }
 
@@ -433,18 +424,18 @@ class PasswordManager {
     }
 
     async deletePassword(passwordId) {
-        if (!confirm('Are you sure you want to delete this password?')) return;
+        if (!confirm(this.t('confirm_delete_password'))) return;
 
         try {
             const result = await window.api.passwordManagerDeletePassword(passwordId);
             if (result.success) {
                 this.loadPasswords(this.currentCategory);
-                this.showSuccess('Password deleted successfully!');
+                this.showSuccess(this.t('password_deleted_successfully'));
             } else {
-                this.showError('Failed to delete password: ' + result.error);
+                this.showError(this.t('delete_password_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error deleting password: ' + error.message);
+            this.showError(this.t('delete_password_error') + error.message);
         }
     }
 
@@ -468,10 +459,10 @@ class PasswordManager {
                 });
                 this.renderPasswords();
             } else {
-                this.showError('Search failed: ' + result.error);
+                this.showError(this.t('search_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error searching: ' + error.message);
+            this.showError(this.t('search_error') + error.message);
         }
     }
 
@@ -511,7 +502,7 @@ class PasswordManager {
         const name = nameInput.value.trim();
 
         if (!name) {
-            this.showError('Please enter a category name');
+            this.showError(this.t('category_name_required'));
             return;
         }
 
@@ -521,12 +512,12 @@ class PasswordManager {
                 nameInput.value = '';
                 await this.loadCategories();
                 this.renderCategoriesList();
-                this.showSuccess('Category added successfully!');
+                this.showSuccess(this.t('category_added_successfully'));
             } else {
-                this.showError('Failed to add category: ' + result.error);
+                this.showError(this.t('add_category_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error adding category: ' + error.message);
+            this.showError(this.t('add_category_error') + error.message);
         }
     }
 
@@ -535,7 +526,7 @@ class PasswordManager {
         const name = input.value.trim();
 
         if (!name) {
-            this.showError('Category name cannot be empty');
+            this.showError(this.t('category_name_empty'));
             return;
         }
 
@@ -544,17 +535,19 @@ class PasswordManager {
             if (result.success) {
                 await this.loadCategories();
                 this.renderCategoriesList();
-                this.showSuccess('Category updated successfully!');
+                this.showSuccess(this.t('category_updated_successfully'));
             } else {
-                this.showError('Failed to update category: ' + result.error);
+                this.showError(this.t('update_category_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error updating category: ' + error.message);
+            this.showError(this.t('update_category_error') + error.message);
         }
     }
 
     async deleteCategory(categoryId) {
-        if (!confirm('Are you sure you want to delete this category? Passwords in this category will be moved to "No Category".')) return;
+        const category = this.categories.find(c => c.id === categoryId);
+        const confirmMessage = this.t('confirm_delete_category', { categoryName: category ? category.name : '' });
+        if (!confirm(confirmMessage)) return;
 
         try {
             const result = await window.api.passwordManagerDeleteCategory(categoryId);
@@ -562,12 +555,12 @@ class PasswordManager {
                 await this.loadCategories();
                 this.renderCategoriesList();
                 this.loadPasswords(this.currentCategory);
-                this.showSuccess('Category deleted successfully!');
+                this.showSuccess(this.t('category_deleted_successfully'));
             } else {
-                this.showError('Failed to delete category: ' + result.error);
+                this.showError(this.t('delete_category_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error deleting category: ' + error.message);
+            this.showError(this.t('delete_category_error') + error.message);
         }
     }
 
@@ -581,21 +574,21 @@ class PasswordManager {
             textElement.textContent = password.password;
             textElement.classList.remove('password-hidden');
             button.textContent = '🙈';
-            button.title = 'Hide password';
+            button.title = this.t('hide_password');
         } else {
             textElement.textContent = '••••••••';
             textElement.classList.add('password-hidden');
             button.textContent = '👁️';
-            button.title = 'Reveal password';
+            button.title = this.t('reveal_password');
         }
     }
 
     async copyToClipboard(text) {
         try {
             await navigator.clipboard.writeText(text);
-            this.showSuccess('Copied to clipboard!');
+            this.showSuccess(this.t('copied_to_clipboard'));
         } catch (error) {
-            this.showError('Failed to copy to clipboard: ' + error.message);
+            this.showError(this.t('copy_clipboard_failed') + error.message);
         }
     }
 
