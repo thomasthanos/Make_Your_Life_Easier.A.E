@@ -1,4 +1,35 @@
 // auth-ui.js - Ολοκληρωμένο με custom forgot password και show/hide password
+
+// Modern debug logger with emojis and color-coded styles.
+function debug(level, ...args) {
+    const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
+    const colorMap = {
+        info: 'color:#2196F3; font-weight:bold;',
+        warn: 'color:#FF9800; font-weight:bold;',
+        error: 'color:#F44336; font-weight:bold;',
+        success: 'color:#4CAF50; font-weight:bold;'
+    };
+    const emoji = emojiMap[level] || '';
+    const style = colorMap[level] || '';
+    const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+    if (isBrowser) {
+        const fn =
+            level === 'error'
+                ? console.error
+                : level === 'warn'
+                ? console.warn
+                : console.log;
+        fn.call(console, `%c${emoji}`, style, ...args);
+    } else {
+        const fn =
+            level === 'error'
+                ? console.error
+                : level === 'warn'
+                ? console.warn
+                : console.log;
+        fn.call(console, `${emoji}`, ...args);
+    }
+}
 class PasswordManagerAuthUI {
     constructor() {
         this.isInitialized = false;
@@ -69,7 +100,7 @@ class PasswordManagerAuthUI {
                     const langResponse = await fetch(`lang/${this.lang}.json`);
                     langData = await langResponse.json();
                 } catch (err) {
-                    console.error('Failed to load language file:', err);
+                    debug('error', 'Failed to load language file:', err);
                 }
             }
             this.translations = {
@@ -77,7 +108,7 @@ class PasswordManagerAuthUI {
                 [this.lang]: { ...enData, ...langData }
             };
         } catch (error) {
-            console.error('Error loading translations:', error);
+            debug('error', 'Error loading translations:', error);
             // leave translations as empty objects on failure
         }
     }
@@ -101,7 +132,7 @@ class PasswordManagerAuthUI {
                 this.showLoginModal();
             }
         } catch (error) {
-            console.error('Auth initialization error:', error);
+            debug('error', 'Auth initialization error:', error);
             // Use translated prefix for initialization errors
             this.showErrorModal(this.t('init_error_prefix') + error.message);
         }
@@ -402,7 +433,7 @@ class PasswordManagerAuthUI {
                 container.innerHTML = '';
             }
         } catch (error) {
-            console.error('Error validating password:', error);
+            debug('error', 'Error validating password:', error);
         }
     }
 

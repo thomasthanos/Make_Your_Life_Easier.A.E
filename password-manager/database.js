@@ -3,6 +3,37 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+// Modern debug logger with emojis and color-coded styles.
+function debug(level, ...args) {
+    const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
+    const colorMap = {
+        info: 'color:#2196F3; font-weight:bold;',
+        warn: 'color:#FF9800; font-weight:bold;',
+        error: 'color:#F44336; font-weight:bold;',
+        success: 'color:#4CAF50; font-weight:bold;'
+    };
+    const emoji = emojiMap[level] || '';
+    const style = colorMap[level] || '';
+    const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+    if (isBrowser) {
+        const fn =
+            level === 'error'
+                ? console.error
+                : level === 'warn'
+                ? console.warn
+                : console.log;
+        fn.call(console, `%c${emoji}`, style, ...args);
+    } else {
+        const fn =
+            level === 'error'
+                ? console.error
+                : level === 'warn'
+                ? console.warn
+                : console.log;
+        fn.call(console, `${emoji}`, ...args);
+    }
+}
+
 class PasswordManagerDB {
     constructor(authManager) {
         this.db = null;
@@ -17,30 +48,30 @@ class PasswordManagerDB {
             const documentsPath = this.getDocumentsPath();
             this.dbDirectory = path.join(documentsPath, 'MakeYourLifeEasier');
             
-            console.log('Database directory:', this.dbDirectory);
+            debug('info', 'Database directory:', this.dbDirectory);
             
             if (!fs.existsSync(this.dbDirectory)) {
-                console.log('Creating database directory...');
+                // Inform when the database directory is first created
+                debug('info', 'Creating database directory...');
                 fs.mkdirSync(this.dbDirectory, { recursive: true });
             }
 
-            console.log('Auth manager directory should match:', this.dbDirectory);
-
+            // Compose database path
             const dbPath = path.join(this.dbDirectory, 'password_manager.db');
-            console.log('Database path:', dbPath);
+            debug('info', 'Database path:', dbPath);
             
             return new Promise((resolve, reject) => {
                 this.db = new sqlite3.Database(dbPath, (err) => {
                     if (err) {
-                        console.error('Error opening database:', err);
+                        debug('error', 'Error opening database:', err);
                         this.db = null;
                         reject(err);
                     } else {
-                        console.log('Connected to SQLite database');
+                        debug('success', 'Connected to SQLite database');
                         this.createTables()
                             .then(() => {
                                 this.isInitialized = true;
-                                console.log('Database fully initialized');
+                                debug('success', 'Database fully initialized');
                                 resolve(true);
                             })
                             .catch(reject);
@@ -48,7 +79,7 @@ class PasswordManagerDB {
                 });
             });
         } catch (error) {
-            console.error('Database initialization error:', error);
+            debug('error', 'Database initialization error:', error);
             this.db = null;
             throw error;
         }
@@ -86,11 +117,11 @@ class PasswordManagerDB {
                     )
                 `, (err) => {
                     if (err) {
-                        console.error('Error creating categories table:', err);
+                        debug('error', 'Error creating categories table:', err);
                         reject(err);
                         return;
                     }
-                    console.log('Categories table ready');
+                    // Omit verbose success log for categories table creation
                 });
 
                 this.db.run(`
@@ -107,28 +138,29 @@ class PasswordManagerDB {
                     )
                 `, (err) => {
                     if (err) {
-                        console.error('Error creating passwords table:', err);
+                        debug('error', 'Error creating passwords table:', err);
                         reject(err);
                         return;
                     }
-                    console.log('Passwords table ready');
+                    // Do not log a verbose success message for passwords table creation
 
                     this.db.run(`ALTER TABLE passwords ADD COLUMN category_name TEXT`, (alterErr) => {
                         if (alterErr) {
                             if (alterErr.message && alterErr.message.includes('duplicate column name')) {
-                                console.log('category_name column already exists, no migration needed');
+                                // Column already exists; no action needed
+                                // Skip verbose log
                             } else {
-                                console.warn('Error adding category_name column (may already exist):', alterErr.message);
+                                debug('warn', 'Error adding category_name column (may already exist):', alterErr.message);
                             }
                         } else {
-                            console.log('category_name column added to passwords table');
+                            // Column added; omit verbose success log
                         }
                     });
                 });
 
                 this.db.get("SELECT COUNT(*) as count FROM categories", (err, row) => {
                     if (err) {
-                        console.error('Error checking categories:', err);
+                        debug('error', 'Error checking categories:', err);
                         reject(err);
                         return;
                     }
@@ -139,14 +171,14 @@ class PasswordManagerDB {
                             this.db.run("INSERT INTO categories (name) VALUES (?)", ["social media"]);
                             this.db.run("INSERT INTO categories (name) VALUES (?)", ["gaming"], function(err) {
                                 if (err) {
-                                    console.error('Error inserting default categories:', err);
+                                    debug('error', 'Error inserting default categories:', err);
                                     this.db.run("ROLLBACK");
                                     reject(err);
                                 } else {
-                                    console.log('Default categories created');
+                                    debug('success', 'Default categories created');
                                     this.db.run("COMMIT", (commitErr) => {
                                         if (commitErr) {
-                                            console.error('Error committing default category insertion:', commitErr);
+                                            debug('error', 'Error committing default category insertion:', commitErr);
                                             reject(commitErr);
                                         } else {
                                             resolve(true);
@@ -156,7 +188,7 @@ class PasswordManagerDB {
                             }.bind(this));
                         });
                     } else {
-                        console.log('Categories already exist, skipping default creation');
+                        debug('info', 'Categories already exist, skipping default creation');
                         resolve(true);
                     }
                 });
@@ -262,7 +294,7 @@ class PasswordManagerDB {
                     return;
                 }
 
-                console.log('Retrieved', rows.length, 'passwords, attempting decryption...');
+                debug('info', `Retrieved ${rows.length} passwords, attempting decryption...`);
 
                 const processedRows = rows.map(row => {
                     if (row.encrypted_data) {
@@ -270,9 +302,8 @@ class PasswordManagerDB {
                             const parsed = JSON.parse(row.encrypted_data);
                             let decrypted;
                             if (this.authManager && this.authManager.isAuthenticated && parsed && parsed.iv && parsed.data && parsed.authTag) {
-                                console.log('Attempting to decrypt row ID:', row.id);
+                                // Decrypt when authorized; avoid verbose per-row logs
                                 decrypted = this.authManager.decryptData(parsed);
-                                console.log('Decryption successful for row ID:', row.id);
                             } else if (!parsed.iv) {
                                 decrypted = parsed;
                             }
@@ -287,7 +318,7 @@ class PasswordManagerDB {
                                 };
                             }
                         } catch (err) {
-                            console.error('Failed to parse or decrypt row ID:', row.id, err.message);
+                            debug('error', 'Failed to parse or decrypt row ID:', row.id, err.message);
                         }
                     }
                     return {
@@ -358,7 +389,7 @@ class PasswordManagerDB {
                                     };
                                 }
                             } catch (parseErr) {
-                                console.error('Failed to parse or decrypt row ID:', row.id, parseErr.message);
+                                debug('error', 'Failed to parse or decrypt row ID:', row.id, parseErr.message);
                             }
                         }
                         return {
@@ -391,8 +422,8 @@ class PasswordManagerDB {
             
             // Log generic information; avoid logging password lengths or other
             // sensitive metadata.  Title is safe to log.
-            console.log('Adding password entry');
-            console.log('Title:', title);
+            debug('info', 'Adding password entry');
+            debug('info', 'Title:', title);
 
             if (!title || !title.trim()) {
                 callback(new Error('Title is required'), null);
@@ -437,7 +468,7 @@ class PasswordManagerDB {
                 callback(authError, null);
             }
         } catch (error) {
-            console.error('Error in addPassword:', error);
+            debug('error', 'Error in addPassword:', error);
             callback(error, null);
         }
     }
@@ -453,7 +484,7 @@ class PasswordManagerDB {
 
             const { category_id, category_name, title, username, email, password, url, notes, image } = passwordData;
             
-            console.log('Updating password with encryption...');
+            debug('info', 'Updating password with encryption...');
 
             if (!title || !title.trim()) {
                 callback(new Error('Title is required'), null);
@@ -495,7 +526,7 @@ class PasswordManagerDB {
                 callback(authError, null);
             }
         } catch (error) {
-            console.error('Error in updatePassword:', error);
+            debug('error', 'Error in updatePassword:', error);
             callback(error, null);
         }
     }
@@ -547,7 +578,7 @@ class PasswordManagerDB {
     close() {
         if (this.db) {
             this.db.close();
-            console.log('Database connection closed');
+            debug('info', 'Database connection closed');
         }
     }
 }

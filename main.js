@@ -8,6 +8,31 @@ const { autoUpdater } = require('electron-updater');
 // it here near the top so it is available throughout the file.
 const fs = require('fs');
 
+// Modern debug logger with emojis and color-coded styles.
+// Usage: debug('info', 'Message', ...args);
+function debug(level, ...args) {
+  const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
+  const colorMap = {
+    info: 'color:#2196F3; font-weight:bold;',
+    warn: 'color:#FF9800; font-weight:bold;',
+    error: 'color:#F44336; font-weight:bold;',
+    success: 'color:#4CAF50; font-weight:bold;'
+  };
+  const emoji = emojiMap[level] || '';
+  const style = colorMap[level] || '';
+  const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+  const fn =
+    level === 'error'
+      ? console.error
+      : level === 'warn'
+      ? console.warn
+      : console.log;
+  if (isBrowser) {
+    fn.call(console, `%c${emoji}`, style, ...args);
+  } else {
+    fn.call(console, `${emoji}`, ...args);
+  }
+}
 // Keep track of files that were successfully downloaded during this session.  Each
 // entry in this array corresponds to the final path of a completed download.
 // When the application is closing, these files will be deleted if they still
@@ -42,7 +67,7 @@ try {
     oauthConfig = JSON.parse(raw);
   }
 } catch (err) {
-  console.warn('Failed to load oauth_config.json:', err);
+  debug('warn', 'Failed to load oauth_config.json:', err);
   oauthConfig = {};
 }
 
@@ -149,7 +174,7 @@ function loadUserProfile() {
       userProfile = JSON.parse(data);
     }
   } catch (err) {
-    console.warn('Failed to load saved user profile:', err);
+    debug('warn', 'Failed to load saved user profile:', err);
     userProfile = null;
   }
 }
@@ -166,7 +191,7 @@ function saveUserProfile() {
       }
     }
   } catch (err) {
-    console.warn('Failed to save user profile:', err);
+    debug('warn', 'Failed to save user profile:', err);
   }
 }
 
@@ -408,14 +433,14 @@ let updateAvailable = false;
 let isManualCheck = false;
 let updateDownloaded = false;
 autoUpdater.on('checking-for-update', () => {
-  console.log('Checking for updates...');
+  debug('info', 'Checking for updates...');
   if (mainWindow && isManualCheck) {
     mainWindow.webContents.send('update-status', { status: 'checking', message: 'Checking for updates...' });
   }
 });
 
 autoUpdater.on('update-available', (info) => {
-  console.log('Update available:', info);
+  debug('info', 'Update available:', info);
   updateAvailable = true;
   if (mainWindow) {
     const title = info.releaseName || '';
@@ -434,7 +459,7 @@ autoUpdater.on('update-available', (info) => {
 });
 
 autoUpdater.on('update-not-available', (info) => {
-  console.log('Update not available:', info);
+  debug('info', 'Update not available:', info);
   if (mainWindow && isManualCheck) {
     mainWindow.webContents.send('update-status', {
       status: 'not-available',
@@ -444,7 +469,7 @@ autoUpdater.on('update-not-available', (info) => {
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
-  console.log('Download progress:', progressObj);
+  debug('info', 'Download progress:', progressObj);
   if (mainWindow) {
     mainWindow.webContents.send('update-status', {
       status: 'downloading',
@@ -455,7 +480,7 @@ autoUpdater.on('download-progress', (progressObj) => {
 });
 
 autoUpdater.on('update-downloaded', (info) => {
-  console.log('Update downloaded:', info);
+  debug('success', 'Update downloaded:', info);
   updateDownloaded = true;
   if (mainWindow) {
     const title = info.releaseName || '';
@@ -473,7 +498,7 @@ autoUpdater.on('update-downloaded', (info) => {
 });
 
 autoUpdater.on('error', (err) => {
-  console.log('Update error:', err);
+  debug('error', 'Update error:', err);
   if (mainWindow) {
     mainWindow.webContents.send('update-status', {
       status: 'error',
@@ -550,7 +575,9 @@ function createWindow() {
   });
   mainWindow.loadFile('index.html');
   setTimeout(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch(console.error);
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      debug('error', err);
+    });
   }, 3000);
 }
 
@@ -594,7 +621,7 @@ app.on('before-quit', () => {
         fs.unlinkSync(filePath);
       }
     } catch (err) {
-      console.warn('Failed to delete downloaded file:', filePath, err);
+      debug('warn', 'Failed to delete downloaded file:', filePath, err);
     }
   }
   // Remove extracted directories
@@ -604,7 +631,7 @@ app.on('before-quit', () => {
         fs.rmSync(dirPath, { recursive: true, force: true });
       }
     } catch (err) {
-      console.warn('Failed to delete extracted directory:', dirPath, err);
+      debug('warn', 'Failed to delete extracted directory:', dirPath, err);
     }
   }
 });
@@ -989,9 +1016,9 @@ ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
       const src = expandEnv(sourcePath);
       const dst = expandEnv(destPath);
 
-      console.log('Replacing executable with elevated privileges:');
-      console.log('Source:', src);
-      console.log('Destination:', dst);
+      debug('info', 'Replacing executable with elevated privileges:');
+      debug('info', 'Source:', src);
+      debug('info', 'Destination:', dst);
 
       if (!fs.existsSync(src)) {
         resolve({ success: false, error: `Source file not found: ${src}`, code: 'SRC_MISSING' });
@@ -1048,7 +1075,7 @@ WScript.Sleep(3000)
 `;
       const vbsFile = path.join(os.tmpdir(), `elevate_${Date.now()}.vbs`);
       fs.writeFileSync(vbsFile, vbsScript);
-      console.log('Requesting UAC elevation for file replacement...');
+      debug('info', 'Requesting UAC elevation for file replacement...');
       exec(`wscript "${vbsFile}"`, (error) => {
         setTimeout(() => {
           try { fs.unlinkSync(vbsFile); } catch { }
@@ -1056,14 +1083,14 @@ WScript.Sleep(3000)
         }, 10000);
 
         if (error) {
-          console.log('User denied UAC or elevation failed:', error);
+          debug('warn', 'User denied UAC or elevation failed:', error);
           resolve({
             success: false,
             error: 'Administrator privileges required. Please accept the UAC prompt.',
             code: 'UAC_DENIED'
           });
         } else {
-          console.log('UAC accepted, replacement in progress...');
+          debug('success', 'UAC accepted, replacement in progress...');
 
           // Poll for the destination file to appear instead of waiting a fixed
           // timeout.  This reduces race conditions where the copy takes
@@ -1083,7 +1110,7 @@ WScript.Sleep(3000)
       });
 
     } catch (err) {
-      console.error('Replace exception:', err);
+      debug('error', 'Replace exception:', err);
       resolve({ success: false, error: `Exception: ${err.message}` });
     }
   });
@@ -1091,9 +1118,9 @@ WScript.Sleep(3000)
 async function ensure7za() {
   const candidates = [];
 
-  console.log('🔍 Searching for 7za...');
-  console.log('Resources path:', process.resourcesPath);
-  console.log('__dirname:', __dirname);
+  debug('info', '🔍 Searching for 7za...');
+  debug('info', 'Resources path:', process.resourcesPath);
+  debug('info', '__dirname:', __dirname);
   if (process.resourcesPath) {
     candidates.push(path.join(process.resourcesPath, 'bin', '7za.exe'));
     candidates.push(path.join(process.resourcesPath, 'bin', '7z.exe'));
@@ -1116,20 +1143,15 @@ async function ensure7za() {
   for (const candidate of candidates) {
     try {
       if (fs.existsSync(candidate)) {
-        console.log('✅ FOUND 7za at:', candidate);
+        debug('success', '✅ FOUND 7za at:', candidate);
         return candidate;
       }
     } catch (err) {
-      console.log('❌ Error checking:', candidate, err.message);
+      debug('error', 'Error checking:', candidate, err.message);
     }
   }
-  console.log('❌ 7za.exe not found in any location');
-
-  console.log('📋 Checked paths:');
-  candidates.forEach((candidate, index) => {
-    console.log(` ${index + 1}. ${candidate}`);
-  });
-
+  debug('warn', '7za.exe not found in any location');
+  // Candidates list intentionally omitted to reduce noise
   return null;
 }
 ipcMain.handle('extract-archive', async (event, { filePath, password, destDir }) => {
@@ -1169,7 +1191,7 @@ ipcMain.handle('extract-archive', async (event, { filePath, password, destDir })
       resolve({ success: true, output: 'File opened directly (7-Zip not available)' });
       return;
     }
-    console.log('Using 7za.exe from:', exe);
+    debug('info', 'Using 7za.exe from:', exe);
     const args = ['x', archive];
     if (pwd) args.push(`-p${pwd}`);
     args.push(`-o${outDir}`);
@@ -1178,7 +1200,7 @@ ipcMain.handle('extract-archive', async (event, { filePath, password, destDir })
     let stderr = '';
     child.stderr.on('data', (buf) => { stderr += buf.toString(); });
     child.on('error', (err) => {
-      console.error('7za spawn error:', err);
+      debug('error', '7za spawn error:', err);
       resolve({ success: false, error: `7za spawn error: ${err.message}` });
     });
     child.on('close', (code) => {
@@ -1585,7 +1607,7 @@ ipcMain.handle('password-manager-get-categories', async () => {
       clearTimeout(timeout);
       db.close();
       if (err) {
-        console.error('Error getting categories:', err);
+        debug('error', 'Error getting categories:', err);
         resolve({ success: false, error: err.message });
       } else {
         resolve({ success: true, categories: rows || [] });
@@ -1644,7 +1666,7 @@ ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all
       clearTimeout(timeout);
       db.close();
       if (err) {
-        console.error('Error getting passwords:', err);
+        debug('error', 'Error getting passwords:', err);
         resolve({ success: false, error: err.message });
       } else {
         resolve({ success: true, passwords: rows || [] });
@@ -1654,15 +1676,7 @@ ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all
 });
 ipcMain.handle('password-manager-add-password', async (event, passwordData) => {
   return new Promise((resolve) => {
-    console.log('=== ADD PASSWORD REQUEST ===');
-    console.log('Password data received:', {
-      title: passwordData.title,
-      passwordLength: passwordData.password ? passwordData.password.length : 0,
-      hasUsername: !!passwordData.username,
-      hasEmail: !!passwordData.email,
-      hasUrl: !!passwordData.url,
-      hasNotes: !!passwordData.notes
-    });
+    // Password add requested
 
     const db = new PasswordManagerDB(pmAuth);
 
@@ -1674,11 +1688,11 @@ ipcMain.handle('password-manager-add-password', async (event, passwordData) => {
       clearTimeout(timeout);
       db.close();
       if (err) {
-        console.error('Error adding password:', err);
-        console.error('Error details:', err.message);
+        debug('error', 'Error adding password:', err);
+        debug('error', 'Error details:', err.message);
         resolve({ success: false, error: err.message });
       } else {
-        console.log('Password added successfully, ID:', this.lastID);
+        debug('success', 'Password added successfully, ID:', this.lastID);
         resolve({ success: true, id: this.lastID });
       }
     });
@@ -1729,29 +1743,29 @@ ipcMain.handle('open-password-manager', async () => {
 });
 ipcMain.handle('password-manager-has-master-password', async () => {
   try {
-    console.log('Checking for master password...');
+    debug('info', 'Checking for master password...');
 
     if (!pmAuth.configPath) {
-      console.log('Auth manager not initialized, initializing now...');
+      debug('info', 'Auth manager not initialized, initializing now...');
       const documentsPath = require('os').homedir() + '/Documents';
       const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
       pmAuth.initialize(pmDirectory);
     }
 
     const result = pmAuth.hasMasterPassword();
-    console.log('Master password exists:', result);
+    debug('info', 'Master password exists:', result);
     return result;
   } catch (error) {
-    console.error('Error checking master password:', error);
+    debug('error', 'Error checking master password:', error);
     return false;
   }
 });
 ipcMain.handle('password-manager-create-master-password', async (event, password) => {
   try {
-    console.log('Creating master password...');
+    debug('info', 'Creating master password...');
 
     if (!pmAuth.configPath) {
-      console.log('Auth manager not initialized, initializing now...');
+      debug('info', 'Auth manager not initialized, initializing now...');
       const documentsPath = require('os').homedir() + '/Documents';
       const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
       pmAuth.initialize(pmDirectory);
@@ -1760,16 +1774,16 @@ ipcMain.handle('password-manager-create-master-password', async (event, password
     await pmAuth.createMasterPassword(password);
     return { success: true };
   } catch (error) {
-    console.error('Error creating master password:', error);
+    debug('error', 'Error creating master password:', error);
     return { success: false, error: error.message };
   }
 });
 ipcMain.handle('password-manager-authenticate', async (event, password) => {
   try {
-    console.log('Authenticating...');
+    debug('info', 'Authenticating...');
 
     if (!pmAuth.configPath) {
-      console.log('Auth manager not initialized, initializing now...');
+      debug('info', 'Auth manager not initialized, initializing now...');
       const documentsPath = require('os').homedir() + '/Documents';
       const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
       pmAuth.initialize(pmDirectory);
@@ -1778,7 +1792,7 @@ ipcMain.handle('password-manager-authenticate', async (event, password) => {
     await pmAuth.authenticate(password);
     return { success: true };
   } catch (error) {
-    console.error('Error authenticating:', error);
+    debug('error', 'Error authenticating:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1877,7 +1891,7 @@ ipcMain.handle('run-msi-installer', async (event, msiPath) => {
 
     exec(command, (error, stdout, stderr) => {
       if (error) {
-        console.log('MSI execution details:', { error, stdout, stderr });
+        debug('info', 'MSI execution details:', { error, stdout, stderr });
 
         // Θεωρούμε επιτυχία αν υπήρχε κάποιο output
         if (stdout || stderr) {
@@ -1906,7 +1920,7 @@ ipcMain.handle('run-msi-installer', async (event, msiPath) => {
 // Νέο handler για εκτέλεση installers
 ipcMain.handle('run-installer', async (event, filePath) => {
   return new Promise((resolve) => {
-    console.log('Running installer:', filePath);
+    debug('info', 'Running installer:', filePath);
 
     if (process.platform === 'win32') {
       // Χρήση start command για να ανοίξει το αρχείο
@@ -1914,10 +1928,10 @@ ipcMain.handle('run-installer', async (event, filePath) => {
 
       exec(command, (error, stdout, stderr) => {
         if (error) {
-          console.log('Exec error:', error);
+          debug('error', 'Exec error:', error);
           resolve({ success: false, error: error.message });
         } else {
-          console.log('Exec success');
+          debug('success', 'Exec success');
           resolve({ success: true });
         }
       });
@@ -1957,7 +1971,7 @@ ipcMain.handle('password-manager-reset', async () => {
 
     return { success: true };
   } catch (error) {
-    console.error('Error resetting password manager:', error);
+    debug('error', 'Error resetting password manager:', error);
     return { success: false, error: error.message };
   }
 });

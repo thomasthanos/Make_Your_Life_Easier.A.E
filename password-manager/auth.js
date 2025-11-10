@@ -3,6 +3,37 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+// Modern debug logger for auth operations with emojis and color-coded styles.
+function debug(level, ...args) {
+    const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
+    const colorMap = {
+        info: 'color:#2196F3; font-weight:bold;',
+        warn: 'color:#FF9800; font-weight:bold;',
+        error: 'color:#F44336; font-weight:bold;',
+        success: 'color:#4CAF50; font-weight:bold;'
+    };
+    const emoji = emojiMap[level] || '';
+    const style = colorMap[level] || '';
+    const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+    if (isBrowser) {
+        const fn =
+            level === 'error'
+                ? console.error
+                : level === 'warn'
+                ? console.warn
+                : console.log;
+        fn.call(console, `%c${emoji}`, style, ...args);
+    } else {
+        const fn =
+            level === 'error'
+                ? console.error
+                : level === 'warn'
+                ? console.warn
+                : console.log;
+        fn.call(console, `${emoji}`, ...args);
+    }
+}
+
 class PasswordManagerAuth {
     constructor() {
         this.isAuthenticated = false;
@@ -20,17 +51,17 @@ class PasswordManagerAuth {
             this.dbDirectory = this.getDocumentsPath();
             this.configPath = path.join(this.dbDirectory, 'pm_config.json');
             
-            console.log('Auto-initializing auth manager...');
-            console.log('Config path:', this.configPath);
+            debug('info', 'Auto-initializing auth manager...');
+            debug('info', 'Config path:', this.configPath);
             
             // Δημιουργία directory αν δεν υπάρχει
             if (!fs.existsSync(this.dbDirectory)) {
                 fs.mkdirSync(this.dbDirectory, { recursive: true });
             }
             
-            console.log('Auth manager initialized successfully');
+            debug('success', 'Auth manager initialized successfully');
         } catch (error) {
-            console.error('Error auto-initializing auth manager:', error);
+            debug('error', 'Error auto-initializing auth manager:', error);
         }
     }
     
@@ -55,7 +86,7 @@ class PasswordManagerAuth {
         try {
             return fs.existsSync(this.configPath);
         } catch (error) {
-            console.error('Error checking master password:', error);
+            debug('error', 'Error checking master password:', error);
             return false;
         }
     }
@@ -174,9 +205,9 @@ class PasswordManagerAuth {
             finalHkdf.update('encryption-key');
             this.encryptionKey = finalHkdf.digest();
             
-            console.log('Encryption key generated successfully');
+            debug('success', 'Encryption key generated successfully');
         } catch (error) {
-            console.error('Error generating encryption key:', error);
+            debug('error', 'Error generating encryption key:', error);
             throw error;
         }
     }
@@ -185,7 +216,7 @@ class PasswordManagerAuth {
 // Στο encryptData method:
 encryptData(data) {
     if (!this.isAuthenticated || !this.encryptionKey) {
-        console.error('Cannot encrypt: Not authenticated or no encryption key');
+        debug('error', 'Cannot encrypt: Not authenticated or no encryption key');
         throw new Error('Δεν έχετε πιστοποιηθεί');
     }
 
@@ -205,7 +236,7 @@ encryptData(data) {
             };
         } catch (error) {
             // Log a generic message without revealing sensitive details
-            console.error('Encryption error');
+            debug('error', 'Encryption error');
             throw error;
         }
 }
@@ -228,7 +259,7 @@ encryptData(data) {
             
             return JSON.parse(decrypted);
         } catch (error) {
-            console.error('Decryption error:', error);
+            debug('error', 'Decryption error:', error);
             throw error;
         }
     }
@@ -240,14 +271,14 @@ encryptData(data) {
         }
         
         this.sessionTimer = setTimeout(() => {
-            console.log('Session expired');
+            debug('warn', 'Session expired');
             this.logout();
         }, this.sessionTimeout);
     }
 
     // Αποσύνδεση
     logout() {
-        console.log('Logging out...');
+        debug('info', 'Logging out...');
         this.isAuthenticated = false;
         
         // Ασφαλής εκκαθάριση κλειδιού από μνήμη
@@ -261,7 +292,7 @@ encryptData(data) {
             this.sessionTimer = null;
         }
         
-        console.log('Logout completed');
+        debug('success', 'Logout completed');
     }
 
     // Αλλαγή Master Password

@@ -1,6 +1,32 @@
 
 const processStates = new Map();
 
+// Modern debug logger with emojis and color-coded styles.
+// Usage: debug('info', 'Message', ...args);
+function debug(level, ...args) {
+  const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
+  const colorMap = {
+    info: 'color:#2196F3; font-weight:bold;',
+    warn: 'color:#FF9800; font-weight:bold;',
+    error: 'color:#F44336; font-weight:bold;',
+    success: 'color:#4CAF50; font-weight:bold;'
+  };
+  const emoji = emojiMap[level] || '';
+  const style = colorMap[level] || '';
+  const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+  const fn =
+    level === 'error'
+      ? console.error
+      : level === 'warn'
+      ? console.warn
+      : console.log;
+  if (isBrowser) {
+    fn.call(console, `%c${emoji}`, style, ...args);
+  } else {
+    fn.call(console, `${emoji}`, ...args);
+  }
+}
+
 (() => {
   let cachedPreinstalledApps = null;
   const menuKeys = [
@@ -1796,7 +1822,7 @@ const processStates = new Map();
     } catch (err) {
       // Display the error using a toast and avoid populating the status element
       toast(`Error: ${err.message}`, { type: 'error' });
-      console.error('Error opening installer:', err);
+      debug('error', 'Error opening installer:', err);
     } finally {
       // Always mark as complete and clean up
       const download = activeDownloads.get(index);
@@ -2352,8 +2378,8 @@ const processStates = new Map();
       const msiPath = `${extractedDir}\\advinst.msi`;
       const activatorPath = `${extractedDir}\\Advanced Installer Activator.exe`;
 
-      console.log('MSI Path:', msiPath);
-      console.log('Activator Path:', activatorPath);
+      debug('info', 'MSI Path:', msiPath);
+      debug('info', 'Activator Path:', activatorPath);
 
       // Έλεγχος ύπαρξης αρχείων με διαφορετικό τρόπο
       const filesExist = await checkFilesExist([msiPath, activatorPath]);
@@ -2369,7 +2395,7 @@ const processStates = new Map();
       statusElement.textContent = 'Starting Advanced Installer setup...';
 
       // Εκτέλεση του advinst.msi ΜΟΝΟ ΜΙΑ ΦΟΡΑ
-      console.log('Running MSI installer...');
+      debug('info', 'Running MSI installer...');
       const installResult = await window.api.runInstaller(msiPath);
 
       if (!installResult.success) {
@@ -2399,7 +2425,7 @@ const processStates = new Map();
         activatorButton.innerHTML = '⏳...';
 
         try {
-          console.log('Running activator...');
+          debug('info', 'Running activator...');
           const activatorResult = await window.api.runInstaller(activatorPath);
 
           if (activatorResult.success) {
@@ -4432,23 +4458,23 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     try {
       // Έλεγχος αν το API υπάρχει
       if (window.api && typeof window.api.getAppVersion === 'function') {
-        console.log('📦 Fetching app version from API...');
+        debug('info', '📦 Fetching app version from API...');
         const version = await window.api.getAppVersion();
-        console.log('📦 Version received:', version);
+        debug('info', '📦 Version received:', version);
 
         if (version && version !== '000' && version !== '0.0.0') {
           document.getElementById('appVersion').textContent = `v${version}`;
         } else {
           // Fallback αν η έκδοση είναι 000
           document.getElementById('appVersion').textContent = 'v1.0.0';
-          console.warn('⚠️ Version returned 000, using fallback');
+          debug('warn', '⚠️ Version returned 000, using fallback');
         }
       } else {
-        console.warn('⚠️ getAppVersion API not available');
+        debug('warn', '⚠️ getAppVersion API not available');
         document.getElementById('appVersion').textContent = 'v1.0.0';
       }
     } catch (error) {
-      console.error('❌ Error getting version:', error);
+      debug('error', '❌ Error getting version:', error);
       document.getElementById('appVersion').textContent = 'v1.0.0';
     }
   }
@@ -4585,7 +4611,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
               try {
                 await window.api?.logout?.();
               } catch (err) {
-                console.error('Logout failed:', err);
+              debug('error', 'Logout failed:', err);
               }
               // After logging out, refresh the UI
               updateUserInfo();
@@ -4634,7 +4660,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
             try {
               await window.api?.loginGoogle?.();
             } catch (err) {
-              console.error('Google login failed:', err);
+              debug('error', 'Google login failed:', err);
               const msg = String(err?.message || err);
               if (msg && /not configured/i.test(msg)) {
                 window.alert('Google login is not available because OAuth credentials are not configured. Please set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI environment variables or provide a configuration file.');
@@ -4646,7 +4672,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
             try {
               await window.api?.loginDiscord?.();
             } catch (err) {
-              console.error('Discord login failed:', err);
+              debug('error', 'Discord login failed:', err);
               const msg = String(err?.message || err);
               if (msg && /not configured/i.test(msg)) {
                 window.alert('Discord login is not available because OAuth credentials are not configured. Please set DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET and DISCORD_REDIRECT_URI environment variables or provide a configuration file.');
@@ -4656,13 +4682,13 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
           });
         }
       } catch (err) {
-        console.warn('Failed to update user info:', err);
+        debug('warn', 'Failed to update user info:', err);
       }
     }
     // Immediately update on initialisation
     updateUserInfo();
   }
-  getAppVersionWithFallback().then(v => console.log('App version resolved =', v));
+getAppVersionWithFallback().then(v => debug('info', 'App version resolved =', v));
 
   // κάλεσέ το στο init:
   async function init() {

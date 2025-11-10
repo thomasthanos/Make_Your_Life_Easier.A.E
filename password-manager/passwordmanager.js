@@ -1,3 +1,38 @@
+// Modern debug logger with emojis and color-coded styles.
+// Usage: debug('info', 'Message', {...});
+function debug(level, ...args) {
+    const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
+    const colorMap = {
+        info: 'color:#2196F3; font-weight:bold;',
+        warn: 'color:#FF9800; font-weight:bold;',
+        error: 'color:#F44336; font-weight:bold;',
+        success: 'color:#4CAF50; font-weight:bold;'
+    };
+    const emoji = emojiMap[level] || '';
+    const style = colorMap[level] || '';
+    // Determine if running in a browser environment to decide whether to use CSS styles
+    const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+    if (isBrowser) {
+        // Select appropriate console method based on level
+        const fn =
+            level === 'error'
+                ? console.error
+                : level === 'warn'
+                ? console.warn
+                : console.log;
+        fn.call(console, `%c${emoji}`, style, ...args);
+    } else {
+        // Fallback for Node/terminal environments
+        const fn =
+            level === 'error'
+                ? console.error
+                : level === 'warn'
+                ? console.warn
+                : console.log;
+        fn.call(console, `${emoji}`, ...args);
+    }
+}
+
 class PasswordManager {
     constructor() {
         this.categories = [];
@@ -56,7 +91,7 @@ class PasswordManager {
         try {
             await this.authUI.initialize();
         } catch (error) {
-            console.error('Auth initialization failed:', error);
+            debug('error', 'Auth initialization failed:', error);
         }
     }
 
@@ -250,8 +285,7 @@ class PasswordManager {
 
     toggleCompactMode() {
         this.isCompactMode = !this.isCompactMode;
-        console.log('Toggling compact mode to:', this.isCompactMode);
-        console.log('Current passwords count:', this.passwords.length);
+        // No verbose logging for mode toggling; handled silently for modern UX
         
         const manager = document.querySelector('.password-manager');
         const toggle = document.querySelector('.compact-toggle');
@@ -406,7 +440,7 @@ class PasswordManager {
 
     async loadData() {
         if (!window.api || window.api.isStub) {
-            console.warn('Password manager APIs are not available; using sample data for demonstration.');
+            debug('warn', 'Password manager APIs are not available; using sample data for demonstration.');
             this.isAuthenticated = true;
             this.categories = [
                 { id: 1, name: 'email' },
@@ -497,11 +531,13 @@ class PasswordManager {
         }
 
         if (!this.isAuthenticated) {
-            console.log('Not authenticated, skipping data load');
+            // Warn if data load is attempted without authentication
+            debug('warn', 'Not authenticated, skipping data load');
             return;
         }
 
-        console.log('Loading password manager data...');
+        // Informative log for starting data load
+        debug('info', 'Loading password manager data...');
 
         const requiredApis = [
             'passwordManagerGetCategories',
@@ -738,7 +774,8 @@ class PasswordManager {
     }
 
 renderPasswords() {
-    console.log('Rendering passwords, compact mode:', this.isCompactMode);
+    // Trace rendering with layout info using modern logger
+    debug('info', 'Rendering passwords, compact mode:', this.isCompactMode);
     const grid = document.getElementById('passwordsGrid');
     
     if (this.passwords.length === 0) {
@@ -1039,7 +1076,7 @@ renderPasswords() {
                     const langResponse = await fetch(`lang/${this.lang}.json`);
                     langData = await langResponse.json();
                 } catch (err) {
-                    console.error('Failed to load language file:', err);
+                    debug('error', 'Failed to load language file:', err);
                 }
             }
             this.translations = {
@@ -1047,7 +1084,7 @@ renderPasswords() {
                 [this.lang]: { ...enData, ...langData }
             };
         } catch (error) {
-            console.error('Error loading translations:', error);
+            debug('error', 'Error loading translations:', error);
             // leave translations as empty objects on failure
         }
     }
@@ -1151,7 +1188,7 @@ renderPasswords() {
             const delCloseBtn = document.getElementById('deleteConfirmClose');
             if (delCloseBtn) delCloseBtn.title = this.t('close_button');
         } catch (err) {
-            console.error('Error applying translations:', err);
+            debug('error', 'Error applying translations:', err);
         }
     }
 
@@ -1223,7 +1260,7 @@ async savePassword(e) {
             image: document.getElementById('imageData') ? document.getElementById('imageData').value || null : null
         };
 
-    console.log('Saving password data:', {
+    debug('info', 'Saving password data:', {
         title: passwordData.title,
         username: passwordData.username,
         passwordLength: passwordData.password ? passwordData.password.length : 0
@@ -1358,7 +1395,7 @@ async savePassword(e) {
             this.showError(this.t('save_password_failed') + errMsg);
         }
     } catch (error) {
-        console.error('Save password error:', error);
+        debug('error', 'Save password error:', error);
         this.showError(this.t('save_password_error') + error.message);
         
         const saveBtn = document.getElementById('savePasswordBtn');
@@ -1561,10 +1598,10 @@ async savePassword(e) {
                     if (data && data.success && data.data && data.data.link) {
                         imageUrl = data.data.link;
                     } else {
-                        console.warn('Imgur upload failed, using data URI instead:', data);
+                        debug('warn', 'Imgur upload failed, using data URI instead:', data);
                     }
                 } catch (err) {
-                    console.error('Error uploading to Imgur:', err);
+                    debug('error', 'Error uploading to Imgur:', err);
                 }
             }
 
@@ -1587,7 +1624,7 @@ async savePassword(e) {
             hiddenInput.value = logoUrl;
             this.setUploadBoxImage(logoUrl);
         } catch (err) {
-            console.error('Error fetching site logo:', err);
+            debug('error', 'Error fetching site logo:', err);
         }
     }
 
@@ -1733,13 +1770,13 @@ async savePassword(e) {
 
         const valueContainer = button.closest('.password-row, .compact-password-row');
         if (!valueContainer) {
-            console.error('Could not find password row for password toggle');
+            debug('error', 'Could not find password row for password toggle');
             return;
         }
 
         const textElement = valueContainer.querySelector('.password-text, .compact-text');
         if (!textElement) {
-            console.error('Could not find text element for password toggle');
+            debug('error', 'Could not find text element for password toggle');
             return;
         }
 
