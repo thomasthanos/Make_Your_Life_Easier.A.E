@@ -149,7 +149,14 @@
    * adjust the title bar height as well as the corresponding
    * margins and calc() expressions used for #app, #sidebar and #main.
    */
-  --title-bar-height: 30px;
+  /*
+   * Adjust the height of the custom title bar.  Increasing this value
+   * increases the bar’s height and, thanks to responsive calculations
+   * in the button and icon styles, will scale the controls and icon
+   * proportionally.  Users can update this variable to their desired
+   * height without having to modify individual widths or font sizes.
+   */
+  --title-bar-height: 50px;
 }
 
 [data-theme="light"] {
@@ -3561,13 +3568,7 @@ input:checked+.slider:before {
   -webkit-backdrop-filter: blur(8px) !important;
   color: var(--sidebar-text) !important;
 }
-/*
- * Exclude the custom title‐bar buttons from this general button styling rule.
- * Without this exclusion, the global rule overrides the specific
- * styles defined for `.title-bar-btn` (e.g. border radius, border and background).
- * We add `:not(.title-bar-btn)` to each selector so that the custom
- * title-bar buttons retain their own appearance.
- */
+
 button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):not(.title-bar-btn),
 button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):not(.title-bar-btn):hover,
 button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):not(.title-bar-btn):active {
@@ -3581,13 +3582,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   color: var(--text-color) !important;
 }
 
-/* ------------------------------------------------------------------
-   Error Card UI
-   These styles define a terminal-like card used to display error
-   messages. The container is positioned in the bottom right of the
-   viewport and each card has its own header and body areas.  Colours
-   and fonts align with the existing theme variables.
-   ------------------------------------------------------------------ */
 #error-container {
   position: fixed;
   bottom: 1rem;
@@ -4417,8 +4411,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   background-color: var(--header-bg);
   display: flex;
   align-items: center;
-  /* Align children at the start so the app icon and title appear together.
-     The controls container will be pushed to the right via `margin-left: auto`. */
   justify-content: flex-start;
   padding: 0 10px;
   color: var(--text-color);
@@ -4433,7 +4425,7 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 }
 
 .title-bar-title {
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .title-bar-controls {
@@ -4444,36 +4436,25 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   margin-left: auto;
 }
 
-/* Icon displayed in the custom title bar.  We set a fixed size and a
-   margin to separate it from the title.  Because the icon itself
-   doesn’t perform any action, we leave it within the drag region so
-   users can still click and drag the window from this area. */
 .title-bar-app-icon {
-  width: 16px;
-  height: 16px;
-  margin-right: 8px;
+  width: calc(var(--title-bar-height) * 0.5333);
+  height: calc(var(--title-bar-height) * 0.5333);
+  margin-right: calc(var(--title-bar-height) * 0.2667);
   -webkit-app-region: drag;
 }
 
 .title-bar-btn {
-  /* Transparent background and a subtle border give the buttons a pill-like
-     appearance similar to modern window controls.  The border colour is
-     slightly lighter in dark mode and slightly darker in light mode (see
-     light‑theme overrides below). */
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  /* Inherit the primary text colour so buttons adapt to the current theme */
   color: var(--text-color);
-  /* Set consistent size for the window controls */
-  width: 32px;
-  height: 20px;
-  /* Use a modest corner radius so buttons feel crisp without being too sharp */
-  border-radius: 4px;
+  width: calc(var(--title-bar-height) * 1.0667);
+  height: calc(var(--title-bar-height) * 0.6667);
+  border-radius: calc(var(--title-bar-height) * 0.1333);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 14px;
+  font-size: calc(var(--title-bar-height) * 0.4667);
   font-weight: bold;
   transition: background-color 0.2s, border-color 0.2s;
   line-height: 1;
@@ -4521,6 +4502,8 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 
 /* Adjust main app layout */
 #app {
+  /* Offset the application content by the height of the custom title bar.  Using
+     a CSS variable here allows the value to be changed in one place. */
   margin-top: var(--title-bar-height);
 }
 
