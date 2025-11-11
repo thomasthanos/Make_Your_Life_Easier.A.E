@@ -4521,10 +4521,7 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 
 /* Adjust main app layout */
 #app {
-  /* Offset the application content by the height of the custom title bar.  Using
-     a CSS variable here allows the value to be changed in one place. */
   margin-top: var(--title-bar-height);
-  height: calc(100vh - var(--title-bar-height));
 }
 
 /* Adjust sidebar and main content */
