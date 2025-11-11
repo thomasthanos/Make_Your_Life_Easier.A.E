@@ -3,7 +3,7 @@ const path = require('path');
 const os = require('os');
 const { exec, spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
-
+//
 // The built-in fs module provides file system operations.  We require
 // it here near the top so it is available throughout the file.
 const fs = require('fs');
@@ -482,6 +482,17 @@ autoUpdater.on('download-progress', (progressObj) => {
 autoUpdater.on('update-downloaded', (info) => {
   debug('success', 'Update downloaded:', info);
   updateDownloaded = true;
+  // Persist release notes so we can show them after restart.  We write
+  // them synchronously to the user's data directory.  The file will be
+  // consumed by app.whenReady() in the next launch.
+  try {
+    const userDataDir = app.getPath('userData');
+    const filePath = path.join(userDataDir, 'lastReleaseNotes.json');
+    const notes = info.releaseNotes || '';
+    fs.writeFileSync(filePath, JSON.stringify(notes), 'utf8');
+  } catch (err) {
+    debug('warn', 'Failed to save release notes:', err);
+  }
   if (mainWindow) {
     const title = info.releaseName || '';
     const version = info.version || '';
@@ -602,6 +613,32 @@ app.whenReady().then(() => {
     loadUserProfile();
   } catch { }
   createWindow();
+  // After creating the main window, check if we have persisted release notes
+  // from a previous update.  If the file exists, read the JSON, wait for the
+  // renderer to load, then send a 'show-changelog' event with the notes.  The
+  // file is removed afterwards to avoid repeated display.
+  try {
+    const userDataDir = app.getPath('userData');
+    const filePath = path.join(userDataDir, 'lastReleaseNotes.json');
+    if (fs.existsSync(filePath)) {
+      const contents = fs.readFileSync(filePath, 'utf8');
+      let notes = null;
+      try {
+        notes = JSON.parse(contents);
+      } catch (_) {
+        notes = contents;
+      }
+      if (mainWindow) {
+        // Wait until the window finishes loading its contents before sending
+        mainWindow.webContents.once('did-finish-load', () => {
+          mainWindow.webContents.send('show-changelog', notes);
+        });
+      }
+      fs.unlinkSync(filePath);
+    }
+  } catch (err) {
+    debug('warn', 'Failed to process persisted release notes:', err);
+  }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

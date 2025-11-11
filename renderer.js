@@ -167,6 +167,73 @@ function debug(level, ...args) {
     return { ensure, update, show, hide };
   })();
 
+  /**
+   * Display a modal dialog showing the release notes after an update.
+   * The notes parameter can be a string or an array of objects with
+   * version and note fields.  The modal provides a close button and
+   * simple styling without external dependencies.
+   */
+  function showChangelogModal(notes) {
+    // Build HTML from notes.  Accept either a string or an array of objects.
+    let notesHtml = '';
+    if (Array.isArray(notes)) {
+      notesHtml = notes.map(item => {
+        const ver = item.version ? `<h3 style="margin-top:0.5rem">v${item.version}</h3>` : '';
+        const n = item.note || item.releaseNotes || '';
+        return `${ver}<div>${n}</div>`;
+      }).join('');
+    } else if (typeof notes === 'string') {
+      notesHtml = `<div>${notes}</div>`;
+    } else {
+      notesHtml = `<div>${JSON.stringify(notes)}</div>`;
+    }
+    // Create overlay and modal container.
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    overlay.style.zIndex = '10000';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+
+    const modal = document.createElement('div');
+    modal.style.background = 'var(--card-bg, #1c1c1c)';
+    modal.style.color = 'var(--text-color, #f5f5f5)';
+    modal.style.padding = '1.5rem';
+    modal.style.borderRadius = '12px';
+    modal.style.maxWidth = '600px';
+    modal.style.maxHeight = '80vh';
+    modal.style.overflowY = 'auto';
+    modal.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.4)';
+    modal.innerHTML = `
+      <h2 style="margin-top:0">Τι νέο υπάρχει</h2>
+      <div style="margin-top:0.5rem">${notesHtml}</div>
+      <div style="text-align:right;margin-top:1rem">
+        <button id="changelog-close-btn" class="btn btn-secondary">Κλείσιμο</button>
+      </div>
+    `;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    // Focus on close button for accessibility.
+    const closeBtn = modal.querySelector('#changelog-close-btn');
+    if (closeBtn) {
+      closeBtn.focus();
+      closeBtn.addEventListener('click', () => {
+        overlay.remove();
+      });
+    }
+    // Allow closing by clicking outside the modal.
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) {
+        overlay.remove();
+      }
+    });
+  }
+
   // Track whether the last user interaction was via keyboard or pointer.
   let lastInteractionWasKeyboard = false;
   // When any key is pressed, assume keyboard navigation
@@ -4279,6 +4346,19 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     window.api.onUpdateStatus((data) => {
       showUpdateNotification(data);
     });
+
+    // Listen for the 'show-changelog' event emitted by the main process on
+    // startup after an update.  When invoked, display the release notes in
+    // a modal dialog.  See showChangelogModal() for the UI implementation.
+    if (window.api && typeof window.api.onShowChangelog === 'function') {
+      window.api.onShowChangelog((notes) => {
+        try {
+          showChangelogModal(notes);
+        } catch (err) {
+          console.error('Failed to display changelog:', err);
+        }
+      });
+    }
 
 
     function renderExpandedContent(data) {
