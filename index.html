@@ -93,8 +93,22 @@
   </head>
   <body>
     <div class="custom-title-bar">
-  <img class="title-bar-app-icon" src="hacker.ico" alt="App icon" />
-  <div class="title-bar-title">Make Your Life Easier</div>
+  <!-- Title group: app icon and title text -->
+  <div class="title-group">
+    <img class="title-bar-app-icon" src="hacker.ico" alt="App icon" />
+    <div class="title-bar-title">Make Your Life Easier</div>
+  </div>
+  <!-- Menu container: a single button that toggles a dropdown with theme, language and info options -->
+  <div class="title-bar-menu">
+    <button id="menu-toggle" class="menu-toggle" aria-label="Menu" data-tooltip="Menu"></button>
+    <!-- Dropdown for the menu. Contains the individual toggle buttons. Initially hidden. -->
+    <div id="titlebar-menu-dropdown" class="menu-dropdown hidden">
+      <button id="theme-toggle" class="theme-toggle"></button>
+      <button id="lang-toggle" class="lang-toggle">EN</button>
+      <button id="info-toggle" class="info-toggle"></button>
+    </div>
+  </div>
+  <!-- Window controls: minimize, maximize, close -->
   <div class="title-bar-controls">
     <button class="title-bar-btn minimize" onclick="window.api?.minimizeWindow?.()">
       <svg class="minimize-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
@@ -122,7 +136,7 @@
             <div class="app-subtitle"></div>
             
           </div>
-          <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme"></button>
+          <!-- Theme toggle moved to the custom title bar.  The button is removed from the sidebar header -->
         </div>
         <ul id="menu-list"></ul>
 

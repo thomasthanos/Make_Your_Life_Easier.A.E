@@ -28,9 +28,15 @@ function debug(level, ...args) {
 }
 
 (() => {
+  // Keep track of the currently displayed page key.  This allows us to
+  // restore the same page when translations or settings change without
+  // defaulting back to the first menu item.  It is initialised to
+  // null and updated in loadPage().
+  let currentPage = null;
   let cachedPreinstalledApps = null;
+  // Define the sidebar menu order.  The 'settings' entry has been removed
+  // entirely as configuration options have been relocated to the title bar.
   const menuKeys = [
-    'settings',         // general settings
     'install_apps',     // install & remove apps
     'crack_installer',  // installers for cracked apps
     'system_maintenance',
@@ -288,6 +294,19 @@ function debug(level, ...args) {
   const SUN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
   const MOON_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path></svg>`;
 
+  // SVG for the info icon used in the title bar.  This matches the icon
+  // previously used on the settings page, scaled appropriately for
+  // placement in the title bar.
+  // Use a minimal information icon without a surrounding circle.  This
+  // consists of a vertical bar and a small square above to represent
+  // the letter "i".  Removing the circular outline reduces visual
+  // clutter on the custom title bar when no additional UI is desired.
+  const INFO_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="11" y="10" width="2" height="10"/><rect x="11" y="6" width="2" height="2"/></svg>`;
+
+  // Icon for the menu toggle in the custom title bar.  This is a simple
+  // hamburger icon consisting of three horizontal bars.
+  const MENU_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="6" width="16" height="2"/><rect x="4" y="11" width="16" height="2"/><rect x="4" y="16" width="16" height="2"/></svg>`;
+
   function updateHeader() {
     const titleEl = document.querySelector('.app-title');
     const subtitleEl = document.querySelector('.app-subtitle');
@@ -322,9 +341,124 @@ function debug(level, ...args) {
         document.documentElement.setAttribute('data-theme', newTheme);
         saveSettings();
         refreshIcon();
+        // Close the dropdown menu after toggling the theme.  This ensures
+        // the menu hides automatically when an option is selected.
+        const dropdown = document.getElementById('titlebar-menu-dropdown');
+        if (dropdown) dropdown.classList.add('hidden');
       };
       toggleButton._toggleListener = listener;
       toggleButton.addEventListener('click', listener);
+    }
+
+    // Update language toggle (if present).  The language toggle button
+    // displays the current language code (EN or GR) and switches
+    // between languages on click.  Attach only one listener to avoid
+    // duplicate handlers when updateHeader is invoked multiple times.
+    const langToggle = document.getElementById('lang-toggle');
+    if (langToggle) {
+      // Show the current language code in uppercase.  If settings.lang
+      // contains an unexpected value, fall back to EN.
+      const currentLangCode = (settings.lang === 'gr' || settings.lang === 'en') ? settings.lang.toUpperCase() : 'EN';
+      langToggle.textContent = currentLangCode;
+      // Remove any existing listener attached previously
+      if (langToggle._toggleListener) {
+        langToggle.removeEventListener('click', langToggle._toggleListener);
+      }
+      const langListener = () => {
+        // Toggle between English and Greek only.  Default to English
+        // if the current value is not recognised.
+        const newLang = (settings.lang === 'en') ? 'gr' : 'en';
+        settings.lang = newLang;
+        saveSettings();
+        // Close the dropdown menu as soon as the language is selected.
+        const dropdown = document.getElementById('titlebar-menu-dropdown');
+        if (dropdown) dropdown.classList.add('hidden');
+        // Reload translations and update the UI.  The currentPage
+        // variable is used by renderMenu() to restore the previously
+        // selected page after updating the menu labels.
+        loadTranslations().then(() => {
+          applyTheme();
+          renderMenu();
+          // After rendering the menu, reload the current page.  This
+          // ensures page content and headers are translated.  The
+          // renderMenu() call above will invoke updateHeader() and
+          // apply the theme and language icons.
+          if (typeof currentPage === 'string' && currentPage) {
+            loadPage(currentPage);
+          }
+        });
+      };
+      langToggle._toggleListener = langListener;
+      langToggle.addEventListener('click', langListener);
+    }
+
+    // Update information toggle.  The info button displays an information
+    // icon and opens the info modal when clicked.  Attach the SVG and
+    // event handler on each update.  Use a tooltip from translations
+    // or fall back to "Info".  Clear existing listeners to avoid
+    // duplicate handlers when updateHeader is invoked repeatedly.
+    let infoToggle = document.getElementById('info-toggle');
+    if (infoToggle) {
+      // Always replace the contents with the latest icon.
+      infoToggle.innerHTML = INFO_ICON;
+      // Ensure there is no tooltip on the info button within the dropdown.
+      infoToggle.removeAttribute('data-tooltip');
+      // If a tooltip was previously attached via the custom tooltip manager,
+      // detach all tooltip event handlers by cloning the node and replacing it.
+      if (infoToggle._tooltipAttached) {
+        const clone = infoToggle.cloneNode(true);
+        infoToggle.parentNode.replaceChild(clone, infoToggle);
+        infoToggle = clone;
+      }
+      // Remove any previously attached click handler to avoid multiple bindings.
+      if (infoToggle._clickListener) {
+        infoToggle.removeEventListener('click', infoToggle._clickListener);
+      }
+      const infoListener = () => {
+        // Close the dropdown menu before opening the info modal.
+        const dropdown = document.getElementById('titlebar-menu-dropdown');
+        if (dropdown) dropdown.classList.add('hidden');
+        openInfoModal();
+      };
+      infoToggle._clickListener = infoListener;
+      infoToggle.addEventListener('click', infoListener);
+    }
+
+    // Set up the menu toggle button and its dropdown.  The menu button
+    // displays a hamburger icon and shows/hides a dropdown containing
+    // the theme, language and info toggles.  Attach a tooltip and
+    // event handler on each update.
+    const menuToggleBtn = document.getElementById('menu-toggle');
+    const menuDropdown = document.getElementById('titlebar-menu-dropdown');
+    if (menuToggleBtn && menuDropdown) {
+      menuToggleBtn.innerHTML = MENU_ICON;
+      // Tooltip for the menu button.  Use translation if available.
+      menuToggleBtn.setAttribute('data-tooltip', (translations.pages && translations.pages.menu) || 'Menu');
+      attachTooltipHandlers(menuToggleBtn);
+      if (menuToggleBtn._clickListener) {
+        menuToggleBtn.removeEventListener('click', menuToggleBtn._clickListener);
+      }
+      const menuToggleListener = (e) => {
+        e.stopPropagation();
+        menuDropdown.classList.toggle('hidden');
+      };
+      menuToggleBtn._clickListener = menuToggleListener;
+      menuToggleBtn.addEventListener('click', menuToggleListener);
+    }
+
+    // Global handler to close the menu dropdown when clicking outside.  Only
+    // attach once.  When the dropdown is open and a click occurs outside
+    // the dropdown and the menu button, hide the dropdown.
+    if (!document._menuOutsideHandler) {
+      document._menuOutsideHandler = (event) => {
+        const dropdownEl = document.getElementById('titlebar-menu-dropdown');
+        const menuBtnEl = document.getElementById('menu-toggle');
+        if (!dropdownEl || dropdownEl.classList.contains('hidden')) return;
+        if (!dropdownEl.contains(event.target) && event.target !== menuBtnEl) {
+          dropdownEl.classList.add('hidden');
+        }
+      };
+      document.addEventListener('click', document._menuOutsideHandler);
     }
   }
 
@@ -338,7 +472,6 @@ function debug(level, ...args) {
     // separator style: 'small' for a standard thin divider and
     // 'large' for a more prominent divider.
     const separatorsAfter = {
-      settings: 'small',
       crack_installer: 'large',
       bios: 'small',
       debloat: 'small'
@@ -370,11 +503,19 @@ function debug(level, ...args) {
       menuList._boundClick = true;
     }
 
-    // ενεργοποίηση πρώτου
-    const first = menuList.querySelector('button[data-key]');
-    if (first) {
-      first.classList.add('active');
-      loadPage(first.dataset.key);
+    // Activate a menu item.  If a page has already been selected
+    // previously (stored in currentPage), reselect that page so
+    // language switches or other re-renders do not reset the view.
+    const defaultButton = menuList.querySelector('button[data-key]');
+    // Determine which key to activate: use currentPage if available,
+    // otherwise fall back to the first menu key.
+    const keyToActivate = (typeof currentPage === 'string' && currentPage) ? currentPage : (defaultButton && defaultButton.dataset.key);
+    if (keyToActivate) {
+      const btnToActivate = menuList.querySelector(`button[data-key="${keyToActivate}"]`);
+      if (btnToActivate) {
+        btnToActivate.classList.add('active');
+        loadPage(keyToActivate);
+      }
     }
     updateHeader();
   }
@@ -562,13 +703,14 @@ function debug(level, ...args) {
   }
   // Build specific pages based on the current selection
   async function loadPage(key) {
+    // Persist the requested page key so that future re-renders (e.g. after
+    // changing language) can return to this page instead of resetting to
+    // the default.  Store before loading the content to ensure it is
+    // available synchronously for other functions.
+    currentPage = key;
     const content = document.getElementById('content');
     content.innerHTML = '';
     switch (key) {
-      case 'settings':
-        setHeader((translations.menu && translations.menu.settings) || 'settings');
-        content.appendChild(buildSettingsPage());
-        break;
       case 'install_apps':
         setHeader((translations.menu && translations.menu.install_apps) || 'install_apps');
         content.appendChild(await buildInstallPage());
@@ -1608,198 +1750,9 @@ function debug(level, ...args) {
   }
   // Build settings page with language and theme selectors
   function buildSettingsPage() {
+    // Settings page has been removed.  Return an empty container to satisfy any legacy references
+    // without including obsolete controls.
     const container = document.createElement('div');
-    container.className = 'settings-container';
-
-    const title = document.createElement('h2');
-    title.className = 'settings-title';
-    // Use fallbacks if translations are missing
-    title.textContent = (translations.pages && translations.pages.settings_title) || (translations.menu && translations.menu.settings) || 'Settings';
-    container.appendChild(title);
-
-    // Language selector row
-    const langRow = document.createElement('div');
-    langRow.className = 'settings-row';
-
-    const langLabel = document.createElement('label');
-    langLabel.className = 'settings-label';
-    // Fallback for language label if translation is unavailable
-    langLabel.textContent = ((translations.general && translations.general.language) || 'Language') + ':';
-
-    const langControl = document.createElement('div');
-    langControl.className = 'settings-control';
-
-    // Create a hidden native select element to hold the selected language.
-    // We keep this element so that the existing save handler remains
-    // compatible with the rest of the application.  The select is
-    // hidden from view and synchronised with a custom UI component.
-    const langSelect = document.createElement('select');
-    langSelect.className = 'settings-select';
-    langSelect.style.display = 'none';
-
-    // Determine available language codes dynamically.  If the loaded
-    // translation defines a `language_names` map, use its keys;
-    // otherwise fall back to English and Greek.
-    const languageCodes = (translations.language_names && Object.keys(translations.language_names).length > 0)
-      ? Object.keys(translations.language_names)
-      : ['en', 'gr'];
-
-    // Helper to map a language code to a display label.  If a
-    // `language_names` entry exists for the code, use it; otherwise
-    // default to a capitalised code.
-    function getLanguageLabel(code) {
-      // Prefer custom names from translations if available
-      if (translations.language_names && Object.prototype.hasOwnProperty.call(translations.language_names, code)) {
-        return translations.language_names[code];
-      }
-      // Provide explicit fallbacks for common codes to avoid
-      // displaying "En"/"Gr".  Add more mappings here as needed.
-      if (code === 'en') return 'English';
-      if (code === 'gr') return 'Ελληνικά';
-      // Otherwise default to a capitalised code
-      return code.charAt(0).toUpperCase() + code.slice(1);
-    }
-
-    // Populate the hidden select with all language options and track
-    // the current selection.
-    let currentLang = settings.lang;
-    languageCodes.forEach((code) => {
-      const opt = document.createElement('option');
-      opt.value = code;
-      opt.textContent = getLanguageLabel(code);
-      if (settings.lang === code) opt.selected = true;
-      langSelect.appendChild(opt);
-    });
-
-    // Build a custom select UI for improved styling control.  This
-    // component contains a display area showing the current language
-    // and an arrow, plus a list of options that appears on demand.
-    const customSelect = document.createElement('div');
-    customSelect.className = 'custom-select';
-
-    const display = document.createElement('div');
-    display.className = 'custom-select-display';
-    const displayLabel = document.createElement('span');
-    displayLabel.className = 'custom-select-text';
-    displayLabel.textContent = getLanguageLabel(currentLang);
-    const arrowIcon = document.createElement('span');
-    arrowIcon.className = 'custom-select-arrow';
-    arrowIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
-    display.appendChild(displayLabel);
-    display.appendChild(arrowIcon);
-    customSelect.appendChild(display);
-
-    const optionsList = document.createElement('ul');
-    optionsList.className = 'custom-select-options';
-    // Track which option is currently selected so that we can
-    // highlight it in the drop‑down
-    let selectedItem = null;
-    languageCodes.forEach((code) => {
-      const li = document.createElement('li');
-      li.dataset.value = code;
-      li.textContent = getLanguageLabel(code);
-      if (settings.lang === code) {
-        li.classList.add('selected');
-        selectedItem = li;
-      }
-      li.addEventListener('click', (e) => {
-        e.stopPropagation();
-        // Update hidden select value
-        langSelect.value = code;
-        // Update display text
-        displayLabel.textContent = getLanguageLabel(code);
-        // Update selected class for visual feedback
-        if (selectedItem) selectedItem.classList.remove('selected');
-        li.classList.add('selected');
-        selectedItem = li;
-        // Close dropdown
-        customSelect.classList.remove('open');
-      });
-      optionsList.appendChild(li);
-    });
-    customSelect.appendChild(optionsList);
-
-    // Toggle the dropdown visibility when clicking the display area.
-    // Also add a class to the settings row to suppress its hover effect
-    // while the dropdown is open.
-    display.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const willOpen = !customSelect.classList.contains('open');
-      customSelect.classList.toggle('open');
-      // langRow is available via closure
-      if (willOpen) {
-        langRow.classList.add('dropdown-open');
-      } else {
-        langRow.classList.remove('dropdown-open');
-      }
-    });
-    // Close the dropdown when clicking outside the component
-    document.addEventListener('click', () => {
-      if (customSelect.classList.contains('open')) {
-        customSelect.classList.remove('open');
-        langRow.classList.remove('dropdown-open');
-      }
-    });
-
-    langControl.appendChild(langSelect);
-    langControl.appendChild(customSelect);
-    langRow.appendChild(langLabel);
-    langRow.appendChild(langControl);
-    container.appendChild(langRow);
-
-    // Theme selector removed: theme toggling is handled via the header toggle
-
-    // Save button
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'settings-save-btn';
-    // Fallback for save button
-    saveBtn.textContent = (translations.general && translations.general.save) || 'Save';
-    saveBtn.addEventListener('click', async () => {
-      // Update only the language setting.  The theme is controlled via
-      // the header toggle button and should not be modified here.
-      settings.lang = langSelect.value;
-      saveSettings();
-      await loadTranslations();
-      applyTheme();
-      renderMenu();
-      setHeader(translations.menu.settings);
-
-      // Show success feedback
-      const originalText = saveBtn.textContent;
-      saveBtn.textContent = '✓ ' + ((translations.general && translations.general.saved) || 'Saved');
-      saveBtn.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
-
-      setTimeout(() => {
-        saveBtn.textContent = originalText;
-        saveBtn.style.background = 'linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%)';
-      }, 2000);
-    });
-
-    container.appendChild(saveBtn);
-
-    // Add info button next to the save button. Clicking it opens the info page in a new window.
-    const infoBtn = document.createElement('button');
-    infoBtn.className = 'settings-info-btn';
-    // Embed a stroke on the SVG path to ensure the outline remains visible even on
-    // high‑contrast backgrounds. By specifying a semi‑transparent black stroke
-    // directly within the SVG markup we avoid relying on external CSS to
-    // override the icon style, giving a more predictable appearance across
-    // themes. The stroke-opacity attribute controls how prominent the
-    // outline appears, while the stroke-width determines thickness.
-    infoBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 50 50" fill="currentColor">
-        <path d="M 25 2 C 12.264481 2 2 12.264481 2 25 C 2 37.735519 12.264481 48 25 48 C 37.735519 48 48 37.735519 48 25 C 48 12.264481 37.735519 2 25 2 z M 25 4 C 36.664481 4 46 13.335519 46 25 C 46 36.664481 36.664481 46 25 46 C 13.335519 46 4 36.664481 4 25 C 4 13.335519 13.335519 4 25 4 z M 25 11 A 3 3 0 0 0 25 17 A 3 3 0 0 0 25 11 z M 21 21 L 21 23 L 23 23 L 23 36 L 21 36 L 21 38 L 29 38 L 29 36 L 27 36 L 27 21 L 21 21 z"
-              stroke="#ffffffff" stroke-opacity="1" stroke-width="1"></path>
-      </svg>`;
-    // Use data-tooltip for custom tooltip instead of native title
-    infoBtn.setAttribute('data-tooltip', (translations.pages && translations.pages.info) || 'Info');
-    attachTooltipHandlers(infoBtn);
-    infoBtn.addEventListener('click', () => {
-      // Open the info modal as an in‑app pop‑out.  This replaces navigation with a modal overlay.
-      openInfoModal();
-    });
-    container.appendChild(infoBtn);
-
     return container;
   }
 

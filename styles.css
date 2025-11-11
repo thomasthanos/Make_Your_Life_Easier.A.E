@@ -156,7 +156,7 @@
    * proportionally.  Users can update this variable to their desired
    * height without having to modify individual widths or font sizes.
    */
-  --title-bar-height: 50px;
+  --title-bar-height: 40px;
 }
 
 [data-theme="light"] {
@@ -565,19 +565,28 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  /* Match the height of the window control buttons for better visual
+     consistency with the title bar.  The width is set equal to the
+     height for square icons. */
+  width: calc(var(--title-bar-height) * 0.6667);
+  height: calc(var(--title-bar-height) * 0.6667);
   padding: 0;
   margin: 0;
+  /* Remove UI decorations for the theme toggle — no border, no
+     rounded corners and no background.  The button retains its
+     size to provide a comfortable click target. */
   border: none;
+  border-radius: 0;
   background: transparent;
   color: var(--text-color);
   cursor: pointer;
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
 .theme-toggle:hover,
 .theme-toggle:focus {
+  /* Only increase opacity on hover/focus; no background */
+  opacity: 1;
   background: transparent;
   color: var(--text-color);
 }
@@ -586,6 +595,91 @@ body {
 .theme-toggle svg circle,
 .theme-toggle svg line,
 .theme-toggle svg polyline {
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}
+
+/* Language toggle button used in the custom title bar.  This button displays
+   the current language code (EN or GR) and allows quick switching between
+   available languages.  The dimensions and styling mirror the theme
+   toggle for consistency. */
+.lang-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Provide a minimum width for the language toggle to accommodate
+     the language abbreviation (e.g. EN/GR).  The height matches
+     the window controls, and the width adjusts according to the
+     content plus padding. */
+  min-width: calc(var(--title-bar-height) * 0.8);
+  height: calc(var(--title-bar-height) * 0.6667);
+  padding: 0 6px;
+  margin: 0;
+  /* Remove UI decorations for the language toggle — no border,
+     no rounded corners and no background.  Maintain size for click
+     target and adjust font styling. */
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: calc(var(--title-bar-height) * 0.3);
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.lang-toggle:hover,
+.lang-toggle:focus {
+  opacity: 1;
+  background: transparent;
+  color: var(--text-color);
+}
+
+/* Information toggle button used in the custom title bar.  This button
+   displays an info icon and opens the info modal.  Styling mirrors
+   the theme toggle for consistency. */
+.info-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Match the size of the theme toggle for consistency */
+  width: calc(var(--title-bar-height) * 0.6667);
+  height: calc(var(--title-bar-height) * 0.6667);
+  padding: 0;
+  margin: 0;
+  /* Remove UI decorations for the info toggle — no border,
+     no rounded corners and no background.  Maintain size for click
+     target. */
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.info-toggle:hover,
+.info-toggle:focus {
+  opacity: 1;
+  background: transparent;
+  color: var(--text-color);
+}
+
+/* Light theme overrides for the toggle buttons.  In a light theme
+   the dark hover background from the dark theme becomes a light
+   translucent overlay. */
+[data-theme="light"] .theme-toggle:hover,
+[data-theme="light"] .theme-toggle:focus,
+[data-theme="light"] .lang-toggle:hover,
+[data-theme="light"] .lang-toggle:focus,
+[data-theme="light"] .info-toggle:hover,
+[data-theme="light"] .info-toggle:focus {
+  /* No background for hover/focus in light theme when UI decorations
+     are removed. */
+  background: transparent;
+}
+
+.info-toggle svg path {
   fill: currentColor !important;
   stroke: currentColor !important;
 }
@@ -3569,9 +3663,9 @@ input:checked+.slider:before {
   color: var(--sidebar-text) !important;
 }
 
-button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):not(.title-bar-btn),
-button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):not(.title-bar-btn):hover,
-button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):not(.title-bar-btn):active {
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn),
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):hover,
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):active {
   background: var(--glass-bg) !important;
   border-top: 1px solid var(--glass-border-top) !important;
   border-left: 1px solid var(--glass-border-left) !important;
@@ -4409,10 +4503,19 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
      matches the rest of the application’s card borders.
    */
   background-color: var(--header-bg);
+  /* Lay out the contents of the title bar in a horizontal flex row.  The three
+     children (.title-group, .title-bar-toggles and .title-bar-controls) are
+     arranged so that the app icon and title remain on the left, the
+     toggle buttons occupy the available space in the middle, and the window
+     controls hug the right edge. */
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 0 10px;
+  /* Keep a small left padding for spacing before the app icon/title.
+     Remove the right padding so that the window control buttons sit
+     flush against the right edge, matching the native Windows style. */
+  padding-left: 10px;
+  padding-right: 0;
   color: var(--text-color);
   border-bottom: 1px solid var(--border-color);
   position: fixed;
@@ -4428,12 +4531,165 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   font-size: 16px;
 }
 
+/* Group for the app icon and title text on the left side of the title bar */
+/* Restrict the title-group styling to the custom title bar only.  This
+   prevents unintended centering of the sidebar header. */
+.custom-title-bar .title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: drag;
+}
+
+/* Container for the theme, language and info toggles.  The toggles sit
+   between the title group on the left and the window controls on the
+   right.  Using `margin-left: auto` causes this group to align to the
+   right edge of the title bar (just before the minimize/maximise/close
+   buttons), similar to the arrangement shown in the reference image. */
+.title-bar-toggles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  /* Provide a bit of breathing room between the toggle group and the window
+     controls.  Using a slightly larger margin approximates the spacing
+     seen in the reference screenshot. */
+  margin-right: 12px;
+  -webkit-app-region: no-drag;
+}
+
 .title-bar-controls {
   -webkit-app-region: no-drag;
   display: flex;
-  gap: 8px;
-  /* Push the controls to the far right within the flex container */
+  /* Remove gaps between the window buttons to mimic native Windows controls */
+  gap: 0;
+  /* Stretch the controls vertically to fill the entire title bar height. */
+  align-items: stretch;
+  height: 100%;
+  /* No margin-left here.  The .title-bar-menu uses margin-left:auto
+     to push itself (and by extension these controls) to the right. */
+  margin-left: 0;
+}
+
+/* Menu container within the custom title bar.  This wraps the menu
+   button and its dropdown.  It uses margin-left:auto to push itself
+   to the right, similar to the old toggle group. */
+.title-bar-menu {
+  display: flex;
+  align-items: center;
+  position: relative;
   margin-left: auto;
+  /* Remove right margin so the window controls sit flush to the right
+     edge.  Keeping margin-left: auto still pushes the menu to the
+     right before the window controls. */
+  margin-right: 0;
+  -webkit-app-region: no-drag;
+}
+
+/* The button that opens the dropdown menu.  It shares styling with
+   other title bar icons: no border, no background, and subtle opacity. */
+.menu-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--title-bar-height) * 0.6667);
+  height: calc(var(--title-bar-height) * 0.6667);
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  opacity: 0.8;
+}
+.menu-toggle:hover,
+.menu-toggle:focus {
+  opacity: 1;
+  background: transparent;
+  color: var(--text-color);
+}
+
+/* Dropdown menu that appears when the menu toggle is clicked.  It is
+   positioned absolutely relative to .title-bar-menu and hidden by
+   default. */
+/*
+ * Dropdown menu that appears when the menu toggle is clicked.  To achieve
+ * the “no UI” look requested by the user, the container has no
+ * background, border or shadow — it simply positions the individual
+ * toggle icons in a row floating above the title bar.  The width of
+ * the menu is dictated entirely by the contained icons (one per
+ * setting), with a small gap between them.  Because there is no
+ * padding or border, the menu occupies only the space required by
+ * the icons themselves.
+ */
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  /* Provide a subtle card-like background and border for the dropdown.  A
+   * small border radius and shadow give the popover a distinct yet
+   * unobtrusive UI, differentiating it from the title bar. */
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 10001;
+  /* Ensure a reasonable minimum width so that items like the language
+     code (e.g., EN/GR) fit without line wrapping.  This prevents
+     the dropdown from expanding to the full width of the window when
+     children are set to width:100%. */
+  /* Reduce the minimum width of the dropdown to make it more compact.  A
+     value of 1.2 × the title bar height allows room for the "EN/GR"
+     label while keeping the menu narrow. */
+  min-width: calc(var(--title-bar-height) * 1.2);
+}
+.menu-dropdown.hidden {
+  display: none;
+}
+
+/* Style the toggle buttons when they appear inside the dropdown menu.
+ * The width is slightly smaller than the height to reduce the total
+ * width of the dropdown.  Each toggle is presented as a simple icon
+ * without background or border.  A lower default opacity is applied
+ * and increased on hover for subtle feedback. */
+.menu-dropdown .theme-toggle,
+.menu-dropdown .lang-toggle,
+.menu-dropdown .info-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Make each dropdown item stretch horizontally to fill the menu.  The
+   * width will be determined by the dropdown container; height is
+   * proportional to the title bar height. */
+  width: 100%;
+  height: calc(var(--title-bar-height) * 0.6667);
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  opacity: 0.8;
+}
+.menu-dropdown .theme-toggle:hover,
+.menu-dropdown .lang-toggle:hover,
+.menu-dropdown .info-toggle:hover {
+  /* No background for hover; simply increase opacity */
+  opacity: 1;
+  background: transparent;
+  color: var(--text-color);
+}
+[data-theme="light"] .menu-dropdown .theme-toggle:hover,
+[data-theme="light"] .menu-dropdown .lang-toggle:hover,
+[data-theme="light"] .menu-dropdown .info-toggle:hover {
+  /* In light mode, also avoid background */
+  opacity: 1;
+  background: transparent;
+  color: var(--text-color);
 }
 
 .title-bar-app-icon {
@@ -4445,18 +4701,23 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 
 .title-bar-btn {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  /* Remove the border and border-radius on the window controls to match
+     native Windows styling where the icons sit flush to each other. */
+  border: none;
   color: var(--text-color);
   width: calc(var(--title-bar-height) * 1.0667);
-  height: calc(var(--title-bar-height) * 0.6667);
-  border-radius: calc(var(--title-bar-height) * 0.1333);
+  /* Extend the window control buttons to fill the full height of
+     the custom title bar so they sit flush against the top and
+     bottom edges. */
+  height: 100%;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   font-size: calc(var(--title-bar-height) * 0.4667);
   font-weight: bold;
-  transition: background-color 0.2s, border-color 0.2s;
+  transition: background-color 0.2s;
   line-height: 1;
 }
 
@@ -4481,9 +4742,9 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 }
 
 [data-theme="light"] .title-bar-btn {
+  /* Preserve the text colour for light mode window buttons.  Borders are
+     removed globally for the window controls so no border colour is needed. */
   color: var(--text-color);
-  /* Darken the border slightly in the light theme for better contrast */
-  border-color: rgba(0, 0, 0, 0.2);
 }
 
 [data-theme="light"] .title-bar-btn:hover {
