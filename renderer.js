@@ -4243,6 +4243,218 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 
     // Check for pending update info (after app restart)
     checkForChangelog();
+    
+    // Debug: Add keyboard shortcut to test changelog (Ctrl+Shift+U)
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'U') {
+        // Show test changelog
+        showChangelog({
+          version: '1.2.3',
+          releaseName: 'Test Release',
+          releaseNotes: `## What's New in v1.2.3
+
+### ✨ New Features
+- Added automatic update system with progress indicator
+- Implemented changelog viewer after updates
+- Enhanced title bar with update notifications
+- Added keyboard shortcut (Ctrl+Shift+U) to test changelog
+
+### 🐛 Bug Fixes
+- Fixed memory leak in download manager
+- Resolved issue with theme switching
+- Improved error handling for failed downloads
+
+### 🚀 Improvements
+- **Performance**: Reduced app startup time by 40%
+- **UI/UX**: Smoother animations and transitions
+- **Security**: Updated dependencies to latest versions
+
+### 📝 Notes
+This is a **test changelog**. Press Ctrl+Shift+U to view it again.
+
+For more information, visit [GitHub Releases](https://github.com/your-repo/releases).`,
+          timestamp: Date.now()
+        });
+      }
+    });
+  }
+
+  // Check if we should show changelog after update
+  function checkForChangelog() {
+    try {
+      const updateInfo = localStorage.getItem('pendingUpdateInfo');
+      if (updateInfo) {
+        const info = JSON.parse(updateInfo);
+        // Only show if update was within last 5 minutes
+        if (Date.now() - info.timestamp < 5 * 60 * 1000) {
+          localStorage.removeItem('pendingUpdateInfo');
+          setTimeout(() => showChangelog(info), 1000);
+        } else {
+          localStorage.removeItem('pendingUpdateInfo');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking changelog:', error);
+    }
+  }
+
+  // Show changelog modal
+  function showChangelog(updateInfo) {
+    const overlay = document.createElement('div');
+    overlay.className = 'changelog-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'changelog-modal';
+
+    const header = document.createElement('div');
+    header.className = 'changelog-header';
+
+    const title = document.createElement('h2');
+    title.className = 'changelog-title';
+    title.textContent = 'Update Installed Successfully!';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'changelog-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.addEventListener('click', () => overlay.remove());
+
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+
+    const content = document.createElement('div');
+    content.className = 'changelog-content';
+
+    const versionBadge = document.createElement('div');
+    versionBadge.className = 'changelog-version';
+    versionBadge.textContent = `Version ${updateInfo.version || 'Unknown'}`;
+
+    content.appendChild(versionBadge);
+
+    if (updateInfo.releaseName) {
+      const releaseName = document.createElement('h3');
+      releaseName.textContent = updateInfo.releaseName;
+      content.appendChild(releaseName);
+    }
+
+    if (updateInfo.releaseNotes) {
+      const notes = document.createElement('div');
+      // Parse release notes (assuming markdown or plain text)
+      const formattedNotes = formatReleaseNotes(updateInfo.releaseNotes);
+      notes.innerHTML = formattedNotes;
+      content.appendChild(notes);
+    } else {
+      // Default changelog if none provided
+      const defaultChangelog = document.createElement('div');
+      defaultChangelog.innerHTML = `
+        <h3>What's New</h3>
+        <ul>
+          <li>Bug fixes and stability improvements</li>
+          <li>Performance optimizations</li>
+          <li>UI/UX enhancements</li>
+          <li>Security updates</li>
+        </ul>
+        <h3>Improvements</h3>
+        <ul>
+          <li>Faster application startup</li>
+          <li>Reduced memory usage</li>
+          <li>Better error handling</li>
+        </ul>
+        <p style="margin-top: 1rem; opacity: 0.8; font-size: 0.9rem;">
+          <strong>Note:</strong> For detailed release notes, visit the GitHub releases page.
+        </p>
+      `;
+      content.appendChild(defaultChangelog);
+    }
+
+    const footer = document.createElement('div');
+    footer.className = 'changelog-footer';
+
+    const okBtn = document.createElement('button');
+    okBtn.className = 'changelog-btn';
+    okBtn.textContent = 'Got it!';
+    okBtn.addEventListener('click', () => overlay.remove());
+
+    footer.appendChild(okBtn);
+
+    modal.appendChild(header);
+    modal.appendChild(content);
+    modal.appendChild(footer);
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Close on escape key
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        overlay.remove();
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.remove();
+      }
+    });
+  }
+
+  // Format release notes (simple markdown-like parsing)
+  function formatReleaseNotes(notes) {
+    if (!notes) return '';
+    
+    // Convert to string if it's not already
+    let text = typeof notes === 'string' ? notes : String(notes);
+    
+    // Escape HTML to prevent XSS
+    text = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    
+    // Simple markdown parsing
+    text = text
+      // Headers (must be at start of line)
+      .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+      .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+      // Bold
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/__(.+?)__/g, '<strong>$1</strong>')
+      // Italic
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/_(.+?)_/g, '<em>$1</em>')
+      // Code blocks
+      .replace(/```([^`]+)```/g, '<pre><code>$1</code></pre>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      // Links
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+      // Lists (preserve indentation)
+      .replace(/^\* (.+)$/gm, '<li>$1</li>')
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/^\+ (.+)$/gm, '<li>$1</li>')
+      .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+      // Horizontal rules
+      .replace(/^---$/gm, '<hr>')
+      .replace(/^\*\*\*$/gm, '<hr>')
+      // Line breaks (preserve double newlines as paragraph breaks)
+      .replace(/\n\n+/g, '</p><p>')
+      .replace(/\n/g, '<br>');
+    
+    // Wrap consecutive list items in ul tags
+    text = text.replace(/(<li>.*?<\/li>(?:\s*<li>.*?<\/li>)*)/gs, '<ul>$1</ul>');
+    
+    // Wrap in paragraphs if not already wrapped
+    if (!text.startsWith('<h') && !text.startsWith('<ul') && !text.startsWith('<pre')) {
+      text = '<p>' + text + '</p>';
+    }
+    
+    // Clean up empty paragraphs
+    text = text.replace(/<p><\/p>/g, '');
+    text = text.replace(/<p>\s*<\/p>/g, '');
+    
+    return text;
   }
 
   // Check if we should show changelog after update

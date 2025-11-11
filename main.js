@@ -439,7 +439,7 @@ autoUpdater.on('checking-for-update', () => {
   }
 });
 
-autoUpdater.on('update-available', (info) => {
+autoUpdater.on('update-available', async (info) => {
   debug('info', 'Update available:', info);
   updateAvailable = true;
   if (mainWindow) {
@@ -448,12 +448,47 @@ autoUpdater.on('update-available', (info) => {
     const message = title
       ? `${title} (v${version})`
       : `Update available: v${version}`;
+    
+    // Fetch release notes from GitHub
+    let releaseNotes = info.releaseNotes || '';
+    try {
+      const https = require('https');
+      const options = {
+        hostname: 'api.github.com',
+        path: '/repos/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/releases/latest',
+        method: 'GET',
+        headers: {
+          'User-Agent': 'MakeYourLifeEasier'
+        }
+      };
+      
+      const githubData = await new Promise((resolve, reject) => {
+        https.get(options, (res) => {
+          let data = '';
+          res.on('data', (chunk) => { data += chunk; });
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(data));
+            } catch (e) {
+              reject(e);
+            }
+          });
+        }).on('error', reject);
+      });
+      
+      if (githubData && githubData.body) {
+        releaseNotes = githubData.body;
+      }
+    } catch (err) {
+      debug('warn', 'Failed to fetch release notes from GitHub:', err);
+    }
+    
     mainWindow.webContents.send('update-status', {
       status: 'available',
       message,
       version,
       releaseName: title,
-      releaseNotes: info.releaseNotes
+      releaseNotes: releaseNotes
     });
   }
 });
