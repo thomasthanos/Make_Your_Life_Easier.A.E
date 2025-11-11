@@ -89,16 +89,6 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
     ipcRenderer.on('update-status', listener);
     return () => ipcRenderer.removeListener('update-status', listener);
   },
-  /**
-   * Listen for a changelog message emitted by the main process after the app
-   * restarts following an update.  The callback receives the release notes
-   * (string or array) and should display them in the UI.
-   */
-  onShowChangelog: (callback) => {
-    const listener = (event, notes) => callback(notes);
-    ipcRenderer.on('show-changelog', listener);
-    return () => ipcRenderer.removeListener('show-changelog', listener);
-  },
   runMsiInstaller: (msiPath) => ipcRenderer.invoke('run-msi-installer', msiPath),
   runInstaller: (filePath) => ipcRenderer.invoke('run-installer', filePath),
 
