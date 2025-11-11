@@ -455,7 +455,7 @@ autoUpdater.on('update-available', async (info) => {
       const https = require('https');
       const options = {
         hostname: 'api.github.com',
-        path: '/repos/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/releases/latest',
+        path: '/repos/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest',
         method: 'GET',
         headers: {
           'User-Agent': 'MakeYourLifeEasier'
@@ -492,6 +492,7 @@ autoUpdater.on('update-available', async (info) => {
     });
   }
 });
+
 
 autoUpdater.on('update-not-available', (info) => {
   debug('info', 'Update not available:', info);
