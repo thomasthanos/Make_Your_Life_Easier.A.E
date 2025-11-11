@@ -4153,230 +4153,231 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     renderMenu();
     initializeAutoUpdater();
   }
-  // Auto Updater functionality
+// Auto Updater functionality
   function initializeAutoUpdater() {
-    const updateStatus = document.createElement('div');
-    updateStatus.id = 'update-status';
-    updateStatus.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1rem;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    z-index: 1000;
-    max-width: 300px;
-    backdrop-filter: blur(10px);
-    display: none;
-  `;
+    const updateBtn = document.getElementById('title-bar-update');
+    if (!updateBtn) return;
 
-    const updateContent = document.createElement('div');
-    updateStatus.appendChild(updateContent);
-    document.body.appendChild(updateStatus);
-    let lastUpdateData = null;
-    const updateButton = document.createElement('button');
-    updateButton.id = 'update-btn';
-    updateButton.setAttribute('aria-label', 'Check for updates');
-    const bellIconPath = 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9';
-    const errorIconPath = 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 14a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0-4a1 1 0 0 1-1-1V7a1 1 0 0 1 2 0v4a1 1 0 0 1-1 1Z';
-    updateButton.innerHTML = `
-    <div class="badge">
-      <span class="ping"></span>
-      <span class="num">0</span>
-    </div>
-    <div class="outer">
-      <div class="inner">
-        <div class="icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="${bellIconPath}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
-          </svg>
-          <div class="icon-blur"></div>
-        </div>
-        <div class="content">
-          <span class="title">New Updates</span>
-          <span class="subtitle">Check your notifications</span>
-        </div>
-        <div class="indicators" aria-hidden="true">
-          <div></div><div></div><div></div>
-        </div>
-      </div>
-      <div class="extra"></div>
-    </div>
-  `;
-    updateButton.style.display = 'none';
-    updateButton.addEventListener('click', () => {
-      if (!lastUpdateData) {
-        try {
-          if (window.api && typeof window.api.checkForUpdates === 'function') {
-            window.api.checkForUpdates();
-          }
-        } catch (_) { }
-        return;
-      }
-      // Otherwise toggle the expanded state
-      const expanded = updateButton.classList.toggle('expanded');
-      if (expanded) {
-        renderExpandedContent(lastUpdateData);
+    let updateAvailable = false;
+    let updateDownloaded = false;
+    let currentUpdateInfo = null;
+
+    // Attach tooltip handlers to update button
+    attachTooltipHandlers(updateBtn);
+
+    // Handle update button click
+    updateBtn.addEventListener('click', async () => {
+      if (updateBtn.classList.contains('downloading')) return;
+      
+      if (!updateAvailable) return;
+      
+      // Start downloading immediately
+      updateBtn.classList.add('downloading');
+      updateBtn.setAttribute('data-tooltip', 'Downloading update...');
+      
+      try {
+        await window.api.downloadUpdate();
+      } catch (error) {
+        updateBtn.classList.remove('downloading');
+        updateBtn.setAttribute('data-tooltip', 'Update available');
+        toast('Failed to download update', { type: 'error', title: 'Update' });
       }
     });
-    document.body.appendChild(updateButton);
-    const updateCard = document.createElement('div');
-    updateCard.id = 'update-card';
-    updateCard.style.display = 'none';
-    document.body.appendChild(updateCard);
-    window.api.getAppVersion().then(version => {
-      currentVersion = version;
-    });
+
+    // Listen for update status
     window.api.onUpdateStatus((data) => {
-      showUpdateNotification(data);
+      switch (data.status) {
+        case 'available':
+          updateAvailable = true;
+          currentUpdateInfo = data;
+          updateBtn.classList.add('available');
+          updateBtn.setAttribute('data-tooltip', `Update available: ${data.version || 'New version'}`);
+          break;
+
+        case 'downloading':
+          updateBtn.classList.add('downloading');
+          const percent = Math.round(data.percent || 0);
+          updateBtn.setAttribute('data-tooltip', `Downloading: ${percent}%`);
+          
+          // Update progress ring
+          const circle = updateBtn.querySelector('.progress-ring circle');
+          if (circle) {
+            const circumference = 2 * Math.PI * 10;
+            const offset = circumference - (percent / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+          }
+          break;
+
+        case 'downloaded':
+          updateDownloaded = true;
+          updateBtn.classList.remove('downloading');
+          updateBtn.classList.add('ready');
+          updateBtn.setAttribute('data-tooltip', 'Installing update...');
+          
+          // Auto-install immediately
+          setTimeout(async () => {
+            try {
+              // Save update info to show changelog after restart
+              if (currentUpdateInfo) {
+                localStorage.setItem('pendingUpdateInfo', JSON.stringify({
+                  version: currentUpdateInfo.version,
+                  releaseName: currentUpdateInfo.releaseName,
+                  releaseNotes: currentUpdateInfo.releaseNotes,
+                  timestamp: Date.now()
+                }));
+              }
+              await window.api.installUpdate();
+            } catch (error) {
+              toast('Failed to install update', { type: 'error', title: 'Update' });
+            }
+          }, 1000);
+          break;
+
+        case 'error':
+          updateBtn.classList.remove('downloading');
+          updateBtn.setAttribute('data-tooltip', 'Update failed');
+          toast('Update error', { type: 'error', title: 'Update' });
+          break;
+      }
     });
 
+    // Check for pending update info (after app restart)
+    checkForChangelog();
+  }
 
-    function renderExpandedContent(data) {
-      const extra = updateButton.querySelector('.extra');
-      if (!extra) return;
-      extra.innerHTML = '';
-      let message = '';
-      let progressHtml = '';
-      let actionsHtml = '';
-      switch (data.status) {
-        case 'checking':
-          message = 'Checking for updates...';
-          actionsHtml = `<button class="btn btn-secondary later">Close</button>`;
-          break;
-        case 'available':
-          message = data.message || '';
-          actionsHtml = `<button class="btn btn-primary download">Download</button><button class="btn btn-secondary later">Later</button>`;
-          break;
-        case 'downloading':
-          message = data.message || 'Downloading update...';
-          const percent = Math.round(data.percent || 0);
-          progressHtml = `<div class="progress-bar"><div class="progress" style="width: ${percent}%;"></div></div>`;
-          actionsHtml = `<button class="btn btn-secondary later">Later</button>`;
-          break;
-        case 'downloaded':
-          message = data.message || 'Update downloaded. Restart to install.';
-          actionsHtml = `<button class="btn btn-primary install">Restart & Install</button><button class="btn btn-secondary later">Later</button>`;
-          break;
-        case 'error':
-          message = `Update error: ${data.message}`;
-          actionsHtml = `<button class="btn btn-secondary later">Close</button>`;
-          break;
+  // Check if we should show changelog after update
+  function checkForChangelog() {
+    try {
+      const updateInfo = localStorage.getItem('pendingUpdateInfo');
+      if (updateInfo) {
+        const info = JSON.parse(updateInfo);
+        // Only show if update was within last 5 minutes
+        if (Date.now() - info.timestamp < 5 * 60 * 1000) {
+          localStorage.removeItem('pendingUpdateInfo');
+          setTimeout(() => showChangelog(info), 1000);
+        } else {
+          localStorage.removeItem('pendingUpdateInfo');
+        }
       }
-      if (message) {
-        extra.innerHTML += `<div class="message">${message}</div>`;
-      }
-      if (progressHtml) {
-        extra.innerHTML += progressHtml;
-      }
-      if (actionsHtml) {
-        extra.innerHTML += `<div class="actions">${actionsHtml}</div>`;
-      }
-      // Attach event handlers to the action buttons
-      const downloadBtn = extra.querySelector('.download');
-      if (downloadBtn) {
-        downloadBtn.addEventListener('click', () => {
-          downloadBtn.disabled = true;
-          downloadBtn.textContent = 'Downloading...';
-          try {
-            if (window.api && typeof window.api.downloadUpdate === 'function') {
-              window.api.downloadUpdate();
-            }
-          } catch (_) { }
-        });
-      }
-      const installBtn = extra.querySelector('.install');
-      if (installBtn) {
-        installBtn.addEventListener('click', () => {
-          installBtn.disabled = true;
-          installBtn.textContent = 'Installing...';
-          try {
-            if (window.api && typeof window.api.installUpdate === 'function') {
-              window.api.installUpdate();
-            }
-          } catch (_) { }
-        });
-      }
-      const laterBtns = extra.querySelectorAll('.later');
-      laterBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          updateButton.classList.remove('expanded');
-        });
-      });
+    } catch (error) {
+      console.error('Error checking changelog:', error);
+    }
+  }
+
+  // Show changelog modal
+  function showChangelog(updateInfo) {
+    const overlay = document.createElement('div');
+    overlay.className = 'changelog-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'changelog-modal';
+
+    const header = document.createElement('div');
+    header.className = 'changelog-header';
+
+    const title = document.createElement('h2');
+    title.className = 'changelog-title';
+    title.textContent = 'Update Installed Successfully!';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'changelog-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.addEventListener('click', () => overlay.remove());
+
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+
+    const content = document.createElement('div');
+    content.className = 'changelog-content';
+
+    const versionBadge = document.createElement('div');
+    versionBadge.className = 'changelog-version';
+    versionBadge.textContent = `Version ${updateInfo.version || 'Unknown'}`;
+
+    content.appendChild(versionBadge);
+
+    if (updateInfo.releaseName) {
+      const releaseName = document.createElement('h3');
+      releaseName.textContent = updateInfo.releaseName;
+      content.appendChild(releaseName);
     }
 
-    function showUpdateNotification(data) {
-      // Record the most recent update event and update the update button UI.
-      lastUpdateData = data;
-      // References to elements within the update button
-      const titleEl = updateButton.querySelector('.title');
-      const subtitleEl = updateButton.querySelector('.subtitle');
-      const badgeEl = updateButton.querySelector('.badge');
-      const numEl = badgeEl ? badgeEl.querySelector('.num') : null;
-      const svgPath = updateButton.querySelector('.icon svg path');
-      // Hide the button by default and remove any active/expanded state.
-      updateButton.style.display = 'none';
-      updateButton.classList.remove('active');
-      // Reset collapsed text to default (will be overridden below for actionable statuses)
-      if (numEl) numEl.textContent = '0';
-      if (titleEl) titleEl.textContent = 'New Updates';
-      if (subtitleEl) subtitleEl.textContent = 'Check your notifications';
-      if (svgPath) svgPath.setAttribute('d', bellIconPath);
-
-      // Determine collapsed UI based on update status
-      switch (data.status) {
-        case 'available': {
-          if (numEl) numEl.textContent = '1';
-          if (titleEl) titleEl.textContent = 'Update Available';
-          if (subtitleEl) subtitleEl.textContent = 'Click to view details';
-          updateButton.style.display = 'flex';
-          updateButton.classList.add('active');
-          break;
-        }
-        case 'downloading': {
-          // During download, show progress in the subtitle.  Keep
-          // the collapsed title generic.
-          if (numEl) numEl.textContent = '1';
-          if (titleEl) titleEl.textContent = 'Downloading…';
-          if (subtitleEl) {
-            const percent = Math.round(data.percent || 0);
-            subtitleEl.textContent = `${percent}%`;
-          }
-          updateButton.style.display = 'flex';
-          updateButton.classList.add('active');
-          break;
-        }
-        case 'downloaded': {
-          if (numEl) numEl.textContent = '1';
-          if (titleEl) titleEl.textContent = 'Update Ready';
-          if (subtitleEl) subtitleEl.textContent = 'Click to install';
-          updateButton.style.display = 'flex';
-          updateButton.classList.add('active');
-          break;
-        }
-        case 'error':
-          if (numEl) numEl.textContent = '!';
-          if (titleEl) titleEl.textContent = 'Update Error';
-          if (subtitleEl) subtitleEl.textContent = 'Click to view details';
-          if (svgPath) svgPath.setAttribute('d', errorIconPath);
-          updateButton.style.display = 'flex';
-          updateButton.classList.add('active');
-          break;
-        default:
-          // For non-actionable statuses (checking, not-available, or unknown), hide the button
-          updateButton.classList.remove('expanded');
-          updateButton.classList.remove('active');
-          return;
-      }
-      // If expanded, update the extra content
-      if (updateButton.classList.contains('expanded')) {
-        renderExpandedContent(data);
-      }
-      return;
+    if (updateInfo.releaseNotes) {
+      const notes = document.createElement('div');
+      // Parse release notes (assuming markdown or plain text)
+      const formattedNotes = formatReleaseNotes(updateInfo.releaseNotes);
+      notes.innerHTML = formattedNotes;
+      content.appendChild(notes);
+    } else {
+      const defaultMessage = document.createElement('p');
+      defaultMessage.textContent = 'This update includes bug fixes and performance improvements.';
+      content.appendChild(defaultMessage);
     }
 
+    const footer = document.createElement('div');
+    footer.className = 'changelog-footer';
+
+    const okBtn = document.createElement('button');
+    okBtn.className = 'changelog-btn';
+    okBtn.textContent = 'Got it!';
+    okBtn.addEventListener('click', () => overlay.remove());
+
+    footer.appendChild(okBtn);
+
+    modal.appendChild(header);
+    modal.appendChild(content);
+    modal.appendChild(footer);
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Close on escape key
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        overlay.remove();
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.remove();
+      }
+    });
+  }
+
+  // Format release notes (simple markdown-like parsing)
+  function formatReleaseNotes(notes) {
+    if (!notes) return '';
+    
+    // Convert to string if it's not already
+    let text = typeof notes === 'string' ? notes : String(notes);
+    
+    // Simple markdown parsing
+    text = text
+      // Headers
+      .replace(/### (.+)/g, '<h4>$1</h4>')
+      .replace(/## (.+)/g, '<h3>$1</h3>')
+      // Bold
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      // Lists
+      .replace(/^\* (.+)/gm, '<li>$1</li>')
+      .replace(/^- (.+)/gm, '<li>$1</li>')
+      // Line breaks
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>');
+    
+    // Wrap lists
+    text = text.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+    
+    // Wrap in paragraphs if not already wrapped
+    if (!text.startsWith('<')) {
+      text = '<p>' + text + '</p>';
+    }
+    
+    return text;
   }
 
 
