@@ -110,4 +110,12 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   getUserProfile: () => ipcRenderer.invoke('get-user-profile'),
   logout: () => ipcRenderer.invoke('logout'),
 
+  minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
+  maximizeWindow: () => ipcRenderer.invoke('window-maximize'),
+  closeWindow: () => ipcRenderer.invoke('window-close'),
+  isWindowMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  
+  // Listen for window state changes
+  onWindowStateChange: (callback) => ipcRenderer.on('window-state-changed', callback)
+
 });

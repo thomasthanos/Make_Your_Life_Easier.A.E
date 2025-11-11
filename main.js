@@ -567,6 +567,9 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     autoHideMenuBar: true,
+    // Απενεργοποίηση του default title bar
+    titleBarStyle: 'hidden', // ή 'customButtonsOnHover' για macOS
+    frame: false, // Για απόλυτο custom title bar
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -579,6 +582,45 @@ function createWindow() {
       debug('error', err);
     });
   }, 3000);
+}
+// Window controls handlers
+ipcMain.handle('window-minimize', () => {
+    if (mainWindow) {
+        mainWindow.minimize();
+    }
+});
+
+ipcMain.handle('window-maximize', () => {
+    if (mainWindow) {
+        if (mainWindow.isMaximized()) {
+            mainWindow.unmaximize();
+        } else {
+            mainWindow.maximize();
+        }
+    }
+});
+
+ipcMain.handle('window-close', () => {
+    if (mainWindow) {
+        mainWindow.close();
+    }
+});
+
+ipcMain.handle('window-is-maximized', () => {
+    return mainWindow ? mainWindow.isMaximized() : false;
+});
+
+// Window state change events
+function setupWindowStateEvents() {
+    if (mainWindow) {
+        mainWindow.on('maximize', () => {
+            mainWindow.webContents.send('window-state-changed', { isMaximized: true });
+        });
+        
+        mainWindow.on('unmaximize', () => {
+            mainWindow.webContents.send('window-state-changed', { isMaximized: false });
+        });
+    }
 }
 
 function createPasswordManagerWindow() {
@@ -602,6 +644,7 @@ app.whenReady().then(() => {
     loadUserProfile();
   } catch { }
   createWindow();
+  setupWindowStateEvents(); // Προσθήκη αυτής της γραμμής
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

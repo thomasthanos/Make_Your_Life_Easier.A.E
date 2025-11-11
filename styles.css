@@ -142,6 +142,14 @@
   --glass-bg-hover: rgba(255, 255, 255, 0.15);
   --glass-border-top-hover: rgba(255, 255, 255, 0.5);
   --glass-border-left-hover: rgba(255, 255, 255, 0.4);
+  /*
+   * Height of the custom title bar.  This variable is used throughout
+   * the layout to offset the main application content and adjust
+   * container heights.  Updating this single value will automatically
+   * adjust the title bar height as well as the corresponding
+   * margins and calc() expressions used for #app, #sidebar and #main.
+   */
+  --title-bar-height: 30px;
 }
 
 [data-theme="light"] {
@@ -3553,9 +3561,16 @@ input:checked+.slider:before {
   -webkit-backdrop-filter: blur(8px) !important;
   color: var(--sidebar-text) !important;
 }
-button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn),
-button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):hover,
-button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):active {
+/*
+ * Exclude the custom title‐bar buttons from this general button styling rule.
+ * Without this exclusion, the global rule overrides the specific
+ * styles defined for `.title-bar-btn` (e.g. border radius, border and background).
+ * We add `:not(.title-bar-btn)` to each selector so that the custom
+ * title-bar buttons retain their own appearance.
+ */
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):not(.title-bar-btn),
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):not(.title-bar-btn):hover,
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.logout-btn):not(.title-bar-btn):active {
   background: var(--glass-bg) !important;
   border-top: 1px solid var(--glass-border-top) !important;
   border-left: 1px solid var(--glass-border-left) !important;
@@ -4387,4 +4402,151 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
         font-size: 1.05rem;
         min-height: 55px;
     }
+}
+/* Custom Title Bar */
+.custom-title-bar {
+  -webkit-app-region: drag;
+  height: var(--title-bar-height);
+  /*
+     Use theme variables for the background, text colour and border so
+     the title bar adapts to light and dark modes.  In dark mode
+     `--header-bg` and `--text-color` provide a dark bar with light
+     text; in light mode they invert accordingly.  `--border-color`
+     matches the rest of the application’s card borders.
+   */
+  background-color: var(--header-bg);
+  display: flex;
+  align-items: center;
+  /* Align children at the start so the app icon and title appear together.
+     The controls container will be pushed to the right via `margin-left: auto`. */
+  justify-content: flex-start;
+  padding: 0 10px;
+  color: var(--text-color);
+  border-bottom: 1px solid var(--border-color);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.title-bar-title {
+  font-size: 12px;
+}
+
+.title-bar-controls {
+  -webkit-app-region: no-drag;
+  display: flex;
+  gap: 8px;
+  /* Push the controls to the far right within the flex container */
+  margin-left: auto;
+}
+
+/* Icon displayed in the custom title bar.  We set a fixed size and a
+   margin to separate it from the title.  Because the icon itself
+   doesn’t perform any action, we leave it within the drag region so
+   users can still click and drag the window from this area. */
+.title-bar-app-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  -webkit-app-region: drag;
+}
+
+.title-bar-btn {
+  /* Transparent background and a subtle border give the buttons a pill-like
+     appearance similar to modern window controls.  The border colour is
+     slightly lighter in dark mode and slightly darker in light mode (see
+     light‑theme overrides below). */
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  /* Inherit the primary text colour so buttons adapt to the current theme */
+  color: var(--text-color);
+  /* Set consistent size for the window controls */
+  width: 32px;
+  height: 20px;
+  /* Use a modest corner radius so buttons feel crisp without being too sharp */
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background-color 0.2s, border-color 0.2s;
+  line-height: 1;
+}
+
+.title-bar-btn:hover {
+  /* Default hover background for dark theme; overridden in light mode below */
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.title-bar-btn.close:hover {
+  background-color: #e74c3c;
+}
+
+/* -----------------------------------------------------------------------
+ * Light theme overrides for the custom title bar.  When the `data-theme="light"`
+ * attribute is applied to the root `<html>` element, these rules adjust
+ * the colours of the title bar and its controls to match the light theme.
+ */
+[data-theme="light"] .custom-title-bar {
+  background-color: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+[data-theme="light"] .title-bar-btn {
+  color: var(--text-color);
+  /* Darken the border slightly in the light theme for better contrast */
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .title-bar-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure the close button still uses a red background on hover in light mode.
+   The rule above for `.title-bar-btn:hover` in light mode has higher specificity
+   than `.title-bar-btn.close:hover` defined earlier, which causes the
+   red background to be overridden.  This override restores the red hover
+   colour for the close button in light theme. */
+[data-theme="light"] .title-bar-btn.close:hover {
+  background-color: #e74c3c;
+}
+
+
+/* Adjust main app layout */
+#app {
+  /* Offset the application content by the height of the custom title bar.  Using
+     a CSS variable here allows the value to be changed in one place. */
+  margin-top: var(--title-bar-height);
+  height: calc(100vh - var(--title-bar-height));
+}
+
+/* Adjust sidebar and main content */
+#sidebar {
+  /* Subtract the custom title bar height from the sidebar height */
+  height: calc(100% - var(--title-bar-height));
+  margin-top: 0;
+}
+
+#main {
+  /* Subtract the custom title bar height from the main content height */
+  height: calc(100% - var(--title-bar-height));
+  margin-top: 0;
+}
+
+/* Loading overlay adjustment */
+#loading.loading-overlay {
+  position: fixed;
+  top: 30px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-primary);
+  z-index: 9999;
 }
