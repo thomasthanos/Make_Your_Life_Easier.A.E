@@ -18,8 +18,8 @@ function debug(level, ...args) {
     level === 'error'
       ? console.error
       : level === 'warn'
-      ? console.warn
-      : console.log;
+        ? console.warn
+        : console.log;
   if (isBrowser) {
     fn.call(console, `%c${emoji}`, style, ...args);
   } else {
@@ -31,8 +31,8 @@ function debug(level, ...args) {
   let currentPage = null;
   let cachedPreinstalledApps = null;
   const menuKeys = [
-    'install_apps',    
-    'crack_installer',  
+    'install_apps',
+    'crack_installer',
     'system_maintenance',
     'activate_autologin',
     'bios',
@@ -82,9 +82,9 @@ function debug(level, ...args) {
     bios: `
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-computer w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><rect width="14" height="8" x="5" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><path d="M6 18h2"></path><path d="M12 18h6"></path></svg>
   `,
-    
-    
-    
+
+
+
     debloat: `
 <svg
   xmlns="http://www.w3.org/2000/svg"
@@ -107,7 +107,7 @@ function debug(level, ...args) {
   };
   const tooltipManager = (() => {
     let tooltipEl;
-    
+
     function ensure() {
       if (!tooltipEl) {
         tooltipEl = document.querySelector('.custom-tooltip');
@@ -133,7 +133,7 @@ function debug(level, ...args) {
       }
       return tooltipEl;
     }
-    
+
     function update(event, tooltip) {
       const offset = 6;
       const rect = tooltip.getBoundingClientRect();
@@ -148,7 +148,7 @@ function debug(level, ...args) {
       tooltip.style.left = `${x}px`;
       tooltip.style.top = `${y}px`;
     }
-    
+
     function show(target, text, event) {
       const tooltip = ensure();
       tooltip.textContent = text;
@@ -158,7 +158,7 @@ function debug(level, ...args) {
       }, 150);
       update(event, tooltip);
     }
-    
+
     function hide() {
       const tooltip = ensure();
       clearTimeout(tooltip._showTimer);
@@ -167,22 +167,22 @@ function debug(level, ...args) {
     return { ensure, update, show, hide };
   })();
 
-  
+
   let lastInteractionWasKeyboard = false;
-  
+
   document.addEventListener('keydown', () => {
     lastInteractionWasKeyboard = true;
   }, true);
-  
+
   document.addEventListener('mousedown', () => {
     lastInteractionWasKeyboard = false;
   }, true);
-  
+
   document.addEventListener('touchstart', () => {
     lastInteractionWasKeyboard = false;
   }, true);
 
-  
+
   function attachTooltipHandlers(el) {
     if (!el || typeof el.getAttribute !== 'function') return;
     const tip = el.getAttribute('data-tooltip');
@@ -208,7 +208,7 @@ function debug(level, ...args) {
       tooltipManager.hide();
     });
 
-    
+
     el.addEventListener('mousedown', () => {
       tooltipManager.hide();
     });
@@ -242,14 +242,14 @@ function debug(level, ...args) {
     li.appendChild(btn);
     return li;
   }
-  
+
   const defaultSettings = {
-    
+
     lang: 'en',
     theme: 'light'
   };
 
-  
+
   const settings = (() => {
     try {
       const saved = JSON.parse(localStorage.getItem('myAppSettings'));
@@ -277,11 +277,11 @@ function debug(level, ...args) {
       } catch (e) {
       }
     }
-    
+
     translations = {};
   }
 
-  
+
   function applyTheme() {
     document.documentElement.setAttribute('data-theme', settings.theme);
   }
@@ -309,7 +309,7 @@ function debug(level, ...args) {
       titleEl.textContent = fullTitle;
     }
     if (subtitleEl) {
-      
+
       subtitleEl.textContent = (translations.app && translations.app.subtitle) || 'System Management Tools';
     }
     const toggleButton = document.getElementById('theme-toggle');
@@ -318,7 +318,7 @@ function debug(level, ...args) {
         toggleButton.innerHTML = settings.theme === 'dark' ? MOON_ICON : SUN_ICON;
       };
       refreshIcon();
-      
+
       if (toggleButton._toggleListener) {
         toggleButton.removeEventListener('click', toggleButton._toggleListener);
       }
@@ -328,8 +328,8 @@ function debug(level, ...args) {
         document.documentElement.setAttribute('data-theme', newTheme);
         saveSettings();
         refreshIcon();
-        
-        
+
+
         const dropdown = document.getElementById('titlebar-menu-dropdown');
         if (dropdown) dropdown.classList.add('hidden');
       };
@@ -363,7 +363,7 @@ function debug(level, ...args) {
     }
     let infoToggle = document.getElementById('info-toggle');
     if (infoToggle) {
-      
+
       infoToggle.innerHTML = INFO_ICON;
       infoToggle.removeAttribute('data-tooltip');
       if (infoToggle._tooltipAttached) {
@@ -371,12 +371,12 @@ function debug(level, ...args) {
         infoToggle.parentNode.replaceChild(clone, infoToggle);
         infoToggle = clone;
       }
-      
+
       if (infoToggle._clickListener) {
         infoToggle.removeEventListener('click', infoToggle._clickListener);
       }
       const infoListener = () => {
-        
+
         const dropdown = document.getElementById('titlebar-menu-dropdown');
         if (dropdown) dropdown.classList.add('hidden');
         openInfoModal();
@@ -388,7 +388,7 @@ function debug(level, ...args) {
     const menuDropdown = document.getElementById('titlebar-menu-dropdown');
     if (menuToggleBtn && menuDropdown) {
       menuToggleBtn.innerHTML = MENU_ICON;
-      
+
       menuToggleBtn.setAttribute('data-tooltip', (translations.pages && translations.pages.menu) || 'Menu');
       attachTooltipHandlers(menuToggleBtn);
       if (menuToggleBtn._clickListener) {
@@ -414,7 +414,7 @@ function debug(level, ...args) {
     }
   }
 
-  
+
   function renderMenu() {
     const menuList = document.getElementById('menu-list');
     menuList.innerHTML = '';
@@ -437,7 +437,7 @@ function debug(level, ...args) {
       }
     });
 
-    
+
     if (!menuList._boundClick) {
       menuList.addEventListener('click', (e) => {
         const btn = e.target.closest('button[data-key]');
@@ -455,14 +455,14 @@ function debug(level, ...args) {
       const btnToActivate = menuList.querySelector(`button[data-key="${keyToActivate}"]`);
       if (btnToActivate) {
         btnToActivate.classList.add('active');
-        
+
       }
     }
     updateHeader();
   }
 
 
-  
+
   function setHeader(text) {
     const header = document.getElementById('header');
     header.textContent = text;
@@ -487,7 +487,7 @@ function debug(level, ...args) {
     overlay.appendChild(container);
     document.body.appendChild(overlay);
   }
-  
+
   function trackProcess(cardId, processType, button, statusElement) {
     const processId = `${cardId}-${processType}`;
     processStates.set(processId, {
@@ -518,12 +518,12 @@ function debug(level, ...args) {
     }
   }
 
-  
+
   function resetDLCButton(button, status, success) {
     const originalText = button.dataset.originalText;
 
     if (success) {
-      
+
       setTimeout(() => {
         if (originalText) {
           button.innerHTML = originalText;
@@ -534,7 +534,7 @@ function debug(level, ...args) {
         button.disabled = false;
         button.style.background = '';
 
-        
+
         setTimeout(() => {
           status.textContent = '';
           status.style.display = 'none';
@@ -543,7 +543,7 @@ function debug(level, ...args) {
 
       }, 2000);
     } else {
-      
+
       if (originalText) {
         button.innerHTML = originalText;
       } else {
@@ -555,7 +555,7 @@ function debug(level, ...args) {
     }
   }
 
-  
+
   function resetDownloadButton(button, status, success) {
     const originalText = button.dataset.originalText;
     if (originalText) {
@@ -564,21 +564,21 @@ function debug(level, ...args) {
     button.disabled = false;
 
     if (success) {
-      
+
       toast('Process completed successfully!', { type: 'success' });
     } else {
       toast('Process completed with issues', { type: 'error' });
     }
   }
 
-  
+
   function resetReplaceButton(button, status, success) {
     if (success) {
       button.textContent = '✅ Replaced';
       button.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
       button.disabled = true;
 
-      
+
       setTimeout(() => {
         button.style.transition = 'all 0.5s ease';
         button.style.opacity = '0';
@@ -597,7 +597,7 @@ function debug(level, ...args) {
       button.style.background = '';
     }
   }
-  
+
   function createCard(titleKey, bodyContent) {
     const card = document.createElement('div');
     card.className = 'card';
@@ -620,7 +620,7 @@ function debug(level, ...args) {
 
     return card;
   }
-  
+
   function createModernButton(text, onClick, options = {}) {
     const button = document.createElement('button');
     button.className = options.secondary ? 'button button-secondary' : 'button';
@@ -640,92 +640,92 @@ function debug(level, ...args) {
 
     return button;
   }
-  
+
   async function loadPage(key) {
     currentPage = key;
     const content = document.getElementById('content');
     content.innerHTML = '';
     switch (key) {
       case 'install_apps': {
-        
+
         const headerText = (translations.pages && translations.pages.install_title) ||
-                           (translations.menu && translations.menu.install_apps) ||
-                           'install_apps';
+          (translations.menu && translations.menu.install_apps) ||
+          'install_apps';
         setHeader(headerText);
         content.appendChild(await buildInstallPage());
         break;
       }
-      
+
       case 'activate_autologin': {
         const headerText = (translations.pages && (translations.pages.activate_autologin_title || translations.pages.activate_title)) ||
-                           (translations.menu && translations.menu.activate_autologin) ||
-                           'activate_autologin';
+          (translations.menu && translations.menu.activate_autologin) ||
+          'activate_autologin';
         setHeader(headerText);
         content.appendChild(await buildActivateAutologinPage());
         break;
       }
       case 'system_maintenance': {
         const headerText = (translations.pages && (translations.pages.system_maintenance_title || translations.pages.maintenance_title)) ||
-                           (translations.menu && translations.menu.system_maintenance) ||
-                           'system_maintenance';
+          (translations.menu && translations.menu.system_maintenance) ||
+          'system_maintenance';
         setHeader(headerText);
         content.appendChild(await buildMaintenancePage());
         break;
       }
       case 'crack_installer': {
-        
+
         const headerText = (translations.pages && (translations.pages.crack_title || translations.pages.crack_installer_title)) ||
-                           (translations.menu && translations.menu.crack_installer) ||
-                           'crack_installer';
+          (translations.menu && translations.menu.crack_installer) ||
+          'crack_installer';
         setHeader(headerText);
         content.appendChild(await buildCrackInstallerPage());
         break;
       }
       case 'spicetify': {
         const headerText = (translations.pages && (translations.pages.spicetify_title)) ||
-                           (translations.menu && translations.menu.spicetify) ||
-                           'spicetify';
+          (translations.menu && translations.menu.spicetify) ||
+          'spicetify';
         setHeader(headerText);
         content.appendChild(buildSpicetifyPage());
         break;
       }
       case 'debloat': {
         const headerText = (translations.pages && (translations.pages.debloat_title)) ||
-                           (translations.menu && translations.menu.debloat) ||
-                           'Debloat & Windows Tweaks';
+          (translations.menu && translations.menu.debloat) ||
+          'Debloat & Windows Tweaks';
         setHeader(headerText);
         content.appendChild(await buildDebloatPage());
         break;
       }
       case 'password_manager': {
         const headerText = (translations.pages && (translations.pages.password_manager_title)) ||
-                           (translations.menu && translations.menu.password_manager) ||
-                           'password_manager';
+          (translations.menu && translations.menu.password_manager) ||
+          'password_manager';
         setHeader(headerText);
         content.appendChild(buildPasswordManagerPage());
         break;
       }
       case 'christitus': {
         const headerText = (translations.pages && (translations.pages.christitus_title)) ||
-                           (translations.menu && translations.menu.christitus) ||
-                           'christitus';
+          (translations.menu && translations.menu.christitus) ||
+          'christitus';
         setHeader(headerText);
         content.appendChild(buildChrisTitusPage());
         break;
       }
-      
+
       case 'dlc_unlocker': {
         const headerText = (translations.pages && (translations.pages.dlc_title || translations.pages.dlc_unlocker_title)) ||
-                           (translations.menu && translations.menu.dlc_unlocker) ||
-                           'dlc_unlocker';
+          (translations.menu && translations.menu.dlc_unlocker) ||
+          'dlc_unlocker';
         setHeader(headerText);
         content.appendChild(await buildDlcUnlockerPage());
         break;
       }
       case 'bios': {
         const headerText = (translations.pages && (translations.pages.bios_title)) ||
-                           (translations.menu && translations.menu.bios) ||
-                           'bios';
+          (translations.menu && translations.menu.bios) ||
+          'bios';
         setHeader(headerText);
         content.innerHTML = '';
         showRestartDialog();
@@ -749,7 +749,7 @@ function debug(level, ...args) {
     desc.style.marginBottom = '1.5rem';
     container.appendChild(desc);
 
-    
+
     const activateCard = document.createElement('div');
     activateCard.className = 'app-card fixed-height';
 
@@ -796,7 +796,7 @@ function debug(level, ...args) {
     activateCard.appendChild(activateButton);
     activateCard.appendChild(activateStatus);
 
-    
+
     const autologinCard = document.createElement('div');
     autologinCard.className = 'app-card fixed-height';
 
@@ -842,7 +842,7 @@ function debug(level, ...args) {
     autologinCard.appendChild(autologinButton);
     autologinCard.appendChild(autologinStatus);
 
-    
+
     const grid = document.createElement('div');
     grid.className = 'install-grid';
     grid.style.gridTemplateColumns = '1fr 1fr';
@@ -857,7 +857,7 @@ function debug(level, ...args) {
     return container;
   }
 
-  
+
   async function buildDlcUnlockerPage() {
     const container = document.createElement('div');
     container.className = 'card dlc-scope';
@@ -871,12 +871,12 @@ function debug(level, ...args) {
     pageDesc.style.marginBottom = '1.5rem';
     container.appendChild(pageDesc);
 
-    
+
     const grid = document.createElement('div');
     grid.className = 'install-grid dlc-grid';
     container.appendChild(grid);
 
-    
+
     const simsCard = document.createElement('div');
     simsCard.className = 'app-card fixed-height dlc-card';
     grid.appendChild(simsCard);
@@ -947,7 +947,7 @@ function debug(level, ...args) {
       );
     });
 
-    
+
     const eaCard = document.createElement('div');
     eaCard.className = 'app-card fixed-height dlc-card';
     grid.appendChild(eaCard);
@@ -1002,7 +1002,7 @@ function debug(level, ...args) {
       );
     });
 
-    
+
     const tutorialsSection = document.createElement('div');
     tutorialsSection.className = 'dlc-tutorials';
     container.appendChild(tutorialsSection);
@@ -1050,7 +1050,7 @@ function debug(level, ...args) {
     const originalText = button.innerHTML;
     const originalBackground = button.style.background;
 
-    
+
     statusElement.style.display = 'none';
     statusElement.textContent = '';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
@@ -1065,10 +1065,10 @@ function debug(level, ...args) {
 
         switch (data.status) {
           case 'started':
-            
+
             break;
           case 'progress':
-            
+
             button.innerHTML = `⏳ DOWNLOADING... ${data.percent}%`;
             break;
           case 'complete':
@@ -1099,29 +1099,29 @@ function debug(level, ...args) {
                   }, 4000);
 
                 } else {
-                  
+
                   const errMsg = `Extracted but could not run installer: ${exeResult.error}\nPlease try running the installer manually from the extracted folder.`;
-                  
+
                   statusElement.textContent = '';
-                  
+
                   statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
                   statusElement.style.display = 'none';
-                  
+
                   try {
                     showErrorCard(errMsg, { title: dlcName });
                   } catch (_) {
-                    
+
                     statusElement.textContent = errMsg;
                     statusElement.classList.add('status-error');
                     statusElement.style.display = 'block';
                   }
-                  
+
                   button.innerHTML = originalText;
                   button.disabled = false;
                   button.style.background = originalBackground;
                 }
               } else {
-                
+
                 statusElement.textContent = 'Trying extraction without password...';
                 const retryResult = await window.api.extractArchive(data.path, '');
 
@@ -1140,7 +1140,7 @@ function debug(level, ...args) {
                       duration: 5000
                     });
 
-                    
+
                     setTimeout(() => {
                       button.innerHTML = originalText;
                       button.disabled = false;
@@ -1148,7 +1148,7 @@ function debug(level, ...args) {
                     }, 4000);
 
                   } else {
-                    
+
                     const errMsg = `Extracted but could not run installer: ${exeResult.error}\nPlease try running the installer manually from the extracted folder.`;
                     statusElement.textContent = '';
                     statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
@@ -1160,24 +1160,24 @@ function debug(level, ...args) {
                       statusElement.classList.add('status-error');
                       statusElement.style.display = 'block';
                     }
-                    
+
                     button.innerHTML = originalText;
                     button.disabled = false;
                     button.style.background = originalBackground;
                   }
                 } else {
-                  
+
                   const errMsg = (retryResult && retryResult.error) || 'Unknown error';
                   const fullMsg = `Extraction failed: ${errMsg}\nThe downloaded file has been opened for manual inspection.`;
-                  
+
                   statusElement.textContent = '';
                   statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
                   statusElement.style.display = 'none';
-                    
+
                   try {
                     showErrorCard(fullMsg, { title: dlcName });
                   } catch (_) {
-                    
+
                     statusElement.textContent = fullMsg;
                     statusElement.classList.add('status-error');
                     statusElement.style.display = 'block';
@@ -1194,16 +1194,16 @@ function debug(level, ...args) {
                 }
               }
             } catch (error) {
-              
+
               const fullMsg = `Extraction failed: ${error.message}\nPlease check the downloaded file manually.`;
-              
+
               statusElement.textContent = '';
               statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
               statusElement.style.display = 'none';
               try {
                 showErrorCard(fullMsg, { title: dlcName });
               } catch (_) {
-                
+
                 statusElement.textContent = fullMsg;
                 statusElement.classList.add('status-error');
                 statusElement.style.display = 'block';
@@ -1224,10 +1224,10 @@ function debug(level, ...args) {
             break;
 
           case 'error':
-            
+
             statusElement.textContent = `Download error: ${data.error}\nPlease check your internet connection and try again.`;
             statusElement.classList.add('status-error');
-            statusElement.style.display = 'block'; 
+            statusElement.style.display = 'block';
             button.innerHTML = originalText;
             button.disabled = false;
             button.style.background = originalBackground;
@@ -1243,14 +1243,14 @@ function debug(level, ...args) {
         }
       });
 
-      
+
       try {
         window.api.downloadStart(downloadId, downloadUrl, `${dlcName.replace(/\s+/g, '_')}.zip`);
       } catch (e) {
-        
+
         statusElement.textContent = `Download failed: ${e.message}\nPlease check your internet connection.`;
         statusElement.classList.add('status-error');
-        statusElement.style.display = 'block'; 
+        statusElement.style.display = 'block';
         button.innerHTML = originalText;
         button.disabled = false;
         button.style.background = originalBackground;
@@ -1270,8 +1270,8 @@ function debug(level, ...args) {
       setTimeout(async () => {
         const extractedDir = getExtractedFolderPath(zipPath);
 
-        
-        
+
+
         let exePatterns = [];
         if (dlcId === 'sims-installer') {
           exePatterns = [/sims-4-updater-v.*\.exe$/i];
@@ -1306,13 +1306,13 @@ function debug(level, ...args) {
       }, 2000);
     });
   }
-  
+
   async function findExeByPattern(extractedDir, patterns, dlcName) {
     return new Promise((resolve) => {
       window.api.findExeFiles(extractedDir)
         .then(files => {
           if (files && files.length > 0) {
-            
+
             for (const pattern of patterns) {
               const matchingFiles = files.filter(file => {
                 const fileName = getBaseName(file, '');
@@ -1320,7 +1320,7 @@ function debug(level, ...args) {
               });
 
               if (matchingFiles.length > 0) {
-                
+
                 const bestFile = selectBestExe(matchingFiles, dlcName);
                 return resolve({
                   success: true,
@@ -1330,7 +1330,7 @@ function debug(level, ...args) {
               }
             }
 
-            
+
             const keywordFiles = files.filter(file => {
               const lowerFile = file.toLowerCase();
               return lowerFile.includes('install') ||
@@ -1349,7 +1349,7 @@ function debug(level, ...args) {
               });
             }
 
-            
+
             return resolve({
               success: true,
               exePath: files[0],
@@ -1363,7 +1363,7 @@ function debug(level, ...args) {
         .catch(() => resolve({ success: false, error: 'Error searching for executables' }));
     });
   }
-  
+
   async function findClipStudioInstaller(extractedDir) {
     return new Promise((resolve) => {
       window.api.findExeFiles(extractedDir)
@@ -1373,7 +1373,7 @@ function debug(level, ...args) {
             return;
           }
 
-          
+
           const priorityFiles = files.filter(file => {
             const fileName = getBaseName(file, '').toLowerCase();
             return fileName.includes('clipstudio_crack') ||
@@ -1385,7 +1385,7 @@ function debug(level, ...args) {
           if (priorityFiles.length > 0) {
             resolve(priorityFiles[0]);
           } else {
-            
+
             resolve(files[0]);
           }
         })
@@ -1400,19 +1400,19 @@ function debug(level, ...args) {
         return null;
       }
       const lowerName = (projectName || '').toLowerCase();
-      
+
       if (lowerName.includes('office')) {
-        
+
         const exact = exeFiles.find(f => getBaseName(f, '').toLowerCase() === 'oinstall_x64');
         if (exact) return exact;
         const prefix = exeFiles.find(f => getBaseName(f, '').toLowerCase().startsWith('oinstall'));
         if (prefix) return prefix;
         return null;
       }
-      
+
       const hyphenated = exeFiles.find(f => getBaseName(f, '').toLowerCase().includes('set-up'));
       if (hyphenated) return hyphenated;
-      
+
       const setup = exeFiles.find(f => {
         const base = getBaseName(f, '').toLowerCase();
         return base.includes('setup') &&
@@ -1422,7 +1422,7 @@ function debug(level, ...args) {
           !base.includes('pop');
       });
       if (setup) return setup;
-      
+
       const install = exeFiles.find(f => {
         const base = getBaseName(f, '').toLowerCase();
         return base.includes('install') &&
@@ -1432,27 +1432,27 @@ function debug(level, ...args) {
           !base.includes('pop');
       });
       if (install) return install;
-      
+
       return null;
     } catch (err) {
       return null;
     }
   }
-  
+
   function selectBestExe(files, dlcName) {
-    
+
     const scoredFiles = files.map(file => {
       const fileName = getBaseName(file, '').toLowerCase();
       let score = 0;
 
-      
+
       if (fileName.includes('install')) score += 10;
       if (fileName.includes('setup')) score += 8;
       if (fileName.includes('crack')) score += 6;
       if (fileName.includes('unlock')) score += 6;
       if (fileName.includes('patch')) score += 4;
 
-      
+
       if (dlcName === 'Sims Installer') {
         if (fileName.includes('sims')) score += 5;
         if (fileName.includes('updater')) score += 5;
@@ -1461,7 +1461,7 @@ function debug(level, ...args) {
         if (fileName.includes('clipstudio')) score += 5;
       }
 
-      
+
       if (fileName.includes('uninstall')) score -= 20;
       if (fileName.includes('remove')) score -= 15;
       if (fileName.includes('delete')) score -= 15;
@@ -1469,14 +1469,14 @@ function debug(level, ...args) {
       return { file, score, fileName };
     });
 
-    
+
     scoredFiles.sort((a, b) => b.score - a.score);
 
-    
+
     return scoredFiles[0].file;
   }
 
-  
+
   function addOpenFolderButton(button, zipPath, dlcName) {
     const extractedDir = getExtractedFolderPath(zipPath);
 
@@ -1504,17 +1504,17 @@ function debug(level, ...args) {
     }
   }
 
-  
+
   async function downloadAndRunActivate(button, statusElement) {
     button.disabled = true;
     const originalText = button.textContent;
-    
+
     button.dataset.originalTextActivate = originalText;
-    
+
     statusElement.style.display = 'none';
     statusElement.textContent = '';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
-    
+
     button.textContent = 'Preparing activation...';
 
     const downloadId = `activate-${Date.now()}`;
@@ -1526,25 +1526,25 @@ function debug(level, ...args) {
 
         switch (data.status) {
           case 'started':
-            
+
             button.textContent = 'Downloading activation script... 0%';
             break;
           case 'progress':
             button.textContent = `Downloading activation script... ${data.percent}%`;
             break;
           case 'complete': {
-            
+
             button.textContent = 'Running activation script...';
-            
+
             window.api.openFile(data.path)
               .then((result) => {
                 if (result.success) {
-                  
+
                   button.textContent = 'Activation Started';
                   statusElement.textContent = '';
                   statusElement.style.display = 'none';
                 } else {
-                  
+
                   button.textContent = originalText;
                   statusElement.textContent = '';
                   statusElement.style.display = 'none';
@@ -1565,7 +1565,7 @@ function debug(level, ...args) {
             break;
           }
           case 'error':
-            
+
             button.textContent = originalText;
             button.disabled = false;
             statusElement.textContent = '';
@@ -1577,11 +1577,11 @@ function debug(level, ...args) {
         }
       });
 
-      
+
       try {
         window.api.downloadStart(downloadId, activateUrl, 'activate.bat');
       } catch (e) {
-        
+
         button.textContent = originalText;
         button.disabled = false;
         statusElement.textContent = '';
@@ -1593,17 +1593,17 @@ function debug(level, ...args) {
     });
   }
 
-  
+
   async function downloadAndRunAutologin(button, statusElement) {
     button.disabled = true;
     const originalText = button.textContent;
-    
+
     button.dataset.originalTextAutologin = originalText;
-    
+
     statusElement.style.display = 'none';
     statusElement.textContent = '';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
-    
+
     button.textContent = 'Preparing auto login...';
 
     const downloadId = `autologin-${Date.now()}`;
@@ -1615,25 +1615,25 @@ function debug(level, ...args) {
 
         switch (data.status) {
           case 'started':
-            
+
             button.textContent = 'Downloading auto login tool... 0%';
             break;
           case 'progress':
             button.textContent = `Downloading auto login tool... ${data.percent}%`;
             break;
           case 'complete': {
-            
+
             button.textContent = 'Running auto login setup...';
 
             window.api.openFile(data.path)
               .then((result) => {
                 if (result.success) {
-                  
+
                   button.textContent = 'Auto Login Started';
                   statusElement.textContent = '';
                   statusElement.style.display = 'none';
                 } else {
-                  
+
                   button.textContent = originalText;
                   statusElement.textContent = '';
                   statusElement.style.display = 'none';
@@ -1654,7 +1654,7 @@ function debug(level, ...args) {
             break;
           }
           case 'error':
-            
+
             button.textContent = originalText;
             button.disabled = false;
             statusElement.textContent = '';
@@ -1666,11 +1666,11 @@ function debug(level, ...args) {
         }
       });
 
-      
+
       try {
         window.api.downloadStart(downloadId, autologinUrl, 'auto_login.exe');
       } catch (e) {
-        
+
         button.textContent = originalText;
         button.disabled = false;
         statusElement.textContent = '';
@@ -1681,36 +1681,36 @@ function debug(level, ...args) {
       }
     });
   }
-  
+
   function buildSettingsPage() {
-    
-    
+
+
     const container = document.createElement('div');
     return container;
   }
 
-  
+
   const openInstaller = async (app, filePath, status, index) => {
     try {
-      
+
       toast('Opening installer...', { type: 'success' });
 
-      
+
       const result = await window.api.openFile(filePath);
 
       if (result.success) {
-        
+
         toast('Installer opened successfully!', { type: 'success' });
       } else {
         throw new Error(result.error);
       }
 
     } catch (err) {
-      
+
       toast(`Error: ${err.message}`, { type: 'error' });
       debug('error', 'Error opening installer:', err);
     } finally {
-      
+
       const download = activeDownloads.get(index);
       if (download) {
         download.status = 'complete';
@@ -1719,20 +1719,20 @@ function debug(level, ...args) {
       checkAllComplete();
     }
   };
-  
+
   function ensureToastContainer() {
     let c = document.getElementById('toast-container');
     if (!c) { c = document.createElement('div'); c.id = 'toast-container'; document.body.appendChild(c); }
     return c;
   }
 
-  
+
   function ensureErrorContainer() {
     let c = document.getElementById('error-container');
     if (!c) {
       c = document.createElement('div');
       c.id = 'error-container';
-      
+
       document.body.appendChild(c);
     }
     return c;
@@ -1742,12 +1742,12 @@ function debug(level, ...args) {
   let errorPaletteIndex = 0;
   const errorBulletColours = ['#575757', '#e34ba9', '#80b1ff', '#f59e0b', '#10b981'];
 
-  
+
   function showErrorCard(msg, opts = {}) {
     const { title = 'Error', duration = 6000 } = opts;
-    
-    
-    
+
+
+
     msg = String(msg);
     if (msg.includes('\n')) {
       const parts = msg.split(/\n+/).filter(p => p.trim() !== '');
@@ -1758,26 +1758,26 @@ function debug(level, ...args) {
     }
     const container = ensureErrorContainer();
 
-    
+
     if (currentErrorCard && currentErrorCard.isConnected) {
-      
+
       const bulletColour = errorBulletColours[errorPaletteIndex % errorBulletColours.length];
       errorPaletteIndex++;
-      
+
       const line = document.createElement('div');
       line.className = 'error-line';
-      
+
       const dashSpan = document.createElement('span');
       dashSpan.textContent = '- ';
       dashSpan.style.color = bulletColour;
       const msgSpan = document.createElement('span');
       msgSpan.className = 'error-msg';
       msgSpan.textContent = msg;
-      
+
       line.appendChild(dashSpan);
       line.appendChild(msgSpan);
       currentErrorCard.bodyEl.appendChild(line);
-      
+
       currentErrorCard.copyBtn.onclick = () => {
         try {
           const text = currentErrorCard.bodyEl.innerText.replace(/\n+$/g, '');
@@ -1790,8 +1790,8 @@ function debug(level, ...args) {
       return;
     }
 
-    
-    
+
+
     const card = document.createElement('div');
     card.className = 'error-card';
 
@@ -1801,12 +1801,12 @@ function debug(level, ...args) {
     const terminal = document.createElement('div');
     terminal.className = 'error-terminal';
 
-    
+
     const head = document.createElement('div');
     head.className = 'error-head';
     const titleEl = document.createElement('p');
     titleEl.className = 'error-title';
-    
+
     const termIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     termIcon.setAttribute('viewBox', '0 0 24 24');
     termIcon.setAttribute('width', '16px');
@@ -1822,10 +1822,10 @@ function debug(level, ...args) {
     titleEl.appendChild(termIcon);
     titleEl.appendChild(document.createTextNode(' Terminal'));
     head.appendChild(titleEl);
-    
+
     const copyBtn = document.createElement('button');
     copyBtn.className = 'error-copy';
-    
+
     const copySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     copySvg.setAttribute('viewBox', '0 0 24 24');
     copySvg.setAttribute('width', '16px');
@@ -1842,10 +1842,10 @@ function debug(level, ...args) {
     copySvg.appendChild(cp1);
     copySvg.appendChild(cp2);
     copyBtn.appendChild(copySvg);
-    
+
     const closeBtn = document.createElement('button');
     closeBtn.className = 'error-close';
-    
+
     const closeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     closeSvg.setAttribute('viewBox', '0 0 24 24');
     closeSvg.setAttribute('width', '16px');
@@ -1862,16 +1862,16 @@ function debug(level, ...args) {
     closeSvg.appendChild(cPath1);
     closeSvg.appendChild(cPath2);
     closeBtn.appendChild(closeSvg);
-    
+
     head.appendChild(copyBtn);
     head.appendChild(closeBtn);
-    
+
     const body = document.createElement('div');
     body.className = 'error-body';
-    
+
     const firstColour = errorBulletColours[errorPaletteIndex % errorBulletColours.length];
     errorPaletteIndex++;
-    
+
     const firstLine = document.createElement('div');
     firstLine.className = 'error-line';
     const firstDash = document.createElement('span');
@@ -1883,16 +1883,16 @@ function debug(level, ...args) {
     firstLine.appendChild(firstDash);
     firstLine.appendChild(firstMsg);
     body.appendChild(firstLine);
-    
+
     terminal.appendChild(head);
     terminal.appendChild(body);
     wrap.appendChild(terminal);
     card.appendChild(wrap);
     container.appendChild(card);
-    
+
     card.bodyEl = body;
     card.copyBtn = copyBtn;
-    
+
     copyBtn.onclick = () => {
       try {
         const text = card.bodyEl.innerText.replace(/\n+$/g, '');
@@ -1902,18 +1902,18 @@ function debug(level, ...args) {
         toast('Failed to copy', { type: 'error', title: 'Clipboard' });
       }
     };
-    
+
     closeBtn.onclick = () => {
       card.remove();
       currentErrorCard = null;
     };
-    
+
     currentErrorCard = card;
 
-    
+
   }
-  
-  
+
+
   function toast(msg, opts = {}) {
     const { title = '', type = 'info', duration = 4000 } = opts;
 
@@ -1922,25 +1922,25 @@ function debug(level, ...args) {
       return null;
     }
 
-    
+
     if (type !== 'success') {
       return null;
     }
 
     const container = ensureToastContainer();
 
-    
+
     const toastEl = document.createElement('div');
     toastEl.className = `toast toast-${type}`;
 
-    
-    
-    
+
+
+
     const iconWrapper = document.createElement('div');
     iconWrapper.className = 'toast-icon-wrapper';
 
-    
-    let svg; 
+
+    let svg;
     if (type === 'error') {
       svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svg.setAttribute('viewBox', '0 0 24 24');
@@ -1968,7 +1968,7 @@ function debug(level, ...args) {
       iconWrapper.appendChild(svg);
     }
 
-    
+
     const content = document.createElement('div');
     content.className = 'toast-content';
     if (title) {
@@ -1982,14 +1982,14 @@ function debug(level, ...args) {
     messageEl.textContent = msg;
     content.appendChild(messageEl);
 
-    
+
     const closeBtn = document.createElement('button');
     closeBtn.className = 'toast-close';
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.textContent = '×';
     closeBtn.onclick = () => dismissToast(toastEl);
 
-    
+
     toastEl.appendChild(iconWrapper);
     toastEl.appendChild(content);
     toastEl.appendChild(closeBtn);
@@ -1999,7 +1999,7 @@ function debug(level, ...args) {
     if (duration > 0) {
       timeout = setTimeout(() => dismissToast(toastEl), duration);
     }
-    
+
     toastEl.addEventListener('mouseenter', () => {
       if (timeout) {
         clearTimeout(timeout);
@@ -2022,23 +2022,23 @@ function debug(level, ...args) {
       }
     }, 300);
   }
-  
+
   async function buildInstallPage() {
-    
-    
-    
-    
+
+
+
+
     const container = document.createElement('div');
     container.className = 'card';
     const desc = document.createElement('p');
     desc.textContent = (translations.pages && translations.pages.install_desc) ||
       'Select apps to download. We will open each installer automatically after the download finishes.';
-    
+
     desc.style.marginBottom = '1rem';
     desc.style.opacity = '0.8';
     container.appendChild(desc);
 
-    
+
     const apps = [
       { name: translations.apps?.betterdiscord?.name || 'BetterDiscord', description: translations.apps?.betterdiscord?.description || 'Enhanced Discord client', url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&st=kd8njdce&dl=1', ext: 'exe' },
       { name: translations.apps?.discord_ptb?.name || 'Discord PTB', description: translations.apps?.discord_ptb?.description || 'Public Test Build of Discord', url: 'https://www.dropbox.com/scl/fi/aaqzyvha72wjhmlbkaisf/discord_ptb.exe?rlkey=jandm03y74hsx8vmt3bf9enub&st=syrb9gxp&dl=1', ext: 'exe' },
@@ -2049,19 +2049,19 @@ function debug(level, ...args) {
       { name: translations.apps?.advanced_installer?.name || 'Advanced Installer', description: translations.apps?.advanced_installer?.description || 'Professional Windows installer authoring tool', url: 'https://www.dropbox.com/scl/fi/nx5ced8mt2t5mye4tus6j/Advanced-Installer-Architect-23.1.0.zip?rlkey=2bre9u83d9lfdvhhz778nvr04&st=cgpe2npr&dl=1', ext: 'zip', isAdvancedInstaller: true }
     ];
 
-    
+
     const sortedApps = [...apps].sort((a, b) => a.name.localeCompare(b.name));
 
     const list = document.createElement('ul'); list.style.listStyle = 'none'; list.style.padding = '0'; list.style.margin = '0';
 
-    
+
     sortedApps.forEach((app, i) => {
       const li = document.createElement('li');
       li.className = 'app-list-item';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.id = `app-${i}`;
-      
+
       cb.className = 'app-checkbox';
       const label = document.createElement('label'); label.htmlFor = cb.id; label.style.flex = '1'; label.style.display = 'flex'; label.style.alignItems = 'center';
       const text = document.createElement('div'); const n = document.createElement('span'); n.textContent = app.name; n.style.fontWeight = '600'; n.style.fontSize = '1.1rem'; const p = document.createElement('p'); p.textContent = app.description; p.style.margin = '0'; p.style.opacity = '0.8'; p.style.fontSize = '0.9rem'; text.append(n, p); label.append(text);
@@ -2077,15 +2077,15 @@ function debug(level, ...args) {
     btn.onclick = async () => {
       if (running) return;
       running = true;
-      
+
       if (!btn.dataset.originalText) {
         btn.dataset.originalText = btn.textContent;
       }
       btn.disabled = true;
-      
+
       btn.textContent = 'Preparing downloads...';
 
-      
+
       const selected = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => {
         const index = parseInt(cb.id.split('-')[1]);
         return sortedApps[index];
@@ -2103,7 +2103,7 @@ function debug(level, ...args) {
         const index = sortedApps.findIndex(a => a.name === app.name);
         const li = list.children[index];
         const status = li.querySelector('pre');
-        
+
         status.textContent = '';
         status.style.display = 'none';
         const id = `install-${app.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
@@ -2118,27 +2118,27 @@ function debug(level, ...args) {
             }
 
             if (data.status === 'started') {
-              
+
               btn.textContent = `Downloading ${app.name}... 0%`;
             } else if (data.status === 'progress') {
               btn.textContent = `Downloading ${app.name}... ${data.percent}%`;
             } else if (data.status === 'complete') {
-              
+
               btn.textContent = `Opening ${app.name}...`;
               unsubscribe();
 
               try {
-                
+
                 if (app.isAdvancedInstaller) {
                   await processAdvancedInstaller(data.path, status, app.name);
                 } else {
-                  
+
                   await window.api.openInstaller(data.path);
-                  
+
                   btn.textContent = `${app.name} Installer Started`;
                 }
               } catch (error) {
-                
+
                 btn.textContent = btn.dataset.originalText || btn.textContent;
                 status.textContent = '';
                 status.style.display = 'none';
@@ -2148,12 +2148,12 @@ function debug(level, ...args) {
                 });
               }
 
-              
+
               autoFadeStatus(status, 3000);
               resolve();
 
             } else if (data.status === 'error') {
-              
+
               btn.textContent = btn.dataset.originalText || btn.textContent;
               status.textContent = '';
               status.style.display = 'none';
@@ -2167,11 +2167,11 @@ function debug(level, ...args) {
             }
           });
 
-          
+
           try {
             window.api.downloadStart(id, app.url, `${app.name}.${app.ext}`);
           } catch (e) {
-            
+
             btn.textContent = btn.dataset.originalText || btn.textContent;
             status.textContent = '';
             status.style.display = 'none';
@@ -2184,10 +2184,10 @@ function debug(level, ...args) {
             resolve();
           }
 
-          
+
           timeout = setTimeout(() => {
             timeout = null;
-            
+
             btn.textContent = btn.dataset.originalText || btn.textContent;
             status.textContent = '';
             status.style.display = 'none';
@@ -2202,22 +2202,22 @@ function debug(level, ...args) {
         });
       };
 
-      
+
       const promises = selected.map((app) => handleDownload(app));
       await Promise.all(promises);
-      
+
       running = false;
       btn.disabled = false;
       btn.textContent = btn.dataset.originalText || ((translations.actions && translations.actions.download_selected) || 'Download Selected');
     };
     return container;
   }
-  
+
   async function processAdvancedInstaller(zipPath, statusElement, appName) {
     statusElement.textContent = 'Extracting Advanced Installer...';
 
     try {
-      
+
       const extractResult = await window.api.extractArchive(zipPath, '');
 
       if (!extractResult.success) {
@@ -2226,17 +2226,17 @@ function debug(level, ...args) {
 
       statusElement.textContent = 'Extraction complete!';
 
-      
+
       const extractedDir = getExtractedFolderPath(zipPath);
 
-      
+
       const msiPath = `${extractedDir}\\advinst.msi`;
       const activatorPath = `${extractedDir}\\Advanced Installer Activator.exe`;
 
       debug('info', 'MSI Path:', msiPath);
       debug('info', 'Activator Path:', activatorPath);
 
-      
+
       const filesExist = await checkFilesExist([msiPath, activatorPath]);
 
       if (!filesExist.msiExists) {
@@ -2249,7 +2249,7 @@ function debug(level, ...args) {
 
       statusElement.textContent = 'Starting Advanced Installer setup...';
 
-      
+
       debug('info', 'Running MSI installer...');
       const installResult = await window.api.runInstaller(msiPath);
 
@@ -2260,7 +2260,7 @@ function debug(level, ...args) {
       statusElement.textContent = '✅ Advanced Installer setup started! Complete the installation.';
       statusElement.classList.add('status-success');
 
-      
+
       const activatorButton = document.createElement('button');
       activatorButton.className = 'button activator-button';
       activatorButton.innerHTML = '🔓 Activate';
@@ -2322,7 +2322,7 @@ function debug(level, ...args) {
         }
       });
 
-      
+
       const card = statusElement.closest('li');
       if (card) {
         const oldButton = card.querySelector('.activator-button');
@@ -2360,7 +2360,7 @@ function debug(level, ...args) {
     }
   }
 
-  
+
   async function checkFilesExist(filePaths) {
     return new Promise((resolve) => {
       const results = {
@@ -2371,7 +2371,7 @@ function debug(level, ...args) {
       let completed = 0;
 
       filePaths.forEach(filePath => {
-        
+
         fetch(`file:///${filePath}`)
           .then(() => {
             if (filePath.includes('advinst.msi')) {
@@ -2390,14 +2390,14 @@ function debug(level, ...args) {
     });
   }
 
-  
+
   function getExtractedFolderPath(zipPath) {
     const parentDir = getDirectoryName(zipPath);
     const baseName = getBaseName(zipPath, '.zip');
     return `${parentDir}\\${baseName}`;
   }
 
-  
+
   function getDirectoryName(filePath) {
     if (filePath.includes('\\')) {
       return filePath.substring(0, filePath.lastIndexOf('\\'));
@@ -2418,10 +2418,10 @@ function debug(level, ...args) {
     }
     return fileName;
   }
-  
 
-  
-  
+
+
+
   const ICON_INSTALL_SPICETIFY = `
 <svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="56" height="56" viewBox="0 0 320.000000 400.000000" preserveAspectRatio="xMidYMid meet">
 <metadata>Created by potrace 1.10, written by Peter Selinger 2001-2011</metadata>
@@ -2494,11 +2494,11 @@ function debug(level, ...args) {
     pageDesc.style.marginBottom = '1.5rem';
     container.appendChild(pageDesc);
 
-    
+
     const grid = document.createElement('div');
     grid.className = 'install-grid';
 
-    
+
     const outputPre = document.createElement('pre');
     outputPre.className = 'status-pre';
 
@@ -2550,7 +2550,7 @@ function debug(level, ...args) {
       return header;
     }
 
-    
+
     const makeCard = (svg, title, desc, btnLabel, onClick) => {
       const card = document.createElement('div');
       card.className = 'app-card';
@@ -2563,7 +2563,7 @@ function debug(level, ...args) {
       return card;
     };
 
-    
+
     const installCard = makeCard(
       ICON_INSTALL_SPICETIFY,
       translations.actions?.install_spicetify || 'Install Spicetify',
@@ -2590,7 +2590,7 @@ function debug(level, ...args) {
       )
     );
 
-    
+
     const fullUninstallCard = makeCard(
       ICON_FULL_UNINSTALL_SPOTIFY,
       translations.actions?.full_uninstall_spotify || 'Full Uninstall Spotify',
@@ -2605,7 +2605,7 @@ function debug(level, ...args) {
     );
     fullUninstallCard.classList.add('full-span');
 
-    
+
     grid.appendChild(installCard);
     grid.appendChild(uninstallCard);
     grid.appendChild(fullUninstallCard);
@@ -2615,14 +2615,14 @@ function debug(level, ...args) {
     return container;
   }
 
-  
+
   async function buildCrackInstallerPage() {
-    
+
     const crackDesc = (translations.pages && translations.pages.crack_desc) || 'Download backups of your projects from Dropbox';
-    
-    
-    
-    
+
+
+
+
     const container = document.createElement('div');
     container.className = 'card';
     const pageDesc = document.createElement('p');
@@ -2682,15 +2682,15 @@ function debug(level, ...args) {
       }
     ];
     const grid = document.createElement('div');
-    grid.className = 'install-grid crack-grid'; 
-    
+    grid.className = 'install-grid crack-grid';
+
     grid.style.gap = '0.25rem';
     grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
     projects.forEach((project) => {
       const { key, fallbackName, desc, url, icon } = project;
-      
+
       const name = (translations.apps && translations.apps[key] && translations.apps[key].name) || fallbackName;
-      
+
       const description = '';
 
       const card = document.createElement('div');
@@ -2701,7 +2701,7 @@ function debug(level, ...args) {
       img.src = icon;
       img.alt = name;
       img.className = 'app-icon';
-      
+
       img.style.width = '48px';
       img.style.height = '48px';
       img.style.objectFit = 'contain';
@@ -2714,15 +2714,15 @@ function debug(level, ...args) {
       p.textContent = '';
       const btn = document.createElement('button');
       btn.className = 'button';
-      
-      
-      
-      
-      
-      
+
+
+
+
+
+
       const downloadLabel = (translations.actions && translations.actions.download) || 'Download';
       btn.textContent = downloadLabel;
-      
+
       btn.dataset.originalText = btn.textContent;
       const status = document.createElement('pre');
       status.className = 'status-pre';
@@ -2732,7 +2732,7 @@ function debug(level, ...args) {
       const progressBar = document.createElement('div');
       progressBar.className = 'progress-bar';
       progressBar.style.width = '100%';
-      progressBar.style.height = '6px'; 
+      progressBar.style.height = '6px';
       progressBar.style.background = 'var(--border-color)';
       progressBar.style.borderRadius = '3px';
       progressBar.style.overflow = 'hidden';
@@ -2746,7 +2746,7 @@ function debug(level, ...args) {
       const pauseBtn = document.createElement('button');
       pauseBtn.className = 'button button-secondary';
       pauseBtn.textContent = 'Pause';
-      pauseBtn.style.padding = '0.5rem 1rem'; 
+      pauseBtn.style.padding = '0.5rem 1rem';
       pauseBtn.style.display = 'none';
 
       const cancelBtn = document.createElement('button');
@@ -2762,54 +2762,54 @@ function debug(level, ...args) {
       controls.appendChild(pauseBtn);
       controls.appendChild(cancelBtn);
 
-      
-      
+
+
       const replaceBtn = document.createElement('button');
       replaceBtn.className = 'button button-secondary';
       replaceBtn.textContent = 'Replace EXE';
-      
+
       replaceBtn.style.minWidth = 'auto';
       replaceBtn.style.width = 'auto';
       replaceBtn.style.padding = '0.5rem 0.75rem';
       replaceBtn.style.display = 'none';
-      
+
       const isClipStudio = key === 'clip_studio_paint';
-      
+
       card.dataset.crackCard = 'true';
-      
+
       const downloadId = `crack-${key}-${Date.now()}`;
       let isPaused = false;
       let unsubscribe;
 
-      
-      
+
+
       replaceBtn.addEventListener('click', async () => {
         const cardId = `crack-${key}`;
         trackProcess(cardId, 'replace', replaceBtn, status);
 
         replaceBtn.disabled = true;
         replaceBtn.textContent = 'Replacing...';
-        
-        
-        
+
+
+
         status.style.display = '';
-        
+
         toast('Starting replacement process...', { type: 'success', title: 'Replace EXE' });
 
         try {
           const sourcePath = 'C:\\Users\\%USERNAME%\\Downloads\\Clip_Studio\\CLIPStudioPaint.exe';
           const targetPath = 'C:\\Program Files\\CELSYS\\CLIP STUDIO 1.5\\CLIP STUDIO PAINT\\CLIPStudioPaint.exe';
 
-          
+
           toast('Requesting Administrator privileges...\n⚠️ Please accept the UAC prompt', { type: 'error', title: 'Replace EXE' });
 
           const result = await window.api.replaceExe(sourcePath, targetPath);
 
           if (result.success) {
-            
+
             status.classList.add('status-success');
 
-            
+
             completeProcess(cardId, 'replace', true);
 
             toast('Clip Studio crack applied successfully!', {
@@ -2817,7 +2817,7 @@ function debug(level, ...args) {
               title: 'Crack Installer'
             });
           } else {
-            
+
             if (result.code === 'SRC_MISSING') {
               toast('Patch file not found. Please re-download the installer or check your antivirus.', {
                 type: 'error',
@@ -2831,26 +2831,26 @@ function debug(level, ...args) {
             } else if (result.code === 'UAC_DENIED') {
               showManualReplacementInstructions(sourcePath, targetPath);
             } else {
-              
+
               toast(`Replacement failed: ${result.error}`, { type: 'error', title: 'Replace EXE' });
             }
             status.classList.add('status-error');
 
-            
+
             completeProcess(cardId, 'replace', false);
           }
         } catch (error) {
-          
+
           toast(`Replacement failed: ${error.message}`, { type: 'error', title: 'Replace EXE' });
           status.classList.add('status-error');
           completeProcess(cardId, 'replace', false);
         }
       });
-      
+
       async function performReplacement(targetPath, sourceDir, statusElement, button) {
         statusElement.textContent = 'Finding patch executable...';
 
-        
+
         const crackFiles = await window.api.findExeFiles(sourceDir);
         const crackExe = crackFiles.find(file =>
           file.toLowerCase().includes('clipstudio_crack') ||
@@ -2862,11 +2862,11 @@ function debug(level, ...args) {
           throw new Error('Crack executable not found in extracted files');
         }
 
-        
+
         const fileName = targetPath.split('\\').pop();
         statusElement.textContent = `Replacing ${fileName}...`;
 
-        
+
         const result = await window.api.replaceExe(crackExe, targetPath);
 
         if (result.success) {
@@ -2881,33 +2881,33 @@ function debug(level, ...args) {
             duration: 5000
           });
 
-          
+
           autoFadeStatus(statusElement, 3000);
         } else {
           throw new Error(result.error || 'Unknown error during replacement');
         }
       }
-      
+
       btn.addEventListener('click', () => {
         if (unsubscribe) unsubscribe();
 
         const cardId = `crack-${key}`;
         trackProcess(cardId, 'download', btn, status);
 
-        
+
         btn.disabled = true;
-        
+
         if (!btn.dataset.originalTextCrack) {
           btn.dataset.originalTextCrack = btn.textContent;
         }
-        
+
         btn.textContent = 'Preparing download...';
-        
+
         status.textContent = '';
         status.style.display = 'none';
-        
+
         progressContainer.style.display = 'none';
-        
+
         replaceBtn.style.display = 'none';
 
         const downloadId = `${cardId}-${Date.now()}`;
@@ -2917,30 +2917,30 @@ function debug(level, ...args) {
 
           switch (data.status) {
             case 'started':
-              
+
               progressFill.style.width = '0%';
-              
+
               btn.textContent = 'Downloading... 0%';
               break;
 
             case 'progress':
-              
+
               progressFill.style.width = `${data.percent}%`;
-              
+
               btn.textContent = `Downloading... ${data.percent}%`;
               break;
 
             case 'complete': {
-              
+
               btn.textContent = 'Download complete! Extracting...';
-              
+
               pauseBtn.style.display = 'none';
               cancelBtn.style.display = 'none';
               try {
                 const extractResult = await window.api.extractArchive(data.path, '123');
 
                 if (extractResult.success) {
-                  
+
                   btn.textContent = 'Extraction complete! Running installer...';
                   const extractedDir = getExtractedFolderPath(data.path);
                   let installerExe;
@@ -2954,13 +2954,13 @@ function debug(level, ...args) {
                     const openResult = await window.api.openFile(installerExe);
                     if (openResult.success) {
                       if (isClipStudio) {
-                        
+
                         btn.textContent = 'Installation in Progress';
                         completeProcess(cardId, 'download', true);
-                        
+
                         replaceBtn.style.display = 'inline-block';
                         replaceBtn.disabled = false;
-                        
+
                         toast('Clip Studio installer started! Complete installation first.', {
                           type: 'info',
                           title: 'Clip Studio'
@@ -2983,17 +2983,17 @@ function debug(level, ...args) {
                   throw new Error(extractResult.error || 'Extraction failed');
                 }
               } catch (error) {
-                
+
                 btn.textContent = btn.dataset.originalTextCrack || btn.textContent;
                 btn.disabled = false;
-                
+
                 toast(error.message || 'An error occurred during installation', {
                   type: 'error',
                   title: name
                 });
                 completeProcess(cardId, 'download', false);
               } finally {
-                
+
                 progressContainer.style.display = 'none';
                 progressFill.style.width = '0%';
               }
@@ -3002,21 +3002,21 @@ function debug(level, ...args) {
 
             case 'error':
             case 'cancelled': {
-              
+
               btn.textContent = btn.dataset.originalTextCrack || btn.textContent;
               btn.disabled = false;
-              
+
               toast(data.error || 'Download cancelled', {
                 type: 'error',
                 title: name
               });
               completeProcess(cardId, 'download', false);
-              
+
               pauseBtn.style.display = 'none';
               cancelBtn.style.display = 'none';
               progressContainer.style.display = 'none';
               progressFill.style.width = '0%';
-              
+
               replaceBtn.style.display = 'none';
               if (unsubscribe) unsubscribe();
               break;
@@ -3024,7 +3024,7 @@ function debug(level, ...args) {
           }
         });
 
-        
+
         window.api.downloadStart(downloadId, url, name);
       });
       pauseBtn.addEventListener('click', () => {
@@ -3037,8 +3037,8 @@ function debug(level, ...args) {
       cancelBtn.addEventListener('click', () => {
         window.api.downloadCancel(downloadId);
       });
-      
-      
+
+
       const buttonWrapper = document.createElement('div');
       buttonWrapper.style.display = 'flex';
       buttonWrapper.style.alignItems = 'center';
@@ -3058,7 +3058,7 @@ function debug(level, ...args) {
     return container;
   }
 
-  
+
   async function buildMaintenancePage() {
     const container = document.createElement('div');
     container.className = 'card';
@@ -3073,14 +3073,14 @@ function debug(level, ...args) {
     desc.style.marginBottom = '2rem';
     container.appendChild(desc);
 
-    
+
     const firstRow = document.createElement('div');
     firstRow.className = 'maintenance-row';
     firstRow.style.display = 'grid';
     firstRow.style.gridTemplateColumns = '1fr 1fr';
     firstRow.style.gap = '1.5rem';
     firstRow.style.marginBottom = '1.5rem';
-    firstRow.style.alignItems = 'stretch'; 
+    firstRow.style.alignItems = 'stretch';
 
     const tempCard = createMaintenanceCard(
       translations.maintenance.delete_temp_files || 'Delete Temp Files',
@@ -3092,12 +3092,12 @@ function debug(level, ...args) {
       true
     );
 
-    
+
     const tempButton = tempCard.querySelector('button');
     tempButton.style.height = '40px';
     tempButton.style.minWidth = '100%';
 
-    
+
     const sfcDismCard = document.createElement('div');
     sfcDismCard.className = 'app-card';
     sfcDismCard.style.display = 'flex';
@@ -3128,11 +3128,11 @@ function debug(level, ...args) {
 
     sfcDismCard.appendChild(sfcDismHeader);
 
-    
+
     const sfcDismButtons = document.createElement('div');
     sfcDismButtons.style.display = 'flex';
     sfcDismButtons.style.gap = '0.75rem';
-    sfcDismButtons.style.marginTop = 'auto'; 
+    sfcDismButtons.style.marginTop = 'auto';
     sfcDismButtons.style.alignItems = 'center';
 
     const sfcButton = document.createElement('button');
@@ -3153,7 +3153,7 @@ function debug(level, ...args) {
     sfcDismStatus.className = 'status-pre';
     sfcDismStatus.style.display = 'none';
     sfcDismStatus.style.marginTop = '1rem';
-    
+
     sfcDismStatus.dataset.hideStatus = 'true';
 
     sfcButton.addEventListener('click', async () => {
@@ -3173,7 +3173,7 @@ function debug(level, ...args) {
     firstRow.appendChild(sfcDismCard);
     container.appendChild(firstRow);
 
-    
+
     const secondRow = document.createElement('div');
 
     const patchCard = createMaintenanceCard(
@@ -3185,12 +3185,12 @@ function debug(level, ...args) {
       false
     );
 
-    
+
     const patchButton = patchCard.querySelector('button');
     patchButton.style.height = '40px';
     patchButton.style.minWidth = '100%';
 
-    
+
     patchCard.style.gridColumn = '1 / -1';
 
     secondRow.appendChild(patchCard);
@@ -3204,7 +3204,7 @@ function debug(level, ...args) {
     const container = document.createElement('div');
     container.className = 'card';
 
-    
+
     const heading = document.createElement('h2');
     heading.textContent = (translations.debloat && translations.debloat.heading) ||
       'Windows Debloat';
@@ -3213,7 +3213,7 @@ function debug(level, ...args) {
     heading.style.color = 'var(--primary-color)';
     container.appendChild(heading);
 
-    
+
     const description = document.createElement('p');
     description.style.marginBottom = '1rem';
     description.style.lineHeight = '1.5';
@@ -3223,7 +3223,7 @@ function debug(level, ...args) {
       'The script may make significant changes to your system. Use at your own risk.';
     container.appendChild(description);
 
-    
+
     const isWindows = await window.api.isWindows();
     if (!isWindows) {
       const warn = document.createElement('p');
@@ -3233,7 +3233,7 @@ function debug(level, ...args) {
       return container;
     }
 
-    
+
     const runBtn = document.createElement('button');
     runBtn.className = 'button';
     runBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.runRaphiScript) ||
@@ -3277,7 +3277,7 @@ function debug(level, ...args) {
     return container;
   }
 
-  
+
   function createMaintenanceCard(name, description, icon, buttonText, taskFunction, requiresAdmin = false, hideStatus = false) {
     const card = document.createElement('div');
     card.className = 'app-card';
@@ -3303,7 +3303,7 @@ function debug(level, ...args) {
     descEl.style.opacity = '0.8';
     descEl.style.fontSize = '0.9rem';
 
-    
+
     if (requiresAdmin) {
       const adminWarning = document.createElement('small');
       adminWarning.textContent = ' (Admin required)';
@@ -3318,12 +3318,12 @@ function debug(level, ...args) {
     const button = document.createElement('button');
     button.className = 'button';
     button.textContent = buttonText;
-    button.style.marginTop = 'auto'; 
+    button.style.marginTop = 'auto';
 
     const status = document.createElement('pre');
     status.className = 'status-pre';
     status.style.display = 'none';
-    
+
     if (hideStatus) {
       status.dataset.hideStatus = 'true';
     }
@@ -3339,7 +3339,7 @@ function debug(level, ...args) {
     return card;
   }
 
-  
+
   async function runMaintenanceTask(button, statusElement, taskFunction, taskName, requiresAdmin = false) {
     button.disabled = true;
     const originalText = button.textContent;
@@ -3357,19 +3357,19 @@ function debug(level, ...args) {
     }
 
     try {
-      
+
       await taskFunction(statusElement, button);
     } catch (error) {
       if (!hideStatus) {
         statusElement.textContent += `\n❌ Error: ${error.message}`;
         statusElement.classList.add('status-error');
       }
-      
+
       toast(`Error running ${taskName}`, { type: 'error', title: 'Maintenance' });
     } finally {
       button.disabled = false;
       button.textContent = originalText;
-      
+
       if (!hideStatus) {
         autoFadeStatus(statusElement, 8000);
       }
@@ -3408,10 +3408,10 @@ function debug(level, ...args) {
     }, delay);
   }
 
-  
+
   async function runSfcScan(statusElement) {
-    
-    
+
+
     try {
       const result = await window.api.runSfcScan();
       if (result && result.success) {
@@ -3425,9 +3425,9 @@ function debug(level, ...args) {
     }
   }
 
-  
+
   async function runDismRepair(statusElement) {
-    
+
     try {
       const result = await window.api.runDismRepair();
       if (result && result.success) {
@@ -3445,26 +3445,26 @@ function debug(level, ...args) {
     try {
       const result = await window.api.runTempCleanup();
       if (result && result.success) {
-        
+
         toast(result.message || 'Temporary files cleanup completed successfully!', { type: 'success', title: 'Maintenance' });
       } else {
-        
+
         const errorMsg = (result && result.error) || 'Temporary files cleanup failed.';
         toast(errorMsg, { type: 'error', title: 'Maintenance' });
       }
     } catch (error) {
-      
+
       const msg = (error && error.message) || 'Error running temp cleanup';
       toast(msg, { type: 'error', title: 'Maintenance' });
     }
   }
-  
+
   async function runMaintenanceTask(button, statusElement, taskFunction, taskName) {
     button.disabled = true;
     const originalText = button.textContent;
     button.textContent = 'Running...';
-    
-    
+
+
     const hideStatus = statusElement && statusElement.dataset && statusElement.dataset.hideStatus === 'true';
 
     if (!hideStatus) {
@@ -3473,14 +3473,14 @@ function debug(level, ...args) {
       statusElement.classList.remove('status-success', 'status-error', 'status-warning');
     }
     try {
-      
+
       await taskFunction(statusElement, button);
     } catch (error) {
       if (!hideStatus) {
         statusElement.textContent = `Error: ${error.message}`;
         statusElement.classList.add('status-error');
       }
-      
+
       toast(`Error running ${taskName}`, { type: 'error', title: 'Maintenance' });
     } finally {
       button.disabled = false;
@@ -3490,24 +3490,24 @@ function debug(level, ...args) {
       }
     }
   }
-  
-  
-async function downloadAndRunPatchMyPC(statusElement, button) {
-    
+
+
+  async function downloadAndRunPatchMyPC(statusElement, button) {
+
     const downloadId = `patchmypc-${Date.now()}`;
     const patchMyPCUrl = 'https://www.dropbox.com/scl/fi/z66qn3wgiyvh8uy3fedu7/patch_my_pc.exe?rlkey=saht980hb3zfezv2ixve697jo&st=3ww4r4vy&dl=1';
 
-    
+
     statusElement.textContent = '';
     statusElement.style.display = 'none';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
 
-    
+
     const originalText = button.textContent;
     if (!button.dataset.originalTextPatch) {
       button.dataset.originalTextPatch = originalText;
     }
-    
+
     button.disabled = true;
     button.textContent = 'Preparing Patch My PC...';
 
@@ -3517,24 +3517,24 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 
         switch (data.status) {
           case 'started':
-            
+
             button.textContent = 'Downloading Patch My PC... 0%';
             break;
           case 'progress':
-            
+
             button.textContent = `Downloading Patch My PC... ${data.percent}%`;
             break;
           case 'complete': {
-            
+
             button.textContent = 'Opening Patch My PC...';
-            
+
             window.api.openFile(data.path)
               .then((result) => {
                 if (result.success) {
-                  
+
                   button.textContent = 'Patch My PC Started';
                 } else {
-                  
+
                   button.textContent = originalText;
                   toast('Failed to open Patch My PC', {
                     type: 'error',
@@ -3543,7 +3543,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
                 }
               })
               .catch((error) => {
-                
+
                 button.textContent = originalText;
                 toast('Error opening Patch My PC', {
                   type: 'error',
@@ -3551,7 +3551,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
                 });
               })
               .finally(() => {
-                
+
                 button.disabled = false;
                 unsubscribe();
                 resolve();
@@ -3559,7 +3559,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
             break;
           }
           case 'error':
-            
+
             button.textContent = originalText;
             button.disabled = false;
             toast('Download failed', {
@@ -3572,11 +3572,11 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
         }
       });
 
-      
+
       try {
         window.api.downloadStart(downloadId, patchMyPCUrl, 'PatchMyPC.exe');
       } catch (e) {
-        
+
         button.textContent = originalText;
         button.disabled = false;
         toast('Download failed', {
@@ -3588,12 +3588,12 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       }
     });
   }
-  
+
   function buildPasswordManagerPage() {
     const container = document.createElement('div');
     container.className = 'card password-manager-card';
 
-    
+
     const warning = document.createElement('div');
     warning.className = 'password-warning-banner';
 
@@ -3624,7 +3624,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     warning.appendChild(warningContent);
     container.appendChild(warning);
 
-    
+
     const features = document.createElement('div');
     features.className = 'password-features';
 
@@ -3654,7 +3654,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 
     container.appendChild(features);
 
-    
+
     const actionSection = document.createElement('div');
     actionSection.className = 'password-actions';
 
@@ -3684,19 +3684,19 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     return container;
   }
 
-  
+
   const passwordManagerStyles = `
 
 `;
 
-  
+
   if (!document.querySelector('#password-manager-styles')) {
     const styleSheet = document.createElement('style');
     styleSheet.id = 'password-manager-styles';
     styleSheet.textContent = passwordManagerStyles;
     document.head.appendChild(styleSheet);
   }
-  
+
   function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `toast status-${type}`;
@@ -3719,7 +3719,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       setTimeout(() => notification.remove(), 300);
     }, 3000);
   }
-  
+
   const notificationStyles = document.createElement('style');
   notificationStyles.textContent = `
       @keyframes slideIn {
@@ -3734,7 +3734,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
   document.head.appendChild(notificationStyles);
   const svgDataUrl = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
-  
+
   function buildChrisTitusPage() {
     const el = (t, cls, html) => {
       const n = document.createElement(t);
@@ -3745,12 +3745,12 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 
     const card = el('section', 'ctt-card');
 
-    
+
     const style = document.createElement('style');
 
     card.appendChild(style);
 
-    
+
     const header = el('div', 'ctt-header');
     const icon = el('img', 'ctt-icon');
     const terminalSVG = `
@@ -3762,7 +3762,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     </svg>`;
     icon.src = svgDataUrl(terminalSVG);
 
-    
+
     const titleText = (translations.menu && translations.menu.christitus) || 'Windows Utility';
     const subtitleText = (translations.christitus_page && translations.christitus_page.subtitle_full) || 'COMPREHENSIVE TOOLBOX FOR WINDOWS OPTIMIZATION';
     const titleWrapper = el('div');
@@ -3774,20 +3774,20 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     header.appendChild(titleWrapper);
     card.appendChild(header);
 
-    
+
     const features = (translations.christitus_page && Array.isArray(translations.christitus_page.features))
       ? translations.christitus_page.features
       : [
-          'System optimization and tweaks',
-          'Remove bloatware and unwanted apps',
-          'Privacy and security enhancements',
-          'Essential software installation'
-        ];
-    
+        'System optimization and tweaks',
+        'Remove bloatware and unwanted apps',
+        'Privacy and security enhancements',
+        'Essential software installation'
+      ];
+
     const bulletHtml = features.map((item) => `<li>${item}</li>`).join('');
     card.appendChild(el('ul', 'ctt-bullets', bulletHtml));
 
-    
+
     const actions = el('div', 'ctt-actions');
     const launchBtn = el('button', 'ctt-launch', `<span class="ctt-iconmono">›_</span>Launch Tool`);
     const ghBtn = el('button', 'ctt-outline', `<span class="ctt-iconmono">↗</span>GitHub`);
@@ -3795,22 +3795,22 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     actions.appendChild(ghBtn);
     card.appendChild(actions);
 
-    
+
     const status = el('div', 'ctt-status');
     card.appendChild(status);
     const setStatus = (msg, type = '') => {
-      
+
       status.className = 'ctt-status';
       status.textContent = '';
       if (msg) {
-        
+
         const toastType = (type && type.toLowerCase().includes('error')) ? 'error' : 'success';
         toast(msg, { type: toastType });
       }
     };
 
-    
-    
+
+
     const psCmd = [
       'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
       `"irm christitus.com/win | iex"`
@@ -3820,7 +3820,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       try {
         launchBtn.disabled = true;
         setStatus('Downloading & launching Windows Utility...');
-        
+
         if (window.api?.runChrisTitus) {
           const result = await window.api.runChrisTitus();
           if (result && !result.error) {
@@ -3830,7 +3830,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
             setStatus('Failed to launch: ' + errMsg, 'error');
           }
         } else if (window.api?.runCommand) {
-          
+
           const runResult = await window.api.runCommand(psCmd);
           if (runResult && !runResult.error) {
             setStatus('Utility launched in a new PowerShell window. Follow the on-screen prompts.', 'success');
@@ -3839,7 +3839,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
             setStatus('Failed to launch: ' + errMsg, 'error');
           }
         } else {
-          
+
           await navigator.clipboard.writeText(psCmd);
           setStatus('Electron bridge not found. Command copied to clipboard — run in elevated PowerShell.', 'error');
         }
@@ -3913,20 +3913,20 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     restartBtn.className = 'bios-restart-btn';
     restartBtn.innerHTML = '🔄 ' + (translations.messages.restart_to_bios || 'Restart to BIOS');
 
-    
+
     cancelBtn.addEventListener('click', () => {
       dialog.classList.add('slide-down');
       overlay.classList.add('fade-out');
-
       setTimeout(() => {
         if (overlay.parentNode) {
           document.body.removeChild(overlay);
         }
-        loadPage('settings');
+        const fallbackKey = (Array.isArray(menuKeys) && menuKeys.length > 0) ? menuKeys[0] : 'install_apps';
+        loadPage(fallbackKey);
       }, 300);
     });
 
-    
+
     restartBtn.addEventListener('click', async () => {
       restartBtn.disabled = true;
       restartBtn.innerHTML = '⏳ Processing...';
@@ -3935,7 +3935,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       try {
         const result = await window.api.restartToBios();
 
-        
+
         if (result.success) {
           restartBtn.innerHTML = '✅ Success!';
           restartBtn.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
@@ -3945,7 +3945,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
             duration: 5000
           });
 
-          
+
           setTimeout(() => {
             dialog.classList.add('slide-down');
             overlay.classList.add('fade-out');
@@ -3959,7 +3959,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
           throw new Error(result.error);
         }
       } catch (error) {
-        
+
         restartBtn.innerHTML = '❌ Failed';
         restartBtn.style.background = 'linear-gradient(135deg, var(--error-color) 0%, #f87171 100%)';
 
@@ -3988,7 +3988,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
-    
+
     const escapeHandler = (e) => {
       if (e.key === 'Escape') {
         cancelBtn.click();
@@ -3997,34 +3997,34 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     };
     document.addEventListener('keydown', escapeHandler);
 
-    
+
     cancelBtn.focus();
   }
 
-  
+
   function buildBiosPage() {
     return createCard('bios_title', translations.messages.bios_instructions);
   }
 
-  
-async function init() {
-  await loadTranslations();
-  applyTheme();
-  renderMenu();
-  
-  const firstKey = menuKeys && menuKeys[0];
-  const pageKey = (typeof currentPage === 'string' && currentPage) || firstKey;
-  if (pageKey) {
-    await loadPage(pageKey);
-  }
 
-  await ensureSidebarVersion(); 
-  initializeAutoUpdater();
-  
-  if (typeof checkForChangelog === 'function') {
-    checkForChangelog();
+  async function init() {
+    await loadTranslations();
+    applyTheme();
+    renderMenu();
+
+    const firstKey = menuKeys && menuKeys[0];
+    const pageKey = (typeof currentPage === 'string' && currentPage) || firstKey;
+    if (pageKey) {
+      await loadPage(pageKey);
+    }
+
+    await ensureSidebarVersion();
+    initializeAutoUpdater();
+
+    if (typeof checkForChangelog === 'function') {
+      checkForChangelog();
+    }
   }
-}
 
   function initializeAutoUpdater() {
     const updateBtn = document.getElementById('title-bar-update');
@@ -4034,19 +4034,19 @@ async function init() {
     let updateDownloaded = false;
     let currentUpdateInfo = null;
 
-    
+
     attachTooltipHandlers(updateBtn);
 
-    
+
     updateBtn.addEventListener('click', async () => {
       if (updateBtn.classList.contains('downloading')) return;
-      
+
       if (!updateAvailable) return;
-      
-      
+
+
       updateBtn.classList.add('downloading');
       updateBtn.setAttribute('data-tooltip', 'Downloading update...');
-      
+
       try {
         await window.api.downloadUpdate();
       } catch (error) {
@@ -4056,7 +4056,7 @@ async function init() {
       }
     });
 
-    
+
     window.api.onUpdateStatus((data) => {
       switch (data.status) {
         case 'available':
@@ -4070,8 +4070,8 @@ async function init() {
           updateBtn.classList.add('downloading');
           const percent = Math.round(data.percent || 0);
           updateBtn.setAttribute('data-tooltip', `Downloading: ${percent}%`);
-          
-          
+
+
           const circle = updateBtn.querySelector('.progress-ring circle');
           if (circle) {
             const circumference = 2 * Math.PI * 10;
@@ -4085,8 +4085,8 @@ async function init() {
           updateBtn.classList.remove('downloading');
           updateBtn.classList.add('ready');
           updateBtn.setAttribute('data-tooltip', 'Installing update...');
-          
-          
+
+
           setTimeout(async () => {
             try {
               if (currentUpdateInfo) {
@@ -4124,7 +4124,7 @@ async function init() {
     checkForChangelog();
   }
 
-  
+
   async function parseMarkdown(notes) {
     if (!notes) return '';
     const text = typeof notes === 'string' ? notes : String(notes);
@@ -4316,30 +4316,30 @@ async function init() {
       .replace(/~~~([\s\S]*?)~~~/g, '<pre><code>$1</code></pre>')
 
       .replace(/`([^`]+)`/g, '<code>$1</code>')
-      
+
       .replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-      
+
       .replace(/^\* (.+)$/gm, '<li>$1</li>')
       .replace(/^- (.+)$/gm, '<li>$1</li>')
       .replace(/^\+ (.+)$/gm, '<li>$1</li>')
       .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-      
+
       .replace(/^---$/gm, '<hr>')
       .replace(/^___$/gm, '<hr>')
       .replace(/^\*\*\*$/gm, '<hr>')
-      
+
       .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%; height:auto;">')
-      
+
       .replace(/^- \[x\] (.+)$/gm, '<li><input type="checkbox" disabled checked> $1</li>')
       .replace(/^- \[ \] (.+)$/gm, '<li><input type="checkbox" disabled> $1</li>')
-      
+
       .replace(/\n\n+/g, '</p><p>')
       .replace(/\n/g, '<br>');
 
-    
+
     text = text.replace(/(<li>.*?<\/li>(?:\s*<li>.*?<\/li>)*)/gs, '<ul>$1</ul>');
 
-    
+
     if (!/^\s*<\s*(h\d|ul|pre|blockquote|hr)/i.test(text)) {
       text = '<p>' + text + '</p>';
     }
@@ -4348,16 +4348,16 @@ async function init() {
   }
 
 
-  
+
   init();
 
 
   function normalizeVersion(v) {
     if (!v) return null;
     v = String(v).trim().replace(/^v/i, '');
-    
+
     if (/^0+(?:\.0+){0,3}$/.test(v)) return null;
-    
+
     if (!/^\d+(?:\.\d+){1,3}$/.test(v)) return null;
     return v;
   }
@@ -4380,7 +4380,7 @@ async function init() {
     } catch { }
     const envV = normalizeVersion(typeof process !== 'undefined' ? process?.env?.npm_package_version : null);
     if (envV) return `v${envV}`;
-    return 'v1.0.0'; 
+    return 'v1.0.0';
   }
 
   async function ensureSidebarVersion() {
@@ -4418,7 +4418,7 @@ async function init() {
       const userInfoEl = document.getElementById('userInfo');
       if (!userInfoEl) return;
       try {
-        
+
         if (userInfoEl._toggleHandler) {
           userInfoEl.removeEventListener('click', userInfoEl._toggleHandler);
           userInfoEl._toggleHandler = null;
@@ -4426,7 +4426,7 @@ async function init() {
         const profile = await (window.api?.getUserProfile?.());
         userInfoEl.innerHTML = '';
         if (profile && profile.name) {
-          
+
           if (profile.avatar) {
             const img = document.createElement('img');
             img.src = profile.avatar;
@@ -4436,7 +4436,7 @@ async function init() {
           const span = document.createElement('span');
           span.textContent = profile.name;
           userInfoEl.appendChild(span);
-          
+
           const logoutMenu = document.createElement('div');
           logoutMenu.className = 'logout-menu';
           const logoutBtn = document.createElement('button');
@@ -4444,20 +4444,20 @@ async function init() {
           logoutBtn.textContent = 'Logout';
           logoutMenu.appendChild(logoutBtn);
           userInfoEl.appendChild(logoutMenu);
-          
+
           const handler = async (e) => {
-            
+
             if (e.target && e.target.classList.contains('logout-btn')) {
               e.stopPropagation();
               try {
                 await window.api?.logout?.();
               } catch (err) {
-              debug('error', 'Logout failed:', err);
+                debug('error', 'Logout failed:', err);
               }
-              
+
               updateUserInfo();
             } else {
-              
+
               userInfoEl.classList.toggle('show-logout');
             }
           };
@@ -4467,20 +4467,20 @@ async function init() {
           const card = document.createElement('div');
           card.className = 'login-card';
 
-          
+
           const discordBtn = document.createElement('button');
           discordBtn.className = 'login-discord';
-          
+
           discordBtn.setAttribute('data-tooltip', 'Sign in with Discord');
           discordBtn.innerHTML = `
           <svg fill="#000000" preserveAspectRatio="xMidYMid" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 -28.5 256 256"><g stroke-width="0" id="SVGRepo_bgCarrier"></g><g stroke-linejoin="round" stroke-linecap="round" id="SVGRepo_tracerCarrier"></g><g id="SVGRepo_iconCarrier"> <g> <path fill-rule="nonzero" fill="#5865F2" d="M216.856339,16.5966031 C200.285002,8.84328665 182.566144,3.2084988 164.041564,0 C161.766523,4.11318106 159.108624,9.64549908 157.276099,14.0464379 C137.583995,11.0849896 118.072967,11.0849896 98.7430163,14.0464379 C96.9108417,9.64549908 94.1925838,4.11318106 91.8971895,0 C73.3526068,3.2084988 55.6133949,8.86399117 39.0420583,16.6376612 C5.61752293,67.146514 -3.4433191,116.400813 1.08711069,164.955721 C23.2560196,181.510915 44.7403634,191.567697 65.8621325,198.148576 C71.0772151,190.971126 75.7283628,183.341335 79.7352139,175.300261 C72.104019,172.400575 64.7949724,168.822202 57.8887866,164.667963 C59.7209612,163.310589 61.5131304,161.891452 63.2445898,160.431257 C105.36741,180.133187 151.134928,180.133187 192.754523,160.431257 C194.506336,161.891452 196.298154,163.310589 198.110326,164.667963 C191.183787,168.842556 183.854737,172.420929 176.223542,175.320965 C180.230393,183.341335 184.861538,190.991831 190.096624,198.16893 C211.238746,191.588051 232.743023,181.531619 254.911949,164.955721 C260.227747,108.668201 245.831087,59.8662432 216.856339,16.5966031 Z M85.4738752,135.09489 C72.8290281,135.09489 62.4592217,123.290155 62.4592217,108.914901 C62.4592217,94.5396472 72.607595,82.7145587 85.4738752,82.7145587 C98.3405064,82.7145587 108.709962,94.5189427 108.488529,108.914901 C108.508531,123.290155 98.3405064,135.09489 85.4738752,135.09489 Z M170.525237,135.09489 C157.88039,135.09489 147.510584,123.290155 147.510584,108.914901 C147.510584,94.5396472 157.658606,82.7145587 170.525237,82.7145587 C183.391518,82.7145587 193.761324,94.5189427 193.539891,108.914901 C193.539891,123.290155 183.391518,135.09489 170.525237,135.09489 Z"></path> </g> </g></svg>
         `;
           card.appendChild(discordBtn);
 
-          
+
           const googleBtn = document.createElement('button');
           googleBtn.className = 'login-google';
-          
+
           googleBtn.setAttribute('data-tooltip', 'Sign in with Google');
           googleBtn.innerHTML = `
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 0 262 262" preserveAspectRatio="xMidYMid">
@@ -4526,21 +4526,21 @@ async function init() {
         debug('warn', 'Failed to update user info:', err);
       }
     }
-    
+
     updateUserInfo();
   }
 
-getAppVersionWithFallback().then(v => debug('info', 'App version resolved =', v));
-
-  
+  getAppVersionWithFallback().then(v => debug('info', 'App version resolved =', v));
 
 
-document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && e.shiftKey && e.code === 'KeyU') {
-    showChangelog({
-      version: '0.0.0-test',
-      releaseName: 'Markdown Markdown Test',
-      releaseNotes: `# Complete GitHub Markdown Reference
+
+
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.code === 'KeyU') {
+      showChangelog({
+        version: '0.0.0-test',
+        releaseName: 'Markdown Markdown Test',
+        releaseNotes: `# Complete GitHub Markdown Reference
 
 ## 📚 Headings (1-6 levels)
 
