@@ -28,17 +28,10 @@ function debug(level, ...args) {
 }
 
 (() => {
-  // Keep track of the currently displayed page key.  This allows us to
-  // restore the same page when translations or settings change without
-  // defaulting back to the first menu item.  It is initialised to
-  // null and updated in loadPage().
   let currentPage = null;
   let cachedPreinstalledApps = null;
-  // Define the sidebar menu order.  The 'settings' entry has been removed
-  // entirely as configuration options have been relocated to the title bar.
   const menuKeys = [
-    'install_apps',     // install & remove apps
-    'crack_installer',  // installers for cracked apps
+    'crack_installer',  
     'system_maintenance',
     'activate_autologin',
     'bios',
@@ -294,17 +287,9 @@ function debug(level, ...args) {
   const SUN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
   const MOON_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path></svg>`;
 
-  // SVG for the info icon used in the title bar.  This matches the icon
-  // previously used on the settings page, scaled appropriately for
-  // placement in the title bar.
-  // Use a minimal information icon without a surrounding circle.  This
-  // consists of a vertical bar and a small square above to represent
-  // the letter "i".  Removing the circular outline reduces visual
-  // clutter on the custom title bar when no additional UI is desired.
   const INFO_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="11" y="10" width="2" height="10"/><rect x="11" y="6" width="2" height="2"/></svg>`;
 
-  // Icon for the menu toggle in the custom title bar.  This is a simple
-  // hamburger icon consisting of three horizontal bars.
+
   const MENU_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="6" width="16" height="2"/><rect x="4" y="11" width="16" height="2"/><rect x="4" y="16" width="16" height="2"/></svg>`;
 
   function updateHeader() {
@@ -350,39 +335,22 @@ function debug(level, ...args) {
       toggleButton.addEventListener('click', listener);
     }
 
-    // Update language toggle (if present).  The language toggle button
-    // displays the current language code (EN or GR) and switches
-    // between languages on click.  Attach only one listener to avoid
-    // duplicate handlers when updateHeader is invoked multiple times.
     const langToggle = document.getElementById('lang-toggle');
     if (langToggle) {
-      // Show the current language code in uppercase.  If settings.lang
-      // contains an unexpected value, fall back to EN.
       const currentLangCode = (settings.lang === 'gr' || settings.lang === 'en') ? settings.lang.toUpperCase() : 'EN';
       langToggle.textContent = currentLangCode;
-      // Remove any existing listener attached previously
       if (langToggle._toggleListener) {
         langToggle.removeEventListener('click', langToggle._toggleListener);
       }
       const langListener = () => {
-        // Toggle between English and Greek only.  Default to English
-        // if the current value is not recognised.
         const newLang = (settings.lang === 'en') ? 'gr' : 'en';
         settings.lang = newLang;
         saveSettings();
-        // Close the dropdown menu as soon as the language is selected.
         const dropdown = document.getElementById('titlebar-menu-dropdown');
         if (dropdown) dropdown.classList.add('hidden');
-        // Reload translations and update the UI.  The currentPage
-        // variable is used by renderMenu() to restore the previously
-        // selected page after updating the menu labels.
         loadTranslations().then(() => {
           applyTheme();
           renderMenu();
-          // After rendering the menu, reload the current page.  This
-          // ensures page content and headers are translated.  The
-          // renderMenu() call above will invoke updateHeader() and
-          // apply the theme and language icons.
           if (typeof currentPage === 'string' && currentPage) {
             loadPage(currentPage);
           }
@@ -391,20 +359,11 @@ function debug(level, ...args) {
       langToggle._toggleListener = langListener;
       langToggle.addEventListener('click', langListener);
     }
-
-    // Update information toggle.  The info button displays an information
-    // icon and opens the info modal when clicked.  Attach the SVG and
-    // event handler on each update.  Use a tooltip from translations
-    // or fall back to "Info".  Clear existing listeners to avoid
-    // duplicate handlers when updateHeader is invoked repeatedly.
     let infoToggle = document.getElementById('info-toggle');
     if (infoToggle) {
       // Always replace the contents with the latest icon.
       infoToggle.innerHTML = INFO_ICON;
-      // Ensure there is no tooltip on the info button within the dropdown.
       infoToggle.removeAttribute('data-tooltip');
-      // If a tooltip was previously attached via the custom tooltip manager,
-      // detach all tooltip event handlers by cloning the node and replacing it.
       if (infoToggle._tooltipAttached) {
         const clone = infoToggle.cloneNode(true);
         infoToggle.parentNode.replaceChild(clone, infoToggle);
@@ -423,11 +382,6 @@ function debug(level, ...args) {
       infoToggle._clickListener = infoListener;
       infoToggle.addEventListener('click', infoListener);
     }
-
-    // Set up the menu toggle button and its dropdown.  The menu button
-    // displays a hamburger icon and shows/hides a dropdown containing
-    // the theme, language and info toggles.  Attach a tooltip and
-    // event handler on each update.
     const menuToggleBtn = document.getElementById('menu-toggle');
     const menuDropdown = document.getElementById('titlebar-menu-dropdown');
     if (menuToggleBtn && menuDropdown) {
@@ -445,10 +399,6 @@ function debug(level, ...args) {
       menuToggleBtn._clickListener = menuToggleListener;
       menuToggleBtn.addEventListener('click', menuToggleListener);
     }
-
-    // Global handler to close the menu dropdown when clicking outside.  Only
-    // attach once.  When the dropdown is open and a click occurs outside
-    // the dropdown and the menu button, hide the dropdown.
     if (!document._menuOutsideHandler) {
       document._menuOutsideHandler = (event) => {
         const dropdownEl = document.getElementById('titlebar-menu-dropdown');
@@ -466,11 +416,6 @@ function debug(level, ...args) {
   function renderMenu() {
     const menuList = document.getElementById('menu-list');
     menuList.innerHTML = '';
-
-    // Define where separators should be inserted.  Keys listed here
-    // will be followed by a separator.  The value indicates the
-    // separator style: 'small' for a standard thin divider and
-    // 'large' for a more prominent divider.
     const separatorsAfter = {
       crack_installer: 'large',
       bios: 'small',
@@ -502,13 +447,7 @@ function debug(level, ...args) {
       });
       menuList._boundClick = true;
     }
-
-    // Activate a menu item.  If a page has already been selected
-    // previously (stored in currentPage), reselect that page so
-    // language switches or other re-renders do not reset the view.
     const defaultButton = menuList.querySelector('button[data-key]');
-    // Determine which key to activate: use currentPage if available,
-    // otherwise fall back to the first menu key.
     const keyToActivate = (typeof currentPage === 'string' && currentPage) ? currentPage : (defaultButton && defaultButton.dataset.key);
     if (keyToActivate) {
       const btnToActivate = menuList.querySelector(`button[data-key="${keyToActivate}"]`);
@@ -558,8 +497,6 @@ function debug(level, ...args) {
     });
   }
 
-  // Βοηθητική συνάρτηση για ολοκλήρωση διεργασίας
-  // Ενημέρωση της completeProcess function
   function completeProcess(cardId, processType, success = true) {
     const processId = `${cardId}-${processType}`;
     const process = processStates.get(processId);
@@ -703,10 +640,6 @@ function debug(level, ...args) {
   }
   // Build specific pages based on the current selection
   async function loadPage(key) {
-    // Persist the requested page key so that future re-renders (e.g. after
-    // changing language) can return to this page instead of resetting to
-    // the default.  Store before loading the content to ensure it is
-    // available synchronously for other functions.
     currentPage = key;
     const content = document.getElementById('content');
     content.innerHTML = '';
@@ -733,11 +666,6 @@ function debug(level, ...args) {
         content.appendChild(buildSpicetifyPage());
         break;
       case 'debloat':
-        // Build and display the debloat page.  This page exposes a
-        // single button that runs a PowerShell script to disable
-        // Windows suggestions and Bing web search.  Results are
-        // reported via toast notifications.  Note: additional
-        // debloat functionality can be appended here in future.
         setHeader((translations.menu && translations.menu.debloat) || 'Debloat & Windows Tweaks');
         content.appendChild(await buildDebloatPage());
         break;
@@ -768,9 +696,6 @@ function debug(level, ...args) {
     const container = document.createElement('div');
     container.className = 'card';
 
-    // Add a heading and description for the Activate/Autologin page.  Without this
-    // the page displayed two cards without any context.  The description uses
-    // a dedicated translation key if available.
     const title = document.createElement('h2');
     title.textContent = (translations.pages && translations.pages.activate_title) || 'Windows Activation & Auto Login';
     container.appendChild(title);
@@ -893,8 +818,6 @@ function debug(level, ...args) {
     const container = document.createElement('div');
     container.className = 'card dlc-scope';
 
-    // Add a page heading and description for the DLC unlocker. Without a title and
-    // description the page can feel incomplete. Use translation keys when available.
     const pageTitle = document.createElement('h2');
     pageTitle.textContent = (translations.pages && translations.pages.dlc_title) || 'DLC Unlocker';
     container.appendChild(pageTitle);
@@ -1125,10 +1048,6 @@ function debug(level, ...args) {
                     duration: 5000
                   });
 
-                  // ΕΠΑΝΑΦΟΡΑ ΜΟΝΟ ΤΟΥ ΚΟΥΜΠΙΟΥ ΜΕΤΑ ΑΠΟ 10 ΔΕΥΤΕΡΟΛΕΠΤΑ
-                  // Reset the button state after a brief delay.  Previously
-                  // this waited 10s which left the “running” state lingering
-                  // even after the installer window closed.  Reduce to 4s.
                   setTimeout(() => {
                     button.innerHTML = originalText;
                     button.disabled = false;
@@ -1302,8 +1221,6 @@ function debug(level, ...args) {
       }
     });
   }
-  // Function για να τρέξει συγκεκριμένο exe file με pattern matching
-  // Run the appropriate installer for a DLC based on its ID rather than the translated name.
   async function runSpecificExe(zipPath, dlcId, dlcName, button, statusElement) {
     return new Promise((resolve) => {
       setTimeout(async () => {
@@ -1805,11 +1722,6 @@ function debug(level, ...args) {
     return c;
   }
 
-  // Maintain a single error card instance when multiple errors are shown
-  // This allows stacking multiple error lines within one terminal UI.  Each
-  // new error message will append a new line to the existing card instead of
-  // creating a separate card.  A palette of colours is defined for the
-  // leading dash so that each message line can have a distinct visual marker.
   let currentErrorCard = null;
   let errorPaletteIndex = 0;
   const errorBulletColours = ['#575757', '#e34ba9', '#80b1ff', '#f59e0b', '#10b981'];
@@ -2016,9 +1928,6 @@ function debug(level, ...args) {
   function toast(msg, opts = {}) {
     const { title = '', type = 'info', duration = 4000 } = opts;
 
-    // When the type is error, render using the terminal-style error card and
-    // suppress the toast UI entirely.  Use the provided title or fall back
-    // to a default.
     if (type === 'error') {
       showErrorCard(msg, { title: title || 'Error', duration });
       return null;
@@ -2148,10 +2057,6 @@ function debug(level, ...args) {
 
     // Χρήση των sortedApps
     sortedApps.forEach((app, i) => {
-      // Create a list item for each app.  Use a dedicated CSS class
-      // instead of inline styles to allow more sophisticated theming (shadows,
-      // hover effects, etc.) via styles.css.  This class will be styled
-      // as .app-list-item.
       const li = document.createElement('li');
       li.className = 'app-list-item';
       const cb = document.createElement('input');
@@ -2162,8 +2067,6 @@ function debug(level, ...args) {
       const label = document.createElement('label'); label.htmlFor = cb.id; label.style.flex = '1'; label.style.display = 'flex'; label.style.alignItems = 'center';
       const text = document.createElement('div'); const n = document.createElement('span'); n.textContent = app.name; n.style.fontWeight = '600'; n.style.fontSize = '1.1rem'; const p = document.createElement('p'); p.textContent = app.description; p.style.margin = '0'; p.style.opacity = '0.8'; p.style.fontSize = '0.9rem'; text.append(n, p); label.append(text);
       const status = document.createElement('pre');
-      // Add two classes: status-pre (existing styling) and app-status for
-      // app‑specific tweaks defined in styles.css.
       status.className = 'status-pre app-status';
       li.append(cb, label, status); list.appendChild(li);
     });
@@ -2611,9 +2514,6 @@ function debug(level, ...args) {
     const container = document.createElement('div');
     container.className = 'card';
 
-    // Add a heading and description for the Spicetify page.  Many users reported that
-    // this page lacked a description entirely.  The heading uses the title key and
-    // the paragraph uses the same description as the first card for consistency.
     const pageTitle = document.createElement('h2');
     pageTitle.textContent = translations.pages?.spicetify_title || 'Install Spicetify';
     container.appendChild(pageTitle);
@@ -2750,9 +2650,6 @@ function debug(level, ...args) {
     const crackDesc = (translations.pages && translations.pages.crack_desc) || 'Download backups of your projects from Dropbox';
     const container = createCard('crack_title', crackDesc);
     const projects = [
-      // Each project includes a unique key used for translations, a fallback name,
-      // a default description and its download URL and icon. Descriptions provide
-      // context rather than leaving cards blank.
       {
         key: 'clip_studio_paint',
         fallbackName: 'Clip Studio Paint',
@@ -3199,9 +3096,6 @@ function debug(level, ...args) {
     firstRow.style.marginBottom = '1.5rem';
     firstRow.style.alignItems = 'stretch'; // Προσθήκη για ίδιο ύψος cards
 
-    // Delete Temp Files card. The last boolean argument (true) indicates
-    // that no inline status element should be displayed and that all
-    // feedback will be presented via toast notifications.
     const tempCard = createMaintenanceCard(
       translations.maintenance.delete_temp_files || 'Delete Temp Files',
       translations.maintenance.temp_files_desc || 'Clean TEMP, %TEMP%, and Prefetch folders',
@@ -3321,17 +3215,6 @@ function debug(level, ...args) {
 
 
   async function buildDebloatPage() {
-    /**
-     * Create a minimal page for running the Raphi debloat script.
-     *
-     * The previous debloat interface allowed users to select individual
-     * Windows optimisation tasks.  At the request of the user, this has been
-     * removed in favour of a single button that downloads and executes the
-     * community‑maintained script hosted at https://debloat.raphi.re/.  The
-     * script runs under an elevated PowerShell instance and may reboot the
-     * machine or change system settings.  An internet connection and
-     * administrator privileges are required.
-     */
     const container = document.createElement('div');
     container.className = 'card';
 
@@ -3863,8 +3746,6 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       }
   `;
   document.head.appendChild(notificationStyles);
-  // === Chris Titus / Windows Utility — full-width, scoped styles, line icon ===
-  // === Helper: inline SVG → data URL ===
   const svgDataUrl = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
   // === Chris Titus / Windows Utility — full-width, scoped styles, terminal icon ===
@@ -3931,9 +3812,6 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     // Status
     const status = el('div', 'ctt-status');
     card.appendChild(status);
-    // Display status messages exclusively via toast notifications and keep the status
-    // element hidden.  The status element's class is reset to the base class
-    // without the 'show' or type modifiers to prevent it from becoming visible.
     const setStatus = (msg, type = '') => {
       // Reset to base class to hide any previous status
       status.className = 'ctt-status';
@@ -3993,10 +3871,6 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 
     return card;
   }
-
-
-  // Modifications to renderer.js
-  // Add the following function after buildChrisTitusPage() or similar:
 
   function showRestartDialog() {
     const overlay = document.createElement('div');
@@ -4156,37 +4030,6 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     if (typeof checkForChangelog === 'function') {
       checkForChangelog();
     }
-
-    // Register a global debug hotkey for the changelog.  This listener is
-    // outside the auto-updater logic so it will work even when the
-    // update button is missing.  Press Ctrl+Shift+U to open a
-    // sample changelog.
-    document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key && e.key.toLowerCase() === 'u') {
-        showChangelog({
-          version: 'Test',
-          releaseName: 'Debug Changelog',
-          releaseNotes: 'Αυτό είναι ένα δοκιμαστικό changelog για επαλήθευση της λειτουργίας.',
-          timestamp: Date.now()
-        });
-      }
-    });
-
-    // Register a global debug hotkey for the changelog.  This listener
-    // operates independently of the auto-updater so it works even if
-    // the update button is not present (e.g. when running the app
-    // without custom title bar).  Pressing Ctrl+Shift+U will open a
-    // test changelog modal to verify that the dialog appears.
-    document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key && e.key.toLowerCase() === 'u') {
-        showChangelog({
-          version: 'Test',
-          releaseName: 'Debug Changelog',
-          releaseNotes: 'Αυτό είναι ένα δοκιμαστικό changelog για επαλήθευση της λειτουργίας.',
-          timestamp: Date.now()
-        });
-      }
-    });
   }
 // Auto Updater functionality
   function initializeAutoUpdater() {
@@ -4252,9 +4095,6 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
           // Auto-install immediately
           setTimeout(async () => {
             try {
-              // Persist update information via IPC so it survives
-              // application restarts.  Fallback to localStorage only
-              // if saveUpdateInfo fails.
               if (currentUpdateInfo) {
                 const info = {
                   version: currentUpdateInfo.version,
@@ -4265,9 +4105,6 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
                 try {
                   await window.api.saveUpdateInfo(info);
                 } catch (e) {
-                  // If the IPC call fails (e.g. in a non-Electron context),
-                  // fall back to localStorage so that the changelog may still
-                  // appear when reloaded in a browser environment.
                   try {
                     localStorage.setItem('pendingUpdateInfo', JSON.stringify(info));
                   } catch (storageErr) {
@@ -4290,55 +4127,11 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       }
     });
 
-    // Check for pending update info (after app restart)
     checkForChangelog();
-    
-    // Debug: Add keyboard shortcut to test changelog (Ctrl+Shift+U)
-        document.addEventListener('keydown', (e) => {
-          // Normalize key to lowercase for cross-browser support
-          if (e.ctrlKey && e.shiftKey && e.key && e.key.toLowerCase() === 'u') {
-        // Show test changelog
-        showChangelog({
-          version: '1.2.3',
-          releaseName: 'Test Release',
-          releaseNotes: `## What's New in v1.2.3
-
-### ✨ New Features
-- Added automatic update system with progress indicator
-- Implemented changelog viewer after updates
-- Enhanced title bar with update notifications
-- Added keyboard shortcut (Ctrl+Shift+U) to test changelog
-
-### 🐛 Bug Fixes
-- Fixed memory leak in download manager
-- Resolved issue with theme switching
-- Improved error handling for failed downloads
-
-### 🚀 Improvements
-- **Performance**: Reduced app startup time by 40%
-- **UI/UX**: Smoother animations and transitions
-- **Security**: Updated dependencies to latest versions
-
-### 📝 Notes
-This is a **test changelog**. Press Ctrl+Shift+U to view it again.
-
-For more information, visit [GitHub Releases](https://github.com/your-repo/releases).`,
-          timestamp: Date.now()
-        });
-      }
-    });
   }
 
-  // Check if we should show changelog after update.  This function
-  // attempts to retrieve pending update information from the main
-  // process via IPC.  If IPC is unavailable (e.g. when running
-  // purely in a browser), it falls back to localStorage.  The
-  // function is asynchronous but callers do not need to await it.
   async function checkForChangelog() {
     try {
-      // First, attempt to retrieve info via IPC.  This persists
-      // across application restarts in Electron because the main
-      // process stores update info in the userData directory.
       let result;
       if (window.api && typeof window.api.getUpdateInfo === 'function') {
         try {
@@ -4351,9 +4144,6 @@ For more information, visit [GitHub Releases](https://github.com/your-repo/relea
         setTimeout(() => showChangelog(result.info), 1000);
         return;
       }
-      // Fallback: check browser localStorage in case IPC is not
-      // available.  This ensures the changelog still appears when
-      // testing in a pure HTML environment.
       const updateInfo = localStorage.getItem('pendingUpdateInfo');
       if (updateInfo) {
         const info = JSON.parse(updateInfo);
@@ -4366,7 +4156,7 @@ For more information, visit [GitHub Releases](https://github.com/your-repo/relea
   }
 
   // Show changelog modal
-  function showChangelog(updateInfo) {
+async function showChangelog(updateInfo) {
     const overlay = document.createElement('div');
     overlay.className = 'changelog-overlay';
 
@@ -4405,8 +4195,13 @@ For more information, visit [GitHub Releases](https://github.com/your-repo/relea
 
     if (updateInfo.releaseNotes) {
       const notes = document.createElement('div');
-      // Parse release notes (assuming markdown or plain text)
-      const formattedNotes = formatReleaseNotes(updateInfo.releaseNotes);
+      // Parse release notes asynchronously using parseMarkdown and fall back to simple parser
+      let formattedNotes;
+      try {
+        formattedNotes = await parseMarkdown(updateInfo.releaseNotes);
+      } catch (err) {
+        formattedNotes = formatReleaseNotes(updateInfo.releaseNotes);
+      }
       notes.innerHTML = formattedNotes;
       content.appendChild(notes);
     } else {
@@ -4473,39 +4268,62 @@ For more information, visit [GitHub Releases](https://github.com/your-repo/relea
     
     // Convert to string if it's not already
     let text = typeof notes === 'string' ? notes : String(notes);
-    
-    // Escape HTML to prevent XSS
+    text = text.replace(/^>\s*\[!([A-Z]+)\]\s*\n>\s*(.+?)(?=\n\s*\n|$)/gms, (match, type, content) => {
+      const map = {
+        NOTE: 'note',
+        TIP: 'tip',
+        IMPORTANT: 'important',
+        WARNING: 'warning',
+        CAUTION: 'caution'
+      };
+      const cls = map[type] || 'note';
+      return `<div class="changelog-alert ${cls}">${content.trim()}</div>`;
+    });
     text = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-    
-    // Simple markdown parsing
-    text = text
-      // Headers (must be at start of line)
-      .replace(/^### (.+)$/gm, '<h4>$1</h4>')
-      .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^###### (.+)$/gm, '<h6>$1</h6>')
+      .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
+      .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
       .replace(/^# (.+)$/gm, '<h2>$1</h2>')
-      // Bold
+      // Blockquotes (single level)
+      .replace(/^>\s*(.+)$/gm, '<blockquote>$1</blockquote>')
+      // Bold and strong
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/__(.+?)__/g, '<strong>$1</strong>')
-      // Italic
+      // Italic and emphasis
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
       .replace(/_(.+?)_/g, '<em>$1</em>')
-      // Code blocks
-      .replace(/```([^`]+)```/g, '<pre><code>$1</code></pre>')
+      // Strikethrough
+      .replace(/~~(.+?)~~/g, '<del>$1</del>')
+      // GitHub alert blocks (callouts)
+      .replace(/\[!NOTE\]\s*(.+)/g, '<div class="changelog-alert note">$1</div>')
+      .replace(/\[!TIP\]\s*(.+)/g, '<div class="changelog-alert tip">$1</div>')
+      .replace(/\[!IMPORTANT\]\s*(.+)/g, '<div class="changelog-alert important">$1</div>')
+      .replace(/\[!WARNING\]\s*(.+)/g, '<div class="changelog-alert warning">$1</div>')
+      .replace(/\[!CAUTION\]\s*(.+)/g, '<div class="changelog-alert caution">$1</div>')
+      // Code fences (multiline) and inline code
+      .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+      // Support triple tildes for fenced code blocks
+      .replace(/~~~([\s\S]*?)~~~/g, '<pre><code>$1</code></pre>')
       .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // Links
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-      // Lists (preserve indentation)
+      // Links: [text](url)
+      .replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+      // Lists
       .replace(/^\* (.+)$/gm, '<li>$1</li>')
       .replace(/^- (.+)$/gm, '<li>$1</li>')
       .replace(/^\+ (.+)$/gm, '<li>$1</li>')
       .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
       // Horizontal rules
       .replace(/^---$/gm, '<hr>')
+      .replace(/^___$/gm, '<hr>')
       .replace(/^\*\*\*$/gm, '<hr>')
-      // Line breaks (preserve double newlines as paragraph breaks)
+      // Images ![alt](url)
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%; height:auto;">')
+      // Task list items - [x] and - [ ]
+      .replace(/^- \[x\] (.+)$/gm, '<li><input type="checkbox" disabled checked> $1</li>')
+      .replace(/^- \[ \] (.+)$/gm, '<li><input type="checkbox" disabled> $1</li>')
+      // Paragraphs and line breaks
       .replace(/\n\n+/g, '</p><p>')
       .replace(/\n/g, '<br>');
     
@@ -4524,10 +4342,40 @@ For more information, visit [GitHub Releases](https://github.com/your-repo/relea
     return text;
   }
 
-  // Check if we should show changelog after update.  This version
-  // mirrors the earlier definition and uses IPC to retrieve
-  // persisted update information.  If IPC is unavailable, it
-  // falls back to localStorage.
+  /**
+   * Convert release notes (Markdown or HTML) into HTML.  This helper
+   * attempts to use the full marked.js parser when available.  If
+   * marked cannot be loaded (e.g. offline), it falls back to the
+   * simple formatReleaseNotes parser.  It is asynchronous because
+   * loading marked may require a network request.
+   *
+   * @param {string} notes Raw release notes
+   * @returns {Promise<string>} HTML output
+   */
+  async function parseMarkdown(notes) {
+    if (!notes) return '';
+    const text = typeof notes === 'string' ? notes : String(notes);
+    // Try to use marked if it is already loaded
+    if (typeof window !== 'undefined' && window.marked && typeof window.marked.parse === 'function') {
+      try {
+        return window.marked.parse(text);
+      } catch (err) {
+        // ignore and fall through
+      }
+    }
+    // Attempt to dynamically import marked from a CDN
+    try {
+      await import('https://cdn.jsdelivr.net/npm/marked/marked.min.js');
+      if (window.marked && typeof window.marked.parse === 'function') {
+        return window.marked.parse(text);
+      }
+    } catch (err) {
+      // ignore
+    }
+    // Fallback to simple parser
+    return formatReleaseNotes(text);
+  }
+
   async function checkForChangelog() {
     try {
       let result;
@@ -4554,7 +4402,7 @@ For more information, visit [GitHub Releases](https://github.com/your-repo/relea
   }
 
   // Show changelog modal
-  function showChangelog(updateInfo) {
+  async function showChangelog(updateInfo) {
     const overlay = document.createElement('div');
     overlay.className = 'changelog-overlay';
 
@@ -4593,8 +4441,13 @@ For more information, visit [GitHub Releases](https://github.com/your-repo/relea
 
     if (updateInfo.releaseNotes) {
       const notes = document.createElement('div');
-      // Parse release notes (assuming markdown or plain text)
-      const formattedNotes = formatReleaseNotes(updateInfo.releaseNotes);
+      // Parse release notes asynchronously using parseMarkdown and fall back to simple parser
+      let formattedNotes;
+      try {
+        formattedNotes = await parseMarkdown(updateInfo.releaseNotes);
+      } catch (err) {
+        formattedNotes = formatReleaseNotes(updateInfo.releaseNotes);
+      }
       notes.innerHTML = formattedNotes;
       content.appendChild(notes);
     } else {
@@ -4643,29 +4496,76 @@ For more information, visit [GitHub Releases](https://github.com/your-repo/relea
     
     // Convert to string if it's not already
     let text = typeof notes === 'string' ? notes : String(notes);
-    
-    // Simple markdown parsing
+
+    text = text.replace(/^>\s*\[!([A-Z]+)\]\s*\n>\s*(.+?)(?=\n\s*\n|$)/gms, (match, type, content) => {
+      const map = {
+        NOTE: 'note',
+        TIP: 'tip',
+        IMPORTANT: 'important',
+        WARNING: 'warning',
+        CAUTION: 'caution'
+      };
+      const cls = map[type] || 'note';
+      return `<div class="changelog-alert ${cls}">${content.trim()}</div>`;
+    });
+
     text = text
       // Headers
-      .replace(/### (.+)/g, '<h4>$1</h4>')
-      .replace(/## (.+)/g, '<h3>$1</h3>')
-      // Bold
+      .replace(/^###### (.+)$/gm, '<h6>$1</h6>')
+      .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
+      .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+      // Blockquotes
+      .replace(/^>\s*(.+)$/gm, '<blockquote>$1</blockquote>')
+      // Bold and strong
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      // Lists
-      .replace(/^\* (.+)/gm, '<li>$1</li>')
-      .replace(/^- (.+)/gm, '<li>$1</li>')
-      // Line breaks
-      .replace(/\n\n/g, '</p><p>')
+      .replace(/__(.+?)__/g, '<strong>$1</strong>')
+      // Italic
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/_(.+?)_/g, '<em>$1</em>')
+      // Strikethrough
+      .replace(/~~(.+?)~~/g, '<del>$1</del>')
+      // GitHub alert blocks (inline callouts)
+      .replace(/\[!NOTE\]\s*(.+)/g, '<div class="changelog-alert note">$1</div>')
+      .replace(/\[!TIP\]\s*(.+)/g, '<div class="changelog-alert tip">$1</div>')
+      .replace(/\[!IMPORTANT\]\s*(.+)/g, '<div class="changelog-alert important">$1</div>')
+      .replace(/\[!WARNING\]\s*(.+)/g, '<div class="changelog-alert warning">$1</div>')
+      .replace(/\[!CAUTION\]\s*(.+)/g, '<div class="changelog-alert caution">$1</div>')
+      // Code fences using backticks and tildes
+      .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+      .replace(/~~~([\s\S]*?)~~~/g, '<pre><code>$1</code></pre>')
+      // Inline code
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      // Links
+      .replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+      // Lists (unordered and ordered)
+      .replace(/^\* (.+)$/gm, '<li>$1</li>')
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/^\+ (.+)$/gm, '<li>$1</li>')
+      .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+      // Horizontal rules
+      .replace(/^---$/gm, '<hr>')
+      .replace(/^___$/gm, '<hr>')
+      .replace(/^\*\*\*$/gm, '<hr>')
+      // Images
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%; height:auto;">')
+      // Task lists
+      .replace(/^- \[x\] (.+)$/gm, '<li><input type="checkbox" disabled checked> $1</li>')
+      .replace(/^- \[ \] (.+)$/gm, '<li><input type="checkbox" disabled> $1</li>')
+      // Paragraph separation
+      .replace(/\n\n+/g, '</p><p>')
       .replace(/\n/g, '<br>');
-    
-    // Wrap lists
-    text = text.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-    
-    // Wrap in paragraphs if not already wrapped
-    if (!text.startsWith('<')) {
+
+    // Wrap consecutive <li> elements in <ul> tags
+    text = text.replace(/(<li>.*?<\/li>(?:\s*<li>.*?<\/li>)*)/gs, '<ul>$1</ul>');
+
+    // Wrap content in paragraphs if not starting with a block element
+    if (!/^\s*<\s*(h\d|ul|pre|blockquote|hr)/i.test(text)) {
       text = '<p>' + text + '</p>';
     }
-    
+
     return text;
   }
 
@@ -4931,6 +4831,7 @@ For more information, visit [GitHub Releases](https://github.com/your-repo/relea
     // Immediately update on initialisation
     updateUserInfo();
   }
+
 getAppVersionWithFallback().then(v => debug('info', 'App version resolved =', v));
 
   // κάλεσέ το στο init:
@@ -4948,5 +4849,355 @@ getAppVersionWithFallback().then(v => debug('info', 'App version resolved =', v)
     }
   }
 
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && e.code === 'KeyU') {
+    showChangelog({
+      version: '0.0.0-test',
+      releaseName: 'Markdown Markdown Test',
+      releaseNotes: `# Complete GitHub Markdown Reference
 
+## 📚 Headings (1-6 levels)
+
+# H1 Heading
+## H2 Heading
+### H3 Heading
+#### H4 Heading
+##### H5 Heading
+###### H6 Heading
+
+## 🎨 Text Formatting
+
+**Bold text** or __Bold text__
+*Italic text* or _Italic text_
+***Bold and Italic*** or ___Bold and Italic___
+~~Strikethrough text~~
+==Highlighted text== (GitHub extension)
+**Bold *with nested* italic**
+H~2~O (Subscript)
+X^2^ (Superscript)
+
+## 📊 Lists
+
+### Unordered Lists
+- Item 1
+- Item 2
+  - Nested item 2.1
+  - Nested item 2.2
+    - Deep nested item
+- Item 3
+
+### Ordered Lists
+1. First item
+2. Second item
+   1. Nested ordered 2.1
+   2. Nested ordered 2.2
+3. Third item
+
+### Task Lists
+- [x] Completed task
+- [ ] Incomplete task
+- [x] ~~Completed with strikethrough~~
+- [ ] Task with [link](#)
+
+### Mixed Lists
+1. Ordered item
+   - [x] Nested task
+   - Nested bullet
+     * Deep nested
+
+## 💬 Blockquotes
+
+> Single line blockquote
+
+> Multi-line blockquote
+> that spans across
+> multiple lines
+>
+> > Nested blockquote
+> > inside another blockquote
+>
+> Back to main blockquote
+
+> **Note**: Blockquote with formatting
+> \`code in blockquote\`
+
+## 💻 Code
+
+### Inline Code
+Use \`console.log('Hello World')\` for debugging.
+
+### Code Blocks with Syntax Highlighting
+
+\`\`\`javascript
+function greet(name) {
+  return \`Hello, \${name}!\`;
+}
+console.log(greet('World'));
+\`\`\`
+
+\`\`\`python
+def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+\`\`\`
+
+\`\`\`html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sample Page</title>
+</head>
+<body>
+    <h1>Hello World</h1>
+</body>
+</html>
+\`\`\`
+
+### Alternative Code Block Syntax
+~~~markdown
+This uses the alternative syntax
+with tildes instead of backticks
+~~~
+
+## 🔗 Links & References
+
+### Basic Links
+[GitHub](https://github.com)
+[GitHub with title](https://github.com "GitHub Homepage")
+
+### Auto-links
+https://github.com
+<https://github.com>
+<email@example.com>
+
+### Reference-style Links
+This is [GitHub][1] and this is [Google][2].
+
+[1]: https://github.com
+[2]: https://google.com "Google Search"
+
+### Anchor Links
+[Link to Headings](#headings-1-6-levels)
+[Link to specific section](#-links--references)
+
+## 🖼️ Images & Media
+
+### Basic Images
+![GitHub Logo](https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png "GitHub Logo")
+
+### Images with Links
+[![GitHub](https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png)](https://github.com)
+
+### Reference-style Images
+![GitHub Logo][logo]
+
+[logo]: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png "GitHub Logo"
+
+## 📐 Horizontal Rules
+
+---
+***
+___
+
+## 🗂️ Tables
+
+### Basic Table
+| Header 1 | Header 2 | Header 3 |
+|----------|----------|----------|
+| Cell 1   | Cell 2   | Cell 3   |
+| Row 2    | Data     | Info     |
+
+### Aligned Columns
+| Left-aligned | Center-aligned | Right-aligned |
+|:-------------|:--------------:|--------------:|
+| Left         | Center         | Right         |
+| Data         | More data      | Numbers       |
+
+### Table with Formatting
+| Feature | Support | Notes |
+|---------|---------|-------|
+| **Bold** | ✅ Yes | \`code\` in table |
+| *Italic* | ❌ No | ~~strikethrough~~ |
+| Links | 🔗 Partial | [Example](#) |
+
+## 🏷️ Footnotes
+
+Here's a sentence with a footnote.[^1] 
+And another reference.[^2]
+
+[^1]: This is the first footnote.
+[^2]: This is the second footnote with **formatting**.
+
+## 🎯 Definition Lists
+
+Term 1
+: Definition 1
+
+Term 2
+: Definition 2a
+: Definition 2b
+
+## 📍 Emoji
+
+### Direct Emoji
+:rocket: :sparkles: :tada: :books: :computer:
+
+### Unicode Emoji
+🚀 ✨ 🎉 📚 💻
+
+## 🔤 Keyboard Keys
+
+Press <kbd>Ctrl</kbd> + <kbd>C</kbd> to copy.
+Use <kbd>Enter</kbd> to submit.
+
+## 📋 Checklists in Issues
+
+- [ ] #123
+- [ ] Add delight to the experience when all tasks are complete :tada:
+- [ ] \(Optional) Open a followup issue
+
+## 🏷️ Mentions and References
+
+### User Mentions
+@username
+@organization/team
+
+### Issue/PR References
+#123
+organization/repo#456
+
+### Commit References
+SHA: a1b2c3d4e5f6
+User@SHA: user@a1b2c3d
+
+## 🎨 Advanced Formatting
+
+### Collapsible Sections
+<details>
+<summary>Click to expand</summary>
+
+This content is hidden by default.
+
+- Item 1
+- Item 2
+- Item 3
+
+</details>
+
+<details>
+<summary>Code Example</summary>
+
+\`\`\`javascript
+// Hidden code example
+const hiddenFunction = () => {
+  return 'This was hidden!';
+};
+\`\`\`
+
+</details>
+
+### Mathematical Formulas (GitHub extension)
+Inline math: $E = mc^2$
+
+Block math:
+$$
+\\nabla \\times \\vec{E} = -\\frac{\\partial \\vec{B}}{\\partial t}
+$$
+
+### Diagrams (Mermaid)
+\`\`\`mermaid
+graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Action 1]
+    B -->|No| D[Action 2]
+    C --> E[End]
+    D --> E
+\`\`\`
+
+### Alert Blocks (GitHub extension)
+> [!NOTE]
+> Useful information that users should know.
+
+> [!TIP]
+> Helpful advice for doing things better.
+
+> [!IMPORTANT]
+> Key information users need to know.
+
+> [!WARNING]
+> Urgent info that needs immediate attention.
+
+> [!CAUTION]
+> Dangerous actions that might cause problems.
+
+## 🔄 Relative Links (in repositories)
+
+[CONTRIBUTING.md](./CONTRIBUTING.md)
+[src/main.js](../src/main.js)
+
+## 🎪 Special GitHub Features
+
+### Issue/Pull Request Lists
+- [x] Fixes #123
+- [ ] Closes #456
+- [ ] Resolves organization/repo#789
+
+### Code Review Suggestions
+\`\`\`suggestion
+// Suggested change
+const improvedCode = 'This is better';
+\`\`\`
+
+### Diff Syntax
+\`\`\`diff
+- const oldCode = 'outdated';
++ const newCode = 'updated';
+\`\`\`
+
+## 📖 Complete Example Section
+
+### Project Structure
+\`\`\`
+project/
+├── src/
+│   ├── components/
+│   │   └── Button.js
+│   └── utils/
+│       └── helpers.js
+├── docs/
+│   └── README.md
+└── package.json
+\`\`\`
+
+### Installation Steps
+1. **Clone the repository**
+   \`\`\`bash
+   git clone https://github.com/user/repo.git
+   \`\`\`
+
+2. **Install dependencies**
+   \`\`\`bash
+   npm install
+   \`\`\`
+
+3. **Run the application**
+   \`\`\`bash
+   npm start
+   \`\`\`
+
+### Configuration
+> [!IMPORTANT]
+> Make sure to set up your environment variables!
+
+Create a \`.env\` file:
+\`\`\`env
+API_KEY=your_api_key_here
+DEBUG=true
+\`\`\`
+`,
+        timestamp: Date.now()
+      });
+    }
+  });
 })();

@@ -1,13 +1,3 @@
-
-/*
- * Application list items (Install Apps page)
- *
- * These rules give the install apps list a more polished look with
- * rounded corners, subtle shadows and hover feedback. The markup is
- * created dynamically in renderer.js with class names applied to each
- * <li> (`app-list-item`), the checkbox (`app-checkbox`), and the status
- * element (`app-status`).
- */
 .app-list-item {
   display: flex;
   align-items: center;
@@ -142,20 +132,7 @@
   --glass-bg-hover: rgba(255, 255, 255, 0.15);
   --glass-border-top-hover: rgba(255, 255, 255, 0.5);
   --glass-border-left-hover: rgba(255, 255, 255, 0.4);
-  /*
-   * Height of the custom title bar.  This variable is used throughout
-   * the layout to offset the main application content and adjust
-   * container heights.  Updating this single value will automatically
-   * adjust the title bar height as well as the corresponding
-   * margins and calc() expressions used for #app, #sidebar and #main.
-   */
-  /*
-   * Adjust the height of the custom title bar.  Increasing this value
-   * increases the bar’s height and, thanks to responsive calculations
-   * in the button and icon styles, will scale the controls and icon
-   * proportionally.  Users can update this variable to their desired
-   * height without having to modify individual widths or font sizes.
-   */
+
   --title-bar-height: 40px;
 }
 
@@ -565,16 +542,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Match the height of the window control buttons for better visual
-     consistency with the title bar.  The width is set equal to the
-     height for square icons. */
   width: calc(var(--title-bar-height) * 0.6667);
   height: calc(var(--title-bar-height) * 0.6667);
   padding: 0;
   margin: 0;
-  /* Remove UI decorations for the theme toggle — no border, no
-     rounded corners and no background.  The button retains its
-     size to provide a comfortable click target. */
   border: none;
   border-radius: 0;
   background: transparent;
@@ -599,25 +570,15 @@ body {
   stroke: currentColor !important;
 }
 
-/* Language toggle button used in the custom title bar.  This button displays
-   the current language code (EN or GR) and allows quick switching between
-   available languages.  The dimensions and styling mirror the theme
-   toggle for consistency. */
+
 .lang-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Provide a minimum width for the language toggle to accommodate
-     the language abbreviation (e.g. EN/GR).  The height matches
-     the window controls, and the width adjusts according to the
-     content plus padding. */
   min-width: calc(var(--title-bar-height) * 0.8);
   height: calc(var(--title-bar-height) * 0.6667);
   padding: 0 6px;
   margin: 0;
-  /* Remove UI decorations for the language toggle — no border,
-     no rounded corners and no background.  Maintain size for click
-     target and adjust font styling. */
   border: none;
   border-radius: 0;
   background: transparent;
@@ -635,21 +596,14 @@ body {
   color: var(--text-color);
 }
 
-/* Information toggle button used in the custom title bar.  This button
-   displays an info icon and opens the info modal.  Styling mirrors
-   the theme toggle for consistency. */
 .info-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Match the size of the theme toggle for consistency */
   width: calc(var(--title-bar-height) * 0.6667);
   height: calc(var(--title-bar-height) * 0.6667);
   padding: 0;
   margin: 0;
-  /* Remove UI decorations for the info toggle — no border,
-     no rounded corners and no background.  Maintain size for click
-     target. */
   border: none;
   border-radius: 0;
   background: transparent;
@@ -665,17 +619,13 @@ body {
   color: var(--text-color);
 }
 
-/* Light theme overrides for the toggle buttons.  In a light theme
-   the dark hover background from the dark theme becomes a light
-   translucent overlay. */
 [data-theme="light"] .theme-toggle:hover,
 [data-theme="light"] .theme-toggle:focus,
 [data-theme="light"] .lang-toggle:hover,
 [data-theme="light"] .lang-toggle:focus,
 [data-theme="light"] .info-toggle:hover,
 [data-theme="light"] .info-toggle:focus {
-  /* No background for hover/focus in light theme when UI decorations
-     are removed. */
+
   background: transparent;
 }
 
@@ -740,10 +690,7 @@ body {
   border-radius: 14px;
 }
 
-/* Separator lines between groups of menu items.  The .menu-separator
-   element is an empty li used to visually divide different sections
-   of the sidebar.  A larger variant is used for more significant
-   breaks. */
+
 #menu-list .menu-separator {
   height: 0;
   border-top: 1px solid rgba(15, 23, 42, 0.1);
@@ -2059,14 +2006,6 @@ input:checked+.slider:before {
   border-color: var(--accent-color);
 }
 
-/*
- * When a dropdown inside the settings row is open, we suppress the row's
- * hover highlight.  Without this rule, hovering over the custom select
- * options causes the parent row to change colour, which is distracting.
- * The `dropdown-open` class is toggled on the <div class="settings-row">
- * by renderer.js when a language dropdown is active.  We reset the
- * background and border so they stay the same as the default row state.
- */
 .settings-row.dropdown-open:hover {
   background: rgba(255, 255, 255, 0.03);
   border-color: var(--border-color);
@@ -3962,55 +3901,13 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   height: 70%;
 }
 
-/* Alternative: Top border accent (if the sidebar style doesn't work well) */
-/*
-.card > p {
-  border-left: 3px solid var(--accent-color);
-}
-*/
 
-/* Or subtle background accent */
-/*
-.card > p {
-  background: 
-    linear-gradient(90deg, 
-      var(--accent-color) 0%, 
-      var(--accent-color) 3px, 
-      transparent 3px, 
-      transparent 100%),
-    var(--glass-bg);
-}
-*/
-
-/*
- * Custom language select UI
- *
- * The standard <select> element is hidden and replaced by a
- * bespoke component built in renderer.js (class .custom-select).
- * This allows full control over the drop‑down’s styling, such as
- * border radius, colours and hover behaviour, while still
- * retaining the value via the hidden select.
- */
-/*
- * Custom select container – relative positioning allows the drop‑down
- * list to appear anchored to this element.  We set a minimum width
- * to accommodate longer language names, but the element can stretch
- * if necessary.  Adjust `min-width` if you require narrower or
- * wider lists.
- */
 .custom-select {
   position: relative;
   display: inline-block;
   min-width: 220px;
 }
 
-/*
- * Display region of the custom select.  We employ flexbox to align
- * the text and arrow.  A subtle border and shadow tie in with
- * cards throughout the app.  When open, the border colour shifts
- * to the accent colour and the background darkens slightly to
- * indicate focus.
- */
 .custom-select-display {
   display: flex;
   align-items: center;
@@ -4018,9 +3915,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   padding: 0.7rem 1rem;
   border: 2px solid var(--border-color);
   border-radius: 12px;
-  /* Give the display a subtle vertical gradient and an inner shadow
-   * for a more dimensional feel.  The light-to-dark gradient makes
-   * the top of the control appear slightly raised. */
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.15) 100%), var(--card-bg);
   color: var(--text-color);
   font-size: 0.9rem;
@@ -4062,11 +3956,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   stroke: var(--accent-color);
 }
 
-/* Positioning and styling of the options list.  The list is
- * hidden by default and shown when the `.open` class is present.
- * A shadow lifts the menu off the background.  Increase
- * `max-height` to allow more options before scrolling.
- */
 .custom-select-options {
   position: absolute;
   top: calc(100% + 4px);
@@ -4081,18 +3970,13 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   list-style: none;
   max-height: 260px;
   overflow-y: auto;
-  /* Hidden by default using opacity and visibility instead of display so
-   * transitions can animate fade‑in/out.  Transform adds a slight
-   * vertical motion for additional polish. */
   opacity: 0;
   visibility: hidden;
   transform: translateY(6px);
   transition: opacity 0.15s ease, transform 0.15s ease;
   z-index: 1000;
 }
-/* When open, reveal the drop‑down by making it opaque and visible and
- * moving it into place.  The transition is defined on the element
- * itself. */
+
 .custom-select.open .custom-select-options {
   opacity: 1;
   visibility: visible;
@@ -4106,16 +3990,12 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   color: var(--text-color);
   border-radius: 8px;
   margin: 0.25rem 0.5rem;
-  /* Base background colour so that hover/selected transitions can
-   * animate smoothly. */
   background-color: var(--card-bg);
   transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 /* Hover state for options – darker accent shade with white text */
 .custom-select-options li:hover {
-  /* On hover, switch to a darker accent shade.  Use background-color
-   * instead of gradient to allow smooth transitions. */
   background-color: var(--accent-color-dark);
   color: #ffffff;
   box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.05), inset 0 -1px 2px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.5);
@@ -4123,8 +4003,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 
 /* Selected option styling – accent colour background and bold text */
 .custom-select-options li.selected {
-  /* Use a flat accent colour for the selected option.  This allows
-   * background-color transitions between states. */
   background-color: var(--accent-color);
   color: #ffffff;
   font-weight: 600;
@@ -4495,25 +4373,10 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 .custom-title-bar {
   -webkit-app-region: drag;
   height: var(--title-bar-height);
-  /*
-     Use theme variables for the background, text colour and border so
-     the title bar adapts to light and dark modes.  In dark mode
-     `--header-bg` and `--text-color` provide a dark bar with light
-     text; in light mode they invert accordingly.  `--border-color`
-     matches the rest of the application’s card borders.
-   */
   background-color: var(--header-bg);
-  /* Lay out the contents of the title bar in a horizontal flex row.  The three
-     children (.title-group, .title-bar-toggles and .title-bar-controls) are
-     arranged so that the app icon and title remain on the left, the
-     toggle buttons occupy the available space in the middle, and the window
-     controls hug the right edge. */
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  /* Keep a small left padding for spacing before the app icon/title.
-     Remove the right padding so that the window control buttons sit
-     flush against the right edge, matching the native Windows style. */
   padding-left: 10px;
   padding-right: 0;
   color: var(--text-color);
@@ -4531,9 +4394,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   font-size: 16px;
 }
 
-/* Group for the app icon and title text on the left side of the title bar */
-/* Restrict the title-group styling to the custom title bar only.  This
-   prevents unintended centering of the sidebar header. */
 .custom-title-bar .title-group {
   display: flex;
   align-items: center;
@@ -4541,19 +4401,11 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   -webkit-app-region: drag;
 }
 
-/* Container for the theme, language and info toggles.  The toggles sit
-   between the title group on the left and the window controls on the
-   right.  Using `margin-left: auto` causes this group to align to the
-   right edge of the title bar (just before the minimize/maximise/close
-   buttons), similar to the arrangement shown in the reference image. */
 .title-bar-toggles {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-left: auto;
-  /* Provide a bit of breathing room between the toggle group and the window
-     controls.  Using a slightly larger margin approximates the spacing
-     seen in the reference screenshot. */
   margin-right: 12px;
   -webkit-app-region: no-drag;
 }
@@ -4561,33 +4413,21 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 .title-bar-controls {
   -webkit-app-region: no-drag;
   display: flex;
-  /* Remove gaps between the window buttons to mimic native Windows controls */
   gap: 0;
-  /* Stretch the controls vertically to fill the entire title bar height. */
   align-items: stretch;
   height: 100%;
-  /* No margin-left here.  The .title-bar-menu uses margin-left:auto
-     to push itself (and by extension these controls) to the right. */
   margin-left: 0;
 }
 
-/* Menu container within the custom title bar.  This wraps the menu
-   button and its dropdown.  It uses margin-left:auto to push itself
-   to the right, similar to the old toggle group. */
 .title-bar-menu {
   display: flex;
   align-items: center;
   position: relative;
   margin-left: auto;
-  /* Remove right margin so the window controls sit flush to the right
-     edge.  Keeping margin-left: auto still pushes the menu to the
-     right before the window controls. */
   margin-right: 0;
   -webkit-app-region: no-drag;
 }
 
-/* The button that opens the dropdown menu.  It shares styling with
-   other title bar icons: no border, no background, and subtle opacity. */
 .menu-toggle {
   display: flex;
   align-items: center;
@@ -4609,26 +4449,10 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   color: var(--text-color);
 }
 
-/* Dropdown menu that appears when the menu toggle is clicked.  It is
-   positioned absolutely relative to .title-bar-menu and hidden by
-   default. */
-/*
- * Dropdown menu that appears when the menu toggle is clicked.  To achieve
- * the “no UI” look requested by the user, the container has no
- * background, border or shadow — it simply positions the individual
- * toggle icons in a row floating above the title bar.  The width of
- * the menu is dictated entirely by the contained icons (one per
- * setting), with a small gap between them.  Because there is no
- * padding or border, the menu occupies only the space required by
- * the icons themselves.
- */
 .menu-dropdown {
   position: absolute;
   top: 100%;
   right: 0;
-  /* Provide a subtle card-like background and border for the dropdown.  A
-   * small border radius and shadow give the popover a distinct yet
-   * unobtrusive UI, differentiating it from the title bar. */
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -4638,33 +4462,18 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   flex-direction: column;
   gap: 4px;
   z-index: 10001;
-  /* Ensure a reasonable minimum width so that items like the language
-     code (e.g., EN/GR) fit without line wrapping.  This prevents
-     the dropdown from expanding to the full width of the window when
-     children are set to width:100%. */
-  /* Reduce the minimum width of the dropdown to make it more compact.  A
-     value of 1.2 × the title bar height allows room for the "EN/GR"
-     label while keeping the menu narrow. */
   min-width: calc(var(--title-bar-height) * 1.2);
 }
 .menu-dropdown.hidden {
   display: none;
 }
 
-/* Style the toggle buttons when they appear inside the dropdown menu.
- * The width is slightly smaller than the height to reduce the total
- * width of the dropdown.  Each toggle is presented as a simple icon
- * without background or border.  A lower default opacity is applied
- * and increased on hover for subtle feedback. */
 .menu-dropdown .theme-toggle,
 .menu-dropdown .lang-toggle,
 .menu-dropdown .info-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Make each dropdown item stretch horizontally to fill the menu.  The
-   * width will be determined by the dropdown container; height is
-   * proportional to the title bar height. */
   width: 100%;
   height: calc(var(--title-bar-height) * 0.6667);
   padding: 0;
@@ -4678,7 +4487,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 .menu-dropdown .theme-toggle:hover,
 .menu-dropdown .lang-toggle:hover,
 .menu-dropdown .info-toggle:hover {
-  /* No background for hover; simply increase opacity */
   opacity: 1;
   background: transparent;
   color: var(--text-color);
@@ -4686,7 +4494,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 [data-theme="light"] .menu-dropdown .theme-toggle:hover,
 [data-theme="light"] .menu-dropdown .lang-toggle:hover,
 [data-theme="light"] .menu-dropdown .info-toggle:hover {
-  /* In light mode, also avoid background */
   opacity: 1;
   background: transparent;
   color: var(--text-color);
@@ -4701,14 +4508,9 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 
 .title-bar-btn {
   background: transparent;
-  /* Remove the border and border-radius on the window controls to match
-     native Windows styling where the icons sit flush to each other. */
   border: none;
   color: var(--text-color);
   width: calc(var(--title-bar-height) * 1.0667);
-  /* Extend the window control buttons to fill the full height of
-     the custom title bar so they sit flush against the top and
-     bottom edges. */
   height: 100%;
   border-radius: 0;
   display: flex;
@@ -4722,7 +4524,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 }
 
 .title-bar-btn:hover {
-  /* Default hover background for dark theme; overridden in light mode below */
   background-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -4730,11 +4531,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   background-color: #e74c3c;
 }
 
-/* -----------------------------------------------------------------------
- * Light theme overrides for the custom title bar.  When the `data-theme="light"`
- * attribute is applied to the root `<html>` element, these rules adjust
- * the colours of the title bar and its controls to match the light theme.
- */
 [data-theme="light"] .custom-title-bar {
   background-color: var(--header-bg);
   border-bottom: 1px solid var(--border-color);
@@ -4742,8 +4538,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 }
 
 [data-theme="light"] .title-bar-btn {
-  /* Preserve the text colour for light mode window buttons.  Borders are
-     removed globally for the window controls so no border colour is needed. */
   color: var(--text-color);
 }
 
@@ -4751,37 +4545,24 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   background-color: rgba(0, 0, 0, 0.1);
 }
 
-/* Ensure the close button still uses a red background on hover in light mode.
-   The rule above for `.title-bar-btn:hover` in light mode has higher specificity
-   than `.title-bar-btn.close:hover` defined earlier, which causes the
-   red background to be overridden.  This override restores the red hover
-   colour for the close button in light theme. */
 [data-theme="light"] .title-bar-btn.close:hover {
   background-color: #e74c3c;
 }
 
-
-/* Adjust main app layout */
 #app {
-  /* Offset the application content by the height of the custom title bar.  Using
-     a CSS variable here allows the value to be changed in one place. */
   margin-top: var(--title-bar-height);
 }
 
-/* Adjust sidebar and main content */
 #sidebar {
-  /* Subtract the custom title bar height from the sidebar height */
   height: calc(100% - var(--title-bar-height));
   margin-top: 0;
 }
 
 #main {
-  /* Subtract the custom title bar height from the main content height */
   height: calc(100% - var(--title-bar-height));
   margin-top: 0;
 }
 
-/* Loading overlay adjustment */
 #loading.loading-overlay {
   position: fixed;
   top: 30px;
@@ -4791,23 +4572,17 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   background: var(--bg-primary);
   z-index: 9999;
 }
-/* Menu container within the custom title bar.  This wraps the menu
-   button and its dropdown.  It uses margin-left:auto to push itself
-   to the right, similar to the old toggle group. */
+
 .title-bar-menu {
   display: flex;
   align-items: center;
   gap: 4px;
   position: relative;
   margin-left: auto;
-  /* Remove right margin so the window controls sit flush to the right
-     edge.  Keeping margin-left: auto still pushes the menu to the
-     right before the window controls. */
   margin-right: 0;
   -webkit-app-region: no-drag;
 }
 
-/* Update button in title bar */
 .title-bar-update-btn {
   display: none;
   align-items: center;
@@ -4837,7 +4612,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   opacity: 0.6;
 }
 
-/* Badge for update notification */
 .title-bar-update-btn .update-badge {
   position: absolute;
   top: 2px;
@@ -4849,7 +4623,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   animation: update-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
-/* Progress ring around update icon */
 .title-bar-update-btn .progress-ring {
   position: absolute;
   width: 100%;
@@ -4866,7 +4639,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   transition: stroke-dashoffset 0.3s ease;
 }
 
-/* Styling for changelog overlay and modal */
 .changelog-overlay {
   position: fixed;
   top: 0;
@@ -4881,14 +4653,16 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 }
 
 .changelog-modal {
-  background: var(--color-bg, #1e1e1e);
-  color: var(--color-text, #ffffff);
-  border-radius: 8px;
-  padding: 1.5rem;
-  max-width: 600px;
+  background: var(--color-bg, #20232a);
+  color: var(--color-text, #eceef4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 2rem;
+  max-width: 700px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5);
+  line-height: 1.5;
 }
 
 .changelog-header {
@@ -4896,11 +4670,13 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.5rem;
 }
 
 .changelog-title {
-  font-size: 1.25rem;
-  font-weight: bold;
+  font-size: 1.5rem;
+  font-weight: 600;
   margin: 0;
 }
 
@@ -4910,10 +4686,17 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   color: inherit;
   font-size: 1.5rem;
   cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+  transition: color 0.2s;
+}
+.changelog-close:hover {
+  color: var(--color-primary, #c084fc);
 }
 
 .changelog-content {
-  line-height: 1.4;
+  line-height: 1.5;
+  font-size: 0.95rem;
 }
 
 .changelog-version {
@@ -4931,18 +4714,119 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   display: flex;
   justify-content: flex-end;
   margin-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 1rem;
 }
 
 .changelog-btn {
   background: var(--color-primary, #7c3aed);
   color: #fff;
   border: none;
-  border-radius: 4px;
-  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  padding: 0.6rem 1.25rem;
   cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background 0.2s, opacity 0.2s;
+}
+.changelog-btn:hover {
+  background: var(--color-primary-hover, #9565da);
+  opacity: 0.95;
+}
+
+.changelog-content h2,
+.changelog-content h3,
+.changelog-content h4,
+.changelog-content h5,
+.changelog-content h6 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.changelog-content p {
+  margin: 0.5rem 0;
+}
+
+.changelog-content ul,
+.changelog-content ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.changelog-content li {
+  margin: 0.3rem 0;
+}
+
+.changelog-content pre {
+  background: var(--color-secondary-bg, #2e2e3a);
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.changelog-content code {
+  background: var(--color-secondary-bg, #2e2e3a);
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  font-family: "Consolas", "Courier New", monospace;
   font-size: 0.9rem;
 }
 
-.changelog-btn:hover {
-  opacity: 0.9;
+.changelog-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+.changelog-content th,
+.changelog-content td {
+  border: 1px solid var(--border-color, #444);
+  padding: 0.5rem;
+  text-align: left;
+}
+.changelog-content th {
+  background: var(--color-primary, #7c3aed);
+  color: #fff;
+}
+.changelog-content tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.changelog-content a {
+  color: var(--color-primary, #7c3aed);
+  text-decoration: none;
+}
+.changelog-content a:hover {
+  text-decoration: underline;
+}
+
+.changelog-alert {
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  border-left-width: 4px;
+  border-left-style: solid;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+.changelog-alert.note {
+  background: rgba(33, 150, 243, 0.15);
+  border-color: #2196F3;
+}
+.changelog-alert.tip {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10B981;
+}
+.changelog-alert.important {
+  background: rgba(124, 58, 237, 0.15);
+  border-color: #7c3aed;
+}
+.changelog-alert.warning {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: #f59e0b;
+}
+.changelog-alert.caution {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
 }
