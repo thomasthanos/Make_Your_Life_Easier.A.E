@@ -1475,34 +1475,6 @@ function debug(level, ...args) {
     
     return scoredFiles[0].file;
   }
-  
-  function getExtractedFolderPath(zipPath) {
-    const parentDir = getDirectoryName(zipPath);
-    const baseName = getBaseName(zipPath, '.zip');
-    return `${parentDir}/${baseName}`;
-  }
-
-  
-  function getDirectoryName(filePath) {
-    if (filePath.includes('\\')) {
-      return filePath.substring(0, filePath.lastIndexOf('\\'));
-    }
-    return filePath.substring(0, filePath.lastIndexOf('/'));
-  }
-
-  function getBaseName(filePath, ext = '') {
-    let fileName;
-    if (filePath.includes('\\')) {
-      fileName = filePath.substring(filePath.lastIndexOf('\\') + 1);
-    } else {
-      fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
-    }
-
-    if (ext && fileName.endsWith(ext)) {
-      fileName = fileName.substring(0, fileName.length - ext.length);
-    }
-    return fileName;
-  }
 
   
   function addOpenFolderButton(button, zipPath, dlcName) {
@@ -2447,34 +2419,6 @@ function debug(level, ...args) {
     return fileName;
   }
   
-  async function checkFilesExist(filePaths) {
-    return new Promise((resolve) => {
-      const results = {
-        msiExists: false,
-        activatorExists: false
-      };
-
-      let completed = 0;
-
-      filePaths.forEach(filePath => {
-        
-        fetch(`file:///${filePath}`)
-          .then(() => {
-            if (filePath.includes('advinst.msi')) {
-              results.msiExists = true;
-            } else if (filePath.includes('Advanced Installer Activator.exe')) {
-              results.activatorExists = true;
-            }
-            completed++;
-            if (completed === filePaths.length) resolve(results);
-          })
-          .catch(() => {
-            completed++;
-            if (completed === filePaths.length) resolve(results);
-          });
-      });
-    });
-  }
 
   
   
@@ -4063,22 +4007,24 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
   }
 
   
-  async function init() {
-    await loadTranslations();
-    applyTheme();
-    renderMenu();
-    
-    const firstKey = menuKeys && menuKeys[0];
-    const pageKey = (typeof currentPage === 'string' && currentPage) || firstKey;
-    if (pageKey) {
-      await loadPage(pageKey);
-    }
-    initializeAutoUpdater();
-    
-    if (typeof checkForChangelog === 'function') {
-      checkForChangelog();
-    }
+async function init() {
+  await loadTranslations();
+  applyTheme();
+  renderMenu();
+  
+  const firstKey = menuKeys && menuKeys[0];
+  const pageKey = (typeof currentPage === 'string' && currentPage) || firstKey;
+  if (pageKey) {
+    await loadPage(pageKey);
   }
+
+  await ensureSidebarVersion(); 
+  initializeAutoUpdater();
+  
+  if (typeof checkForChangelog === 'function') {
+    checkForChangelog();
+  }
+}
 
   function initializeAutoUpdater() {
     const updateBtn = document.getElementById('title-bar-update');
@@ -4176,231 +4122,6 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     });
 
     checkForChangelog();
-  }
-
-  async function checkForChangelog() {
-    try {
-      let result;
-      if (window.api && typeof window.api.getUpdateInfo === 'function') {
-        try {
-          result = await window.api.getUpdateInfo();
-        } catch (ipcErr) {
-          result = null;
-        }
-      }
-      if (result && result.success && result.info) {
-        setTimeout(() => showChangelog(result.info), 1000);
-        return;
-      }
-      const updateInfo = localStorage.getItem('pendingUpdateInfo');
-      if (updateInfo) {
-        const info = JSON.parse(updateInfo);
-        localStorage.removeItem('pendingUpdateInfo');
-        setTimeout(() => showChangelog(info), 1000);
-      }
-    } catch (error) {
-      console.error('Error checking changelog:', error);
-    }
-  }
-
-  
-async function showChangelog(updateInfo) {
-    const overlay = document.createElement('div');
-    overlay.className = 'changelog-overlay';
-
-    const modal = document.createElement('div');
-    modal.className = 'changelog-modal';
-
-    const header = document.createElement('div');
-    header.className = 'changelog-header';
-
-    const title = document.createElement('h2');
-    title.className = 'changelog-title';
-    title.textContent = 'Update Installed Successfully!';
-
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'changelog-close';
-    closeBtn.innerHTML = '×';
-    closeBtn.addEventListener('click', () => overlay.remove());
-
-    header.appendChild(title);
-    header.appendChild(closeBtn);
-
-    const content = document.createElement('div');
-    content.className = 'changelog-content';
-
-    
-    
-    
-    
-    
-    
-    const versionBadge = document.createElement('div');
-    versionBadge.className = 'changelog-version';
-    versionBadge.textContent = `Version ${updateInfo.version || 'Unknown'}`;
-
-    if (updateInfo.releaseName) {
-      const releaseContainer = document.createElement('div');
-      releaseContainer.className = 'release-title-container';
-
-      const releaseNameEl = document.createElement('h3');
-      releaseNameEl.className = 'release-title';
-      releaseNameEl.textContent = updateInfo.releaseName;
-
-      
-      releaseContainer.appendChild(releaseNameEl);
-      releaseContainer.appendChild(versionBadge);
-
-      content.appendChild(releaseContainer);
-    } else {
-      
-      content.appendChild(versionBadge);
-    }
-
-    if (updateInfo.releaseNotes) {
-      const notes = document.createElement('div');
-      
-      let formattedNotes;
-      try {
-        formattedNotes = await parseMarkdown(updateInfo.releaseNotes);
-      } catch (err) {
-        formattedNotes = formatReleaseNotes(updateInfo.releaseNotes);
-      }
-      notes.innerHTML = formattedNotes;
-      content.appendChild(notes);
-    } else {
-      
-      const defaultChangelog = document.createElement('div');
-      defaultChangelog.innerHTML = `
-        <h3>What's New</h3>
-        <ul>
-          <li>Bug fixes and stability improvements</li>
-          <li>Performance optimizations</li>
-          <li>UI/UX enhancements</li>
-          <li>Security updates</li>
-        </ul>
-        <h3>Improvements</h3>
-        <ul>
-          <li>Faster application startup</li>
-          <li>Reduced memory usage</li>
-          <li>Better error handling</li>
-        </ul>
-        <p style="margin-top: 1rem; opacity: 0.8; font-size: 0.9rem;">
-          <strong>Note:</strong> For detailed release notes, visit the GitHub releases page.
-        </p>
-      `;
-      content.appendChild(defaultChangelog);
-    }
-
-    const footer = document.createElement('div');
-    footer.className = 'changelog-footer';
-
-    const okBtn = document.createElement('button');
-    okBtn.className = 'changelog-btn';
-    okBtn.textContent = 'Got it!';
-    okBtn.addEventListener('click', () => overlay.remove());
-
-    footer.appendChild(okBtn);
-
-    modal.appendChild(header);
-    modal.appendChild(content);
-    modal.appendChild(footer);
-
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-
-    
-    const escHandler = (e) => {
-      if (e.key === 'Escape') {
-        overlay.remove();
-        document.removeEventListener('keydown', escHandler);
-      }
-    };
-    document.addEventListener('keydown', escHandler);
-
-    
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) {
-        overlay.remove();
-      }
-    });
-  }
-
-  
-  function formatReleaseNotes(notes) {
-    if (!notes) return '';
-    
-    
-    let text = typeof notes === 'string' ? notes : String(notes);
-    text = text.replace(/^>\s*\[!([A-Z]+)\]\s*\n>\s*(.+?)(?=\n\s*\n|$)/gms, (match, type, content) => {
-      const map = {
-        NOTE: 'note',
-        TIP: 'tip',
-        IMPORTANT: 'important',
-        WARNING: 'warning',
-        CAUTION: 'caution'
-      };
-      const cls = map[type] || 'note';
-      return `<div class="changelog-alert ${cls}">${content.trim()}</div>`;
-    });
-    text = text
-      .replace(/^###### (.+)$/gm, '<h6>$1</h6>')
-      .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
-      .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-      .replace(/^# (.+)$/gm, '<h2>$1</h2>')
-      
-      .replace(/^>\s*(.+)$/gm, '<blockquote>$1</blockquote>')
-      
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/__(.+?)__/g, '<strong>$1</strong>')
-      
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/_(.+?)_/g, '<em>$1</em>')
-      
-      .replace(/~~(.+?)~~/g, '<del>$1</del>')
-      
-      .replace(/\[!NOTE\]\s*(.+)/g, '<div class="changelog-alert note">$1</div>')
-      .replace(/\[!TIP\]\s*(.+)/g, '<div class="changelog-alert tip">$1</div>')
-      .replace(/\[!IMPORTANT\]\s*(.+)/g, '<div class="changelog-alert important">$1</div>')
-      .replace(/\[!WARNING\]\s*(.+)/g, '<div class="changelog-alert warning">$1</div>')
-      .replace(/\[!CAUTION\]\s*(.+)/g, '<div class="changelog-alert caution">$1</div>')
-      
-      .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-      
-      .replace(/~~~([\s\S]*?)~~~/g, '<pre><code>$1</code></pre>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-
-      .replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-
-      .replace(/^\* (.+)$/gm, '<li>$1</li>')
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      .replace(/^\+ (.+)$/gm, '<li>$1</li>')
-      .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-
-      .replace(/^---$/gm, '<hr>')
-      .replace(/^___$/gm, '<hr>')
-      .replace(/^\*\*\*$/gm, '<hr>')
-
-      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%; height:auto;">')
-
-      .replace(/^- \[x\] (.+)$/gm, '<li><input type="checkbox" disabled checked> $1</li>')
-      .replace(/^- \[ \] (.+)$/gm, '<li><input type="checkbox" disabled> $1</li>')
-
-      .replace(/\n\n+/g, '</p><p>')
-      .replace(/\n/g, '<br>');
-
-    text = text.replace(/(<li>.*?<\/li>(?:\s*<li>.*?<\/li>)*)/gs, '<ul>$1</ul>');
-
-    if (!text.startsWith('<h') && !text.startsWith('<ul') && !text.startsWith('<pre')) {
-      text = '<p>' + text + '</p>';
-    }
-
-    text = text.replace(/<p><\/p>/g, '');
-    text = text.replace(/<p>\s*<\/p>/g, '');
-    
-    return text;
   }
 
   
@@ -4629,87 +4350,7 @@ async function showChangelog(updateInfo) {
 
   
   init();
-  async function ensureSidebarVersion() {
-    const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
-    if (!sidebar) return;
 
-    
-    if (sidebar.querySelector('.sidebar-footer')) return;
-
-    const footer = document.createElement('div');
-    footer.className = 'sidebar-footer';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'version-wrap';
-    wrap.setAttribute('data-tooltip', 'App version');
-
-    wrap.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
-            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-    <span id="appVersion">dev</span>
-  `;
-    attachTooltipHandlers(wrap);
-
-    footer.appendChild(wrap);
-    sidebar.appendChild(footer);
-
-    try {
-      
-      if (window.api && typeof window.api.getAppVersion === 'function') {
-        debug('info', '📦 Fetching app version from API...');
-        const version = await window.api.getAppVersion();
-        debug('info', '📦 Version received:', version);
-
-        if (version && version !== '000' && version !== '0.0.0') {
-          document.getElementById('appVersion').textContent = `v${version}`;
-        } else {
-          
-          document.getElementById('appVersion').textContent = 'v1.0.0';
-          debug('warn', '⚠️ Version returned 000, using fallback');
-        }
-      } else {
-        debug('warn', '⚠️ getAppVersion API not available');
-        document.getElementById('appVersion').textContent = 'v1.0.0';
-      }
-    } catch (error) {
-      debug('error', '❌ Error getting version:', error);
-      document.getElementById('appVersion').textContent = 'v1.0.0';
-    }
-  }
-  async function ensureSidebarVersion() {
-    const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
-    if (!sidebar) return;
-
-    if (sidebar.querySelector('.sidebar-footer')) return;
-
-    const footer = document.createElement('div');
-    footer.className = 'sidebar-footer';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'version-wrap';
-    
-    wrap.setAttribute('data-tooltip', 'App version');
-
-    wrap.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
-            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-    <span id="appVersion">dev</span>
-  `;
-
-    
-    attachTooltipHandlers(wrap);
-
-    footer.appendChild(wrap);
-    sidebar.appendChild(footer);
-
-    
-    const version = await getAppVersionWithFallback();
-    document.getElementById('appVersion').textContent = version;
-  }
 
   function normalizeVersion(v) {
     if (!v) return null;
@@ -4892,25 +4533,7 @@ async function showChangelog(updateInfo) {
 getAppVersionWithFallback().then(v => debug('info', 'App version resolved =', v));
 
   
-  async function init() {
-    await loadTranslations();
-    applyTheme();
-    renderMenu();
-    
-    const firstKey = menuKeys && menuKeys[0];
-    const pageKey = (typeof currentPage === 'string' && currentPage) || firstKey;
-    if (pageKey) {
-      await loadPage(pageKey);
-    }
 
-    
-    await ensureSidebarVersion(); 
-    initializeAutoUpdater();
-    
-    if (typeof checkForChangelog === 'function') {
-      checkForChangelog();
-    }
-  }
 
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey && e.shiftKey && e.code === 'KeyU') {

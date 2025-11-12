@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, nativeTheme } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, shell, nativeTheme } = require('electron');
 const path = require('path');
 const os = require('os');
 const { exec, spawn } = require('child_process');
@@ -266,20 +266,58 @@ function getJson(url, headers = {}) {
 
 function openAuthWindow(authUrl, redirectUri, handleCallback) {
   return new Promise((resolve, reject) => {
-    const authWindow = new BrowserWindow({
+    // Determine whether the OAuth URL points to Google. We only enable dark
+    // theming on Google's pages to avoid breaking the appearance of other
+    // providers like Discord.
+    const isGoogle = typeof authUrl === 'string' && (authUrl.includes('accounts.google.com') || authUrl.includes('google.com/oauth'));
+    // Base options common to all auth windows
+    const windowOpts = {
       width: 600,
       height: 700,
       show: true,
       parent: mainWindow,
       modal: true,
       autoHideMenuBar: true,
-      backgroundColor: '#202124',
-      darkTheme: true,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true
       }
+    };
+    // Do not set a dark theme on the OAuth window itself; allow the
+    // provider's page to determine its own styling.  Attempting to force
+    // a dark chrome here led to completely black pages.
+    const authWindow = new BrowserWindow(windowOpts);
+
+    // Create a temporary BrowserView with a spinner to indicate loading.  This
+    // view is added on top of the OAuth window and removed when loading
+    // finishes.  Using a separate view avoids issues with injecting into the
+    // remote page before the DOM exists.
+    const loaderView = new BrowserView({
+      webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
+    const loaderHtml = `
+      <!DOCTYPE html>
+      <html><head><meta charset="utf-8">
+      <style>
+        html, body { margin:0; padding:0; height:100%; background:rgba(255,255,255,0.8); display:flex; align-items:center; justify-content:center; }
+        .spinner { width:40px; height:40px; border:4px solid rgba(0,0,0,0.2); border-top-color:rgba(0,0,0,0.7); border-radius:50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform:rotate(0deg); } 100% { transform:rotate(360deg); } }
+      </style></head>
+      <body><div class="spinner"></div></body></html>`;
+    loaderView.webContents.loadURL('data:text/html;base64,' + Buffer.from(loaderHtml).toString('base64'));
+    authWindow.setBrowserView(loaderView);
+    loaderView.setBounds({ x: 0, y: 0, width: windowOpts.width, height: windowOpts.height });
+    loaderView.setAutoResize({ width: true, height: true });
+    const removeLoaderView = () => {
+      try {
+        if (!authWindow.isDestroyed() && authWindow.getBrowserView() === loaderView) {
+          authWindow.setBrowserView(null);
+          loaderView.destroy();
+        }
+      } catch (_) {}
+    };
+    authWindow.webContents.once('did-finish-load', removeLoaderView);
+    authWindow.once('closed', removeLoaderView);
 
     const cleanup = () => {
       if (!authWindow.isDestroyed()) authWindow.close();
@@ -311,75 +349,11 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
 
     // Εφαρμογή dark mode ΜΟΝΟ για Google
     function applyDarkModeIfGoogle() {
-      const currentUrl = authWindow.webContents.getURL();
-      
-      if (isGoogleOAuth(currentUrl)) {
-        // CSS Injection ΜΟΝΟ για Google
-        authWindow.webContents.insertCSS(`
-          body {
-            background-color: #202124 !important;
-            color: #e8eaed !important;
-          }
-          [class*="background"] {
-            background-color: #202124 !important;
-          }
-          [class*="container"], [class*="wrapper"], [class*="box"] {
-            background-color: #202124 !important;
-            color: #e8eaed !important;
-          }
-          div {
-            background-color: #202124 !important;
-            color: #e8eaed !important;
-          }
-          form {
-            background-color: #202124 !important;
-            color: #e8eaed !important;
-          }
-          .CryPo, .BDE19, .LZgQXe, .Ha17qf, .Or16q {
-            background-color: #202124 !important;
-            color: #e8eaed !important;
-          }
-          
-          /* ΜΟΝΟ Η ΔΙΟΡΘΩΣΗ ΓΙΑ HOVER - ελαφρώς πιο σκούρο */
-          .wehrve:focus, .wehrve:hover, 
-          .mTkos:focus, .mTkos:hover,
-          .TrZEUc:focus, .TrZEUc:hover,
-          .JnOM6e:focus, .JnOM6e:hover {
-            background-color: #1a1c1e !important;
-          }
-        `);
-        
-        // JavaScript για Google
-        authWindow.webContents.executeJavaScript(`
-          // Αλλαγή background και text color σε όλα τα elements
-          document.body.style.backgroundColor = '#202124';
-          document.body.style.color = '#e8eaed';
-          
-          // Αλλαγή σε όλα τα divs
-          const allDivs = document.querySelectorAll('div');
-          allDivs.forEach(div => {
-            div.style.backgroundColor = '#202124';
-            div.style.color = '#e8eaed';
-          });
-          
-          // Αλλαγή σε όλα τα forms
-          const allForms = document.querySelectorAll('form');
-          allForms.forEach(form => {
-            form.style.backgroundColor = '#202124';
-            form.style.color = '#e8eaed';
-          });
-          
-          // Αλλαγή στα συγκεκριμένα class της Google
-          const googleClasses = ['CryPo', 'BDE19', 'LZgQXe', 'Ha17qf', 'Or16q'];
-          googleClasses.forEach(className => {
-            const elements = document.getElementsByClassName(className);
-            for (let element of elements) {
-              element.style.backgroundColor = '#202124';
-              element.style.color = '#e8eaed';
-            }
-          });
-        `);
-      }
+      // Do not attempt to apply custom dark styling to the Google sign-in page.
+      // Previous attempts at forcing a dark theme caused the entire page to
+      // turn black or hide input text.  Instead, allow the page to render
+      // using its default styles.
+      return;
     }
 
     // Εφαρμογή dark mode κατά τη φόρτωση
@@ -412,6 +386,33 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
     authWindow.webContents.on('did-navigate', (event, url) => {
       handleUrl(url);
     });
+
+    // Apply a fix for Discord's dark login page to ensure typed text is visible.
+    // When the user types their email/password on Discord's OAuth page, the
+    // default text color may be too dark on a dark background.  This helper
+    // injects CSS to set the input text and background to colors that work on
+    // Discord's dark theme.  It runs on each navigation to catch
+    // redirects and intermediate pages.
+    const applyDiscordAccessibilityFix = () => {
+      try {
+        const current = authWindow.webContents.getURL() || '';
+        if (current.includes('discord.com')) {
+          authWindow.webContents.insertCSS(`
+            input, textarea {
+              color: #dcddde !important;
+              background-color: #2f3136 !important;
+              caret-color: #dcddde !important;
+            }
+            input::placeholder, textarea::placeholder {
+              color: #b9bbbe !important;
+            }
+          `);
+        }
+      } catch (_) {}
+    };
+    authWindow.webContents.on('did-finish-load', applyDiscordAccessibilityFix);
+    authWindow.webContents.on('did-navigate', applyDiscordAccessibilityFix);
+    authWindow.webContents.on('frame-loaded', applyDiscordAccessibilityFix);
     
     authWindow.on('closed', () => {
       try {
