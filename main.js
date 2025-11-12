@@ -4,12 +4,8 @@ const os = require('os');
 const { exec, spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
-// The built-in fs module provides file system operations.  We require
-// it here near the top so it is available throughout the file.
 const fs = require('fs');
 
-// Modern debug logger with emojis and color-coded styles.
-// Usage: debug('info', 'Message', ...args);
 function debug(level, ...args) {
   const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
   const colorMap = {
@@ -33,25 +29,10 @@ function debug(level, ...args) {
     fn.call(console, `${emoji}`, ...args);
   }
 }
-// Keep track of files that were successfully downloaded during this session.  Each
-// entry in this array corresponds to the final path of a completed download.
-// When the application is closing, these files will be deleted if they still
-// exist on disk.  This helps prevent leftover installers or archives from
-// accumulating in the user's Downloads folder.
 const downloadedFiles = [];
 
-// Keep track of directories that were created during archive extraction.  These
-// directories are removed on application exit if they still exist, ensuring
-// that temporary extraction folders do not persist across sessions.
 const extractedDirs = [];
 
-// -----------------------------------------------------------------------------
-// Attempt to load electron‑sudo for elevated process execution.  When available
-// this module allows running subprocesses with administrative privileges on
-// Windows without relying on nested PowerShell invocations.  If the module
-// is not present (e.g. during development without dependencies installed) we
-// gracefully fall back to spawning a plain PowerShell process.  We detect
-// both CommonJS (v3.x) and ES module (v4.x) exports.
 let Sudoer = null;
 try {
   const sudoModule = require('electron-sudo');
@@ -71,13 +52,6 @@ try {
   oauthConfig = {};
 }
 
-// -----------------------------------------------------------------------------
-// Debloat script handler using Raphi's online script.  The previous debloat
-// handlers and customisable task lists have been removed in favour of a
-// single remote script execution.  When invoked, this handler downloads
-// and executes the script from https://debloat.raphi.re/ with elevated
-// privileges.  It falls back to using Start‑Process -Verb RunAs if
-// electron‑sudo is not available or fails.
 ipcMain.handle('run-raphi-debloat', async () => {
   // Only support Windows because the script is Windows specific
   if (process.platform !== 'win32') {
@@ -88,10 +62,6 @@ ipcMain.handle('run-raphi-debloat', async () => {
   const psExe = getPowerShellExe() || 'powershell.exe';
   const scriptCmd = '& ([scriptblock]::Create((irm "https://debloat.raphi.re/")))';
 
-  /**
-   * Launch PowerShell via Start‑Process with elevation.  This helper returns a
-   * promise that resolves with the execution result once the process exits.
-   */
   const runViaStartProcess = () => {
     return new Promise((resolve) => {
       // Escape quotes inside the command for the argument list
@@ -266,11 +236,7 @@ function getJson(url, headers = {}) {
 
 function openAuthWindow(authUrl, redirectUri, handleCallback) {
   return new Promise((resolve, reject) => {
-    // Determine whether the OAuth URL points to Google. We only enable dark
-    // theming on Google's pages to avoid breaking the appearance of other
-    // providers like Discord.
     const isGoogle = typeof authUrl === 'string' && (authUrl.includes('accounts.google.com') || authUrl.includes('google.com/oauth'));
-    // Base options common to all auth windows
     const windowOpts = {
       width: 600,
       height: 700,
@@ -283,15 +249,8 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
         contextIsolation: true
       }
     };
-    // Do not set a dark theme on the OAuth window itself; allow the
-    // provider's page to determine its own styling.  Attempting to force
-    // a dark chrome here led to completely black pages.
     const authWindow = new BrowserWindow(windowOpts);
 
-    // Create a temporary BrowserView with a spinner to indicate loading.  This
-    // view is added on top of the OAuth window and removed when loading
-    // finishes.  Using a separate view avoids issues with injecting into the
-    // remote page before the DOM exists.
     const loaderView = new BrowserView({
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
@@ -349,10 +308,6 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
 
     // Εφαρμογή dark mode ΜΟΝΟ για Google
     function applyDarkModeIfGoogle() {
-      // Do not attempt to apply custom dark styling to the Google sign-in page.
-      // Previous attempts at forcing a dark theme caused the entire page to
-      // turn black or hide input text.  Instead, allow the page to render
-      // using its default styles.
       return;
     }
 
@@ -387,12 +342,6 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
       handleUrl(url);
     });
 
-    // Apply a fix for Discord's dark login page to ensure typed text is visible.
-    // When the user types their email/password on Discord's OAuth page, the
-    // default text color may be too dark on a dark background.  This helper
-    // injects CSS to set the input text and background to colors that work on
-    // Discord's dark theme.  It runs on each navigation to catch
-    // redirects and intermediate pages.
     const applyDiscordAccessibilityFix = () => {
       try {
         const current = authWindow.webContents.getURL() || '';
@@ -573,23 +522,8 @@ ipcMain.handle('get-app-version', async () => {
   return app.getVersion();
 });
 
-// Path to the file where pending update information will be stored.  We
-// persist update metadata in the user's application data directory so
-// that it survives application restarts and does not rely on
-// localStorage, which may be cleared or unavailable depending on how
-// the application is launched.  The file will be removed after the
-// changelog has been displayed to the user.
 const updateInfoFilePath = path.join(app.getPath('userData'), 'update-info.json');
 
-/**
- * Persist update information to disk.  When an update finishes
- * downloading, the renderer process will call this handler via
- * ipcRenderer.invoke.  The metadata typically includes the
- * version, release name and release notes.  Saving to a file
- * allows the information to remain available even if the user
- * closes the app or if the app is relaunched without a custom
- * title bar (where localStorage might not be available).
- */
 ipcMain.handle('save-update-info', async (event, info) => {
   try {
     await fs.promises.writeFile(updateInfoFilePath, JSON.stringify(info));
@@ -599,13 +533,6 @@ ipcMain.handle('save-update-info', async (event, info) => {
   }
 });
 
-/**
- * Retrieve any pending update information from disk.  If the file
- * exists, read its contents and then delete it to prevent the
- * changelog from showing repeatedly.  Returns an object with
- * `success: true` and an `info` property when data is available,
- * otherwise returns `success: false` with an error message.
- */
 ipcMain.handle('get-update-info', async () => {
   try {
     if (fs.existsSync(updateInfoFilePath)) {
@@ -736,10 +663,6 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// Before the application quits, delete any files that were downloaded during
-// this session.  This prevents unused installer files from persisting in
-// the user's Downloads directory.  Use a synchronous unlink to ensure
-// removal completes before the process exits.
 app.on('before-quit', () => {
   for (const filePath of downloadedFiles) {
     try {
@@ -1111,9 +1034,6 @@ ipcMain.on('download-cancel', (event, id) => {
     mainWindow.webContents.send('download-event', { id, status: 'cancelled' });
   }
 });
-// -----------------------------------------------------------------------------
-// Check if a file exists on disk.  Expands environment variables like
-// %USERNAME% before testing.  Returns a boolean.
 ipcMain.handle('file-exists', async (event, filePath) => {
   try {
     const expandEnv = (input) => {
@@ -1218,9 +1138,6 @@ WScript.Sleep(3000)
         } else {
           debug('success', 'UAC accepted, replacement in progress...');
 
-          // Poll for the destination file to appear instead of waiting a fixed
-          // timeout.  This reduces race conditions where the copy takes
-          // variable time.  We check every second for up to 15 seconds.
           let waited = 0;
           const interval = setInterval(() => {
             waited += 1000;
