@@ -3602,17 +3602,17 @@ input:checked+.slider:before {
   color: var(--sidebar-text) !important;
 }
 
-button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn),
-button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):hover,
-button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):active {
-  background: var(--glass-bg) !important;
-  border-top: 1px solid var(--glass-border-top) !important;
-  border-left: 1px solid var(--glass-border-left) !important;
-  box-shadow: var(--glass-shadow) !important;
-  border-radius: 20px !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  color: var(--text-color) !important;
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close),
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close):hover,
+button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close):active {
+  background: var(--glass-bg);
+  border-top: 1px solid var(--glass-border-top);
+  border-left: 1px solid var(--glass-border-left);
+  box-shadow: var(--glass-shadow);
+  border-radius: 20px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--text-color);
 }
 
 #error-container {
@@ -4645,24 +4645,63 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
+  /* Hide any scrollbar that may appear due to page overflow */
+  overflow: hidden;
 }
 
 .changelog-modal {
-  background: var(--color-bg, #20232a);
+  background: rgba(40, 40, 50, 0.85);
   color: var(--color-text, #eceef4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 10px;
   padding: 2rem;
   max-width: 700px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5);
+  scrollbar-width: none; /* Firefox: hide scrollbar until we add .scrolling */
+  /* We'll add a subtle drop shadow for depth */
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.7);
   line-height: 1.5;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  position: relative;
+}
+
+/* WebKit/Chromium scrollbar customisation: hide by default */
+.changelog-modal::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* When the modal is scrolling (class added via JS), show a thin scrollbar */
+.changelog-modal.scrolling::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.changelog-modal.scrolling::-webkit-scrollbar-track {
+  background: transparent;
+}
+.changelog-modal.scrolling::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.4);
+  border-radius: 4px;
+}
+
+/* When .scrolling class is present, reveal Firefox scrollbar */
+.changelog-modal.scrolling {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 58, 237, 0.4) transparent;
+}
+
+/* Hide scrollbars for the changelog modal (Chrome/Safari/WebKit) */
+.changelog-modal::-webkit-scrollbar {
+  display: none;
 }
 
 .changelog-header {
@@ -4680,18 +4719,39 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   margin: 0;
 }
 
+/*
+ * Minimal rectangular close button with subtle depth.  Uses darker tones to
+ * complement the dark modal while keeping the accent colour for the × icon.
+ */
+/*
+ * Close button styling
+ *
+ * We reimagine the close button as a dark, slightly raised rectangle with
+ * softened corners.  Instead of the classic system look, it employs a
+ * subtle vertical gradient and deeper shadow to create a low‑relief 3D effect.
+ */
 .changelog-close {
-  background: transparent;
-  border: none;
-  color: inherit;
-  font-size: 1.5rem;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(70, 70, 80, 0.95), rgba(40, 40, 50, 0.95)) !important;
+  border: 1px solid rgba(0, 0, 0, 0.6) !important;
+  /* More squared edges for the close button */
+  border-radius: 7px;
+  color: var(--color-primary, #c084fc);
+  font-size: 1rem;
   cursor: pointer;
-  padding: 0.25rem;
-  line-height: 1;
-  transition: color 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  padding: 0;
 }
 .changelog-close:hover {
-  color: var(--color-primary, #c084fc);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.9) !important;
+  background: linear-gradient(180deg, rgba(80, 80, 90, 0.95), rgba(45, 45, 55, 0.95)) !important;
+  color: var(--color-primary-hover, #b693ff);
 }
 
 .changelog-content {
@@ -4718,52 +4778,60 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   padding-top: 1rem;
 }
 
+/*
+ * Primary action button: dark with accent text and a subtle depth.  The square
+ * corners reflect the new UI direction and make the button feel more solid.
+ */
+/*
+ * Confirmation button styling
+ *
+ * The primary action button now follows the same dark, low‑relief design
+ * language as the close button.  A subtle gradient runs from a lighter
+ * dark tone at the top to a deeper shade at the bottom, with a thin
+ * border and gentle drop shadow for depth.  The accent colour appears on
+ * the text to provide a clear call‑to‑action.  On hover we brighten the
+ * background and slightly raise the button to give tactile feedback.
+ */
 .changelog-btn {
-  background: var(--color-primary, #7c3aed);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 0.6rem 1.25rem;
+  background: linear-gradient(180deg, rgba(60, 60, 70, 0.95), rgba(35, 35, 45, 0.95)) !important;
+  color: var(--color-primary, #c084fc) !important;
+  border: 1px solid rgba(0, 0, 0, 0.5) !important;
+  /* More squared edges for the confirmation button */
+  border-radius: 7px;
+  padding: 0.6rem 1.6rem;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 500;
-  transition: background 0.2s, opacity 0.2s;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+/* Hover state for the confirmation button */
+.changelog-btn:hover {
+  background: linear-gradient(180deg, rgba(70, 70, 80, 0.95), rgba(40, 40, 50, 0.95)) !important;
+  color: var(--color-primary-hover, #b693ff) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.8) !important;
 }
 
-/*
- * Combined release title/version badge container
- * Places the release name and version badge on the same line with a modern,
- * subtle background.  The background uses a semi–transparent tint of the
- * primary colour to stand out without being too loud.  The border and
- * rounded corners give it a card-like appearance.
- */
+/* Title and version container styling – unchanged but moved below for clarity */
 .release-title-container {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  /* Semi–transparent background tinted by the primary colour */
   background: rgba(124, 58, 237, 0.15);
   border: 1px solid rgba(124, 58, 237, 0.25);
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
   margin-bottom: 1rem;
 }
-
-/* Title text inside the combined release container */
 .release-title-container .release-title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
   color: var(--text-color);
 }
-
-/* Remove bottom margin from the version badge when inside the combined container */
 .release-title-container .changelog-version {
   margin-bottom: 0;
-}
-.changelog-btn:hover {
-  background: var(--color-primary-hover, #9565da);
-  opacity: 0.95;
 }
 
 .changelog-content h2,
@@ -4861,4 +4929,14 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 .changelog-alert.caution {
   background: rgba(239, 68, 68, 0.15);
   border-color: #ef4444;
+}
+.changelog-modal img {
+  max-height: 300px; /* Ή όποιο ύψος θέλεις */
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  display: block;
+  margin: 0.5rem auto;
+  box-shadow: #000000 3px 3px 5px;
 }
