@@ -4182,16 +4182,32 @@ async function showChangelog(updateInfo) {
     const content = document.createElement('div');
     content.className = 'changelog-content';
 
+    // Build a combined header row for the release title and version.  When a
+    // release name is provided, display it and the version on the same line
+    // with a modern card-style background.  If no release name is supplied
+    // then fall back to showing just the version badge on its own.  This
+    // container is styled via the `.release-title-container` CSS class defined
+    // in styles.css.
     const versionBadge = document.createElement('div');
     versionBadge.className = 'changelog-version';
     versionBadge.textContent = `Version ${updateInfo.version || 'Unknown'}`;
 
-    content.appendChild(versionBadge);
-
     if (updateInfo.releaseName) {
-      const releaseName = document.createElement('h3');
-      releaseName.textContent = updateInfo.releaseName;
-      content.appendChild(releaseName);
+      const releaseContainer = document.createElement('div');
+      releaseContainer.className = 'release-title-container';
+
+      const releaseNameEl = document.createElement('h3');
+      releaseNameEl.className = 'release-title';
+      releaseNameEl.textContent = updateInfo.releaseName;
+
+      // Append the title followed by the version badge so they appear on the same line
+      releaseContainer.appendChild(releaseNameEl);
+      releaseContainer.appendChild(versionBadge);
+
+      content.appendChild(releaseContainer);
+    } else {
+      // If there's no release name we still show the version badge on its own
+      content.appendChild(versionBadge);
     }
 
     if (updateInfo.releaseNotes) {
@@ -4428,16 +4444,27 @@ async function showChangelog(updateInfo) {
     const content = document.createElement('div');
     content.className = 'changelog-content';
 
+    // Build a combined header row for the release title and version.  When a
+    // release name is provided, display it and the version on the same line
+    // with a modern card-style background.  If no release name is supplied
+    // then fall back to showing just the version badge on its own.
     const versionBadge = document.createElement('div');
     versionBadge.className = 'changelog-version';
     versionBadge.textContent = `Version ${updateInfo.version || 'Unknown'}`;
 
-    content.appendChild(versionBadge);
-
     if (updateInfo.releaseName) {
-      const releaseName = document.createElement('h3');
-      releaseName.textContent = updateInfo.releaseName;
-      content.appendChild(releaseName);
+      const releaseContainer = document.createElement('div');
+      releaseContainer.className = 'release-title-container';
+
+      const releaseNameEl = document.createElement('h3');
+      releaseNameEl.className = 'release-title';
+      releaseNameEl.textContent = updateInfo.releaseName;
+
+      releaseContainer.appendChild(releaseNameEl);
+      releaseContainer.appendChild(versionBadge);
+      content.appendChild(releaseContainer);
+    } else {
+      content.appendChild(versionBadge);
     }
 
     if (updateInfo.releaseNotes) {

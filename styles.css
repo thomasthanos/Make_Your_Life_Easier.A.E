@@ -4729,6 +4729,38 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   font-weight: 500;
   transition: background 0.2s, opacity 0.2s;
 }
+
+/*
+ * Combined release title/version badge container
+ * Places the release name and version badge on the same line with a modern,
+ * subtle background.  The background uses a semi–transparent tint of the
+ * primary colour to stand out without being too loud.  The border and
+ * rounded corners give it a card-like appearance.
+ */
+.release-title-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  /* Semi–transparent background tinted by the primary colour */
+  background: rgba(124, 58, 237, 0.15);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+/* Title text inside the combined release container */
+.release-title-container .release-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+/* Remove bottom margin from the version badge when inside the combined container */
+.release-title-container .changelog-version {
+  margin-bottom: 0;
+}
 .changelog-btn:hover {
   background: var(--color-primary-hover, #9565da);
   opacity: 0.95;
