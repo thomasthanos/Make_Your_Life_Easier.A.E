@@ -4865,3 +4865,84 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   stroke-dashoffset: 60;
   transition: stroke-dashoffset 0.3s ease;
 }
+
+/* Styling for changelog overlay and modal */
+.changelog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.changelog-modal {
+  background: var(--color-bg, #1e1e1e);
+  color: var(--color-text, #ffffff);
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.changelog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.changelog-title {
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin: 0;
+}
+
+.changelog-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.changelog-content {
+  line-height: 1.4;
+}
+
+.changelog-version {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 0.5rem;
+  background: var(--color-primary, #7c3aed);
+  color: #fff;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.changelog-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.changelog-btn {
+  background: var(--color-primary, #7c3aed);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.changelog-btn:hover {
+  opacity: 0.9;
+}

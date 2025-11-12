@@ -571,6 +571,52 @@ ipcMain.handle('install-update', async () => {
 ipcMain.handle('get-app-version', async () => {
   return app.getVersion();
 });
+
+// Path to the file where pending update information will be stored.  We
+// persist update metadata in the user's application data directory so
+// that it survives application restarts and does not rely on
+// localStorage, which may be cleared or unavailable depending on how
+// the application is launched.  The file will be removed after the
+// changelog has been displayed to the user.
+const updateInfoFilePath = path.join(app.getPath('userData'), 'update-info.json');
+
+/**
+ * Persist update information to disk.  When an update finishes
+ * downloading, the renderer process will call this handler via
+ * ipcRenderer.invoke.  The metadata typically includes the
+ * version, release name and release notes.  Saving to a file
+ * allows the information to remain available even if the user
+ * closes the app or if the app is relaunched without a custom
+ * title bar (where localStorage might not be available).
+ */
+ipcMain.handle('save-update-info', async (event, info) => {
+  try {
+    await fs.promises.writeFile(updateInfoFilePath, JSON.stringify(info));
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Retrieve any pending update information from disk.  If the file
+ * exists, read its contents and then delete it to prevent the
+ * changelog from showing repeatedly.  Returns an object with
+ * `success: true` and an `info` property when data is available,
+ * otherwise returns `success: false` with an error message.
+ */
+ipcMain.handle('get-update-info', async () => {
+  try {
+    if (fs.existsSync(updateInfoFilePath)) {
+      const content = await fs.promises.readFile(updateInfoFilePath, 'utf-8');
+      await fs.promises.unlink(updateInfoFilePath);
+      return { success: true, info: JSON.parse(content) };
+    }
+    return { success: false, error: 'No update info' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
 const http = require('http');
 const https = require('https');
 const documentsPath = require('os').homedir() + '/Documents';

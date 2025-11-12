@@ -4152,6 +4152,41 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     applyTheme();
     renderMenu();
     initializeAutoUpdater();
+    // Always check for pending changelog after initialization
+    if (typeof checkForChangelog === 'function') {
+      checkForChangelog();
+    }
+
+    // Register a global debug hotkey for the changelog.  This listener is
+    // outside the auto-updater logic so it will work even when the
+    // update button is missing.  Press Ctrl+Shift+U to open a
+    // sample changelog.
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key && e.key.toLowerCase() === 'u') {
+        showChangelog({
+          version: 'Test',
+          releaseName: 'Debug Changelog',
+          releaseNotes: 'Αυτό είναι ένα δοκιμαστικό changelog για επαλήθευση της λειτουργίας.',
+          timestamp: Date.now()
+        });
+      }
+    });
+
+    // Register a global debug hotkey for the changelog.  This listener
+    // operates independently of the auto-updater so it works even if
+    // the update button is not present (e.g. when running the app
+    // without custom title bar).  Pressing Ctrl+Shift+U will open a
+    // test changelog modal to verify that the dialog appears.
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key && e.key.toLowerCase() === 'u') {
+        showChangelog({
+          version: 'Test',
+          releaseName: 'Debug Changelog',
+          releaseNotes: 'Αυτό είναι ένα δοκιμαστικό changelog για επαλήθευση της λειτουργίας.',
+          timestamp: Date.now()
+        });
+      }
+    });
   }
 // Auto Updater functionality
   function initializeAutoUpdater() {
@@ -4217,14 +4252,28 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
           // Auto-install immediately
           setTimeout(async () => {
             try {
-              // Save update info to show changelog after restart
+              // Persist update information via IPC so it survives
+              // application restarts.  Fallback to localStorage only
+              // if saveUpdateInfo fails.
               if (currentUpdateInfo) {
-                localStorage.setItem('pendingUpdateInfo', JSON.stringify({
+                const info = {
                   version: currentUpdateInfo.version,
                   releaseName: currentUpdateInfo.releaseName,
                   releaseNotes: currentUpdateInfo.releaseNotes,
                   timestamp: Date.now()
-                }));
+                };
+                try {
+                  await window.api.saveUpdateInfo(info);
+                } catch (e) {
+                  // If the IPC call fails (e.g. in a non-Electron context),
+                  // fall back to localStorage so that the changelog may still
+                  // appear when reloaded in a browser environment.
+                  try {
+                    localStorage.setItem('pendingUpdateInfo', JSON.stringify(info));
+                  } catch (storageErr) {
+                    console.error('Failed to store update info', storageErr);
+                  }
+                }
               }
               await window.api.installUpdate();
             } catch (error) {
@@ -4245,8 +4294,9 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     checkForChangelog();
     
     // Debug: Add keyboard shortcut to test changelog (Ctrl+Shift+U)
-    document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'U') {
+        document.addEventListener('keydown', (e) => {
+          // Normalize key to lowercase for cross-browser support
+          if (e.ctrlKey && e.shiftKey && e.key && e.key.toLowerCase() === 'u') {
         // Show test changelog
         showChangelog({
           version: '1.2.3',
@@ -4279,19 +4329,36 @@ For more information, visit [GitHub Releases](https://github.com/your-repo/relea
     });
   }
 
-  // Check if we should show changelog after update
-  function checkForChangelog() {
+  // Check if we should show changelog after update.  This function
+  // attempts to retrieve pending update information from the main
+  // process via IPC.  If IPC is unavailable (e.g. when running
+  // purely in a browser), it falls back to localStorage.  The
+  // function is asynchronous but callers do not need to await it.
+  async function checkForChangelog() {
     try {
+      // First, attempt to retrieve info via IPC.  This persists
+      // across application restarts in Electron because the main
+      // process stores update info in the userData directory.
+      let result;
+      if (window.api && typeof window.api.getUpdateInfo === 'function') {
+        try {
+          result = await window.api.getUpdateInfo();
+        } catch (ipcErr) {
+          result = null;
+        }
+      }
+      if (result && result.success && result.info) {
+        setTimeout(() => showChangelog(result.info), 1000);
+        return;
+      }
+      // Fallback: check browser localStorage in case IPC is not
+      // available.  This ensures the changelog still appears when
+      // testing in a pure HTML environment.
       const updateInfo = localStorage.getItem('pendingUpdateInfo');
       if (updateInfo) {
         const info = JSON.parse(updateInfo);
-        // Only show if update was within last 5 minutes
-        if (Date.now() - info.timestamp < 5 * 60 * 1000) {
-          localStorage.removeItem('pendingUpdateInfo');
-          setTimeout(() => showChangelog(info), 1000);
-        } else {
-          localStorage.removeItem('pendingUpdateInfo');
-        }
+        localStorage.removeItem('pendingUpdateInfo');
+        setTimeout(() => showChangelog(info), 1000);
       }
     } catch (error) {
       console.error('Error checking changelog:', error);
@@ -4457,19 +4524,29 @@ For more information, visit [GitHub Releases](https://github.com/your-repo/relea
     return text;
   }
 
-  // Check if we should show changelog after update
-  function checkForChangelog() {
+  // Check if we should show changelog after update.  This version
+  // mirrors the earlier definition and uses IPC to retrieve
+  // persisted update information.  If IPC is unavailable, it
+  // falls back to localStorage.
+  async function checkForChangelog() {
     try {
+      let result;
+      if (window.api && typeof window.api.getUpdateInfo === 'function') {
+        try {
+          result = await window.api.getUpdateInfo();
+        } catch (ipcErr) {
+          result = null;
+        }
+      }
+      if (result && result.success && result.info) {
+        setTimeout(() => showChangelog(result.info), 1000);
+        return;
+      }
       const updateInfo = localStorage.getItem('pendingUpdateInfo');
       if (updateInfo) {
         const info = JSON.parse(updateInfo);
-        // Only show if update was within last 5 minutes
-        if (Date.now() - info.timestamp < 5 * 60 * 1000) {
-          localStorage.removeItem('pendingUpdateInfo');
-          setTimeout(() => showChangelog(info), 1000);
-        } else {
-          localStorage.removeItem('pendingUpdateInfo');
-        }
+        localStorage.removeItem('pendingUpdateInfo');
+        setTimeout(() => showChangelog(info), 1000);
       }
     } catch (error) {
       console.error('Error checking changelog:', error);
@@ -4865,6 +4942,10 @@ getAppVersionWithFallback().then(v => debug('info', 'App version resolved =', v)
     // Preload of preinstalled apps removed because the functionality was retired.
     await ensureSidebarVersion(); // maintain sidebar version check
     initializeAutoUpdater();
+    // Always check for pending changelog after initialization
+    if (typeof checkForChangelog === 'function') {
+      checkForChangelog();
+    }
   }
 
 

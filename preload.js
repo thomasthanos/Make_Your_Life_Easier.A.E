@@ -82,6 +82,24 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 
+  /**
+   * Persist update metadata on the main process side.  The renderer
+   * passes an object containing version, release name and release
+   * notes.  The main process writes this to a JSON file in the
+   * userData directory so that it can be retrieved after the app
+   * restarts.  Returns a promise that resolves with a success
+   * flag.
+   */
+  saveUpdateInfo: (info) => ipcRenderer.invoke('save-update-info', info),
+
+  /**
+   * Retrieve any pending update metadata from the main process.  If
+   * data exists, the main process returns it and deletes the
+   * underlying file.  Returns a promise that resolves with an
+   * object: { success: true, info } or { success: false, error }.
+   */
+  getUpdateInfo: () => ipcRenderer.invoke('get-update-info'),
+
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   
   onUpdateStatus: (callback) => {
