@@ -1,8 +1,8 @@
 
 const processStates = new Map();
 
-// Modern debug logger with emojis and color-coded styles.
-// Usage: debug('info', 'Message', ...args);
+
+
 function debug(level, ...args) {
   const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
   const colorMap = {
@@ -82,9 +82,9 @@ function debug(level, ...args) {
     bios: `
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-computer w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" data-lov-id="src/components/AppLayout.tsx:66:16" data-lov-name="Icon" data-component-path="src/components/AppLayout.tsx" data-component-line="66" data-component-file="AppLayout.tsx" data-component-name="Icon" data-component-content="%7B%7D"><rect width="14" height="8" x="5" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><path d="M6 18h2"></path><path d="M12 18h6"></path></svg>
   `,
-    // Use a broom icon to symbolise cleaning and debloating.  This
-    // inline SVG is lightweight and matches the existing lucide
-    // styling used for the other menu icons.
+    
+    
+    
     debloat: `
 <svg
   xmlns="http://www.w3.org/2000/svg"
@@ -107,7 +107,7 @@ function debug(level, ...args) {
   };
   const tooltipManager = (() => {
     let tooltipEl;
-    // Create or return the existing tooltip element
+    
     function ensure() {
       if (!tooltipEl) {
         tooltipEl = document.querySelector('.custom-tooltip');
@@ -133,7 +133,7 @@ function debug(level, ...args) {
       }
       return tooltipEl;
     }
-    // Position the tooltip relative to the mouse or target event
+    
     function update(event, tooltip) {
       const offset = 6;
       const rect = tooltip.getBoundingClientRect();
@@ -148,7 +148,7 @@ function debug(level, ...args) {
       tooltip.style.left = `${x}px`;
       tooltip.style.top = `${y}px`;
     }
-    // Show the tooltip with the specified text
+    
     function show(target, text, event) {
       const tooltip = ensure();
       tooltip.textContent = text;
@@ -158,7 +158,7 @@ function debug(level, ...args) {
       }, 150);
       update(event, tooltip);
     }
-    // Hide the tooltip immediately
+    
     function hide() {
       const tooltip = ensure();
       clearTimeout(tooltip._showTimer);
@@ -167,22 +167,22 @@ function debug(level, ...args) {
     return { ensure, update, show, hide };
   })();
 
-  // Track whether the last user interaction was via keyboard or pointer.
+  
   let lastInteractionWasKeyboard = false;
-  // When any key is pressed, assume keyboard navigation
+  
   document.addEventListener('keydown', () => {
     lastInteractionWasKeyboard = true;
   }, true);
-  // When the mouse is used, switch to pointer mode
+  
   document.addEventListener('mousedown', () => {
     lastInteractionWasKeyboard = false;
   }, true);
-  // Touch interactions also count as pointer interactions
+  
   document.addEventListener('touchstart', () => {
     lastInteractionWasKeyboard = false;
   }, true);
 
-  // Attach custom tooltip handlers to an element with a `data-tooltip` attribute.
+  
   function attachTooltipHandlers(el) {
     if (!el || typeof el.getAttribute !== 'function') return;
     const tip = el.getAttribute('data-tooltip');
@@ -208,7 +208,7 @@ function debug(level, ...args) {
       tooltipManager.hide();
     });
 
-    // Hide tooltip on mousedown to prevent it reappearing due to focus triggers.
+    
     el.addEventListener('mousedown', () => {
       tooltipManager.hide();
     });
@@ -242,13 +242,14 @@ function debug(level, ...args) {
     li.appendChild(btn);
     return li;
   }
-  // Default settings
+  
   const defaultSettings = {
+    
     lang: 'en',
     theme: 'light'
   };
 
-  // Load settings from localStorage or fall back to defaults
+  
   const settings = (() => {
     try {
       const saved = JSON.parse(localStorage.getItem('myAppSettings'));
@@ -276,11 +277,11 @@ function debug(level, ...args) {
       } catch (e) {
       }
     }
-    // If nothing worked, fallback to English empty translations
+    
     translations = {};
   }
 
-  // Update theme by toggling data attribute on the html element
+  
   function applyTheme() {
     document.documentElement.setAttribute('data-theme', settings.theme);
   }
@@ -308,7 +309,7 @@ function debug(level, ...args) {
       titleEl.textContent = fullTitle;
     }
     if (subtitleEl) {
-      // Fallback to an empty string or a default subtitle when translations are unavailable
+      
       subtitleEl.textContent = (translations.app && translations.app.subtitle) || 'System Management Tools';
     }
     const toggleButton = document.getElementById('theme-toggle');
@@ -317,7 +318,7 @@ function debug(level, ...args) {
         toggleButton.innerHTML = settings.theme === 'dark' ? MOON_ICON : SUN_ICON;
       };
       refreshIcon();
-      // Clean up any existing listener
+      
       if (toggleButton._toggleListener) {
         toggleButton.removeEventListener('click', toggleButton._toggleListener);
       }
@@ -327,8 +328,8 @@ function debug(level, ...args) {
         document.documentElement.setAttribute('data-theme', newTheme);
         saveSettings();
         refreshIcon();
-        // Close the dropdown menu after toggling the theme.  This ensures
-        // the menu hides automatically when an option is selected.
+        
+        
         const dropdown = document.getElementById('titlebar-menu-dropdown');
         if (dropdown) dropdown.classList.add('hidden');
       };
@@ -362,7 +363,7 @@ function debug(level, ...args) {
     }
     let infoToggle = document.getElementById('info-toggle');
     if (infoToggle) {
-      // Always replace the contents with the latest icon.
+      
       infoToggle.innerHTML = INFO_ICON;
       infoToggle.removeAttribute('data-tooltip');
       if (infoToggle._tooltipAttached) {
@@ -370,12 +371,12 @@ function debug(level, ...args) {
         infoToggle.parentNode.replaceChild(clone, infoToggle);
         infoToggle = clone;
       }
-      // Remove any previously attached click handler to avoid multiple bindings.
+      
       if (infoToggle._clickListener) {
         infoToggle.removeEventListener('click', infoToggle._clickListener);
       }
       const infoListener = () => {
-        // Close the dropdown menu before opening the info modal.
+        
         const dropdown = document.getElementById('titlebar-menu-dropdown');
         if (dropdown) dropdown.classList.add('hidden');
         openInfoModal();
@@ -387,7 +388,7 @@ function debug(level, ...args) {
     const menuDropdown = document.getElementById('titlebar-menu-dropdown');
     if (menuToggleBtn && menuDropdown) {
       menuToggleBtn.innerHTML = MENU_ICON;
-      // Tooltip for the menu button.  Use translation if available.
+      
       menuToggleBtn.setAttribute('data-tooltip', (translations.pages && translations.pages.menu) || 'Menu');
       attachTooltipHandlers(menuToggleBtn);
       if (menuToggleBtn._clickListener) {
@@ -413,7 +414,7 @@ function debug(level, ...args) {
     }
   }
 
-  // Build the sidebar menu based on translations
+  
   function renderMenu() {
     const menuList = document.getElementById('menu-list');
     menuList.innerHTML = '';
@@ -436,7 +437,7 @@ function debug(level, ...args) {
       }
     });
 
-    // Bind μία φορά
+    
     if (!menuList._boundClick) {
       menuList.addEventListener('click', (e) => {
         const btn = e.target.closest('button[data-key]');
@@ -454,14 +455,14 @@ function debug(level, ...args) {
       const btnToActivate = menuList.querySelector(`button[data-key="${keyToActivate}"]`);
       if (btnToActivate) {
         btnToActivate.classList.add('active');
-        loadPage(keyToActivate);
+        
       }
     }
     updateHeader();
   }
 
 
-  // Helper to set header text
+  
   function setHeader(text) {
     const header = document.getElementById('header');
     header.textContent = text;
@@ -486,7 +487,7 @@ function debug(level, ...args) {
     overlay.appendChild(container);
     document.body.appendChild(overlay);
   }
-  // Βοηθητική συνάρτηση για παρακολούθηση διεργασιών
+  
   function trackProcess(cardId, processType, button, statusElement) {
     const processId = `${cardId}-${processType}`;
     processStates.set(processId, {
@@ -517,12 +518,12 @@ function debug(level, ...args) {
     }
   }
 
-  // Νέα συνάρτηση για επαναφορά DLC buttons
+  
   function resetDLCButton(button, status, success) {
     const originalText = button.dataset.originalText;
 
     if (success) {
-      // Για επιτυχημένη εγκατάσταση, επαναφορά στο αρχικό κείμενο μετά από λίγο
+      
       setTimeout(() => {
         if (originalText) {
           button.innerHTML = originalText;
@@ -533,7 +534,7 @@ function debug(level, ...args) {
         button.disabled = false;
         button.style.background = '';
 
-        // Απόκρυψη status μετά από επιτυχία
+        
         setTimeout(() => {
           status.textContent = '';
           status.style.display = 'none';
@@ -542,7 +543,7 @@ function debug(level, ...args) {
 
       }, 2000);
     } else {
-      // Για αποτυχία, άμεση επαναφορά
+      
       if (originalText) {
         button.innerHTML = originalText;
       } else {
@@ -554,7 +555,7 @@ function debug(level, ...args) {
     }
   }
 
-  // Επαναφορά download button
+  
   function resetDownloadButton(button, status, success) {
     const originalText = button.dataset.originalText;
     if (originalText) {
@@ -563,21 +564,21 @@ function debug(level, ...args) {
     button.disabled = false;
 
     if (success) {
-      // Display completion message via toast rather than the status element
+      
       toast('Process completed successfully!', { type: 'success' });
     } else {
       toast('Process completed with issues', { type: 'error' });
     }
   }
 
-  // Επαναφορά replace button
+  
   function resetReplaceButton(button, status, success) {
     if (success) {
       button.textContent = '✅ Replaced';
       button.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
       button.disabled = true;
 
-      // Απόκρυψη με fade out
+      
       setTimeout(() => {
         button.style.transition = 'all 0.5s ease';
         button.style.opacity = '0';
@@ -596,7 +597,7 @@ function debug(level, ...args) {
       button.style.background = '';
     }
   }
-  // Update the createCard function to use new styling
+  
   function createCard(titleKey, bodyContent) {
     const card = document.createElement('div');
     card.className = 'card';
@@ -619,7 +620,7 @@ function debug(level, ...args) {
 
     return card;
   }
-  // Enhanced button creation with new styling
+  
   function createModernButton(text, onClick, options = {}) {
     const button = document.createElement('button');
     button.className = options.secondary ? 'button button-secondary' : 'button';
@@ -639,55 +640,97 @@ function debug(level, ...args) {
 
     return button;
   }
-  // Build specific pages based on the current selection
+  
   async function loadPage(key) {
     currentPage = key;
     const content = document.getElementById('content');
     content.innerHTML = '';
     switch (key) {
-      case 'install_apps':
-        setHeader((translations.menu && translations.menu.install_apps) || 'install_apps');
+      case 'install_apps': {
+        
+        const headerText = (translations.pages && translations.pages.install_title) ||
+                           (translations.menu && translations.menu.install_apps) ||
+                           'install_apps';
+        setHeader(headerText);
         content.appendChild(await buildInstallPage());
         break;
-      // Στο renderer.js, στην switch statement της loadPage()
-      case 'activate_autologin':
-        setHeader((translations.menu && translations.menu.activate_autologin) || 'activate_autologin');
+      }
+      
+      case 'activate_autologin': {
+        const headerText = (translations.pages && (translations.pages.activate_autologin_title || translations.pages.activate_title)) ||
+                           (translations.menu && translations.menu.activate_autologin) ||
+                           'activate_autologin';
+        setHeader(headerText);
         content.appendChild(await buildActivateAutologinPage());
         break;
-      case 'system_maintenance':
-        setHeader((translations.menu && translations.menu.system_maintenance) || 'system_maintenance');
+      }
+      case 'system_maintenance': {
+        const headerText = (translations.pages && (translations.pages.system_maintenance_title || translations.pages.maintenance_title)) ||
+                           (translations.menu && translations.menu.system_maintenance) ||
+                           'system_maintenance';
+        setHeader(headerText);
         content.appendChild(await buildMaintenancePage());
         break;
-      case 'crack_installer':
-        setHeader((translations.menu && translations.menu.crack_installer) || 'crack_installer');
+      }
+      case 'crack_installer': {
+        
+        const headerText = (translations.pages && (translations.pages.crack_title || translations.pages.crack_installer_title)) ||
+                           (translations.menu && translations.menu.crack_installer) ||
+                           'crack_installer';
+        setHeader(headerText);
         content.appendChild(await buildCrackInstallerPage());
         break;
-      case 'spicetify':
-        setHeader((translations.menu && translations.menu.spicetify) || 'spicetify');
+      }
+      case 'spicetify': {
+        const headerText = (translations.pages && (translations.pages.spicetify_title)) ||
+                           (translations.menu && translations.menu.spicetify) ||
+                           'spicetify';
+        setHeader(headerText);
         content.appendChild(buildSpicetifyPage());
         break;
-      case 'debloat':
-        setHeader((translations.menu && translations.menu.debloat) || 'Debloat & Windows Tweaks');
+      }
+      case 'debloat': {
+        const headerText = (translations.pages && (translations.pages.debloat_title)) ||
+                           (translations.menu && translations.menu.debloat) ||
+                           'Debloat & Windows Tweaks';
+        setHeader(headerText);
         content.appendChild(await buildDebloatPage());
         break;
-      case 'password_manager':
-        setHeader((translations.menu && translations.menu.password_manager) || 'password_manager');
+      }
+      case 'password_manager': {
+        const headerText = (translations.pages && (translations.pages.password_manager_title)) ||
+                           (translations.menu && translations.menu.password_manager) ||
+                           'password_manager';
+        setHeader(headerText);
         content.appendChild(buildPasswordManagerPage());
         break;
-      case 'christitus':
-        setHeader((translations.menu && translations.menu.christitus) || 'christitus');
+      }
+      case 'christitus': {
+        const headerText = (translations.pages && (translations.pages.christitus_title)) ||
+                           (translations.menu && translations.menu.christitus) ||
+                           'christitus';
+        setHeader(headerText);
         content.appendChild(buildChrisTitusPage());
         break;
-      // Στο renderer.js, στην switch statement της loadPage() πρόσθεσε:
-      case 'dlc_unlocker':
-        setHeader((translations.menu && translations.menu.dlc_unlocker) || 'dlc_unlocker');
+      }
+      
+      case 'dlc_unlocker': {
+        const headerText = (translations.pages && (translations.pages.dlc_title || translations.pages.dlc_unlocker_title)) ||
+                           (translations.menu && translations.menu.dlc_unlocker) ||
+                           'dlc_unlocker';
+        setHeader(headerText);
         content.appendChild(await buildDlcUnlockerPage());
         break;
-      case 'bios':
-        setHeader((translations.menu && translations.menu.bios) || 'bios');
+      }
+      case 'bios': {
+        const headerText = (translations.pages && (translations.pages.bios_title)) ||
+                           (translations.menu && translations.menu.bios) ||
+                           'bios';
+        setHeader(headerText);
         content.innerHTML = '';
         showRestartDialog();
         break;
+      }
       default:
         content.textContent = '';
     }
@@ -706,7 +749,7 @@ function debug(level, ...args) {
     desc.style.marginBottom = '1.5rem';
     container.appendChild(desc);
 
-    // Activate Windows card
+    
     const activateCard = document.createElement('div');
     activateCard.className = 'app-card fixed-height';
 
@@ -753,7 +796,7 @@ function debug(level, ...args) {
     activateCard.appendChild(activateButton);
     activateCard.appendChild(activateStatus);
 
-    // Autologin card
+    
     const autologinCard = document.createElement('div');
     autologinCard.className = 'app-card fixed-height';
 
@@ -799,7 +842,7 @@ function debug(level, ...args) {
     autologinCard.appendChild(autologinButton);
     autologinCard.appendChild(autologinStatus);
 
-    // Grid layout
+    
     const grid = document.createElement('div');
     grid.className = 'install-grid';
     grid.style.gridTemplateColumns = '1fr 1fr';
@@ -814,7 +857,7 @@ function debug(level, ...args) {
     return container;
   }
 
-  // buildDlcUnlockerPage — CSS-free version (all styling via classes only)
+  
   async function buildDlcUnlockerPage() {
     const container = document.createElement('div');
     container.className = 'card dlc-scope';
@@ -828,12 +871,12 @@ function debug(level, ...args) {
     pageDesc.style.marginBottom = '1.5rem';
     container.appendChild(pageDesc);
 
-    // Grid
+    
     const grid = document.createElement('div');
     grid.className = 'install-grid dlc-grid';
     container.appendChild(grid);
 
-    // ===== Sims Installer Card =====
+    
     const simsCard = document.createElement('div');
     simsCard.className = 'app-card fixed-height dlc-card';
     grid.appendChild(simsCard);
@@ -904,7 +947,7 @@ function debug(level, ...args) {
       );
     });
 
-    // ===== EA Unlocker Card =====
+    
     const eaCard = document.createElement('div');
     eaCard.className = 'app-card fixed-height dlc-card';
     grid.appendChild(eaCard);
@@ -959,7 +1002,7 @@ function debug(level, ...args) {
       );
     });
 
-    // ===== Tutorials Section =====
+    
     const tutorialsSection = document.createElement('div');
     tutorialsSection.className = 'dlc-tutorials';
     container.appendChild(tutorialsSection);
@@ -1007,7 +1050,7 @@ function debug(level, ...args) {
     const originalText = button.innerHTML;
     const originalBackground = button.style.background;
 
-    // ΚΡΥΒΟΥΜΕ το status πριν ξεκινήσει - ΜΟΝΟ για errors θα εμφανιστεί
+    
     statusElement.style.display = 'none';
     statusElement.textContent = '';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
@@ -1022,10 +1065,10 @@ function debug(level, ...args) {
 
         switch (data.status) {
           case 'started':
-            // ΔΕΝ εμφανίζουμε status για κανονική progress
+            
             break;
           case 'progress':
-            // ΔΕΝ εμφανίζουμε status για κανονική progress
+            
             button.innerHTML = `⏳ DOWNLOADING... ${data.percent}%`;
             break;
           case 'complete':
@@ -1056,29 +1099,29 @@ function debug(level, ...args) {
                   }, 4000);
 
                 } else {
-                  // Display errors in the terminal UI rather than the in‑card status element
+                  
                   const errMsg = `Extracted but could not run installer: ${exeResult.error}\nPlease try running the installer manually from the extracted folder.`;
-                  // Hide the status element to avoid "status-error" class flashing
+                  
                   statusElement.textContent = '';
-                  // Remove any status classes and hide the element entirely
+                  
                   statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
                   statusElement.style.display = 'none';
-                  // Show an error card with the DLC name as the title
+                  
                   try {
                     showErrorCard(errMsg, { title: dlcName });
                   } catch (_) {
-                    // Fallback: if showErrorCard is unavailable, use statusElement
+                    
                     statusElement.textContent = errMsg;
                     statusElement.classList.add('status-error');
                     statusElement.style.display = 'block';
                   }
-                  // Restore the original button state instead of showing a manual extract button
+                  
                   button.innerHTML = originalText;
                   button.disabled = false;
                   button.style.background = originalBackground;
                 }
               } else {
-                // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
+                
                 statusElement.textContent = 'Trying extraction without password...';
                 const retryResult = await window.api.extractArchive(data.path, '');
 
@@ -1097,7 +1140,7 @@ function debug(level, ...args) {
                       duration: 5000
                     });
 
-                    // Shorter delay for resetting the button state after success
+                    
                     setTimeout(() => {
                       button.innerHTML = originalText;
                       button.disabled = false;
@@ -1105,7 +1148,7 @@ function debug(level, ...args) {
                     }, 4000);
 
                   } else {
-                    // Display errors in the terminal UI rather than the in‑card status element
+                    
                     const errMsg = `Extracted but could not run installer: ${exeResult.error}\nPlease try running the installer manually from the extracted folder.`;
                     statusElement.textContent = '';
                     statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
@@ -1117,16 +1160,16 @@ function debug(level, ...args) {
                       statusElement.classList.add('status-error');
                       statusElement.style.display = 'block';
                     }
-                    // Restore the original button instead of showing a manual extract button
+                    
                     button.innerHTML = originalText;
                     button.disabled = false;
                     button.style.background = originalBackground;
                   }
                 } else {
-                  // Extraction failed after both attempts; report via error container
+                  
                   const errMsg = (retryResult && retryResult.error) || 'Unknown error';
                   const fullMsg = `Extraction failed: ${errMsg}\nThe downloaded file has been opened for manual inspection.`;
-                  // Hide status element
+                  
                   statusElement.textContent = '';
                   statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
                   statusElement.style.display = 'none';
@@ -1134,7 +1177,7 @@ function debug(level, ...args) {
                   try {
                     showErrorCard(fullMsg, { title: dlcName });
                   } catch (_) {
-                    // Fallback to statusElement if necessary
+                    
                     statusElement.textContent = fullMsg;
                     statusElement.classList.add('status-error');
                     statusElement.style.display = 'block';
@@ -1151,16 +1194,16 @@ function debug(level, ...args) {
                 }
               }
             } catch (error) {
-              // Extraction errored; display via error card rather than status element
+              
               const fullMsg = `Extraction failed: ${error.message}\nPlease check the downloaded file manually.`;
-              // Hide status element completely
+              
               statusElement.textContent = '';
               statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
               statusElement.style.display = 'none';
               try {
                 showErrorCard(fullMsg, { title: dlcName });
               } catch (_) {
-                // Fallback to statusElement if error container is unavailable
+                
                 statusElement.textContent = fullMsg;
                 statusElement.classList.add('status-error');
                 statusElement.style.display = 'block';
@@ -1181,10 +1224,10 @@ function debug(level, ...args) {
             break;
 
           case 'error':
-            // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
+            
             statusElement.textContent = `Download error: ${data.error}\nPlease check your internet connection and try again.`;
             statusElement.classList.add('status-error');
-            statusElement.style.display = 'block'; // ΜΟΝΟ ΕΔΩ
+            statusElement.style.display = 'block'; 
             button.innerHTML = originalText;
             button.disabled = false;
             button.style.background = originalBackground;
@@ -1200,14 +1243,14 @@ function debug(level, ...args) {
         }
       });
 
-      // Start download
+      
       try {
         window.api.downloadStart(downloadId, downloadUrl, `${dlcName.replace(/\s+/g, '_')}.zip`);
       } catch (e) {
-        // ΕΜΦΑΝΙΖΟΥΜΕ STATUS ΜΟΝΟ ΓΙΑ ERROR
+        
         statusElement.textContent = `Download failed: ${e.message}\nPlease check your internet connection.`;
         statusElement.classList.add('status-error');
-        statusElement.style.display = 'block'; // ΜΟΝΟ ΕΔΩ
+        statusElement.style.display = 'block'; 
         button.innerHTML = originalText;
         button.disabled = false;
         button.style.background = originalBackground;
@@ -1227,8 +1270,8 @@ function debug(level, ...args) {
       setTimeout(async () => {
         const extractedDir = getExtractedFolderPath(zipPath);
 
-        // Pattern matching based on dlcId.  Using dlcId avoids
-        // translations from interfering with the pattern detection.
+        
+        
         let exePatterns = [];
         if (dlcId === 'sims-installer') {
           exePatterns = [/sims-4-updater-v.*\.exe$/i];
@@ -1263,13 +1306,13 @@ function debug(level, ...args) {
       }, 2000);
     });
   }
-  // Function για εύρεση exe με βάση patterns
+  
   async function findExeByPattern(extractedDir, patterns, dlcName) {
     return new Promise((resolve) => {
       window.api.findExeFiles(extractedDir)
         .then(files => {
           if (files && files.length > 0) {
-            // Προτεραιότητα 1: Αρχεία που ταιριάζουν με τα patterns
+            
             for (const pattern of patterns) {
               const matchingFiles = files.filter(file => {
                 const fileName = getBaseName(file, '');
@@ -1277,7 +1320,7 @@ function debug(level, ...args) {
               });
 
               if (matchingFiles.length > 0) {
-                // Βρες το πιο πιθανό αρχείο (π.χ. μεγαλύτερο, ή με συγκεκριμένα keywords)
+                
                 const bestFile = selectBestExe(matchingFiles, dlcName);
                 return resolve({
                   success: true,
@@ -1287,7 +1330,7 @@ function debug(level, ...args) {
               }
             }
 
-            // Προτεραιότητα 2: Αρχεία με συγκεκριμένα keywords
+            
             const keywordFiles = files.filter(file => {
               const lowerFile = file.toLowerCase();
               return lowerFile.includes('install') ||
@@ -1306,7 +1349,7 @@ function debug(level, ...args) {
               });
             }
 
-            // Προτεραιότητα 3: Πάρε το πρώτο exe
+            
             return resolve({
               success: true,
               exePath: files[0],
@@ -1320,7 +1363,7 @@ function debug(level, ...args) {
         .catch(() => resolve({ success: false, error: 'Error searching for executables' }));
     });
   }
-  // Βοηθητική function για εύρεση του Clip Studio installer
+  
   async function findClipStudioInstaller(extractedDir) {
     return new Promise((resolve) => {
       window.api.findExeFiles(extractedDir)
@@ -1330,7 +1373,7 @@ function debug(level, ...args) {
             return;
           }
 
-          // Προτεραιότητα: files με "clipstudio_crack" ή "install" ή "setup"
+          
           const priorityFiles = files.filter(file => {
             const fileName = getBaseName(file, '').toLowerCase();
             return fileName.includes('clipstudio_crack') ||
@@ -1342,7 +1385,7 @@ function debug(level, ...args) {
           if (priorityFiles.length > 0) {
             resolve(priorityFiles[0]);
           } else {
-            // Αλλιώς πάρε το πρώτο exe
+            
             resolve(files[0]);
           }
         })
@@ -1357,19 +1400,19 @@ function debug(level, ...args) {
         return null;
       }
       const lowerName = (projectName || '').toLowerCase();
-      // Special case: Office uses OInstall executables
+      
       if (lowerName.includes('office')) {
-        // Normalize base names for comparison
+        
         const exact = exeFiles.find(f => getBaseName(f, '').toLowerCase() === 'oinstall_x64');
         if (exact) return exact;
         const prefix = exeFiles.find(f => getBaseName(f, '').toLowerCase().startsWith('oinstall'));
         if (prefix) return prefix;
         return null;
       }
-      // General case: search for files whose base name contains 'set-up' (hyphenated)
+      
       const hyphenated = exeFiles.find(f => getBaseName(f, '').toLowerCase().includes('set-up'));
       if (hyphenated) return hyphenated;
-      // Also handle 'setup' (no hyphen) but ensure we avoid crack/patch/unlock/pop keywords
+      
       const setup = exeFiles.find(f => {
         const base = getBaseName(f, '').toLowerCase();
         return base.includes('setup') &&
@@ -1379,7 +1422,7 @@ function debug(level, ...args) {
           !base.includes('pop');
       });
       if (setup) return setup;
-      // As a safety, look for any file containing 'install' but not crack/patch/unlock/pop
+      
       const install = exeFiles.find(f => {
         const base = getBaseName(f, '').toLowerCase();
         return base.includes('install') &&
@@ -1389,27 +1432,27 @@ function debug(level, ...args) {
           !base.includes('pop');
       });
       if (install) return install;
-      // If none match, return null instead of running an arbitrary executable
+      
       return null;
     } catch (err) {
       return null;
     }
   }
-  // Function για επιλογή του καλύτερου exe από μια λίστα
+  
   function selectBestExe(files, dlcName) {
-    // Score-based selection
+    
     const scoredFiles = files.map(file => {
       const fileName = getBaseName(file, '').toLowerCase();
       let score = 0;
 
-      // Bonus points για συγκεκριμένα keywords
+      
       if (fileName.includes('install')) score += 10;
       if (fileName.includes('setup')) score += 8;
       if (fileName.includes('crack')) score += 6;
       if (fileName.includes('unlock')) score += 6;
       if (fileName.includes('patch')) score += 4;
 
-      // Bonus points για DLC-specific keywords
+      
       if (dlcName === 'Sims Installer') {
         if (fileName.includes('sims')) score += 5;
         if (fileName.includes('updater')) score += 5;
@@ -1418,7 +1461,7 @@ function debug(level, ...args) {
         if (fileName.includes('clipstudio')) score += 5;
       }
 
-      // Penalty για αρχεία με "uninstall", "remove", κλπ
+      
       if (fileName.includes('uninstall')) score -= 20;
       if (fileName.includes('remove')) score -= 15;
       if (fileName.includes('delete')) score -= 15;
@@ -1426,20 +1469,20 @@ function debug(level, ...args) {
       return { file, score, fileName };
     });
 
-    // Ταξινόμηση με βάση το score (σε φθίνουσα σειρά)
+    
     scoredFiles.sort((a, b) => b.score - a.score);
 
-    // Επέστρεψε το αρχείο με το υψηλότερο score
+    
     return scoredFiles[0].file;
   }
-  // Βοηθητική function για path του extracted folder
+  
   function getExtractedFolderPath(zipPath) {
     const parentDir = getDirectoryName(zipPath);
     const baseName = getBaseName(zipPath, '.zip');
     return `${parentDir}/${baseName}`;
   }
 
-  // Βοηθητικές functions για path manipulation
+  
   function getDirectoryName(filePath) {
     if (filePath.includes('\\')) {
       return filePath.substring(0, filePath.lastIndexOf('\\'));
@@ -1461,7 +1504,7 @@ function debug(level, ...args) {
     return fileName;
   }
 
-  // Βοηθητική function για προσθήκη κουμπιού ανοίγματος φακέλου
+  
   function addOpenFolderButton(button, zipPath, dlcName) {
     const extractedDir = getExtractedFolderPath(zipPath);
 
@@ -1489,17 +1532,17 @@ function debug(level, ...args) {
     }
   }
 
-  // Νέα function για activate download και execution
+  
   async function downloadAndRunActivate(button, statusElement) {
     button.disabled = true;
     const originalText = button.textContent;
-    // Preserve original text so we can restore it later
+    
     button.dataset.originalTextActivate = originalText;
-    // Hide the status element for progress; it will only be shown for critical errors
+    
     statusElement.style.display = 'none';
     statusElement.textContent = '';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
-    // Provide immediate feedback that the process is starting
+    
     button.textContent = 'Preparing activation...';
 
     const downloadId = `activate-${Date.now()}`;
@@ -1511,25 +1554,25 @@ function debug(level, ...args) {
 
         switch (data.status) {
           case 'started':
-            // update progress on the button
+            
             button.textContent = 'Downloading activation script... 0%';
             break;
           case 'progress':
             button.textContent = `Downloading activation script... ${data.percent}%`;
             break;
           case 'complete': {
-            // Update text while running the script
+            
             button.textContent = 'Running activation script...';
-            // Execute the bat file
+            
             window.api.openFile(data.path)
               .then((result) => {
                 if (result.success) {
-                  // On success, simply show a final state on the button
+                  
                   button.textContent = 'Activation Started';
                   statusElement.textContent = '';
                   statusElement.style.display = 'none';
                 } else {
-                  // On failure, revert button and show toast
+                  
                   button.textContent = originalText;
                   statusElement.textContent = '';
                   statusElement.style.display = 'none';
@@ -1550,7 +1593,7 @@ function debug(level, ...args) {
             break;
           }
           case 'error':
-            // Show error via toast and revert button
+            
             button.textContent = originalText;
             button.disabled = false;
             statusElement.textContent = '';
@@ -1562,11 +1605,11 @@ function debug(level, ...args) {
         }
       });
 
-      // Start download
+      
       try {
         window.api.downloadStart(downloadId, activateUrl, 'activate.bat');
       } catch (e) {
-        // On exception during download start, revert button and hide status
+        
         button.textContent = originalText;
         button.disabled = false;
         statusElement.textContent = '';
@@ -1578,17 +1621,17 @@ function debug(level, ...args) {
     });
   }
 
-  // Νέα function για autologin download και execution
+  
   async function downloadAndRunAutologin(button, statusElement) {
     button.disabled = true;
     const originalText = button.textContent;
-    // Preserve original text so it can be restored later
+    
     button.dataset.originalTextAutologin = originalText;
-    // Hide the status element; progress will be shown on the button
+    
     statusElement.style.display = 'none';
     statusElement.textContent = '';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
-    // Provide immediate feedback that the process is starting
+    
     button.textContent = 'Preparing auto login...';
 
     const downloadId = `autologin-${Date.now()}`;
@@ -1600,25 +1643,25 @@ function debug(level, ...args) {
 
         switch (data.status) {
           case 'started':
-            // update progress on the button
+            
             button.textContent = 'Downloading auto login tool... 0%';
             break;
           case 'progress':
             button.textContent = `Downloading auto login tool... ${data.percent}%`;
             break;
           case 'complete': {
-            // update text while running the tool
+            
             button.textContent = 'Running auto login setup...';
 
             window.api.openFile(data.path)
               .then((result) => {
                 if (result.success) {
-                  // On success, display finished state
+                  
                   button.textContent = 'Auto Login Started';
                   statusElement.textContent = '';
                   statusElement.style.display = 'none';
                 } else {
-                  // On failure, revert and show toast
+                  
                   button.textContent = originalText;
                   statusElement.textContent = '';
                   statusElement.style.display = 'none';
@@ -1639,7 +1682,7 @@ function debug(level, ...args) {
             break;
           }
           case 'error':
-            // show error toast and revert button
+            
             button.textContent = originalText;
             button.disabled = false;
             statusElement.textContent = '';
@@ -1651,11 +1694,11 @@ function debug(level, ...args) {
         }
       });
 
-      // Start download
+      
       try {
         window.api.downloadStart(downloadId, autologinUrl, 'auto_login.exe');
       } catch (e) {
-        // On exception during download start, revert button and hide status
+        
         button.textContent = originalText;
         button.disabled = false;
         statusElement.textContent = '';
@@ -1666,36 +1709,36 @@ function debug(level, ...args) {
       }
     });
   }
-  // Build settings page with language and theme selectors
+  
   function buildSettingsPage() {
-    // Settings page has been removed.  Return an empty container to satisfy any legacy references
-    // without including obsolete controls.
+    
+    
     const container = document.createElement('div');
     return container;
   }
 
-  // Fixed function to open installer
+  
   const openInstaller = async (app, filePath, status, index) => {
     try {
-      // Show progress via toast instead of the status element
+      
       toast('Opening installer...', { type: 'success' });
 
-      // Use the new openFile method
+      
       const result = await window.api.openFile(filePath);
 
       if (result.success) {
-        // Notify successful launch via toast instead of updating the status element
+        
         toast('Installer opened successfully!', { type: 'success' });
       } else {
         throw new Error(result.error);
       }
 
     } catch (err) {
-      // Display the error using a toast and avoid populating the status element
+      
       toast(`Error: ${err.message}`, { type: 'error' });
       debug('error', 'Error opening installer:', err);
     } finally {
-      // Always mark as complete and clean up
+      
       const download = activeDownloads.get(index);
       if (download) {
         download.status = 'complete';
@@ -1704,20 +1747,20 @@ function debug(level, ...args) {
       checkAllComplete();
     }
   };
-  // ---- Toasts (bottom-right) ----
+  
   function ensureToastContainer() {
     let c = document.getElementById('toast-container');
     if (!c) { c = document.createElement('div'); c.id = 'toast-container'; document.body.appendChild(c); }
     return c;
   }
 
-  // Ensure the container used for error cards exists, creating it on demand.
+  
   function ensureErrorContainer() {
     let c = document.getElementById('error-container');
     if (!c) {
       c = document.createElement('div');
       c.id = 'error-container';
-      // Positioning is handled via CSS (#error-container styles)
+      
       document.body.appendChild(c);
     }
     return c;
@@ -1727,19 +1770,12 @@ function debug(level, ...args) {
   let errorPaletteIndex = 0;
   const errorBulletColours = ['#575757', '#e34ba9', '#80b1ff', '#f59e0b', '#10b981'];
 
-  /**
-   * Display an error message using a terminal‑style card in the bottom right.
-   * Each call will append a new card to the error container.  Cards will
-   * automatically fade out and remove themselves after a short delay.
-   *
-   * @param {string} msg - The error message to display.
-   * @param {object} [opts] - Optional parameters: title and duration.
-   */
+  
   function showErrorCard(msg, opts = {}) {
     const { title = 'Error', duration = 6000 } = opts;
-    // Normalise the message to a string.  If it contains newline characters,
-    // split into separate lines and add each line individually.  This
-    // prevents messages containing '\n' from being rendered on a single line.
+    
+    
+    
     msg = String(msg);
     if (msg.includes('\n')) {
       const parts = msg.split(/\n+/).filter(p => p.trim() !== '');
@@ -1750,26 +1786,26 @@ function debug(level, ...args) {
     }
     const container = ensureErrorContainer();
 
-    // If a card already exists and is still connected, append the new message
+    
     if (currentErrorCard && currentErrorCard.isConnected) {
-      // Determine the colour for the leading dash, cycling through the palette
+      
       const bulletColour = errorBulletColours[errorPaletteIndex % errorBulletColours.length];
       errorPaletteIndex++;
-      // Create a new line container for the message
+      
       const line = document.createElement('div');
       line.className = 'error-line';
-      // Create the dash and message spans
+      
       const dashSpan = document.createElement('span');
       dashSpan.textContent = '- ';
       dashSpan.style.color = bulletColour;
       const msgSpan = document.createElement('span');
       msgSpan.className = 'error-msg';
       msgSpan.textContent = msg;
-      // Assemble the line
+      
       line.appendChild(dashSpan);
       line.appendChild(msgSpan);
       currentErrorCard.bodyEl.appendChild(line);
-      // Update the copy button handler to include all messages
+      
       currentErrorCard.copyBtn.onclick = () => {
         try {
           const text = currentErrorCard.bodyEl.innerText.replace(/\n+$/g, '');
@@ -1782,8 +1818,8 @@ function debug(level, ...args) {
       return;
     }
 
-    // Otherwise create a new card from scratch
-    // Build the card structure
+    
+    
     const card = document.createElement('div');
     card.className = 'error-card';
 
@@ -1793,12 +1829,12 @@ function debug(level, ...args) {
     const terminal = document.createElement('div');
     terminal.className = 'error-terminal';
 
-    // Header with Terminal icon and close button
+    
     const head = document.createElement('div');
     head.className = 'error-head';
     const titleEl = document.createElement('p');
     titleEl.className = 'error-title';
-    // Terminal icon (blue arrow in square)
+    
     const termIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     termIcon.setAttribute('viewBox', '0 0 24 24');
     termIcon.setAttribute('width', '16px');
@@ -1814,10 +1850,10 @@ function debug(level, ...args) {
     titleEl.appendChild(termIcon);
     titleEl.appendChild(document.createTextNode(' Terminal'));
     head.appendChild(titleEl);
-    // Copy button
+    
     const copyBtn = document.createElement('button');
     copyBtn.className = 'error-copy';
-    // Clipboard icon
+    
     const copySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     copySvg.setAttribute('viewBox', '0 0 24 24');
     copySvg.setAttribute('width', '16px');
@@ -1834,10 +1870,10 @@ function debug(level, ...args) {
     copySvg.appendChild(cp1);
     copySvg.appendChild(cp2);
     copyBtn.appendChild(copySvg);
-    // Close button
+    
     const closeBtn = document.createElement('button');
     closeBtn.className = 'error-close';
-    // Close icon (simple X)
+    
     const closeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     closeSvg.setAttribute('viewBox', '0 0 24 24');
     closeSvg.setAttribute('width', '16px');
@@ -1854,16 +1890,16 @@ function debug(level, ...args) {
     closeSvg.appendChild(cPath1);
     closeSvg.appendChild(cPath2);
     closeBtn.appendChild(closeSvg);
-    // Assemble header: copy and close are appended after the title
+    
     head.appendChild(copyBtn);
     head.appendChild(closeBtn);
-    // Body: container for error lines
+    
     const body = document.createElement('div');
     body.className = 'error-body';
-    // Determine colour for first message dash
+    
     const firstColour = errorBulletColours[errorPaletteIndex % errorBulletColours.length];
     errorPaletteIndex++;
-    // Create first line
+    
     const firstLine = document.createElement('div');
     firstLine.className = 'error-line';
     const firstDash = document.createElement('span');
@@ -1875,16 +1911,16 @@ function debug(level, ...args) {
     firstLine.appendChild(firstDash);
     firstLine.appendChild(firstMsg);
     body.appendChild(firstLine);
-    // Assemble elements
+    
     terminal.appendChild(head);
     terminal.appendChild(body);
     wrap.appendChild(terminal);
     card.appendChild(wrap);
     container.appendChild(card);
-    // Store references on the card for reuse
+    
     card.bodyEl = body;
     card.copyBtn = copyBtn;
-    // Copy entire body content
+    
     copyBtn.onclick = () => {
       try {
         const text = card.bodyEl.innerText.replace(/\n+$/g, '');
@@ -1894,38 +1930,18 @@ function debug(level, ...args) {
         toast('Failed to copy', { type: 'error', title: 'Clipboard' });
       }
     };
-    // Close handler removes the card and clears currentErrorCard
+    
     closeBtn.onclick = () => {
       card.remove();
       currentErrorCard = null;
     };
-    // Assign the newly created card to the global reference
+    
     currentErrorCard = card;
 
-    // No auto dismissal; users must close manually
+    
   }
-  /**
-   * Display a transient notification in the bottom right corner of the screen.  This
-   * simplified toast implementation only surfaces error messages. Success,
-   * warning and info messages are ignored entirely to prevent unnecessary UI
-   * clutter. Progress bars have been removed to focus on the message content
-   * itself. A close button is always provided so the user can dismiss the
-   * notification manually.  Notifications will auto‑dismiss after the
-   * specified duration.
-   *
-   * @param {string} msg The body of the message to display.
-   * @param {object} opts Optional settings: title, type and duration.
-   */
-  /**
-   * Display a toast notification. Only error types are shown by default.
-   * Success toasts can be triggered, but non‑error types are ignored to
-   * avoid cluttering the UI. The markup for each toast is structured
-   * similarly to UIverse components: an icon in a coloured circle,
-   * followed by a title and message, and a close button on the far right.
-   *
-   * @param {string} msg - The body text of the toast.
-   * @param {Object} opts - Optional parameters: type, title, duration.
-   */
+  
+  
   function toast(msg, opts = {}) {
     const { title = '', type = 'info', duration = 4000 } = opts;
 
@@ -1934,25 +1950,25 @@ function debug(level, ...args) {
       return null;
     }
 
-    // For non-error types, ignore info and warning messages to reduce UI clutter
+    
     if (type !== 'success') {
       return null;
     }
 
     const container = ensureToastContainer();
 
-    // Create the outer toast element and apply a type‑specific class
+    
     const toastEl = document.createElement('div');
     toastEl.className = `toast toast-${type}`;
 
-    // Wrapper for the icon. Use a coloured circular backdrop similar
-    // to the UIverse examples. The icon itself will be inserted
-    // based on the toast type.
+    
+    
+    
     const iconWrapper = document.createElement('div');
     iconWrapper.className = 'toast-icon-wrapper';
 
-    // Determine the SVG icon to use
-    let svg; // will hold an inline SVG element
+    
+    let svg; 
     if (type === 'error') {
       svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svg.setAttribute('viewBox', '0 0 24 24');
@@ -1980,7 +1996,7 @@ function debug(level, ...args) {
       iconWrapper.appendChild(svg);
     }
 
-    // Container for title and message
+    
     const content = document.createElement('div');
     content.className = 'toast-content';
     if (title) {
@@ -1994,14 +2010,14 @@ function debug(level, ...args) {
     messageEl.textContent = msg;
     content.appendChild(messageEl);
 
-    // Close button
+    
     const closeBtn = document.createElement('button');
     closeBtn.className = 'toast-close';
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.textContent = '×';
     closeBtn.onclick = () => dismissToast(toastEl);
 
-    // Assemble toast
+    
     toastEl.appendChild(iconWrapper);
     toastEl.appendChild(content);
     toastEl.appendChild(closeBtn);
@@ -2011,7 +2027,7 @@ function debug(level, ...args) {
     if (duration > 0) {
       timeout = setTimeout(() => dismissToast(toastEl), duration);
     }
-    // Pause auto‑dismiss when hovering
+    
     toastEl.addEventListener('mouseenter', () => {
       if (timeout) {
         clearTimeout(timeout);
@@ -2034,13 +2050,23 @@ function debug(level, ...args) {
       }
     }, 300);
   }
-  // ---- INSTALL APPS (fixed) ----
+  
   async function buildInstallPage() {
-    const container = document.createElement('div'); container.className = 'card';
-    const title = document.createElement('h2'); title.textContent = (translations.pages && translations.pages.install_title) || 'Install Applications'; container.appendChild(title);
-    const desc = document.createElement('p'); desc.textContent = (translations.pages && translations.pages.install_desc) || 'Select apps to download. We will open each installer automatically after the download finishes.'; container.appendChild(desc);
+    
+    
+    
+    
+    const container = document.createElement('div');
+    container.className = 'card';
+    const desc = document.createElement('p');
+    desc.textContent = (translations.pages && translations.pages.install_desc) ||
+      'Select apps to download. We will open each installer automatically after the download finishes.';
+    
+    desc.style.marginBottom = '1rem';
+    desc.style.opacity = '0.8';
+    container.appendChild(desc);
 
-    // Λίστα εφαρμογών - όλα σε μία γραμμή το καθένα
+    
     const apps = [
       { name: translations.apps?.betterdiscord?.name || 'BetterDiscord', description: translations.apps?.betterdiscord?.description || 'Enhanced Discord client', url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&st=kd8njdce&dl=1', ext: 'exe' },
       { name: translations.apps?.discord_ptb?.name || 'Discord PTB', description: translations.apps?.discord_ptb?.description || 'Public Test Build of Discord', url: 'https://www.dropbox.com/scl/fi/aaqzyvha72wjhmlbkaisf/discord_ptb.exe?rlkey=jandm03y74hsx8vmt3bf9enub&st=syrb9gxp&dl=1', ext: 'exe' },
@@ -2051,19 +2077,19 @@ function debug(level, ...args) {
       { name: translations.apps?.advanced_installer?.name || 'Advanced Installer', description: translations.apps?.advanced_installer?.description || 'Professional Windows installer authoring tool', url: 'https://www.dropbox.com/scl/fi/nx5ced8mt2t5mye4tus6j/Advanced-Installer-Architect-23.1.0.zip?rlkey=2bre9u83d9lfdvhhz778nvr04&st=cgpe2npr&dl=1', ext: 'zip', isAdvancedInstaller: true }
     ];
 
-    // Αυτόματη ταξινόμηση αλφαβητικά
+    
     const sortedApps = [...apps].sort((a, b) => a.name.localeCompare(b.name));
 
     const list = document.createElement('ul'); list.style.listStyle = 'none'; list.style.padding = '0'; list.style.margin = '0';
 
-    // Χρήση των sortedApps
+    
     sortedApps.forEach((app, i) => {
       const li = document.createElement('li');
       li.className = 'app-list-item';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.id = `app-${i}`;
-      // Use a CSS class to control spacing, sizing and accent colour via styles.css
+      
       cb.className = 'app-checkbox';
       const label = document.createElement('label'); label.htmlFor = cb.id; label.style.flex = '1'; label.style.display = 'flex'; label.style.alignItems = 'center';
       const text = document.createElement('div'); const n = document.createElement('span'); n.textContent = app.name; n.style.fontWeight = '600'; n.style.fontSize = '1.1rem'; const p = document.createElement('p'); p.textContent = app.description; p.style.margin = '0'; p.style.opacity = '0.8'; p.style.fontSize = '0.9rem'; text.append(n, p); label.append(text);
@@ -2079,15 +2105,15 @@ function debug(level, ...args) {
     btn.onclick = async () => {
       if (running) return;
       running = true;
-      // Preserve original button text for later restoration
+      
       if (!btn.dataset.originalText) {
         btn.dataset.originalText = btn.textContent;
       }
       btn.disabled = true;
-      // Indicate that we are preparing downloads instead of immediately starting
+      
       btn.textContent = 'Preparing downloads...';
 
-      // Χρήση sortedApps για να βρούμε το σωστό app
+      
       const selected = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => {
         const index = parseInt(cb.id.split('-')[1]);
         return sortedApps[index];
@@ -2105,7 +2131,7 @@ function debug(level, ...args) {
         const index = sortedApps.findIndex(a => a.name === app.name);
         const li = list.children[index];
         const status = li.querySelector('pre');
-        // Hide status element during progress; it will only be used for errors
+        
         status.textContent = '';
         status.style.display = 'none';
         const id = `install-${app.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
@@ -2120,27 +2146,27 @@ function debug(level, ...args) {
             }
 
             if (data.status === 'started') {
-              // Show progress on the main button
+              
               btn.textContent = `Downloading ${app.name}... 0%`;
             } else if (data.status === 'progress') {
               btn.textContent = `Downloading ${app.name}... ${data.percent}%`;
             } else if (data.status === 'complete') {
-              // Indicate completion and opening installer
+              
               btn.textContent = `Opening ${app.name}...`;
               unsubscribe();
 
               try {
-                // Special processing for Advanced Installer
+                
                 if (app.isAdvancedInstaller) {
                   await processAdvancedInstaller(data.path, status, app.name);
                 } else {
-                  // Normal processing for other applications
+                  
                   await window.api.openInstaller(data.path);
-                  // Set a friendly message on the button
+                  
                   btn.textContent = `${app.name} Installer Started`;
                 }
               } catch (error) {
-                // On error, revert the button and show error toast
+                
                 btn.textContent = btn.dataset.originalText || btn.textContent;
                 status.textContent = '';
                 status.style.display = 'none';
@@ -2150,12 +2176,12 @@ function debug(level, ...args) {
                 });
               }
 
-              // Optionally fade any visible status (should be hidden during progress)
+              
               autoFadeStatus(status, 3000);
               resolve();
 
             } else if (data.status === 'error') {
-              // On download error, restore the button to its original text
+              
               btn.textContent = btn.dataset.originalText || btn.textContent;
               status.textContent = '';
               status.style.display = 'none';
@@ -2169,11 +2195,11 @@ function debug(level, ...args) {
             }
           });
 
-          // Start download
+          
           try {
             window.api.downloadStart(id, app.url, `${app.name}.${app.ext}`);
           } catch (e) {
-            // On exception, restore button and hide status
+            
             btn.textContent = btn.dataset.originalText || btn.textContent;
             status.textContent = '';
             status.style.display = 'none';
@@ -2186,10 +2212,10 @@ function debug(level, ...args) {
             resolve();
           }
 
-          // Timeout handler
+          
           timeout = setTimeout(() => {
             timeout = null;
-            // On timeout, restore button and notify
+            
             btn.textContent = btn.dataset.originalText || btn.textContent;
             status.textContent = '';
             status.style.display = 'none';
@@ -2204,22 +2230,22 @@ function debug(level, ...args) {
         });
       };
 
-      // Launch all downloads concurrently
+      
       const promises = selected.map((app) => handleDownload(app));
       await Promise.all(promises);
-      // When all downloads complete, restore the original button state without showing a success notification
+      
       running = false;
       btn.disabled = false;
       btn.textContent = btn.dataset.originalText || ((translations.actions && translations.actions.download_selected) || 'Download Selected');
     };
     return container;
   }
-  // Συνάρτηση για επεξεργασία του Advanced Installer
+  
   async function processAdvancedInstaller(zipPath, statusElement, appName) {
     statusElement.textContent = 'Extracting Advanced Installer...';
 
     try {
-      // Extract το zip αρχείο
+      
       const extractResult = await window.api.extractArchive(zipPath, '');
 
       if (!extractResult.success) {
@@ -2228,17 +2254,17 @@ function debug(level, ...args) {
 
       statusElement.textContent = 'Extraction complete!';
 
-      // Βρες το extracted directory
+      
       const extractedDir = getExtractedFolderPath(zipPath);
 
-      // Συγκεκριμένα paths
+      
       const msiPath = `${extractedDir}\\advinst.msi`;
       const activatorPath = `${extractedDir}\\Advanced Installer Activator.exe`;
 
       debug('info', 'MSI Path:', msiPath);
       debug('info', 'Activator Path:', activatorPath);
 
-      // Έλεγχος ύπαρξης αρχείων με διαφορετικό τρόπο
+      
       const filesExist = await checkFilesExist([msiPath, activatorPath]);
 
       if (!filesExist.msiExists) {
@@ -2251,7 +2277,7 @@ function debug(level, ...args) {
 
       statusElement.textContent = 'Starting Advanced Installer setup...';
 
-      // Εκτέλεση του advinst.msi ΜΟΝΟ ΜΙΑ ΦΟΡΑ
+      
       debug('info', 'Running MSI installer...');
       const installResult = await window.api.runInstaller(msiPath);
 
@@ -2262,7 +2288,7 @@ function debug(level, ...args) {
       statusElement.textContent = '✅ Advanced Installer setup started! Complete the installation.';
       statusElement.classList.add('status-success');
 
-      // Compact κουμπί δεξιά
+      
       const activatorButton = document.createElement('button');
       activatorButton.className = 'button activator-button';
       activatorButton.innerHTML = '🔓 Activate';
@@ -2324,7 +2350,7 @@ function debug(level, ...args) {
         }
       });
 
-      // Προσθήκη compact κουμπιού
+      
       const card = statusElement.closest('li');
       if (card) {
         const oldButton = card.querySelector('.activator-button');
@@ -2362,7 +2388,7 @@ function debug(level, ...args) {
     }
   }
 
-  // Βοηθητική συνάρτηση για έλεγχο ύπαρξης αρχείων (χωρίς εκτέλεση)
+  
   async function checkFilesExist(filePaths) {
     return new Promise((resolve) => {
       const results = {
@@ -2373,7 +2399,7 @@ function debug(level, ...args) {
       let completed = 0;
 
       filePaths.forEach(filePath => {
-        // Χρήση fetch για έλεγχο ύπαρξης χωρίς εκτέλεση
+        
         fetch(`file:///${filePath}`)
           .then(() => {
             if (filePath.includes('advinst.msi')) {
@@ -2392,14 +2418,14 @@ function debug(level, ...args) {
     });
   }
 
-  // Βοηθητική συνάρτηση για path του extracted folder
+  
   function getExtractedFolderPath(zipPath) {
     const parentDir = getDirectoryName(zipPath);
     const baseName = getBaseName(zipPath, '.zip');
     return `${parentDir}\\${baseName}`;
   }
 
-  // Βοηθητικές functions για path manipulation
+  
   function getDirectoryName(filePath) {
     if (filePath.includes('\\')) {
       return filePath.substring(0, filePath.lastIndexOf('\\'));
@@ -2420,7 +2446,7 @@ function debug(level, ...args) {
     }
     return fileName;
   }
-  // Βοηθητική συνάρτηση για έλεγχο ύπαρξης αρχείων (χωρίς εκτέλεση)
+  
   async function checkFilesExist(filePaths) {
     return new Promise((resolve) => {
       const results = {
@@ -2431,7 +2457,7 @@ function debug(level, ...args) {
       let completed = 0;
 
       filePaths.forEach(filePath => {
-        // Χρήση fetch για έλεγχο ύπαρξης χωρίς εκτέλεση
+        
         fetch(`file:///${filePath}`)
           .then(() => {
             if (filePath.includes('advinst.msi')) {
@@ -2450,8 +2476,8 @@ function debug(level, ...args) {
     });
   }
 
-  // Build Spicetify page
-  /* === Spicetify SVG icons (exact paths; now width/height = 36) === */
+  
+  
   const ICON_INSTALL_SPICETIFY = `
 <svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="56" height="56" viewBox="0 0 320.000000 400.000000" preserveAspectRatio="xMidYMid meet">
 <metadata>Created by potrace 1.10, written by Peter Selinger 2001-2011</metadata>
@@ -2524,11 +2550,11 @@ function debug(level, ...args) {
     pageDesc.style.marginBottom = '1.5rem';
     container.appendChild(pageDesc);
 
-    // Grid: δύο στήλες στο πάνω row, full-width το κάτω
+    
     const grid = document.createElement('div');
     grid.className = 'install-grid';
 
-    // Output
+    
     const outputPre = document.createElement('pre');
     outputPre.className = 'status-pre';
 
@@ -2580,7 +2606,7 @@ function debug(level, ...args) {
       return header;
     }
 
-    // Card factory
+    
     const makeCard = (svg, title, desc, btnLabel, onClick) => {
       const card = document.createElement('div');
       card.className = 'app-card';
@@ -2593,7 +2619,7 @@ function debug(level, ...args) {
       return card;
     };
 
-    // Top row: Install | Uninstall
+    
     const installCard = makeCard(
       ICON_INSTALL_SPICETIFY,
       translations.actions?.install_spicetify || 'Install Spicetify',
@@ -2620,7 +2646,7 @@ function debug(level, ...args) {
       )
     );
 
-    // Bottom row: Full uninstall spans both columns
+    
     const fullUninstallCard = makeCard(
       ICON_FULL_UNINSTALL_SPOTIFY,
       translations.actions?.full_uninstall_spotify || 'Full Uninstall Spotify',
@@ -2635,7 +2661,7 @@ function debug(level, ...args) {
     );
     fullUninstallCard.classList.add('full-span');
 
-    // Assemble
+    
     grid.appendChild(installCard);
     grid.appendChild(uninstallCard);
     grid.appendChild(fullUninstallCard);
@@ -2645,11 +2671,21 @@ function debug(level, ...args) {
     return container;
   }
 
-  // Build crack installer page - more compact grid with progress and pause
+  
   async function buildCrackInstallerPage() {
-    // Provide a meaningful description for the crack installer page instead of leaving it blank.
+    
     const crackDesc = (translations.pages && translations.pages.crack_desc) || 'Download backups of your projects from Dropbox';
-    const container = createCard('crack_title', crackDesc);
+    
+    
+    
+    
+    const container = document.createElement('div');
+    container.className = 'card';
+    const pageDesc = document.createElement('p');
+    pageDesc.textContent = crackDesc;
+    pageDesc.style.opacity = '0.8';
+    pageDesc.style.marginBottom = '1.5rem';
+    container.appendChild(pageDesc);
     const projects = [
       {
         key: 'clip_studio_paint',
@@ -2702,15 +2738,15 @@ function debug(level, ...args) {
       }
     ];
     const grid = document.createElement('div');
-    grid.className = 'install-grid crack-grid'; // Added class for specific styling
-    // Reduce the gap between cards and adjust minimum card width to minimize unused space
+    grid.className = 'install-grid crack-grid'; 
+    
     grid.style.gap = '0.25rem';
     grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
     projects.forEach((project) => {
       const { key, fallbackName, desc, url, icon } = project;
-      // Resolve the display name and description from translations if available, otherwise use fallback values.
+      
       const name = (translations.apps && translations.apps[key] && translations.apps[key].name) || fallbackName;
-      // Do not display individual descriptions within each card. We only show the page-level description above.
+      
       const description = '';
 
       const card = document.createElement('div');
@@ -2721,7 +2757,7 @@ function debug(level, ...args) {
       img.src = icon;
       img.alt = name;
       img.className = 'app-icon';
-      // Enforce consistent dimensions for all icons within the crack installer
+      
       img.style.width = '48px';
       img.style.height = '48px';
       img.style.objectFit = 'contain';
@@ -2734,10 +2770,15 @@ function debug(level, ...args) {
       p.textContent = '';
       const btn = document.createElement('button');
       btn.className = 'button';
-      // Prefix the download button label with a localized verb if available.
+      
+      
+      
+      
+      
+      
       const downloadLabel = (translations.actions && translations.actions.download) || 'Download';
-      btn.textContent = `${downloadLabel} ${name}`;
-      // Store the original button text so we can restore it after installation
+      btn.textContent = downloadLabel;
+      
       btn.dataset.originalText = btn.textContent;
       const status = document.createElement('pre');
       status.className = 'status-pre';
@@ -2747,7 +2788,7 @@ function debug(level, ...args) {
       const progressBar = document.createElement('div');
       progressBar.className = 'progress-bar';
       progressBar.style.width = '100%';
-      progressBar.style.height = '6px'; // Compact height
+      progressBar.style.height = '6px'; 
       progressBar.style.background = 'var(--border-color)';
       progressBar.style.borderRadius = '3px';
       progressBar.style.overflow = 'hidden';
@@ -2761,7 +2802,7 @@ function debug(level, ...args) {
       const pauseBtn = document.createElement('button');
       pauseBtn.className = 'button button-secondary';
       pauseBtn.textContent = 'Pause';
-      pauseBtn.style.padding = '0.5rem 1rem'; // Compact
+      pauseBtn.style.padding = '0.5rem 1rem'; 
       pauseBtn.style.display = 'none';
 
       const cancelBtn = document.createElement('button');
@@ -2777,54 +2818,54 @@ function debug(level, ...args) {
       controls.appendChild(pauseBtn);
       controls.appendChild(cancelBtn);
 
-      // Extra button for Clip Studio to replace the executable. It will be inserted
-      // alongside the download button rather than inside the controls container.
+      
+      
       const replaceBtn = document.createElement('button');
       replaceBtn.className = 'button button-secondary';
       replaceBtn.textContent = 'Replace EXE';
-      // Narrower width – allow it to size to its content
+      
       replaceBtn.style.minWidth = 'auto';
       replaceBtn.style.width = 'auto';
       replaceBtn.style.padding = '0.5rem 0.75rem';
       replaceBtn.style.display = 'none';
-      // Identify the Clip Studio card using its key rather than the translated name.
+      
       const isClipStudio = key === 'clip_studio_paint';
-      // Mark this card as part of the crack installer so we can apply custom fade logic
+      
       card.dataset.crackCard = 'true';
-      // Use the project key to build a stable downloadId irrespective of translation.
+      
       const downloadId = `crack-${key}-${Date.now()}`;
       let isPaused = false;
       let unsubscribe;
 
-      // SIMPLE REPLACE BUTTON - WITH Clip_Studio FOLDER
-      // Αντικατάσταση του replace button event listener
+      
+      
       replaceBtn.addEventListener('click', async () => {
         const cardId = `crack-${key}`;
         trackProcess(cardId, 'replace', replaceBtn, status);
 
         replaceBtn.disabled = true;
         replaceBtn.textContent = 'Replacing...';
-        // Ensure the status element is visible when replacement starts so that
-        // error or progress messages are displayed to the user.  It may have
-        // been hidden during download/extraction.
+        
+        
+        
         status.style.display = '';
-        // Show replacement start via toast instead of updating the status element
+        
         toast('Starting replacement process...', { type: 'success', title: 'Replace EXE' });
 
         try {
           const sourcePath = 'C:\\Users\\%USERNAME%\\Downloads\\Clip_Studio\\CLIPStudioPaint.exe';
           const targetPath = 'C:\\Program Files\\CELSYS\\CLIP STUDIO 1.5\\CLIP STUDIO PAINT\\CLIPStudioPaint.exe';
 
-          // Notify the user about the UAC prompt via toast instead of the status element
+          
           toast('Requesting Administrator privileges...\n⚠️ Please accept the UAC prompt', { type: 'error', title: 'Replace EXE' });
 
           const result = await window.api.replaceExe(sourcePath, targetPath);
 
           if (result.success) {
-            // Do not update the status element; rely on the existing success toast instead
+            
             status.classList.add('status-success');
 
-            // ΟΛΟΚΛΗΡΩΣΗ REPLACE PROCESS ΜΕ ΕΠΙΤΥΧΙΑ
+            
             completeProcess(cardId, 'replace', true);
 
             toast('Clip Studio crack applied successfully!', {
@@ -2832,7 +2873,7 @@ function debug(level, ...args) {
               title: 'Crack Installer'
             });
           } else {
-            // Handle specific error codes returned from main process
+            
             if (result.code === 'SRC_MISSING') {
               toast('Patch file not found. Please re-download the installer or check your antivirus.', {
                 type: 'error',
@@ -2846,26 +2887,26 @@ function debug(level, ...args) {
             } else if (result.code === 'UAC_DENIED') {
               showManualReplacementInstructions(sourcePath, targetPath);
             } else {
-              // Show the failure message via toast when no specific error code matches
+              
               toast(`Replacement failed: ${result.error}`, { type: 'error', title: 'Replace EXE' });
             }
             status.classList.add('status-error');
 
-            // ΟΛΟΚΛΗΡΩΣΗ REPLACE PROCESS ΜΕ ΑΠΟΤΥΧΙΑ
+            
             completeProcess(cardId, 'replace', false);
           }
         } catch (error) {
-          // Display any error from the replacement process via toast instead of updating the status element
+          
           toast(`Replacement failed: ${error.message}`, { type: 'error', title: 'Replace EXE' });
           status.classList.add('status-error');
           completeProcess(cardId, 'replace', false);
         }
       });
-      // Βοηθητική function για replacement
+      
       async function performReplacement(targetPath, sourceDir, statusElement, button) {
         statusElement.textContent = 'Finding patch executable...';
 
-        // Αναζήτηση για το clipstudio_crack.exe
+        
         const crackFiles = await window.api.findExeFiles(sourceDir);
         const crackExe = crackFiles.find(file =>
           file.toLowerCase().includes('clipstudio_crack') ||
@@ -2877,11 +2918,11 @@ function debug(level, ...args) {
           throw new Error('Crack executable not found in extracted files');
         }
 
-        // Derive the filename from the target path for display
+        
         const fileName = targetPath.split('\\').pop();
         statusElement.textContent = `Replacing ${fileName}...`;
 
-        // Perform the replacement using the exposed API
+        
         const result = await window.api.replaceExe(crackExe, targetPath);
 
         if (result.success) {
@@ -2896,33 +2937,33 @@ function debug(level, ...args) {
             duration: 5000
           });
 
-          // Fade the status after 3 seconds
+          
           autoFadeStatus(statusElement, 3000);
         } else {
           throw new Error(result.error || 'Unknown error during replacement');
         }
       }
-      // Αντικατάσταση του event listener για Clip Studio
+      
       btn.addEventListener('click', () => {
         if (unsubscribe) unsubscribe();
 
         const cardId = `crack-${key}`;
         trackProcess(cardId, 'download', btn, status);
 
-        // Disable button and prepare for download
+        
         btn.disabled = true;
-        // Preserve the original button text so we can restore it later if needed
+        
         if (!btn.dataset.originalTextCrack) {
           btn.dataset.originalTextCrack = btn.textContent;
         }
-        // Show initial preparation state on the button
+        
         btn.textContent = 'Preparing download...';
-        // Hide the status element during progress; it will only be used for errors
+        
         status.textContent = '';
         status.style.display = 'none';
-        // Hide the progress bar, as progress will be indicated on the button itself
+        
         progressContainer.style.display = 'none';
-        // Ensure replace button is hidden at start
+        
         replaceBtn.style.display = 'none';
 
         const downloadId = `${cardId}-${Date.now()}`;
@@ -2932,30 +2973,30 @@ function debug(level, ...args) {
 
           switch (data.status) {
             case 'started':
-              // Reset progress bar width for internal use
+              
               progressFill.style.width = '0%';
-              // Show progress on the button
+              
               btn.textContent = 'Downloading... 0%';
               break;
 
             case 'progress':
-              // Update progress bar internally but keep it hidden
+              
               progressFill.style.width = `${data.percent}%`;
-              // Reflect progress percentage on the button text
+              
               btn.textContent = `Downloading... ${data.percent}%`;
               break;
 
             case 'complete': {
-              // Mark the download as complete on the button
+              
               btn.textContent = 'Download complete! Extracting...';
-              // Hide pause/cancel controls
+              
               pauseBtn.style.display = 'none';
               cancelBtn.style.display = 'none';
               try {
                 const extractResult = await window.api.extractArchive(data.path, '123');
 
                 if (extractResult.success) {
-                  // Indicate extraction completion and installer launching
+                  
                   btn.textContent = 'Extraction complete! Running installer...';
                   const extractedDir = getExtractedFolderPath(data.path);
                   let installerExe;
@@ -2969,13 +3010,13 @@ function debug(level, ...args) {
                     const openResult = await window.api.openFile(installerExe);
                     if (openResult.success) {
                       if (isClipStudio) {
-                        // For Clip Studio, prompt user to complete installation and then replace EXE
+                        
                         btn.textContent = 'Installation in Progress';
                         completeProcess(cardId, 'download', true);
-                        // Show the replace button next to the download button with a reduced width
+                        
                         replaceBtn.style.display = 'inline-block';
                         replaceBtn.disabled = false;
-                        // Informational toast (ignored for non-error types)
+                        
                         toast('Clip Studio installer started! Complete installation first.', {
                           type: 'info',
                           title: 'Clip Studio'
@@ -2998,17 +3039,17 @@ function debug(level, ...args) {
                   throw new Error(extractResult.error || 'Extraction failed');
                 }
               } catch (error) {
-                // Restore button text and notify user of error
+                
                 btn.textContent = btn.dataset.originalTextCrack || btn.textContent;
                 btn.disabled = false;
-                // Show error toast
+                
                 toast(error.message || 'An error occurred during installation', {
                   type: 'error',
                   title: name
                 });
                 completeProcess(cardId, 'download', false);
               } finally {
-                // Ensure the progress bar remains hidden
+                
                 progressContainer.style.display = 'none';
                 progressFill.style.width = '0%';
               }
@@ -3017,21 +3058,21 @@ function debug(level, ...args) {
 
             case 'error':
             case 'cancelled': {
-              // On error or cancellation, restore the button to its original state
+              
               btn.textContent = btn.dataset.originalTextCrack || btn.textContent;
               btn.disabled = false;
-              // Show error notification
+              
               toast(data.error || 'Download cancelled', {
                 type: 'error',
                 title: name
               });
               completeProcess(cardId, 'download', false);
-              // Hide controls and progress bar
+              
               pauseBtn.style.display = 'none';
               cancelBtn.style.display = 'none';
               progressContainer.style.display = 'none';
               progressFill.style.width = '0%';
-              // Hide replace button on error/cancellation
+              
               replaceBtn.style.display = 'none';
               if (unsubscribe) unsubscribe();
               break;
@@ -3039,7 +3080,7 @@ function debug(level, ...args) {
           }
         });
 
-        // Start download
+        
         window.api.downloadStart(downloadId, url, name);
       });
       pauseBtn.addEventListener('click', () => {
@@ -3052,8 +3093,8 @@ function debug(level, ...args) {
       cancelBtn.addEventListener('click', () => {
         window.api.downloadCancel(downloadId);
       });
-      // Wrap the download and replace buttons in a flex container so they sit
-      // side by side. This wrapper is inserted before the controls.
+      
+      
       const buttonWrapper = document.createElement('div');
       buttonWrapper.style.display = 'flex';
       buttonWrapper.style.alignItems = 'center';
@@ -3073,7 +3114,7 @@ function debug(level, ...args) {
     return container;
   }
 
-  // Build maintenance page
+  
   async function buildMaintenancePage() {
     const container = document.createElement('div');
     container.className = 'card';
@@ -3088,14 +3129,14 @@ function debug(level, ...args) {
     desc.style.marginBottom = '2rem';
     container.appendChild(desc);
 
-    // First row: Delete Temp Files and SFC/DISM
+    
     const firstRow = document.createElement('div');
     firstRow.className = 'maintenance-row';
     firstRow.style.display = 'grid';
     firstRow.style.gridTemplateColumns = '1fr 1fr';
     firstRow.style.gap = '1.5rem';
     firstRow.style.marginBottom = '1.5rem';
-    firstRow.style.alignItems = 'stretch'; // Προσθήκη για ίδιο ύψος cards
+    firstRow.style.alignItems = 'stretch'; 
 
     const tempCard = createMaintenanceCard(
       translations.maintenance.delete_temp_files || 'Delete Temp Files',
@@ -3107,12 +3148,12 @@ function debug(level, ...args) {
       true
     );
 
-    // Εφαρμογή ίδιου στυλ στο temp button
+    
     const tempButton = tempCard.querySelector('button');
     tempButton.style.height = '40px';
     tempButton.style.minWidth = '100%';
 
-    // SFC/DISM combined card
+    
     const sfcDismCard = document.createElement('div');
     sfcDismCard.className = 'app-card';
     sfcDismCard.style.display = 'flex';
@@ -3143,11 +3184,11 @@ function debug(level, ...args) {
 
     sfcDismCard.appendChild(sfcDismHeader);
 
-    // Button container for SFC/DISM
+    
     const sfcDismButtons = document.createElement('div');
     sfcDismButtons.style.display = 'flex';
     sfcDismButtons.style.gap = '0.75rem';
-    sfcDismButtons.style.marginTop = 'auto'; // Σπρώχνει τα κουμπιά προς τα κάτω
+    sfcDismButtons.style.marginTop = 'auto'; 
     sfcDismButtons.style.alignItems = 'center';
 
     const sfcButton = document.createElement('button');
@@ -3168,7 +3209,7 @@ function debug(level, ...args) {
     sfcDismStatus.className = 'status-pre';
     sfcDismStatus.style.display = 'none';
     sfcDismStatus.style.marginTop = '1rem';
-    // Hide the inline status output for SFC and DISM tasks. All feedback will be provided via toast notifications.
+    
     sfcDismStatus.dataset.hideStatus = 'true';
 
     sfcButton.addEventListener('click', async () => {
@@ -3188,7 +3229,7 @@ function debug(level, ...args) {
     firstRow.appendChild(sfcDismCard);
     container.appendChild(firstRow);
 
-    // Second row: Patch My PC (full width)
+    
     const secondRow = document.createElement('div');
 
     const patchCard = createMaintenanceCard(
@@ -3200,12 +3241,12 @@ function debug(level, ...args) {
       false
     );
 
-    // Εφαρμογή ίδιου στυλ στο patch button
+    
     const patchButton = patchCard.querySelector('button');
     patchButton.style.height = '40px';
     patchButton.style.minWidth = '100%';
 
-    // Make Patch My PC card full width
+    
     patchCard.style.gridColumn = '1 / -1';
 
     secondRow.appendChild(patchCard);
@@ -3219,7 +3260,7 @@ function debug(level, ...args) {
     const container = document.createElement('div');
     container.className = 'card';
 
-    // Heading for the debloat page
+    
     const heading = document.createElement('h2');
     heading.textContent = (translations.debloat && translations.debloat.heading) ||
       'Windows Debloat';
@@ -3228,7 +3269,7 @@ function debug(level, ...args) {
     heading.style.color = 'var(--primary-color)';
     container.appendChild(heading);
 
-    // Description explaining what the script does and its requirements
+    
     const description = document.createElement('p');
     description.style.marginBottom = '1rem';
     description.style.lineHeight = '1.5';
@@ -3238,7 +3279,7 @@ function debug(level, ...args) {
       'The script may make significant changes to your system. Use at your own risk.';
     container.appendChild(description);
 
-    // Check if the platform is Windows.  If not, disable the button and show a warning.
+    
     const isWindows = await window.api.isWindows();
     if (!isWindows) {
       const warn = document.createElement('p');
@@ -3248,7 +3289,7 @@ function debug(level, ...args) {
       return container;
     }
 
-    // Run button to trigger the script
+    
     const runBtn = document.createElement('button');
     runBtn.className = 'button';
     runBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.runRaphiScript) ||
@@ -3292,7 +3333,7 @@ function debug(level, ...args) {
     return container;
   }
 
-  // Helper function to create maintenance cards
+  
   function createMaintenanceCard(name, description, icon, buttonText, taskFunction, requiresAdmin = false, hideStatus = false) {
     const card = document.createElement('div');
     card.className = 'app-card';
@@ -3318,7 +3359,7 @@ function debug(level, ...args) {
     descEl.style.opacity = '0.8';
     descEl.style.fontSize = '0.9rem';
 
-    // Add admin warning if needed
+    
     if (requiresAdmin) {
       const adminWarning = document.createElement('small');
       adminWarning.textContent = ' (Admin required)';
@@ -3333,12 +3374,12 @@ function debug(level, ...args) {
     const button = document.createElement('button');
     button.className = 'button';
     button.textContent = buttonText;
-    button.style.marginTop = 'auto'; // Σπρώχνει το κουμπί προς τα κάτω
+    button.style.marginTop = 'auto'; 
 
     const status = document.createElement('pre');
     status.className = 'status-pre';
     status.style.display = 'none';
-    // Mark this status element to be hidden if requested. The dataset
+    
     if (hideStatus) {
       status.dataset.hideStatus = 'true';
     }
@@ -3354,7 +3395,7 @@ function debug(level, ...args) {
     return card;
   }
 
-  // Helper function to run maintenance tasks
+  
   async function runMaintenanceTask(button, statusElement, taskFunction, taskName, requiresAdmin = false) {
     button.disabled = true;
     const originalText = button.textContent;
@@ -3372,19 +3413,19 @@ function debug(level, ...args) {
     }
 
     try {
-      // Pass the button to the taskFunction so it can update its own label during downloads
+      
       await taskFunction(statusElement, button);
     } catch (error) {
       if (!hideStatus) {
         statusElement.textContent += `\n❌ Error: ${error.message}`;
         statusElement.classList.add('status-error');
       }
-      // Always show a toast error message
+      
       toast(`Error running ${taskName}`, { type: 'error', title: 'Maintenance' });
     } finally {
       button.disabled = false;
       button.textContent = originalText;
-      // Only fade the status element if it was displayed
+      
       if (!hideStatus) {
         autoFadeStatus(statusElement, 8000);
       }
@@ -3423,10 +3464,10 @@ function debug(level, ...args) {
     }, delay);
   }
 
-  // Simplified SFC Scan function - opens CMD window
+  
   async function runSfcScan(statusElement) {
-    // Do not update the inline status element for SFC. The button text indicates progress and
-    // a toast will be displayed when the scan finishes or fails.
+    
+    
     try {
       const result = await window.api.runSfcScan();
       if (result && result.success) {
@@ -3440,9 +3481,9 @@ function debug(level, ...args) {
     }
   }
 
-  // Simplified DISM Repair function - opens CMD window
+  
   async function runDismRepair(statusElement) {
-    // Do not update the inline status element for DISM. Only display a toast when the repair finishes.
+    
     try {
       const result = await window.api.runDismRepair();
       if (result && result.success) {
@@ -3460,26 +3501,26 @@ function debug(level, ...args) {
     try {
       const result = await window.api.runTempCleanup();
       if (result && result.success) {
-        // On success, display the returned message or a default completion message
+        
         toast(result.message || 'Temporary files cleanup completed successfully!', { type: 'success', title: 'Maintenance' });
       } else {
-        // On failure, determine if the UAC prompt was denied or another error occurred
+        
         const errorMsg = (result && result.error) || 'Temporary files cleanup failed.';
         toast(errorMsg, { type: 'error', title: 'Maintenance' });
       }
     } catch (error) {
-      // Unexpected errors
+      
       const msg = (error && error.message) || 'Error running temp cleanup';
       toast(msg, { type: 'error', title: 'Maintenance' });
     }
   }
-  // Helper function to run maintenance tasks
+  
   async function runMaintenanceTask(button, statusElement, taskFunction, taskName) {
     button.disabled = true;
     const originalText = button.textContent;
     button.textContent = 'Running...';
-    // Determine whether to hide the status area. A dataset flag
-    // on the status element indicates tasks that should not show inline output.
+    
+    
     const hideStatus = statusElement && statusElement.dataset && statusElement.dataset.hideStatus === 'true';
 
     if (!hideStatus) {
@@ -3488,14 +3529,14 @@ function debug(level, ...args) {
       statusElement.classList.remove('status-success', 'status-error', 'status-warning');
     }
     try {
-      // Pass the button to the taskFunction so it can update its own label during downloads
+      
       await taskFunction(statusElement, button);
     } catch (error) {
       if (!hideStatus) {
         statusElement.textContent = `Error: ${error.message}`;
         statusElement.classList.add('status-error');
       }
-      // Show an error toast regardless of status visibility
+      
       toast(`Error running ${taskName}`, { type: 'error', title: 'Maintenance' });
     } finally {
       button.disabled = false;
@@ -3505,24 +3546,24 @@ function debug(level, ...args) {
       }
     }
   }
-  // Function to download and run Patch My PC
-  // Function to download and run Patch My PC
+  
+  
 async function downloadAndRunPatchMyPC(statusElement, button) {
-    // Use a unique ID for this download
+    
     const downloadId = `patchmypc-${Date.now()}`;
     const patchMyPCUrl = 'https://www.dropbox.com/scl/fi/z66qn3wgiyvh8uy3fedu7/patch_my_pc.exe?rlkey=saht980hb3zfezv2ixve697jo&st=3ww4r4vy&dl=1';
 
-    // Hide any existing status text – progress will be shown on the button
+    
     statusElement.textContent = '';
     statusElement.style.display = 'none';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
 
-    // Preserve the original button text to restore it later
+    
     const originalText = button.textContent;
     if (!button.dataset.originalTextPatch) {
       button.dataset.originalTextPatch = originalText;
     }
-    // Disable the button and show initial message
+    
     button.disabled = true;
     button.textContent = 'Preparing Patch My PC...';
 
@@ -3532,24 +3573,24 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 
         switch (data.status) {
           case 'started':
-            // Show initial progress on the button
+            
             button.textContent = 'Downloading Patch My PC... 0%';
             break;
           case 'progress':
-            // Update progress percentage on the button
+            
             button.textContent = `Downloading Patch My PC... ${data.percent}%`;
             break;
           case 'complete': {
-            // Indicate that the download is done and we are opening the application
+            
             button.textContent = 'Opening Patch My PC...';
-            // Attempt to open the downloaded file
+            
             window.api.openFile(data.path)
               .then((result) => {
                 if (result.success) {
-                  // Show that the program has been opened successfully on the button
+                  
                   button.textContent = 'Patch My PC Started';
                 } else {
-                  // Revert the button text and inform via toast that opening failed
+                  
                   button.textContent = originalText;
                   toast('Failed to open Patch My PC', {
                     type: 'error',
@@ -3558,7 +3599,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
                 }
               })
               .catch((error) => {
-                // On error opening file, restore original button and show toast
+                
                 button.textContent = originalText;
                 toast('Error opening Patch My PC', {
                   type: 'error',
@@ -3566,7 +3607,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
                 });
               })
               .finally(() => {
-                // Clean up and resolve regardless of outcome
+                
                 button.disabled = false;
                 unsubscribe();
                 resolve();
@@ -3574,7 +3615,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
             break;
           }
           case 'error':
-            // On download error, revert the button and show a toast
+            
             button.textContent = originalText;
             button.disabled = false;
             toast('Download failed', {
@@ -3587,11 +3628,11 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
         }
       });
 
-      // Kick off the download
+      
       try {
         window.api.downloadStart(downloadId, patchMyPCUrl, 'PatchMyPC.exe');
       } catch (e) {
-        // In case download fails to start, restore button and notify the user
+        
         button.textContent = originalText;
         button.disabled = false;
         toast('Download failed', {
@@ -3603,12 +3644,12 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       }
     });
   }
-  // Update buildPasswordManagerPage function
+  
   function buildPasswordManagerPage() {
     const container = document.createElement('div');
     container.className = 'card password-manager-card';
 
-    // Enhanced warning banner
+    
     const warning = document.createElement('div');
     warning.className = 'password-warning-banner';
 
@@ -3639,7 +3680,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     warning.appendChild(warningContent);
     container.appendChild(warning);
 
-    // Features list
+    
     const features = document.createElement('div');
     features.className = 'password-features';
 
@@ -3669,7 +3710,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 
     container.appendChild(features);
 
-    // Action section
+    
     const actionSection = document.createElement('div');
     actionSection.className = 'password-actions';
 
@@ -3699,19 +3740,19 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     return container;
   }
 
-  // Προσθήκη των νέων στύλ στο υπάρχον CSS
+  
   const passwordManagerStyles = `
 
 `;
 
-  // Προσθήκη των στύλ στο document αν δεν υπάρχουν ήδη
+  
   if (!document.querySelector('#password-manager-styles')) {
     const styleSheet = document.createElement('style');
     styleSheet.id = 'password-manager-styles';
     styleSheet.textContent = passwordManagerStyles;
     document.head.appendChild(styleSheet);
   }
-  // Add notification system
+  
   function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `toast status-${type}`;
@@ -3734,7 +3775,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       setTimeout(() => notification.remove(), 300);
     }, 3000);
   }
-  // Add CSS for notifications
+  
   const notificationStyles = document.createElement('style');
   notificationStyles.textContent = `
       @keyframes slideIn {
@@ -3749,7 +3790,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
   document.head.appendChild(notificationStyles);
   const svgDataUrl = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
-  // === Chris Titus / Windows Utility — full-width, scoped styles, terminal icon ===
+  
   function buildChrisTitusPage() {
     const el = (t, cls, html) => {
       const n = document.createElement(t);
@@ -3760,12 +3801,12 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 
     const card = el('section', 'ctt-card');
 
-    // Scoped CSS (δεν επηρεάζει άλλα μέρη της εφαρμογής)
+    
     const style = document.createElement('style');
 
     card.appendChild(style);
 
-    // Header (SVG terminal)
+    
     const header = el('div', 'ctt-header');
     const icon = el('img', 'ctt-icon');
     const terminalSVG = `
@@ -3777,7 +3818,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     </svg>`;
     icon.src = svgDataUrl(terminalSVG);
 
-    // Build localized titles and subtitle. Use translations if available
+    
     const titleText = (translations.menu && translations.menu.christitus) || 'Windows Utility';
     const subtitleText = (translations.christitus_page && translations.christitus_page.subtitle_full) || 'COMPREHENSIVE TOOLBOX FOR WINDOWS OPTIMIZATION';
     const titleWrapper = el('div');
@@ -3789,7 +3830,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     header.appendChild(titleWrapper);
     card.appendChild(header);
 
-    // Feature bullet list.  Localize if translations are provided
+    
     const features = (translations.christitus_page && Array.isArray(translations.christitus_page.features))
       ? translations.christitus_page.features
       : [
@@ -3798,11 +3839,11 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
           'Privacy and security enhancements',
           'Essential software installation'
         ];
-    // Build list HTML
+    
     const bulletHtml = features.map((item) => `<li>${item}</li>`).join('');
     card.appendChild(el('ul', 'ctt-bullets', bulletHtml));
 
-    // Actions
+    
     const actions = el('div', 'ctt-actions');
     const launchBtn = el('button', 'ctt-launch', `<span class="ctt-iconmono">›_</span>Launch Tool`);
     const ghBtn = el('button', 'ctt-outline', `<span class="ctt-iconmono">↗</span>GitHub`);
@@ -3810,22 +3851,22 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     actions.appendChild(ghBtn);
     card.appendChild(actions);
 
-    // Status
+    
     const status = el('div', 'ctt-status');
     card.appendChild(status);
     const setStatus = (msg, type = '') => {
-      // Reset to base class to hide any previous status
+      
       status.className = 'ctt-status';
       status.textContent = '';
       if (msg) {
-        // Determine toast type: treat any non-empty type containing 'error' as error
+        
         const toastType = (type && type.toLowerCase().includes('error')) ? 'error' : 'success';
         toast(msg, { type: toastType });
       }
     };
 
-    // Actions wiring
-    // PowerShell command used as a fallback when the native bridge is not available.
+    
+    
     const psCmd = [
       'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
       `"irm christitus.com/win | iex"`
@@ -3835,7 +3876,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       try {
         launchBtn.disabled = true;
         setStatus('Downloading & launching Windows Utility...');
-        // Prefer the dedicated Chris Titus launcher via the Electron bridge
+        
         if (window.api?.runChrisTitus) {
           const result = await window.api.runChrisTitus();
           if (result && !result.error) {
@@ -3845,7 +3886,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
             setStatus('Failed to launch: ' + errMsg, 'error');
           }
         } else if (window.api?.runCommand) {
-          // Fall back to runCommand, which may not support special characters
+          
           const runResult = await window.api.runCommand(psCmd);
           if (runResult && !runResult.error) {
             setStatus('Utility launched in a new PowerShell window. Follow the on-screen prompts.', 'success');
@@ -3854,7 +3895,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
             setStatus('Failed to launch: ' + errMsg, 'error');
           }
         } else {
-          // As a last resort, copy the command to the clipboard
+          
           await navigator.clipboard.writeText(psCmd);
           setStatus('Electron bridge not found. Command copied to clipboard — run in elevated PowerShell.', 'error');
         }
@@ -3928,7 +3969,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     restartBtn.className = 'bios-restart-btn';
     restartBtn.innerHTML = '🔄 ' + (translations.messages.restart_to_bios || 'Restart to BIOS');
 
-    // Smooth cancel animation
+    
     cancelBtn.addEventListener('click', () => {
       dialog.classList.add('slide-down');
       overlay.classList.add('fade-out');
@@ -3941,7 +3982,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       }, 300);
     });
 
-    // Restart function with smooth feedback
+    
     restartBtn.addEventListener('click', async () => {
       restartBtn.disabled = true;
       restartBtn.innerHTML = '⏳ Processing...';
@@ -3950,7 +3991,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       try {
         const result = await window.api.restartToBios();
 
-        // Success animation
+        
         if (result.success) {
           restartBtn.innerHTML = '✅ Success!';
           restartBtn.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
@@ -3960,7 +4001,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
             duration: 5000
           });
 
-          // Auto-close after success
+          
           setTimeout(() => {
             dialog.classList.add('slide-down');
             overlay.classList.add('fade-out');
@@ -3974,7 +4015,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
           throw new Error(result.error);
         }
       } catch (error) {
-        // Error animation
+        
         restartBtn.innerHTML = '❌ Failed';
         restartBtn.style.background = 'linear-gradient(135deg, var(--error-color) 0%, #f87171 100%)';
 
@@ -4003,7 +4044,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
-    // Add escape key listener
+    
     const escapeHandler = (e) => {
       if (e.key === 'Escape') {
         cancelBtn.click();
@@ -4012,27 +4053,33 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     };
     document.addEventListener('keydown', escapeHandler);
 
-    // Auto-focus on cancel button for accessibility
+    
     cancelBtn.focus();
   }
 
-  // Build BIOS page
+  
   function buildBiosPage() {
     return createCard('bios_title', translations.messages.bios_instructions);
   }
 
-  // Initialize the app: load translations, apply theme and render menu
+  
   async function init() {
     await loadTranslations();
     applyTheme();
     renderMenu();
+    
+    const firstKey = menuKeys && menuKeys[0];
+    const pageKey = (typeof currentPage === 'string' && currentPage) || firstKey;
+    if (pageKey) {
+      await loadPage(pageKey);
+    }
     initializeAutoUpdater();
-    // Always check for pending changelog after initialization
+    
     if (typeof checkForChangelog === 'function') {
       checkForChangelog();
     }
   }
-// Auto Updater functionality
+
   function initializeAutoUpdater() {
     const updateBtn = document.getElementById('title-bar-update');
     if (!updateBtn) return;
@@ -4041,16 +4088,16 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     let updateDownloaded = false;
     let currentUpdateInfo = null;
 
-    // Attach tooltip handlers to update button
+    
     attachTooltipHandlers(updateBtn);
 
-    // Handle update button click
+    
     updateBtn.addEventListener('click', async () => {
       if (updateBtn.classList.contains('downloading')) return;
       
       if (!updateAvailable) return;
       
-      // Start downloading immediately
+      
       updateBtn.classList.add('downloading');
       updateBtn.setAttribute('data-tooltip', 'Downloading update...');
       
@@ -4063,7 +4110,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
       }
     });
 
-    // Listen for update status
+    
     window.api.onUpdateStatus((data) => {
       switch (data.status) {
         case 'available':
@@ -4078,7 +4125,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
           const percent = Math.round(data.percent || 0);
           updateBtn.setAttribute('data-tooltip', `Downloading: ${percent}%`);
           
-          // Update progress ring
+          
           const circle = updateBtn.querySelector('.progress-ring circle');
           if (circle) {
             const circumference = 2 * Math.PI * 10;
@@ -4093,7 +4140,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
           updateBtn.classList.add('ready');
           updateBtn.setAttribute('data-tooltip', 'Installing update...');
           
-          // Auto-install immediately
+          
           setTimeout(async () => {
             try {
               if (currentUpdateInfo) {
@@ -4156,7 +4203,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     }
   }
 
-  // Show changelog modal
+  
 async function showChangelog(updateInfo) {
     const overlay = document.createElement('div');
     overlay.className = 'changelog-overlay';
@@ -4182,12 +4229,12 @@ async function showChangelog(updateInfo) {
     const content = document.createElement('div');
     content.className = 'changelog-content';
 
-    // Build a combined header row for the release title and version.  When a
-    // release name is provided, display it and the version on the same line
-    // with a modern card-style background.  If no release name is supplied
-    // then fall back to showing just the version badge on its own.  This
-    // container is styled via the `.release-title-container` CSS class defined
-    // in styles.css.
+    
+    
+    
+    
+    
+    
     const versionBadge = document.createElement('div');
     versionBadge.className = 'changelog-version';
     versionBadge.textContent = `Version ${updateInfo.version || 'Unknown'}`;
@@ -4200,19 +4247,19 @@ async function showChangelog(updateInfo) {
       releaseNameEl.className = 'release-title';
       releaseNameEl.textContent = updateInfo.releaseName;
 
-      // Append the title followed by the version badge so they appear on the same line
+      
       releaseContainer.appendChild(releaseNameEl);
       releaseContainer.appendChild(versionBadge);
 
       content.appendChild(releaseContainer);
     } else {
-      // If there's no release name we still show the version badge on its own
+      
       content.appendChild(versionBadge);
     }
 
     if (updateInfo.releaseNotes) {
       const notes = document.createElement('div');
-      // Parse release notes asynchronously using parseMarkdown and fall back to simple parser
+      
       let formattedNotes;
       try {
         formattedNotes = await parseMarkdown(updateInfo.releaseNotes);
@@ -4222,7 +4269,7 @@ async function showChangelog(updateInfo) {
       notes.innerHTML = formattedNotes;
       content.appendChild(notes);
     } else {
-      // Default changelog if none provided
+      
       const defaultChangelog = document.createElement('div');
       defaultChangelog.innerHTML = `
         <h3>What's New</h3>
@@ -4262,7 +4309,7 @@ async function showChangelog(updateInfo) {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    // Close on escape key
+    
     const escHandler = (e) => {
       if (e.key === 'Escape') {
         overlay.remove();
@@ -4271,7 +4318,7 @@ async function showChangelog(updateInfo) {
     };
     document.addEventListener('keydown', escHandler);
 
-    // Close on overlay click
+    
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
         overlay.remove();
@@ -4279,11 +4326,11 @@ async function showChangelog(updateInfo) {
     });
   }
 
-  // Format release notes (simple markdown-like parsing)
+  
   function formatReleaseNotes(notes) {
     if (!notes) return '';
     
-    // Convert to string if it's not already
+    
     let text = typeof notes === 'string' ? notes : String(notes);
     text = text.replace(/^>\s*\[!([A-Z]+)\]\s*\n>\s*(.+?)(?=\n\s*\n|$)/gms, (match, type, content) => {
       const map = {
@@ -4303,93 +4350,81 @@ async function showChangelog(updateInfo) {
       .replace(/^### (.+)$/gm, '<h3>$1</h3>')
       .replace(/^## (.+)$/gm, '<h2>$1</h2>')
       .replace(/^# (.+)$/gm, '<h2>$1</h2>')
-      // Blockquotes (single level)
+      
       .replace(/^>\s*(.+)$/gm, '<blockquote>$1</blockquote>')
-      // Bold and strong
+      
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/__(.+?)__/g, '<strong>$1</strong>')
-      // Italic and emphasis
+      
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
       .replace(/_(.+?)_/g, '<em>$1</em>')
-      // Strikethrough
+      
       .replace(/~~(.+?)~~/g, '<del>$1</del>')
-      // GitHub alert blocks (callouts)
+      
       .replace(/\[!NOTE\]\s*(.+)/g, '<div class="changelog-alert note">$1</div>')
       .replace(/\[!TIP\]\s*(.+)/g, '<div class="changelog-alert tip">$1</div>')
       .replace(/\[!IMPORTANT\]\s*(.+)/g, '<div class="changelog-alert important">$1</div>')
       .replace(/\[!WARNING\]\s*(.+)/g, '<div class="changelog-alert warning">$1</div>')
       .replace(/\[!CAUTION\]\s*(.+)/g, '<div class="changelog-alert caution">$1</div>')
-      // Code fences (multiline) and inline code
+      
       .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-      // Support triple tildes for fenced code blocks
+      
       .replace(/~~~([\s\S]*?)~~~/g, '<pre><code>$1</code></pre>')
       .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // Links: [text](url)
+
       .replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-      // Lists
+
       .replace(/^\* (.+)$/gm, '<li>$1</li>')
       .replace(/^- (.+)$/gm, '<li>$1</li>')
       .replace(/^\+ (.+)$/gm, '<li>$1</li>')
       .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-      // Horizontal rules
+
       .replace(/^---$/gm, '<hr>')
       .replace(/^___$/gm, '<hr>')
       .replace(/^\*\*\*$/gm, '<hr>')
-      // Images ![alt](url)
+
       .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%; height:auto;">')
-      // Task list items - [x] and - [ ]
+
       .replace(/^- \[x\] (.+)$/gm, '<li><input type="checkbox" disabled checked> $1</li>')
       .replace(/^- \[ \] (.+)$/gm, '<li><input type="checkbox" disabled> $1</li>')
-      // Paragraphs and line breaks
+
       .replace(/\n\n+/g, '</p><p>')
       .replace(/\n/g, '<br>');
-    
-    // Wrap consecutive list items in ul tags
+
     text = text.replace(/(<li>.*?<\/li>(?:\s*<li>.*?<\/li>)*)/gs, '<ul>$1</ul>');
-    
-    // Wrap in paragraphs if not already wrapped
+
     if (!text.startsWith('<h') && !text.startsWith('<ul') && !text.startsWith('<pre')) {
       text = '<p>' + text + '</p>';
     }
-    
-    // Clean up empty paragraphs
+
     text = text.replace(/<p><\/p>/g, '');
     text = text.replace(/<p>\s*<\/p>/g, '');
     
     return text;
   }
 
-  /**
-   * Convert release notes (Markdown or HTML) into HTML.  This helper
-   * attempts to use the full marked.js parser when available.  If
-   * marked cannot be loaded (e.g. offline), it falls back to the
-   * simple formatReleaseNotes parser.  It is asynchronous because
-   * loading marked may require a network request.
-   *
-   * @param {string} notes Raw release notes
-   * @returns {Promise<string>} HTML output
-   */
+  
   async function parseMarkdown(notes) {
     if (!notes) return '';
     const text = typeof notes === 'string' ? notes : String(notes);
-    // Try to use marked if it is already loaded
+
     if (typeof window !== 'undefined' && window.marked && typeof window.marked.parse === 'function') {
       try {
         return window.marked.parse(text);
       } catch (err) {
-        // ignore and fall through
+
       }
     }
-    // Attempt to dynamically import marked from a CDN
+
     try {
       await import('https://cdn.jsdelivr.net/npm/marked/marked.min.js');
       if (window.marked && typeof window.marked.parse === 'function') {
         return window.marked.parse(text);
       }
     } catch (err) {
-      // ignore
+
     }
-    // Fallback to simple parser
+
     return formatReleaseNotes(text);
   }
 
@@ -4418,7 +4453,6 @@ async function showChangelog(updateInfo) {
     }
   }
 
-  // Show changelog modal
   async function showChangelog(updateInfo) {
     const overlay = document.createElement('div');
     overlay.className = 'changelog-overlay';
@@ -4444,10 +4478,9 @@ async function showChangelog(updateInfo) {
     const content = document.createElement('div');
     content.className = 'changelog-content';
 
-    // Build a combined header row for the release title and version.  When a
-    // release name is provided, display it and the version on the same line
-    // with a modern card-style background.  If no release name is supplied
-    // then fall back to showing just the version badge on its own.
+
+
+
     const versionBadge = document.createElement('div');
     versionBadge.className = 'changelog-version';
     versionBadge.textContent = `Version ${updateInfo.version || 'Unknown'}`;
@@ -4469,7 +4502,7 @@ async function showChangelog(updateInfo) {
 
     if (updateInfo.releaseNotes) {
       const notes = document.createElement('div');
-      // Parse release notes asynchronously using parseMarkdown and fall back to simple parser
+
       let formattedNotes;
       try {
         formattedNotes = await parseMarkdown(updateInfo.releaseNotes);
@@ -4501,7 +4534,6 @@ async function showChangelog(updateInfo) {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    // Close on escape key
     const escHandler = (e) => {
       if (e.key === 'Escape') {
         overlay.remove();
@@ -4510,7 +4542,6 @@ async function showChangelog(updateInfo) {
     };
     document.addEventListener('keydown', escHandler);
 
-    // Close on overlay click
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
         overlay.remove();
@@ -4518,11 +4549,9 @@ async function showChangelog(updateInfo) {
     });
   }
 
-  // Format release notes (simple markdown-like parsing)
   function formatReleaseNotes(notes) {
     if (!notes) return '';
-    
-    // Convert to string if it's not already
+
     let text = typeof notes === 'string' ? notes : String(notes);
 
     text = text.replace(/^>\s*\[!([A-Z]+)\]\s*\n>\s*(.+?)(?=\n\s*\n|$)/gms, (match, type, content) => {
@@ -4538,58 +4567,58 @@ async function showChangelog(updateInfo) {
     });
 
     text = text
-      // Headers
+
       .replace(/^###### (.+)$/gm, '<h6>$1</h6>')
       .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
       .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
       .replace(/^### (.+)$/gm, '<h3>$1</h3>')
       .replace(/^## (.+)$/gm, '<h2>$1</h2>')
       .replace(/^# (.+)$/gm, '<h2>$1</h2>')
-      // Blockquotes
+
       .replace(/^>\s*(.+)$/gm, '<blockquote>$1</blockquote>')
-      // Bold and strong
+
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/__(.+?)__/g, '<strong>$1</strong>')
-      // Italic
+
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
       .replace(/_(.+?)_/g, '<em>$1</em>')
-      // Strikethrough
+
       .replace(/~~(.+?)~~/g, '<del>$1</del>')
-      // GitHub alert blocks (inline callouts)
+
       .replace(/\[!NOTE\]\s*(.+)/g, '<div class="changelog-alert note">$1</div>')
       .replace(/\[!TIP\]\s*(.+)/g, '<div class="changelog-alert tip">$1</div>')
       .replace(/\[!IMPORTANT\]\s*(.+)/g, '<div class="changelog-alert important">$1</div>')
       .replace(/\[!WARNING\]\s*(.+)/g, '<div class="changelog-alert warning">$1</div>')
       .replace(/\[!CAUTION\]\s*(.+)/g, '<div class="changelog-alert caution">$1</div>')
-      // Code fences using backticks and tildes
+
       .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
       .replace(/~~~([\s\S]*?)~~~/g, '<pre><code>$1</code></pre>')
-      // Inline code
+
       .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // Links
+      
       .replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-      // Lists (unordered and ordered)
+      
       .replace(/^\* (.+)$/gm, '<li>$1</li>')
       .replace(/^- (.+)$/gm, '<li>$1</li>')
       .replace(/^\+ (.+)$/gm, '<li>$1</li>')
       .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-      // Horizontal rules
+      
       .replace(/^---$/gm, '<hr>')
       .replace(/^___$/gm, '<hr>')
       .replace(/^\*\*\*$/gm, '<hr>')
-      // Images
+      
       .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%; height:auto;">')
-      // Task lists
+      
       .replace(/^- \[x\] (.+)$/gm, '<li><input type="checkbox" disabled checked> $1</li>')
       .replace(/^- \[ \] (.+)$/gm, '<li><input type="checkbox" disabled> $1</li>')
-      // Paragraph separation
+      
       .replace(/\n\n+/g, '</p><p>')
       .replace(/\n/g, '<br>');
 
-    // Wrap consecutive <li> elements in <ul> tags
+    
     text = text.replace(/(<li>.*?<\/li>(?:\s*<li>.*?<\/li>)*)/gs, '<ul>$1</ul>');
 
-    // Wrap content in paragraphs if not starting with a block element
+    
     if (!/^\s*<\s*(h\d|ul|pre|blockquote|hr)/i.test(text)) {
       text = '<p>' + text + '</p>';
     }
@@ -4598,13 +4627,13 @@ async function showChangelog(updateInfo) {
   }
 
 
-  // Initialize the application once
+  
   init();
   async function ensureSidebarVersion() {
     const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
     if (!sidebar) return;
 
-    // απόφυγε διπλό footer
+    
     if (sidebar.querySelector('.sidebar-footer')) return;
 
     const footer = document.createElement('div');
@@ -4627,7 +4656,7 @@ async function showChangelog(updateInfo) {
     sidebar.appendChild(footer);
 
     try {
-      // Έλεγχος αν το API υπάρχει
+      
       if (window.api && typeof window.api.getAppVersion === 'function') {
         debug('info', '📦 Fetching app version from API...');
         const version = await window.api.getAppVersion();
@@ -4636,7 +4665,7 @@ async function showChangelog(updateInfo) {
         if (version && version !== '000' && version !== '0.0.0') {
           document.getElementById('appVersion').textContent = `v${version}`;
         } else {
-          // Fallback αν η έκδοση είναι 000
+          
           document.getElementById('appVersion').textContent = 'v1.0.0';
           debug('warn', '⚠️ Version returned 000, using fallback');
         }
@@ -4660,7 +4689,7 @@ async function showChangelog(updateInfo) {
 
     const wrap = document.createElement('div');
     wrap.className = 'version-wrap';
-    // Use data-tooltip instead of title for custom tooltip support
+    
     wrap.setAttribute('data-tooltip', 'App version');
 
     wrap.innerHTML = `
@@ -4671,13 +4700,13 @@ async function showChangelog(updateInfo) {
     <span id="appVersion">dev</span>
   `;
 
-    // Attach our custom tooltip handlers
+    
     attachTooltipHandlers(wrap);
 
     footer.appendChild(wrap);
     sidebar.appendChild(footer);
 
-    // Πολλαπλές στρατηγικές για να βρει την έκδοση
+    
     const version = await getAppVersionWithFallback();
     document.getElementById('appVersion').textContent = version;
   }
@@ -4685,9 +4714,9 @@ async function showChangelog(updateInfo) {
   function normalizeVersion(v) {
     if (!v) return null;
     v = String(v).trim().replace(/^v/i, '');
-    // «όλα μηδενικά» 0.0.0, 0.0.0.0, 000 κ.λπ.
+    
     if (/^0+(?:\.0+){0,3}$/.test(v)) return null;
-    // αποδεκτό x.y[.z[.w]]
+    
     if (!/^\d+(?:\.\d+){1,3}$/.test(v)) return null;
     return v;
   }
@@ -4710,7 +4739,7 @@ async function showChangelog(updateInfo) {
     } catch { }
     const envV = normalizeVersion(typeof process !== 'undefined' ? process?.env?.npm_package_version : null);
     if (envV) return `v${envV}`;
-    return 'v1.0.0'; // ασφαλές fallback
+    return 'v1.0.0'; 
   }
 
   async function ensureSidebarVersion() {
@@ -4748,7 +4777,7 @@ async function showChangelog(updateInfo) {
       const userInfoEl = document.getElementById('userInfo');
       if (!userInfoEl) return;
       try {
-        // Remove any previous click handler to avoid multiple bindings
+        
         if (userInfoEl._toggleHandler) {
           userInfoEl.removeEventListener('click', userInfoEl._toggleHandler);
           userInfoEl._toggleHandler = null;
@@ -4756,7 +4785,7 @@ async function showChangelog(updateInfo) {
         const profile = await (window.api?.getUserProfile?.());
         userInfoEl.innerHTML = '';
         if (profile && profile.name) {
-          // Show the authenticated user's avatar and name
+          
           if (profile.avatar) {
             const img = document.createElement('img');
             img.src = profile.avatar;
@@ -4766,7 +4795,7 @@ async function showChangelog(updateInfo) {
           const span = document.createElement('span');
           span.textContent = profile.name;
           userInfoEl.appendChild(span);
-          // Create a hidden logout menu
+          
           const logoutMenu = document.createElement('div');
           logoutMenu.className = 'logout-menu';
           const logoutBtn = document.createElement('button');
@@ -4774,9 +4803,9 @@ async function showChangelog(updateInfo) {
           logoutBtn.textContent = 'Logout';
           logoutMenu.appendChild(logoutBtn);
           userInfoEl.appendChild(logoutMenu);
-          // Toggle the visibility of the logout menu when clicking on the user
+          
           const handler = async (e) => {
-            // If the logout button itself was clicked, perform logout
+            
             if (e.target && e.target.classList.contains('logout-btn')) {
               e.stopPropagation();
               try {
@@ -4784,10 +4813,10 @@ async function showChangelog(updateInfo) {
               } catch (err) {
               debug('error', 'Logout failed:', err);
               }
-              // After logging out, refresh the UI
+              
               updateUserInfo();
             } else {
-              // Toggle the dropdown display
+              
               userInfoEl.classList.toggle('show-logout');
             }
           };
@@ -4797,20 +4826,20 @@ async function showChangelog(updateInfo) {
           const card = document.createElement('div');
           card.className = 'login-card';
 
-          // Discord icon button
+          
           const discordBtn = document.createElement('button');
           discordBtn.className = 'login-discord';
-          // Add a tooltip attribute for a custom tooltip
+          
           discordBtn.setAttribute('data-tooltip', 'Sign in with Discord');
           discordBtn.innerHTML = `
           <svg fill="#000000" preserveAspectRatio="xMidYMid" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 -28.5 256 256"><g stroke-width="0" id="SVGRepo_bgCarrier"></g><g stroke-linejoin="round" stroke-linecap="round" id="SVGRepo_tracerCarrier"></g><g id="SVGRepo_iconCarrier"> <g> <path fill-rule="nonzero" fill="#5865F2" d="M216.856339,16.5966031 C200.285002,8.84328665 182.566144,3.2084988 164.041564,0 C161.766523,4.11318106 159.108624,9.64549908 157.276099,14.0464379 C137.583995,11.0849896 118.072967,11.0849896 98.7430163,14.0464379 C96.9108417,9.64549908 94.1925838,4.11318106 91.8971895,0 C73.3526068,3.2084988 55.6133949,8.86399117 39.0420583,16.6376612 C5.61752293,67.146514 -3.4433191,116.400813 1.08711069,164.955721 C23.2560196,181.510915 44.7403634,191.567697 65.8621325,198.148576 C71.0772151,190.971126 75.7283628,183.341335 79.7352139,175.300261 C72.104019,172.400575 64.7949724,168.822202 57.8887866,164.667963 C59.7209612,163.310589 61.5131304,161.891452 63.2445898,160.431257 C105.36741,180.133187 151.134928,180.133187 192.754523,160.431257 C194.506336,161.891452 196.298154,163.310589 198.110326,164.667963 C191.183787,168.842556 183.854737,172.420929 176.223542,175.320965 C180.230393,183.341335 184.861538,190.991831 190.096624,198.16893 C211.238746,191.588051 232.743023,181.531619 254.911949,164.955721 C260.227747,108.668201 245.831087,59.8662432 216.856339,16.5966031 Z M85.4738752,135.09489 C72.8290281,135.09489 62.4592217,123.290155 62.4592217,108.914901 C62.4592217,94.5396472 72.607595,82.7145587 85.4738752,82.7145587 C98.3405064,82.7145587 108.709962,94.5189427 108.488529,108.914901 C108.508531,123.290155 98.3405064,135.09489 85.4738752,135.09489 Z M170.525237,135.09489 C157.88039,135.09489 147.510584,123.290155 147.510584,108.914901 C147.510584,94.5396472 157.658606,82.7145587 170.525237,82.7145587 C183.391518,82.7145587 193.761324,94.5189427 193.539891,108.914901 C193.539891,123.290155 183.391518,135.09489 170.525237,135.09489 Z"></path> </g> </g></svg>
         `;
           card.appendChild(discordBtn);
 
-          // Google icon button using the full multi‑colour Google logo
+          
           const googleBtn = document.createElement('button');
           googleBtn.className = 'login-google';
-          // Add a tooltip attribute for a custom tooltip
+          
           googleBtn.setAttribute('data-tooltip', 'Sign in with Google');
           googleBtn.innerHTML = `
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 0 262 262" preserveAspectRatio="xMidYMid">
@@ -4856,22 +4885,28 @@ async function showChangelog(updateInfo) {
         debug('warn', 'Failed to update user info:', err);
       }
     }
-    // Immediately update on initialisation
+    
     updateUserInfo();
   }
 
 getAppVersionWithFallback().then(v => debug('info', 'App version resolved =', v));
 
-  // κάλεσέ το στο init:
+  
   async function init() {
     await loadTranslations();
     applyTheme();
     renderMenu();
+    
+    const firstKey = menuKeys && menuKeys[0];
+    const pageKey = (typeof currentPage === 'string' && currentPage) || firstKey;
+    if (pageKey) {
+      await loadPage(pageKey);
+    }
 
-    // Preload of preinstalled apps removed because the functionality was retired.
-    await ensureSidebarVersion(); // maintain sidebar version check
+    
+    await ensureSidebarVersion(); 
     initializeAutoUpdater();
-    // Always check for pending changelog after initialization
+    
     if (typeof checkForChangelog === 'function') {
       checkForChangelog();
     }
@@ -5117,7 +5152,7 @@ This content is hidden by default.
 <summary>Code Example</summary>
 
 \`\`\`javascript
-// Hidden code example
+
 const hiddenFunction = () => {
   return 'This was hidden!';
 };
@@ -5173,7 +5208,7 @@ graph TD
 
 ### Code Review Suggestions
 \`\`\`suggestion
-// Suggested change
+
 const improvedCode = 'This is better';
 \`\`\`
 
