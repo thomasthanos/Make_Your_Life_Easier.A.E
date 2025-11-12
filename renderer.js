@@ -31,6 +31,7 @@ function debug(level, ...args) {
   let currentPage = null;
   let cachedPreinstalledApps = null;
   const menuKeys = [
+    'install_apps',    
     'crack_installer',  
     'system_maintenance',
     'activate_autologin',
