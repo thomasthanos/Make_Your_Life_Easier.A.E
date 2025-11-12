@@ -167,6 +167,10 @@ body {
   height: 100vh;
   overflow: hidden;
   line-height: 1.6;
+    -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 
@@ -2397,6 +2401,7 @@ input:checked+.slider:before {
   border-radius: 12px;
   font-weight: 600;
   transition: all 0.3s ease;
+  cursor: pointer;
 }
 
 .bios-cancel-btn:hover {
@@ -2416,6 +2421,7 @@ input:checked+.slider:before {
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .bios-restart-btn::before {
@@ -3613,6 +3619,7 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: var(--text-color);
+  cursor: pointer;
 }
 
 #error-container {
