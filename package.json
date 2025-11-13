@@ -1,6 +1,6 @@
 {
   "name": "make-your-life-easier",
-  "version": "3.1.1",
+  "version": "3.1.5",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "main": "main.js",
@@ -91,7 +91,7 @@
       }
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
