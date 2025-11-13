@@ -843,23 +843,32 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  for (const filePath of downloadedFiles) {
+  const tryRemovePath = (target) => {
     try {
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      if (!target) return;
+      if (fs.existsSync(target)) {
+        // Use rmSync with force for both files and directories.  rmSync will
+        // behave like unlinkSync for files when recursive is omitted.
+        fs.rmSync(target, { recursive: true, force: true });
       }
     } catch (err) {
-      debug('warn', 'Failed to delete downloaded file:', filePath, err);
+      // Log a warning but do not interrupt the quit flow
+      debug('warn', 'Failed to remove path:', target, err);
+    }
+  };
+
+  for (const filePath of downloadedFiles) {
+    tryRemovePath(filePath);
+    const altFilePath = filePath.replace(/_/g, ' ');
+    if (altFilePath !== filePath) {
+      tryRemovePath(altFilePath);
     }
   }
-  // Remove extracted directories
   for (const dirPath of extractedDirs) {
-    try {
-      if (fs.existsSync(dirPath)) {
-        fs.rmSync(dirPath, { recursive: true, force: true });
-      }
-    } catch (err) {
-      debug('warn', 'Failed to delete extracted directory:', dirPath, err);
+    tryRemovePath(dirPath);
+    const altDirPath = dirPath.replace(/_/g, ' ');
+    if (altDirPath !== dirPath) {
+      tryRemovePath(altDirPath);
     }
   }
 });
