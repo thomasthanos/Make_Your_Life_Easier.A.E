@@ -457,16 +457,16 @@ autoUpdater.on('update-not-available', (info) => {
         percent: progress
       });
     }, 200);
-    // Only create the main window if it hasn't already been created
+    // Only create the main window if it hasn't already been created.  Pass
+    // false to keep it hidden until we explicitly show it after loading.
     if (!mainWindow) {
-      createMainWindow();
+      createMainWindow(false);
     }
-    // Hide the main window while it loads; we'll show it once it's ready
+    // If the window exists, set up a handler for when its contents finish
+    // loading.  Once loaded, stop the progress timer, update the progress
+    // to 100% and then close the updater window and show the main app.
     if (mainWindow) {
-      // Attach the load completion handler before hiding to ensure
-      // we don't miss the event if the page loads quickly
       mainWindow.webContents.once('did-finish-load', () => {
-        // Stop the progress timer and send the final update
         clearInterval(progressTimer);
         progress = 100;
         updateWindow.webContents.send('update-status', {
@@ -474,7 +474,6 @@ autoUpdater.on('update-not-available', (info) => {
           message: `Loading application: ${progress}%`,
           percent: progress
         });
-        // Delay briefly so the progress bar appears to fill completely
         setTimeout(() => {
           if (updateWindow) {
             updateWindow.close();
@@ -486,9 +485,6 @@ autoUpdater.on('update-not-available', (info) => {
           } catch (_) {}
         }, 500);
       });
-      try {
-        mainWindow.hide();
-      } catch (_) {}
     }
     return;
   }
@@ -662,7 +658,7 @@ ipcMain.handle('show-file-dialog', async () => {
 
   return result;
 });
-function createMainWindow() {
+function createMainWindow(showWindow = true) {
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 750,
@@ -673,6 +669,7 @@ function createMainWindow() {
     // Απενεργοποίηση του default title bar
     titleBarStyle: 'hidden', // ή 'customButtonsOnHover' για macOS
     frame: false, // Για απόλυτο custom title bar
+    show: showWindow,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
