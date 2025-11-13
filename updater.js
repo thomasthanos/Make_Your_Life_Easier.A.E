@@ -56,22 +56,18 @@ class AppUpdater {
     });
 
     autoUpdater.on("update-downloaded", (info) => {
-      this.sendStatusToWindow("Update downloaded; will install in 5 seconds");
+      // When the update has been downloaded, install it silently and restart.
+      // We still notify the user via the status channel, but we avoid showing
+      // the NSIS wizard during updates.
+      this.sendStatusToWindow(
+        "Update downloaded; the application will now restart to install the update."
+      );
 
-      // Ask user to restart and install update
-      dialog
-        .showMessageBox(this.mainWindow, {
-          type: "info",
-          title: "Update Ready",
-          message:
-            "Update downloaded. Restart the application to apply the update?",
-          buttons: ["Restart", "Later"],
-        })
-        .then((result) => {
-          if (result.response === 0) {
-            autoUpdater.quitAndInstall();
-          }
-        });
+      // Run the NSIS installer in silent mode and force the app to run again
+      // after the update completes. This ensures that updates run quietly
+      // without displaying the installer UI, while the initial installation
+      // remains interactive.
+      autoUpdater.quitAndInstall(true, true);
     });
   }
 
