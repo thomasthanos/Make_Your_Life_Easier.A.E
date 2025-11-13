@@ -4726,39 +4726,8 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   margin: 0;
 }
 
-/*
- * Minimal rectangular close button with subtle depth.  Uses darker tones to
- * complement the dark modal while keeping the accent colour for the × icon.
- */
-/*
- * Close button styling
- *
- * We reimagine the close button as a dark, slightly raised rectangle with
- * softened corners.  Instead of the classic system look, it employs a
- * subtle vertical gradient and deeper shadow to create a low‑relief 3D effect.
- */
 .changelog-close {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(180deg, rgba(70, 70, 80, 0.95), rgba(40, 40, 50, 0.95)) !important;
-  border: 1px solid rgba(0, 0, 0, 0.6) !important;
-  /* More squared edges for the close button */
-  border-radius: 7px;
-  color: var(--color-primary, #c084fc);
-  font-size: 1rem;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8) !important;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-  padding: 0;
-}
-.changelog-close:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.9) !important;
-  background: linear-gradient(180deg, rgba(80, 80, 90, 0.95), rgba(45, 45, 55, 0.95)) !important;
-  color: var(--color-primary-hover, #b693ff);
+  display: none !important;
 }
 
 .changelog-content {
