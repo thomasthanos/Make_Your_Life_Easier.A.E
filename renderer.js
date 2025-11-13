@@ -2937,11 +2937,15 @@ function debug(level, ...args) {
         toast('Starting replacement process...', { type: 'success', title: 'Replace EXE' });
 
         try {
+          const dynamicSourceDir = replaceBtn.dataset.sourceDir;
+          if (dynamicSourceDir) {
+            const clipTarget = 'C\\\\Program Files\\CELSYS\\CLIP STUDIO 1.5\\CLIP STUDIO PAINT\\CLIPStudioPaint.exe';
+            await performReplacement('C:/Program Files/CELSYS/CLIP STUDIO 1.5/CLIP STUDIO PAINT/CLIPStudioPaint.exe', dynamicSourceDir, status, replaceBtn);
+            completeProcess(cardId, 'replace', true);
+            return;
+          }
           const sourcePath = 'C:\\Users\\%USERNAME%\\Downloads\\Clip_Studio\\CLIPStudioPaint.exe';
-          const targetPath = 'C:\\Program Files\\CELSYS\\CLIP STUDIO 1.5\\CLIP STUDIO PAINT\\CLIPStudioPaint.exe';
-
-
-          toast('Requesting Administrator privileges...\n⚠️ Please accept the UAC prompt', { type: 'error', title: 'Replace EXE' });
+          const targetPath = 'C:/Program Files/CELSYS/CLIP STUDIO 1.5/CLIP STUDIO PAINT/CLIPStudioPaint.exe';
 
           const result = await window.api.replaceExe(sourcePath, targetPath);
 
@@ -2988,30 +2992,19 @@ function debug(level, ...args) {
       });
 
       async function performReplacement(targetPath, sourceDir, statusElement, button) {
-        statusElement.textContent = 'Finding patch executable...';
+        const exeFiles = await window.api.findExeFiles(sourceDir);
+        const patchFile = exeFiles.find(file => {
+          const lc = file.toLowerCase();
+          return lc.endsWith('clipstudiopaint.exe') || lc.includes('clipstudiopaint');
+        });
 
-
-        const crackFiles = await window.api.findExeFiles(sourceDir);
-        const crackExe = crackFiles.find(file =>
-          file.toLowerCase().includes('clipstudio_crack') ||
-          file.toLowerCase().includes('crack') ||
-          file.toLowerCase().includes('patch')
-        );
-
-        if (!crackExe) {
-          throw new Error('Crack executable not found in extracted files');
+        if (!patchFile) {
+          throw new Error('CLIPStudioPaint.exe not found in extracted files');
         }
-
-
-        const fileName = targetPath.split('\\').pop();
-        statusElement.textContent = `Replacing ${fileName}...`;
-
-
-        const result = await window.api.replaceExe(crackExe, targetPath);
+        const fileName = 'CLIPStudioPaint.exe';
+        const result = await window.api.replaceExe(patchFile, targetPath);
 
         if (result.success) {
-          statusElement.textContent = '✅ Replacement successful!';
-          statusElement.classList.add('status-success');
           button.textContent = '✅ Replaced';
           button.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
 
@@ -3100,6 +3093,9 @@ function debug(level, ...args) {
 
                         replaceBtn.style.display = 'inline-block';
                         replaceBtn.disabled = false;
+                        replaceBtn.dataset.sourceDir = extractedDir;
+                        replaceBtn.dataset.targetPath = 'C:/Program Files/CELSYS/CLIP STUDIO 1.5/CLIP STUDIO PAINT/CLIPStudioPaint.exe';
+                        replaceBtn.dataset.targetPath = 'C\\\\Program Files\\\\CELSYS\\\\CLIP STUDIO 1.5\\\\CLIP STUDIO PAINT\\\\CLIPStudioPaint.exe';
 
                         toast('Clip Studio installer started! Complete installation first.', {
                           type: 'info',
