@@ -254,6 +254,59 @@ function debug(level, ...args) {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Application loading overlay helpers
+  //
+  // The main window can take a moment to initialise because it needs to
+  // download translations, render the sidebar, load the initial page and
+  // perform various setup tasks.  To provide feedback during this time,
+  // display a full‑screen overlay with an animated progress bar.  Once
+  // initialisation completes, hide the overlay.
+
+  let appLoaderInterval;
+
+  /**
+   * Show the application loader overlay and start a simple progress
+   * animation.  If a status message is provided it will be displayed
+   * beneath the progress bar.
+   *
+   * @param {string} statusText Optional text to show to the user
+   */
+  function showAppLoader(statusText) {
+    const loader = document.getElementById('app-loader');
+    if (!loader) return;
+    const progressBar = loader.querySelector('.progress-bar');
+    const statusEl = loader.querySelector('#loading-status');
+    loader.style.display = 'flex';
+    // Reset the progress bar width
+    if (progressBar) progressBar.style.width = '0%';
+    // Set status text if provided
+    if (statusText && statusEl) {
+      statusEl.textContent = statusText;
+    }
+    // Animate progress indefinitely by incrementing width from 0 to 100
+    let progress = 0;
+    appLoaderInterval = setInterval(() => {
+      progress = (progress + 1) % 101;
+      if (progressBar) {
+        progressBar.style.width = `${progress}%`;
+      }
+    }, 50);
+  }
+
+  /**
+   * Hide the application loader overlay and stop its progress animation.
+   */
+  function hideAppLoader() {
+    const loader = document.getElementById('app-loader');
+    if (!loader) return;
+    loader.style.display = 'none';
+    if (appLoaderInterval) {
+      clearInterval(appLoaderInterval);
+      appLoaderInterval = null;
+    }
+  }
+
 
   let lastInteractionWasKeyboard = false;
 
@@ -4095,6 +4148,9 @@ function debug(level, ...args) {
 
 
   async function init() {
+    // Display the application loader to indicate that the app is starting up
+    showAppLoader('Loading application…');
+
     await loadTranslations();
     applyTheme();
     renderMenu();
@@ -4111,6 +4167,9 @@ function debug(level, ...args) {
     if (typeof checkForChangelog === 'function') {
       checkForChangelog();
     }
+
+    // Hide the application loader once all initialisation tasks have completed
+    hideAppLoader();
   }
 
   function initializeAutoUpdater() {

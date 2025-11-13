@@ -35,7 +35,13 @@ window.addEventListener('DOMContentLoaded', () => {
         break;
       case 'downloading': {
         const percent = Math.round(data.percent || 0);
-        updateProgress(percent, `Downloading update: ${percent}%`);
+        // If a custom message is provided by the main process (e.g. for
+        // application loading), use it.  Otherwise fall back to the
+        // default "Downloading update" phrasing.
+        const text = typeof data.message === 'string'
+          ? data.message
+          : `Downloading update: ${percent}%`;
+        updateProgress(percent, text);
         break;
       }
       case 'downloaded':

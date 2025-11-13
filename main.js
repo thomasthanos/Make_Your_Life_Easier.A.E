@@ -436,22 +436,60 @@ autoUpdater.on('update-available', async (info) => {
 autoUpdater.on('update-not-available', (info) => {
   debug('info', 'Update not available:', info);
   // If the update window is open this means we are on the initial
-  // application startup.  Show a quick message then close the
-  // update window and open the main application window.
+  // application startup.  Instead of immediately closing the updater,
+  // repurpose it as a loading screen for the main application.  We
+  // simulate progress until the main window is ready, then close
+  // the update window and show the main application.
   if (updateWindow) {
+    let progress = 0;
+    // Send an initial progress update to the update renderer
     updateWindow.webContents.send('update-status', {
-      status: 'not-available',
-      message: 'You are running the latest version'
+      status: 'downloading',
+      message: `Loading application: ${progress}%`,
+      percent: progress
     });
-    setTimeout(() => {
-      if (updateWindow) {
-        updateWindow.close();
-      }
-      // Only create the main window if it hasn't already been created.
-      if (!mainWindow) {
-        createMainWindow();
-      }
-    }, 800);
+    const progressTimer = setInterval(() => {
+      // Increase progress up to 99% while the app is loading
+      progress = Math.min(progress + 5, 99);
+      updateWindow.webContents.send('update-status', {
+        status: 'downloading',
+        message: `Loading application: ${progress}%`,
+        percent: progress
+      });
+    }, 200);
+    // Only create the main window if it hasn't already been created
+    if (!mainWindow) {
+      createMainWindow();
+    }
+    // Hide the main window while it loads; we'll show it once it's ready
+    if (mainWindow) {
+      // Attach the load completion handler before hiding to ensure
+      // we don't miss the event if the page loads quickly
+      mainWindow.webContents.once('did-finish-load', () => {
+        // Stop the progress timer and send the final update
+        clearInterval(progressTimer);
+        progress = 100;
+        updateWindow.webContents.send('update-status', {
+          status: 'downloading',
+          message: `Loading application: ${progress}%`,
+          percent: progress
+        });
+        // Delay briefly so the progress bar appears to fill completely
+        setTimeout(() => {
+          if (updateWindow) {
+            updateWindow.close();
+          }
+          try {
+            if (mainWindow) {
+              mainWindow.show();
+            }
+          } catch (_) {}
+        }, 500);
+      });
+      try {
+        mainWindow.hide();
+      } catch (_) {}
+    }
     return;
   }
   // Otherwise, this was a manual check from the main window.  Notify
