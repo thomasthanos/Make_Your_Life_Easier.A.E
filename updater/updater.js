@@ -1,6 +1,15 @@
 const { autoUpdater } = require("electron-updater");
 const { dialog } = require("electron");
 
+/**
+ * Encapsulates logic for checking, downloading and installing updates.  This
+ * class can be instantiated with a reference to the main application
+ * window.  It sends status messages back to the renderer via the
+ * main window’s webContents when updates are detected, downloaded or
+ * installed.  The autoUpdater is configured to not download or install
+ * automatically by default — this class coordinates user prompts and
+ * silent installation as appropriate.
+ */
 class AppUpdater {
   constructor(mainWindow) {
     this.mainWindow = mainWindow;

@@ -668,7 +668,15 @@ function createUpdateWindow() {
     maximizable: false,
     frame: false,
     show: true,
-    backgroundColor: '#36393f',
+    /**
+     * Use a transparent window so that only the contents rendered in
+     * update.html are visible.  We also disable the OS‑level shadow
+     * to avoid a secondary box.  A fully transparent background
+     * allows the update card to float without any window frame.
+     */
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -676,7 +684,12 @@ function createUpdateWindow() {
     }
   });
   updateWindow.setMenuBarVisibility(false);
-  updateWindow.loadFile('update.html');
+  // Load the update page from the dedicated `updater` folder.  The
+  // update-related assets were moved into their own directory to keep
+  // the project root tidy.  Use path.join here so that Electron
+  // resolves the correct file regardless of the current working
+  // directory.
+  updateWindow.loadFile(path.join('updater', 'update.html'));
   updateWindow.on('closed', () => {
     updateWindow = null;
   });

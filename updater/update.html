@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Updating…</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+      }
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: transparent;
+        color: #ffffff;
+        font-family: sans-serif;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      .update-card {
+        background:
+          radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.08) 60%),
+          linear-gradient(135deg, rgba(0, 80, 160, 0.4), rgba(0, 40, 100, 0.25) 100%),
+          rgba(20, 22, 28, 0.95);
+        border-radius: 16px;
+        padding: 40px;
+        width: 380px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        box-shadow: 0 0px 20px rgb(0 0 0);
+        backdrop-filter: blur(20px) saturate(1.6);
+        -webkit-backdrop-filter: blur(20px) saturate(1.6);
+      }
+      .icon {
+        width: 74px;
+        height: 74px;
+        margin-bottom: 20px;
+        filter: brightness(0.9);
+        border-radius: 16px;
+      }
+      .title {
+        margin: 0;
+        margin-bottom: 12px;
+        font-size: 24px;
+        font-weight: 600;
+        color: #ffffff;
+      }
+      .status {
+        margin: 0;
+        margin-bottom: 24px;
+        font-size: 15px;
+        color: #b8bbc2;
+        text-align: center;
+      }
+      .progress-wrapper {
+        width: 100%;
+      }
+      .progress-bar-bg {
+        width: 100%;
+        height: 8px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+      }
+      .progress-bar {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #0088ff 0%, #0055cc 50%, #0088ff 100%);
+        border-radius: 4px;
+        box-shadow: 0 0 8px #0055cc;
+        transition: width 0.25s ease;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="update-card">
+      <!-- Use a relative path to the hacker icon. The update page now lives
+           inside the `updater` directory, so go up one level to load the icon
+           from the project root. -->
+      <img class="icon" src="../hacker.ico" alt="App logo">
+      <h1 class="title">Make Your Life Easier</h1>
+      <p id="status" class="status">Checking for updates…</p>
+      <div class="progress-wrapper">
+        <div class="progress-bar-bg">
+          <div class="progress-bar"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Load the update renderer script from the same directory.  Because
+         `update.html` and `updateRenderer.js` now reside in the
+         `updater` folder, this relative path will correctly locate the
+         script. -->
+    <script src="updateRenderer.js"></script>
+  </body>
+</html>

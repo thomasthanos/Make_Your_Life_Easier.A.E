@@ -4,24 +4,19 @@
 // process starts the check when the update window is created.
 
 window.addEventListener('DOMContentLoaded', () => {
-  const progressCircle = document.querySelector('svg .progress');
+  // Select the progress bar element and the status element.
+  const progressBar = document.querySelector('.progress-bar');
   const statusEl = document.getElementById('status');
-  const circumference = 2 * Math.PI * 45;
-  // Ensure the dash array matches the circumference.  Some browsers may
-  // modify the stroke-dasharray attribute in the HTML, so explicitly
-  // assign it here.
-  progressCircle.style.strokeDasharray = `${circumference}`;
-  progressCircle.style.strokeDashoffset = `${circumference}`;
 
   /**
-   * Update the progress ring and optional status message.
+   * Update the progress bar width and optional status message.
    * @param {number} percent Progress percentage (0–100)
    * @param {string} [text] Optional status text to display
    */
   function updateProgress(percent, text) {
     if (typeof percent === 'number') {
-      const offset = circumference - (percent / 100) * circumference;
-      progressCircle.style.strokeDashoffset = offset;
+      const clamped = Math.max(0, Math.min(100, percent));
+      progressBar.style.width = `${clamped}%`;
     }
     if (text) {
       statusEl.textContent = text;
