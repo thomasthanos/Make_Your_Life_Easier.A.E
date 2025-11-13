@@ -4121,7 +4121,9 @@ function debug(level, ...args) {
       }
     });
 
-    checkForChangelog();
+    // The changelog is checked once during initialisation (init()), so
+    // do not call checkForChangelog() again here to avoid showing the
+    // changelog modal twice.
   }
 
 

@@ -399,40 +399,11 @@ autoUpdater.on('update-available', async (info) => {
       ? `${title} (v${version})`
       : `Update available: v${version}`;
     
-    // Fetch release notes from GitHub
-    let releaseNotes = info.releaseNotes || '';
-    try {
-      const https = require('https');
-      const options = {
-        hostname: 'api.github.com',
-        path: '/repos/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest',
-        method: 'GET',
-        headers: {
-          'User-Agent': 'MakeYourLifeEasier'
-        }
-      };
-      
-      const githubData = await new Promise((resolve, reject) => {
-        https.get(options, (res) => {
-          let data = '';
-          res.on('data', (chunk) => { data += chunk; });
-          res.on('end', () => {
-            try {
-              resolve(JSON.parse(data));
-            } catch (e) {
-              reject(e);
-            }
-          });
-        }).on('error', reject);
-      });
-      
-      if (githubData && githubData.body) {
-        releaseNotes = githubData.body;
-      }
-    } catch (err) {
-      debug('warn', 'Failed to fetch release notes from GitHub:', err);
-    }
-    
+    // Use the release notes provided by the updater feed (latest.yml).  This avoids
+    // always fetching the latest GitHub release notes, which could show
+    // incorrect notes when updating from older versions.
+    const releaseNotes = info.releaseNotes || '';
+
     mainWindow.webContents.send('update-status', {
       status: 'available',
       message,
@@ -513,7 +484,10 @@ ipcMain.handle('download-update', async () => {
 });
 ipcMain.handle('install-update', async () => {
   if (updateDownloaded) {
-    autoUpdater.quitAndInstall();
+    // Install the update silently and restart the app automatically. Passing
+    // true for both arguments ensures the NSIS installer runs without UI and
+    // the app reopens after completion. See electron-updater docs for details.
+    autoUpdater.quitAndInstall(true, true);
     return { success: true };
   }
   return { success: false, error: 'No update downloaded' };
