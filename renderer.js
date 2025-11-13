@@ -167,15 +167,6 @@ function debug(level, ...args) {
     return { ensure, update, show, hide };
   })();
 
-  // -----------------------------------------------------------------------------
-  // Update overlay
-  //
-  // In order to provide an experience similar to Discord's in‑app updater, we
-  // present a full screen overlay when an update is being downloaded or
-  // installed.  The overlay displays a progress ring and a status message.
-  // These helper functions manage creation and updates of the overlay.  The
-  // overlay is created lazily on first use and reused on subsequent updates.
-
   let updateOverlay;
   function showUpdateOverlay(initialStatus) {
     if (!updateOverlay) {
@@ -4124,14 +4115,7 @@ function debug(level, ...args) {
 
   function initializeAutoUpdater() {
     const updateBtn = document.getElementById('title-bar-update');
-    // If the update button is not present, bail early.  Without this
-    // button we cannot attach tooltips or progress rings.  In our
-    // automatic update implementation we hide the button and display a
-    // full‑screen overlay instead, so this check ensures we still
-    // subscribe to update events even when the button is missing.
     if (!updateBtn) {
-      // We still want to subscribe to update status events to show
-      // progress via the overlay.
       window.api.onUpdateStatus((data) => {
         switch (data.status) {
           case 'available':
@@ -4156,11 +4140,7 @@ function debug(level, ...args) {
       return;
     }
 
-    // Hide the update button entirely.  The application will now download
-    // and install updates automatically without requiring the user to
-    // click this button.  Keeping the element hidden avoids exposing
-    // misleading UI while still allowing us to drive the SVG progress ring
-    // inside the button if necessary.
+
     updateBtn.style.display = 'none';
 
     let updateAvailable = false;
@@ -4195,9 +4175,6 @@ function debug(level, ...args) {
         case 'available':
           updateAvailable = true;
           currentUpdateInfo = data;
-          // Notify via the update button (although hidden) so state is
-          // consistent.  Then show our overlay indicating the update
-          // download has begun.
           updateBtn.classList.add('available');
           updateBtn.setAttribute('data-tooltip', `Downloading update…`);
           showUpdateOverlay(`Downloading update…`);
@@ -4224,10 +4201,6 @@ function debug(level, ...args) {
           updateBtn.classList.remove('downloading');
           updateBtn.classList.add('ready');
           updateBtn.setAttribute('data-tooltip', 'Installing update…');
-          // Update overlay to reflect installation progress.  We do not
-          // call installUpdate() from the renderer here because the
-          // main process will automatically install the update.  The
-          // overlay remains visible until the app restarts.
           showUpdateOverlay('Installing update…');
           updateUpdateOverlay(100, 'Installing update…');
           // Persist update metadata for the changelog modal after restart.
@@ -4264,10 +4237,6 @@ function debug(level, ...args) {
           break;
       }
     });
-
-    // The changelog is checked once during initialisation (init()), so
-    // do not call checkForChangelog() again here to avoid showing the
-    // changelog modal twice.
   }
 
 

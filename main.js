@@ -21,8 +21,8 @@ function debug(level, ...args) {
     level === 'error'
       ? console.error
       : level === 'warn'
-      ? console.warn
-      : console.log;
+        ? console.warn
+        : console.log;
   if (isBrowser) {
     fn.call(console, `%c${emoji}`, style, ...args);
   } else {
@@ -273,7 +273,7 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
           authWindow.setBrowserView(null);
           loaderView.destroy();
         }
-      } catch (_) {}
+      } catch (_) { }
     };
     authWindow.webContents.once('did-finish-load', removeLoaderView);
     authWindow.once('closed', removeLoaderView);
@@ -333,11 +333,11 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
     authWindow.webContents.on('will-redirect', (event, url) => {
       handleUrl(url);
     });
-    
+
     authWindow.webContents.on('will-navigate', (event, url) => {
       handleUrl(url);
     });
-    
+
     authWindow.webContents.on('did-navigate', (event, url) => {
       handleUrl(url);
     });
@@ -357,12 +357,12 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
             }
           `);
         }
-      } catch (_) {}
+      } catch (_) { }
     };
     authWindow.webContents.on('did-finish-load', applyDiscordAccessibilityFix);
     authWindow.webContents.on('did-navigate', applyDiscordAccessibilityFix);
     authWindow.webContents.on('frame-loaded', applyDiscordAccessibilityFix);
-    
+
     authWindow.on('closed', () => {
       try {
         resolve(null);
@@ -370,23 +370,15 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
         // If resolve has already been called, ignore any errors.
       }
     });
-    
+
     authWindow.loadURL(authUrl);
   });
 }
 const PasswordManagerAuth = require('./password-manager/auth');
 const PasswordManagerDB = require('./password-manager/database');
 const { dialog } = require('electron');
-// Enable automatic download of updates.  By default the updater
-// will download updates as soon as they are discovered.  This
-// removes the need for the user to click a button in the UI to
-// initiate the download.
 autoUpdater.autoDownload = true;
 
-// Disable automatic install on quit.  We will explicitly call
-// quitAndInstall() ourselves once the update has finished
-// downloading so that the update is applied immediately rather
-// than waiting for the user to quit the application.
 autoUpdater.autoInstallOnAppQuit = false;
 let updateAvailable = false;
 let isManualCheck = false;
@@ -404,16 +396,9 @@ autoUpdater.on('update-available', async (info) => {
   if (mainWindow) {
     const title = info.releaseName || '';
     const version = info.version || '';
-    // When an update is available the updater will automatically begin
-    // downloading it (see autoDownload=true above).  Update the message
-    // to reflect that the download has started.
     const message = title
       ? `${title} (v${version})`
       : `New version available: v${version}`;
-
-    // Use the release notes provided by the updater feed (latest.yml).  This avoids
-    // always fetching the latest GitHub release notes, which could show
-    // incorrect notes when updating from older versions.
     const releaseNotes = info.releaseNotes || '';
 
     mainWindow.webContents.send('update-status', {
@@ -457,9 +442,6 @@ autoUpdater.on('update-downloaded', (info) => {
     const message = title
       ? `${title} (v${version}) downloaded.`
       : `v${version} downloaded.`;
-    // Notify the renderer that the update has been downloaded.  The
-    // renderer can display a progress overlay or other UI during
-    // installation.
     mainWindow.webContents.send('update-status', {
       status: 'downloaded',
       message,
@@ -467,9 +449,6 @@ autoUpdater.on('update-downloaded', (info) => {
       releaseName: title
     });
   }
-  // Once the update is downloaded, install it silently and restart
-  // the application.  A short delay allows the renderer time to
-  // display any final messages before the process exits.
   setTimeout(() => {
     try {
       autoUpdater.quitAndInstall(true, true);
@@ -509,9 +488,6 @@ ipcMain.handle('download-update', async () => {
 });
 ipcMain.handle('install-update', async () => {
   if (updateDownloaded) {
-    // Install the update silently and restart the app automatically. Passing
-    // true for both arguments ensures the NSIS installer runs without UI and
-    // the app reopens after completion. See electron-updater docs for details.
     autoUpdater.quitAndInstall(true, true);
     return { success: true };
   }
@@ -587,11 +563,6 @@ function createWindow() {
   });
   mainWindow.loadFile('index.html');
   setTimeout(() => {
-    // Check for updates shortly after the window loads.  We call
-    // checkForUpdates() instead of checkForUpdatesAndNotify() so
-    // that the renderer can handle all user feedback (via the
-    // full‑screen overlay) without the operating system showing its
-    // own notification.
     autoUpdater.checkForUpdates().catch((err) => {
       debug('error', err);
     });
@@ -599,42 +570,42 @@ function createWindow() {
 }
 // Window controls handlers
 ipcMain.handle('window-minimize', () => {
-    if (mainWindow) {
-        mainWindow.minimize();
-    }
+  if (mainWindow) {
+    mainWindow.minimize();
+  }
 });
 
 ipcMain.handle('window-maximize', () => {
-    if (mainWindow) {
-        if (mainWindow.isMaximized()) {
-            mainWindow.unmaximize();
-        } else {
-            mainWindow.maximize();
-        }
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
     }
+  }
 });
 
 ipcMain.handle('window-close', () => {
-    if (mainWindow) {
-        mainWindow.close();
-    }
+  if (mainWindow) {
+    mainWindow.close();
+  }
 });
 
 ipcMain.handle('window-is-maximized', () => {
-    return mainWindow ? mainWindow.isMaximized() : false;
+  return mainWindow ? mainWindow.isMaximized() : false;
 });
 
 // Window state change events
 function setupWindowStateEvents() {
-    if (mainWindow) {
-        mainWindow.on('maximize', () => {
-            mainWindow.webContents.send('window-state-changed', { isMaximized: true });
-        });
-        
-        mainWindow.on('unmaximize', () => {
-            mainWindow.webContents.send('window-state-changed', { isMaximized: false });
-        });
-    }
+  if (mainWindow) {
+    mainWindow.on('maximize', () => {
+      mainWindow.webContents.send('window-state-changed', { isMaximized: true });
+    });
+
+    mainWindow.on('unmaximize', () => {
+      mainWindow.webContents.send('window-state-changed', { isMaximized: false });
+    });
+  }
 }
 
 function createPasswordManagerWindow() {
@@ -977,7 +948,7 @@ ipcMain.on('download-start', (event, { id, url, dest }) => {
       res.pipe(file);
       file.once('finish', () => {
         file.close(() => {
-            fs.rename(tempPath, finalPath, (err) => {
+          fs.rename(tempPath, finalPath, (err) => {
             if (err) { cleanup(err.message); return; }
             activeDownloads.delete(id);
             // Record the completed download so it can be cleaned up on exit
@@ -1463,11 +1434,11 @@ exit $LASTEXITCODE
       const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
       const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
       child.on('error', (err) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
         resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
       });
       child.on('exit', (code) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
         if (code === 0) {
           resolve({ success: true, message: '✅ SFC scan completed successfully!' });
         } else {
@@ -1475,7 +1446,7 @@ exit $LASTEXITCODE
         }
       });
     } catch (error) {
-      try { if (typeof psFile !== 'undefined' && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+      try { if (typeof psFile !== 'undefined' && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
       resolve({ success: false, error: 'Failed to start SFC scan: ' + error.message });
     }
   });
@@ -1501,11 +1472,11 @@ exit $LASTEXITCODE
       const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
       const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
       child.on('error', (err) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
         resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
       });
       child.on('exit', (code) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
         if (code === 0) {
           resolve({ success: true, message: '✅ DISM repair completed successfully!' });
         } else {
@@ -1513,7 +1484,7 @@ exit $LASTEXITCODE
         }
       });
     } catch (error) {
-      try { if (typeof psFile !== 'undefined' && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+      try { if (typeof psFile !== 'undefined' && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
       resolve({ success: false, error: 'Failed to start DISM repair: ' + error.message });
     }
   });
@@ -1585,11 +1556,11 @@ Write-Host ""
       const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
       // Handle error events (likely UAC denial)
       child.on('error', (err) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
         resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
       });
       child.on('exit', (code) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
         if (code === 0) {
           resolve({ success: true, message: '✅ Temporary files cleanup completed successfully!' });
         } else {
@@ -1598,7 +1569,7 @@ Write-Host ""
       });
     } catch (err) {
       // Attempt to clean up the script file and propagate an error
-      try { if (typeof psFile !== 'undefined' && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) {}
+      try { if (typeof psFile !== 'undefined' && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
       resolve({ success: false, error: 'Failed to start temp files cleanup: ' + err.message });
     }
   });
