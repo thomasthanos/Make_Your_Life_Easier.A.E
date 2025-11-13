@@ -167,6 +167,102 @@ function debug(level, ...args) {
     return { ensure, update, show, hide };
   })();
 
+  // -----------------------------------------------------------------------------
+  // Update overlay
+  //
+  // In order to provide an experience similar to Discord's in‑app updater, we
+  // present a full screen overlay when an update is being downloaded or
+  // installed.  The overlay displays a progress ring and a status message.
+  // These helper functions manage creation and updates of the overlay.  The
+  // overlay is created lazily on first use and reused on subsequent updates.
+
+  let updateOverlay;
+  function showUpdateOverlay(initialStatus) {
+    if (!updateOverlay) {
+      updateOverlay = document.createElement('div');
+      updateOverlay.id = 'update-overlay';
+      Object.assign(updateOverlay.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        backdropFilter: 'blur(4px)',
+        zIndex: '100000'
+      });
+      const container = document.createElement('div');
+      container.style.display = 'flex';
+      container.style.flexDirection = 'column';
+      container.style.alignItems = 'center';
+      updateOverlay.appendChild(container);
+      // Create SVG progress ring
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNS, 'svg');
+      svg.setAttribute('viewBox', '0 0 100 100');
+      svg.style.width = '120px';
+      svg.style.height = '120px';
+      svg.style.transform = 'rotate(-90deg)';
+      const bg = document.createElementNS(svgNS, 'circle');
+      bg.setAttribute('cx', '50');
+      bg.setAttribute('cy', '50');
+      bg.setAttribute('r', '45');
+      bg.setAttribute('stroke', 'rgba(255,255,255,0.1)');
+      bg.setAttribute('stroke-width', '10');
+      bg.setAttribute('fill', 'none');
+      const progress = document.createElementNS(svgNS, 'circle');
+      progress.setAttribute('cx', '50');
+      progress.setAttribute('cy', '50');
+      progress.setAttribute('r', '45');
+      // Use a colour reminiscent of Discord's branding for the progress ring.
+      progress.setAttribute('stroke', '#5865F2');
+      progress.setAttribute('stroke-width', '10');
+      progress.setAttribute('fill', 'none');
+      progress.setAttribute('stroke-linecap', 'round');
+      const circumference = 2 * Math.PI * 45;
+      progress.style.strokeDasharray = `${circumference}`;
+      progress.style.strokeDashoffset = `${circumference}`;
+      svg.appendChild(bg);
+      svg.appendChild(progress);
+      container.appendChild(svg);
+      const text = document.createElement('p');
+      text.className = 'update-status';
+      text.style.marginTop = '20px';
+      text.style.color = '#ffffff';
+      text.style.fontSize = '18px';
+      text.style.textAlign = 'center';
+      container.appendChild(text);
+      updateOverlay._progressCircle = progress;
+      updateOverlay._statusEl = text;
+      document.body.appendChild(updateOverlay);
+    }
+    updateOverlay.style.display = 'flex';
+    if (initialStatus) {
+      updateOverlay._statusEl.textContent = initialStatus;
+    }
+  }
+
+  function updateUpdateOverlay(percent, statusText) {
+    if (!updateOverlay) return;
+    const circumference = 2 * Math.PI * 45;
+    if (typeof percent === 'number') {
+      const offset = circumference - (percent / 100) * circumference;
+      updateOverlay._progressCircle.style.strokeDashoffset = offset;
+    }
+    if (statusText) {
+      updateOverlay._statusEl.textContent = statusText;
+    }
+  }
+
+  function hideUpdateOverlay() {
+    if (updateOverlay) {
+      updateOverlay.style.display = 'none';
+    }
+  }
+
 
   let lastInteractionWasKeyboard = false;
 
@@ -4028,7 +4124,44 @@ function debug(level, ...args) {
 
   function initializeAutoUpdater() {
     const updateBtn = document.getElementById('title-bar-update');
-    if (!updateBtn) return;
+    // If the update button is not present, bail early.  Without this
+    // button we cannot attach tooltips or progress rings.  In our
+    // automatic update implementation we hide the button and display a
+    // full‑screen overlay instead, so this check ensures we still
+    // subscribe to update events even when the button is missing.
+    if (!updateBtn) {
+      // We still want to subscribe to update status events to show
+      // progress via the overlay.
+      window.api.onUpdateStatus((data) => {
+        switch (data.status) {
+          case 'available':
+            showUpdateOverlay(`Downloading update…`);
+            break;
+          case 'downloading': {
+            const percent = Math.round(data.percent || 0);
+            showUpdateOverlay(`Downloading update: ${percent}%`);
+            updateUpdateOverlay(percent, `Downloading update: ${percent}%`);
+            break;
+          }
+          case 'downloaded':
+            showUpdateOverlay('Installing update…');
+            updateUpdateOverlay(100, 'Installing update…');
+            break;
+          case 'error':
+            hideUpdateOverlay();
+            toast('Update error', { type: 'error', title: 'Update' });
+            break;
+        }
+      });
+      return;
+    }
+
+    // Hide the update button entirely.  The application will now download
+    // and install updates automatically without requiring the user to
+    // click this button.  Keeping the element hidden avoids exposing
+    // misleading UI while still allowing us to drive the SVG progress ring
+    // inside the button if necessary.
+    updateBtn.style.display = 'none';
 
     let updateAvailable = false;
     let updateDownloaded = false;
@@ -4062,31 +4195,42 @@ function debug(level, ...args) {
         case 'available':
           updateAvailable = true;
           currentUpdateInfo = data;
+          // Notify via the update button (although hidden) so state is
+          // consistent.  Then show our overlay indicating the update
+          // download has begun.
           updateBtn.classList.add('available');
-          updateBtn.setAttribute('data-tooltip', `Update available: ${data.version || 'New version'}`);
+          updateBtn.setAttribute('data-tooltip', `Downloading update…`);
+          showUpdateOverlay(`Downloading update…`);
           break;
 
         case 'downloading':
           updateBtn.classList.add('downloading');
           const percent = Math.round(data.percent || 0);
           updateBtn.setAttribute('data-tooltip', `Downloading: ${percent}%`);
-
-
+          // Update the hidden progress ring on the button
           const circle = updateBtn.querySelector('.progress-ring circle');
           if (circle) {
             const circumference = 2 * Math.PI * 10;
             const offset = circumference - (percent / 100) * circumference;
             circle.style.strokeDashoffset = offset;
           }
+          // Update our full‑screen overlay progress
+          showUpdateOverlay(`Downloading update: ${percent}%`);
+          updateUpdateOverlay(percent, `Downloading update: ${percent}%`);
           break;
 
         case 'downloaded':
           updateDownloaded = true;
           updateBtn.classList.remove('downloading');
           updateBtn.classList.add('ready');
-          updateBtn.setAttribute('data-tooltip', 'Installing update...');
-
-
+          updateBtn.setAttribute('data-tooltip', 'Installing update…');
+          // Update overlay to reflect installation progress.  We do not
+          // call installUpdate() from the renderer here because the
+          // main process will automatically install the update.  The
+          // overlay remains visible until the app restarts.
+          showUpdateOverlay('Installing update…');
+          updateUpdateOverlay(100, 'Installing update…');
+          // Persist update metadata for the changelog modal after restart.
           setTimeout(async () => {
             try {
               if (currentUpdateInfo) {
@@ -4106,16 +4250,16 @@ function debug(level, ...args) {
                   }
                 }
               }
-              await window.api.installUpdate();
             } catch (error) {
-              toast('Failed to install update', { type: 'error', title: 'Update' });
+              console.error('Error persisting update info:', error);
             }
-          }, 1000);
+          }, 0);
           break;
 
         case 'error':
           updateBtn.classList.remove('downloading');
           updateBtn.setAttribute('data-tooltip', 'Update failed');
+          hideUpdateOverlay();
           toast('Update error', { type: 'error', title: 'Update' });
           break;
       }

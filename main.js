@@ -377,8 +377,17 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
 const PasswordManagerAuth = require('./password-manager/auth');
 const PasswordManagerDB = require('./password-manager/database');
 const { dialog } = require('electron');
-autoUpdater.autoDownload = false;
-autoUpdater.autoInstallOnAppQuit = true;
+// Enable automatic download of updates.  By default the updater
+// will download updates as soon as they are discovered.  This
+// removes the need for the user to click a button in the UI to
+// initiate the download.
+autoUpdater.autoDownload = true;
+
+// Disable automatic install on quit.  We will explicitly call
+// quitAndInstall() ourselves once the update has finished
+// downloading so that the update is applied immediately rather
+// than waiting for the user to quit the application.
+autoUpdater.autoInstallOnAppQuit = false;
 let updateAvailable = false;
 let isManualCheck = false;
 let updateDownloaded = false;
@@ -395,10 +404,13 @@ autoUpdater.on('update-available', async (info) => {
   if (mainWindow) {
     const title = info.releaseName || '';
     const version = info.version || '';
+    // When an update is available the updater will automatically begin
+    // downloading it (see autoDownload=true above).  Update the message
+    // to reflect that the download has started.
     const message = title
       ? `${title} (v${version})`
-      : `Update available: v${version}`;
-    
+      : `New version available: v${version}`;
+
     // Use the release notes provided by the updater feed (latest.yml).  This avoids
     // always fetching the latest GitHub release notes, which could show
     // incorrect notes when updating from older versions.
@@ -443,8 +455,11 @@ autoUpdater.on('update-downloaded', (info) => {
     const title = info.releaseName || '';
     const version = info.version || '';
     const message = title
-      ? `${title} (v${version}) downloaded. Restart to install.`
-      : `v${version} downloaded. Restart to install.`;
+      ? `${title} (v${version}) downloaded.`
+      : `v${version} downloaded.`;
+    // Notify the renderer that the update has been downloaded.  The
+    // renderer can display a progress overlay or other UI during
+    // installation.
     mainWindow.webContents.send('update-status', {
       status: 'downloaded',
       message,
@@ -452,6 +467,16 @@ autoUpdater.on('update-downloaded', (info) => {
       releaseName: title
     });
   }
+  // Once the update is downloaded, install it silently and restart
+  // the application.  A short delay allows the renderer time to
+  // display any final messages before the process exits.
+  setTimeout(() => {
+    try {
+      autoUpdater.quitAndInstall(true, true);
+    } catch (e) {
+      debug('error', 'Failed to install update automatically:', e);
+    }
+  }, 1000);
 });
 
 autoUpdater.on('error', (err) => {
@@ -562,7 +587,12 @@ function createWindow() {
   });
   mainWindow.loadFile('index.html');
   setTimeout(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+    // Check for updates shortly after the window loads.  We call
+    // checkForUpdates() instead of checkForUpdatesAndNotify() so
+    // that the renderer can handle all user feedback (via the
+    // full‑screen overlay) without the operating system showing its
+    // own notification.
+    autoUpdater.checkForUpdates().catch((err) => {
       debug('error', err);
     });
   }, 3000);
