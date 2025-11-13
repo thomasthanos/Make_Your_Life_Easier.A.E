@@ -389,6 +389,11 @@ autoUpdater.autoDownload = true;
 // than waiting for the user to quit the application.
 autoUpdater.autoInstallOnAppQuit = false;
 let updateAvailable = false;
+// Cache update metadata when an update is available so we can persist
+// the release notes after the update is downloaded.  The info
+// provided in the update-downloaded event may omit releaseNotes, so
+// we capture it here from the update-available event.
+let pendingUpdateInfo = null;
 let isManualCheck = false;
 let updateDownloaded = false;
 autoUpdater.on('checking-for-update', () => {
@@ -405,6 +410,12 @@ autoUpdater.on('checking-for-update', () => {
 autoUpdater.on('update-available', async (info) => {
   debug('info', 'Update available:', info);
   updateAvailable = true;
+  // Cache update information for later use when the update is downloaded.
+  pendingUpdateInfo = {
+    version: info.version,
+    releaseName: info.releaseName,
+    releaseNotes: info.releaseNotes
+  };
   const title = info.releaseName || '';
   const version = info.version || '';
   const message = title
@@ -532,6 +543,23 @@ autoUpdater.on('update-downloaded', (info) => {
   }
   if (mainWindow) {
     mainWindow.webContents.send('update-status', payload);
+  }
+
+  // Persist update metadata so the changelog can be displayed after the
+  // application restarts.  Use the cached pendingUpdateInfo when
+  // available because the `info` object here may omit release notes.
+  try {
+    const updateInfoToSave = pendingUpdateInfo || {
+      version: info.version,
+      releaseName: info.releaseName,
+      releaseNotes: info.releaseNotes
+    };
+    // Add a timestamp so the changelog can display relative times
+    updateInfoToSave.timestamp = Date.now();
+    const updateInfoFilePath = path.join(app.getPath('userData'), 'update-info.json');
+    fs.writeFileSync(updateInfoFilePath, JSON.stringify(updateInfoToSave));
+  } catch (err) {
+    debug('warn', 'Failed to persist update info:', err);
   }
   // Once the update is downloaded, install it silently and restart
   // the application.  A short delay allows the renderer time to
