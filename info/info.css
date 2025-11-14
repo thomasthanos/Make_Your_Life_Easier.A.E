@@ -41,13 +41,6 @@
 .info-nav::-webkit-scrollbar-thumb:hover {
   background: var(--accent-color-light);
 }
-
-/* Firefox Scrollbar */
-.info-nav {
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-color) rgba(255, 255, 255, 0.05);
-}
-
 html, body {
   height: 100%;
   width: 100%;
@@ -146,9 +139,8 @@ html, body {
   overflow-y: hidden;
   width: 100%;
   margin: 0 auto;
-
-  /* Prevent the navigation bar from shrinking when the content area grows.
-     This keeps the menu buttons at a consistent size even with long text. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-color) rgba(255, 255, 255, 0.05);
   flex-shrink: 0;
 }
 
