@@ -445,7 +445,6 @@ class ModernReleaseManager(QMainWindow):
     def setup_all_views(self):
         """Create all views once and store them"""
         self.views["releases"] = self.create_releases_view()
-        self.views["quick_release"] = self.create_quick_release_view()
         self.views["advanced"] = self.create_advanced_view()
         
         # Show initial view
@@ -525,7 +524,6 @@ class ModernReleaseManager(QMainWindow):
         
         nav_buttons = [
             ("📋 View Releases", self.show_releases),
-            ("⚡ Quick Releases", self.show_quick_release),
             ("⚙️ Advanced Tools", self.show_advanced),
         ]
         
@@ -641,11 +639,6 @@ class ModernReleaseManager(QMainWindow):
         refresh_btn.setFixedWidth(120)
         header_layout.addWidget(refresh_btn)
         
-        test_btn = QPushButton("🔧 Test GitHub CLI")
-        test_btn.clicked.connect(self.test_github_cli)
-        test_btn.setFixedWidth(140)
-        header_layout.addWidget(test_btn)
-        
         layout.addWidget(header)
         
         # Releases list - MODERN VERSION
@@ -706,128 +699,6 @@ class ModernReleaseManager(QMainWindow):
         releases_layout.addWidget(self.releases_scroll, 1)
         
         layout.addWidget(releases_card, 1)
-        
-        return widget
-
-    def create_quick_release_view(self):
-        """Create the quick release view widget"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
-        
-        # Title
-        title = QLabel("⚡ Quick Release")
-        title.setStyleSheet("font-size: 24px; font-weight: bold; color: #00a8ff; text-align: center; padding: 10px;")
-        layout.addWidget(title)
-        
-        # Main content area
-        content_widget = QWidget()
-        content_layout = QHBoxLayout(content_widget)
-        content_layout.setSpacing(30)
-        
-        # Left side - Release type selection with CHECKBOXES
-        left_frame = QFrame()
-        left_frame.setProperty("card", "true")
-        left_frame.setFixedWidth(400)
-        left_layout = QVBoxLayout(left_frame)
-        left_layout.setSpacing(15)
-        
-        type_label = QLabel("🎯 Release Type")
-        type_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #00a8ff;")
-        left_layout.addWidget(type_label)
-        
-        self.type_group = QButtonGroup()
-        self.type_group.setExclusive(True)  # Only one can be selected
-        
-        types = [
-            ("🔧 Patch Release", "patch", "Bug fixes and minor updates", "#00d2d3"),
-            ("✨ Minor Release", "minor", "New features and improvements", "#00a8ff"),
-            ("🚀 Major Release", "major", "Breaking changes and major updates", "#9c88ff")
-        ]
-        
-        for text, value, description, color in types:
-            checkbox_card = QFrame()
-            checkbox_card.setProperty("card", "true")
-            checkbox_layout = QVBoxLayout(checkbox_card)
-            checkbox_layout.setSpacing(8)
-            
-            checkbox_row = QHBoxLayout()
-            checkbox = QCheckBox(text)
-            checkbox.setProperty("value", value)
-            checkbox.setStyleSheet(f"color: {color}; font-weight: bold; font-size: 14px;")
-            if value == "patch":
-                checkbox.setChecked(True)
-            
-            self.type_group.addButton(checkbox)
-            checkbox.toggled.connect(self.on_release_type_changed)
-            checkbox_row.addWidget(checkbox)
-            checkbox_row.addStretch()
-            
-            desc_label = QLabel(description)
-            desc_label.setStyleSheet("color: #a0a0c0; font-size: 12px; padding-left: 25px;")
-            desc_label.setWordWrap(True)
-            
-            checkbox_layout.addLayout(checkbox_row)
-            checkbox_layout.addWidget(desc_label)
-            left_layout.addWidget(checkbox_card)
-        
-        left_layout.addStretch()
-        content_layout.addWidget(left_frame)
-        
-        # Right side - Quick actions
-        right_frame = QFrame()
-        right_frame.setProperty("card", "true")
-        right_layout = QVBoxLayout(right_frame)
-        right_layout.setSpacing(20)
-        
-        action_label = QLabel("⚡ Quick Actions")
-        action_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #00a8ff;")
-        right_layout.addWidget(action_label)
-        
-        # Version preview
-        preview_card = QFrame()
-        preview_card.setProperty("card", "true")
-        preview_layout = QVBoxLayout(preview_card)
-        
-        preview_label = QLabel("📊 Version Preview")
-        preview_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #00a8ff;")
-        preview_layout.addWidget(preview_label)
-        
-        self.version_preview = QLabel("1.0.1")
-        self.version_preview.setStyleSheet("font-size: 32px; font-weight: bold; color: #00d2d3; text-align: center; padding: 15px;")
-        self.version_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        preview_layout.addWidget(self.version_preview)
-        
-        preview_note = QLabel("Next version based on current selection")
-        preview_note.setStyleSheet("color: #a0a0c0; font-size: 11px; text-align: center;")
-        preview_layout.addWidget(preview_note)
-        
-        right_layout.addWidget(preview_card)
-        
-        # Quick action button
-        quick_btn = QPushButton("🚀 CREATE QUICK RELEASE")
-        quick_btn.clicked.connect(lambda: self.queue_command(self.auto_release))
-        quick_btn.setStyleSheet("""
-            QPushButton {
-                font-size: 16px;
-                font-weight: bold;
-                height: 60px;
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                      stop:0 #00a8ff, stop:0.5 #0097e6, stop:1 #00a8ff);
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                      stop:0 #0097e6, stop:0.5 #0087d6, stop:1 #0097e6);
-            }
-        """)
-        right_layout.addWidget(quick_btn)
-        
-        right_layout.addStretch()
-        content_layout.addWidget(right_frame)
-        
-        layout.addWidget(content_widget, 1)
-        layout.addStretch()
         
         return widget
 
@@ -910,7 +781,6 @@ class ModernReleaseManager(QMainWindow):
         
         build_buttons = [
             ("🔧 Build Project", lambda: self.queue_command(self.safe_build_single)),
-            ("🧹 Clean & Rebuild", self.clean_and_rebuild),
         ]
         
         for text, command in build_buttons:
@@ -1044,15 +914,6 @@ class ModernReleaseManager(QMainWindow):
             if child.widget():
                 child.widget().setParent(None)  # Just remove, don't delete
 
-    def on_release_type_changed(self):
-        checkbox = self.sender()
-        if checkbox.isChecked():
-            self.release_type = checkbox.property("value")
-            # Update version preview
-            if self.version:
-                new_version = self.calculate_new_version(self.version, self.release_type)
-                self.version_preview.setText(new_version)
-
     def suggest_version(self):
         """Suggests the next version based on release_type""" 
         if not self.version:
@@ -1101,57 +962,9 @@ class ModernReleaseManager(QMainWindow):
         self.switch_view("releases")
         self.refresh_releases()
 
-    def show_quick_release(self):
-        self.current_view = "quick_release"
-        self.switch_view("quick_release")
-
     def show_advanced(self):
         self.current_view = "advanced"
         self.switch_view("advanced")
-
-    def test_github_cli(self):
-        """Test if GitHub CLI is working - DIAGNOSTIC ONLY""" 
-        self.log("Testing GitHub CLI...", "info")
-        
-        def test_cli():
-            try:
-                self.log("Running gh --version", "info")
-                # Test 1: Check if gh is installed
-                result1 = subprocess.run(["gh", "--version"], capture_output=True, text=True)
-                if result1.returncode != 0:
-                    self.log("GitHub CLI is not installed", "error")
-                    self.log("Install from: https://cli.github.com/", "info")
-                    return
-                
-                self.log("GitHub CLI is installed", "success")
-                
-                self.log("Running gh auth status", "info")
-                # Test 2: Check authentication
-                result2 = subprocess.run(["gh", "auth", "status"], capture_output=True, text=True)
-                if result2.returncode != 0:
-                    self.log("Not authenticated with GitHub CLI", "error")
-                    self.log("Run: gh auth login", "info")
-                    return
-                
-                self.log("Authenticated with GitHub", "success")
-                
-                # Test 3: Try to get releases (diagnostic only)
-                if self.project_path:
-                    self.log("Running gh release list", "info")
-                    result3 = subprocess.run(["gh", "release", "list", "--limit", "3"], capture_output=True, text=True, cwd=self.project_path)
-                    if result3.returncode == 0:
-                        self.log(f"GitHub CLI working - found releases", "success")
-                        # Don't display release data in console - just confirm it works
-                    else:
-                        self.log(f"GitHub CLI list error: {result3.stderr}", "warning")
-                
-            except Exception as e:
-                self.log(f"Error testing GitHub CLI: {e}", "error")
-            finally:
-                self.log("Test completed, refreshing releases", "info")
-                QTimer.singleShot(0, self.refresh_releases)
-        
-        threading.Thread(target=test_cli, daemon=True).start()
 
     def check_project_selected(self):
         if not self.project_path:
@@ -1347,99 +1160,6 @@ class ModernReleaseManager(QMainWindow):
         if hasattr(self, 'build_worker'):
             self.build_worker = None
 
-    def clean_and_rebuild(self):
-        """Clean everything and do a fresh rebuild using threads"""
-        if not self.check_project_selected():
-            return
-            
-        self.log("Starting clean rebuild process...", "info")
-        
-        # Show progress
-        self.is_working = True
-        self.progress_bar.setVisible(True)
-        self.update_status("Cleaning and rebuilding...")
-        
-        def clean_operations():
-            try:
-                # Clean dist folder
-                if self.safe_delete_dist():
-                    self.log("Dist folder cleaned", "success")
-                else:
-                    self.log("Failed to clean dist folder", "error")
-                    self.is_working = False
-                    self.progress_bar.setVisible(False)
-                    return
-                
-                # Remove node_modules and package-lock.json
-                node_modules_path = Path(self.project_path) / "node_modules"
-                if node_modules_path.exists():
-                    self.log("Removing node_modules...", "info")
-                    shutil.rmtree(node_modules_path)
-                    self.log("node_modules removed", "success")
-                
-                package_lock_path = Path(self.project_path) / "package-lock.json"
-                if package_lock_path.exists():
-                    package_lock_path.unlink()
-                    self.log("package-lock.json removed", "success")
-                
-                # Reinstall dependencies
-                self.log("Reinstalling dependencies...", "info")
-                if self.run_command_sync_thread_safe("npm install"):
-                    self.log("Dependencies installed", "success")
-                    
-                    # Rebuild using thread-safe method
-                    QTimer.singleShot(1000, self.safe_build_single)
-                else:
-                    self.log("Failed to install dependencies", "error")
-                    self.is_working = False
-                    self.progress_bar.setVisible(False)
-                    
-            except Exception as e:
-                self.log(f"Error during clean operations: {e}", "error")
-                self.is_working = False
-                self.progress_bar.setVisible(False)
-        
-        # Run clean operations in thread
-        threading.Thread(target=clean_operations, daemon=True).start()
-
-    def run_command_sync_thread_safe(self, command):
-        """Run command synchronously in a thread-safe way"""
-        try:
-            self.log(f"Running: {command}", "info")
-            process = subprocess.run(
-                command, 
-                shell=True, 
-                capture_output=True, 
-                text=True, 
-                cwd=self.project_path, 
-                timeout=300
-            )
-            
-            # Emit output in chunks to avoid UI blocking
-            if process.stdout:
-                for line in process.stdout.split('\n'):
-                    if line.strip():
-                        self.log(line, "output")
-            
-            if process.stderr:
-                for line in process.stderr.split('\n'):
-                    if line.strip():
-                        self.log(line, "error")
-            
-            if process.returncode == 0:
-                self.log("Command completed successfully", "success")
-                return True
-            else:
-                self.log(f"Command failed with code: {process.returncode}", "error")
-                return False
-                
-        except subprocess.TimeoutExpired:
-            self.log("Command timed out", "error")
-            return False
-        except Exception as e:
-            self.log(f"Error running command: {e}", "error")
-            return False
-
     def _run_subprocess(self, command):
         try:
             process = subprocess.run(command, shell=True, capture_output=True, text=True, cwd=self.project_path, timeout=600)
@@ -1504,86 +1224,6 @@ class ModernReleaseManager(QMainWindow):
         except Exception as e:
             self.log(f"Error: {str(e)}", "error")
             return False
-
-    def auto_release(self):
-        """
-        Perform a quick release without triggering a build.
-
-        This method assumes the project has already been built and that the
-        distribution files are present in the ``dist`` directory. It verifies the
-        project selection and existence of build artifacts, then calls
-        ``create_release`` to publish the release. If required files are missing,
-        it logs an appropriate error and aborts.
-        """
-        # Ensure a project is selected
-        if not self.check_project_selected():
-            return
-
-        self.log("Starting quick release process...", "info")
-
-        # Check that distribution files exist before releasing
-        if not self.check_dist_files_exist():
-            self.log("Distribution files missing; please build the project before creating a release.", "error")
-            return
-
-        # All checks passed; prepare version automatically if needed
-        version_input = self.version_entry.text().strip() if hasattr(self, 'version_entry') else ""
-        if not version_input:
-            # If no version was manually entered, use the version preview (suggested next version)
-            suggested_version = ""
-            if hasattr(self, 'version_preview') and self.version_preview.text():
-                suggested_version = self.version_preview.text().strip()
-            # Fallback: calculate from current version and release type
-            if not suggested_version and self.version:
-                suggested_version = self.calculate_new_version(self.version, self.release_type)
-            if suggested_version:
-                self.version_entry.setText(suggested_version)
-                self.log(f"Using suggested version: {suggested_version}", "info")
-
-        # Proceed to create the release
-        self.log("Distribution files found, proceeding with release...", "success")
-        self.create_release()
-
-    def auto_release_after_build(self, success: bool):
-        """Handle completion of the build during auto release.
-
-        This slot runs on the Qt main thread when the build_worker emits
-        finished_signal. It checks whether the build was successful and if
-        distribution files exist before creating a new release. Using QTimer
-        ensures that the file system has had a moment to settle before checking.
-
-        Args:
-            success (bool): True if the build_worker reports a successful build.
-        """
-        # Disconnect this slot so it only runs once per auto release
-        sender = self.sender()
-        try:
-            sender.finished_signal.disconnect(self.auto_release_after_build)  # type: ignore
-        except Exception:
-            pass
-
-        if not success:
-            self.log("Build failed, cannot proceed with release", "error")
-            return
-
-        # Schedule a check after a short delay to allow files to be written
-        QTimer.singleShot(1500, self._auto_release_finalize)
-
-    def _auto_release_finalize(self):
-        """Finalize the auto release after the build has finished.
-
-        Checks for distribution files and, if present, creates the release.
-        This method runs on the main thread. It is separated from
-        auto_release_after_build for clarity and easier testing.
-        """
-        if self.check_dist_files_exist():
-            self.log("Build successful, proceeding with release...", "success")
-            # Create the release on the main thread. The create_release
-            # method is safe to call directly here because it handles its own
-            # asynchronous operations.
-            self.create_release()
-        else:
-            self.log("Build completed but distribution files missing", "error")
 
     def create_release(self):
         if not self.check_git_repository() or not self.check_dist_files_exist():
@@ -1681,8 +1321,6 @@ class ModernReleaseManager(QMainWindow):
         """Update version in UI""" 
         self.version = new_version
         self.version_display.setText(new_version)
-        if hasattr(self, 'version_preview'):
-            self.version_preview.setText(self.calculate_new_version(new_version, self.release_type))
         self.version_entry.clear()  # Clear the field
 
     def calculate_new_version(self, current_version, release_type):
@@ -1808,7 +1446,7 @@ class ModernReleaseManager(QMainWindow):
         if not self.check_git_repository():
             return
         
-        # ΕΛΕΓΧΟΣ: Μόνο αν είμαστε στο releases view
+        # Check: Only if we're in the releases view
         if self.current_view != "releases":
             self.log("Not in releases view, skipping refresh", "info")
             return
@@ -1870,7 +1508,7 @@ class ModernReleaseManager(QMainWindow):
                     self.log(f"git tag failed with code {tags_result.returncode}", "error")
                     self.log(f"Error: {tags_result.stderr}", "error")
                 
-                # ΕΛΕΓΧΟΣ: Μόνο αν ακόμα είμαστε στο releases view
+                # Check: Only if we're still in the releases view
                 if self.current_view == "releases":
                     self.update_releases_signal.emit(releases, all_tags)
                 else:
@@ -1893,7 +1531,7 @@ class ModernReleaseManager(QMainWindow):
     def _safe_update_releases_display(self, releases, all_tags):
         """Safely update releases display with proper error handling"""
         try:
-            # ΕΛΕΓΧΟΣ: Μόνο αν είμαστε στο releases view
+            # Check: Only if we're in the releases view
             if self.current_view != "releases":
                 self.log("Not in releases view, skipping UI update", "info")
                 return
@@ -1943,12 +1581,9 @@ class ModernReleaseManager(QMainWindow):
                                     <span style="color: #fbc531;">•</span> Verify you have access to the repository
                                 </p>
                                 <p style="color: #e0e0ff; margin-bottom: 0; font-size: 13px; text-align: left;">
-                                    <span style="color: #fbc531;">•</span> Check if the repository has any releases or tags
+                                    <span style="color: #fbc531;">•</span> Check if repository has any releases or tags
                                 </p>
                             </div>
-                            <p style="color: #8888aa; font-size: 12px; margin-top: 20px;">
-                                Try the "Test GitHub CLI" button to verify your setup.
-                            </p>
                         </div>
                         """)
                         self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -2029,30 +1664,30 @@ class ModernReleaseManager(QMainWindow):
             if not self.releases_layout:
                 return
             
-            # Δημιουργούμε λίστα με ΟΛΑ τα items προς αφαίρεση (εξαιρώντας το placeholder)
+            # Create a list with ALL items to remove (except the placeholder)
             items_to_remove = []
             
-            # Αναγνωρίζουμε όλα τα layout items
+            # Identify all layout items
             for i in range(self.releases_layout.count()):
                 child = self.releases_layout.itemAt(i)
                 if child:
-                    # ΚΡΙΤΗΡΙΟ: Διατηρούμε ΜΟΝΟ το placeholder_label widget
+                    # CRITERION: Keep ONLY the placeholder_label widget
                     if child.widget() and child.widget() == self.placeholder_label:
                         continue  # Skip placeholder - keep it
                     
                     items_to_remove.append(child)
             
-            # Αφαιρούμε όλα τα εντοπισμένα items (widgets ΚΑΙ spacers)
+            # Remove all identified items (widgets AND spacers)
             for item in items_to_remove:
                 try:
                     if item.widget():
-                        # Αφαίρεση widget
+                        # Remove widget
                         widget = item.widget()
                         self.releases_layout.removeWidget(widget)
                         widget.setParent(None)
                         widget.deleteLater()
                     else:
-                        # Αφαίρεση spacer/item
+                        # Remove spacer/item
                         self.releases_layout.removeItem(item)
                 except Exception as e:
                     print(f"Error removing item: {e}")
@@ -2285,8 +1920,6 @@ class ModernReleaseManager(QMainWindow):
                         version = data.get('version', '1.0.0')
                         self.version = version
                         self.version_display.setText(version)
-                        if hasattr(self, 'version_preview'):
-                            self.version_preview.setText(self.calculate_new_version(version, self.release_type))
                         self.log(f"Loaded version: {version}", "success")
                 except Exception as e:
                     self.log(f"Error reading package.json: {e}", "error")
