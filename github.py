@@ -117,62 +117,109 @@ class BuildWorker(QThread):
     def run(self):
         try:
             success = False
-            for i, command in enumerate(self.commands):
+            for command in self.commands:
+                # Exit if the worker has been stopped
                 if not self._is_running:
                     break
-                    
+                # Announce progress for this command
                 self.progress_signal.emit(f"Running: {command}")
                 self.output_signal.emit(f"Executing: {command}", "info")
-                
-                if isinstance(command, str):
-                    cmd_list = shlex.split(command)
-                else:
-                    cmd_list = command
-
-                exe = cmd_list[0]
-                resolved = _resolve_executable(exe)
-                if shutil.which(resolved) is None and (os.name != "nt" or not resolved.lower().endswith(".cmd")):
-                    self.output_signal.emit(f"Executable not found: {exe}", "error")
-                    continue
-                cmd_list[0] = resolved
-
-                try:
-                    process = subprocess.Popen(
-                        cmd_list,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                        cwd=self.cwd,
-                        bufsize=1,
-                        universal_newlines=True
-                    )
-                except FileNotFoundError as fnf_err:
-                    self.output_signal.emit(f"Executable not found: {exe} ({fnf_err})", "error")
-                    continue
-                
-                while self._is_running:
-                    line = process.stdout.readline()
-                    if not line:
-                        break
-                    if line.strip():
-                        self.output_signal.emit(line.strip(), "output")
-                
-                if self._is_running:
-                    process.wait()
-                    if process.returncode == 0:
-                        self.output_signal.emit(f"Command completed: {command}", "success")
-                        success = True
-                        break
-                    else:
-                        self.output_signal.emit(f"Command failed: {command}", "warning")
-                else:
+                # Prepare the command for execution
+                cmd_list = self._prepare_command(command)
+                if cmd_list is None:
+                    continue  # skip if preparation failed
+                # Execute the command and capture success
+                result = self._execute_prepared_command(cmd_list, command)
+                if result is None:
+                    # _execute_prepared_command returned None if the worker was stopped
                     break
-                    
+                if result == 0:
+                    # Command succeeded; emit success and stop processing
+                    self.output_signal.emit(f"Command completed: {command}", "success")
+                    success = True
+                    break
+                else:
+                    self.output_signal.emit(f"Command failed: {command}", "warning")
+            # Emit the finished signal with overall success status
             self.finished_signal.emit(success)
-            
         except Exception as e:
+            # Catch unexpected errors and emit failure
             self.output_signal.emit(f"Build error: {str(e)}", "error")
             self.finished_signal.emit(False)
+
+    def _prepare_command(self, command):
+        """
+        Prepare a command for execution.  Accepts either a string or list of
+        arguments.  Splits strings using shlex, resolves the executable
+        component, and checks for existence.  Emits error messages via
+        output_signal if the executable cannot be found.  Returns a list of
+        command arguments ready for subprocess.Popen, or None if the command
+        should be skipped.
+
+        :param command: The command to prepare (string or sequence)
+        :return: List of command arguments or None
+        """
+        # Convert a string into a list of arguments
+        if isinstance(command, str):
+            cmd_list = shlex.split(command)
+        else:
+            cmd_list = list(command)
+        if not cmd_list:
+            return None
+        exe = cmd_list[0]
+        resolved = _resolve_executable(exe)
+        # Check if the resolved executable exists; on Windows also allow .cmd extension
+        if shutil.which(resolved) is None and (os.name != "nt" or not resolved.lower().endswith(".cmd")):
+            self.output_signal.emit(f"Executable not found: {exe}", "error")
+            return None
+        # Replace the first element with the resolved executable path
+        cmd_list[0] = resolved
+        return cmd_list
+
+    def _execute_prepared_command(self, cmd_list, original_command):
+        """
+        Execute a prepared command list using subprocess.Popen, streaming
+        its output lines through output_signal.  Waits for process
+        completion unless the worker has been stopped.  Returns the
+        process return code on normal completion, None if the worker was
+        stopped before completion, or a non-zero return code otherwise.
+
+        :param cmd_list: A list of command arguments to execute
+        :param original_command: The original command string (for logging)
+        :return: int return code, or None if stopped early
+        """
+        try:
+            process = subprocess.Popen(
+                cmd_list,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                cwd=self.cwd,
+                bufsize=1,
+                universal_newlines=True
+            )
+        except FileNotFoundError as fnf_err:
+            # This should rarely occur since we resolved the exe, but handle gracefully
+            self.output_signal.emit(f"Executable not found: {cmd_list[0]} ({fnf_err})", "error")
+            return 1
+        # Read output line by line while running
+        while self._is_running:
+            line = process.stdout.readline()
+            if not line:
+                break
+            if line.strip():
+                self.output_signal.emit(line.strip(), "output")
+        # If the worker is still running, wait for completion and return the return code
+        if self._is_running:
+            process.wait()
+            return process.returncode
+        else:
+            # Worker stopped; terminate process and signal early exit
+            try:
+                process.terminate()
+            except Exception:
+                pass
+            return None
 
     def stop(self):
         self._is_running = False
@@ -1493,118 +1540,176 @@ class ModernReleaseManager(QMainWindow):
 
     def _safe_update_releases_display(self, releases, all_tags):
         try:
-            if self.current_view != "releases":
-                self.log("Not in releases view, skipping UI update", "info")
+            # Abort if we are not in the releases view or the layout is missing
+            if not self._can_update_releases_display():
                 return
-                
-            if not self.releases_container or not self.releases_layout:
-                self.log("Releases layout no longer exists, skipping update", "warning")
-                return
-                
+            # Start fresh by clearing the existing layout
             self.clear_releases_layout()
-            
-            releases_count = len(releases)
-            tags_count = len(all_tags)
-            self.releases_count_label.setText(f"📦 Releases: {releases_count}")
-            self.tags_count_label.setText(f"🏷️ Tags: {tags_count}")
-            
-            current_time = datetime.now().strftime("%H:%M:%S")
-            self.last_update_label.setText(f"Last update: {current_time}")
-            
+            # Update counts and timestamp labels
+            self._update_release_counts(releases, all_tags)
+            # Handle case where there are no releases or tags
             if not releases and not all_tags:
-                if not self.project_path:
-                    if not hasattr(self, 'placeholder_label') or not self.placeholder_label:
-                        self.setup_initial_placeholder()
-                    else:
-                        self.placeholder_label.show()
-                else:
-                    if not hasattr(self, 'placeholder_label') or not self.placeholder_label:
-                        self.placeholder_label = QLabel()
-                        self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
-                        self.placeholder_label.setText("""
-                        <div style="text-align: center; padding: 40px;">
-                            <h3 style="color: #fbc531; margin-bottom: 15px;">🔍 No Releases Found</h3>
-                            <p style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px; line-height: 1.5;">
-                                No GitHub releases or tags found for this repository.
-                            </p>
-                            <div style="background: #fbc53120; padding: 15px; border-radius: 8px; border: 1px solid #fbc53140; margin: 0 auto; max-width: 450px;">
-                                <p style="color: #e0e0ff; margin-bottom: 10px; font-size: 13px; text-align: left;">
-                                    <span style="color: #fbc531;">•</span> Make sure GitHub CLI is installed and authenticated
-                                </p>
-                                <p style="color: #e0e0ff; margin-bottom: 10px; font-size: 13px; text-align: left;">
-                                    <span style="color: #fbc531;">•</span> Verify you have access to the repository
-                                </p>
-                                <p style="color: #e0e0ff; margin-bottom: 0; font-size: 13px; text-align: left;">
-                                    <span style="color: #fbc531;">•</span> Check if repository has any releases or tags
-                                </p>
-                            </div>
-                        </div>
-                        """)
-                        self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                        self.placeholder_label.setWordWrap(True)
-                        self.releases_layout.addWidget(self.placeholder_label)
-                    else:
-                        self.placeholder_label.show()
+                self._show_no_releases_placeholder()
                 return
-            
-            if hasattr(self, 'placeholder_label') and self.placeholder_label:
-                self.placeholder_label.hide()
-            
+            # Hide any existing placeholder when data exists
+            self._hide_placeholder_label()
+            # Build a set of tag names from the releases list
             release_tags = {release['tagName'] for release in releases}
-            
+            # Add releases section if applicable
             if releases:
-                releases_header = QLabel("🚀 GitHub Releases")
-                releases_header.setStyleSheet("""
-                    font-size: 16px; 
-                    font-weight: bold; 
-                    color: #00a8ff; 
-                    margin-top: 10px; 
-                    margin-bottom: 10px;
-                    padding: 8px;
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                                stop:0 transparent, stop:0.5 #00a8ff20, stop:1 transparent);
-                    border-radius: 6px;
-                """)
-                releases_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.releases_layout.addWidget(releases_header)
-                
-                for release in releases:
-                    self.add_release_item(release, is_release=True)
-
+                self._add_releases_section(releases)
+            # Determine tags that have no associated release
             tags_without_releases = [tag for tag in all_tags if tag not in release_tags]
+            # Add tags section if there are tags without releases
             if tags_without_releases:
-                tags_header = QLabel("🏷️ Git Tags (No Release)")
-                tags_header.setStyleSheet("""
-                    font-size: 16px; 
-                    font-weight: bold; 
-                    color: #fbc531; 
-                    margin-top: 20px; 
-                    margin-bottom: 10px;
-                    padding: 8px;
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                                stop:0 transparent, stop:0.5 #fbc53120, stop:1 transparent);
-                    border-radius: 6px;
-                """)
-                tags_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.releases_layout.addWidget(tags_header)
-                
-                for tag in tags_without_releases:
-                    tag_item = {
-                        'tagName': tag,
-                        'name': tag,
-                        'createdAt': '',
-                        'publishedAt': '',
-                        'isDraft': False,
-                        'isPrerelease': False
-                    }
-                    self.add_release_item(tag_item, is_release=False)
-            
+                self._add_tags_section(tags_without_releases)
+            # Add stretch at the end to push items to the top
             self.releases_layout.addStretch()
-            
         except RuntimeError:
             return
         except Exception as e:
             print(f"Unexpected error updating releases display: {e}")
+
+    def _can_update_releases_display(self):
+        """
+        Determine whether the releases display should be updated based on
+        current view and layout availability.  Logs informative messages
+        when updates are skipped.
+        :return: bool True if update should proceed, False otherwise
+        """
+        if self.current_view != "releases":
+            self.log("Not in releases view, skipping UI update", "info")
+            return False
+        if not self.releases_container or not self.releases_layout:
+            self.log("Releases layout no longer exists, skipping update", "warning")
+            return False
+        return True
+
+    def _update_release_counts(self, releases, all_tags):
+        """
+        Update the releases and tags count labels as well as the last update
+        timestamp.  Encapsulating this logic reduces complexity in the
+        calling method.
+        :param releases: list of release objects
+        :param all_tags: list of all tag names
+        """
+        releases_count = len(releases)
+        tags_count = len(all_tags)
+        self.releases_count_label.setText(f"📦 Releases: {releases_count}")
+        self.tags_count_label.setText(f"🏷️ Tags: {tags_count}")
+        current_time = datetime.now().strftime("%H:%M:%S")
+        self.last_update_label.setText(f"Last update: {current_time}")
+
+    def _show_no_releases_placeholder(self):
+        """
+        Display a placeholder label when no releases or tags are found.
+        Behaviour differs depending on whether a project path has been set.
+        """
+        # When no project path is selected, show the initial placeholder
+        if not self.project_path:
+            if not hasattr(self, 'placeholder_label') or not self.placeholder_label:
+                self.setup_initial_placeholder()
+            else:
+                self.placeholder_label.show()
+            return
+        # With a project path selected, ensure a detailed placeholder exists
+        if not hasattr(self, 'placeholder_label') or not self.placeholder_label:
+            self.placeholder_label = QLabel()
+            self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
+            self.placeholder_label.setText(
+                """
+                <div style="text-align: center; padding: 40px;">
+                    <h3 style="color: #fbc531; margin-bottom: 15px;">🔍 No Releases Found</h3>
+                    <p style="color: #a0a0c0; margin-bottom: 20px; font-size: 13px; line-height: 1.5;">
+                        No GitHub releases or tags found for this repository.
+                    </p>
+                    <div style="background: #fbc53120; padding: 15px; border-radius: 8px; border: 1px solid #fbc53140; margin: 0 auto; max-width: 450px;">
+                        <p style="color: #e0e0ff; margin-bottom: 10px; font-size: 13px; text-align: left;">
+                            <span style="color: #fbc531;">•</span> Make sure GitHub CLI is installed and authenticated
+                        </p>
+                        <p style="color: #e0e0ff; margin-bottom: 10px; font-size: 13px; text-align: left;">
+                            <span style="color: #fbc531;">•</span> Verify you have access to the repository
+                        </p>
+                        <p style="color: #e0e0ff; margin-bottom: 0; font-size: 13px; text-align: left;">
+                            <span style="color: #fbc531;">•</span> Check if repository has any releases or tags
+                        </p>
+                    </div>
+                </div>
+                """
+            )
+            self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.placeholder_label.setWordWrap(True)
+            self.releases_layout.addWidget(self.placeholder_label)
+        else:
+            self.placeholder_label.show()
+
+    def _hide_placeholder_label(self):
+        """
+        Hide the placeholder label if it exists.  Avoids residual placeholder
+        when releases or tags data is present.
+        """
+        if hasattr(self, 'placeholder_label') and self.placeholder_label:
+            self.placeholder_label.hide()
+
+    def _add_releases_section(self, releases):
+        """
+        Add a header and list of release items to the releases layout.  This
+        method encapsulates the creation of the releases header and
+        iteration over release objects.
+        :param releases: list of release objects
+        """
+        releases_header = QLabel("🚀 GitHub Releases")
+        releases_header.setStyleSheet(
+            """
+            font-size: 16px;
+            font-weight: bold;
+            color: #00a8ff;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                        stop:0 transparent, stop:0.5 #00a8ff20, stop:1 transparent);
+            border-radius: 6px;
+            """
+        )
+        releases_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.releases_layout.addWidget(releases_header)
+        for release in releases:
+            self.add_release_item(release, is_release=True)
+
+    def _add_tags_section(self, tags_without_releases):
+        """
+        Add a header and list of tag items (without releases) to the releases
+        layout.  Each tag is converted into a dictionary matching the
+        expected format of add_release_item.
+        :param tags_without_releases: list of tag names
+        """
+        tags_header = QLabel("🏷️ Git Tags (No Release)")
+        tags_header.setStyleSheet(
+            """
+            font-size: 16px;
+            font-weight: bold;
+            color: #fbc531;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                        stop:0 transparent, stop:0.5 #fbc53120, stop:1 transparent);
+            border-radius: 6px;
+            """
+        )
+        tags_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.releases_layout.addWidget(tags_header)
+        for tag in tags_without_releases:
+            tag_item = {
+                'tagName': tag,
+                'name': tag,
+                'createdAt': '',
+                'publishedAt': '',
+                'isDraft': False,
+                'isPrerelease': False
+            }
+            self.add_release_item(tag_item, is_release=False)
 
     def clear_releases_layout(self):
         try:
