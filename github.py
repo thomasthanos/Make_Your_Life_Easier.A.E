@@ -2,6 +2,7 @@ import sys
 import os
 import json
 import subprocess
+import os
 import threading
 import time
 import shutil
@@ -23,23 +24,24 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "psutil"])
     import psutil
 
-# Use shlex to safely split shell commands into argument lists.  This helps us
-# avoid relying on ``shell=True`` in subprocess calls, which can introduce
-# security risks.  Where commands are passed as strings, we convert them into
-# lists via ``shlex.split`` before invoking subprocess functions.
 import shlex
 
-# Try to import the markdown library for rendering release notes preview. If it's
-# not available, install it on the fly. This allows us to convert Markdown
-# content into HTML for the preview pane in the release details.
+GIT_EXECUTABLE = shutil.which("git") or "git"
+GH_EXECUTABLE = shutil.which("gh") or "gh"
+
 try:
-    import markdown  # type: ignore
+    import markdown
 except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "markdown"])
-    import markdown  # type: ignore
+    import markdown
+
+def _resolve_executable(exe: str) -> str:
+    path = shutil.which(exe)
+    if path is None and os.name == "nt" and not exe.lower().endswith(".cmd"):
+        path = shutil.which(exe + ".cmd")
+    return path or exe
 
 class CommandWorker(QThread):
-    """Worker thread for running commands safely""" 
     output_signal = pyqtSignal(str, str)
     finished_signal = pyqtSignal(bool)
     command_signal = pyqtSignal(str)
@@ -53,25 +55,28 @@ class CommandWorker(QThread):
     def run(self):
         try:
             self.command_signal.emit(f"{self.command}")
-            # Prepare the command for execution.  Avoid using ``shell=True`` by
-            # converting string commands into lists of arguments.  If
-            # ``self.command`` is already a sequence (e.g. list or tuple), use it
-            # directly.  Using a list with ``shell=False`` prevents shell
-            # injection vulnerabilities.
             if isinstance(self.command, str):
                 cmd_list = shlex.split(self.command)
             else:
                 cmd_list = self.command
             
-            process = subprocess.Popen(
-                cmd_list,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                cwd=self.cwd,
-                bufsize=1,
-                universal_newlines=True
-            )
+            if cmd_list:
+                resolved = _resolve_executable(cmd_list[0])
+                cmd_list[0] = resolved
+            try:
+                process = subprocess.Popen(
+                    cmd_list,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    cwd=self.cwd,
+                    bufsize=1,
+                    universal_newlines=True
+                )
+            except FileNotFoundError as fnf_err:
+                self.output_signal.emit(f"Error: Executable not found: {cmd_list[0]} ({fnf_err})", "error")
+                self.finished_signal.emit(False)
+                return
             
             while self._is_running:
                 line = process.stdout.readline()
@@ -99,7 +104,6 @@ class CommandWorker(QThread):
         self.wait()
 
 class BuildWorker(QThread):
-    """Specialized worker for build commands that might take longer"""
     output_signal = pyqtSignal(str, str)
     finished_signal = pyqtSignal(bool)
     progress_signal = pyqtSignal(str)
@@ -120,23 +124,31 @@ class BuildWorker(QThread):
                 self.progress_signal.emit(f"Running: {command}")
                 self.output_signal.emit(f"Executing: {command}", "info")
                 
-                # Always execute commands without using a shell.  If ``command``
-                # is provided as a string, split it into a list of arguments;
-                # if it's already a list/tuple, use it directly.  Avoiding
-                # ``shell=True`` mitigates command injection risks.
                 if isinstance(command, str):
                     cmd_list = shlex.split(command)
                 else:
                     cmd_list = command
-                process = subprocess.Popen(
-                    cmd_list,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    cwd=self.cwd,
-                    bufsize=1,
-                    universal_newlines=True
-                )
+
+                exe = cmd_list[0]
+                resolved = _resolve_executable(exe)
+                if shutil.which(resolved) is None and (os.name != "nt" or not resolved.lower().endswith(".cmd")):
+                    self.output_signal.emit(f"Executable not found: {exe}", "error")
+                    continue
+                cmd_list[0] = resolved
+
+                try:
+                    process = subprocess.Popen(
+                        cmd_list,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        cwd=self.cwd,
+                        bufsize=1,
+                        universal_newlines=True
+                    )
+                except FileNotFoundError as fnf_err:
+                    self.output_signal.emit(f"Executable not found: {exe} ({fnf_err})", "error")
+                    continue
                 
                 while self._is_running:
                     line = process.stdout.readline()
@@ -177,7 +189,6 @@ class ModernReleaseManager(QMainWindow):
         self.setWindowTitle("🚀 GitHub Release Manager - Modern")
         self.setGeometry(100, 100, 1400, 900)
         
-        # Variables
         self.version = "1.0.0"
         self.release_type = "patch"
         self.project_path = ""
@@ -186,7 +197,7 @@ class ModernReleaseManager(QMainWindow):
         self.current_workers = []
         self.command_queue = Queue()
         self.current_view = "releases"
-        self.views = {}  # Dictionary to store all views
+        self.views = {}
         
         self.setup_ui()
         self.setup_electric_blue_styles()
@@ -195,12 +206,10 @@ class ModernReleaseManager(QMainWindow):
         self.update_releases_signal.connect(self.update_releases_display)
         self.reset_refreshing_signal.connect(self._reset_refreshing)
         
-        # Start queue processor
         self.queue_timer = QTimer()
         self.queue_timer.timeout.connect(self.process_command_queue)
         self.queue_timer.start(100)
         
-        # Create all views upfront
         self.setup_all_views()
 
     def _reset_refreshing(self):
@@ -215,7 +224,6 @@ class ModernReleaseManager(QMainWindow):
                 font-family: 'Segoe UI', Arial, sans-serif;
             }
             
-            /* Modern Cards */
             QFrame[card="true"] {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                           stop:0 #1a1a2e, stop:1 #16162a);
@@ -230,14 +238,12 @@ class ModernReleaseManager(QMainWindow):
                                           stop:0 #202036, stop:1 #1c1c30);
             }
             
-            /* Sidebar */
             QFrame#sidebar {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                                           stop:0 #151528, stop:1 #1a1a2e);
                 border-right: 1px solid #2a2a4a;
             }
             
-            /* Labels */
             QLabel {
                 color: #e0e0ff;
                 padding: 2px;
@@ -256,7 +262,6 @@ class ModernReleaseManager(QMainWindow):
                 padding: 2px 0px;
             }
             
-            /* Modern Buttons - Electric Blue */
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                           stop:0 #00a8ff, stop:1 #0097e6);
@@ -309,7 +314,6 @@ class ModernReleaseManager(QMainWindow):
                                           stop:0 #fbc531, stop:1 #e1b12c);
             }
             
-            /* Checkboxes - Electric Blue */
             QCheckBox {
                 color: #e0e0ff;
                 spacing: 12px;
@@ -339,7 +343,6 @@ class ModernReleaseManager(QMainWindow):
                 border: 2px solid #3a3a5a;
             }
             
-            /* Input Fields */
             QLineEdit, QTextEdit {
                 background: #1a1a2e;
                 color: #ffffff;
@@ -360,7 +363,6 @@ class ModernReleaseManager(QMainWindow):
                 color: #666699;
             }
             
-            /* Progress Bar */
             QProgressBar {
                 border: 2px solid #2a2a4a;
                 border-radius: 8px;
@@ -376,7 +378,6 @@ class ModernReleaseManager(QMainWindow):
                 border-radius: 6px;
             }
             
-            /* Tabs - Removed from view but keeping styles for other uses */
             QTabWidget::pane {
                 border: 1px solid #2a2a4a;
                 background: transparent;
@@ -392,7 +393,6 @@ class ModernReleaseManager(QMainWindow):
                 font-size: 0px;
             }
             
-            /* Scroll Areas */
             QScrollArea {
                 border: none;
                 background: transparent;
@@ -414,7 +414,6 @@ class ModernReleaseManager(QMainWindow):
                 background: #0097e6;
             }
             
-            /* Release Items */
             .ReleaseItem {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                           stop:0 #202036, stop:1 #1c1c30);
@@ -430,7 +429,6 @@ class ModernReleaseManager(QMainWindow):
                 border: 1px solid #00a8ff;
             }
             
-            /* Group Boxes */
             QGroupBox {
                 color: #00a8ff;
                 font-weight: bold;
@@ -447,7 +445,6 @@ class ModernReleaseManager(QMainWindow):
                 padding: 0 8px 0 8px;
             }
             
-            /* Status Bar */
             QStatusBar {
                 background: #151528;
                 color: #a0a0c0;
@@ -463,21 +460,16 @@ class ModernReleaseManager(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        # Modern Sidebar
         self.create_modern_sidebar(main_layout)
         
-        # Main content area
         self.create_main_content(main_layout)
         
-        # Status bar
         self.create_status_bar()
 
     def setup_all_views(self):
-        """Create all views once and store them"""
         self.views["releases"] = self.create_releases_view()
         self.views["advanced"] = self.create_advanced_view()
         
-        # Show initial view
         self.show_releases()
 
     def create_modern_sidebar(self, parent_layout):
@@ -490,13 +482,11 @@ class ModernReleaseManager(QMainWindow):
         sidebar_layout.setContentsMargins(15, 20, 15, 20)
         sidebar_layout.setSpacing(20)
         
-        # App Title
         title_label = QLabel("🚀 Release Manager")
         title_label.setStyleSheet("font-size: 20px; font-weight: bold; color: #00a8ff; padding: 10px 0px;")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sidebar_layout.addWidget(title_label)
         
-        # Project Section Card
         project_card = QFrame()
         project_card.setProperty("card", "true")
         project_layout = QVBoxLayout(project_card)
@@ -506,7 +496,6 @@ class ModernReleaseManager(QMainWindow):
         project_label.setStyleSheet("color: #00a8ff; font-size: 14px; font-weight: bold;")
         project_layout.addWidget(project_label)
         
-        # Project Path
         self.select_path_btn = QPushButton("📂 Select Project Folder")
         self.select_path_btn.clicked.connect(self.browse_project_path)
         self.select_path_btn.setStyleSheet("text-align: left; padding-left: 15px;")
@@ -517,7 +506,6 @@ class ModernReleaseManager(QMainWindow):
         self.path_label.setStyleSheet("color: #a0a0c0; font-size: 11px; background: #1a1a2e; padding: 8px; border-radius: 6px;")
         project_layout.addWidget(self.path_label)
         
-        # Version Info Card
         version_card = QFrame()
         version_card.setProperty("card", "true")
         version_layout = QVBoxLayout(version_card)
@@ -535,7 +523,6 @@ class ModernReleaseManager(QMainWindow):
         self.version_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
         version_layout.addWidget(self.version_display)
         
-        # Project Status
         self.project_status = QLabel("⏳ No project selected")
         self.project_status.setStyleSheet("color: #fbc531; font-size: 11px; background: #1a1a2e; padding: 8px; border-radius: 6px;")
         version_layout.addWidget(self.project_status)
@@ -543,7 +530,6 @@ class ModernReleaseManager(QMainWindow):
         project_layout.addWidget(version_card)
         sidebar_layout.addWidget(project_card)
         
-        # Navigation Section
         nav_card = QFrame()
         nav_card.setProperty("card", "true")
         nav_layout = QVBoxLayout(nav_card)
@@ -574,24 +560,20 @@ class ModernReleaseManager(QMainWindow):
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
         
-        # Use QSplitter for resizable content and console
         self.splitter = QSplitter(Qt.Orientation.Vertical)
         self.splitter.setStyleSheet("QSplitter::handle { background: #2a2a4a; }")
         
-        # Main content widget (will show different views)
         self.main_content_stack = QWidget()
         self.main_content_layout = QVBoxLayout(self.main_content_stack)
         self.main_content_layout.setContentsMargins(0, 0, 0, 0)
         
         self.splitter.addWidget(self.main_content_stack)
         
-        # Console area - LARGER OUTPUT
         console_frame = QFrame()
         console_frame.setProperty("card", "true")
         console_layout = QVBoxLayout(console_frame)
         console_layout.setSpacing(10)
         
-        # Console header
         console_header = QWidget()
         console_header_layout = QHBoxLayout(console_header)
         console_header_layout.setContentsMargins(0, 0, 0, 0)
@@ -602,7 +584,6 @@ class ModernReleaseManager(QMainWindow):
         
         console_header_layout.addStretch()
         
-        # Console buttons
         clear_btn = QPushButton("🗑️ Clear")
         clear_btn.clicked.connect(self.clear_console)
         clear_btn.setFixedWidth(100)
@@ -621,22 +602,20 @@ class ModernReleaseManager(QMainWindow):
         
         console_layout.addWidget(console_header)
         
-        # Console text area - MADE LARGER
         self.console_text = QTextEdit()
-        self.console_text.setFont(QFont("Consolas", 11))  # Larger font
+        self.console_text.setFont(QFont("Consolas", 11))
         self.console_text.setReadOnly(True)
-        self.console_text.setMinimumHeight(250)  # Minimum height increased
+        self.console_text.setMinimumHeight(250)
         console_layout.addWidget(self.console_text)
         
         self.splitter.addWidget(console_frame)
         
-        # Set sizes: console takes 45% of space (larger output)
         self.splitter.setStretchFactor(0, 55)
         self.splitter.setStretchFactor(1, 45)
-        self.splitter.setSizes([500, 400])  # Initial heights
+        self.splitter.setSizes([500, 400])
         
         main_layout.addWidget(self.splitter)
-        parent_layout.addWidget(main_content, 1)  # Take remaining space
+        parent_layout.addWidget(main_content, 1)
 
     def create_status_bar(self):
         self.status_bar = self.statusBar()
@@ -648,13 +627,11 @@ class ModernReleaseManager(QMainWindow):
         self.status_bar.addPermanentWidget(self.progress_bar)
 
     def create_releases_view(self):
-        """Create the releases view widget"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(15)
         
-        # Header
         header = QWidget()
         header_layout = QHBoxLayout(header)
         
@@ -671,13 +648,11 @@ class ModernReleaseManager(QMainWindow):
         
         layout.addWidget(header)
         
-        # Releases list - MODERN VERSION
         releases_card = QFrame()
         releases_card.setProperty("card", "true")
         releases_layout = QVBoxLayout(releases_card)
         releases_layout.setSpacing(10)
         
-        # Stats bar
         stats_widget = QWidget()
         stats_layout = QHBoxLayout(stats_widget)
         stats_layout.setContentsMargins(0, 0, 0, 0)
@@ -698,7 +673,6 @@ class ModernReleaseManager(QMainWindow):
         
         releases_layout.addWidget(stats_widget)
         
-        # Releases scroll area
         self.releases_scroll = QScrollArea()
         self.releases_scroll.setWidgetResizable(True)
         self.releases_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -714,7 +688,6 @@ class ModernReleaseManager(QMainWindow):
             }
         """)
         
-        # Create container widget for releases
         self.releases_container = QWidget()
         self.releases_container.setStyleSheet("background: transparent;")
         self.releases_layout = QVBoxLayout(self.releases_container)
@@ -722,7 +695,6 @@ class ModernReleaseManager(QMainWindow):
         self.releases_layout.setSpacing(8)
         self.releases_layout.setContentsMargins(5, 5, 5, 5)
         
-        # Initial placeholder
         self.setup_initial_placeholder()
         
         self.releases_scroll.setWidget(self.releases_container)
@@ -733,28 +705,21 @@ class ModernReleaseManager(QMainWindow):
         return widget
 
     def create_advanced_view(self):
-        """Create the advanced tools view widget"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(15)
         
-        # Title
-        title = QLabel("⚙️ Advanced Tools")
-        title.setStyleSheet("font-size: 24px; font-weight: bold; color: #00a8ff; text-align: center; padding: 10px;")
-        layout.addWidget(title)
-        
-        # Use grid layout for compact arrangement
         grid_widget = QWidget()
         grid_layout = QGridLayout(grid_widget)
         grid_layout.setSpacing(15)
+        grid_layout.setHorizontalSpacing(30)
         
-        # Release Details - Left Column
         details_group = QGroupBox("📝 Release Details")
+        details_group.setMinimumHeight(400)
         details_layout = QVBoxLayout(details_group)
         details_layout.setSpacing(10)
         
-        # Version Input
         version_widget = QWidget()
         version_layout = QHBoxLayout(version_widget)
         version_layout.setContentsMargins(0, 0, 0, 0)
@@ -776,7 +741,6 @@ class ModernReleaseManager(QMainWindow):
         
         details_layout.addWidget(version_widget)
         
-        # Title
         title_widget = QWidget()
         title_layout = QHBoxLayout(title_widget)
         title_layout.setContentsMargins(0, 0, 0, 0)
@@ -792,43 +756,57 @@ class ModernReleaseManager(QMainWindow):
         
         details_layout.addWidget(title_widget)
         
-        # Release Notes - More compact
+        notes_container = QWidget()
+        notes_container_layout = QVBoxLayout(notes_container)
+        notes_container_layout.setContentsMargins(0, 0, 0, 0)
+        notes_container_layout.setSpacing(5)
+
         notes_label = QLabel("Release Notes:")
         notes_label.setStyleSheet("color: #e0e0ff;")
-        details_layout.addWidget(notes_label)
-        
-        self.notes_text = QTextEdit()
-        # Allow more vertical space for the release notes editor
-        self.notes_text.setMinimumHeight(150)
-        self.notes_text.setPlaceholderText("Enter release notes...")
-        details_layout.addWidget(self.notes_text)
+        notes_container_layout.addWidget(notes_label)
 
-        # Markdown preview for release notes
+        self.notes_text = QTextEdit()
+        self.notes_text.setMinimumHeight(200)
+        self.notes_text.setPlaceholderText("Enter release notes...")
+        notes_container_layout.addWidget(self.notes_text)
+
+        preview_container = QWidget()
+        preview_container_layout = QVBoxLayout(preview_container)
+        preview_container_layout.setContentsMargins(0, 0, 0, 0)
+        preview_container_layout.setSpacing(5)
+
         preview_label = QLabel("Preview:")
         preview_label.setStyleSheet("color: #e0e0ff;")
-        details_layout.addWidget(preview_label)
-        
-        self.preview_browser = QTextBrowser()
-        # Give the preview a minimum height so it is clearly visible
-        self.preview_browser.setMinimumHeight(150)
-        # Prevent editing in the preview
-        self.preview_browser.setReadOnly(True)
-        details_layout.addWidget(self.preview_browser)
+        preview_container_layout.addWidget(preview_label)
 
-        # Connect the notes text change signal to update the preview
+        self.preview_browser = QTextBrowser()
+        self.preview_browser.setMinimumHeight(200)
+        self.preview_browser.setReadOnly(True)
+        preview_container_layout.addWidget(self.preview_browser)
+
+        notes_preview_layout = QHBoxLayout()
+        notes_preview_layout.setContentsMargins(0, 0, 0, 0)
+        notes_preview_layout.setSpacing(10)
+        notes_preview_layout.addWidget(notes_container)
+        notes_preview_layout.addWidget(preview_container)
+        notes_preview_layout.setStretch(0, 1)
+        notes_preview_layout.setStretch(1, 1)
+
+        details_layout.addLayout(notes_preview_layout)
+
         self.notes_text.textChanged.connect(self.update_markdown_preview)
         
         grid_layout.addWidget(details_group, 0, 0)
 
-        # Enlarge the release details column by increasing its stretch factor
-        # so that it occupies more space relative to the actions column
-        grid_layout.setColumnStretch(0, 2)
+        grid_layout.setColumnStretch(0, 3)
         grid_layout.setColumnStretch(1, 1)
 
-        # Combined Build & Release Actions - Right Column
         actions_group = QGroupBox("🔨🚀 Actions")
+        actions_group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         actions_layout = QVBoxLayout(actions_group)
-        actions_layout.setSpacing(8)
+        actions_layout.setContentsMargins(15, 15, 15, 15)
+        actions_layout.setSpacing(6)
+        actions_group.setMaximumWidth(180)
         
         action_buttons = [
             ("🔧 Build Project", lambda: self.queue_command(self.safe_build_single)),
@@ -838,34 +816,28 @@ class ModernReleaseManager(QMainWindow):
         for text, command in action_buttons:
             btn = QPushButton(text)
             btn.clicked.connect(command)
-            btn.setMinimumHeight(35)
+            btn.setFixedHeight(30)
+            btn.setFixedWidth(150)
             actions_layout.addWidget(btn)
-        
-        # Add the combined actions group to span both rows on the right column
-        grid_layout.addWidget(actions_group, 0, 1, 2, 1)
 
-        # Danger Zone remains removed (no delete functionality)
         
+        grid_layout.addWidget(actions_group, 0, 1)
+
         layout.addWidget(grid_widget, 1)
         layout.addStretch()
         
         return widget
 
     def setup_initial_placeholder(self):
-        """Setup the initial placeholder message based on project path status"""
-        # Clear any existing placeholder first
         if hasattr(self, 'placeholder_label') and self.placeholder_label:
             try:
                 self.releases_layout.removeWidget(self.placeholder_label)
                 self.placeholder_label.deleteLater()
             except Exception as e:
-                # Log any error encountered while removing the placeholder
                 self.log(f"Error removing placeholder: {e}", "warning")
             self.placeholder_label = None
         
-        # Only create placeholder if no project is selected
         if not self.project_path:
-            # NO PROJECT SELECTED - Show setup instructions
             self.placeholder_label = QLabel()
             self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
             self.placeholder_label.setText("""
@@ -873,7 +845,6 @@ class ModernReleaseManager(QMainWindow):
                 <h3 style="color: #00a8ff; margin-bottom: 25px; font-size: 20px; font-weight: bold;">GitHub Release Manager</h3>
                 
                 <div style="display: inline-block; text-align: left; max-width: 500px;">
-                    <!-- Step 1 -->
                     <div style="margin-bottom: 20px;">
                         <div style="color: #00a8ff; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
                             1. Select Project Folder
@@ -883,7 +854,6 @@ class ModernReleaseManager(QMainWindow):
                         </div>
                     </div>
                     
-                    <!-- Step 2 -->
                     <div style="margin-bottom: 20px;">
                         <div style="color: #00d2d3; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
                             2. Install & Authenticate GitHub CLI
@@ -894,7 +864,6 @@ class ModernReleaseManager(QMainWindow):
                         </div>
                     </div>
                     
-                    <!-- Step 3 -->
                     <div style="margin-bottom: 25px;">
                         <div style="color: #9c88ff; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
                             3. Start Managing Releases
@@ -905,7 +874,6 @@ class ModernReleaseManager(QMainWindow):
                     </div>
                 </div>
                 
-                <!-- Help tip -->
                 <div style="color: #8888aa; font-size: 11px; margin-top: 20px;">
                     Need help? Check the GitHub CLI documentation for detailed setup instructions
                 </div>
@@ -915,24 +883,20 @@ class ModernReleaseManager(QMainWindow):
             self.placeholder_label.setWordWrap(True)
             self.releases_layout.addWidget(self.placeholder_label)
         else:
-            # PROJECT SELECTED - Don't create placeholder at all
             self.placeholder_label = None
 
     def switch_view(self, view_name):
-        """Switch between views"""
         self.clear_main_content()
         if view_name in self.views:
             self.main_content_layout.addWidget(self.views[view_name])
 
     def clear_main_content(self):
-        """Clear the main content area"""
         while self.main_content_layout.count():
             child = self.main_content_layout.takeAt(0)
             if child.widget():
-                child.widget().setParent(None)  # Just remove, don't delete
+                child.widget().setParent(None)
 
     def suggest_version(self):
-        """Suggests the next version based on release_type""" 
         if not self.version:
             self.log("No current version found", "error")
             return
@@ -942,7 +906,6 @@ class ModernReleaseManager(QMainWindow):
         self.log(f"Suggested version: {suggested_version}", "info")
         self.version_entry.setText(suggested_version)
 
-    # Command Queue System
     def queue_command(self, command_func):
         self.command_queue.put(command_func)
         self.log(f"Queued: {command_func.__name__}", "info")
@@ -952,10 +915,9 @@ class ModernReleaseManager(QMainWindow):
             if not self.is_working and not self.command_queue.empty():
                 command_func = self.command_queue.get_nowait()
                 self.log(f"Executing: {command_func.__name__}", "info")
-                # Run in main thread to avoid threading issues
                 QTimer.singleShot(0, command_func)
         except Empty:
-            pass
+            return
 
     def stop_all_commands(self):
         for worker in self.current_workers:
@@ -973,7 +935,6 @@ class ModernReleaseManager(QMainWindow):
         self.update_status("Stopped")
         self.log("All commands stopped", "warning")
 
-    # Navigation methods
     def show_releases(self):
         self.current_view = "releases"
         self.switch_view("releases")
@@ -1060,11 +1021,8 @@ class ModernReleaseManager(QMainWindow):
                     killed_count += 1
                     self.log(f"Killed: {proc.info['name']}", "warning")
             except Exception as e:
-                # Ignore errors when killing processes (e.g. permission errors)
                 self.log(f"Error killing process {proc.info.get('name', '')}: {e}", "warning")
         
-        # Removed long blocking sleep to keep the UI responsive. A short pause can
-        # help ensure processes have terminated without freezing the application.
         QTimer.singleShot(100, lambda: self.log(f"Killed {killed_count} processes", "success"))
 
     def safe_delete_dist(self, max_retries=3):
@@ -1080,13 +1038,11 @@ class ModernReleaseManager(QMainWindow):
                 return True
             except Exception as e:
                 self.log(f"Delete failed: {str(e)}", "warning")
-                # Process any pending UI events and pause briefly to give the system time
                 QApplication.processEvents()
                 time.sleep(0.1)
         return False
 
     def get_available_build_commands(self):
-        """Get available build commands from package.json"""
         package_json_path = Path(self.project_path) / "package.json"
         available_commands = []
         
@@ -1095,7 +1051,6 @@ class ModernReleaseManager(QMainWindow):
                 with open(package_json_path, 'r', encoding='utf-8') as f:
                     scripts = json.load(f).get('scripts', {})
                     
-                # Priority order for build commands
                 priority_commands = [
                     "npm run build-all",
                     "npm run build-portable", 
@@ -1120,25 +1075,17 @@ class ModernReleaseManager(QMainWindow):
         return available_commands
 
     def safe_build_single(self):
-        """Build project using thread to avoid UI freeze"""
         if not self.check_project_selected():
             return False
             
         self.log("Starting safe build process...", "info")
         
-        # Kill any running Electron processes first
         self.kill_electron_only()
         
-        # Clean dist folder
         if not self.safe_delete_dist():
             self.log("Failed to clean dist folder", "error")
             return False
             
-        # Removed blocking sleep to keep UI responsive. Previously a delay was used
-        # here to ensure file system operations had completed, but it caused
-        # noticeable UI freezes during the build process.
-        
-        # Get available build commands
         build_commands = self.get_available_build_commands()
         
         if not build_commands:
@@ -1147,7 +1094,6 @@ class ModernReleaseManager(QMainWindow):
         
         self.log(f"Trying {len(build_commands)} build commands...", "info")
         
-        # Use BuildWorker for build commands
         self.is_working = True
         self.progress_bar.setVisible(True)
         self.update_status("Building project...")
@@ -1161,7 +1107,6 @@ class ModernReleaseManager(QMainWindow):
         return True
 
     def build_finished(self, success):
-        """Handle build completion"""
         self.is_working = False
         self.progress_bar.setVisible(False)
         
@@ -1169,29 +1114,28 @@ class ModernReleaseManager(QMainWindow):
             self.log("Build completed successfully", "success")
             self.update_status("Build completed")
             
-            # Check if dist files were created after a short delay without blocking the UI
             def check_dist_files():
                 if self.check_dist_files_exist():
                     self.log("Distribution files created successfully", "success")
                 else:
                     self.log("Build completed but distribution files not found", "warning")
-            # Schedule the check to run after 2 seconds
             QTimer.singleShot(2000, check_dist_files)
         else:
             self.log("Build failed", "error")
             self.update_status("Build failed")
         
-        # Clean up worker
         if hasattr(self, 'build_worker'):
             self.build_worker = None
 
     def _run_subprocess(self, command):
         try:
-            # Parse command into argument list if necessary and run without a shell
             if isinstance(command, str):
                 cmd_list = shlex.split(command)
             else:
                 cmd_list = command
+            if cmd_list:
+                resolved = _resolve_executable(cmd_list[0])
+                cmd_list[0] = resolved
             process = subprocess.run(cmd_list, capture_output=True, text=True, cwd=self.project_path, timeout=600)
             output = process.stdout + process.stderr
             tag = "output" if process.returncode == 0 else "error"
@@ -1231,7 +1175,6 @@ class ModernReleaseManager(QMainWindow):
         return True
 
     def run_command_sync(self, command, cwd=None, require_project=True, check_git=False):
-        """Run command synchronously without threading""" 
         if require_project and not self.check_project_selected():
             return False
             
@@ -1240,11 +1183,13 @@ class ModernReleaseManager(QMainWindow):
             
         try:
             self.log(f"{command}", "info")
-            # Convert a string command into a list of arguments to avoid using a shell.
             if isinstance(command, str):
                 cmd_list = shlex.split(command)
             else:
                 cmd_list = command
+            if cmd_list:
+                resolved = _resolve_executable(cmd_list[0])
+                cmd_list[0] = resolved
             process = subprocess.run(cmd_list, capture_output=True, text=True,
                                    cwd=cwd or self.project_path, timeout=300)
             output = process.stdout + process.stderr
@@ -1265,15 +1210,12 @@ class ModernReleaseManager(QMainWindow):
             self.log("Checks failed", "error")
             return
         
-        # Use version from input field
         new_version = self.version_entry.text().strip()
         
-        # Validate version
         if not new_version:
             self.log("Please enter a version number", "error")
             return
         
-        # Validate version format (e.g. 1.2.3)
         import re
         if not re.match(r'^\d+\.\d+\.\d+$', new_version):
             self.log("Version format should be X.Y.Z (e.g., 1.2.3)", "error")
@@ -1290,20 +1232,17 @@ class ModernReleaseManager(QMainWindow):
         temp_notes_file = Path(self.project_path) / f"release_notes_{new_version}.md"
         
         try:
-            # Write notes to file
             with open(temp_notes_file, 'w', encoding='utf-8') as f:
                 f.write(release_notes)
             
             self.log(f"Notes written to: {temp_notes_file}", "info")
             
-            # Check if file was created correctly
             if temp_notes_file.exists():
                 file_size = temp_notes_file.stat().st_size
                 self.log(f"Notes file size: {file_size} bytes", "info")
             
             def create_release_sync():
                 try:
-                    # Create release with GitHub CLI
                     create_command = [
                         'gh', 'release', 'create', f'v{new_version}',
                         './dist/MakeYourLifeEasier-*.exe',
@@ -1323,7 +1262,6 @@ class ModernReleaseManager(QMainWindow):
                         timeout=120
                     )
                     
-                    # Cleanup temp file
                     if temp_notes_file.exists():
                         temp_notes_file.unlink()
                     
@@ -1344,7 +1282,6 @@ class ModernReleaseManager(QMainWindow):
                         temp_notes_file.unlink()
                     self.log(f"Error creating release: {e}", "error")
             
-            # Run in thread to not block UI
             threading.Thread(target=create_release_sync, daemon=True).start()
             
         except Exception as e:
@@ -1353,10 +1290,9 @@ class ModernReleaseManager(QMainWindow):
             self.log(f"Error preparing release: {e}", "error")
 
     def update_version_display(self, new_version):
-        """Update version in UI""" 
         self.version = new_version
         self.version_display.setText(new_version)
-        self.version_entry.clear()  # Clear the field
+        self.version_entry.clear()
 
     def calculate_new_version(self, current_version, release_type):
         try:
@@ -1372,11 +1308,9 @@ class ModernReleaseManager(QMainWindow):
                 patch = 0
             return f"{major}.{minor}.{patch}"
         except Exception:
-            # Fallback to a sane default if parsing fails
             return "1.0.0"
 
     def update_release(self):
-        """Improved update release that handles checksum issues - THREAD SAFE VERSION""" 
         if not self.check_git_repository() or not self.check_dist_files_exist():
             self.log("Checks failed", "error")
             return
@@ -1410,7 +1344,6 @@ class ModernReleaseManager(QMainWindow):
                     if temp_notes_file.exists():
                         temp_notes_file.unlink()
                 except Exception as e:
-                    # Log errors encountered when cleaning up the temporary notes file
                     self.log(f"Error deleting temporary notes file: {e}", "warning")
                 
                 if success:
@@ -1427,7 +1360,6 @@ class ModernReleaseManager(QMainWindow):
             self.log(f"Error: {str(e)}", "error")
 
     def delete_current_tag(self):
-        """Delete the latest release and tag""" 
         if not self.check_git_repository():
             return
         
@@ -1447,16 +1379,13 @@ class ModernReleaseManager(QMainWindow):
         
         def delete_operations():
             try:
-                # Delete release
                 delete_release_cmd = f"gh release delete {latest_tag} --yes"
                 if self.run_command_sync(delete_release_cmd):
                     self.log(f"Release {latest_tag} deleted", "success")
                     
-                    # Delete local tag
                     delete_local_tag_cmd = f"git tag -d {latest_tag}"
                     self.run_command_sync(delete_local_tag_cmd)
                     
-                    # Delete remote tag
                     delete_remote_tag_cmd = f"git push origin --delete {latest_tag}"
                     self.run_command_sync(delete_remote_tag_cmd)
                     
@@ -1469,10 +1398,9 @@ class ModernReleaseManager(QMainWindow):
         threading.Thread(target=delete_operations, daemon=True).start()
 
     def get_latest_release_tag(self):
-        """Get the latest release tag from GitHub""" 
         try:
             result = subprocess.run(
-                ["gh", "release", "list", "--limit", "1", "--json", "tagName"],
+                [GH_EXECUTABLE, "release", "list", "--limit", "1", "--json", "tagName"],
                 capture_output=True, text=True, cwd=self.project_path
             )
             
@@ -1485,11 +1413,9 @@ class ModernReleaseManager(QMainWindow):
             return None
 
     def refresh_releases(self):
-        """Refresh the releases list in the top panel""" 
         if not self.check_git_repository():
             return
         
-        # Check: Only if we're in the releases view
         if self.current_view != "releases":
             self.log("Not in releases view, skipping refresh", "info")
             return
@@ -1506,9 +1432,8 @@ class ModernReleaseManager(QMainWindow):
             all_tags = []
             try:
                 self.log("Running gh release list command", "info")
-                # Get releases from GitHub CLI
                 result = subprocess.run(
-                    ["gh", "release", "list", "--limit", "50", "--json", "tagName,name,createdAt,isDraft,isPrerelease,publishedAt"],
+                    [GH_EXECUTABLE, "release", "list", "--limit", "50", "--json", "tagName,name,createdAt,isDraft,isPrerelease,publishedAt"],
                     capture_output=True, text=True, cwd=self.project_path, timeout=30
                 )
                 
@@ -1519,7 +1444,6 @@ class ModernReleaseManager(QMainWindow):
                     if stdout:
                         try:
                             releases = json.loads(stdout)
-                            # Sort releases by createdAt descending
                             releases = sorted(releases, key=lambda x: x['createdAt'], reverse=True)
                             self.log(f"Found {len(releases)} releases via GitHub CLI", "success")
                         except json.JSONDecodeError as e:
@@ -1532,9 +1456,8 @@ class ModernReleaseManager(QMainWindow):
                     self.log("No releases found via GitHub CLI", "warning")
                 
                 self.log("Running git tag command", "info")
-                # Get all tags (including those without releases)
                 tags_result = subprocess.run(
-                    ["git", "tag", "--list", "--sort=-creatordate"],
+                    [GIT_EXECUTABLE, "tag", "--list", "--sort=-creatordate"],
                     capture_output=True, text=True, cwd=self.project_path, timeout=30
                 )
                 
@@ -1551,7 +1474,6 @@ class ModernReleaseManager(QMainWindow):
                     self.log(f"git tag failed with code {tags_result.returncode}", "error")
                     self.log(f"Error: {tags_result.stderr}", "error")
                 
-                # Check: Only if we're still in the releases view
                 if self.current_view == "releases":
                     self.update_releases_signal.emit(releases, all_tags)
                 else:
@@ -1567,46 +1489,35 @@ class ModernReleaseManager(QMainWindow):
         threading.Thread(target=fetch_releases, daemon=True).start()
 
     def update_releases_display(self, releases, all_tags):
-        """Update the releases panel with releases and tags - MODERN VERSION""" 
-        # Use QTimer to ensure this runs in the main thread and we can safely check the layout
         QTimer.singleShot(0, lambda: self._safe_update_releases_display(releases, all_tags))
 
     def _safe_update_releases_display(self, releases, all_tags):
-        """Safely update releases display with proper error handling"""
         try:
-            # Check: Only if we're in the releases view
             if self.current_view != "releases":
                 self.log("Not in releases view, skipping UI update", "info")
                 return
                 
-            # Check if the releases container and layout still exist
             if not self.releases_container or not self.releases_layout:
                 self.log("Releases layout no longer exists, skipping update", "warning")
                 return
                 
-            # Clear existing content (BUT keep placeholder if it exists)
             self.clear_releases_layout()
             
-            # Update stats
             releases_count = len(releases)
             tags_count = len(all_tags)
             self.releases_count_label.setText(f"📦 Releases: {releases_count}")
             self.tags_count_label.setText(f"🏷️ Tags: {tags_count}")
             
-            # Update last update time
             current_time = datetime.now().strftime("%H:%M:%S")
             self.last_update_label.setText(f"Last update: {current_time}")
             
             if not releases and not all_tags:
-                # No releases found - show appropriate message
                 if not self.project_path:
-                    # Only create placeholder if it doesn't exist
                     if not hasattr(self, 'placeholder_label') or not self.placeholder_label:
                         self.setup_initial_placeholder()
                     else:
                         self.placeholder_label.show()
                 else:
-                    # Project selected but no releases found
                     if not hasattr(self, 'placeholder_label') or not self.placeholder_label:
                         self.placeholder_label = QLabel()
                         self.placeholder_label.setTextFormat(Qt.TextFormat.RichText)
@@ -1636,14 +1547,11 @@ class ModernReleaseManager(QMainWindow):
                         self.placeholder_label.show()
                 return
             
-            # Hide placeholder if we have releases to show
             if hasattr(self, 'placeholder_label') and self.placeholder_label:
                 self.placeholder_label.hide()
             
-            # Create a set of release tags for quick lookup
             release_tags = {release['tagName'] for release in releases}
             
-            # Display releases first
             if releases:
                 releases_header = QLabel("🚀 GitHub Releases")
                 releases_header.setStyleSheet("""
@@ -1663,7 +1571,6 @@ class ModernReleaseManager(QMainWindow):
                 for release in releases:
                     self.add_release_item(release, is_release=True)
 
-            # Display tags without releases
             tags_without_releases = [tag for tag in all_tags if tag not in release_tags]
             if tags_without_releases:
                 tags_header = QLabel("🏷️ Git Tags (No Release)")
@@ -1692,45 +1599,36 @@ class ModernReleaseManager(QMainWindow):
                     }
                     self.add_release_item(tag_item, is_release=False)
             
-            # Add stretch at the end to prevent expansion issues
             self.releases_layout.addStretch()
             
-        except RuntimeError as e:
-            # Layout has been deleted, ignore the update
-            pass
+        except RuntimeError:
+            return
         except Exception as e:
             print(f"Unexpected error updating releases display: {e}")
 
     def clear_releases_layout(self):
-        """Clear ALL items from releases layout except placeholder"""
         try:
             if not self.releases_layout:
                 return
             
-            # Create a list with ALL items to remove (except the placeholder)
             items_to_remove = []
             
-            # Identify all layout items
             for i in range(self.releases_layout.count()):
                 child = self.releases_layout.itemAt(i)
                 if child:
-                    # CRITERION: Keep ONLY the placeholder_label widget
                     if child.widget() and child.widget() == self.placeholder_label:
-                        continue  # Skip placeholder - keep it
+                        continue
                     
                     items_to_remove.append(child)
             
-            # Remove all identified items (widgets AND spacers)
             for item in items_to_remove:
                 try:
                     if item.widget():
-                        # Remove widget
                         widget = item.widget()
                         self.releases_layout.removeWidget(widget)
                         widget.setParent(None)
                         widget.deleteLater()
                     else:
-                        # Remove spacer/item
                         self.releases_layout.removeItem(item)
                 except Exception as e:
                     print(f"Error removing item: {e}")
@@ -1739,7 +1637,6 @@ class ModernReleaseManager(QMainWindow):
             print(f"Error in clear_releases_layout: {e}")
 
     def add_release_item(self, release, is_release=True):
-        """Add a release/tag item to the releases panel - MODERN VERSION""" 
         item_frame = QFrame()
         item_frame.setObjectName("ReleaseItem")
         item_frame.setStyleSheet("""
@@ -1762,11 +1659,9 @@ class ModernReleaseManager(QMainWindow):
         item_layout.setContentsMargins(15, 12, 15, 12)
         item_layout.setSpacing(12)
         
-        # Left side - Release info
         info_layout = QVBoxLayout()
         info_layout.setSpacing(6)
         
-        # Title/tag with icon
         title = release.get('name', release['tagName'])
         title_label = QLabel(f"{'🚀' if is_release else '🏷️'} {title}")
         title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
@@ -1774,24 +1669,20 @@ class ModernReleaseManager(QMainWindow):
         title_label.setWordWrap(True)
         info_layout.addWidget(title_label)
         
-        # Tag name and date
         meta_layout = QHBoxLayout()
         
         tag_label = QLabel(f"📌 {release['tagName']}")
         tag_label.setStyleSheet("color: #00a8ff; font-size: 10px; font-weight: bold; background: #00a8ff20; padding: 2px 8px; border-radius: 10px;")
         meta_layout.addWidget(tag_label)
         
-        # Use publishedAt for releases, createdAt for drafts
         date_str = ""
         if is_release:
             date_value = release.get('publishedAt') or release.get('createdAt', '')
             if date_value:
                 try:
-                    # Handle ISO format date
                     date_obj = datetime.fromisoformat(date_value.replace('Z', '+00:00'))
                     date_str = date_obj.strftime('%Y-%m-%d %H:%M')
                 except ValueError:
-                    # Fall back to just the date component if time parsing fails
                     date_str = date_value.split('T')[0]
         
         if date_str:
@@ -1809,12 +1700,10 @@ class ModernReleaseManager(QMainWindow):
         
         item_layout.addLayout(info_layout, 1)
         
-        # Right side - Status badges and actions
         right_layout = QVBoxLayout()
         right_layout.setSpacing(6)
         right_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
-        # Status badges container
         badges_layout = QHBoxLayout()
         badges_layout.setSpacing(6)
         
@@ -1850,7 +1739,6 @@ class ModernReleaseManager(QMainWindow):
         badges_layout.addStretch()
         right_layout.addLayout(badges_layout)
         
-        # Delete button
         delete_btn = QPushButton("🗑️ Delete")
         delete_btn.setFixedSize(80, 28)
         delete_btn.setToolTip(f"Delete {release['tagName']}")
@@ -1875,7 +1763,6 @@ class ModernReleaseManager(QMainWindow):
         self.releases_layout.addWidget(item_frame)
 
     def delete_release_tag(self, tag_name, is_release=True):
-        """Delete a specific release or tag""" 
         reply = QMessageBox.question(
             self, 
             "Confirm Delete", 
@@ -1894,8 +1781,7 @@ class ModernReleaseManager(QMainWindow):
                 success = True
                 
                 if is_release:
-                    # Delete GitHub release first.  Build the command as a list to avoid ``shell=True``.
-                    delete_release_cmd = ["gh", "release", "delete", tag_name, "--yes"]
+                    delete_release_cmd = [GH_EXECUTABLE, "release", "delete", tag_name, "--yes"]
                     result = subprocess.run(delete_release_cmd, capture_output=True, text=True, 
                                           cwd=self.project_path, timeout=30)
                     
@@ -1903,10 +1789,8 @@ class ModernReleaseManager(QMainWindow):
                         self.log(f"GitHub release {tag_name} deleted", "success")
                     else:
                         self.log(f"Could not delete GitHub release (may not exist): {result.stderr}", "warning")
-                        # Continue with tag deletion even if release delete fails
                 
-                # Delete local tag
-                delete_local_cmd = ["git", "tag", "-d", tag_name]
+                delete_local_cmd = [GIT_EXECUTABLE, "tag", "-d", tag_name]
                 local_result = subprocess.run(delete_local_cmd, capture_output=True, text=True,
                                             cwd=self.project_path, timeout=30)
                 
@@ -1919,8 +1803,7 @@ class ModernReleaseManager(QMainWindow):
                         self.log(f"Could not delete local tag: {local_result.stderr}", "warning")
                         success = False
                 
-                # Delete remote tag
-                delete_remote_cmd = ["git", "push", "origin", "--delete", tag_name]
+                delete_remote_cmd = [GIT_EXECUTABLE, "push", "origin", "--delete", tag_name]
                 remote_result = subprocess.run(delete_remote_cmd, capture_output=True, text=True,
                                              cwd=self.project_path, timeout=30)
                 
@@ -1938,7 +1821,6 @@ class ModernReleaseManager(QMainWindow):
                 else:
                     self.log(f"Some operations failed for {tag_name}", "error")
                 
-                # Refresh the display regardless
                 QTimer.singleShot(1000, self.refresh_releases)
                 
             except subprocess.TimeoutExpired:
@@ -1955,7 +1837,6 @@ class ModernReleaseManager(QMainWindow):
             self.path_label.setText(os.path.basename(path))
             self.update_project_status()
             
-            # Load version from package.json
             package_json_path = Path(path) / "package.json"
             if package_json_path.exists():
                 try:
@@ -1968,18 +1849,15 @@ class ModernReleaseManager(QMainWindow):
                 except Exception as e:
                     self.log(f"Error reading package.json: {e}", "error")
             
-            # HIDE THE PLACEHOLDER WHEN PROJECT IS SELECTED
             if hasattr(self, 'placeholder_label') and self.placeholder_label:
                 try:
                     self.placeholder_label.hide()
                 except RuntimeError:
-                    # Object already deleted, just remove the reference
                     self.placeholder_label = None
             
             self.refresh_releases()
 
     def log(self, message, message_type="output"):
-        """Thread-safe logging using signal""" 
         self.log_signal.emit(message, message_type)
 
     def _log_to_console(self, message, message_type):
@@ -2000,7 +1878,6 @@ class ModernReleaseManager(QMainWindow):
         self.console_text.insertHtml(formatted_message)
         self.console_text.moveCursor(QTextCursor.MoveOperation.End)
         
-        # Auto-scroll
         scrollbar = self.console_text.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
@@ -2024,25 +1901,15 @@ class ModernReleaseManager(QMainWindow):
         self.status_bar.showMessage(message)
 
     def update_markdown_preview(self):
-        """Render the current release notes as GitHub-flavored Markdown.
-
-        This method converts the plain text in ``self.notes_text`` into HTML
-        using the ``markdown`` library and updates ``self.preview_browser``.
-        It gracefully falls back to basic Markdown conversion if optional
-        extensions are not available.
-        """
         if not hasattr(self, 'preview_browser'):
             return
         text = self.notes_text.toPlainText()
         try:
-            # Attempt to use common extensions for better syntax highlighting
             html = markdown.markdown(text, extensions=[
                 'fenced_code', 'codehilite', 'tables', 'sane_lists'
             ])
         except Exception:
-            # Fallback to basic Markdown conversion if extensions fail
             html = markdown.markdown(text)
-        # Set the HTML content of the preview browser
         self.preview_browser.setHtml(html)
 
     def closeEvent(self, event):
@@ -2054,13 +1921,11 @@ def main():
     app.setApplicationName("GitHub Release Manager - Modern")
     app.setApplicationVersion("2.0.0")
     
-    # Set higher process priority to help with responsiveness
     try:
         import os
-        os.nice(10)  # Lower priority to prevent system freezing
+        os.nice(10)
     except Exception:
-        # Silently ignore if adjusting process niceness fails
-        pass
+        _ = None
     
     window = ModernReleaseManager()
     window.show()
