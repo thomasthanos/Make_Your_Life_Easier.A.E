@@ -23,6 +23,12 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "psutil"])
     import psutil
 
+# Use shlex to safely split shell commands into argument lists.  This helps us
+# avoid relying on ``shell=True`` in subprocess calls, which can introduce
+# security risks.  Where commands are passed as strings, we convert them into
+# lists via ``shlex.split`` before invoking subprocess functions.
+import shlex
+
 # Try to import the markdown library for rendering release notes preview. If it's
 # not available, install it on the fly. This allows us to convert Markdown
 # content into HTML for the preview pane in the release details.
@@ -47,10 +53,18 @@ class CommandWorker(QThread):
     def run(self):
         try:
             self.command_signal.emit(f"{self.command}")
+            # Prepare the command for execution.  Avoid using ``shell=True`` by
+            # converting string commands into lists of arguments.  If
+            # ``self.command`` is already a sequence (e.g. list or tuple), use it
+            # directly.  Using a list with ``shell=False`` prevents shell
+            # injection vulnerabilities.
+            if isinstance(self.command, str):
+                cmd_list = shlex.split(self.command)
+            else:
+                cmd_list = self.command
             
             process = subprocess.Popen(
-                self.command,
-                shell=True,
+                cmd_list,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -106,9 +120,16 @@ class BuildWorker(QThread):
                 self.progress_signal.emit(f"Running: {command}")
                 self.output_signal.emit(f"Executing: {command}", "info")
                 
+                # Always execute commands without using a shell.  If ``command``
+                # is provided as a string, split it into a list of arguments;
+                # if it's already a list/tuple, use it directly.  Avoiding
+                # ``shell=True`` mitigates command injection risks.
+                if isinstance(command, str):
+                    cmd_list = shlex.split(command)
+                else:
+                    cmd_list = command
                 process = subprocess.Popen(
-                    command,
-                    shell=True,
+                    cmd_list,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
@@ -837,8 +858,9 @@ class ModernReleaseManager(QMainWindow):
             try:
                 self.releases_layout.removeWidget(self.placeholder_label)
                 self.placeholder_label.deleteLater()
-            except:
-                pass
+            except Exception as e:
+                # Log any error encountered while removing the placeholder
+                self.log(f"Error removing placeholder: {e}", "warning")
             self.placeholder_label = None
         
         # Only create placeholder if no project is selected
@@ -1037,8 +1059,9 @@ class ModernReleaseManager(QMainWindow):
                     proc.kill()
                     killed_count += 1
                     self.log(f"Killed: {proc.info['name']}", "warning")
-            except:
-                pass
+            except Exception as e:
+                # Ignore errors when killing processes (e.g. permission errors)
+                self.log(f"Error killing process {proc.info.get('name', '')}: {e}", "warning")
         
         # Removed long blocking sleep to keep the UI responsive. A short pause can
         # help ensure processes have terminated without freezing the application.
@@ -1164,7 +1187,12 @@ class ModernReleaseManager(QMainWindow):
 
     def _run_subprocess(self, command):
         try:
-            process = subprocess.run(command, shell=True, capture_output=True, text=True, cwd=self.project_path, timeout=600)
+            # Parse command into argument list if necessary and run without a shell
+            if isinstance(command, str):
+                cmd_list = shlex.split(command)
+            else:
+                cmd_list = command
+            process = subprocess.run(cmd_list, capture_output=True, text=True, cwd=self.project_path, timeout=600)
             output = process.stdout + process.stderr
             tag = "output" if process.returncode == 0 else "error"
             self.log(output, tag)
@@ -1212,7 +1240,12 @@ class ModernReleaseManager(QMainWindow):
             
         try:
             self.log(f"{command}", "info")
-            process = subprocess.run(command, shell=True, capture_output=True, text=True, 
+            # Convert a string command into a list of arguments to avoid using a shell.
+            if isinstance(command, str):
+                cmd_list = shlex.split(command)
+            else:
+                cmd_list = command
+            process = subprocess.run(cmd_list, capture_output=True, text=True,
                                    cwd=cwd or self.project_path, timeout=300)
             output = process.stdout + process.stderr
             if process.returncode == 0:
@@ -1328,11 +1361,18 @@ class ModernReleaseManager(QMainWindow):
     def calculate_new_version(self, current_version, release_type):
         try:
             major, minor, patch = map(int, current_version.split('.'))
-            if release_type == "patch": patch += 1
-            elif release_type == "minor": minor += 1; patch = 0
-            elif release_type == "major": major += 1; minor = 0; patch = 0
+            if release_type == "patch":
+                patch += 1
+            elif release_type == "minor":
+                minor += 1
+                patch = 0
+            elif release_type == "major":
+                major += 1
+                minor = 0
+                patch = 0
             return f"{major}.{minor}.{patch}"
-        except:
+        except Exception:
+            # Fallback to a sane default if parsing fails
             return "1.0.0"
 
     def update_release(self):
@@ -1369,8 +1409,9 @@ class ModernReleaseManager(QMainWindow):
                 try:
                     if temp_notes_file.exists():
                         temp_notes_file.unlink()
-                except:
-                    pass
+                except Exception as e:
+                    # Log errors encountered when cleaning up the temporary notes file
+                    self.log(f"Error deleting temporary notes file: {e}", "warning")
                 
                 if success:
                     self.log("Release updated", "success")
@@ -1440,7 +1481,7 @@ class ModernReleaseManager(QMainWindow):
                 if data:
                     return data[0]['tagName']
             return None
-        except:
+        except Exception:
             return None
 
     def refresh_releases(self):
@@ -1749,8 +1790,9 @@ class ModernReleaseManager(QMainWindow):
                     # Handle ISO format date
                     date_obj = datetime.fromisoformat(date_value.replace('Z', '+00:00'))
                     date_str = date_obj.strftime('%Y-%m-%d %H:%M')
-                except:
-                    date_str = date_value.split('T')[0]  # Just get date part
+                except ValueError:
+                    # Fall back to just the date component if time parsing fails
+                    date_str = date_value.split('T')[0]
         
         if date_str:
             date_label = QLabel(f"📅 {date_str}")
@@ -1852,9 +1894,9 @@ class ModernReleaseManager(QMainWindow):
                 success = True
                 
                 if is_release:
-                    # Delete GitHub release first
-                    delete_release_cmd = f"gh release delete {tag_name} --yes"
-                    result = subprocess.run(delete_release_cmd, shell=True, capture_output=True, text=True, 
+                    # Delete GitHub release first.  Build the command as a list to avoid ``shell=True``.
+                    delete_release_cmd = ["gh", "release", "delete", tag_name, "--yes"]
+                    result = subprocess.run(delete_release_cmd, capture_output=True, text=True, 
                                           cwd=self.project_path, timeout=30)
                     
                     if result.returncode == 0:
@@ -1864,8 +1906,8 @@ class ModernReleaseManager(QMainWindow):
                         # Continue with tag deletion even if release delete fails
                 
                 # Delete local tag
-                delete_local_cmd = f"git tag -d {tag_name}"
-                local_result = subprocess.run(delete_local_cmd, shell=True, capture_output=True, text=True,
+                delete_local_cmd = ["git", "tag", "-d", tag_name]
+                local_result = subprocess.run(delete_local_cmd, capture_output=True, text=True,
                                             cwd=self.project_path, timeout=30)
                 
                 if local_result.returncode == 0:
@@ -1878,8 +1920,8 @@ class ModernReleaseManager(QMainWindow):
                         success = False
                 
                 # Delete remote tag
-                delete_remote_cmd = f"git push origin --delete {tag_name}"
-                remote_result = subprocess.run(delete_remote_cmd, shell=True, capture_output=True, text=True,
+                delete_remote_cmd = ["git", "push", "origin", "--delete", tag_name]
+                remote_result = subprocess.run(delete_remote_cmd, capture_output=True, text=True,
                                              cwd=self.project_path, timeout=30)
                 
                 if remote_result.returncode == 0:
@@ -2016,7 +2058,8 @@ def main():
     try:
         import os
         os.nice(10)  # Lower priority to prevent system freezing
-    except:
+    except Exception:
+        # Silently ignore if adjusting process niceness fails
         pass
     
     window = ModernReleaseManager()
