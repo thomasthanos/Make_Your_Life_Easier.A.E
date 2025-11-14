@@ -6,6 +6,35 @@ const { autoUpdater } = require('electron-updater');
 
 const fs = require('fs');
 
+// Helper to execute a command via spawn and capture its stdout/stderr. This
+// consolidates the repetitive logic of launching child processes and
+// collecting their output into a single place. It resolves with an
+// object containing either { stdout, stderr } on success or { error, stdout, stderr }
+// when the command exits with a non-zero code or encounters an error.
+function runSpawnCommand(cmd, args = [], options = {}) {
+  return new Promise((resolve) => {
+    try {
+      const child = spawn(cmd, args, options);
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (data) => { stdout += data.toString(); });
+      child.stderr.on('data', (data) => { stderr += data.toString(); });
+      child.on('error', (err) => {
+        resolve({ error: err.message, stdout, stderr });
+      });
+      child.on('close', (code) => {
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          resolve({ error: `Command exited with code ${code}`, stdout, stderr });
+        }
+      });
+    } catch (err) {
+      resolve({ error: err.message });
+    }
+  });
+}
+
 function debug(level, ...args) {
   const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
   const colorMap = {
@@ -999,27 +1028,8 @@ ipcMain.handle('run-command', async (event, command) => {
   }
   const parts = command.trim().split(/\s+/);
   const cmd = parts.shift();
-  return new Promise((resolve) => {
-    try {
-      const child = spawn(cmd, parts, { shell: false, windowsHide: true });
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', (data) => { stdout += data.toString(); });
-      child.stderr.on('data', (data) => { stderr += data.toString(); });
-      child.on('error', (err) => {
-        resolve({ error: err.message, stdout, stderr });
-      });
-      child.on('close', (code) => {
-        if (code === 0) {
-          resolve({ stdout, stderr });
-        } else {
-          resolve({ error: `Command exited with code ${code}`, stdout, stderr });
-        }
-      });
-    } catch (err) {
-      resolve({ error: err.message });
-    }
-  });
+  // Use helper to spawn the command and gather output
+  return runSpawnCommand(cmd, parts, { shell: false, windowsHide: true });
 });
 
 // Execute the Chris Titus Windows Utility script via PowerShell.  This handler
@@ -1028,34 +1038,15 @@ ipcMain.handle('run-command', async (event, command) => {
 // interpolation, and output is captured for potential logging.  Errors
 // are returned back to the renderer for user feedback.
 ipcMain.handle('run-christitus', async () => {
-  return new Promise((resolve) => {
-    try {
-      const psExe = getPowerShellExe() || 'powershell';
-      const args = [
-        '-NoProfile',
-        '-ExecutionPolicy', 'Bypass',
-        '-Command',
-        'irm christitus.com/win | iex'
-      ];
-      const child = spawn(psExe, args, { shell: false, windowsHide: false });
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', (data) => { stdout += data.toString(); });
-      child.stderr.on('data', (data) => { stderr += data.toString(); });
-      child.on('error', (err) => {
-        resolve({ error: err.message, stdout, stderr });
-      });
-      child.on('close', (code) => {
-        if (code === 0) {
-          resolve({ stdout, stderr });
-        } else {
-          resolve({ error: `Command exited with code ${code}`, stdout, stderr });
-        }
-      });
-    } catch (err) {
-      resolve({ error: err.message });
-    }
-  });
+  const psExe = getPowerShellExe() || 'powershell';
+  const args = [
+    '-NoProfile',
+    '-ExecutionPolicy', 'Bypass',
+    '-Command',
+    'irm christitus.com/win | iex'
+  ];
+  // Delegate execution to the spawn helper; windowsHide=false to show window when needed
+  return runSpawnCommand(psExe, args, { shell: false, windowsHide: false });
 });
 ipcMain.handle('open-external', async (event, url) => {
   await shell.openExternal(url);
