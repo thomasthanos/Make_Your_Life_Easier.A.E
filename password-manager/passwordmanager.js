@@ -966,70 +966,77 @@ class PasswordManager {
      * @returns {string|null} The name of the invalid field or null if valid
      */
     validatePasswordInputs(passwordData) {
-        // Title must not be empty
-        if (!passwordData.title) {
-            this.showError(this.t('title_required'));
-            const titleInput = document.getElementById('title');
-            if (titleInput) {
-                titleInput.classList.add('shake');
-                setTimeout(() => titleInput.classList.remove('shake'), 500);
+        /*
+         * Consolidate validations into a list of objects describing each rule.
+         * Each rule has a condition function, a field identifier, a translation
+         * key for the error message, and the IDs of the input elements to
+         * apply the shake animation.  Iterating over this array reduces the
+         * cyclomatic complexity of the validation logic.
+         */
+        const validations = [
+            {
+                condition: () => !passwordData.title,
+                field: 'title',
+                messageKey: 'title_required',
+                elements: ['title']
+            },
+            {
+                condition: () => !passwordData.password,
+                field: 'password',
+                messageKey: 'password_required',
+                elements: ['password']
+            },
+            {
+                condition: () => passwordData.password && passwordData.password.trim().length === 0,
+                field: 'password',
+                messageKey: 'password_empty',
+                elements: ['password']
+            },
+            {
+                condition: () => !passwordData.username && !passwordData.email,
+                field: 'username_or_email',
+                messageKey: 'username_or_email_required',
+                elements: ['username', 'email']
+            },
+            {
+                condition: () => !passwordData.url,
+                field: 'url',
+                messageKey: 'url_required',
+                elements: ['url']
+            },
+            {
+                condition: () => passwordData.email && !this.isValidEmailUnicode(passwordData.email),
+                field: 'email',
+                messageKey: 'invalid_email_format',
+                elements: ['email']
             }
-            return 'title';
-        }
-        // Password must exist and not be purely whitespace
-        if (!passwordData.password) {
-            this.showError(this.t('password_required'));
-            const pwInput = document.getElementById('password');
-            if (pwInput) {
-                pwInput.classList.add('shake');
-                setTimeout(() => pwInput.classList.remove('shake'), 500);
-            }
-            return 'password';
-        }
-        if (passwordData.password.trim().length === 0) {
-            this.showError(this.t('password_empty'));
-            const pwInput = document.getElementById('password');
-            if (pwInput) {
-                pwInput.classList.add('shake');
-                setTimeout(() => pwInput.classList.remove('shake'), 500);
-            }
-            return 'password';
-        }
-        // At least one of username or email must be provided
-        if (!passwordData.username && !passwordData.email) {
-            const errorMsg = typeof this.t === 'function' ? this.t('username_or_email_required') : 'Either Username or Email is required.';
-            this.showError(errorMsg);
-            const usernameInput = document.getElementById('username');
-            const emailInput = document.getElementById('email');
-            if (usernameInput) usernameInput.classList.add('shake');
-            if (emailInput) emailInput.classList.add('shake');
-            setTimeout(() => {
-                if (usernameInput) usernameInput.classList.remove('shake');
-                if (emailInput) emailInput.classList.remove('shake');
-            }, 500);
-            return 'username_or_email';
-        }
-        // URL is required
-        if (!passwordData.url) {
-            this.showError(this.t('url_required'));
-            const urlInput = document.getElementById('url');
-            if (urlInput) {
-                urlInput.classList.add('shake');
-                setTimeout(() => urlInput.classList.remove('shake'), 500);
-            }
-            return 'url';
-        }
-        // Validate email format if provided
-        if (passwordData.email) {
-            if (!this.isValidEmailUnicode(passwordData.email)) {
-                const errMsg = typeof this.t === 'function' ? this.t('invalid_email_format') : 'Invalid email format.';
-                this.showError(errMsg);
-                const emailInput = document.getElementById('email');
-                if (emailInput) {
-                    emailInput.classList.add('shake');
-                    setTimeout(() => emailInput.classList.remove('shake'), 500);
+        ];
+        for (const rule of validations) {
+            if (rule.condition()) {
+                // Determine the error message; some keys may not map directly so we
+                // fallback to default English strings when necessary.
+                let msg;
+                if (rule.messageKey === 'username_or_email_required') {
+                    msg = typeof this.t === 'function' ? this.t(rule.messageKey) : 'Either Username or Email is required.';
+                } else if (rule.messageKey === 'invalid_email_format') {
+                    msg = typeof this.t === 'function' ? this.t(rule.messageKey) : 'Invalid email format.';
+                } else {
+                    msg = this.t(rule.messageKey);
                 }
-                return 'email';
+                this.showError(msg);
+                // Apply the shake class to all relevant elements
+                rule.elements.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.add('shake');
+                });
+                // Remove the shake class after a short delay
+                setTimeout(() => {
+                    rule.elements.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.classList.remove('shake');
+                    });
+                }, 500);
+                return rule.field;
             }
         }
         return null;
