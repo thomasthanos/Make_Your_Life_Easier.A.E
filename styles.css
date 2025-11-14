@@ -1408,7 +1408,7 @@ input:checked+.slider {
 input:checked+.slider:before {
   transform: translateX(24px);
 }
-/* */
+
 .install-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
