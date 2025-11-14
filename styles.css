@@ -461,6 +461,7 @@ body {
   display: flex;
   height: 100%;
   backdrop-filter: blur(20px);
+  margin-top: var(--title-bar-height);
 }
 
 #sidebar {
@@ -476,6 +477,8 @@ body {
   position: relative;
   z-index: 10;
   backdrop-filter: blur(10px);
+  height: calc(100% - var(--title-bar-height));
+  margin-top: 0;
 }
 
 .sidebar-header {
@@ -1128,6 +1131,8 @@ body {
   flex-direction: column;
   height: 100%;
   background: var(--bg-color);
+  height: calc(100% - var(--title-bar-height));
+  margin-top: 0;
 }
 
 #header {
@@ -1408,8 +1413,9 @@ input:checked+.slider:before {
 
 
 .install-grid {
+  overflow: visible;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 1rem;
   margin-bottom: 1rem;
@@ -1452,16 +1458,16 @@ input:checked+.slider:before {
 
 
 .status-pre {
-  max-height: 80px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
   overflow-y: auto;
+  margin-top: 1rem;
   background: var(--sidebar-bg);
   padding: 0.5rem;
   border-radius: 6px;
   border: 1px solid var(--border-color);
   font-size: 0.8rem;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  margin-top: 0.25rem;
   display: none;
   transition: all 0.5s ease;
   opacity: 1;
@@ -1503,13 +1509,6 @@ input:checked+.slider:before {
 }
 
 
-.app-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0rem;
-}
-
 .app-icon {
   width: 48px;
   height: 48px;
@@ -1520,7 +1519,8 @@ input:checked+.slider:before {
 
 
 .app-card .button {
-  margin-top: 0rem;
+  margin-top: 1rem;
+  width: 100%;
   margin-bottom: 0.25rem;
 }
 
@@ -1582,13 +1582,13 @@ input:checked+.slider:before {
 
 
 .loading {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border: 3px solid rgba(255, 255, 255, .3);
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border-color);
+  border-top-color: var(--accent-color);
   border-radius: 50%;
-  border-top-color: #fff;
-  animation: spin 1s ease-in-out infinite;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
 }
 
 @keyframes spin {
@@ -1870,32 +1870,24 @@ input:checked+.slider:before {
 }
 
 
-/* Close button styling – subtle transparent button that brightens on hover */
+/* Adjust the close button for new toasts */
 .toast-close {
-  background: rgba(255, 255, 255, 0.08);
+  background: transparent;
   border: none;
   border-radius: 8px;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--text-color);
-  opacity: 0.8;
+  color: currentColor;
+  opacity: 0.6;
   transition: background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
   flex-shrink: 0;
-  margin-top: 0.1rem;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 600;
 }
-
-.toast-close:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.15);
-  transform: scale(1.1);
-}
-
 
 .toast-progress {
   position: absolute;
@@ -2265,9 +2257,7 @@ input:checked+.slider:before {
 }
 
 
-.install-grid {
-  overflow: visible;
-}
+
 
 .app-card {
   overflow: hidden;
@@ -2572,15 +2562,7 @@ input:checked+.slider:before {
   text-align: center;
 }
 
-.loading {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--border-color);
-  border-top-color: var(--accent-color);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
-}
+
 
 @keyframes spin {
   to {
@@ -3132,40 +3114,16 @@ input:checked+.slider:before {
   fill: currentColor !important;
 }
 
-.install-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
-}
 
-.status-pre {
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 200px;
-  overflow-y: auto;
-  margin-top: 1rem;
-}
+
+
+
+
 
 .app-header {
   display: flex;
   gap: 0.75rem;
   align-items: center;
-}
-
-.app-header h3 {
-  margin: 0 0 0.35rem 0;
-}
-
-.app-header p {
-  margin: 0;
-  opacity: 0.8;
-  font-size: 0.9rem;
-}
-
-.app-card .button {
-  margin-top: 1rem;
-  width: 100%;
 }
 
 .full-span {
@@ -3572,24 +3530,7 @@ input:checked+.slider:before {
   gap: 0.25rem;
 }
 
-/* Adjust the close button for new toasts */
-.toast-close {
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: currentColor;
-  opacity: 0.6;
-  transition: background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
-  flex-shrink: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
+
 .toast-close:hover {
   opacity: 1;
   background: rgba(0, 0, 0, 0.05);
@@ -4426,15 +4367,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   margin-left: 0;
 }
 
-.title-bar-menu {
-  display: flex;
-  align-items: center;
-  position: relative;
-  margin-left: auto;
-  margin-right: 0;
-  -webkit-app-region: no-drag;
-}
-
 .menu-toggle {
   display: flex;
   align-items: center;
@@ -4556,19 +4488,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   background-color: #e74c3c;
 }
 
-#app {
-  margin-top: var(--title-bar-height);
-}
-
-#sidebar {
-  height: calc(100% - var(--title-bar-height));
-  margin-top: 0;
-}
-
-#main {
-  height: calc(100% - var(--title-bar-height));
-  margin-top: 0;
-}
 
 #loading.loading-overlay {
   position: fixed;
@@ -4679,12 +4598,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   position: relative;
-}
-
-/* WebKit/Chromium scrollbar customisation: hide by default */
-.changelog-modal::-webkit-scrollbar {
-  width: 0;
-  height: 0;
 }
 
 /* When the modal is scrolling (class added via JS), show a thin scrollbar */
