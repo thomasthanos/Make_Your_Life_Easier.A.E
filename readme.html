@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Make Your Life Easier - Windows System Management & Password Security</title>
+    <meta name="description" content="Comprehensive Windows system management tool with military-grade password manager, software installer, and system maintenance utilities.">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #7c3aed;
+            --primary-dark: #6d28d9;
+            --secondary: #3b82f6;
+            --accent: #10b981;
+            --dark: #0f172a;
+            --dark-lighter: #1e293b;
+            --dark-card: rgba(30, 41, 59, 0.8);
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .bg-circle {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--primary) 0%, transparent 70%);
+            opacity: 0.1;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        .bg-circle:nth-child(1) {
+            width: 400px;
+            height: 400px;
+            top: -200px;
+            left: -200px;
+            animation-delay: 0s;
+        }
+
+        .bg-circle:nth-child(2) {
+            width: 600px;
+            height: 600px;
+            bottom: -300px;
+            right: -300px;
+            animation-delay: 5s;
+        }
+
+        .bg-circle:nth-child(3) {
+            width: 300px;
+            height: 300px;
+            top: 50%;
+            left: 50%;
+            animation-delay: 10s;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            33% {
+                transform: translate(30px, -30px) scale(1.1);
+            }
+            66% {
+                transform: translate(-20px, 20px) scale(0.9);
+            }
+        }
+
+        /* Header */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: 1rem 0;
+            backdrop-filter: blur(20px);
+            background: rgba(15, 23, 42, 0.8);
+            border-bottom: 1px solid var(--glass-border);
+            transition: all 0.3s ease;
+        }
+
+        header.scrolled {
+            padding: 0.5rem 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo::before {
+            content: '🔐';
+            font-size: 2rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.3s;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .cta-button {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(124, 58, 237, 0.5);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8rem 2rem 4rem;
+        }
+
+        .hero-content {
+            max-width: 800px;
+            animation: fadeInUp 1s ease;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #ffffff 0%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: clamp(1.1rem, 2vw, 1.5rem);
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            line-height: 1.8;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary, .btn-secondary {
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 30px rgba(124, 58, 237, 0.6);
+        }
+
+        .btn-secondary {
+            background: var(--glass);
+            color: var(--text);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary);
+        }
+
+        /* Stats Section */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            max-width: 1000px;
+            margin: 4rem auto;
+            padding: 0 2rem;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 2rem;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        /* Features Section */
+        .section {
+            padding: 5rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            margin-bottom: 4rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            padding: 2rem;
+            background: var(--dark-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transform: scaleX(0);
+            transition: transform 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 40px rgba(124, 58, 237, 0.3);
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            line-height: 1.8;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-top: 1rem;
+        }
+
+        .feature-list li {
+            padding: 0.5rem 0;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        /* How to Use Section */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .step {
+            text-align: center;
+            position: relative;
+        }
+
+        .step-number {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0 auto 1.5rem;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+        }
+
+        .step h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+        }
+
+        .step p {
+            color: var(--text-muted);
+        }
+
+        /* Screenshot Section */
+        .screenshot-container {
+            margin-top: 4rem;
+            text-align: center;
+        }
+
+        .screenshot {
+            max-width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--glass-border);
+            transition: all 0.3s;
+        }
+
+        .screenshot:hover {
+            transform: scale(1.02);
+            box-shadow: 0 25px 80px rgba(124, 58, 237, 0.3);
+        }
+
+        /* Security Section */
+        .security-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .security-badge {
+            padding: 2rem;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+
+        .security-badge-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .security-badge h4 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .security-badge p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Download Section */
+        .download-section {
+            background: var(--dark-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 30px;
+            padding: 4rem 2rem;
+            text-align: center;
+            margin-top: 4rem;
+            backdrop-filter: blur(20px);
+        }
+
+        .download-options {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .download-card {
+            padding: 2rem;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            min-width: 250px;
+            transition: all 0.3s;
+        }
+
+        .download-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .download-card h4 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+        }
+
+        .download-card p {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        /* Footer */
+        footer {
+            padding: 3rem 2rem;
+            text-align: center;
+            border-top: 1px solid var(--glass-border);
+            margin-top: 5rem;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+
+        .social-links {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .social-link {
+            width: 40px;
+            height: 40px;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text);
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .social-link:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            transform: translateY(-3px);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            opacity: 0;
+            animation: fadeInUp 0.8s ease forwards;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding: 6rem 1rem 2rem;
+            }
+
+            .section {
+                padding: 3rem 1rem;
+            }
+
+            .features-grid,
+            .steps,
+            .security-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Scroll to top button */
+        .scroll-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+            z-index: 999;
+        }
+
+        .scroll-top.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .scroll-top:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 30px rgba(124, 58, 237, 0.6);
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Animation -->
+    <div class="bg-animation">
+        <div class="bg-circle"></div>
+        <div class="bg-circle"></div>
+        <div class="bg-circle"></div>
+    </div>
+
+    <!-- Header -->
+    <header id="header">
+        <nav>
+            <a href="#" class="logo">Make Your Life Easier</a>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#how-to-use">How to Use</a></li>
+                <li><a href="#security">Security</a></li>
+                <li><a href="#download">Download</a></li>
+            </ul>
+            <a href="#download" class="cta-button">Download Now</a>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Make Your Life Easier</h1>
+            <p class="hero-subtitle">
+                The ultimate Windows system management tool with military-grade password security, 
+                one-click software installation, and powerful system maintenance utilities.
+            </p>
+            <div class="hero-buttons">
+                <a href="#download" class="btn-primary">
+                    📥 Download for Windows
+                </a>
+                <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E" class="btn-secondary">
+                    💻 View on GitHub
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats -->
+    <div class="stats">
+        <div class="stat-card fade-in">
+            <div class="stat-number">AES-256</div>
+            <div class="stat-label">Military Encryption</div>
+        </div>
+        <div class="stat-card fade-in">
+            <div class="stat-number">10+</div>
+            <div class="stat-label">Pre-configured Apps</div>
+        </div>
+        <div class="stat-card fade-in">
+            <div class="stat-number">5</div>
+            <div class="stat-label">System Tools</div>
+        </div>
+        <div class="stat-card fade-in">
+            <div class="stat-number">2</div>
+            <div class="stat-label">Languages</div>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <section id="features" class="section">
+        <h2 class="section-title">Powerful Features</h2>
+        <p class="section-subtitle">Everything you need to manage your Windows system and keep your passwords secure</p>
+        
+        <div class="features-grid">
+            <div class="feature-card fade-in">
+                <span class="feature-icon">🔐</span>
+                <h3>Password Manager</h3>
+                <p>Store your passwords with military-grade AES-256-GCM encryption</p>
+                <ul class="feature-list">
+                    <li>Master password protection</li>
+                    <li>Auto-fetch website logos</li>
+                    <li>Password strength validator</li>
+                    <li>Organized categories</li>
+                    <li>30-minute auto-logout</li>
+                </ul>
+            </div>
+
+            <div class="feature-card fade-in">
+                <span class="feature-icon">💻</span>
+                <h3>Software Manager</h3>
+                <p>Install popular applications with one click</p>
+                <ul class="feature-list">
+                    <li>Discord & BetterDiscord</li>
+                    <li>Epic Games Launcher</li>
+                    <li>Spotify & Ubisoft Connect</li>
+                    <li>Progress tracking</li>
+                    <li>Auto-installer launch</li>
+                </ul>
+            </div>
+
+            <div class="feature-card fade-in">
+                <span class="feature-icon">🛠️</span>
+                <h3>System Maintenance</h3>
+                <p>Keep your Windows running smoothly</p>
+                <ul class="feature-list">
+                    <li>SFC Scan & DISM Repair</li>
+                    <li>Temp files cleanup</li>
+                    <li>Windows Debloat</li>
+                    <li>Patch My PC integration</li>
+                    <li>Chris Titus Utility</li>
+                </ul>
+            </div>
+
+            <div class="feature-card fade-in">
+                <span class="feature-icon">🎨</span>
+                <h3>Customization</h3>
+                <p>Personalize your experience</p>
+                <ul class="feature-list">
+                    <li>Spicetify for Spotify</li>
+                    <li>Dark/Light themes</li>
+                    <li>Multi-language support</li>
+                    <li>DLC Unlockers</li>
+                    <li>Custom layouts</li>
+                </ul>
+            </div>
+
+            <div class="feature-card fade-in">
+                <span class="feature-icon">🔄</span>
+                <h3>Auto-Updates</h3>
+                <p>Stay up to date automatically</p>
+                <ul class="feature-list">
+                    <li>Silent background updates</li>
+                    <li>Changelog display</li>
+                    <li>GitHub releases integration</li>
+                    <li>Progress tracking</li>
+                    <li>No interruptions</li>
+                </ul>
+            </div>
+
+            <div class="feature-card fade-in">
+                <span class="feature-icon">⚙️</span>
+                <h3>System Tools</h3>
+                <p>Advanced Windows utilities</p>
+                <ul class="feature-list">
+                    <li>Windows Activation</li>
+                    <li>Auto-login setup</li>
+                    <li>BIOS/UEFI restart</li>
+                    <li>Archive extraction</li>
+                    <li>UAC elevation</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- How to Use Section -->
+    <section id="how-to-use" class="section">
+        <h2 class="section-title">How to Use</h2>
+        <p class="section-subtitle">Get started in just a few simple steps</p>
+
+        <div class="steps">
+            <div class="step fade-in">
+                <div class="step-number">1</div>
+                <h3>Download & Install</h3>
+                <p>Download the installer or portable version and run it on your Windows PC</p>
+            </div>
+
+            <div class="step fade-in">
+                <div class="step-number">2</div>
+                <h3>Set Master Password</h3>
+                <p>Create a strong master password to protect your stored passwords with AES-256 encryption</p>
+            </div>
+
+            <div class="step fade-in">
+                <div class="step-number">3</div>
+                <h3>Start Managing</h3>
+                <p>Add passwords, install software, and maintain your system with just a few clicks</p>
+            </div>
+
+            <div class="step fade-in">
+                <div class="step-number">4</div>
+                <h3>Stay Secure</h3>
+                <p>Your data is encrypted locally with no cloud sync. Auto-lock keeps everything secure</p>
+            </div>
+        </div>
+
+        <!-- Screenshot placeholder -->
+        <div class="screenshot-container fade-in">
+            <svg class="screenshot" width="900" height="600" xmlns="http://www.w3.org/2000/svg">
+                <rect width="900" height="600" fill="#1e293b"/>
+                <text x="450" y="280" font-size="24" fill="#94a3b8" text-anchor="middle">Password Manager Interface</text>
+                <text x="450" y="320" font-size="16" fill="#64748b" text-anchor="middle">Screenshot placeholder - Add your actual screenshot here</text>
+            </svg>
+        </div>
+    </section>
+
+    <!-- Security Section -->
+    <section id="security" class="section">
+        <h2 class="section-title">Security First</h2>
+        <p class="section-subtitle">Your data security is our top priority</p>
+
+        <div class="security-grid">
+            <div class="security-badge fade-in">
+                <span class="security-badge-icon">🔒</span>
+                <h4>AES-256-GCM</h4>
+                <p>Military-grade encryption with authenticated encryption mode</p>
+            </div>
+
+            <div class="security-badge fade-in">
+                <span class="security-badge-icon">🔑</span>
+                <h4>scrypt Hashing</h4>
+                <p>Key derivation with 2^14 cost factor prevents brute force attacks</p>
+            </div>
+
+            <div class="security-badge fade-in">
+                <span class="security-badge-icon">💾</span>
+                <h4>Local Storage</h4>
+                <p>All data stored locally on your device, never sent to cloud</p>
+            </div>
+
+            <div class="security-badge fade-in">
+                <span class="security-badge-icon">⏱️</span>
+                <h4>Auto-Lock</h4>
+                <p>Session timeout after 30 minutes of inactivity</p>
+            </div>
+
+            <div class="security-badge fade-in">
+                <span class="security-badge-icon">🚫</span>
+                <h4>No Telemetry</h4>
+                <p>Zero data collection, no analytics, complete privacy</p>
+            </div>
+
+            <div class="security-badge fade-in">
+                <span class="security-badge-icon">🛡️</span>
+                <h4>Context Isolation</h4>
+                <p>Renderer process isolated from Node.js for extra security</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Section -->
+    <section id="download" class="section">
+        <div class="download-section fade-in">
+            <h2 class="section-title">Download Now</h2>
+            <p class="section-subtitle">Choose your preferred installation method</p>
+
+            <div class="download-options">
+                <div class="download-card">
+                    <h4>💿 Installer</h4>
+                    <p>Full installation with Start Menu shortcuts and auto-updates</p>
+                    <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest" class="btn-primary">
+                        Download Installer
+                    </a>
+                </div>
+
+                <div class="download-card">
+                    <h4>📦 Portable</h4>
+                    <p>No installation required, run directly from any location</p>
+                    <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest" class="btn-primary">
+                        Download Portable
+                    </a>
+                </div>
+
+                <div class="download-card">
+                    <h4>💻 Source Code</h4>
+                    <p>Build from source and contribute to the project</p>
+                    <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E" class="btn-secondary">
+                        View on GitHub
+                    </a>
+                </div>
+            </div>
+
+            <p style="margin-top: 2rem; color: var(--text-muted);">
+                <strong>System Requirements:</strong> Windows 10/11 (64-bit) • 4GB RAM • 100MB Free Space
+            </p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-links">
+            <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E">GitHub</a>
+            <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases">Releases</a>
+            <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/issues">Report Issue</a>
+            <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/blob/main/README.md">Documentation</a>
+        </div>
+
+        <div class="social-links">
+            <a href="https://github.com/thomasthanos" class="social-link" title="GitHub">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+            </a>
+        </div>
+
+        <p style="color: var(--text-muted); margin-top: 2rem;">
+            Made with ❤️ by <a href="https://github.com/thomasthanos" style="color: var(--primary); text-decoration: none;">ThomasThanos</a>
+        </p>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+            © 2024 Make Your Life Easier • MIT License
+        </p>
+    </footer>
+
+    <!-- Scroll to Top Button -->
+    <div class="scroll-top" id="scrollTop">↑</div>
+
+    <script>
+        // Header scroll effect
+        const header = document.getElementById('header');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 100) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        });
+
+        // Scroll to top button
+        const scrollTopBtn = document.getElementById('scrollTop');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 500) {
+                scrollTopBtn.classList.add('visible');
+            } else {
+                scrollTopBtn.classList.remove('visible');
+            }
+        });
+
+        scrollTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Intersection Observer for fade-in animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Parallax effect for background circles
+        window.addEventListener('mousemove', (e) => {
+            const circles = document.querySelectorAll('.bg-circle');
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+
+            circles.forEach((circle, index) => {
+                const speed = (index + 1) * 20;
+                circle.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
+            });
+        });
+    </script>
+</body>
+</html>
