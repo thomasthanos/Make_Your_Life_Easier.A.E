@@ -1420,7 +1420,6 @@ input:checked+.slider:before {
   height: auto;
   min-height: 160px;
   max-height: 240px;
-  overflow-y: auto;
   flex-shrink: 0;
   overflow: hidden;
 }
