@@ -543,7 +543,17 @@ body {
   font-weight: 400;
 }
 
-.theme-toggle {
+/*
+ * Consolidated title-bar button styles. Several buttons in the title bar
+ * share the same layout (size, padding, margins, colors and cursor). To
+ * reduce duplication we define the common styles once for all of them
+ * here. Individual buttons can override specific properties (e.g.
+ * display or position) as needed.
+ */
+.theme-toggle,
+.info-toggle,
+.menu-toggle,
+.title-bar-update-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -601,21 +611,7 @@ body {
   color: var(--text-color);
 }
 
-.info-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: calc(var(--title-bar-height) * 0.6667);
-  height: calc(var(--title-bar-height) * 0.6667);
-  padding: 0;
-  margin: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-color);
-  cursor: pointer;
-  opacity: 0.8;
-}
+/* .info-toggle base styles are consolidated with other title-bar buttons. */
 
 .info-toggle:hover,
 .info-toggle:focus {
@@ -1243,7 +1239,13 @@ body {
   box-shadow: 0 4px 16px rgba(0, 191, 255, 0.3);
 }
 
-.button::before {
+/*
+ * Gradient overlay effect applied to various button types. Consolidated
+ * here to avoid repeating the ::before and hover selectors. Buttons that
+ * wish to use this effect simply include one of the listed classes below.
+ */
+.button::before,
+.bios-restart-btn::before {
   content: '';
   position: absolute;
   top: 0;
@@ -1251,10 +1253,11 @@ body {
   width: 100%;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s;
+  transition: left 0.5s ease;
 }
 
-.button:hover::before {
+.button:hover::before,
+.bios-restart-btn:hover::before {
   left: 100%;
 }
 
@@ -2214,21 +2217,6 @@ input:checked+.slider:before {
   position: relative;
   overflow: hidden;
   cursor: pointer;
-}
-
-.bios-restart-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s;
-}
-
-.bios-restart-btn:hover::before {
-  left: 100%;
 }
 
 .bios-restart-btn:hover {
@@ -4103,18 +4091,7 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 }
 
 .menu-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: calc(var(--title-bar-height) * 0.6667);
-  height: calc(var(--title-bar-height) * 0.6667);
-  padding: 0;
-  margin: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  cursor: pointer;
-  opacity: 0.8;
+  /* Base styles are defined in the consolidated title-bar rule. */
 }
 .menu-toggle:hover,
 .menu-toggle:focus {
@@ -4249,18 +4226,8 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 }
 
 .title-bar-update-btn {
+  /* Override consolidated title-bar styles: start hidden and relative for badge positioning */
   display: none;
-  align-items: center;
-  justify-content: center;
-  width: calc(var(--title-bar-height) * 0.6667);
-  height: calc(var(--title-bar-height) * 0.6667);
-  padding: 0;
-  margin: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  cursor: pointer;
-  opacity: 0.8;
   position: relative;
 }
 
