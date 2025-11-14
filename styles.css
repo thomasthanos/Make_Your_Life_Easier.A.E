@@ -461,7 +461,6 @@ body {
   display: flex;
   height: 100%;
   backdrop-filter: blur(20px);
-  margin-top: var(--title-bar-height);
 }
 
 #sidebar {
@@ -477,8 +476,6 @@ body {
   position: relative;
   z-index: 10;
   backdrop-filter: blur(10px);
-  height: calc(100% - var(--title-bar-height));
-  margin-top: 0;
 }
 
 .sidebar-header {
@@ -1129,9 +1126,8 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100%;
   background: var(--bg-color);
-  height: calc(100% - var(--title-bar-height));
-  margin-top: 0;
 }
 
 #header {
@@ -1412,9 +1408,8 @@ input:checked+.slider:before {
 
 
 .install-grid {
-  overflow: visible;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
   margin-top: 1rem;
   margin-bottom: 1rem;
@@ -1457,16 +1452,16 @@ input:checked+.slider:before {
 
 
 .status-pre {
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 200px;
+  max-height: 80px;
   overflow-y: auto;
-  margin-top: 1rem;
   background: var(--sidebar-bg);
   padding: 0.5rem;
   border-radius: 6px;
   border: 1px solid var(--border-color);
   font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin-top: 0.25rem;
   display: none;
   transition: all 0.5s ease;
   opacity: 1;
@@ -1508,6 +1503,13 @@ input:checked+.slider:before {
 }
 
 
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0rem;
+}
+
 .app-icon {
   width: 48px;
   height: 48px;
@@ -1518,8 +1520,7 @@ input:checked+.slider:before {
 
 
 .app-card .button {
-  margin-top: 1rem;
-  width: 100%;
+  margin-top: 0rem;
   margin-bottom: 0.25rem;
 }
 
@@ -1581,13 +1582,13 @@ input:checked+.slider:before {
 
 
 .loading {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--border-color);
-  border-top-color: var(--accent-color);
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, .3);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
 }
 
 @keyframes spin {
@@ -1869,24 +1870,32 @@ input:checked+.slider:before {
 }
 
 
-/* Adjust the close button for new toasts */
+/* Close button styling – subtle transparent button that brightens on hover */
 .toast-close {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.08);
   border: none;
   border-radius: 8px;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: currentColor;
-  opacity: 0.6;
+  color: var(--text-color);
+  opacity: 0.8;
   transition: background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
   flex-shrink: 0;
-  font-size: 1.25rem;
+  margin-top: 0.1rem;
+  font-size: 1.1rem;
   font-weight: 600;
 }
+
+.toast-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.1);
+}
+
 
 .toast-progress {
   position: absolute;
@@ -1964,97 +1973,6 @@ input:checked+.slider:before {
   }
 }
 
-.settings-container {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 2rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
-}
-
-.settings-title {
-  margin-top: 0;
-  margin-bottom: 1.5rem;
-  font-size: 1.5rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.settings-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  transition: all 0.3s ease;
-}
-
-.settings-row:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--accent-color);
-}
-
-.settings-row.dropdown-open:hover {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: var(--border-color);
-}
-
-.settings-label {
-  min-width: 120px;
-  font-weight: 600;
-  color: var(--text-color);
-  margin-right: 1rem;
-  font-size: 0.95rem;
-}
-
-.settings-control {
-  flex: 1;
-  display: flex;
-  align-items: center;
-}
-
-
-.settings-select {
-  width: auto;
-  padding: 0.6rem 2.5rem 0.6rem 1rem;
-  border: 2px solid var(--border-color);
-  border-radius: 10px;
-  background: var(--card-bg);
-  color: var(--text-color);
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2300bfff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 1rem center;
-  background-size: 14px;
-  height: 42px;
-  transform: translateY(10px);
-}
-
-.settings-select:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.1);
-}
-
-
-.settings-switch {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
 .switch {
   position: relative;
   display: inline-block;
@@ -2108,60 +2026,6 @@ input:checked+.slider:before {
 }
 
 
-.settings-save-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.875rem 2rem;
-  border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
-  color: white;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(0, 191, 255, 0.3);
-  margin-top: 0.5rem;
-  transform: translateY(-8px);
-}
-
-.settings-save-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 191, 255, 0.4);
-}
-
-.settings-save-btn:active {
-  transform: translateY(0);
-}
-
-
-.settings-info-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 0.75rem;
-  border: none;
-  border-radius: 10px;
-  margin-left: 0.75rem;
-  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
-  color: #ffffff;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 191, 255, 0.3);
-  transform: translateY(-8px);
-}
-
-.settings-info-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 191, 255, 0.4);
-}
-
-.settings-info-btn:active {
-  transform: translateY(0);
-}
 
 
 #content input[type="checkbox"] {
@@ -2256,7 +2120,9 @@ input:checked+.slider:before {
 }
 
 
-
+.install-grid {
+  overflow: visible;
+}
 
 .app-card {
   overflow: hidden;
@@ -2561,7 +2427,15 @@ input:checked+.slider:before {
   text-align: center;
 }
 
-
+.loading {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
 
 @keyframes spin {
   to {
@@ -2765,7 +2639,7 @@ input:checked+.slider:before {
 }
 
 .dlc-scope .dlc-card-title {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.5rem 0;
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--text-color);
@@ -3113,16 +2987,40 @@ input:checked+.slider:before {
   fill: currentColor !important;
 }
 
+.install-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
 
-
-
-
-
+.status-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 1rem;
+}
 
 .app-header {
   display: flex;
   gap: 0.75rem;
   align-items: center;
+}
+
+.app-header h3 {
+  margin: 0 0 0.35rem 0;
+}
+
+.app-header p {
+  margin: 0;
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+
+.app-card .button {
+  margin-top: 1rem;
+  width: 100%;
 }
 
 .full-span {
@@ -3147,75 +3045,6 @@ input:checked+.slider:before {
   }
 }
 
-.settings-info-btn,
-.settings-save-btn {
-  transition: none !important;
-  transform: none !important;
-}
-
-.settings-info-btn:hover,
-.settings-save-btn:hover {
-  transform: none !important;
-}
-
-.settings-buttons,
-.settings-controls {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center;
-  gap: 10px;
-}
-
-
-.settings-save-btn,
-.settings-info-btn {
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  height: 36px;
-  border-radius: 8px;
-  vertical-align: middle;
-}
-
-
-
-.settings-info-btn {
-  width: 36px;
-  padding: 0;
-  margin: 0;
-
-  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%) !important;
-  color: #ffffff !important;
-  border: none !important;
-  position: relative;
-  top: 2.5px;
-  margin-left: 20px;
-}
-
-
-.settings-info-btn svg {
-  display: block;
-  width: 18px;
-  height: 18px;
-  fill: rgb(255, 255, 255);
-  margin: 0;
-  padding: 0;
-}
-
-
-.settings-info-btn svg path {
-  stroke: rgb(255, 255, 255);
-  stroke-width: 1px;
-}
-
-/* Settings info button styles for light mode only */
-[data-theme="light"] .settings-info-btn svg {
-  fill: rgb(0, 0, 0);
-}
-
-[data-theme="light"] .settings-info-btn svg path {
-  stroke: rgb(0, 0, 0);
-}
 
 #update-btn {
   position: fixed;
@@ -3529,7 +3358,24 @@ input:checked+.slider:before {
   gap: 0.25rem;
 }
 
-
+/* Adjust the close button for new toasts */
+.toast-close {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: currentColor;
+  opacity: 0.6;
+  transition: background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
 .toast-close:hover {
   opacity: 1;
   background: rgba(0, 0, 0, 0.05);
@@ -4366,6 +4212,15 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   margin-left: 0;
 }
 
+.title-bar-menu {
+  display: flex;
+  align-items: center;
+  position: relative;
+  margin-left: auto;
+  margin-right: 0;
+  -webkit-app-region: no-drag;
+}
+
 .menu-toggle {
   display: flex;
   align-items: center;
@@ -4487,6 +4342,19 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   background-color: #e74c3c;
 }
 
+#app {
+  margin-top: var(--title-bar-height);
+}
+
+#sidebar {
+  height: calc(100% - var(--title-bar-height));
+  margin-top: 0;
+}
+
+#main {
+  height: calc(100% - var(--title-bar-height));
+  margin-top: 0;
+}
 
 #loading.loading-overlay {
   position: fixed;
@@ -4597,6 +4465,12 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   position: relative;
+}
+
+/* WebKit/Chromium scrollbar customisation: hide by default */
+.changelog-modal::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 /* When the modal is scrolling (class added via JS), show a thin scrollbar */
