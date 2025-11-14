@@ -60,9 +60,10 @@
 
 .radio-input .input:checked {
   transition: background-position 0.2s 0.15s cubic-bezier(0, 0, 0.2, 1),
-    transform 0.25s cubic-bezier(0, 0, 0.2, 1);
+  transform 0.25s cubic-bezier(0, 0, 0.2, 1);
   -webkit-transition: background-position 0.2s 0.15s cubic-bezier(0, 0, 0.2, 1),
-    -webkit-transform 0.25s cubic-bezier(0, 0, 0.2, 1);
+  -webkit-transform 0.25s cubic-bezier(0, 0, 0.2, 1);
+  background-position: 0 0;
 }
 
 .radio-input .input:active {
@@ -77,10 +78,6 @@
   background-position: 0 20px;
 }
 
-/* On checked, show fill at top */
-.radio-input .input:checked {
-  background-position: 0 0;
-}
 
 /* When a later radio is checked, move previous backgrounds up */
 .radio-input .input:checked ~ .input,
@@ -484,9 +481,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: visible;
 }
-
-
 .sidebar-header .title-group {
   display: flex;
   flex-direction: column;
@@ -641,13 +640,6 @@ body {
 }
 
 
-.sidebar-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  position: relative;
-
-  overflow: visible;
-}
 
 .app-title {
   font-size: 1.4rem;
@@ -809,8 +801,9 @@ body {
 #menu-list button.active .dot {
   opacity: 1;
   transform: scale(1);
+  animation: dotPulse 1.8s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(var(--pulse-rgb, 0, 191, 255), .5);
 }
-
 
 [data-theme="dark"] #menu-list button.active {
   background: rgba(255, 255, 255, .08);
@@ -919,6 +912,8 @@ body {
   font-size: 12.5px;
   font-weight: 600;
   color: var(--sidebar-text);
+  position: relative;
+  cursor: pointer;
 }
 
 
@@ -963,10 +958,8 @@ body {
 }
 
 
-.user-info {
-  position: relative;
-  cursor: pointer;
-}
+
+
 
 
 
@@ -1156,12 +1149,7 @@ body {
   align-items: stretch;
 }
 
-#menu-list button.active .dot {
-  opacity: 1;
-  transform: scale(1);
-  animation: dotPulse 1.8s ease-in-out infinite;
-  box-shadow: 0 0 0 0 rgba(var(--pulse-rgb, 0, 191, 255), .5);
-}
+
 
 
 [data-theme="light"] #menu-list button.active .dot {
@@ -1434,8 +1422,8 @@ input:checked+.slider:before {
   max-height: 240px;
   overflow-y: auto;
   flex-shrink: 0;
+  overflow: hidden;
 }
-
 
 .app-card h3 {
   margin-top: 0;
@@ -1544,11 +1532,6 @@ input:checked+.slider:before {
 .controls {
   margin-top: 0.125rem;
   gap: 0.125rem;
-}
-
-
-.progress-container {
-  margin-top: 0.25rem;
 }
 
 
@@ -1977,51 +1960,7 @@ input:checked+.slider:before {
   }
 }
 
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 52px;
-  height: 28px;
-}
 
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--border-color);
-  transition: 0.4s;
-  border-radius: 28px;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 20px;
-  width: 20px;
-  left: 4px;
-  bottom: 4px;
-  background: white;
-  transition: 0.4s;
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-input:checked+.slider {
-  background: var(--accent-color);
-}
-
-input:checked+.slider:before {
-  transform: translateX(24px);
-}
 
 .switch-label {
   font-weight: 500;
@@ -2126,9 +2065,6 @@ input:checked+.slider:before {
 
 
 
-.app-card {
-  overflow: hidden;
-}
 
 [class="button button-secondary"]:last-child {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%) !important;
