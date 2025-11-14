@@ -2633,7 +2633,7 @@ input:checked+.slider:before {
 }
 
 .dlc-scope .dlc-card-title {
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.5rem;
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--text-color);
@@ -2988,7 +2988,7 @@ input:checked+.slider:before {
 
 
 .app-header h3 {
-  margin: 0 0 0.35rem 0;
+  margin: 0 0 0.35rem;
 }
 
 .app-header p {
