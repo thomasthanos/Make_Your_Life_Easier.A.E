@@ -43,6 +43,113 @@ class PasswordManagerDB {
         this.initPromise = null;
     }
 
+    /**
+     * Internal helper to process a single row from the passwords table.
+     * Attempts to parse and decrypt the encrypted_data field when
+     * authentication is available. Falls back to returning empty strings
+     * for missing fields. Centralizing this logic reduces duplication in
+     * both getPasswords() and getPasswordsByCategory().
+     * @param {Object} row Raw row returned from the database
+     * @returns {Object} Processed row with decrypted fields
+     */
+    _processRow(row) {
+        // If there's encrypted data, attempt to parse and decrypt it
+        if (row.encrypted_data) {
+            try {
+                const parsed = JSON.parse(row.encrypted_data);
+                let decrypted;
+                // Only decrypt when authenticated and required fields exist
+                if (this.authManager && this.authManager.isAuthenticated && parsed && parsed.iv && parsed.data && parsed.authTag) {
+                    decrypted = this.authManager.decryptData(parsed);
+                } else if (!parsed.iv) {
+                    // In case the data was stored unencrypted (legacy), use as-is
+                    decrypted = parsed;
+                }
+                if (decrypted) {
+                    return {
+                        ...row,
+                        username: decrypted.username || '',
+                        email: decrypted.email || '',
+                        password: decrypted.password || '',
+                        url: decrypted.url || '',
+                        notes: decrypted.notes || ''
+                    };
+                }
+            } catch (err) {
+                // Log but continue; return fallback values below
+                debug('error', 'Failed to parse or decrypt row ID:', row.id, err.message);
+            }
+        }
+        // Return the original row with empty strings for missing fields
+        return {
+            ...row,
+            username: row.username || '',
+            email: row.email || '',
+            password: row.password || '',
+            url: row.url || '',
+            notes: row.notes || ''
+        };
+    }
+
+    /**
+     * Validate required fields for adding or updating a password. If a
+     * validation error is encountered the callback is invoked with an
+     * appropriate Error and the function returns false.
+     * @param {Object} data The passwordData passed in
+     * @param {Function} callback The callback to propagate validation errors
+     * @returns {boolean} Whether the data passed validation
+     */
+    _validateRequiredFields(data, callback) {
+        const { title, password } = data;
+        if (!title || !title.trim()) {
+            callback(new Error('Title is required'), null);
+            return false;
+        }
+        if (!password || !password.trim()) {
+            callback(new Error('Password is required'), null);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Extract sensitive fields from the provided passwordData and apply
+     * sensible defaults. This isolates the shape of the sensitive payload
+     * used for encryption.
+     * @param {Object} data The passwordData passed in
+     * @returns {Object} Sensitive data ready for encryption
+     */
+    _prepareSensitiveData(data) {
+        return {
+            username: data.username || '',
+            email: data.email || '',
+            password: data.password,
+            url: data.url || '',
+            notes: data.notes || ''
+        };
+    }
+
+    /**
+     * Encrypt the provided sensitiveData if authentication is available. If
+     * encryption fails or the user is not authenticated the callback is
+     * invoked with an error and null is returned.
+     * @param {Object} sensitiveData The plain sensitive data to encrypt
+     * @param {Function} callback Callback for error propagation
+     * @returns {Object|null} The encrypted data or null on failure
+     */
+    _encryptSensitiveData(sensitiveData, callback) {
+        try {
+            if (!this.authManager || !this.authManager.isAuthenticated) {
+                callback(new Error('User must be authenticated to add/update a password'), null);
+                return null;
+            }
+            return this.authManager.encryptData(sensitiveData);
+        } catch (err) {
+            callback(err, null);
+            return null;
+        }
+    }
+
     async initializeDatabase() {
         try {
             const documentsPath = this.getDocumentsPath();
@@ -296,41 +403,8 @@ class PasswordManagerDB {
 
                 debug('info', `Retrieved ${rows.length} passwords, attempting decryption...`);
 
-                const processedRows = rows.map(row => {
-                    if (row.encrypted_data) {
-                        try {
-                            const parsed = JSON.parse(row.encrypted_data);
-                            let decrypted;
-                            if (this.authManager && this.authManager.isAuthenticated && parsed && parsed.iv && parsed.data && parsed.authTag) {
-                                // Decrypt when authorized; avoid verbose per-row logs
-                                decrypted = this.authManager.decryptData(parsed);
-                            } else if (!parsed.iv) {
-                                decrypted = parsed;
-                            }
-                            if (decrypted) {
-                                return {
-                                    ...row,
-                                    username: decrypted.username || '',
-                                    email: decrypted.email || '',
-                                    password: decrypted.password || '',
-                                    url: decrypted.url || '',
-                                    notes: decrypted.notes || ''
-                                };
-                            }
-                        } catch (err) {
-                            debug('error', 'Failed to parse or decrypt row ID:', row.id, err.message);
-                        }
-                    }
-                    return {
-                        ...row,
-                        username: row.username || '',
-                        email: row.email || '',
-                        password: row.password || '',
-                        url: row.url || '',
-                        notes: row.notes || ''
-                    };
-                });
-
+                // Use the unified row processing helper to reduce complexity
+                const processedRows = rows.map(row => this._processRow(row));
                 callback(null, processedRows);
             });
         } catch (error) {
@@ -368,39 +442,8 @@ class PasswordManagerDB {
                         callback(err, null);
                         return;
                     }
-                    const processedRows = rows.map(row => {
-                        if (row.encrypted_data) {
-                            try {
-                                const parsed = JSON.parse(row.encrypted_data);
-                                let decrypted;
-                                if (this.authManager && this.authManager.isAuthenticated && parsed && parsed.iv && parsed.data && parsed.authTag) {
-                                    decrypted = this.authManager.decryptData(parsed);
-                                } else if (!parsed.iv) {
-                                    decrypted = parsed;
-                                }
-                                if (decrypted) {
-                                    return {
-                                        ...row,
-                                        username: decrypted.username || '',
-                                        email: decrypted.email || '',
-                                        password: decrypted.password || '',
-                                        url: decrypted.url || '',
-                                        notes: decrypted.notes || ''
-                                    };
-                                }
-                            } catch (parseErr) {
-                                debug('error', 'Failed to parse or decrypt row ID:', row.id, parseErr.message);
-                            }
-                        }
-                        return {
-                            ...row,
-                            username: row.username || '',
-                            email: row.email || '',
-                            password: row.password || '',
-                            url: row.url || '',
-                            notes: row.notes || ''
-                        };
-                    });
+                    // Delegate to the common row processor helper for consistency and simplicity
+                    const processedRows = rows.map(row => this._processRow(row));
                     callback(null, processedRows);
                 });
             }
@@ -418,55 +461,36 @@ class PasswordManagerDB {
                 return;
             }
 
-            const { category_id, category_name, title, username, email, password, url, notes, image } = passwordData;
-            
+            const { category_id, category_name, title, password, image } = passwordData;
+
             // Log generic information; avoid logging password lengths or other
             // sensitive metadata.  Title is safe to log.
             debug('info', 'Adding password entry');
             debug('info', 'Title:', title);
 
-            if (!title || !title.trim()) {
-                callback(new Error('Title is required'), null);
-                return;
-            }
-            
-            if (!password || !password.trim()) {
-                callback(new Error('Password is required'), null);
+            // Validate that mandatory fields are provided
+            if (!this._validateRequiredFields(passwordData, callback)) {
                 return;
             }
 
-            // Assemble sensitive data
-            const sensitiveData = {
-                username: username || '',
-                email: email || '',
-                password: password,
-                url: url || '',
-                notes: notes || ''
-            };
-            try {
-                if (!this.authManager || !this.authManager.isAuthenticated) {
-                    // Refuse to store unencrypted data.  Do not fall back to
-                    // plain JSON when the user has not authenticated.  This
-                    // prevents accidental leakage of secrets【395143299479830†L194-L204】.
-                    callback(new Error('User must be authenticated to add a password'), null);
-                    return;
-                }
-                // Encrypt sensitive fields
-                const encrypted = this.authManager.encryptData(sensitiveData);
-                this.db.run(`
-                    INSERT INTO passwords (category_id, category_name, title, image, encrypted_data)
-                    VALUES (?, ?, ?, ?, ?)
-                `, [
-                    (category_id ? category_id : null),
-                    (category_name ? category_name : (category_id ? '' : 'no_category')),
-                    title.trim(),
-                    (image ? image : ''),
-                    JSON.stringify(encrypted)
-                ], callback);
-            } catch (authError) {
-                // Do not store sensitive data when encryption fails
-                callback(authError, null);
+            // Prepare and encrypt sensitive data. If encryption fails the helper
+            // will invoke the callback with the error.
+            const sensitiveData = this._prepareSensitiveData(passwordData);
+            const encrypted = this._encryptSensitiveData(sensitiveData, callback);
+            if (!encrypted) {
+                return;
             }
+
+            this.db.run(`
+                INSERT INTO passwords (category_id, category_name, title, image, encrypted_data)
+                VALUES (?, ?, ?, ?, ?)
+            `, [
+                (category_id ? category_id : null),
+                (category_name ? category_name : (category_id ? '' : 'no_category')),
+                title.trim(),
+                (image ? image : ''),
+                JSON.stringify(encrypted)
+            ], callback);
         } catch (error) {
             debug('error', 'Error in addPassword:', error);
             callback(error, null);
@@ -482,49 +506,33 @@ class PasswordManagerDB {
                 return;
             }
 
-            const { category_id, category_name, title, username, email, password, url, notes, image } = passwordData;
-            
+            const { category_id, category_name, title, password, image } = passwordData;
+
             debug('info', 'Updating password with encryption...');
 
-            if (!title || !title.trim()) {
-                callback(new Error('Title is required'), null);
-                return;
-            }
-            
-            if (!password || !password.trim()) {
-                callback(new Error('Password is required'), null);
+            // Validate mandatory fields
+            if (!this._validateRequiredFields(passwordData, callback)) {
                 return;
             }
 
-            // Assemble sensitive data
-            const sensitiveData = {
-                username: username || '',
-                email: email || '',
-                password: password,
-                url: url || '',
-                notes: notes || ''
-            };
-            try {
-                if (!this.authManager || !this.authManager.isAuthenticated) {
-                    callback(new Error('User must be authenticated to update a password'), null);
-                    return;
-                }
-                const encrypted = this.authManager.encryptData(sensitiveData);
-                this.db.run(`
-                    UPDATE passwords
-                    SET category_id = ?, category_name = ?, title = ?, image = ?, encrypted_data = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                `, [
-                    (category_id ? category_id : null),
-                    (category_name ? category_name : (category_id ? '' : 'no_category')),
-                    title.trim(),
-                    (image ? image : ''),
-                    JSON.stringify(encrypted),
-                    id
-                ], callback);
-            } catch (authError) {
-                callback(authError, null);
+            const sensitiveData = this._prepareSensitiveData(passwordData);
+            const encrypted = this._encryptSensitiveData(sensitiveData, callback);
+            if (!encrypted) {
+                return;
             }
+
+            this.db.run(`
+                UPDATE passwords
+                SET category_id = ?, category_name = ?, title = ?, image = ?, encrypted_data = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `, [
+                (category_id ? category_id : null),
+                (category_name ? category_name : (category_id ? '' : 'no_category')),
+                title.trim(),
+                (image ? image : ''),
+                JSON.stringify(encrypted),
+                id
+            ], callback);
         } catch (error) {
             debug('error', 'Error in updatePassword:', error);
             callback(error, null);
