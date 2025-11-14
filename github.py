@@ -1924,9 +1924,8 @@ def main():
     try:
         import os
         os.nice(10)
-    except Exception as e:
-        # If adjusting niceness fails (e.g. due to permissions), log the warning
-        print(f"Warning: Unable to set process niceness: {e}")
+    except Exception:
+        _ = None
     
     window = ModernReleaseManager()
     window.show()
