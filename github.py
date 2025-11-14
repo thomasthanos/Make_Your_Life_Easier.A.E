@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                             QLabel, QPushButton, QTextEdit, QLineEdit, QProgressBar,
                             QTabWidget, QFrame, QScrollArea, QRadioButton, QButtonGroup,
                             QFileDialog, QMessageBox, QMenu, QSplitter, QSizePolicy,
-                            QGridLayout, QGroupBox, QCheckBox)
+                            QGridLayout, QGroupBox, QCheckBox, QTextBrowser)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QPalette, QColor, QAction, QTextCursor, QGuiApplication
 
@@ -22,6 +22,15 @@ try:
 except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "psutil"])
     import psutil
+
+# Try to import the markdown library for rendering release notes preview. If it's
+# not available, install it on the fly. This allows us to convert Markdown
+# content into HTML for the preview pane in the release details.
+try:
+    import markdown  # type: ignore
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "markdown"])
+    import markdown  # type: ignore
 
 class CommandWorker(QThread):
     """Worker thread for running commands safely""" 
@@ -768,67 +777,53 @@ class ModernReleaseManager(QMainWindow):
         details_layout.addWidget(notes_label)
         
         self.notes_text = QTextEdit()
-        self.notes_text.setMaximumHeight(120)
+        # Allow more vertical space for the release notes editor
+        self.notes_text.setMinimumHeight(150)
         self.notes_text.setPlaceholderText("Enter release notes...")
         details_layout.addWidget(self.notes_text)
+
+        # Markdown preview for release notes
+        preview_label = QLabel("Preview:")
+        preview_label.setStyleSheet("color: #e0e0ff;")
+        details_layout.addWidget(preview_label)
+        
+        self.preview_browser = QTextBrowser()
+        # Give the preview a minimum height so it is clearly visible
+        self.preview_browser.setMinimumHeight(150)
+        # Prevent editing in the preview
+        self.preview_browser.setReadOnly(True)
+        details_layout.addWidget(self.preview_browser)
+
+        # Connect the notes text change signal to update the preview
+        self.notes_text.textChanged.connect(self.update_markdown_preview)
         
         grid_layout.addWidget(details_group, 0, 0)
-        
-        # Build Actions - Right Top
-        build_group = QGroupBox("🔨 Build Actions")
-        build_layout = QVBoxLayout(build_group)
-        build_layout.setSpacing(8)
-        
-        build_buttons = [
-            ("🔧 Build Project", lambda: self.queue_command(self.safe_build_single)),
-        ]
-        
-        for text, command in build_buttons:
-            btn = QPushButton(text)
-            btn.clicked.connect(command)
-            btn.setMinimumHeight(35)
-            build_layout.addWidget(btn)
-        
-        grid_layout.addWidget(build_group, 0, 1)
-        
-        # Release Actions - Right Middle
-        release_group = QGroupBox("🚀 Release Actions")
-        release_layout = QVBoxLayout(release_group)
-        release_layout.setSpacing(8)
-        
-        release_buttons = [
-            ("📦 Create Release", self.create_release),
-            ("✏️ Update Latest Release", self.update_release),
-        ]
-        
-        for text, command in release_buttons:
-            btn = QPushButton(text)
-            btn.clicked.connect(command)
-            btn.setMinimumHeight(35)
-            release_layout.addWidget(btn)
-        
-        grid_layout.addWidget(release_group, 1, 1)
-        
-        # Danger Zone - Right Bottom
-        danger_group = QGroupBox("⚠️ Danger Zone")
-        danger_layout = QVBoxLayout(danger_group)
-        danger_layout.setSpacing(8)
-        
-        danger_buttons = [
-            ("🗑️ Delete Latest Release", self.delete_current_tag),
-        ]
-        
-        for text, command in danger_buttons:
-            btn = QPushButton(text)
-            btn.clicked.connect(command)
-            btn.setMinimumHeight(35)
-            btn.setStyleSheet("background-color: #ff6b6b;")
-            danger_layout.addWidget(btn)
-        
-        grid_layout.addWidget(danger_group, 1, 0)
-        
-        grid_layout.setColumnStretch(0, 1)
+
+        # Enlarge the release details column by increasing its stretch factor
+        # so that it occupies more space relative to the actions column
+        grid_layout.setColumnStretch(0, 2)
         grid_layout.setColumnStretch(1, 1)
+
+        # Combined Build & Release Actions - Right Column
+        actions_group = QGroupBox("🔨🚀 Actions")
+        actions_layout = QVBoxLayout(actions_group)
+        actions_layout.setSpacing(8)
+        
+        action_buttons = [
+            ("🔧 Build Project", lambda: self.queue_command(self.safe_build_single)),
+            ("📦 Create Release", self.create_release),
+        ]
+        
+        for text, command in action_buttons:
+            btn = QPushButton(text)
+            btn.clicked.connect(command)
+            btn.setMinimumHeight(35)
+            actions_layout.addWidget(btn)
+        
+        # Add the combined actions group to span both rows on the right column
+        grid_layout.addWidget(actions_group, 0, 1, 2, 1)
+
+        # Danger Zone remains removed (no delete functionality)
         
         layout.addWidget(grid_widget, 1)
         layout.addStretch()
@@ -1045,8 +1040,9 @@ class ModernReleaseManager(QMainWindow):
             except:
                 pass
         
-        time.sleep(3)
-        self.log(f"Killed {killed_count} processes", "success")
+        # Removed long blocking sleep to keep the UI responsive. A short pause can
+        # help ensure processes have terminated without freezing the application.
+        QTimer.singleShot(100, lambda: self.log(f"Killed {killed_count} processes", "success"))
 
     def safe_delete_dist(self, max_retries=3):
         dist_path = Path(self.project_path) / "dist"
@@ -1061,7 +1057,9 @@ class ModernReleaseManager(QMainWindow):
                 return True
             except Exception as e:
                 self.log(f"Delete failed: {str(e)}", "warning")
-                time.sleep(3)
+                # Process any pending UI events and pause briefly to give the system time
+                QApplication.processEvents()
+                time.sleep(0.1)
         return False
 
     def get_available_build_commands(self):
@@ -1113,7 +1111,9 @@ class ModernReleaseManager(QMainWindow):
             self.log("Failed to clean dist folder", "error")
             return False
             
-        time.sleep(2)
+        # Removed blocking sleep to keep UI responsive. Previously a delay was used
+        # here to ensure file system operations had completed, but it caused
+        # noticeable UI freezes during the build process.
         
         # Get available build commands
         build_commands = self.get_available_build_commands()
@@ -1146,12 +1146,14 @@ class ModernReleaseManager(QMainWindow):
             self.log("Build completed successfully", "success")
             self.update_status("Build completed")
             
-            # Check if dist files were created
-            time.sleep(2)  # Allow time for files to be written
-            if self.check_dist_files_exist():
-                self.log("Distribution files created successfully", "success")
-            else:
-                self.log("Build completed but distribution files not found", "warning")
+            # Check if dist files were created after a short delay without blocking the UI
+            def check_dist_files():
+                if self.check_dist_files_exist():
+                    self.log("Distribution files created successfully", "success")
+                else:
+                    self.log("Build completed but distribution files not found", "warning")
+            # Schedule the check to run after 2 seconds
+            QTimer.singleShot(2000, check_dist_files)
         else:
             self.log("Build failed", "error")
             self.update_status("Build failed")
@@ -1978,6 +1980,28 @@ class ModernReleaseManager(QMainWindow):
 
     def update_status(self, message):
         self.status_bar.showMessage(message)
+
+    def update_markdown_preview(self):
+        """Render the current release notes as GitHub-flavored Markdown.
+
+        This method converts the plain text in ``self.notes_text`` into HTML
+        using the ``markdown`` library and updates ``self.preview_browser``.
+        It gracefully falls back to basic Markdown conversion if optional
+        extensions are not available.
+        """
+        if not hasattr(self, 'preview_browser'):
+            return
+        text = self.notes_text.toPlainText()
+        try:
+            # Attempt to use common extensions for better syntax highlighting
+            html = markdown.markdown(text, extensions=[
+                'fenced_code', 'codehilite', 'tables', 'sane_lists'
+            ])
+        except Exception:
+            # Fallback to basic Markdown conversion if extensions fail
+            html = markdown.markdown(text)
+        # Set the HTML content of the preview browser
+        self.preview_browser.setHtml(html)
 
     def closeEvent(self, event):
         self.stop_all_commands()
