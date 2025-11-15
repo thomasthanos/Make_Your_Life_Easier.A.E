@@ -927,7 +927,12 @@ function createUpdateWindow() {
   // the project root tidy.  Use path.join here so that Electron
   // resolves the correct file regardless of the current working
   // directory.
-  updateWindow.loadFile(path.join('updater', 'update.html'));
+  // Load the update page from the project root rather than a
+  // non‑existent `updater` directory.  The original code expected
+  // the update UI to live in a subfolder, but this repository
+  // stores update.html alongside other sources.  Use a direct
+  // relative path to ensure the file is found.
+  updateWindow.loadFile('update.html');
   updateWindow.on('closed', () => {
     updateWindow = null;
   });
