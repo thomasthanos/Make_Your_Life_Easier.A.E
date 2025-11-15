@@ -57,6 +57,131 @@ function debug(level, ...args) {
   } else {
     fn.call(console, `${emoji}`, ...args);
   }
+
+/**
+ * Attach standard output handlers to a child process and resolve when it exits.
+ * This helper consolidates the repetitive boilerplate of capturing stdout/stderr,
+ * handling errors, transforming output and constructing a result object.  It
+ * accepts a prefix used to build a generic error message when the process
+ * exits with a non-zero code.  The outputTransform function can be used to
+ * strip ANSI codes or otherwise process the combined stdout/stderr before
+ * returning it.
+ *
+ * @param {ChildProcess} child - The spawned child process.
+ * @param {Function} resolve - The promise resolver from the caller.
+ * @param {string} errorPrefix - The prefix for the error message on failure.
+ * @param {Function} [outputTransform=stripAnsiCodes] - Function to transform the raw output.
+ */
+function attachChildProcessHandlers(child, resolve, errorPrefix, outputTransform = stripAnsiCodes) {
+  let stdout = '';
+  let stderr = '';
+  if (child.stdout) {
+    child.stdout.on('data', (data) => { stdout += data.toString(); });
+  }
+  if (child.stderr) {
+    child.stderr.on('data', (data) => { stderr += data.toString(); });
+  }
+  child.on('error', (err) => {
+    const output = outputTransform(stdout + stderr);
+    resolve({ success: false, error: err.message, output });
+  });
+  child.on('close', (code) => {
+    const output = outputTransform(stdout + stderr);
+    if (code === 0) {
+      resolve({ success: true, output });
+    } else {
+      resolve({ success: false, error: `${errorPrefix} exited with code ${code}`, output });
+    }
+  });
+}
+
+/**
+ * Run a provided PowerShell script with elevation and wait for it to finish.
+ * This helper encapsulates the common logic of writing a temporary script file,
+ * launching it through Start-Process with the RunAs verb, cleaning up the
+ * temporary file and resolving with a standardized response object.  It is
+ * used by both run-sfc-scan and run-dism-repair handlers to eliminate
+ * duplicated code.
+ *
+ * @param {string} psScript - The PowerShell script contents.
+ * @param {string} successMessage - Message returned when the script exits with code 0.
+ * @param {string} failureMessage - Message returned when the script exits with a non-zero code.
+ * @returns {Promise<Object>} Resolves with an object describing success or failure.
+ */
+function runElevatedPowerShellScript(psScript, successMessage, failureMessage) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') {
+      resolve({ success: false, error: 'This feature is only available on Windows' });
+      return;
+    }
+    let psFile;
+    try {
+      psFile = path.join(os.tmpdir(), `${Date.now()}_elevated.ps1`);
+      fs.writeFileSync(psFile, psScript, 'utf8');
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
+      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
+      child.on('error', () => {
+        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+        resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
+      });
+      child.on('exit', (code) => {
+        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+        if (code === 0) {
+          resolve({ success: true, message: successMessage });
+        } else {
+          resolve({ success: false, error: failureMessage, code: 'PROCESS_FAILED' });
+        }
+      });
+    } catch (error) {
+      try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+      resolve({ success: false, error: 'Failed to start process: ' + error.message });
+    }
+  });
+}
+
+/**
+ * Safely remove a file if it exists.  Errors are silently ignored.
+ * @param {string} filePath - The absolute path of the file to delete.
+ */
+function removeFileIfExists(filePath) {
+  try {
+    if (filePath && fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch { }
+}
+
+/**
+ * Safely remove a directory if it exists.  Errors are silently ignored.
+ * @param {string} dirPath - The absolute path of the directory to remove.
+ */
+function removeDirIfExists(dirPath) {
+  try {
+    if (dirPath && fs.existsSync(dirPath)) {
+      fs.rmSync(dirPath, { recursive: true, force: true });
+    }
+  } catch { }
+}
+
+/**
+ * Remove any existing extraction directories associated with a given download.
+ * This helper abstracts the repetitive logic of cleaning up old extraction
+ * directories before starting a new download.  It removes both the
+ * underscore-normalized and space-normalized variants of the directory.
+ *
+ * @param {string} finalName - The sanitized filename used for the download.
+ * @param {string} downloadsDir - The parent downloads directory.
+ */
+function cleanupExtractDirs(finalName, downloadsDir) {
+  const baseNameWithoutExt = path.basename(finalName, path.extname(finalName));
+  const extractDir = path.join(downloadsDir, baseNameWithoutExt);
+  removeDirIfExists(extractDir);
+  const altExtractDir = extractDir.replace(/_/g, ' ');
+  if (altExtractDir !== extractDir) {
+    removeDirIfExists(altExtractDir);
+  }
+}
 }
 const downloadedFiles = [];
 
@@ -1101,24 +1226,9 @@ ipcMain.on('download-start', (event, { id, url, dest }) => {
       const finalName = sanitizeName(base) + chosenExt;
       const finalPath = path.join(downloadsDir, finalName);
       const tempPath = finalPath + '.part';
-      try {
-        if (fs.existsSync(finalPath)) {
-          fs.unlinkSync(finalPath);
-        }
-      } catch (err) {
-      }
-      try {
-        const baseNameWithoutExt = path.basename(finalName, path.extname(finalName));
-        const extractDir = path.join(downloadsDir, baseNameWithoutExt);
-        if (fs.existsSync(extractDir)) {
-          fs.rmSync(extractDir, { recursive: true, force: true });
-        }
-        const altExtractDir = extractDir.replace(/_/g, ' ');
-        if (altExtractDir !== extractDir && fs.existsSync(altExtractDir)) {
-          fs.rmSync(altExtractDir, { recursive: true, force: true });
-        }
-      } catch (err) {
-      }
+      // Remove any existing target file and associated extraction directories
+      removeFileIfExists(finalPath);
+      cleanupExtractDirs(finalName, downloadsDir);
       const total = parseInt(res.headers['content-length'] || '0', 10);
       const file = fs.createWriteStream(tempPath);
       const d = { response: res, file, total, received: 0, paused: false, filePath: tempPath, finalPath };
@@ -1490,19 +1600,8 @@ ipcMain.handle('install-spicetify', async () => {
         'spicetify backup apply'
       ].join(' && ');
       const child = spawn(shell, ['-c', unixCmd]);
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', (data) => { stdout += data.toString(); });
-      child.stderr.on('data', (data) => { stderr += data.toString(); });
-      child.on('error', (err) => {
-        resolve({ success: false, error: err.message, output: stdout + stderr });
-      });
-      child.on('close', (code) => {
-        const rawOut = stdout + stderr;
-        const output = stripAnsiCodes(rawOut);
-        if (code === 0) resolve({ success: true, output });
-        else resolve({ success: false, error: `Installer exited with code ${code}`, output });
-      });
+      // Attach standard output handlers using the helper to reduce duplication
+      attachChildProcessHandlers(child, resolve, 'Installer');
     }
   });
 });
@@ -1515,35 +1614,13 @@ ipcMain.handle('uninstall-spicetify', async () => {
         'try { Remove-Item -Recurse -Force "$env:LOCALAPPDATA\\spicetify" } catch { }'
       ].join(' ; ');
       const child = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], { windowsHide: true });
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', (data) => { stdout += data.toString(); });
-      child.stderr.on('data', (data) => { stderr += data.toString(); });
-      child.on('error', (err) => {
-        resolve({ success: false, error: err.message, output: stdout + stderr });
-      });
-      child.on('close', (code) => {
-        const rawOut = stdout + stderr;
-        const output = stripAnsiCodes(rawOut);
-        if (code === 0) resolve({ success: true, output });
-        else resolve({ success: false, error: `Uninstall exited with code ${code}`, output });
-      });
+      // Use helper to collect stdout/stderr and handle result
+      attachChildProcessHandlers(child, resolve, 'Uninstall');
     } else {
       const shCmd = 'spicetify restore || true; rm -rf ~/.spicetify || true; rm -rf ~/.config/spicetify || true';
       const child = spawn('sh', ['-c', shCmd]);
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', (data) => { stdout += data.toString(); });
-      child.stderr.on('data', (data) => { stderr += data.toString(); });
-      child.on('error', (err) => {
-        resolve({ success: false, error: err.message, output: stdout + stderr });
-      });
-      child.on('close', (code) => {
-        const rawOut = stdout + stderr;
-        const output = stripAnsiCodes(rawOut);
-        if (code === 0) resolve({ success: true, output });
-        else resolve({ success: false, error: `Uninstall exited with code ${code}`, output });
-      });
+      // Use helper to collect stdout/stderr and handle result
+      attachChildProcessHandlers(child, resolve, 'Uninstall');
     }
   });
 });
@@ -1578,18 +1655,8 @@ ipcMain.handle('full-uninstall-spotify', async () => {
       ];
       const psCmd = psParts.join(' ; ');
       const child = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], { windowsHide: true });
-      let stdout = '', stderr = '';
-      child.stdout.on('data', d => { stdout += d.toString(); });
-      child.stderr.on('data', d => { stderr += d.toString(); });
-      child.on('error', err => {
-        const output = stripAnsiCodes(stdout + stderr);
-        resolve({ success: false, error: err.message, output });
-      });
-      child.on('close', code => {
-        const output = stripAnsiCodes(stdout + stderr);
-        if (code === 0) resolve({ success: true, output });
-        else resolve({ success: false, error: `Full uninstall exited with code ${code}`, output });
-      });
+      // Attach standard handlers to capture output and handle result
+      attachChildProcessHandlers(child, resolve, 'Full uninstall');
     } else {
       const shellParts = [
         'pkill -f spotify || true',
@@ -1603,95 +1670,44 @@ ipcMain.handle('full-uninstall-spotify', async () => {
       ];
       const shCmd = shellParts.join('; ');
       const child = spawn('sh', ['-c', shCmd]);
-      let stdout = '', stderr = '';
-      child.stdout.on('data', d => { stdout += d.toString(); });
-      child.stderr.on('data', d => { stderr += d.toString(); });
-      child.on('error', err => {
-        resolve({ success: false, error: err.message, output: stdout + stderr });
-      });
-      child.on('close', code => {
-        const output = stripAnsiCodes(stdout + stderr);
-        if (code === 0) resolve({ success: true, output });
-        else resolve({ success: false, error: `Full uninstall exited with code ${code}`, output });
-      });
+      // Attach standard handlers to capture output and handle result
+      attachChildProcessHandlers(child, resolve, 'Full uninstall');
     }
   });
 });
 ipcMain.handle('run-sfc-scan', async () => {
-  // Execute sfc /scannow in an elevated, hidden PowerShell window and wait for completion
+  // Execute sfc /scannow using a helper that manages elevation and cleanup
   if (process.platform !== 'win32') {
     return { success: false, error: 'SFC is only available on Windows' };
   }
-  return new Promise((resolve) => {
-    // Build a PowerShell script that runs the SFC scan and exits with the same exit code
-    const psScript = `
+  const psScript = `
 Write-Host "=== SYSTEM FILE CHECK (SFC) ===" -ForegroundColor Cyan
 Write-Host "Running sfc /scannow..." -ForegroundColor Yellow
 sfc /scannow
 exit $LASTEXITCODE
 `;
-    try {
-      const psFile = path.join(os.tmpdir(), `sfc_scan_${Date.now()}.ps1`);
-      fs.writeFileSync(psFile, psScript, 'utf8');
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      // Launch PowerShell visibly (normal window) and wait for the scan to finish
-      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
-      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
-      child.on('error', (err) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
-        resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
-      });
-      child.on('exit', (code) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
-        if (code === 0) {
-          resolve({ success: true, message: '✅ SFC scan completed successfully!' });
-        } else {
-          resolve({ success: false, error: 'SFC scan encountered errors or was cancelled. Please accept the UAC prompt and try again.', code: 'PROCESS_FAILED' });
-        }
-      });
-    } catch (error) {
-      try { if (typeof psFile !== 'undefined' && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
-      resolve({ success: false, error: 'Failed to start SFC scan: ' + error.message });
-    }
-  });
+  return runElevatedPowerShellScript(
+    psScript,
+    '✅ SFC scan completed successfully!',
+    'SFC scan encountered errors or was cancelled. Please accept the UAC prompt and try again.'
+  );
 });
 ipcMain.handle('run-dism-repair', async () => {
-  // Execute DISM RestoreHealth in an elevated, hidden PowerShell window and wait for completion
+  // Execute DISM RestoreHealth using a helper that manages elevation and cleanup
   if (process.platform !== 'win32') {
     return { success: false, error: 'DISM is only available on Windows' };
   }
-  return new Promise((resolve) => {
-    // Create a PowerShell script that runs the DISM command and exits with the same exit code
-    const psScript = `
+  const psScript = `
 Write-Host "=== DEPLOYMENT IMAGE SERVICING AND MANAGEMENT (DISM) ===" -ForegroundColor Cyan
 Write-Host "Running DISM /Online /Cleanup-Image /RestoreHealth..." -ForegroundColor Yellow
 DISM /Online /Cleanup-Image /RestoreHealth
 exit $LASTEXITCODE
 `;
-    try {
-      const psFile = path.join(os.tmpdir(), `dism_repair_${Date.now()}.ps1`);
-      fs.writeFileSync(psFile, psScript, 'utf8');
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      // Launch PowerShell visibly (normal window) and wait for the DISM command to finish
-      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
-      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
-      child.on('error', (err) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
-        resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
-      });
-      child.on('exit', (code) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
-        if (code === 0) {
-          resolve({ success: true, message: '✅ DISM repair completed successfully!' });
-        } else {
-          resolve({ success: false, error: 'DISM repair encountered errors or was cancelled. Please accept the UAC prompt and try again.', code: 'PROCESS_FAILED' });
-        }
-      });
-    } catch (error) {
-      try { if (typeof psFile !== 'undefined' && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
-      resolve({ success: false, error: 'Failed to start DISM repair: ' + error.message });
-    }
-  });
+  return runElevatedPowerShellScript(
+    psScript,
+    '✅ DISM repair completed successfully!',
+    'DISM repair encountered errors or was cancelled. Please accept the UAC prompt and try again.'
+  );
 });
 ipcMain.handle('run-temp-cleanup', async () => {
   // Only supported on Windows
