@@ -58,130 +58,130 @@ function debug(level, ...args) {
     fn.call(console, `${emoji}`, ...args);
   }
 
-/**
- * Attach standard output handlers to a child process and resolve when it exits.
- * This helper consolidates the repetitive boilerplate of capturing stdout/stderr,
- * handling errors, transforming output and constructing a result object.  It
- * accepts a prefix used to build a generic error message when the process
- * exits with a non-zero code.  The outputTransform function can be used to
- * strip ANSI codes or otherwise process the combined stdout/stderr before
- * returning it.
- *
- * @param {ChildProcess} child - The spawned child process.
- * @param {Function} resolve - The promise resolver from the caller.
- * @param {string} errorPrefix - The prefix for the error message on failure.
- * @param {Function} [outputTransform=stripAnsiCodes] - Function to transform the raw output.
- */
-function attachChildProcessHandlers(child, resolve, errorPrefix, outputTransform = stripAnsiCodes) {
-  let stdout = '';
-  let stderr = '';
-  if (child.stdout) {
-    child.stdout.on('data', (data) => { stdout += data.toString(); });
-  }
-  if (child.stderr) {
-    child.stderr.on('data', (data) => { stderr += data.toString(); });
-  }
-  child.on('error', (err) => {
-    const output = outputTransform(stdout + stderr);
-    resolve({ success: false, error: err.message, output });
-  });
-  child.on('close', (code) => {
-    const output = outputTransform(stdout + stderr);
-    if (code === 0) {
-      resolve({ success: true, output });
-    } else {
-      resolve({ success: false, error: `${errorPrefix} exited with code ${code}`, output });
+  /**
+   * Attach standard output handlers to a child process and resolve when it exits.
+   * This helper consolidates the repetitive boilerplate of capturing stdout/stderr,
+   * handling errors, transforming output and constructing a result object.  It
+   * accepts a prefix used to build a generic error message when the process
+   * exits with a non-zero code.  The outputTransform function can be used to
+   * strip ANSI codes or otherwise process the combined stdout/stderr before
+   * returning it.
+   *
+   * @param {ChildProcess} child - The spawned child process.
+   * @param {Function} resolve - The promise resolver from the caller.
+   * @param {string} errorPrefix - The prefix for the error message on failure.
+   * @param {Function} [outputTransform=stripAnsiCodes] - Function to transform the raw output.
+   */
+  function attachChildProcessHandlers(child, resolve, errorPrefix, outputTransform = stripAnsiCodes) {
+    let stdout = '';
+    let stderr = '';
+    if (child.stdout) {
+      child.stdout.on('data', (data) => { stdout += data.toString(); });
     }
-  });
-}
+    if (child.stderr) {
+      child.stderr.on('data', (data) => { stderr += data.toString(); });
+    }
+    child.on('error', (err) => {
+      const output = outputTransform(stdout + stderr);
+      resolve({ success: false, error: err.message, output });
+    });
+    child.on('close', (code) => {
+      const output = outputTransform(stdout + stderr);
+      if (code === 0) {
+        resolve({ success: true, output });
+      } else {
+        resolve({ success: false, error: `${errorPrefix} exited with code ${code}`, output });
+      }
+    });
+  }
 
-/**
- * Run a provided PowerShell script with elevation and wait for it to finish.
- * This helper encapsulates the common logic of writing a temporary script file,
- * launching it through Start-Process with the RunAs verb, cleaning up the
- * temporary file and resolving with a standardized response object.  It is
- * used by both run-sfc-scan and run-dism-repair handlers to eliminate
- * duplicated code.
- *
- * @param {string} psScript - The PowerShell script contents.
- * @param {string} successMessage - Message returned when the script exits with code 0.
- * @param {string} failureMessage - Message returned when the script exits with a non-zero code.
- * @returns {Promise<Object>} Resolves with an object describing success or failure.
- */
-function runElevatedPowerShellScript(psScript, successMessage, failureMessage) {
-  return new Promise((resolve) => {
-    if (process.platform !== 'win32') {
-      resolve({ success: false, error: 'This feature is only available on Windows' });
-      return;
-    }
-    let psFile;
+  /**
+   * Run a provided PowerShell script with elevation and wait for it to finish.
+   * This helper encapsulates the common logic of writing a temporary script file,
+   * launching it through Start-Process with the RunAs verb, cleaning up the
+   * temporary file and resolving with a standardized response object.  It is
+   * used by both run-sfc-scan and run-dism-repair handlers to eliminate
+   * duplicated code.
+   *
+   * @param {string} psScript - The PowerShell script contents.
+   * @param {string} successMessage - Message returned when the script exits with code 0.
+   * @param {string} failureMessage - Message returned when the script exits with a non-zero code.
+   * @returns {Promise<Object>} Resolves with an object describing success or failure.
+   */
+  function runElevatedPowerShellScript(psScript, successMessage, failureMessage) {
+    return new Promise((resolve) => {
+      if (process.platform !== 'win32') {
+        resolve({ success: false, error: 'This feature is only available on Windows' });
+        return;
+      }
+      let psFile;
+      try {
+        psFile = path.join(os.tmpdir(), `${Date.now()}_elevated.ps1`);
+        fs.writeFileSync(psFile, psScript, 'utf8');
+        const escapedPsFile = psFile.replace(/"/g, '\\"');
+        const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
+        const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
+        child.on('error', () => {
+          try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+          resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
+        });
+        child.on('exit', (code) => {
+          try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+          if (code === 0) {
+            resolve({ success: true, message: successMessage });
+          } else {
+            resolve({ success: false, error: failureMessage, code: 'PROCESS_FAILED' });
+          }
+        });
+      } catch (error) {
+        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+        resolve({ success: false, error: 'Failed to start process: ' + error.message });
+      }
+    });
+  }
+
+  /**
+   * Safely remove a file if it exists.  Errors are silently ignored.
+   * @param {string} filePath - The absolute path of the file to delete.
+   */
+  function removeFileIfExists(filePath) {
     try {
-      psFile = path.join(os.tmpdir(), `${Date.now()}_elevated.ps1`);
-      fs.writeFileSync(psFile, psScript, 'utf8');
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
-      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
-      child.on('error', () => {
-        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-        resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
-      });
-      child.on('exit', (code) => {
-        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-        if (code === 0) {
-          resolve({ success: true, message: successMessage });
-        } else {
-          resolve({ success: false, error: failureMessage, code: 'PROCESS_FAILED' });
-        }
-      });
-    } catch (error) {
-      try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-      resolve({ success: false, error: 'Failed to start process: ' + error.message });
-    }
-  });
-}
-
-/**
- * Safely remove a file if it exists.  Errors are silently ignored.
- * @param {string} filePath - The absolute path of the file to delete.
- */
-function removeFileIfExists(filePath) {
-  try {
-    if (filePath && fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  } catch { }
-}
-
-/**
- * Safely remove a directory if it exists.  Errors are silently ignored.
- * @param {string} dirPath - The absolute path of the directory to remove.
- */
-function removeDirIfExists(dirPath) {
-  try {
-    if (dirPath && fs.existsSync(dirPath)) {
-      fs.rmSync(dirPath, { recursive: true, force: true });
-    }
-  } catch { }
-}
-
-/**
- * Remove any existing extraction directories associated with a given download.
- * This helper abstracts the repetitive logic of cleaning up old extraction
- * directories before starting a new download.  It removes both the
- * underscore-normalized and space-normalized variants of the directory.
- *
- * @param {string} finalName - The sanitized filename used for the download.
- * @param {string} downloadsDir - The parent downloads directory.
- */
-function cleanupExtractDirs(finalName, downloadsDir) {
-  const baseNameWithoutExt = path.basename(finalName, path.extname(finalName));
-  const extractDir = path.join(downloadsDir, baseNameWithoutExt);
-  removeDirIfExists(extractDir);
-  const altExtractDir = extractDir.replace(/_/g, ' ');
-  if (altExtractDir !== extractDir) {
-    removeDirIfExists(altExtractDir);
+      if (filePath && fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch { }
   }
-}
+
+  /**
+   * Safely remove a directory if it exists.  Errors are silently ignored.
+   * @param {string} dirPath - The absolute path of the directory to remove.
+   */
+  function removeDirIfExists(dirPath) {
+    try {
+      if (dirPath && fs.existsSync(dirPath)) {
+        fs.rmSync(dirPath, { recursive: true, force: true });
+      }
+    } catch { }
+  }
+
+  /**
+   * Remove any existing extraction directories associated with a given download.
+   * This helper abstracts the repetitive logic of cleaning up old extraction
+   * directories before starting a new download.  It removes both the
+   * underscore-normalized and space-normalized variants of the directory.
+   *
+   * @param {string} finalName - The sanitized filename used for the download.
+   * @param {string} downloadsDir - The parent downloads directory.
+   */
+  function cleanupExtractDirs(finalName, downloadsDir) {
+    const baseNameWithoutExt = path.basename(finalName, path.extname(finalName));
+    const extractDir = path.join(downloadsDir, baseNameWithoutExt);
+    removeDirIfExists(extractDir);
+    const altExtractDir = extractDir.replace(/_/g, ' ');
+    if (altExtractDir !== extractDir) {
+      removeDirIfExists(altExtractDir);
+    }
+  }
 }
 const downloadedFiles = [];
 
@@ -533,6 +533,17 @@ function openAuthWindow(authUrl, redirectUri, handleCallback) {
 const PasswordManagerAuth = require('./password-manager/auth');
 const PasswordManagerDB = require('./password-manager/database');
 const { dialog } = require('electron');
+// Determine whether the updater should be bypassed.  If the
+// environment variable `ELECTRON_NO_UPDATER` or `BYPASS_UPDATER`
+// is set (to any non‑empty value), or a `--no-updater` flag is
+// provided on the command line, then we skip creating the updater
+// window entirely and launch the main application directly.  This
+// allows developers to run the app without triggering any auto‑
+// update behaviour when testing or when updates are not desired.
+const skipUpdater = Boolean(process.env.ELECTRON_NO_UPDATER) ||
+  Boolean(process.env.BYPASS_UPDATER) ||
+  process.argv.includes('--no-updater');
+
 // Enable automatic download of updates.  By default the updater
 // will download updates as soon as they are discovered.  This
 // removes the need for the user to click a button in the UI to
@@ -985,11 +996,25 @@ app.whenReady().then(() => {
   try {
     loadUserProfile();
   } catch { }
-  // Show the updater window first instead of the main application window.
-  createUpdateWindow();
-  // Setup of window state events is handled in createMainWindow()
+  // If skipUpdater is true, launch the main window directly.  Otherwise,
+  // show the updater window to check for and download updates prior to
+  // displaying the main application.
+  if (skipUpdater) {
+    createMainWindow();
+  } else {
+    createUpdateWindow();
+  }
+  // Setup of window state events is handled in createMainWindow().  When
+  // the app is reactivated (e.g. clicking the dock icon on macOS), open
+  // whichever window is appropriate based on skipUpdater.
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createUpdateWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      if (skipUpdater) {
+        createMainWindow();
+      } else {
+        createUpdateWindow();
+      }
+    }
   });
 });
 app.on('window-all-closed', () => {

@@ -5,7 +5,7 @@
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "node start-no-updater.js",
     "build-portable": "electron-builder --win portable",
     "build-installer": "electron-builder --win nsis",
     "build-all": "npm run build-portable && npm run build-installer",
