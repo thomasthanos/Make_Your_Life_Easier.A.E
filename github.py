@@ -215,6 +215,62 @@ class ModernReleaseManager(QMainWindow):
     def _reset_refreshing(self):
         self.is_refreshing = False
 
+    def _ensure_dependencies_installed(self):
+        """
+        Check whether the project has its Node.js dependencies installed.
+        If a package.json is present but the node_modules directory is
+        missing, we attempt to run ``npm install`` to install dependencies.
+
+        This helps prevent build failures that occur when a project has not
+        yet been set up with its dependencies. The command is executed
+        synchronously so that subsequent build commands can rely on the
+        installation having finished. Any output or errors from the install
+        command are logged to the console.
+
+        The method is silent if no package.json exists or if node_modules
+        already exists. If ``npm`` is unavailable on the system, the user
+        will see an error via ``run_command_sync`` logging.
+        """
+        try:
+            from pathlib import Path
+            package_json_path = Path(self.project_path) / "package.json"
+            # Only attempt installation if a package.json file exists
+            if not package_json_path.exists():
+                return
+            node_modules_path = Path(self.project_path) / "node_modules"
+            # If node_modules exists, assume dependencies are already installed
+            if node_modules_path.exists():
+                return
+            # Try to install dependencies using a variety of supported package managers.
+            # We prioritise npm but also support pnpm, yarn and bun as fallbacks. If none
+            # are available, the installation will fail and the user will see an error.
+            managers = ["npm", "pnpm", "yarn", "bun"]
+            success = False
+            chosen_manager = None
+            for mgr in managers:
+                import shutil as _shutil
+                # Check if the package manager executable exists on the system
+                exe = _shutil.which(mgr) or _shutil.which(f"{mgr}.cmd")
+                if exe is None:
+                    continue
+                chosen_manager = mgr
+                self.log(f"Installing project dependencies ({mgr} install)…", "info")
+                success = self.run_command_sync(f"{mgr} install", require_project=False, check_git=False)
+                # Break on first successful installation
+                if success:
+                    break
+            if success:
+                self.log("Dependencies installed successfully", "success")
+            else:
+                # If no package manager succeeded, warn the user
+                if chosen_manager is None:
+                    self.log("No supported package manager (npm, pnpm, yarn, bun) found to install dependencies", "error")
+                else:
+                    self.log(f"Dependency installation via {chosen_manager} failed; build may fail", "warning")
+        except Exception as e:
+            # Log any unexpected exceptions and continue
+            self.log(f"Dependency check failed: {e}", "error")
+
     def setup_electric_blue_styles(self):
         self.setStyleSheet("""
             QMainWindow {
@@ -1079,6 +1135,13 @@ class ModernReleaseManager(QMainWindow):
             return False
             
         self.log("Starting safe build process...", "info")
+
+        # Ensure that the project's dependencies are installed. If the project
+        # contains a package.json but node_modules is missing (or the user
+        # simply hasn't run `npm install` yet), then `npm run build` will
+        # inevitably fail. To make the build flow more robust we attempt to
+        # install the dependencies up‑front before running any build commands.
+        self._ensure_dependencies_installed()
         
         self.kill_electron_only()
         
