@@ -4170,6 +4170,10 @@ function debug(level, ...args) {
 
   function initializeAutoUpdater() {
     const updateBtn = document.getElementById('title-bar-update');
+    if (typeof window.api === 'undefined' || typeof window.api.onUpdateStatus !== 'function') {
+      console.warn('AutoUpdater: preload API not available; skipping update event handlers.');
+      return;
+    }
     if (!updateBtn) {
       window.api.onUpdateStatus((data) => {
         switch (data.status) {

@@ -4090,9 +4090,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   margin-left: 0;
 }
 
-.menu-toggle {
-  /* Base styles are defined in the consolidated title-bar rule. */
-}
 .menu-toggle:hover,
 .menu-toggle:focus {
   opacity: 1;

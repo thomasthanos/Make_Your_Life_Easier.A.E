@@ -8,7 +8,6 @@
     <meta name="description" content="Make Your Life Easier - A comprehensive tool for system management and productivity" />
     <title>Make Your Life Easier</title>
 
-    
     <script>
       (function () {
         try {
@@ -17,24 +16,14 @@
         } catch (_) {}
       })();
     </script>
-
     
     <link rel="preload" href="styles.css" as="style" />
     <link rel="preload" href="renderer.js" as="script" />
-
-    
     <link rel="stylesheet" href="styles.css" />
-
-    
-    <!-- Use the existing hacker.ico for the favicon.  The original
-         assets/favicon.ico path referenced a non‑existent file which
-         triggered a 404 in the browser.  Point directly to the
-         included hacker.ico instead. -->
     <link rel="icon" type="image/x-icon" href="hacker.ico" />
 
     
     <style>
-      
       .loader {
         --cloud-color: #4387f4;
         --arrows-color: #80b1ff;
@@ -97,15 +86,11 @@
   </head>
   <body>
     <div class="custom-title-bar">
-  <!-- Title group: app icon and title text -->
   <div class="title-group">
     <img class="title-bar-app-icon" src="hacker.ico" alt="App icon" />
     <div class="title-bar-title">Make Your Life Easier</div>
   </div>
-  <!-- Menu container: a single button that toggles a dropdown with theme, language and info options -->
-<!-- Menu container: a single button that toggles a dropdown with theme, language and info options -->
   <div class="title-bar-menu">
-    <!-- Update button (hidden by default, shown when update is available) -->
     <button id="title-bar-update" class="title-bar-update-btn" aria-label="Update available" data-tooltip="Update available">
       <svg class="progress-ring" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="10" />
@@ -117,16 +102,13 @@
       </svg>
       <span class="update-badge"></span>
     </button>
-    
     <button id="menu-toggle" class="menu-toggle" aria-label="Menu" data-tooltip="Menu"></button>
-    <!-- Dropdown for the menu. Contains the individual toggle buttons. Initially hidden. -->
     <div id="titlebar-menu-dropdown" class="menu-dropdown hidden">
       <button id="theme-toggle" class="theme-toggle"></button>
       <button id="lang-toggle" class="lang-toggle">EN</button>
       <button id="info-toggle" class="info-toggle"></button>
     </div>
   </div>
-  <!-- Window controls: minimize, maximize, close -->
   <div class="title-bar-controls">
     <button class="title-bar-btn minimize" onclick="window.api?.minimizeWindow?.()">
       <svg class="minimize-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
@@ -154,26 +136,20 @@
             <div class="app-subtitle"></div>
             
           </div>
-          <!-- Theme toggle moved to the custom title bar.  The button is removed from the sidebar header -->
         </div>
         <ul id="menu-list"></ul>
-
         <div class="sidebar-footer">
-          
           <div class="user-info" id="userInfo"></div>
-          
           <div class="version-wrap" data-tooltip="App version">
             <span id="appVersion" class="version-text">v0.0.0</span>
           </div>
         </div>
       </nav>
-
       <main id="main" role="main">
         <header id="header"></header>
         <div id="content" class="content"></div>
       </main>
     </div>
-
     
     <script src="renderer.js" defer></script>
     <script>
