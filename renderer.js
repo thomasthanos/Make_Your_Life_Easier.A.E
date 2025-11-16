@@ -386,7 +386,7 @@ function debug(level, ...args) {
   const defaultSettings = {
 
     lang: 'en',
-    theme: 'light'
+    theme: 'dark'
   };
 
 
