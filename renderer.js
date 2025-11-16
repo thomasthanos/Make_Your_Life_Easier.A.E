@@ -4170,35 +4170,28 @@ function debug(level, ...args) {
 
   function initializeAutoUpdater() {
     const updateBtn = document.getElementById('title-bar-update');
-    // If the update button is not present (for example when running the
-    // renderer outside of Electron or without the custom title bar),
-    // simply attach the update status listener if available.  Guard
-    // against an undefined `window.api` to avoid runtime errors when
-    // loading this page in a normal browser environment.
     if (!updateBtn) {
-      if (window.api?.onUpdateStatus) {
-        window.api.onUpdateStatus((data) => {
-          switch (data.status) {
-            case 'available':
-              showUpdateOverlay(`Downloading update…`);
-              break;
-            case 'downloading': {
-              const percent = Math.round(data.percent || 0);
-              showUpdateOverlay(`Downloading update: ${percent}%`);
-              updateUpdateOverlay(percent, `Downloading update: ${percent}%`);
-              break;
-            }
-            case 'downloaded':
-              showUpdateOverlay('Installing update…');
-              updateUpdateOverlay(100, 'Installing update…');
-              break;
-            case 'error':
-              hideUpdateOverlay();
-              toast('Update error', { type: 'error', title: 'Update' });
-              break;
+      window.api.onUpdateStatus((data) => {
+        switch (data.status) {
+          case 'available':
+            showUpdateOverlay(`Downloading update…`);
+            break;
+          case 'downloading': {
+            const percent = Math.round(data.percent || 0);
+            showUpdateOverlay(`Downloading update: ${percent}%`);
+            updateUpdateOverlay(percent, `Downloading update: ${percent}%`);
+            break;
           }
-        });
-      }
+          case 'downloaded':
+            showUpdateOverlay('Installing update…');
+            updateUpdateOverlay(100, 'Installing update…');
+            break;
+          case 'error':
+            hideUpdateOverlay();
+            toast('Update error', { type: 'error', title: 'Update' });
+            break;
+        }
+      });
       return;
     }
 
@@ -4232,10 +4225,7 @@ function debug(level, ...args) {
     });
 
 
-    // Guard against undefined `window.api` to prevent errors in
-    // non‑Electron environments.  Use optional chaining to only
-    // register the listener when the API is exposed.
-    window.api?.onUpdateStatus?.((data) => {
+    window.api.onUpdateStatus((data) => {
       switch (data.status) {
         case 'available':
           updateAvailable = true;

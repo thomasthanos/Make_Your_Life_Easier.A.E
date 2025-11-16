@@ -87,10 +87,10 @@
   </head>
   <body>
     <div class="update-card">
-      <!-- Use a relative path to the hacker icon.  The update page lives
-           alongside the main sources, so load the icon directly
+      <!-- Use a relative path to the hacker icon. The update page now lives
+           inside the `updater` directory, so go up one level to load the icon
            from the project root. -->
-      <img class="icon" src="hacker.ico" alt="App logo">
+      <img class="icon" src="../hacker.ico" alt="App logo">
       <h1 class="title">Make Your Life Easier</h1>
       <p id="status" class="status">Checking for updates…</p>
       <div class="progress-wrapper">
@@ -99,9 +99,10 @@
         </div>
       </div>
     </div>
-    <!-- Load the update renderer script from the same directory.  Both
-         update.html and updateRenderer.js reside in the project root, so
-         this relative path will correctly locate the script. -->
+    <!-- Load the update renderer script from the same directory.  Because
+         `update.html` and `updateRenderer.js` now reside in the
+         `updater` folder, this relative path will correctly locate the
+         script. -->
     <script src="updateRenderer.js"></script>
   </body>
 </html>
