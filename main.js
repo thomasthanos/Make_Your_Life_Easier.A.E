@@ -183,6 +183,144 @@ function debug(level, ...args) {
     }
   }
 }
+
+//
+// -----------------------------------------------------------------------------
+// Global helper functions
+//
+// The following helpers were originally defined inside the `debug` function
+// scope.  Because they lived inside `debug`, they were not accessible in
+// other parts of the module.  This caused runtime ReferenceError exceptions
+// (e.g. `removeFileIfExists is not defined`) whenever those helpers were
+// referenced elsewhere in the code.  To resolve this, the helpers are now
+// defined at the module scope.  Their implementations mirror the versions
+// inside `debug`, allowing other functions (like download handlers and
+// PowerShell script runners) to access them safely.
+
+/**
+ * Attach standard output handlers to a child process and resolve when it exits.
+ * This helper consolidates the repetitive boilerplate of capturing stdout/stderr,
+ * handling errors, transforming output and constructing a result object.  It
+ * accepts a prefix used to build a generic error message when the process
+ * exits with a non-zero code.  The outputTransform function can be used to
+ * strip ANSI codes or otherwise process the combined stdout/stderr before
+ * returning it.
+ *
+ * @param {ChildProcess} child - The spawned child process.
+ * @param {Function} resolve - The promise resolver from the caller.
+ * @param {string} errorPrefix - The prefix for the error message on failure.
+ * @param {Function} [outputTransform=stripAnsiCodes] - Function to transform the raw output.
+ */
+function attachChildProcessHandlers(child, resolve, errorPrefix, outputTransform = stripAnsiCodes) {
+  let stdout = '';
+  let stderr = '';
+  if (child.stdout) {
+    child.stdout.on('data', (data) => { stdout += data.toString(); });
+  }
+  if (child.stderr) {
+    child.stderr.on('data', (data) => { stderr += data.toString(); });
+  }
+  child.on('error', (err) => {
+    const output = outputTransform(stdout + stderr);
+    resolve({ success: false, error: err.message, output });
+  });
+  child.on('close', (code) => {
+    const output = outputTransform(stdout + stderr);
+    if (code === 0) {
+      resolve({ success: true, output });
+    } else {
+      resolve({ success: false, error: `${errorPrefix} exited with code ${code}`, output });
+    }
+  });
+}
+
+/**
+ * Run a provided PowerShell script with elevation and wait for it to finish.
+ * This helper encapsulates the common logic of writing a temporary script file,
+ * launching it through Start-Process with the RunAs verb, cleaning up the
+ * temporary file and resolving with a standardized response object.  It is
+ * used by both run-sfc-scan and run-dism-repair handlers to eliminate
+ * duplicated code.
+ *
+ * @param {string} psScript - The PowerShell script contents.
+ * @param {string} successMessage - Message returned when the script exits with code 0.
+ * @param {string} failureMessage - Message returned when the script exits with a non-zero code.
+ * @returns {Promise<Object>} Resolves with an object describing success or failure.
+ */
+function runElevatedPowerShellScript(psScript, successMessage, failureMessage) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') {
+      resolve({ success: false, error: 'This feature is only available on Windows' });
+      return;
+    }
+    let psFile;
+    try {
+      psFile = path.join(os.tmpdir(), `${Date.now()}_elevated.ps1`);
+      fs.writeFileSync(psFile, psScript, 'utf8');
+      const escapedPsFile = psFile.replace(/"/g, '\\"');
+      const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
+      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
+      child.on('error', () => {
+        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+        resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
+      });
+      child.on('exit', (code) => {
+        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+        if (code === 0) {
+          resolve({ success: true, message: successMessage });
+        } else {
+          resolve({ success: false, error: failureMessage, code: 'PROCESS_FAILED' });
+        }
+      });
+    } catch (error) {
+      try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+      resolve({ success: false, error: 'Failed to start process: ' + error.message });
+    }
+  });
+}
+
+/**
+ * Safely remove a file if it exists.  Errors are silently ignored.
+ * @param {string} filePath - The absolute path of the file to delete.
+ */
+function removeFileIfExists(filePath) {
+  try {
+    if (filePath && fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch { }
+}
+
+/**
+ * Safely remove a directory if it exists.  Errors are silently ignored.
+ * @param {string} dirPath - The absolute path of the directory to remove.
+ */
+function removeDirIfExists(dirPath) {
+  try {
+    if (dirPath && fs.existsSync(dirPath)) {
+      fs.rmSync(dirPath, { recursive: true, force: true });
+    }
+  } catch { }
+}
+
+/**
+ * Remove any existing extraction directories associated with a given download.
+ * This helper abstracts the repetitive logic of cleaning up old extraction
+ * directories before starting a new download.  It removes both the
+ * underscore-normalized and space-normalized variants of the directory.
+ *
+ * @param {string} finalName - The sanitized filename used for the download.
+ * @param {string} downloadsDir - The parent downloads directory.
+ */
+function cleanupExtractDirs(finalName, downloadsDir) {
+  const baseNameWithoutExt = path.basename(finalName, path.extname(finalName));
+  const extractDir = path.join(downloadsDir, baseNameWithoutExt);
+  removeDirIfExists(extractDir);
+  const altExtractDir = extractDir.replace(/_/g, ' ');
+  if (altExtractDir !== extractDir) {
+    removeDirIfExists(altExtractDir);
+  }
+}
 const downloadedFiles = [];
 
 const extractedDirs = [];
