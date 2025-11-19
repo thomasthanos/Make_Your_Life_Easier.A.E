@@ -184,18 +184,6 @@ function debug(level, ...args) {
   }
 }
 
-//
-// -----------------------------------------------------------------------------
-// Global helper functions
-//
-// The following helpers were originally defined inside the `debug` function
-// scope.  Because they lived inside `debug`, they were not accessible in
-// other parts of the module.  This caused runtime ReferenceError exceptions
-// (e.g. `removeFileIfExists is not defined`) whenever those helpers were
-// referenced elsewhere in the code.  To resolve this, the helpers are now
-// defined at the module scope.  Their implementations mirror the versions
-// inside `debug`, allowing other functions (like download handlers and
-// PowerShell script runners) to access them safely.
 
 /**
  * Attach standard output handlers to a child process and resolve when it exits.
