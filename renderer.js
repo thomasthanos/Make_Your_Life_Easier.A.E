@@ -2357,7 +2357,6 @@ function debug(level, ...args) {
     statusElement.textContent = 'Extracting Advanced Installer...';
 
     try {
-
       const extractResult = await window.api.extractArchive(zipPath, '');
 
       if (!extractResult.success) {
@@ -2366,16 +2365,12 @@ function debug(level, ...args) {
 
       statusElement.textContent = 'Extraction complete!';
 
-
       const extractedDir = getExtractedFolderPath(zipPath);
-
-
       const msiPath = `${extractedDir}\\advinst.msi`;
       const activatorPath = `${extractedDir}\\Advanced Installer Activator.exe`;
 
       debug('info', 'MSI Path:', msiPath);
       debug('info', 'Activator Path:', activatorPath);
-
 
       const filesExist = await checkFilesExist([msiPath, activatorPath]);
 
@@ -2389,7 +2384,6 @@ function debug(level, ...args) {
 
       statusElement.textContent = 'Starting Advanced Installer setup...';
 
-
       debug('info', 'Running MSI installer...');
       const installResult = await window.api.runInstaller(msiPath);
 
@@ -2400,32 +2394,22 @@ function debug(level, ...args) {
       statusElement.textContent = '✅ Advanced Installer setup started! Complete the installation.';
       statusElement.classList.add('status-success');
 
-
+      // Create activator button - χρησιμοποιώντας την σωστή κλάση
       const activatorButton = document.createElement('button');
-      activatorButton.className = 'button activator-button';
+      activatorButton.className = 'button activator-button-fixed';
       activatorButton.innerHTML = '🔓 Activate';
-      activatorButton.style.marginLeft = 'auto';
-      activatorButton.style.marginTop = '0';
-      activatorButton.style.padding = '0.4rem 0.8rem';
-      activatorButton.style.fontSize = '0.8rem';
-      activatorButton.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
-      activatorButton.style.border = 'none';
-      activatorButton.style.borderRadius = '4px';
-      activatorButton.style.fontWeight = '500';
-      activatorButton.style.minWidth = '80px';
-      activatorButton.style.height = '32px';
 
       activatorButton.addEventListener('click', async () => {
         activatorButton.disabled = true;
-        activatorButton.innerHTML = '⏳...';
+        activatorButton.innerHTML = '⏳ Running...';
 
         try {
           debug('info', 'Running activator...');
           const activatorResult = await window.api.runInstaller(activatorPath);
 
           if (activatorResult.success) {
-            activatorButton.innerHTML = '✅ Done';
-            activatorButton.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
+            activatorButton.innerHTML = '✅ Activated';
+            activatorButton.classList.add('success');
 
             statusElement.textContent = '✅ Advanced Installer Activator started successfully! Follow the activation instructions.';
             statusElement.classList.add('status-success');
@@ -2436,14 +2420,33 @@ function debug(level, ...args) {
               duration: 4000
             });
 
-            autoFadeStatus(statusElement, 6000);
+            // Fade out the button after 3 seconds.  We apply a CSS transition on opacity
+            // and then hide the element.  This gives the user visual feedback that
+            // activation completed and removes the button from view.
+            setTimeout(() => {
+              // Ensure the button is still in the DOM before applying the fade
+              if (activatorButton && activatorButton.parentElement) {
+                activatorButton.style.transition = 'opacity 0.5s ease';
+                activatorButton.style.opacity = '0';
+                // After the fade completes, remove the button from the layout
+                setTimeout(() => {
+                  activatorButton.style.display = 'none';
+                }, 500);
+              }
+            }, 3000);
 
+            // Fade the status element after 6 seconds (unchanged)
+            autoFadeStatus(statusElement, 6000);
           } else {
             throw new Error(`Could not run activator: ${activatorResult.error}`);
           }
         } catch (error) {
+          // On any failure we show an error state and schedule a reset.  We remove any
+          // previously added success or error classes so the button returns to its
+          // neutral appearance when reset.
           activatorButton.innerHTML = '❌ Error';
-          activatorButton.style.background = 'linear-gradient(135deg, var(--error-color) 0%, #f87171 100%)';
+          activatorButton.classList.remove('success');
+          activatorButton.classList.add('error');
 
           statusElement.textContent = `Error running activator: ${error.message}`;
           statusElement.classList.add('status-error');
@@ -2457,28 +2460,24 @@ function debug(level, ...args) {
           setTimeout(() => {
             activatorButton.disabled = false;
             activatorButton.innerHTML = '🔓 Activate';
-            activatorButton.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
+            activatorButton.classList.remove('error', 'success');
           }, 2000);
         }
       });
 
-
+      // Add button to card
       const card = statusElement.closest('li');
       if (card) {
-        const oldButton = card.querySelector('.activator-button');
+        const oldButton = card.querySelector('.activator-button-fixed');
         if (oldButton) oldButton.remove();
 
         const labelContainer = card.querySelector('label');
         if (labelContainer) {
-          labelContainer.style.display = 'flex';
-          labelContainer.style.alignItems = 'center';
-          labelContainer.style.justifyContent = 'space-between';
-          labelContainer.style.width = '100%';
+          labelContainer.classList.add('label-container');
 
           const textContainer = labelContainer.querySelector('div');
           if (textContainer) {
-            textContainer.style.flex = '1';
-            textContainer.style.marginRight = '1rem';
+            textContainer.classList.add('label-text');
           }
 
           labelContainer.appendChild(activatorButton);
@@ -2499,7 +2498,6 @@ function debug(level, ...args) {
       throw error;
     }
   }
-
 
   async function checkFilesExist(filePaths) {
     return new Promise((resolve) => {

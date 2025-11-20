@@ -1347,11 +1347,36 @@ ipcMain.handle('open-installer', async (event, filePath) => {
 });
 function clientFor(url) { return url.startsWith('https:') ? https : http; }
 function sanitizeName(name) {
-  let cleaned = String(name).replace(/\./g, '');
-  cleaned = cleaned.replace(/[^a-zA-Z0-9_-]/g, '_');
-  cleaned = cleaned.replace(/_+/g, '_');
-  cleaned = cleaned.replace(/^_+/, '');
-  return cleaned || 'unnamed';
+  /**
+   * Sanitize a filename while preserving its extension.  The original
+   * implementation stripped all periods which resulted in merged
+   * extensions (e.g. `file.zip` becoming `filezip`).  This version
+   * separates the base name from the extension, removes any
+   * characters that are not alphanumeric, underscore or dash from the
+   * base, collapses multiple underscores into one and then
+   * reassembles the filename with the original (cleaned) extension.
+   * If the resulting base is empty, `unnamed` is used instead.
+   *
+   * @param {string} name The input filename
+   * @returns {string} The sanitized filename
+   */
+  try {
+    const ext = path.extname(name);
+    const base = path.basename(name, ext);
+    let cleanedBase = base.replace(/[^a-zA-Z0-9_-]/g, '_');
+    cleanedBase = cleanedBase.replace(/_+/g, '_').replace(/^_+/, '');
+    // Remove any invalid characters from the extension (leaving the leading period)
+    let cleanedExt = ext.replace(/[^a-zA-Z0-9.]/g, '');
+    // If nothing remains of the extension, drop it entirely
+    if (cleanedExt === '.') cleanedExt = '';
+    const finalBase = cleanedBase || 'unnamed';
+    return finalBase + cleanedExt;
+  } catch {
+    // Fallback to a simple replacement if path parsing fails
+    let cleaned = String(name).replace(/[^a-zA-Z0-9_-]/g, '_');
+    cleaned = cleaned.replace(/_+/g, '_').replace(/^_+/, '');
+    return cleaned || 'unnamed';
+  }
 }
 function extFromUrl(u) { const m = String(u).match(/\.([a-zA-Z0-9]+)(?:\?|$)/); return m ? `.${m[1]}` : ''; }
 ipcMain.on('download-start', (event, { id, url, dest }) => {
@@ -2271,71 +2296,115 @@ ipcMain.handle('find-exe-files', async (event, directoryPath) => {
 // Προσθήκη νέου handler για MSI installers
 ipcMain.handle('run-msi-installer', async (event, msiPath) => {
   return new Promise((resolve) => {
+    // MSI installers are only relevant on Windows.  Immediately report
+    // unsupported platforms as an error.
     if (process.platform !== 'win32') {
       resolve({ success: false, error: 'MSI installers are only supported on Windows' });
       return;
     }
 
-    const command = `msiexec /i "${msiPath}"`;
+    // Normalize the provided path to eliminate any double backslashes or mixed
+    // separators.  This mirrors the behavior in the general run-installer
+    // handler to ensure consistency.
+    const normalized = path.normalize(msiPath);
 
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        debug('info', 'MSI execution details:', { error, stdout, stderr });
-
-        // Θεωρούμε επιτυχία αν υπήρχε κάποιο output
-        if (stdout || stderr) {
-          resolve({
-            success: true,
-            message: 'MSI installer started successfully',
-            details: { stdout, stderr }
-          });
-        } else {
-          resolve({
-            success: false,
-            error: error.message,
-            details: { stdout, stderr }
-          });
-        }
-      } else {
-        resolve({
-          success: true,
-          message: 'MSI installer completed successfully',
-          details: { stdout, stderr }
-        });
-      }
-    });
+    try {
+      // Launch msiexec in a detached child process.  We intentionally
+      // avoid using exec() here because exec() waits for the installer
+      // process to finish and returns its exit code.  When a user cancels
+      // an MSI installer (exit code 1602) or when a reboot is required
+      // (exit code 3010), that non-zero exit code is surfaced as an error
+      // even though the installer started correctly.  By using spawn()
+      // with the detached flag, we simply start the installer and return
+      // success immediately, letting Windows handle any UI and exit codes.
+      const child = spawn('msiexec', ['/i', normalized], { detached: true, stdio: 'ignore' });
+      child.on('error', (spawnErr) => {
+        resolve({ success: false, error: spawnErr.message });
+      });
+      // Detach the child so it can continue independently of the parent process.
+      child.unref();
+      resolve({ success: true });
+    } catch (err) {
+      // If spawning fails synchronously, report the error to the caller.
+      resolve({ success: false, error: err.message });
+    }
   });
 });
 // Νέο handler για εκτέλεση installers
 ipcMain.handle('run-installer', async (event, filePath) => {
   return new Promise((resolve) => {
     debug('info', 'Running installer:', filePath);
+    // Normalize the path to avoid double backslashes and handle mixed slashes
+    const normalized = path.normalize(filePath);
+    const ext = path.extname(normalized).toLowerCase();
+
+    // If the file does not exist on disk, immediately reject.  Without this check
+    // Electron's shell.openPath returns a generic "Failed to open path" error but our
+    // previous implementation incorrectly treated that as success and attempted to
+    // launch a nonexistent file.  This early guard prevents spurious success
+    // responses and surfaces a clear error message back to the renderer.
+    try {
+      if (!fs.existsSync(normalized)) {
+        return resolve({ success: false, error: `File does not exist: ${normalized}` });
+      }
+    } catch (fsErr) {
+      return resolve({ success: false, error: fsErr.message });
+    }
 
     if (process.platform === 'win32') {
-      // Χρήση start command για να ανοίξει το αρχείο
-      const command = `start "" "${filePath}"`;
-
-      exec(command, (error, stdout, stderr) => {
-        if (error) {
-          debug('error', 'Exec error:', error);
-          resolve({ success: false, error: error.message });
-        } else {
-          debug('success', 'Exec success');
-          resolve({ success: true });
+      // For MSI packages we rely on msiexec.  Spawning msiexec detached avoids
+      // blocking the main process and allows the user to interact with the
+      // installer UI.  Note: msiexec returns exit code 1602 when the user
+      // cancels the installer.  Historically we treated this as success since
+      // there's no obvious way to distinguish cancellation from failure.  That
+      // behavior is preserved here; consumers should handle cancellation
+      // themselves if needed.
+      if (ext === '.msi') {
+        try {
+          const child = spawn('msiexec', ['/i', normalized], { detached: true, stdio: 'ignore' });
+          child.on('error', (spawnErr) => {
+            resolve({ success: false, error: spawnErr.message });
+          });
+          child.unref();
+          return resolve({ success: true });
+        } catch (spawnErr) {
+          return resolve({ success: false, error: spawnErr.message });
         }
-      });
-    } else {
-      // Για άλλα OS
-      shell.openPath(filePath)
-        .then((error) => {
-          if (error) {
-            resolve({ success: false, error: error });
-          } else {
+      }
+
+      // For non-MSI executables on Windows we first attempt to launch via
+      // shell.openPath.  If it returns a non-empty error string we treat that
+      // as a failure rather than falling back to spawning directly.  This
+      // avoids incorrectly marking the launch as successful when the file
+      // doesn't exist or the OS fails to open it.  Consumers who need more
+      // complex fallback logic can implement it in the renderer.
+      shell.openPath(normalized)
+        .then((errStr) => {
+          if (!errStr) {
             resolve({ success: true });
+          } else {
+            debug('warn', 'shell.openPath failed:', errStr);
+            resolve({ success: false, error: errStr });
           }
         })
-        .catch((error) => {
-          resolve({ success: false, error: error.message });
+        .catch((err) => {
+          resolve({ success: false, error: err.message });
+        });
+    } else {
+      // On non-Windows platforms we simply rely on shell.openPath.  Any non-empty
+      // string returned from openPath indicates failure.  We propagate the
+      // resulting error to the caller so that the UI can reflect the proper
+      // status instead of incorrectly reporting success.
+      shell.openPath(normalized)
+        .then((errStr) => {
+          if (!errStr) {
+            resolve({ success: true });
+          } else {
+            resolve({ success: false, error: errStr });
+          }
+        })
+        .catch((err) => {
+          resolve({ success: false, error: err.message });
         });
     }
   });
