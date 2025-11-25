@@ -49,7 +49,7 @@
     "bios_title": "BIOS Information",
     "install_desc": "Download and install your favorite apps automatically. Just select what you need and let the program do the rest!",
     "maintenance_desc": "Clean up and optimize your system for faster and more stable performance",
-    "debloat_raphi_desc": "Downloads and executes the Raphi debloat script via PowerShell. Requires administrator rights and internet connection. Warning: This script will perform system optimizations and removals. Proceed with caution.",
+    "debloat_raphi_desc": "Downloads and runs the Sparkle debloat and optimization tool. This powerful open‑source utility removes built‑in bloatware and tunes your Windows PC for better performance and privacy. Administrator rights and an internet connection are required. Proceed with caution.",
     "crack_title": "Professional Software Installation",
     "crack_desc": "Complete installation of popular software like Photoshop, Office, and more - ready to use right away. May require administrator privileges.",
     "dlc_title": "Unlock Game Content",

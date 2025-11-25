@@ -3357,6 +3357,10 @@ function debug(level, ...args) {
       'The script may make significant changes to your system. Use at your own risk.';
     container.appendChild(description);
 
+    // We no longer create a visible progress bar for the Sparkle download.
+    // Instead, progress updates are reflected in the button text during the
+    // download process.  This avoids leaving any lingering bar on the page.
+
 
     const isWindows = await window.api.isWindows();
     if (!isWindows) {
@@ -3374,33 +3378,245 @@ function debug(level, ...args) {
       'Run Debloat Script';
     runBtn.style.minWidth = '10rem';
     runBtn.addEventListener('click', async () => {
+      // Prevent double-clicks while an operation is already in progress
       if (runBtn.disabled) return;
       const original = runBtn.textContent;
       runBtn.disabled = true;
-      runBtn.textContent = 'Running...';
+      // Show a generic in-progress state on the button
+      runBtn.textContent = 'Processing...';
       try {
-        const result = await window.api.runRaphiDebloat();
-        if (result && result.success) {
-          toast(result.message || 'Debloat script executed successfully.', {
-            type: 'success',
-            title: 'Debloat',
-            duration: 7000
+        // Ask the main process to verify whether the latest Sparkle version
+        // is already downloaded.  The returned object contains flags and
+        // metadata for downloading and locating the file.
+        const info = await window.api.ensureSparkle();
+        if (!info) {
+          throw new Error('Unable to check for Sparkle release');
+        }
+        const { needsDownload, id, url, dest } = info;
+        // Define a helper to extract the archive, locate the first
+        // executable in the extracted folder, and run it.  The download
+        // step is handled separately.
+        const extractAndRun = async () => {
+          try {
+            // Derive parent directory and target extraction directory.  The
+            // extraction will be performed into a temporary unique folder
+            // first, then we attempt to rename it to a stable
+            // 'debloat-sparkle' directory.  This approach allows us to
+            // delete the downloaded zip and keep a predictable location
+            // for the extracted app without conflicting with any running
+            // instances.
+            const lastSep = Math.max(dest.lastIndexOf('\\'), dest.lastIndexOf('/'));
+            const parentDir = lastSep >= 0 ? dest.substring(0, lastSep) : '';
+            const uniqueExtractDir = `${parentDir}\\debloat-temp-${Date.now()}`;
+            const targetDir = `${parentDir}\\debloat-sparkle`;
+            // Extract the archive into the unique directory.  Passing an
+            // explicit destDir skips deletion of any existing directory.
+            const extractRes = await window.api.extractArchive(dest, '', uniqueExtractDir);
+            if (!extractRes || !extractRes.success) {
+              throw new Error((extractRes && extractRes.error) || 'Extraction failed');
+            }
+            // Attempt to rename the temporary extraction directory to the
+            // stable 'debloat-sparkle' directory.  If it fails (e.g. due to
+            // files in use), we will fall back to using the unique directory
+            // for execution.
+            let runDir = uniqueExtractDir;
+            try {
+              const renameRes = await window.api.renameDirectory(uniqueExtractDir, targetDir);
+              if (renameRes && renameRes.success) {
+                runDir = targetDir;
+              }
+            } catch {
+              // Ignore rename errors and use unique directory
+              runDir = uniqueExtractDir;
+            }
+            // Prefer running sparkle.exe directly if it exists in the root of
+            // the extracted directory.  This avoids accidentally launching
+            // unrelated utilities contained within the archive.
+            // Build the expected path to sparkle.exe.  On Windows paths
+            // typically use backslashes, and our dest path originates from
+            // Windows, so joining with a single backslash is appropriate.
+            const sparkleExePath = `${runDir}\\sparkle.exe`;
+            let exeToRun = null;
+            try {
+              const exists = await window.api.fileExists(sparkleExePath);
+              if (exists) {
+                exeToRun = sparkleExePath;
+              }
+            } catch {
+              exeToRun = null;
+            }
+            if (!exeToRun) {
+              // Fallback: search for any .exe or .bat files.  Ensure
+              // sparkle.exe is prioritised if present in the list.
+              let exeFiles;
+              try {
+                exeFiles = await window.api.findExeFiles(runDir);
+              } catch {
+                exeFiles = [];
+              }
+              if (exeFiles && exeFiles.length > 0) {
+                // If sparkle.exe is found in the list, pick it; otherwise
+                // choose the first executable returned by the search.
+                const sparkleIndex = exeFiles.findIndex((p) => p.toLowerCase().endsWith('sparkle.exe'));
+                if (sparkleIndex >= 0) {
+                  exeToRun = exeFiles[sparkleIndex];
+                } else {
+                  exeToRun = exeFiles[0];
+                }
+              }
+            }
+            if (!exeToRun) {
+              throw new Error('No executable found in extracted Sparkle archive');
+            }
+            const runRes = await window.api.runInstaller(exeToRun);
+            // After successfully launching Sparkle, remove the downloaded
+            // archive to conserve space.  Ignore errors during deletion.
+            try {
+              await window.api.deleteFile(dest);
+            } catch {
+              // ignore deletion errors
+            }
+            if (!runRes || !runRes.success) {
+              throw new Error((runRes && runRes.error) || 'Failed to launch Sparkle');
+            }
+            // Show success message
+            toast('Sparkle executed successfully.', {
+              type: 'success',
+              title: 'Debloat',
+              duration: 7000
+            });
+            // Restore button state on success
+            runBtn.disabled = false;
+            runBtn.textContent = original;
+          } catch (err) {
+            // Surface extraction or execution errors to the user
+            toast(err.message || 'An error occurred while extracting or running Sparkle.', {
+              type: 'error',
+              title: 'Debloat Error',
+              duration: 8000
+            });
+            // Restore button on failure
+            runBtn.disabled = false;
+            runBtn.textContent = original;
+          }
+        };
+        // Helper to run Sparkle directly from an existing extraction directory
+        const runExistingSparkle = async () => {
+          try {
+            const lastSepIdx = Math.max(dest.lastIndexOf('\\'), dest.lastIndexOf('/'));
+            const parent = lastSepIdx >= 0 ? dest.substring(0, lastSepIdx) : '';
+            const targetDir = `${parent}\\debloat-sparkle`;
+            let exePath = null;
+            // Prefer sparkle.exe in the root of the extracted directory
+            const sparkleExe = `${targetDir}\\sparkle.exe`;
+            try {
+              if (await window.api.fileExists(sparkleExe)) {
+                exePath = sparkleExe;
+              }
+            } catch {
+              // ignore errors when checking file existence
+            }
+            if (!exePath) {
+              // search for executables in the extracted folder
+              let exes = [];
+              try {
+                exes = await window.api.findExeFiles(targetDir);
+              } catch {
+                exes = [];
+              }
+              if (exes && exes.length > 0) {
+                const idx = exes.findIndex((p) => p.toLowerCase().endsWith('sparkle.exe'));
+                exePath = idx >= 0 ? exes[idx] : exes[0];
+              }
+            }
+            if (!exePath) {
+              throw new Error('No existing Sparkle executable found.');
+            }
+            // Launch the existing Sparkle executable
+            const res = await window.api.runInstaller(exePath);
+            if (!res || !res.success) {
+              throw new Error((res && res.error) || 'Failed to launch Sparkle');
+            }
+            toast('Sparkle executed successfully.', {
+              type: 'success',
+              title: 'Debloat',
+              duration: 7000
+            });
+            // Restore button state on success
+            runBtn.disabled = false;
+            runBtn.textContent = original;
+          } catch (err) {
+            toast(err.message || 'An error occurred while running Sparkle.', {
+              type: 'error',
+              title: 'Debloat Error',
+              duration: 8000
+            });
+            // Restore button on failure
+            runBtn.disabled = false;
+            runBtn.textContent = original;
+          }
+        };
+        if (needsDownload) {
+          // Start the download and update the button text to indicate progress.  A
+          // visible progress bar is no longer used; instead, the button text
+          // reflects the current percentage.
+          runBtn.textContent = 'Downloading...';
+          // Subscribe to download events for this specific download id
+          const unsubscribe = window.api.onDownloadEvent((data) => {
+            if (!data || data.id !== id) return;
+            if (data.status === 'started') {
+              // Reset progress and update button
+              runBtn.textContent = 'Downloading...';
+            } else if (data.status === 'progress') {
+              // Update width and button text when a valid percent is provided
+              const percent = typeof data.percent === 'number' ? data.percent : null;
+              if (percent !== null) {
+                runBtn.textContent = `Downloading ${percent}%`;
+              }
+            } else if (data.status === 'error') {
+              // Remove progress bar and restore button text on error
+              unsubscribe();
+              runBtn.textContent = original;
+              runBtn.disabled = false;
+              toast(data.error || 'An error occurred during the Sparkle download.', {
+                type: 'error',
+                title: 'Debloat Error',
+                duration: 8000
+              });
+            } else if (data.status === 'complete') {
+              // Mark completion visually and update button text
+              runBtn.textContent = 'Finishing...';
+              unsubscribe();
+              setTimeout(() => {
+                extractAndRun();
+              }, 100);
+            }
           });
+          // Initiate the download
+          window.api.downloadStart(id, url, dest);
         } else {
-          const errMsg = (result && result.error) || 'Debloat script failed.';
-          toast(errMsg, {
-            type: 'error',
-            title: 'Debloat Error',
-            duration: 8000
-          });
+          // No download needed; check if the zip still exists.  If it does, extract and run,
+          // otherwise run the existing extracted Sparkle directly.
+          let zipExists = false;
+          try {
+            zipExists = await window.api.fileExists(dest);
+          } catch {
+            zipExists = false;
+          }
+          if (zipExists) {
+            await extractAndRun();
+          } else {
+            await runExistingSparkle();
+          }
         }
       } catch (err) {
-        toast(err.message || 'An unexpected error occurred while running the debloat script.', {
+        // Report any unexpected errors during ensure/check
+        toast(err.message || 'An unexpected error occurred while preparing Sparkle.', {
           type: 'error',
           title: 'Debloat Error',
           duration: 8000
         });
-      } finally {
+        // Restore button on unexpected errors
         runBtn.disabled = false;
         runBtn.textContent = original;
       }

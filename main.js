@@ -5,6 +5,235 @@ const { exec, spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
 const fs = require('fs');
+// Import https once at module scope.  This is needed for fetchLatestSparkle().
+const https = require('https');
+
+/**
+ * Compare two semantic version strings of the form x.y.z.  Returns 1 if a > b,
+ * -1 if a < b, and 0 if they are equal.  Missing parts are treated as 0
+ * (e.g. 2.1 is considered equal to 2.1.0).  Any non-numeric components
+ * beyond the numeric period-separated segments are ignored.  If parsing
+ * fails for either input, the strings are compared lexically as a fallback.
+ *
+ * @param {string} a - Version string e.g. '2.9.2'
+ * @param {string} b - Version string to compare against
+ * @returns {number} 1 if a > b, -1 if a < b, 0 if equal
+ */
+function compareVersions(a, b) {
+  try {
+    const pa = String(a).split('.').map((x) => parseInt(x.replace(/[^0-9]/g, '') || '0', 10));
+    const pb = String(b).split('.').map((x) => parseInt(x.replace(/[^0-9]/g, '') || '0', 10));
+    const len = Math.max(pa.length, pb.length);
+    for (let i = 0; i < len; i++) {
+      const va = pa[i] || 0;
+      const vb = pb[i] || 0;
+      if (va > vb) return 1;
+      if (va < vb) return -1;
+    }
+    return 0;
+  } catch {
+    // Fallback to lexical comparison if parsing fails
+    if (String(a) > String(b)) return 1;
+    if (String(a) < String(b)) return -1;
+    return 0;
+  }
+}
+
+/**
+ * Fetch details about the latest Sparkle release from GitHub.  The API
+ * endpoint returns JSON describing the most recent release.  This helper
+ * extracts the semantic version from the tag_name and locates the first
+ * asset matching the Windows zip pattern (sparkle-*-win.zip).  A User-Agent
+ * header is required by GitHub APIs.  Resolves with an object containing
+ * the version, the browser download URL and the asset filename.  If an
+ * error occurs or the asset isn't found, the promise rejects.
+ *
+ * @returns {Promise<{version: string, assetUrl: string, fileName: string}>}
+ */
+function fetchLatestSparkle() {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.github.com',
+      path: '/repos/parcoil/sparkle/releases/latest',
+      method: 'GET',
+      headers: {
+        'User-Agent': 'make-your-life-easier-app',
+        'Accept': 'application/vnd.github+json'
+      }
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk.toString(); });
+      res.on('end', () => {
+        try {
+          if (res.statusCode !== 200) {
+            return reject(new Error(`GitHub API responded with status ${res.statusCode}`));
+          }
+          const json = JSON.parse(data);
+          let tag = json.tag_name || '';
+          if (typeof tag === 'string' && tag.startsWith('v')) tag = tag.substring(1);
+          const version = tag || '0.0.0';
+          let assetUrl = null;
+          let fileName = null;
+          if (Array.isArray(json.assets)) {
+            for (const asset of json.assets) {
+              if (asset && asset.name && /sparkle-.*-win\.zip$/i.test(asset.name) && asset.browser_download_url) {
+                assetUrl = asset.browser_download_url;
+                fileName = asset.name;
+                break;
+              }
+            }
+          }
+          if (!assetUrl) {
+            return reject(new Error('Unable to locate Windows zip asset for Sparkle'));
+          }
+          resolve({ version, assetUrl, fileName });
+        } catch (err) {
+          reject(err);
+        }
+      });
+    });
+    req.on('error', (err) => reject(err));
+    req.end();
+  });
+}
+
+/**
+ * Ensure that the Sparkle utility is downloaded in the user's roaming
+ * application folder.  On Windows, Sparkle is distributed as a zip file
+ * sparkle-<version>-win.zip containing an executable.  This handler
+ * checks the current folder for any existing Sparkle zip matching
+ * sparkle-*-win.zip, determines its version, and compares it against
+ * the latest release on GitHub.  If the latest version is not present,
+ * it signals the renderer to download the new zip.  The handler
+ * computes a unique download id and the destination path for the new
+ * file.  When needsDownload is false, the existing dest path is
+ * returned.  Errors during version checking result in a fallback that
+ * always downloads the latest release.
+ */
+ipcMain.handle('ensure-sparkle', async () => {
+  try {
+    // Only relevant on Windows.  On other platforms simply indicate no
+    // download is needed.
+    if (process.platform !== 'win32') {
+      return { needsDownload: false };
+    }
+    // Determine the target directory under AppData\Roaming\make-your-life-easier.
+    const userRoaming = path.join(os.homedir(), 'AppData', 'Roaming');
+    const sparkleDir = path.join(userRoaming, 'make-your-life-easier');
+    try {
+      fs.mkdirSync(sparkleDir, { recursive: true });
+    } catch {
+      // ignore mkdir errors; subsequent operations will fail if dir missing
+    }
+    // Find existing Sparkle zip files and extract version
+    let existingVersion = null;
+    let existingFile = null;
+    try {
+      const files = fs.readdirSync(sparkleDir);
+      for (const f of files) {
+        if (/^sparkle-.*-win\.zip$/i.test(f)) {
+          existingFile = f;
+          const match = f.match(/^sparkle-([0-9]+(?:\.[0-9]+)*)-win\.zip$/i);
+          if (match) {
+            existingVersion = match[1];
+          }
+          break;
+        }
+      }
+    } catch {
+      // ignore read errors
+    }
+    // If no zip exists but the extracted 'debloat-sparkle' directory is present, we
+    // assume Sparkle is already up to date.  In this case, avoid making
+    // unnecessary network requests to GitHub and return early with
+    // needsDownload=false.  A placeholder dest is included for API
+    // compatibility but will not be used by the renderer.
+    try {
+      const debloatDir = path.join(sparkleDir, 'debloat-sparkle');
+      if (!existingFile && fs.existsSync(debloatDir)) {
+        const id = `sparkle-${Date.now()}`;
+        const placeholderDest = path.join(sparkleDir, 'sparkle-latest.zip');
+        return { needsDownload: false, id, url: '', dest: placeholderDest };
+      }
+    } catch {
+      // ignore errors when checking extracted folder
+    }
+
+    // Fetch latest release details from GitHub
+    let latest;
+    try {
+      latest = await fetchLatestSparkle();
+    } catch (err) {
+      debug('warn', 'Failed to fetch latest Sparkle release:', err);
+      // If we cannot fetch the latest version, always force download
+      latest = null;
+    }
+    // Determine whether a download is needed
+    let needsDownload = true;
+    let destPath;
+    let downloadUrl;
+    let fileName;
+    if (latest && latest.version && latest.assetUrl && latest.fileName) {
+      const cmp = existingVersion ? compareVersions(latest.version, existingVersion) : 1;
+      // cmp <= 0 means existingVersion >= latest.version
+      if (cmp <= 0) {
+        needsDownload = false;
+        fileName = existingFile;
+        downloadUrl = latest.assetUrl;
+      } else {
+        needsDownload = true;
+        fileName = latest.fileName;
+        downloadUrl = latest.assetUrl;
+        // remove any existing older zip
+        if (existingFile) {
+          try {
+            fs.unlinkSync(path.join(sparkleDir, existingFile));
+          } catch {
+            // ignore deletion errors
+          }
+        }
+      }
+    } else {
+      // If we failed to fetch latest release, but there is an existing file, do not download again.
+      if (existingFile) {
+        needsDownload = false;
+        fileName = existingFile;
+      } else {
+        // Without release info and no existing file, fallback to always download using static URL
+        needsDownload = true;
+        // Use the user-supplied 2.9.2 download as fallback
+        fileName = 'sparkle-2.9.2-win.zip';
+        downloadUrl = 'https://github.com/parcoil/sparkle/releases/download/2.9.2/sparkle-2.9.2-win.zip';
+      }
+    }
+
+    // If there is no zip but the debloat-sparkle directory exists, treat it as up-to-date and
+    // skip the download.  This prevents repeated downloads when the zip has been deleted
+    // after extraction but the extracted folder remains.
+    try {
+      const debloatDir = path.join(sparkleDir, 'debloat-sparkle');
+      if (!existingFile && fs.existsSync(debloatDir)) {
+        needsDownload = false;
+      }
+    } catch {
+      // ignore errors when checking extracted folder
+    }
+    destPath = path.join(sparkleDir, fileName);
+    const id = `sparkle-${Date.now()}`;
+    return { needsDownload, id, url: downloadUrl, dest: destPath };
+  } catch (err) {
+    // In case of unexpected errors, always signal a download with the static URL
+    debug('error', 'ensure-sparkle unexpected error:', err);
+    const fallbackPath = path.join(os.homedir(), 'AppData', 'Roaming', 'make-your-life-easier', 'sparkle-2.9.2-win.zip');
+    return {
+      needsDownload: true,
+      id: `sparkle-${Date.now()}`,
+      url: 'https://github.com/parcoil/sparkle/releases/download/2.9.2/sparkle-2.9.2-win.zip',
+      dest: fallbackPath
+    };
+  }
+});
 
 // Helper to execute a command via spawn and capture its stdout/stderr. This
 // consolidates the repetitive logic of launching child processes and
@@ -963,7 +1192,8 @@ ipcMain.handle('get-update-info', async () => {
   }
 });
 const http = require('http');
-const https = require('https');
+// https is already imported at the top of this module.  Avoid redeclaring
+// it here to prevent duplicate constant declarations.
 const documentsPath = require('os').homedir() + '/Documents';
 const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
 if (!fs.existsSync(pmDirectory)) {
@@ -1380,9 +1610,13 @@ function sanitizeName(name) {
 }
 function extFromUrl(u) { const m = String(u).match(/\.([a-zA-Z0-9]+)(?:\?|$)/); return m ? `.${m[1]}` : ''; }
 ipcMain.on('download-start', (event, { id, url, dest }) => {
+  // Determine the default downloads directory.  This is used only when the
+  // provided dest path is not an absolute path.  When dest is absolute,
+  // files are written directly to that location.
   const downloadsDir = path.join(os.homedir(), 'Downloads');
   const start = (downloadUrl) => {
     const req = clientFor(downloadUrl).get(downloadUrl, (res) => {
+      // Handle HTTP redirects (3xx)
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
         const nextUrl = new URL(res.headers.location, downloadUrl).toString();
@@ -1393,18 +1627,34 @@ ipcMain.on('download-start', (event, { id, url, dest }) => {
         mainWindow.webContents.send('download-event', { id, status: 'error', error: `HTTP ${res.statusCode}` });
         return;
       }
-      const sanitizedDest = sanitizeName(dest || '');
-      const cd = res.headers['content-disposition'] || '';
-      const cdMatch = cd.match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i);
-      const cdFile = cdMatch ? path.basename(cdMatch[1]) : '';
-      const chosenExt = path.extname(sanitizedDest) || (cdFile ? path.extname(cdFile) : '') || extFromUrl(downloadUrl) || '.bin';
-      const base = sanitizedDest ? path.basename(sanitizedDest, path.extname(sanitizedDest)) : (cdFile ? path.basename(cdFile, path.extname(cdFile)) : 'download');
-      const finalName = sanitizeName(base) + chosenExt;
-      const finalPath = path.join(downloadsDir, finalName);
+
+      // Determine whether the caller provided an absolute destination.  When
+      // dest is absolute, we use it verbatim as the final path.  Otherwise
+      // construct a filename based on the sanitized dest, content-disposition
+      // header or URL.
+      const isAbsolute = dest && path.isAbsolute(dest);
+      let finalPath;
+      let finalName;
+      let destDirForCleanup;
+      if (isAbsolute) {
+        finalPath = dest;
+        finalName = path.basename(dest);
+        destDirForCleanup = path.dirname(dest);
+      } else {
+        const sanitizedDest = sanitizeName(dest || '');
+        const cd = res.headers['content-disposition'] || '';
+        const cdMatch = cd.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i);
+        const cdFile = cdMatch ? path.basename(cdMatch[1]) : '';
+        const chosenExt = path.extname(sanitizedDest) || (cdFile ? path.extname(cdFile) : '') || extFromUrl(downloadUrl) || '.bin';
+        const base = sanitizedDest ? path.basename(sanitizedDest, path.extname(sanitizedDest)) : (cdFile ? path.basename(cdFile, path.extname(cdFile)) : 'download');
+        finalName = sanitizeName(base) + chosenExt;
+        finalPath = path.join(downloadsDir, finalName);
+        destDirForCleanup = downloadsDir;
+      }
       const tempPath = finalPath + '.part';
       // Remove any existing target file and associated extraction directories
       removeFileIfExists(finalPath);
-      cleanupExtractDirs(finalName, downloadsDir);
+      cleanupExtractDirs(finalName, destDirForCleanup);
       const total = parseInt(res.headers['content-length'] || '0', 10);
       const file = fs.createWriteStream(tempPath);
       const d = { response: res, file, total, received: 0, paused: false, filePath: tempPath, finalPath };
@@ -2406,6 +2656,58 @@ ipcMain.handle('run-installer', async (event, filePath) => {
         .catch((err) => {
           resolve({ success: false, error: err.message });
         });
+    }
+  });
+});
+
+// Delete a single file on disk.  Accepts an absolute path and attempts
+// to remove the file.  Returns { success: true } on success or
+// { success: false, error } on failure.  This is used by the renderer
+// to remove downloaded archives after extraction.
+ipcMain.handle('delete-file', async (event, filePath) => {
+  return new Promise((resolve) => {
+    try {
+      if (typeof filePath !== 'string' || filePath.trim() === '') {
+        return resolve({ success: false, error: 'Invalid file path' });
+      }
+      fs.unlink(filePath, (err) => {
+        if (err) {
+          return resolve({ success: false, error: err.message });
+        }
+        resolve({ success: true });
+      });
+    } catch (err) {
+      resolve({ success: false, error: err.message });
+    }
+  });
+});
+
+// Rename a directory.  If the destination directory already exists it
+// will be removed prior to renaming.  This allows moving a newly
+// extracted archive into a consistent location (e.g. debloat-sparkle).
+ipcMain.handle('rename-directory', async (event, { src, dest }) => {
+  return new Promise((resolve) => {
+    try {
+      if (typeof src !== 'string' || typeof dest !== 'string' || !src || !dest) {
+        return resolve({ success: false, error: 'Invalid source or destination' });
+      }
+      // If the destination exists, remove it recursively
+      try {
+        if (fs.existsSync(dest)) {
+          fs.rmSync(dest, { recursive: true, force: true });
+        }
+      } catch {
+        // ignore removal errors
+      }
+      // Attempt to rename the directory
+      fs.rename(src, dest, (err) => {
+        if (err) {
+          return resolve({ success: false, error: err.message });
+        }
+        resolve({ success: true });
+      });
+    } catch (err) {
+      resolve({ success: false, error: err.message });
     }
   });
 });

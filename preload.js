@@ -35,6 +35,20 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
    */
   fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
 
+  /**
+   * Delete a file on the filesystem.  Accepts an absolute file path.
+   * Resolves with { success: true } on success or { success: false, error } on
+   * failure.  Used to remove downloaded archives after extraction.
+   */
+  deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
+
+  /**
+   * Rename a directory.  If the destination exists it will be removed.
+   * Arguments should be absolute paths.  Resolves with { success: true }
+   * on success or { success: false, error } on failure.
+   */
+  renameDirectory: (src, dest) => ipcRenderer.invoke('rename-directory', { src, dest }),
+
   isWindows: () => process.platform === 'win32',
   
   onDownloadEvent: (callback) => {
@@ -118,6 +132,17 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
    */
   runChrisTitus: () => ipcRenderer.invoke('run-christitus'),
 
+  /**
+   * Ensure the Sparkle utility is up to date.  Invokes the main process
+   * handler which checks the user's roaming folder for an existing
+   * sparkle-*-win.zip, compares its version against the latest release on
+   * GitHub, and returns information indicating whether a download is
+   * required.  When a download is needed, a unique id and destination
+   * path are provided so the renderer can initiate the download via
+   * downloadStart().  Resolves with an object: { needsDownload,
+   * id, url, dest } or on failure a fallback object.
+   */
+  ensureSparkle: () => ipcRenderer.invoke('ensure-sparkle'),
   // Execute Raphi's debloat script.  Downloads and runs the script from
   // https://debloat.raphi.re/.  Returns a promise that resolves with
   // an object containing a success flag and a message.
