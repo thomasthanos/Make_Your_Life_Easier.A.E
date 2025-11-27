@@ -1,54 +1,23 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
-
   runCommand: (command) => ipcRenderer.invoke('run-command', command),
-
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
-
   downloadStart: (id, url, dest) => ipcRenderer.send('download-start', { id, url, dest }),
-
   downloadPause: (id) => ipcRenderer.send('download-pause', id),
-
   downloadResume: (id) => ipcRenderer.send('download-resume', id),
-
   downloadCancel: (id) => ipcRenderer.send('download-cancel', id),
-
   restartToBios: () => ipcRenderer.invoke('restart-to-bios'),
-
   openInstaller: (filePath) => ipcRenderer.invoke('open-installer', filePath),
-
   openFile: (filePath) => ipcRenderer.invoke('open-file', filePath),
-passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
-
+  passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   extractArchive: (filePath, password, destDir) =>
     ipcRenderer.invoke('extract-archive', { filePath, password, destDir }),
-
   replaceExe: (sourcePath, destPath) =>
     ipcRenderer.invoke('replace-exe', { sourcePath, destPath }),
-
-  /**
-   * Check whether a file exists on disk.  Accepts a path containing
-   * environment variables such as %USERNAME% which will be expanded on
-   * the main process side.  Resolves to true if the file exists,
-   * otherwise false.
-   */
   fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
-
-  /**
-   * Delete a file on the filesystem.  Accepts an absolute file path.
-   * Resolves with { success: true } on success or { success: false, error } on
-   * failure.  Used to remove downloaded archives after extraction.
-   */
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
-
-  /**
-   * Rename a directory.  If the destination exists it will be removed.
-   * Arguments should be absolute paths.  Resolves with { success: true }
-   * on success or { success: false, error } on failure.
-   */
   renameDirectory: (src, dest) => ipcRenderer.invoke('rename-directory', { src, dest }),
-
   isWindows: () => process.platform === 'win32',
   
   onDownloadEvent: (callback) => {
@@ -88,30 +57,13 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   passwordManagerValidatePassword: (password) => ipcRenderer.invoke('password-manager-validate-password', password),
   
   findExeFiles: (directoryPath) => ipcRenderer.invoke('find-exe-files', directoryPath),
-
-    showFileDialog: () => ipcRenderer.invoke('show-file-dialog'),
+  showFileDialog: () => ipcRenderer.invoke('show-file-dialog'),
 
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-
-  /**
-   * Persist update metadata on the main process side.  The renderer
-   * passes an object containing version, release name and release
-   * notes.  The main process writes this to a JSON file in the
-   * userData directory so that it can be retrieved after the app
-   * restarts.  Returns a promise that resolves with a success
-   * flag.
-   */
   saveUpdateInfo: (info) => ipcRenderer.invoke('save-update-info', info),
-
-  /**
-   * Retrieve any pending update metadata from the main process.  If
-   * data exists, the main process returns it and deletes the
-   * underlying file.  Returns a promise that resolves with an
-   * object: { success: true, info } or { success: false, error }.
-   */
   getUpdateInfo: () => ipcRenderer.invoke('get-update-info'),
 
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
@@ -123,29 +75,8 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   },
   runMsiInstaller: (msiPath) => ipcRenderer.invoke('run-msi-installer', msiPath),
   runInstaller: (filePath) => ipcRenderer.invoke('run-installer', filePath),
-
-  /**
-   * Launch the Chris Titus Windows Utility script.  Executes a PowerShell command
-   * that downloads and runs the script directly.  Returns a promise that
-   * resolves once the process exits.  On Windows this will open a new
-   * PowerShell window for the user to follow the prompts.
-   */
   runChrisTitus: () => ipcRenderer.invoke('run-christitus'),
-
-  /**
-   * Ensure the Sparkle utility is up to date.  Invokes the main process
-   * handler which checks the user's roaming folder for an existing
-   * sparkle-*-win.zip, compares its version against the latest release on
-   * GitHub, and returns information indicating whether a download is
-   * required.  When a download is needed, a unique id and destination
-   * path are provided so the renderer can initiate the download via
-   * downloadStart().  Resolves with an object: { needsDownload,
-   * id, url, dest } or on failure a fallback object.
-   */
   ensureSparkle: () => ipcRenderer.invoke('ensure-sparkle'),
-  // Execute Raphi's debloat script.  Downloads and runs the script from
-  // https://debloat.raphi.re/.  Returns a promise that resolves with
-  // an object containing a success flag and a message.
   runRaphiDebloat: () => ipcRenderer.invoke('run-raphi-debloat'),
 
   loginGoogle: () => ipcRenderer.invoke('login-google'),
@@ -158,7 +89,10 @@ passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
   closeWindow: () => ipcRenderer.invoke('window-close'),
   isWindowMaximized: () => ipcRenderer.invoke('window-is-maximized'),
   
-  // Listen for window state changes
-  onWindowStateChange: (callback) => ipcRenderer.on('window-state-changed', callback)
-
+  onWindowStateChange: (callback) => ipcRenderer.on('window-state-changed', callback),
+  setWindowSize: (width, height) => ipcRenderer.invoke('window-set-size', { width, height }),
+  getWindowSize: () => ipcRenderer.invoke('window-get-size'),
+  animateWindowSize: (width, height) => ipcRenderer.invoke('window-set-bounds-animate', { width, height }),
+  animateResize: (width, height, duration) =>
+    ipcRenderer.invoke('window-animate-resize', { width, height, duration })
 });

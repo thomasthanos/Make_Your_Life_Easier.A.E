@@ -1218,7 +1218,7 @@ ipcMain.handle('show-file-dialog', async () => {
   return result;
 });
 function createMainWindow(showWindow = true) {
-  mainWindow = new BrowserWindow({
+    mainWindow = new BrowserWindow({
     width: 1100,
     height: 750,
     icon: path.join(__dirname, 'hacker.ico'),
@@ -1229,6 +1229,8 @@ function createMainWindow(showWindow = true) {
     titleBarStyle: 'hidden', // ή 'customButtonsOnHover' για macOS
     frame: false, // Για απόλυτο custom title bar
     show: showWindow,
+    // Match the dark theme background during resize animations to avoid white flicker
+    backgroundColor: '#0f1117',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -1317,6 +1319,116 @@ ipcMain.handle('window-close', () => {
 
 ipcMain.handle('window-is-maximized', () => {
   return mainWindow ? mainWindow.isMaximized() : false;
+});
+
+// Allow the renderer process to resize the main window.  When invoked
+// with a width and height, the main process will adjust the current
+// window dimensions.  This can be used, for example, to make the
+// application wider on certain pages (e.g. the install apps view)
+// without permanently maximising it.  The values are coerced to
+// integers to ensure correct types.  Returns true on success.
+ipcMain.handle('window-set-size', (event, size) => {
+  try {
+    if (mainWindow && size && typeof size.width !== 'undefined' && typeof size.height !== 'undefined') {
+      const w = parseInt(size.width, 10);
+      const h = parseInt(size.height, 10);
+      if (!Number.isNaN(w) && !Number.isNaN(h)) {
+        mainWindow.setSize(w, h);
+        return true;
+      }
+    }
+  } catch {
+    // fall through to return false below
+  }
+  return false;
+});
+
+// Expose a handler to retrieve the current window size.  Returns an
+// array [width, height] or [0, 0] if the main window is not yet
+// created.  The renderer can use this to animate window resizes.
+ipcMain.handle('window-get-size', () => {
+  try {
+    if (mainWindow) {
+      return mainWindow.getSize();
+    }
+  } catch {
+    // fall through
+  }
+  return [0, 0];
+});
+
+// Allow the renderer to request an animated resize of the window using
+// setBounds(..., true).  On macOS this triggers a smooth OS‑level
+// animation.  On Windows/Linux, the resize still occurs in a single
+// step but avoids repeated flicker.  The current x/y position and
+// height are preserved, only the width (and optionally height) are
+// adjusted.
+ipcMain.handle('window-set-bounds-animate', (event, size) => {
+  try {
+    if (mainWindow && size && typeof size.width !== 'undefined') {
+      const bounds = mainWindow.getBounds();
+      const newWidth = parseInt(size.width, 10);
+      const newHeight = typeof size.height !== 'undefined' ? parseInt(size.height, 10) : bounds.height;
+      if (!Number.isNaN(newWidth) && (typeof size.height === 'undefined' || !Number.isNaN(newHeight))) {
+        mainWindow.setBounds({ x: bounds.x, y: bounds.y, width: newWidth, height: newHeight }, true);
+        return true;
+      }
+    }
+  } catch {
+    // fall through
+  }
+  return false;
+});
+
+// Provide a custom animation handler that performs a smooth resize in
+// JavaScript on the main process side.  This handler incrementally
+// adjusts the window size over a series of small steps using setSize().
+// Because the loop runs in the main process, it avoids the cost of
+// multiple IPC round-trips for each step and yields a smoother
+// progression on platforms where setBounds(..., true) does not
+// animate (e.g. Windows/Linux).  The renderer specifies a target
+// width and height along with a duration in milliseconds.  If the
+// window does not exist, or if invalid parameters are provided, the
+// handler returns false.  Otherwise it resolves with true once the
+// animation completes.
+ipcMain.handle('window-animate-resize', (event, { width, height, duration = 200 }) => {
+  return new Promise((resolve) => {
+    try {
+      if (!mainWindow || typeof width === 'undefined' || typeof height === 'undefined') {
+        return resolve(false);
+      }
+      const wTarget = parseInt(width, 10);
+      const hTarget = parseInt(height, 10);
+      if (Number.isNaN(wTarget) || Number.isNaN(hTarget)) {
+        return resolve(false);
+      }
+      const [startW, startH] = mainWindow.getSize();
+      const steps = 15;
+      const stepDelay = Math.max(10, duration / steps);
+      const deltaW = (wTarget - startW) / steps;
+      const deltaH = (hTarget - startH) / steps;
+      let i = 0;
+      const animateStep = () => {
+        i += 1;
+        const newW = Math.round(startW + deltaW * i);
+        const newH = Math.round(startH + deltaH * i);
+        try {
+          mainWindow.setSize(newW, newH);
+        } catch {
+          // If setSize fails, resolve early to avoid a tight loop
+          return resolve(false);
+        }
+        if (i < steps) {
+          setTimeout(animateStep, stepDelay);
+        } else {
+          resolve(true);
+        }
+      };
+      animateStep();
+    } catch {
+      resolve(false);
+    }
+  });
 });
 
 // Window state change events

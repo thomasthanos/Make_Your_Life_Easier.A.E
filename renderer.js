@@ -1,6 +1,16 @@
 
 const processStates = new Map();
 
+const CUSTOM_APPS = [
+  {
+    id: 'AdvancedInstaller.Dropbox',
+    name: 'Advanced Installer',
+    url: 'https://www.dropbox.com/scl/fi/nx5ced8mt2t5mye4tus6j/Advanced-Installer-Architect-23.1.0.zip?rlkey=2bre9u83d9lfdvhhz778nvr04&st=cgpe2npr&dl=1',
+    ext: 'zip',
+    category: 'Utilities'
+  }
+];
+
 
 
 function debug(level, ...args) {
@@ -29,7 +39,14 @@ function debug(level, ...args) {
 
 (() => {
   let currentPage = null;
-  let cachedPreinstalledApps = null;
+  let updateOverlay;
+  let lastInteractionWasKeyboard = false;
+  let appLoaderInterval;
+  let translations = {};
+  let currentErrorCard = null;
+  let errorPaletteIndex = 0;
+  const errorBulletColours = ['#575757', '#e34ba9', '#80b1ff', '#f59e0b', '#10b981'];
+
   const menuKeys = [
     'install_apps',
     'crack_installer',
@@ -167,7 +184,51 @@ function debug(level, ...args) {
     return { ensure, update, show, hide };
   })();
 
-  let updateOverlay;
+  /**
+   * Smoothly resize the Electron window over a short duration.  This helper
+   * queries the current window size via the exposed API, then
+   * interpolates between the current and target sizes in small steps.
+   * On platforms where window resizing cannot be animated natively (e.g.
+   * Windows), the effect approximates a transition.  If the API is
+   * unavailable or an error occurs, the window is resized immediately.
+   *
+   * @param {number} targetWidth  - Desired final width in pixels
+   * @param {number} targetHeight - Desired final height in pixels
+   * @param {number} [duration=200] - Total animation duration in ms
+   */
+  async function resizeWindowSmooth(targetWidth, targetHeight, duration = 200) {
+    try {
+      if (!window.api || typeof window.api.getWindowSize !== 'function' || typeof window.api.setWindowSize !== 'function') {
+        // If APIs are missing, fallback to immediate resize
+        window.api?.setWindowSize?.(targetWidth, targetHeight);
+        return;
+      }
+      const currentSize = await window.api.getWindowSize();
+      if (!Array.isArray(currentSize) || currentSize.length < 2) {
+        // Unexpected return; fallback to direct resize
+        await window.api.setWindowSize(targetWidth, targetHeight);
+        return;
+      }
+      const [cw, ch] = currentSize;
+      const steps = 15;
+      const interval = duration / steps;
+      const dw = (targetWidth - cw) / steps;
+      const dh = (targetHeight - ch) / steps;
+      for (let i = 1; i <= steps; i++) {
+        const w = Math.round(cw + dw * i);
+        const h = Math.round(ch + dh * i);
+        await window.api.setWindowSize(w, h);
+        await new Promise((resolve) => setTimeout(resolve, interval));
+      }
+    } catch (err) {
+      // On error, perform a direct resize as a fallback
+      try {
+        window.api?.setWindowSize?.(targetWidth, targetHeight);
+      } catch {
+        // ignore secondary failures
+      }
+    }
+  }
   function showUpdateOverlay(initialStatus) {
     if (!updateOverlay) {
       updateOverlay = document.createElement('div');
@@ -235,7 +296,6 @@ function debug(level, ...args) {
       updateOverlay._statusEl.textContent = initialStatus;
     }
   }
-
   function updateUpdateOverlay(percent, statusText) {
     if (!updateOverlay) return;
     const circumference = 2 * Math.PI * 45;
@@ -247,24 +307,100 @@ function debug(level, ...args) {
       updateOverlay._statusEl.textContent = statusText;
     }
   }
-
   function hideUpdateOverlay() {
     if (updateOverlay) {
       updateOverlay.style.display = 'none';
     }
   }
+  window.showToast = function(msg, opts = {}) {
+    const { title = '', type = 'info', duration = 4000 } = opts;
 
-  // ---------------------------------------------------------------------------
-  // Application loading overlay helpers
-  //
-  // The main window can take a moment to initialise because it needs to
-  // download translations, render the sidebar, load the initial page and
-  // perform various setup tasks.  To provide feedback during this time,
-  // display a full‑screen overlay with an animated progress bar.  Once
-  // initialisation completes, hide the overlay.
+    if (type === 'error') {
+      showErrorCard(msg, { title: title || 'Error', duration });
+      return null;
+    }
 
-  let appLoaderInterval;
+    if (type !== 'success') {
+      return null;
+    }
 
+    const container = ensureToastContainer();
+    const toastEl = document.createElement('div');
+    toastEl.className = `toast toast-${type}`;
+
+    const iconWrapper = document.createElement('div');
+    iconWrapper.className = 'toast-icon-wrapper';
+
+    let svg;
+    if (type === 'error') {
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'currentColor');
+      svg.setAttribute('class', 'toast-svg-icon');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('fill-rule', 'evenodd');
+      path.setAttribute('clip-rule', 'evenodd');
+      path.setAttribute('d', 'M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z');
+      svg.appendChild(path);
+    } else if (type === 'success') {
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor');
+      svg.setAttribute('stroke-width', '1.5');
+      svg.setAttribute('class', 'toast-svg-icon');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
+      path.setAttribute('d', 'm4.5 12.75 6 6 9-13.5');
+      svg.appendChild(path);
+    }
+    if (svg) {
+      iconWrapper.appendChild(svg);
+    }
+
+    const content = document.createElement('div');
+    content.className = 'toast-content';
+    if (title) {
+      const titleEl = document.createElement('div');
+      titleEl.className = 'toast-title';
+      titleEl.textContent = title;
+      content.appendChild(titleEl);
+    }
+    const messageEl = document.createElement('div');
+    messageEl.className = 'toast-message';
+    messageEl.textContent = msg;
+    content.appendChild(messageEl);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'toast-close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.textContent = '×';
+    closeBtn.onclick = () => dismissToast(toastEl);
+
+    toastEl.appendChild(iconWrapper);
+    toastEl.appendChild(content);
+    toastEl.appendChild(closeBtn);
+    container.appendChild(toastEl);
+
+    let timeout;
+    if (duration > 0) {
+      timeout = setTimeout(() => dismissToast(toastEl), duration);
+    }
+
+    toastEl.addEventListener('mouseenter', () => {
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+    });
+    toastEl.addEventListener('mouseleave', () => {
+      if (!timeout && duration > 0) {
+        timeout = setTimeout(() => dismissToast(toastEl), duration);
+      }
+    });
+    return toastEl;
+  };
   /**
    * Show the application loader overlay and start a simple progress
    * animation.  If a status message is provided it will be displayed
@@ -293,10 +429,6 @@ function debug(level, ...args) {
       }
     }, 50);
   }
-
-  /**
-   * Hide the application loader overlay and stop its progress animation.
-   */
   function hideAppLoader() {
     const loader = document.getElementById('app-loader');
     if (!loader) return;
@@ -306,10 +438,6 @@ function debug(level, ...args) {
       appLoaderInterval = null;
     }
   }
-
-
-  let lastInteractionWasKeyboard = false;
-
   document.addEventListener('keydown', () => {
     lastInteractionWasKeyboard = true;
   }, true);
@@ -367,8 +495,6 @@ function debug(level, ...args) {
     }
   });
 
-
-
   function createMenuButton(key, label) {
     const li = document.createElement('li');
     const btn = document.createElement('button');
@@ -389,7 +515,6 @@ function debug(level, ...args) {
     theme: 'dark'
   };
 
-
   const settings = (() => {
     try {
       const saved = JSON.parse(localStorage.getItem('myAppSettings'));
@@ -402,9 +527,6 @@ function debug(level, ...args) {
   function saveSettings() {
     localStorage.setItem('myAppSettings', JSON.stringify(settings));
   }
-
-  let translations = {};
-
   async function loadTranslations() {
     const candidates = [`lang/${settings.lang}.json`, `${settings.lang}.json`];
     for (const url of candidates) {
@@ -421,17 +543,13 @@ function debug(level, ...args) {
     translations = {};
   }
 
-
   function applyTheme() {
     document.documentElement.setAttribute('data-theme', settings.theme);
   }
 
   const SUN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
   const MOON_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path></svg>`;
-
   const INFO_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="11" y="10" width="2" height="10"/><rect x="11" y="6" width="2" height="2"/></svg>`;
-
-
   const MENU_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="6" width="16" height="2"/><rect x="4" y="11" width="16" height="2"/><rect x="4" y="16" width="16" height="2"/></svg>`;
 
   function updateHeader() {
@@ -554,7 +672,6 @@ function debug(level, ...args) {
     }
   }
 
-
   function renderMenu() {
     const menuList = document.getElementById('menu-list');
     menuList.innerHTML = '';
@@ -600,8 +717,6 @@ function debug(level, ...args) {
     }
     updateHeader();
   }
-
-
 
   function setHeader(text) {
     const header = document.getElementById('header');
@@ -658,7 +773,6 @@ function debug(level, ...args) {
     }
   }
 
-
   function resetDLCButton(button, status, success) {
     const originalText = button.dataset.originalText;
 
@@ -695,7 +809,6 @@ function debug(level, ...args) {
     }
   }
 
-
   function resetDownloadButton(button, status, success) {
     const originalText = button.dataset.originalText;
     if (originalText) {
@@ -710,7 +823,6 @@ function debug(level, ...args) {
       toast('Process completed with issues', { type: 'error' });
     }
   }
-
 
   function resetReplaceButton(button, status, success) {
     if (success) {
@@ -783,6 +895,28 @@ function debug(level, ...args) {
 
   async function loadPage(key) {
     currentPage = key;
+
+
+    {
+      const isInstall = key === 'install_apps';
+      const targetWidth = isInstall ? 1400 : 1100;
+      const targetHeight = 750;
+      try {
+        if (window.api && typeof window.api.animateResize === 'function') {
+          // Use the main process custom animation for smoother behaviour.
+          // Reduce the duration for a faster, less noticeable transition.
+          window.api.animateResize(targetWidth, targetHeight, 120).catch(() => {});
+        } else if (typeof resizeWindowSmooth === 'function') {
+          // Fall back to the renderer‑side smooth resize
+          // The function returns a Promise; we do not await it here.
+          resizeWindowSmooth(targetWidth, targetHeight, 250);
+        } else if (window.api && typeof window.api.setWindowSize === 'function') {
+          window.api.setWindowSize(targetWidth, targetHeight);
+        }
+      } catch {
+        // ignore
+      }
+    }
     const content = document.getElementById('content');
     content.innerHTML = '';
     switch (key) {
@@ -997,7 +1131,6 @@ function debug(level, ...args) {
     return container;
   }
 
-
   async function buildDlcUnlockerPage() {
     const container = document.createElement('div');
     container.className = 'card dlc-scope';
@@ -1182,8 +1315,6 @@ function debug(level, ...args) {
 
     return container;
   }
-
-
 
   async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, dlcName) {
     button.disabled = true;
@@ -1617,34 +1748,6 @@ function debug(level, ...args) {
   }
 
 
-  function addOpenFolderButton(button, zipPath, dlcName) {
-    const extractedDir = getExtractedFolderPath(zipPath);
-
-    const openFolderButton = document.createElement('button');
-    openFolderButton.className = 'button button-secondary open-folder-button';
-    openFolderButton.innerHTML = '📂 OPEN EXTRACTED FOLDER';
-    openFolderButton.style.marginTop = '0.5rem';
-    openFolderButton.style.width = '100%';
-    openFolderButton.onclick = () => {
-      window.api.openFile(extractedDir)
-        .then(result => {
-          if (!result.success) {
-            toast('Could not open folder automatically. Please navigate to it manually.', {
-              type: 'warning',
-              title: 'DLC Unlocker'
-            });
-          }
-        });
-    };
-
-    const card = button.closest('.app-card');
-    const existingButton = card.querySelector('.open-folder-button');
-    if (!existingButton) {
-      card.appendChild(openFolderButton);
-    }
-  }
-
-
   async function downloadAndRunActivate(button, statusElement) {
     button.disabled = true;
     const originalText = button.textContent;
@@ -1732,7 +1835,6 @@ function debug(level, ...args) {
       }
     });
   }
-
 
   async function downloadAndRunAutologin(button, statusElement) {
     button.disabled = true;
@@ -1822,14 +1924,6 @@ function debug(level, ...args) {
     });
   }
 
-  function buildSettingsPage() {
-
-
-    const container = document.createElement('div');
-    return container;
-  }
-
-
   const openInstaller = async (app, filePath, status, index) => {
     try {
 
@@ -1877,11 +1971,6 @@ function debug(level, ...args) {
     }
     return c;
   }
-
-  let currentErrorCard = null;
-  let errorPaletteIndex = 0;
-  const errorBulletColours = ['#575757', '#e34ba9', '#80b1ff', '#f59e0b', '#10b981'];
-
 
   function showErrorCard(msg, opts = {}) {
     const { title = 'Error', duration = 6000 } = opts;
@@ -2053,7 +2142,6 @@ function debug(level, ...args) {
 
   }
 
-
   function toast(msg, opts = {}) {
     const { title = '', type = 'info', duration = 4000 } = opts;
 
@@ -2154,6 +2242,10 @@ function debug(level, ...args) {
     return toastEl;
   }
 
+  if (typeof window !== 'undefined') {
+    window.toast = toast;
+  }
+
   function dismissToast(toastEl) {
     toastEl.classList.add('toast-exit');
     setTimeout(() => {
@@ -2164,193 +2256,7 @@ function debug(level, ...args) {
   }
 
   async function buildInstallPage() {
-
-
-
-
-    const container = document.createElement('div');
-    container.className = 'card';
-    const desc = document.createElement('p');
-    desc.textContent = (translations.pages && translations.pages.install_desc) ||
-      'Select apps to download. We will open each installer automatically after the download finishes.';
-
-    desc.style.marginBottom = '1rem';
-    desc.style.opacity = '0.8';
-    container.appendChild(desc);
-
-
-    const apps = [
-      { name: translations.apps?.betterdiscord?.name || 'BetterDiscord', description: translations.apps?.betterdiscord?.description || 'Enhanced Discord client', url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&st=kd8njdce&dl=1', ext: 'exe' },
-      { name: translations.apps?.discord_ptb?.name || 'Discord PTB', description: translations.apps?.discord_ptb?.description || 'Public Test Build of Discord', url: 'https://www.dropbox.com/scl/fi/aaqzyvha72wjhmlbkaisf/discord_ptb.exe?rlkey=jandm03y74hsx8vmt3bf9enub&st=syrb9gxp&dl=1', ext: 'exe' },
-      { name: translations.apps?.discord?.name || 'Discord', description: translations.apps?.discord?.description || 'Official Discord client', url: 'https://www.dropbox.com/scl/fi/bgpi9iy00abrkw995u4by/discord.exe?rlkey=fm22iu7b0gwvackygmhvv29uw&st=mvmkbabw&dl=1', ext: 'exe' },
-      { name: translations.apps?.epic_games?.name || 'Epic Games', description: translations.apps?.epic_games?.description || 'Epic Games Launcher', url: 'https://www.dropbox.com/scl/fi/3mnee6vxp3wp1mym5nrhd/epicgames.msi?rlkey=ygiy5oqia6hm0ne61vs7nz6m6&st=qigfjjlm&dl=1', ext: 'msi' },
-      { name: translations.apps?.ubisoft_connect?.name || 'Ubisoft Connect', description: translations.apps?.ubisoft_connect?.description || 'Ubisoft game launcher', url: 'https://www.dropbox.com/scl/fi/8wzoxzkf23pklm6thvr3d/ubisoft.exe?rlkey=lasiokbqo5h659kib2s42zjtf&st=pzys86ls&dl=1', ext: 'exe' },
-      { name: translations.apps?.spotify?.name || 'Spotify', description: translations.apps?.spotify?.description || 'Spotify music streaming client', url: 'https://www.dropbox.com/scl/fi/tgfdprtihmfmg0vmje5mw/SpotifySetup.exe?rlkey=55vfvccgpndwys4wvl1gg4u1v&st=2leaehi8&dl=1', ext: 'exe' },
-      { name: translations.apps?.advanced_installer?.name || 'Advanced Installer', description: translations.apps?.advanced_installer?.description || 'Professional Windows installer authoring tool', url: 'https://www.dropbox.com/scl/fi/nx5ced8mt2t5mye4tus6j/Advanced-Installer-Architect-23.1.0.zip?rlkey=2bre9u83d9lfdvhhz778nvr04&st=cgpe2npr&dl=1', ext: 'zip', isAdvancedInstaller: true }
-    ];
-
-
-    const sortedApps = [...apps].sort((a, b) => a.name.localeCompare(b.name));
-
-    const list = document.createElement('ul'); list.style.listStyle = 'none'; list.style.padding = '0'; list.style.margin = '0';
-
-
-    sortedApps.forEach((app, i) => {
-      const li = document.createElement('li');
-      li.className = 'app-list-item';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.id = `app-${i}`;
-
-      cb.className = 'app-checkbox';
-      const label = document.createElement('label'); label.htmlFor = cb.id; label.style.flex = '1'; label.style.display = 'flex'; label.style.alignItems = 'center';
-      const text = document.createElement('div'); const n = document.createElement('span'); n.textContent = app.name; n.style.fontWeight = '600'; n.style.fontSize = '1.1rem'; const p = document.createElement('p'); p.textContent = app.description; p.style.margin = '0'; p.style.opacity = '0.8'; p.style.fontSize = '0.9rem'; text.append(n, p); label.append(text);
-      const status = document.createElement('pre');
-      status.className = 'status-pre app-status';
-      li.append(cb, label, status); list.appendChild(li);
-    });
-    container.appendChild(list);
-
-    const btn = document.createElement('button'); btn.className = 'button'; btn.textContent = (translations.actions && translations.actions.download_selected) || 'Download Selected'; btn.style.marginTop = '1rem'; container.appendChild(btn);
-
-    let running = false;
-    btn.onclick = async () => {
-      if (running) return;
-      running = true;
-
-      if (!btn.dataset.originalText) {
-        btn.dataset.originalText = btn.textContent;
-      }
-      btn.disabled = true;
-
-      btn.textContent = 'Preparing downloads...';
-
-
-      const selected = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => {
-        const index = parseInt(cb.id.split('-')[1]);
-        return sortedApps[index];
-      });
-
-      if (!selected.length) {
-        toast(translations.messages.no_apps_selected || 'No applications selected.', { type: 'info' });
-        running = false;
-        btn.disabled = false;
-        btn.textContent = (translations.actions && translations.actions.download_selected) || 'Download Selected';
-        return;
-      }
-
-      const handleDownload = (app) => {
-        const index = sortedApps.findIndex(a => a.name === app.name);
-        const li = list.children[index];
-        const status = li.querySelector('pre');
-
-        status.textContent = '';
-        status.style.display = 'none';
-        const id = `install-${app.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
-        const TIMEOUT_MS = 120000;
-        return new Promise((resolve) => {
-          let timeout;
-          const unsubscribe = window.api.onDownloadEvent(async (data) => {
-            if (data.id !== id) return;
-            if (timeout) {
-              clearTimeout(timeout);
-              timeout = null;
-            }
-
-            if (data.status === 'started') {
-
-              btn.textContent = `Downloading ${app.name}... 0%`;
-            } else if (data.status === 'progress') {
-              btn.textContent = `Downloading ${app.name}... ${data.percent}%`;
-            } else if (data.status === 'complete') {
-
-              btn.textContent = `Opening ${app.name}...`;
-              unsubscribe();
-
-              try {
-
-                if (app.isAdvancedInstaller) {
-                  await processAdvancedInstaller(data.path, status, app.name);
-                } else {
-
-                  await window.api.openInstaller(data.path);
-
-                  btn.textContent = `${app.name} Installer Started`;
-                }
-              } catch (error) {
-
-                btn.textContent = btn.dataset.originalText || btn.textContent;
-                status.textContent = '';
-                status.style.display = 'none';
-                toast(`${app.name}: error - ${error.message}`, {
-                  type: 'error',
-                  title: 'Install'
-                });
-              }
-
-
-              autoFadeStatus(status, 3000);
-              resolve();
-
-            } else if (data.status === 'error') {
-
-              btn.textContent = btn.dataset.originalText || btn.textContent;
-              status.textContent = '';
-              status.style.display = 'none';
-              toast(`${app.name}: download error - ${data.error}`, {
-                type: 'error',
-                title: 'Install'
-              });
-              autoFadeStatus(status, 4000);
-              unsubscribe();
-              resolve();
-            }
-          });
-
-
-          try {
-            window.api.downloadStart(id, app.url, `${app.name}.${app.ext}`);
-          } catch (e) {
-
-            btn.textContent = btn.dataset.originalText || btn.textContent;
-            status.textContent = '';
-            status.style.display = 'none';
-            toast(`${app.name}: download failed - ${e.message}`, {
-              type: 'error',
-              title: 'Install'
-            });
-            autoFadeStatus(status, 4000);
-            unsubscribe();
-            resolve();
-          }
-
-
-          timeout = setTimeout(() => {
-            timeout = null;
-
-            btn.textContent = btn.dataset.originalText || btn.textContent;
-            status.textContent = '';
-            status.style.display = 'none';
-            toast(`${app.name}: download timed out`, {
-              type: 'error',
-              title: 'Install'
-            });
-            autoFadeStatus(status, 4000);
-            unsubscribe();
-            resolve();
-          }, TIMEOUT_MS);
-        });
-      };
-
-
-      const promises = selected.map((app) => handleDownload(app));
-      await Promise.all(promises);
-
-      running = false;
-      btn.disabled = false;
-      btn.textContent = btn.dataset.originalText || ((translations.actions && translations.actions.download_selected) || 'Download Selected');
-    };
-    return container;
+    return await buildInstallPageWingetWithCategories();
   }
 
   async function processAdvancedInstaller(zipPath, statusElement, appName) {
@@ -2499,6 +2405,10 @@ function debug(level, ...args) {
     }
   }
 
+  if (typeof window !== 'undefined') {
+    window.processAdvancedInstaller = processAdvancedInstaller;
+  }
+
   async function checkFilesExist(filePaths) {
     return new Promise((resolve) => {
       const results = {
@@ -2528,13 +2438,11 @@ function debug(level, ...args) {
     });
   }
 
-
   function getExtractedFolderPath(zipPath) {
     const parentDir = getDirectoryName(zipPath);
     const baseName = getBaseName(zipPath, '.zip');
     return `${parentDir}\\${baseName}`;
   }
-
 
   function getDirectoryName(filePath) {
     if (filePath.includes('\\')) {
@@ -2556,9 +2464,6 @@ function debug(level, ...args) {
     }
     return fileName;
   }
-
-
-
 
   const ICON_INSTALL_SPICETIFY = `
 <svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="56" height="56" viewBox="0 0 320.000000 400.000000" preserveAspectRatio="xMidYMid meet">
@@ -4034,10 +3939,7 @@ function debug(level, ...args) {
     return container;
   }
 
-
-  const passwordManagerStyles = `
-
-`;
+  const passwordManagerStyles = ``;
 
 
   if (!document.querySelector('#password-manager-styles')) {
@@ -4922,356 +4824,666 @@ function debug(level, ...args) {
 
 
 
-
-  document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.shiftKey && e.code === 'KeyU') {
-      showChangelog({
-        version: '0.0.0-test',
-        releaseName: 'Markdown Markdown Test',
-        releaseNotes: `# Complete GitHub Markdown Reference
-
-## 📚 Headings (1-6 levels)
-
-# H1 Heading
-## H2 Heading
-### H3 Heading
-#### H4 Heading
-##### H5 Heading
-###### H6 Heading
-
-## 🎨 Text Formatting
-
-**Bold text** or __Bold text__
-*Italic text* or _Italic text_
-***Bold and Italic*** or ___Bold and Italic___
-~~Strikethrough text~~
-==Highlighted text== (GitHub extension)
-**Bold *with nested* italic**
-H~2~O (Subscript)
-X^2^ (Superscript)
-
-## 📊 Lists
-
-### Unordered Lists
-- Item 1
-- Item 2
-  - Nested item 2.1
-  - Nested item 2.2
-    - Deep nested item
-- Item 3
-
-### Ordered Lists
-1. First item
-2. Second item
-   1. Nested ordered 2.1
-   2. Nested ordered 2.2
-3. Third item
-
-### Task Lists
-- [x] Completed task
-- [ ] Incomplete task
-- [x] ~~Completed with strikethrough~~
-- [ ] Task with [link](#)
-
-### Mixed Lists
-1. Ordered item
-   - [x] Nested task
-   - Nested bullet
-     * Deep nested
-
-## 💬 Blockquotes
-
-> Single line blockquote
-
-> Multi-line blockquote
-> that spans across
-> multiple lines
->
-> > Nested blockquote
-> > inside another blockquote
->
-> Back to main blockquote
-
-> **Note**: Blockquote with formatting
-> \`code in blockquote\`
-
-## 💻 Code
-
-### Inline Code
-Use \`console.log('Hello World')\` for debugging.
-
-### Code Blocks with Syntax Highlighting
-
-\`\`\`javascript
-function greet(name) {
-  return \`Hello, \${name}!\`;
-}
-console.log(greet('World'));
-\`\`\`
-
-\`\`\`python
-def fibonacci(n):
-    if n <= 1:
-        return n
-    return fibonacci(n-1) + fibonacci(n-2)
-\`\`\`
-
-\`\`\`html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Sample Page</title>
-</head>
-<body>
-    <h1>Hello World</h1>
-</body>
-</html>
-\`\`\`
-
-### Alternative Code Block Syntax
-~~~markdown
-This uses the alternative syntax
-with tildes instead of backticks
-~~~
-
-## 🔗 Links & References
-
-### Basic Links
-[GitHub](https://github.com)
-[GitHub with title](https://github.com "GitHub Homepage")
-
-### Auto-links
-https://github.com
-<https://github.com>
-<email@example.com>
-
-### Reference-style Links
-This is [GitHub][1] and this is [Google][2].
-
-[1]: https://github.com
-[2]: https://google.com "Google Search"
-
-### Anchor Links
-[Link to Headings](#headings-1-6-levels)
-[Link to specific section](#-links--references)
-
-## 🖼️ Images & Media
-
-### Basic Images
-![GitHub Logo](https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png "GitHub Logo")
-
-### Images with Links
-[![GitHub](https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png)](https://github.com)
-
-### Reference-style Images
-![GitHub Logo][logo]
-
-[logo]: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png "GitHub Logo"
-
-## 📐 Horizontal Rules
-
----
-***
-___
-
-## 🗂️ Tables
-
-### Basic Table
-| Header 1 | Header 2 | Header 3 |
-|----------|----------|----------|
-| Cell 1   | Cell 2   | Cell 3   |
-| Row 2    | Data     | Info     |
-
-### Aligned Columns
-| Left-aligned | Center-aligned | Right-aligned |
-|:-------------|:--------------:|--------------:|
-| Left         | Center         | Right         |
-| Data         | More data      | Numbers       |
-
-### Table with Formatting
-| Feature | Support | Notes |
-|---------|---------|-------|
-| **Bold** | ✅ Yes | \`code\` in table |
-| *Italic* | ❌ No | ~~strikethrough~~ |
-| Links | 🔗 Partial | [Example](#) |
-
-## 🏷️ Footnotes
-
-Here's a sentence with a footnote.[^1] 
-And another reference.[^2]
-
-[^1]: This is the first footnote.
-[^2]: This is the second footnote with **formatting**.
-
-## 🎯 Definition Lists
-
-Term 1
-: Definition 1
-
-Term 2
-: Definition 2a
-: Definition 2b
-
-## 📍 Emoji
-
-### Direct Emoji
-:rocket: :sparkles: :tada: :books: :computer:
-
-### Unicode Emoji
-🚀 ✨ 🎉 📚 💻
-
-## 🔤 Keyboard Keys
-
-Press <kbd>Ctrl</kbd> + <kbd>C</kbd> to copy.
-Use <kbd>Enter</kbd> to submit.
-
-## 📋 Checklists in Issues
-
-- [ ] #123
-- [ ] Add delight to the experience when all tasks are complete :tada:
-- [ ] \(Optional) Open a followup issue
-
-## 🏷️ Mentions and References
-
-### User Mentions
-@username
-@organization/team
-
-### Issue/PR References
-#123
-organization/repo#456
-
-### Commit References
-SHA: a1b2c3d4e5f6
-User@SHA: user@a1b2c3d
-
-## 🎨 Advanced Formatting
-
-### Collapsible Sections
-<details>
-<summary>Click to expand</summary>
-
-This content is hidden by default.
-
-- Item 1
-- Item 2
-- Item 3
-
-</details>
-
-<details>
-<summary>Code Example</summary>
-
-\`\`\`javascript
-
-const hiddenFunction = () => {
-  return 'This was hidden!';
-};
-\`\`\`
-
-</details>
-
-### Mathematical Formulas (GitHub extension)
-Inline math: $E = mc^2$
-
-Block math:
-$$
-\\nabla \\times \\vec{E} = -\\frac{\\partial \\vec{B}}{\\partial t}
-$$
-
-### Diagrams (Mermaid)
-\`\`\`mermaid
-graph TD
-    A[Start] --> B{Decision}
-    B -->|Yes| C[Action 1]
-    B -->|No| D[Action 2]
-    C --> E[End]
-    D --> E
-\`\`\`
-
-### Alert Blocks (GitHub extension)
-> [!NOTE]
-> Useful information that users should know.
-
-> [!TIP]
-> Helpful advice for doing things better.
-
-> [!IMPORTANT]
-> Key information users need to know.
-
-> [!WARNING]
-> Urgent info that needs immediate attention.
-
-> [!CAUTION]
-> Dangerous actions that might cause problems.
-
-## 🔄 Relative Links (in repositories)
-
-[CONTRIBUTING.md](./CONTRIBUTING.md)
-[src/main.js](../src/main.js)
-
-## 🎪 Special GitHub Features
-
-### Issue/Pull Request Lists
-- [x] Fixes #123
-- [ ] Closes #456
-- [ ] Resolves organization/repo#789
-
-### Code Review Suggestions
-\`\`\`suggestion
-
-const improvedCode = 'This is better';
-\`\`\`
-
-### Diff Syntax
-\`\`\`diff
-- const oldCode = 'outdated';
-+ const newCode = 'updated';
-\`\`\`
-
-## 📖 Complete Example Section
-
-### Project Structure
-\`\`\`
-project/
-├── src/
-│   ├── components/
-│   │   └── Button.js
-│   └── utils/
-│       └── helpers.js
-├── docs/
-│   └── README.md
-└── package.json
-\`\`\`
-
-### Installation Steps
-1. **Clone the repository**
-   \`\`\`bash
-   git clone https://github.com/user/repo.git
-   \`\`\`
-
-2. **Install dependencies**
-   \`\`\`bash
-   npm install
-   \`\`\`
-
-3. **Run the application**
-   \`\`\`bash
-   npm start
-   \`\`\`
-
-### Configuration
-> [!IMPORTANT]
-> Make sure to set up your environment variables!
-
-Create a \`.env\` file:
-\`\`\`env
-API_KEY=your_api_key_here
-DEBUG=true
-\`\`\`
-`,
-        timestamp: Date.now()
+})();
+
+async function buildInstallPageWingetWithCategories() {
+    const container = document.createElement('div');
+    container.className = 'card';
+
+    const searchWrapper = document.createElement('div');
+    searchWrapper.style.display = 'flex';
+    searchWrapper.style.alignItems = 'center';
+    searchWrapper.style.gap = '0.5rem';
+    searchWrapper.style.marginBottom = '0.75rem';
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Search apps...';
+    searchInput.style.flex = '1';
+    searchInput.style.padding = '0.5rem';
+    searchInput.style.border = '1px solid var(--border-color, rgba(255,255,255,0.15))';
+    searchInput.style.borderRadius = '6px';
+    searchInput.style.background = 'var(--input-bg, rgba(255,255,255,0.05))';
+    searchInput.style.color = 'inherit';
+    searchWrapper.appendChild(searchInput);
+    container.appendChild(searchWrapper);
+
+    const actionsWrapper = document.createElement('div');
+    actionsWrapper.style.display = 'flex';
+    actionsWrapper.style.flexWrap = 'wrap';
+    actionsWrapper.style.gap = '0.5rem';
+    actionsWrapper.style.marginBottom = '0.75rem';
+    function makeButton(text, color) {
+      const btn = document.createElement('button');
+      btn.className = 'action-btn';
+      btn.textContent = text;
+      if (color) {
+        const c = String(color).toLowerCase();
+        if (c === '#dc2626' || c === 'dc2626') {
+          btn.classList.add('danger');
+        } else {
+          btn.style.backgroundColor = color;
+          btn.style.borderColor = color;
+        }
+      }
+      return btn;
+    }
+
+    const installIcon = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+        <circle cx="12" cy="15" r="1.5" fill="currentColor" opacity="0.3"/>
+      </svg>
+    `;
+    
+    const uninstallIcon = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        <line x1="10" y1="11" x2="10" y2="17"/>
+        <line x1="14" y1="11" x2="14" y2="17"/>
+        <path d="M9 6l1-2h4l1 2" opacity="0.3"/>
+      </svg>
+    `;
+    
+    const exportIcon = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+        <circle cx="12" cy="3" r="1.5" fill="currentColor" opacity="0.3"/>
+        <path d="M8 15h8" opacity="0.4"/>
+      </svg>
+    `;
+    
+    const importIcon = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+        <path d="M16 7H8" opacity="0.4"/>
+        <circle cx="12" cy="15" r="1.5" fill="currentColor" opacity="0.3"/>
+      </svg>
+    `;
+
+    const installBtn = makeButton('Install Selected', '');
+    const uninstallBtn = makeButton('Uninstall Selected', '#dc2626');
+    const exportBtn = makeButton('Export List', '');
+    const importBtn = makeButton('Import List', '');
+
+    installBtn.innerHTML = `${installIcon}<span class="btn-label" style="margin-left: 0.5rem;">${installBtn.textContent}</span>`;
+    uninstallBtn.innerHTML = `${uninstallIcon}<span class="btn-label" style="margin-left: 0.5rem;">${uninstallBtn.textContent}</span>`;
+    exportBtn.innerHTML = `${exportIcon}<span class="btn-label" style="margin-left: 0.5rem;">${exportBtn.textContent}</span>`;
+    importBtn.innerHTML = `${importIcon}<span class="btn-label" style="margin-left: 0.5rem;">${importBtn.textContent}</span>`;
+
+    installBtn.classList.add('btn-install');
+    uninstallBtn.classList.add('btn-uninstall');
+    exportBtn.classList.add('btn-export');
+    importBtn.classList.add('btn-import');
+
+    actionsWrapper.appendChild(installBtn);
+    actionsWrapper.appendChild(uninstallBtn);
+    actionsWrapper.appendChild(exportBtn);
+    actionsWrapper.appendChild(importBtn);
+    container.appendChild(actionsWrapper);
+
+    function updateActionButtonsState() {
+      const anyChecked = container.querySelectorAll('input[type="checkbox"]:checked').length > 0;
+      installBtn.disabled = !anyChecked;
+      uninstallBtn.disabled = !anyChecked;
+      exportBtn.disabled = !anyChecked;
+    }
+
+    updateActionButtonsState();
+
+    container.addEventListener('change', (e) => {
+      if (e.target && e.target.type === 'checkbox') {
+        updateActionButtonsState();
+      }
+    });
+
+    const listContainer = document.createElement('div');
+    listContainer.style.display = 'flex';
+    listContainer.style.flexDirection = 'column';
+    listContainer.style.gap = '1rem';
+    container.appendChild(listContainer);
+
+    function getCategoryForId(pkgId) {
+      const lower = String(pkgId).toLowerCase();
+      const mappings = [
+        { key: 'Browsers', keywords: ['firefox', 'chrome', 'brave', 'opera', 'edge', 'vivaldi', 'tor', 'browser'] },
+        { key: 'Games', keywords: ['steam', 'epic', 'battlenet', 'ubisoft', 'riot', 'gog', 'game', 'psremoteplay', 'playstation', 'xbox'] },
+        { key: 'Music', keywords: ['spotify', 'music', 'tidal', 'mp3', 'audio', 'vlc', 'winamp'] },
+        { key: 'Development', keywords: ['visualstudio', 'python', 'node', 'git', 'java', 'eclipse', 'intellij', 'jetbrains', 'studio', 'code', 'github', 'gitlab', 'docker', 'virtualbox', 'vmware'] },
+        { key: 'Security', keywords: ['vpn', 'bitdefender', 'antivirus', 'security', 'surfshark', 'nord', 'protonvpn', 'authenticator', 'password', 'mail'] },
+        { key: 'Utilities', keywords: ['7zip', 'rar', 'winrar', 'zip', 'freedownload', 'downloadmanager', 'driverbooster', 'softwareupdater', 'sysinfo', 'smartdefrag', 'uninstaller', 'afterburner', 'streamdeck', 'razer', 'synapse', 'iobit', 'manager', 'stream'] }
+      ];
+      for (const { key, keywords } of mappings) {
+        if (keywords.some((kw) => lower.includes(kw))) {
+          return key;
+        }
+      }
+      return 'Others';
+    }
+
+    function getFaviconUrl(pkgId, appName) {
+      try {
+        const parts = String(pkgId).split('.');
+        let publisher = parts[0] || '';
+        publisher = publisher.toLowerCase();
+        const domainMap = {
+            google: 'google.com',
+            bitdefender: 'bitdefender.com',
+            brave: 'brave.com',
+            discord: 'discord.com',
+            dropbox: 'dropbox.com',
+            electronicarts: 'ea.com',
+            elgato: 'elgato.com',
+            epicgames: 'epicgames.com',
+            git: 'git-scm.com',
+            github: 'github.com',
+            nordsecurity: 'nordvpn.com',
+            mojang: 'minecraft.net',
+            vivaldi: 'vivaldi.com',
+            valve: 'steampowered.com',
+            playstation: 'playstation.com',
+            python: 'python.org',
+            microsoft: 'microsoft.com',
+            rarlab: 'win-rar.com',
+            razerinc: 'razer.com',
+            softdeluxe: 'freedownloadmanager.org',
+            spotify: 'spotify.com',
+            surfshark: 'surfshark.com',
+            zwylair: 'github.com',
+            proton: 'protonvpn.com',
+            openjs: 'nodejs.org',
+            mozilla: 'mozilla.org',
+            '7zip': '7-zip.org',
+            vencord: 'vencord.dev/download/',
+            obsproject: 'obsproject.com',
+            videolan: 'videolan.org',
+            oracle: 'oracle.com',
+            logitech: 'logitech.com',
+            notepadplusplus: 'notepad-plus-plus.org',
+            cpuid: 'cpuid.com',
+            crystaldew: 'crystalmark.info',
+            malwarebytes: 'malwarebytes.com',
+            teamviewer: 'teamviewer.com',
+            anydesk: 'anydesk.com'
+        };
+        const domain = domainMap[publisher] || `${publisher}.com`;
+        return `https://logo.clearbit.com/${domain}`;
+      } catch {
+        const slug = String(appName || '').toLowerCase().replace(/\s+/g, '');
+        return `https://logo.clearbit.com/${slug}.com`;
+      }
+    }
+
+    function getDeveloperUrl(pkgId) {
+      try {
+        const parts = String(pkgId).split('.');
+        const publisher = (parts[0] || '').toLowerCase();
+        const domainMap = {
+            google: 'google.com',
+            bitdefender: 'bitdefender.com',
+            brave: 'brave.com',
+            discord: 'discord.com',
+            dropbox: 'dropbox.com',
+            electronicarts: 'ea.com',
+            elgato: 'elgato.com',
+            epicgames: 'epicgames.com',
+            git: 'git-scm.com',
+            github: 'github.com',
+            nordsecurity: 'nordvpn.com',
+            mojang: 'minecraft.net',
+            vivaldi: 'vivaldi.com',
+            valve: 'steampowered.com',
+            playstation: 'playstation.com',
+            python: 'python.org',
+            microsoft: 'microsoft.com',
+            rarlab: 'win-rar.com',
+            razerinc: 'razer.com',
+            softdeluxe: 'freedownloadmanager.org',
+            spotify: 'spotify.com',
+            surfshark: 'surfshark.com',
+            zwylair: 'github.com',
+            proton: 'protonvpn.com',
+            openjs: 'nodejs.org',
+            mozilla: 'mozilla.org',
+            '7zip': '7-zip.org',
+            vencord: 'vencord.dev/download/',
+            obsproject: 'obsproject.com',
+            videolan: 'videolan.org',
+            oracle: 'oracle.com',
+            logitech: 'logitech.com',
+            notepadplusplus: 'notepad-plus-plus.org',
+            cpuid: 'cpuid.com',
+            crystaldew: 'crystalmark.info',
+            malwarebytes: 'malwarebytes.com',
+            teamviewer: 'teamviewer.com',
+            anydesk: 'anydesk.com'
+        };
+        const domain = domainMap[publisher] || `${publisher}.com`;
+        return `https://${domain}`;
+      } catch {
+        return '';
+      }
+    }
+
+    async function buildList() {
+      let appsData;
+      try {
+        const response = await fetch('installer.json');
+        appsData = await response.json();
+      } catch (err) {
+        debug && debug('error', 'Failed to load installer.json:', err);
+        toast && toast('Failed to load app list.', { type: 'error', title: 'Install' });
+        return;
+      }
+      const ids = Array.isArray(appsData?.apps) ? appsData.apps : [];
+      const categories = {};
+      ids.forEach((id) => {
+        let name;
+        if (typeof id === 'string') {
+          const parts = id.split('.');
+          name = parts.slice(1).join(' ') || id;
+        } else {
+          name = String(id);
+        }
+        const cat = getCategoryForId(id);
+        if (!categories[cat]) categories[cat] = [];
+        categories[cat].push({ id, name });
+      });
+      (CUSTOM_APPS || []).forEach((cApp) => {
+        const cat = cApp.category || 'Utilities';
+        if (!categories[cat]) categories[cat] = [];
+        categories[cat].push({
+          id: cApp.id,
+          name: cApp.name,
+          custom: true,
+          url: cApp.url,
+          ext: cApp.ext
+        });
+      });
+      const total = ids.length + (CUSTOM_APPS ? CUSTOM_APPS.length : 0);
+      searchInput.placeholder = `Search for ${total} app${total !== 1 ? 's' : ''}...`;
+      listContainer.innerHTML = '';
+      const orderedCats = ['Browsers', 'Games', 'Music', 'Development', 'Security', 'Utilities', 'Others'];
+      orderedCats.forEach((cat) => {
+        const items = categories[cat];
+        if (!items || !items.length) return;
+        const group = document.createElement('div');
+        const heading = document.createElement('h3');
+        heading.textContent = cat;
+        heading.style.margin = '0 0 0.5rem 0';
+        heading.style.fontSize = '1.1rem';
+        heading.style.fontWeight = '600';
+        group.appendChild(heading);
+        const ul = document.createElement('ul');
+        ul.className = 'install-grid';
+        ul.style.listStyle = 'none';
+        ul.style.padding = '0';
+        ul.style.margin = '0';
+      items.sort((a, b) => a.name.localeCompare(b.name)).forEach((app, index) => {
+  const li = document.createElement('li');
+  li.style.display = 'flex';
+  li.style.alignItems = 'center';
+  li.style.border = '1px solid var(--border-color, rgba(255,255,255,0.12))';
+  li.style.borderRadius = '8px';
+  li.style.padding = '0.6rem';
+  li.dataset.appId = app.id;
+  li.dataset.appName = app.name;
+  if (app.custom) {
+    li.dataset.isCustom = 'true';
+    if (app.url) li.dataset.customUrl = app.url;
+    if (app.ext) li.dataset.customExt = app.ext;
+  }
+  
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  const cbId = `pkg-${cat}-${index}`;
+  checkbox.id = cbId;
+  checkbox.style.marginRight = '1rem';
+
+  const fav = document.createElement('img');
+  fav.style.width = '24px';
+  fav.style.height = '24px';
+  fav.style.objectFit = 'contain';
+  fav.style.marginRight = '0.75rem';
+  fav.style.borderRadius = '4px';
+  fav.src = getFaviconUrl(app.id, app.name);
+  fav.onerror = () => {
+    if (!fav.dataset.fallback) {
+      fav.dataset.fallback = '1';
+      fav.src = 'hacker.ico';
+    }
+  };
+  
+  const label = document.createElement('label');
+  label.setAttribute('for', cbId);
+  label.style.display = 'flex';
+  label.style.flex = '1';
+  label.style.alignItems = 'center';
+  label.style.cursor = 'pointer';
+  
+  const textContainer = document.createElement('div');
+  textContainer.style.display = 'flex';
+  textContainer.style.flexDirection = 'column';
+  textContainer.style.flex = '1';
+  textContainer.style.justifyContent = 'center';
+  textContainer.style.alignItems = 'flex-start';
+  
+  const nameEl = document.createElement('span');
+  nameEl.textContent = app.name;
+  nameEl.style.fontWeight = '600';
+  nameEl.style.fontSize = '1rem';
+  nameEl.style.marginBottom = '0.25rem';
+  nameEl.style.lineHeight = '1.2';
+  
+  const idEl = document.createElement('span');
+  idEl.textContent = app.id;
+  idEl.style.fontSize = '0.85rem';
+  idEl.style.opacity = '0.75';
+  idEl.style.fontFamily = 'Consolas, Monaco, monospace';
+  idEl.style.lineHeight = '1.2';
+  
+  textContainer.appendChild(nameEl);
+  textContainer.appendChild(idEl);
+  
+  label.appendChild(fav);
+  label.appendChild(textContainer);
+  
+  li.appendChild(checkbox);
+  li.appendChild(label);
+
+  const devUrl = app.custom ? '' : getDeveloperUrl(app.id);
+  if (devUrl) {
+    const linkEl = document.createElement('a');
+    linkEl.href = '#';
+    linkEl.target = '_blank';
+    linkEl.rel = 'noopener noreferrer';
+    linkEl.style.marginLeft = 'auto';
+    linkEl.style.display = 'flex';
+    linkEl.style.alignItems = 'center';
+    linkEl.style.color = 'inherit';
+    linkEl.style.opacity = '0.8';
+    linkEl.style.paddingLeft = '0.5rem';
+    linkEl.setAttribute('aria-label', 'Open developer site');
+    linkEl.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></svg>';
+    linkEl.addEventListener('click', (event) => {
+      event.preventDefault();
+      try {
+        if (window.api && typeof window.api.openExternal === 'function') {
+          window.api.openExternal(devUrl);
+        } else {
+          window.open(devUrl, '_blank');
+        }
+      } catch (err) {
+      }
+    });
+    li.appendChild(linkEl);
+  }
+  ul.appendChild(li);
+});
+        group.appendChild(ul);
+        listContainer.appendChild(group);
       });
     }
-  });
-})();
+
+    function applySearchFilter() {
+      const query = searchInput.value.trim().toLowerCase();
+      const groups = listContainer.children;
+      Array.from(groups).forEach((group) => {
+        let visible = false;
+        const items = group.querySelectorAll('li');
+        items.forEach((li) => {
+          const name = li.dataset.appName.toLowerCase();
+          const id = li.dataset.appId.toLowerCase();
+          const match = !query || name.includes(query) || id.includes(query);
+          li.style.display = match ? 'flex' : 'none';
+          if (match) visible = true;
+        });
+        group.style.display = visible ? '' : 'none';
+      });
+    }
+    searchInput.addEventListener('input', applySearchFilter);
+
+    importBtn.addEventListener('click', () => {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.json,application/json';
+      fileInput.style.display = 'none';
+      document.body.appendChild(fileInput);
+
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) {
+          document.body.removeChild(fileInput);
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const ids = JSON.parse(reader.result);
+            if (!Array.isArray(ids)) {
+              throw new Error('Invalid file format');
+            }
+            const idSet = new Set(ids.map((x) => String(x)));
+            const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach((cb) => {
+              const li = cb.closest('li');
+              if (li && li.dataset.appId) {
+                cb.checked = idSet.has(li.dataset.appId);
+              }
+            });
+            toast && toast('List imported.', { type: 'success', title: 'Import' });
+          } catch (err) {
+            debug && debug('error', 'Failed to import list:', err);
+            toast && toast('Failed to import list.', { type: 'error', title: 'Import' });
+          } finally {
+            document.body.removeChild(fileInput);
+          }
+        };
+        reader.onerror = () => {
+          debug && debug('error', 'File read error');
+          toast && toast('Failed to read file.', { type: 'error', title: 'Import' });
+          document.body.removeChild(fileInput);
+        };
+        reader.readAsText(file);
+      });
+      fileInput.click();
+    });
+
+    exportBtn.addEventListener('click', () => {
+      const selectedIds = [];
+      const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach((cb) => {
+        if (cb.checked) {
+          const li = cb.closest('li');
+          if (li && li.dataset.appId) {
+            selectedIds.push(li.dataset.appId);
+          }
+        }
+      });
+      try {
+        const json = JSON.stringify(selectedIds, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const dateStr = new Date().toISOString().slice(0, 10);
+        a.download = `selected-packages-${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+        toast && toast('List exported.', { type: 'success', title: 'Export' });
+      } catch (err) {
+        debug && debug('error', 'Failed to export list:', err);
+        toast && toast('Failed to export list.', { type: 'error', title: 'Export' });
+      }
+    });
+
+    async function installCustomPackage(li) {
+      const appName = li.dataset.appName || li.dataset.appId;
+      const url = li.dataset.customUrl;
+      const ext = li.dataset.customExt || 'zip';
+      if (!url) {
+        throw new Error('Download URL missing for custom package');
+      }
+      const safeName = String(appName)
+        .replace(/\s+/g, '_')
+        .replace(/[^a-zA-Z0-9_\-]/g, '');
+      const dest = `${safeName}.${ext}`;
+      const downloadId = `custom-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+      return new Promise((resolve, reject) => {
+        const unsubscribe = window.api.onDownloadEvent(async (data) => {
+          try {
+            if (data.id !== downloadId) return;
+            if (data.status === 'error') {
+              unsubscribe();
+              reject(new Error(data.error || 'Download failed'));
+              return;
+            }
+            if (data.status === 'complete') {
+              unsubscribe();
+              try {
+                const statusEl = document.createElement('span');
+                statusEl.style.display = 'none';
+                li.appendChild(statusEl);
+                await window.processAdvancedInstaller(data.path, statusEl, appName);
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            }
+          } catch (err) {
+            unsubscribe();
+            reject(err);
+          }
+        });
+        window.api.downloadStart(downloadId, url, dest);
+      });
+    }
+
+    async function runWingetForSelected(action) {
+    const isInstall = action === 'install';
+    const selectedItems = [];
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    
+    checkboxes.forEach((cb) => {
+        if (cb.checked) {
+            const li = cb.closest('li');
+            if (li) selectedItems.push(li);
+        }
+    });
+    
+    if (selectedItems.length === 0) {
+        window.showToast('No applications selected.', { type: 'info', title: 'Install' });
+        return;
+    }
+
+    [installBtn, uninstallBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = true));
+    
+    let successCount = 0;
+    let errorCount = 0;
+    
+        for (const li of selectedItems) {
+        const id = li.dataset.appId;
+        const appName = li.dataset.appName || id;
+
+        if (li.dataset.isCustom === 'true') {
+            if (!isInstall) {
+                window.showToast(`${appName} cannot be uninstalled automatically.`, {
+                    type: 'error',
+                    title: 'Uninstall Error'
+                });
+                errorCount++;
+                continue;
+            }
+            try {
+                await installCustomPackage(li);
+                window.showToast(`${appName} installation initiated.`, {
+                    type: 'success',
+                    title: 'Install'
+                });
+                successCount++;
+            } catch (err) {
+                window.showToast(`Failed to install ${appName}: ${err.message}`, {
+                    type: 'error',
+                    title: 'Install Error'
+                });
+                errorCount++;
+            }
+            continue;
+        }
+
+        const command = isInstall
+            ? `winget install --id ${id} -e --accept-source-agreements --accept-package-agreements`
+            : `winget uninstall --id ${id} -e`;
+        
+        try {
+            const result = await window.api.runCommand(command);
+            
+            const output = (result.stdout || '') + (result.stderr || '');
+            const alreadyInstalled = isInstall && (
+                output.includes('No applicable upgrade found') ||
+                output.includes('already installed') ||
+                output.includes('No newer package versions')
+            );
+            
+            if (alreadyInstalled) {
+                window.showToast(`${appName} is already installed`, { 
+                    type: 'success', 
+                    title: 'Install'
+                });
+                successCount++;
+            } else if (result && result.error) {
+                window.showToast(`Failed to ${isInstall ? 'install' : 'uninstall'} ${appName}: ${result.error}`, { 
+                    type: 'error', 
+                    title: isInstall ? 'Install Error' : 'Uninstall Error'
+                });
+                errorCount++;
+            } else {
+                window.showToast(`${appName} ${isInstall ? 'installed' : 'uninstalled'} successfully!`, { 
+                    type: 'success', 
+                    title: isInstall ? 'Install' : 'Uninstall'
+                });
+                successCount++;
+            }
+        } catch (err) {
+            window.showToast(`Failed to ${isInstall ? 'install' : 'uninstall'} ${appName}: ${err.message}`, { 
+                type: 'error', 
+                title: isInstall ? 'Install Error' : 'Uninstall Error'
+            });
+            errorCount++;
+        }
+    }
+
+    if (successCount > 0 && errorCount === 0) {
+        window.showToast(`All ${selectedItems.length} applications ${isInstall ? 'installed' : 'uninstalled'} successfully!`, {
+            type: 'success',
+            title: 'Completed'
+        });
+    } else if (successCount > 0 && errorCount > 0) {
+        window.showToast(`Completed with ${successCount} successful and ${errorCount} failed ${isInstall ? 'installations' : 'uninstallations'}`, {
+            type: 'warning',
+            title: 'Partial Completion'
+        });
+    } else if (errorCount > 0) {
+        window.showToast(`All ${errorCount} ${isInstall ? 'installations' : 'uninstallations'} failed`, {
+            type: 'error',
+            title: 'Failed'
+        });
+    }
+
+    [installBtn, uninstallBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = false));
+}
+    installBtn.addEventListener('click', () => runWingetForSelected('install'));
+    uninstallBtn.addEventListener('click', () => runWingetForSelected('uninstall'));
+
+    await buildList();
+    return container;
+}
