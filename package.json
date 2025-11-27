@@ -21,7 +21,7 @@
     "sqlite3": "^5.1.6"
   },
   "devDependencies": {
-    "electron": "^38.2.2",
+    "electron": "^38.7.2",
     "electron-builder": "^26.0.12"
   },
   "build": {
