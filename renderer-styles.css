@@ -1,0 +1,561 @@
+/* ============================================
+   RENDERER STYLES - Extracted from renderer.js
+   ============================================ */
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* ============================================
+   TOOLTIP
+   ============================================ */
+.tooltip {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.tooltip.visible {
+  opacity: 1;
+}
+
+/* ============================================
+   UPDATE OVERLAY
+   ============================================ */
+.update-overlay-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.update-overlay-svg {
+  width: 120px;
+  height: 120px;
+  transform: rotate(-90deg);
+}
+
+.update-status {
+  margin-top: 20px;
+  color: #ffffff;
+  font-size: 18px;
+  text-align: center;
+}
+
+.update-overlay.visible {
+  display: flex;
+}
+
+.update-overlay.hidden {
+  display: none;
+}
+
+/* ============================================
+   LOADER
+   ============================================ */
+.loader.visible {
+  display: flex;
+}
+
+.loader.hidden {
+  display: none;
+}
+
+/* ============================================
+   IFRAME
+   ============================================ */
+.content-iframe {
+  border: none;
+  width: 100%;
+  height: 100%;
+}
+
+/* ============================================
+   BUTTONS - States
+   ============================================ */
+.btn-success-gradient {
+  background: linear-gradient(135deg, var(--success-color) 0%, #34d399 100%) !important;
+}
+
+.btn-error-gradient {
+  background: linear-gradient(135deg, var(--error-color) 0%, #f87171 100%) !important;
+}
+
+.btn-warning-gradient {
+  background: linear-gradient(135deg, var(--warning-color) 0%, #dc2626 100%) !important;
+}
+
+.btn-fade-out {
+  transition: all 0.5s ease;
+  opacity: 0;
+  max-height: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+.btn-hidden {
+  display: none;
+}
+
+.btn-full-width {
+  margin-top: auto;
+  width: 100%;
+}
+
+.btn-half {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+}
+
+.btn-standard-height {
+  height: 40px;
+  min-width: 100%;
+}
+
+.btn-run {
+  min-width: 10rem;
+}
+
+.btn-opacity-low {
+  opacity: 0.7;
+}
+
+.btn-opacity-full {
+  opacity: 1;
+}
+
+/* ============================================
+   STATUS ELEMENT
+   ============================================ */
+.status-element {
+  display: none;
+}
+
+.status-element.visible {
+  display: block;
+}
+
+.status-element.fade-out {
+  transition: all 0.5s ease;
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  border: none;
+  overflow: hidden;
+}
+
+.status-element.reset {
+  display: none;
+  opacity: 1;
+  max-height: none;
+  padding: initial;
+  margin: 1rem 0 0 0;
+  border: initial;
+  overflow: auto;
+}
+
+/* ============================================
+   PARAGRAPHS & DESCRIPTIONS
+   ============================================ */
+.description-text {
+  opacity: 0.8;
+  line-height: 1.6;
+}
+
+.page-desc {
+  opacity: 0.8;
+  margin-bottom: 1.5rem;
+}
+
+.desc-margin-large {
+  opacity: 0.8;
+  margin-bottom: 2rem;
+}
+
+/* ============================================
+   CARDS
+   ============================================ */
+.feature-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.feature-card-icon {
+  font-size: 2rem;
+  margin-right: 1rem;
+}
+
+.feature-card-name {
+  margin: 0 0 0.5rem 0;
+}
+
+.feature-card-desc {
+  margin: 0;
+  opacity: 0.8;
+  font-size: 0.9rem;
+  min-height: 40px;
+}
+
+.feature-card-desc-warning {
+  margin: 0;
+  opacity: 0.8;
+  font-size: 0.9rem;
+  color: var(--warning-color);
+  min-height: 40px;
+}
+
+.patch-card-full {
+  grid-column: 1 / -1;
+}
+
+/* ============================================
+   GRID LAYOUTS
+   ============================================ */
+.grid-2-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+.grid-2-col-margin {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  align-items: stretch;
+}
+
+.grid-auto-fit {
+  display: grid;
+  gap: 0.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+/* ============================================
+   SFC DISM CARD
+   ============================================ */
+.sfc-dism-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.sfc-dism-buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: auto;
+  align-items: center;
+}
+
+.sfc-dism-status {
+  display: none;
+  margin-top: 1rem;
+}
+
+/* ============================================
+   SCRIPT HEADING
+   ============================================ */
+.script-heading {
+  margin-bottom: 0.5rem;
+  font-size: 1.3rem;
+  color: var(--primary-color);
+}
+
+.script-description {
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.script-warning {
+  color: var(--error-color);
+}
+
+.admin-warning {
+  color: var(--warning-color);
+}
+
+/* ============================================
+   DOWNLOAD CARD
+   ============================================ */
+.download-card-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.download-progress-container {
+  display: none;
+}
+
+.download-progress-container.visible {
+  display: block;
+}
+
+.download-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.download-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light));
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.download-controls {
+  display: flex;
+  align-items: center;
+}
+
+.download-pause-btn,
+.download-cancel-btn {
+  padding: 0.5rem 1rem;
+  display: none;
+}
+
+.download-pause-btn.visible,
+.download-cancel-btn.visible {
+  display: inline-block;
+}
+
+.download-replace-btn {
+  min-width: auto;
+  width: auto;
+  padding: 0.5rem 0.75rem;
+  display: none;
+}
+
+.download-replace-btn.visible {
+  display: inline-block;
+}
+
+.button-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ============================================
+   NOTIFICATION
+   ============================================ */
+.notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 1rem 1.5rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  animation: slideIn 0.3s ease;
+}
+
+.notification.slide-out {
+  animation: slideOut 0.3s ease;
+}
+
+/* ============================================
+   SEARCH WRAPPER (Install Page)
+   ============================================ */
+.search-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.search-container {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: -22px;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
+}
+
+.search-input-styled {
+  width: 100%;
+  padding: 0.65rem 1rem 0.65rem 2.75rem;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 24px;
+  background: var(--search-bg, rgba(255, 255, 255, 0.06));
+  color: inherit;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.search-input-styled:focus {
+  border-color: var(--accent-color, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  background: var(--search-bg-focus, rgba(255, 255, 255, 0.08));
+}
+
+/* ============================================
+   ACTIONS WRAPPER
+   ============================================ */
+.actions-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+/* ============================================
+   LIST CONTAINER
+   ============================================ */
+.list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ============================================
+   CATEGORY GROUP
+   ============================================ */
+.category-heading {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.category-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* ============================================
+   APP LIST ITEM
+   ============================================ */
+.app-list-item {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  padding: 0.6rem;
+}
+
+.app-list-item.hidden {
+  display: none;
+}
+
+.app-checkbox {
+  margin-right: 1rem;
+}
+
+.app-favicon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  margin-right: 0.75rem;
+  border-radius: 4px;
+}
+
+.app-label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  cursor: pointer;
+}
+
+.app-text-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.app-name {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.2;
+}
+
+.app-id {
+  font-size: 0.85rem;
+  opacity: 0.75;
+  font-family: Consolas, Monaco, monospace;
+  line-height: 1.2;
+}
+
+.app-link {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  color: inherit;
+  opacity: 0.8;
+  padding-left: 0.5rem;
+}
+
+/* ============================================
+   FILE INPUT (Hidden)
+   ============================================ */
+.file-input-hidden {
+  display: none;
+}
+
+/* ============================================
+   CATEGORY GROUP VISIBILITY
+   ============================================ */
+.category-group.hidden {
+  display: none;
+}
+
+/* ============================================
+   ACTIVATOR BUTTON FADE
+   ============================================ */
+.activator-btn-fade {
+  transition: opacity 0.5s ease;
+  opacity: 0;
+}
+
+.activator-btn-hidden {
+  display: none;
+}
+
+/* ============================================
+   UPDATE BUTTON
+   ============================================ */
+.update-btn-hidden {
+  display: none;
+}

@@ -432,7 +432,7 @@ let pageEventManager = new EventListenerManager();
       tooltip.textContent = text;
       clearTimeout(tooltip._showTimer);
       tooltip._showTimer = setTimeout(() => {
-        tooltip.style.opacity = '1';
+        tooltip.classList.add('visible');
       }, 150);
       update(event, tooltip);
     }
@@ -440,7 +440,7 @@ let pageEventManager = new EventListenerManager();
     function hide() {
       const tooltip = ensure();
       clearTimeout(tooltip._showTimer);
-      tooltip.style.opacity = '0';
+      tooltip.classList.remove('visible');
     }
     return { ensure, update, show, hide };
   })();
@@ -508,17 +508,13 @@ let pageEventManager = new EventListenerManager();
         zIndex: '100000'
       });
       const container = document.createElement('div');
-      container.style.display = 'flex';
-      container.style.flexDirection = 'column';
-      container.style.alignItems = 'center';
+      container.className = 'update-overlay-container';
       updateOverlay.appendChild(container);
       // Create SVG progress ring
       const svgNS = 'http://www.w3.org/2000/svg';
       const svg = document.createElementNS(svgNS, 'svg');
       svg.setAttribute('viewBox', '0 0 100 100');
-      svg.style.width = '120px';
-      svg.style.height = '120px';
-      svg.style.transform = 'rotate(-90deg)';
+      svg.classList.add('update-overlay-svg');
       const bg = document.createElementNS(svgNS, 'circle');
       bg.setAttribute('cx', '50');
       bg.setAttribute('cy', '50');
@@ -543,16 +539,13 @@ let pageEventManager = new EventListenerManager();
       container.appendChild(svg);
       const text = document.createElement('p');
       text.className = 'update-status';
-      text.style.marginTop = '20px';
-      text.style.color = '#ffffff';
-      text.style.fontSize = '18px';
-      text.style.textAlign = 'center';
+      // Styles handled by CSS class 'update-status'
       container.appendChild(text);
       updateOverlay._progressCircle = progress;
       updateOverlay._statusEl = text;
       document.body.appendChild(updateOverlay);
     }
-    updateOverlay.style.display = 'flex';
+    updateOverlay.classList.add('visible'); updateOverlay.classList.remove('hidden');
     if (initialStatus) {
       updateOverlay._statusEl.textContent = initialStatus;
     }
@@ -570,7 +563,7 @@ let pageEventManager = new EventListenerManager();
   }
   function hideUpdateOverlay() {
     if (updateOverlay) {
-      updateOverlay.style.display = 'none';
+      updateOverlay.classList.add('hidden'); updateOverlay.classList.remove('visible');
     }
   }
   window.showToast = function(msg, opts = {}) {
@@ -674,7 +667,7 @@ let pageEventManager = new EventListenerManager();
     if (!loader) return;
     const progressBar = loader.querySelector('.progress-bar');
     const statusEl = loader.querySelector('#loading-status');
-    loader.style.display = 'flex';
+    loader.classList.add('visible'); loader.classList.remove('hidden');
     // Reset the progress bar width
     if (progressBar) progressBar.style.width = '0%';
     // Set status text if provided
@@ -693,7 +686,7 @@ let pageEventManager = new EventListenerManager();
   function hideAppLoader() {
     const loader = document.getElementById('app-loader');
     if (!loader) return;
-    loader.style.display = 'none';
+    loader.classList.add('hidden'); loader.classList.remove('visible');
     if (appLoaderInterval) {
       clearInterval(appLoaderInterval);
       appLoaderInterval = null;
@@ -993,9 +986,7 @@ let pageEventManager = new EventListenerManager();
     const iframe = document.createElement('iframe');
     iframe.src = 'info/info.html';
     iframe.setAttribute('title', 'Information');
-    iframe.style.border = 'none';
-    iframe.style.width = '100%';
-    iframe.style.height = '100%';
+    iframe.className = 'content-iframe';
     iframe.addEventListener('error', () => {
       iframe.src = 'info-final.html';
     });
@@ -1047,12 +1038,12 @@ let pageEventManager = new EventListenerManager();
             '🎮 DOWNLOAD SIMS INSTALLER' : '🚀 DOWNLOAD EA UNLOCKER';
         }
         button.disabled = false;
-        button.style.background = '';
+        button.classList.remove('btn-success-gradient', 'btn-error-gradient', 'btn-warning-gradient');
 
 
         setTimeout(() => {
           status.textContent = '';
-          status.style.display = 'none';
+          status.classList.remove('visible');
           status.classList.remove('status-success');
         }, 3000);
 
@@ -1066,7 +1057,7 @@ let pageEventManager = new EventListenerManager();
           '🎮 DOWNLOAD SIMS INSTALLER' : '🚀 DOWNLOAD EA UNLOCKER';
       }
       button.disabled = false;
-      button.style.background = '';
+      button.classList.remove('btn-success-gradient', 'btn-error-gradient', 'btn-warning-gradient');
     }
   }
 
@@ -1088,26 +1079,21 @@ let pageEventManager = new EventListenerManager();
   function resetReplaceButton(button, status, success) {
     if (success) {
       button.textContent = '✅ Replaced';
-      button.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
+      button.classList.add('btn-success-gradient');
       button.disabled = true;
 
 
       setTimeout(() => {
-        button.style.transition = 'all 0.5s ease';
-        button.style.opacity = '0';
-        button.style.maxHeight = '0';
-        button.style.padding = '0';
-        button.style.margin = '0';
-        button.style.overflow = 'hidden';
+        button.classList.add('btn-fade-out');
 
         setTimeout(() => {
-          button.style.display = 'none';
+          button.classList.add('btn-hidden');
         }, 500);
       }, 2000);
     } else {
       button.textContent = 'Replace EXE';
       button.disabled = false;
-      button.style.background = '';
+      button.classList.remove('btn-success-gradient', 'btn-error-gradient', 'btn-warning-gradient');
     }
   }
 
@@ -1122,8 +1108,7 @@ let pageEventManager = new EventListenerManager();
     if (typeof bodyContent === 'string') {
       const p = document.createElement('p');
       p.textContent = bodyContent;
-      p.style.opacity = '0.8';
-      p.style.lineHeight = '1.6';
+      p.classList.add('description-text');
       card.appendChild(p);
     } else if (bodyContent instanceof Node) {
       card.appendChild(bodyContent);
@@ -1287,8 +1272,7 @@ let pageEventManager = new EventListenerManager();
     container.appendChild(title);
     const desc = document.createElement('p');
     desc.textContent = (translations.pages && translations.pages.activate_desc) || 'Use these tools to activate Windows and configure automatic login without a password.';
-    desc.style.opacity = '0.8';
-    desc.style.marginBottom = '1.5rem';
+    desc.classList.add('page-desc');
     container.appendChild(desc);
 
 
@@ -1299,22 +1283,17 @@ let pageEventManager = new EventListenerManager();
     activateHeader.className = 'app-header';
 
     const activateIcon = document.createElement('div');
-    activateIcon.style.fontSize = '2rem';
-    activateIcon.style.marginRight = '1rem';
+    activateIcon.classList.add('feature-card-icon');
     activateIcon.textContent = '🔓';
     activateHeader.appendChild(activateIcon);
 
     const activateText = document.createElement('div');
     const activateName = document.createElement('h3');
     activateName.textContent = translations.activation.activate_windows || 'Activate Windows';
-    activateName.style.margin = '0 0 0.5rem 0';
+    activateName.classList.add('feature-card-name');
     const activateDesc = document.createElement('p');
     activateDesc.textContent = translations.activation.activate_desc || 'Downloads and runs the Windows activation script. Administrator rights required';
-    activateDesc.style.margin = '0';
-    activateDesc.style.opacity = '0.8';
-    activateDesc.style.fontSize = '0.9rem';
-    activateDesc.style.color = 'var(--warning-color)';
-    activateDesc.style.minHeight = '40px';
+    activateDesc.classList.add('feature-card-desc-warning');
     activateText.appendChild(activateName);
     activateText.appendChild(activateDesc);
     activateHeader.appendChild(activateText);
@@ -1324,12 +1303,11 @@ let pageEventManager = new EventListenerManager();
     const activateButton = document.createElement('button');
     activateButton.className = 'button';
     activateButton.textContent = translations.actions.activate_windows || 'Download & Activate Windows';
-    activateButton.style.marginTop = 'auto';
-    activateButton.style.width = '100%';
+    activateButton.classList.add('btn-full-width');
 
     const activateStatus = document.createElement('pre');
     activateStatus.className = 'status-pre';
-    activateStatus.style.display = 'none';
+    activateStatus.classList.add('status-element');
 
     activateButton.addEventListener('click', async () => {
       await downloadAndRunActivate(activateButton, activateStatus);
@@ -1346,21 +1324,17 @@ let pageEventManager = new EventListenerManager();
     autologinHeader.className = 'app-header';
 
     const autologinIcon = document.createElement('div');
-    autologinIcon.style.fontSize = '2rem';
-    autologinIcon.style.marginRight = '1rem';
+    autologinIcon.classList.add('feature-card-icon');
     autologinIcon.textContent = '🚀';
     autologinHeader.appendChild(autologinIcon);
 
     const autologinText = document.createElement('div');
     const autologinName = document.createElement('h3');
     autologinName.textContent = translations.activation.auto_login || 'Auto Login';
-    autologinName.style.margin = '0 0 0.5rem 0';
+    autologinName.classList.add('feature-card-name');
     const autologinDesc = document.createElement('p');
     autologinDesc.textContent = translations.activation.auto_login_desc || 'Downloads and sets up automatic login without a password';
-    autologinDesc.style.margin = '0';
-    autologinDesc.style.opacity = '0.8';
-    autologinDesc.style.fontSize = '0.9rem';
-    autologinDesc.style.minHeight = '40px';
+    autologinDesc.classList.add('feature-card-desc');
     autologinText.appendChild(autologinName);
     autologinText.appendChild(autologinDesc);
     autologinHeader.appendChild(autologinText);
@@ -1370,12 +1344,11 @@ let pageEventManager = new EventListenerManager();
     const autologinButton = document.createElement('button');
     autologinButton.className = 'button';
     autologinButton.textContent = translations.actions.setup_autologin || 'Download & Setup Auto Login';
-    autologinButton.style.marginTop = 'auto';
-    autologinButton.style.width = '100%';
+    autologinButton.classList.add('btn-full-width');
 
     const autologinStatus = document.createElement('pre');
     autologinStatus.className = 'status-pre';
-    autologinStatus.style.display = 'none';
+    autologinStatus.classList.add('status-element');
 
     autologinButton.addEventListener('click', async () => {
       await downloadAndRunAutologin(autologinButton, autologinStatus);
@@ -1387,9 +1360,7 @@ let pageEventManager = new EventListenerManager();
 
     const grid = document.createElement('div');
     grid.className = 'install-grid';
-    grid.style.gridTemplateColumns = '1fr 1fr';
-    grid.style.gap = '1.5rem';
-    grid.style.alignItems = 'stretch';
+    grid.classList.add('grid-2-col');
 
     grid.appendChild(activateCard);
     grid.appendChild(autologinCard);
@@ -1408,8 +1379,7 @@ let pageEventManager = new EventListenerManager();
     container.appendChild(pageTitle);
     const pageDesc = document.createElement('p');
     pageDesc.textContent = (translations.pages && translations.pages.dlc_desc) || 'Choose the appropriate tool to unlock DLCs for EA games and The Sims. Use the Sims Installer for the complete Sims DLC package or the EA Unlocker to access all EA game content.';
-    pageDesc.style.opacity = '0.8';
-    pageDesc.style.marginBottom = '1.5rem';
+    pageDesc.classList.add('page-desc');
     container.appendChild(pageDesc);
 
 
@@ -1587,10 +1557,9 @@ let pageEventManager = new EventListenerManager();
   async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, dlcName) {
     button.disabled = true;
     const originalText = button.innerHTML;
-    const originalBackground = button.style.background;
 
 
-    statusElement.style.display = 'none';
+    statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
     statusElement.textContent = '';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
 
@@ -1623,7 +1592,7 @@ let pageEventManager = new EventListenerManager();
 
                 if (exeResult.success) {
                   button.innerHTML = '✅ INSTALLER RUNNING';
-                  button.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
+                  button.classList.add('btn-success-gradient');
 
                   toast(`${dlcName} installer started! Follow the installation wizard.`, {
                     type: 'success',
@@ -1634,7 +1603,7 @@ let pageEventManager = new EventListenerManager();
                   setTimeout(() => {
                     button.innerHTML = originalText;
                     button.disabled = false;
-                    button.style.background = originalBackground;
+                    button.classList.remove('btn-success-gradient', 'btn-error-gradient', 'btn-warning-gradient');
                   }, 4000);
 
                 } else {
@@ -1644,7 +1613,7 @@ let pageEventManager = new EventListenerManager();
                   statusElement.textContent = '';
 
                   statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
-                  statusElement.style.display = 'none';
+                  statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
 
                   try {
                     showErrorCard(errMsg, { title: dlcName });
@@ -1652,12 +1621,12 @@ let pageEventManager = new EventListenerManager();
 
                     statusElement.textContent = errMsg;
                     statusElement.classList.add('status-error');
-                    statusElement.style.display = 'block';
+                    statusElement.classList.add('visible');
                   }
 
                   button.innerHTML = originalText;
                   button.disabled = false;
-                  button.style.background = originalBackground;
+                  button.classList.remove('btn-success-gradient', 'btn-error-gradient', 'btn-warning-gradient');
                 }
               } else {
 
@@ -1671,7 +1640,7 @@ let pageEventManager = new EventListenerManager();
 
                   if (exeResult.success) {
                     button.innerHTML = '✅ INSTALLER RUNNING';
-                    button.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
+                    button.classList.add('btn-success-gradient');
 
                     toast(`${dlcName} installer started! Follow the installation wizard.`, {
                       type: 'success',
@@ -1683,7 +1652,7 @@ let pageEventManager = new EventListenerManager();
                     setTimeout(() => {
                       button.innerHTML = originalText;
                       button.disabled = false;
-                      button.style.background = originalBackground;
+                      button.classList.remove('btn-success-gradient', 'btn-error-gradient', 'btn-warning-gradient');
                     }, 4000);
 
                   } else {
@@ -1691,18 +1660,18 @@ let pageEventManager = new EventListenerManager();
                     const errMsg = `Extracted but could not run installer: ${exeResult.error}\nPlease try running the installer manually from the extracted folder.`;
                     statusElement.textContent = '';
                     statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
-                    statusElement.style.display = 'none';
+                    statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
                     try {
                       showErrorCard(errMsg, { title: dlcName });
                     } catch (_) {
                       statusElement.textContent = errMsg;
                       statusElement.classList.add('status-error');
-                      statusElement.style.display = 'block';
+                      statusElement.classList.add('visible');
                     }
 
                     button.innerHTML = originalText;
                     button.disabled = false;
-                    button.style.background = originalBackground;
+                    button.classList.remove('btn-success-gradient', 'btn-error-gradient', 'btn-warning-gradient');
                   }
                 } else {
 
@@ -1711,7 +1680,7 @@ let pageEventManager = new EventListenerManager();
 
                   statusElement.textContent = '';
                   statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
-                  statusElement.style.display = 'none';
+                  statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
 
                   try {
                     showErrorCard(fullMsg, { title: dlcName });
@@ -1719,11 +1688,11 @@ let pageEventManager = new EventListenerManager();
 
                     statusElement.textContent = fullMsg;
                     statusElement.classList.add('status-error');
-                    statusElement.style.display = 'block';
+                    statusElement.classList.add('visible');
                   }
                   button.innerHTML = '🔄 TRY AGAIN';
                   button.disabled = false;
-                  button.style.background = originalBackground;
+                  button.classList.remove('btn-success-gradient', 'btn-error-gradient', 'btn-warning-gradient');
                   toast(`Failed to extract ${dlcName}`, {
                     type: 'error',
                     title: 'DLC Unlocker',
@@ -1738,18 +1707,18 @@ let pageEventManager = new EventListenerManager();
 
               statusElement.textContent = '';
               statusElement.classList.remove('show', 'status-error', 'status-success', 'status-warning');
-              statusElement.style.display = 'none';
+              statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
               try {
                 showErrorCard(fullMsg, { title: dlcName });
               } catch (_) {
 
                 statusElement.textContent = fullMsg;
                 statusElement.classList.add('status-error');
-                statusElement.style.display = 'block';
+                statusElement.classList.add('visible');
               }
               button.innerHTML = '🔄 TRY AGAIN';
               button.disabled = false;
-              button.style.background = originalBackground;
+              button.classList.remove('btn-success-gradient', 'btn-error-gradient', 'btn-warning-gradient');
               toast(`Failed to extract ${dlcName}`, {
                 type: 'error',
                 title: 'DLC Unlocker',
@@ -1766,10 +1735,10 @@ let pageEventManager = new EventListenerManager();
 
             statusElement.textContent = `Download error: ${data.error}\nPlease check your internet connection and try again.`;
             statusElement.classList.add('status-error');
-            statusElement.style.display = 'block';
+            statusElement.classList.add('visible');
             button.innerHTML = originalText;
             button.disabled = false;
-            button.style.background = originalBackground;
+            button.classList.remove('btn-success-gradient', 'btn-error-gradient', 'btn-warning-gradient');
 
             toast(`Download failed for ${dlcName}`, {
               type: 'error',
@@ -1789,10 +1758,10 @@ let pageEventManager = new EventListenerManager();
 
         statusElement.textContent = `Download failed: ${e.message}\nPlease check your internet connection.`;
         statusElement.classList.add('status-error');
-        statusElement.style.display = 'block';
+        statusElement.classList.add('visible');
         button.innerHTML = originalText;
         button.disabled = false;
-        button.style.background = originalBackground;
+        button.classList.remove('btn-success-gradient', 'btn-error-gradient', 'btn-warning-gradient');
 
         toast(`Download failed for ${dlcName}`, {
           type: 'error',
@@ -2022,7 +1991,7 @@ let pageEventManager = new EventListenerManager();
 
     button.dataset.originalTextActivate = originalText;
 
-    statusElement.style.display = 'none';
+    statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
     statusElement.textContent = '';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
 
@@ -2053,19 +2022,19 @@ let pageEventManager = new EventListenerManager();
 
                   button.textContent = 'Activation Started';
                   statusElement.textContent = '';
-                  statusElement.style.display = 'none';
+                  statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
                 } else {
 
                   button.textContent = originalText;
                   statusElement.textContent = '';
-                  statusElement.style.display = 'none';
+                  statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
                   toast('Failed to run activation script', { type: 'error', title: 'Activation' });
                 }
               })
               .catch((err) => {
                 button.textContent = originalText;
                 statusElement.textContent = '';
-                statusElement.style.display = 'none';
+                statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
                 toast('Error running activation script', { type: 'error', title: 'Activation' });
               })
               .finally(() => {
@@ -2080,7 +2049,7 @@ let pageEventManager = new EventListenerManager();
             button.textContent = originalText;
             button.disabled = false;
             statusElement.textContent = '';
-            statusElement.style.display = 'none';
+            statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
             toast('Download failed', { type: 'error', title: 'Activation' });
             unsubscribe();
             resolve();
@@ -2096,7 +2065,7 @@ let pageEventManager = new EventListenerManager();
         button.textContent = originalText;
         button.disabled = false;
         statusElement.textContent = '';
-        statusElement.style.display = 'none';
+        statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
         toast('Download failed', { type: 'error', title: 'Activation' });
         unsubscribe();
         resolve();
@@ -2110,7 +2079,7 @@ let pageEventManager = new EventListenerManager();
 
     button.dataset.originalTextAutologin = originalText;
 
-    statusElement.style.display = 'none';
+    statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
     statusElement.textContent = '';
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
 
@@ -2141,19 +2110,19 @@ let pageEventManager = new EventListenerManager();
 
                   button.textContent = 'Auto Login Started';
                   statusElement.textContent = '';
-                  statusElement.style.display = 'none';
+                  statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
                 } else {
 
                   button.textContent = originalText;
                   statusElement.textContent = '';
-                  statusElement.style.display = 'none';
+                  statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
                   toast('Failed to run auto login tool', { type: 'error', title: 'Auto Login' });
                 }
               })
               .catch((err) => {
                 button.textContent = originalText;
                 statusElement.textContent = '';
-                statusElement.style.display = 'none';
+                statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
                 toast('Error running auto login tool', { type: 'error', title: 'Auto Login' });
               })
               .finally(() => {
@@ -2168,7 +2137,7 @@ let pageEventManager = new EventListenerManager();
             button.textContent = originalText;
             button.disabled = false;
             statusElement.textContent = '';
-            statusElement.style.display = 'none';
+            statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
             toast('Download failed', { type: 'error', title: 'Auto Login' });
             unsubscribe();
             resolve();
@@ -2184,7 +2153,7 @@ let pageEventManager = new EventListenerManager();
         button.textContent = originalText;
         button.disabled = false;
         statusElement.textContent = '';
-        statusElement.style.display = 'none';
+        statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
         toast('Download failed', { type: 'error', title: 'Auto Login' });
         unsubscribe();
         resolve();
@@ -2600,11 +2569,10 @@ let pageEventManager = new EventListenerManager();
             setTimeout(() => {
               // Ensure the button is still in the DOM before applying the fade
               if (activatorButton && activatorButton.parentElement) {
-                activatorButton.style.transition = 'opacity 0.5s ease';
-                activatorButton.style.opacity = '0';
+                activatorButton.classList.add('activator-btn-fade');
                 // After the fade completes, remove the button from the layout
                 setTimeout(() => {
-                  activatorButton.style.display = 'none';
+                  activatorButton.classList.add('activator-btn-hidden');
                 }, 500);
               }
             }, 3000);
@@ -2801,8 +2769,7 @@ let pageEventManager = new EventListenerManager();
     container.appendChild(pageTitle);
     const pageDesc = document.createElement('p');
     pageDesc.textContent = translations.pages?.spicetify_desc || 'Adds themes and customizations to Spotify for a better experience.';
-    pageDesc.style.opacity = '0.8';
-    pageDesc.style.marginBottom = '1.5rem';
+    pageDesc.classList.add('page-desc');
     container.appendChild(pageDesc);
 
 
@@ -2938,8 +2905,7 @@ let pageEventManager = new EventListenerManager();
     container.className = 'card';
     const pageDesc = document.createElement('p');
     pageDesc.textContent = crackDesc;
-    pageDesc.style.opacity = '0.8';
-    pageDesc.style.marginBottom = '1.5rem';
+    pageDesc.classList.add('page-desc');
     container.appendChild(pageDesc);
     const projects = [
       {
@@ -2995,8 +2961,7 @@ let pageEventManager = new EventListenerManager();
     const grid = document.createElement('div');
     grid.className = 'install-grid crack-grid';
 
-    grid.style.gap = '0.25rem';
-    grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
+    grid.classList.add('grid-auto-fit');
     projects.forEach((project) => {
       const { key, fallbackName, desc, url, icon } = project;
 
@@ -3013,9 +2978,7 @@ let pageEventManager = new EventListenerManager();
       img.alt = name;
       img.className = 'app-icon';
 
-      img.style.width = '48px';
-      img.style.height = '48px';
-      img.style.objectFit = 'contain';
+      img.classList.add('download-card-img');
       header.appendChild(img);
       const h3 = document.createElement('h3');
       h3.textContent = name;
@@ -3039,37 +3002,27 @@ let pageEventManager = new EventListenerManager();
       status.className = 'status-pre';
       const progressContainer = document.createElement('div');
       progressContainer.className = 'progress-container';
-      progressContainer.style.display = 'none';
+      progressContainer.classList.add('download-progress-container');
       const progressBar = document.createElement('div');
       progressBar.className = 'progress-bar';
-      progressBar.style.width = '100%';
-      progressBar.style.height = '6px';
-      progressBar.style.background = 'var(--border-color)';
-      progressBar.style.borderRadius = '3px';
-      progressBar.style.overflow = 'hidden';
+      progressBar.classList.add('download-progress-bar');
       const progressFill = document.createElement('div');
       progressFill.className = 'progress-fill';
-      progressFill.style.height = '100%';
-      progressFill.style.background = 'linear-gradient(90deg, var(--accent-color), var(--accent-color-light))';
-      progressFill.style.width = '0%';
-      progressFill.style.transition = 'width 0.3s ease';
+      progressFill.classList.add('download-progress-fill');
       progressBar.appendChild(progressFill);
       const pauseBtn = document.createElement('button');
       pauseBtn.className = 'button button-secondary';
       pauseBtn.textContent = 'Pause';
-      pauseBtn.style.padding = '0.5rem 1rem';
-      pauseBtn.style.display = 'none';
+      pauseBtn.classList.add('download-pause-btn');
 
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'button button-secondary';
       cancelBtn.textContent = 'Cancel';
-      cancelBtn.style.padding = '0.5rem 1rem';
-      cancelBtn.style.display = 'none';
+      cancelBtn.classList.add('download-cancel-btn');
 
       const controls = document.createElement('div');
       controls.className = 'controls';
-      controls.style.display = 'flex';
-      controls.style.alignItems = 'center';
+      controls.classList.add('download-controls');
       controls.appendChild(pauseBtn);
       controls.appendChild(cancelBtn);
 
@@ -3079,10 +3032,7 @@ let pageEventManager = new EventListenerManager();
       replaceBtn.className = 'button button-secondary';
       replaceBtn.textContent = 'Replace EXE';
 
-      replaceBtn.style.minWidth = 'auto';
-      replaceBtn.style.width = 'auto';
-      replaceBtn.style.padding = '0.5rem 0.75rem';
-      replaceBtn.style.display = 'none';
+      replaceBtn.classList.add('download-replace-btn');
 
       const isClipStudio = key === 'clip_studio_paint';
 
@@ -3103,7 +3053,7 @@ let pageEventManager = new EventListenerManager();
 
 
 
-        status.style.display = '';
+        status.classList.add('visible');
 
         toast('Starting replacement process...', { type: 'success', title: 'Replace EXE' });
 
@@ -3177,7 +3127,7 @@ let pageEventManager = new EventListenerManager();
 
         if (result.success) {
           button.textContent = '✅ Replaced';
-          button.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
+          button.classList.add('btn-success-gradient');
 
           toast('Clip Studio crack applied successfully!', {
             type: 'success',
@@ -3208,11 +3158,11 @@ let pageEventManager = new EventListenerManager();
         btn.textContent = 'Preparing download...';
 
         status.textContent = '';
-        status.style.display = 'none';
+        status.classList.remove('visible');
 
-        progressContainer.style.display = 'none';
+        progressContainer.classList.add('download-progress-container');
 
-        replaceBtn.style.display = 'none';
+        replaceBtn.classList.remove('visible');
 
         const downloadId = `${cardId}-${Date.now()}`;
 
@@ -3238,8 +3188,8 @@ let pageEventManager = new EventListenerManager();
 
               btn.textContent = 'Download complete! Extracting...';
 
-              pauseBtn.style.display = 'none';
-              cancelBtn.style.display = 'none';
+              pauseBtn.classList.remove('visible');
+              cancelBtn.classList.remove('visible');
               try {
                 const extractResult = await window.api.extractArchive(data.path, '123');
 
@@ -3262,7 +3212,7 @@ let pageEventManager = new EventListenerManager();
                         btn.textContent = 'Installation in Progress';
                         completeProcess(cardId, 'download', true);
 
-                        replaceBtn.style.display = 'inline-block';
+                        replaceBtn.classList.add('visible');
                         replaceBtn.disabled = false;
                         replaceBtn.dataset.sourceDir = extractedDir;
                         replaceBtn.dataset.targetPath = 'C:/Program Files/CELSYS/CLIP STUDIO 1.5/CLIP STUDIO PAINT/CLIPStudioPaint.exe';
@@ -3301,7 +3251,7 @@ let pageEventManager = new EventListenerManager();
                 completeProcess(cardId, 'download', false);
               } finally {
 
-                progressContainer.style.display = 'none';
+                progressContainer.classList.add('download-progress-container');
                 progressFill.style.width = '0%';
               }
               break;
@@ -3319,12 +3269,12 @@ let pageEventManager = new EventListenerManager();
               });
               completeProcess(cardId, 'download', false);
 
-              pauseBtn.style.display = 'none';
-              cancelBtn.style.display = 'none';
-              progressContainer.style.display = 'none';
+              pauseBtn.classList.remove('visible');
+              cancelBtn.classList.remove('visible');
+              progressContainer.classList.add('download-progress-container');
               progressFill.style.width = '0%';
 
-              replaceBtn.style.display = 'none';
+              replaceBtn.classList.remove('visible');
               if (unsubscribe) unsubscribe();
               break;
             }
@@ -3347,9 +3297,7 @@ let pageEventManager = new EventListenerManager();
 
 
       const buttonWrapper = document.createElement('div');
-      buttonWrapper.style.display = 'flex';
-      buttonWrapper.style.alignItems = 'center';
-      buttonWrapper.style.gap = '0.5rem';
+      buttonWrapper.classList.add('button-wrapper');
       buttonWrapper.appendChild(btn);
       buttonWrapper.appendChild(replaceBtn);
 
@@ -3376,18 +3324,13 @@ let pageEventManager = new EventListenerManager();
 
     const desc = document.createElement('p');
     desc.textContent = translations.pages?.maintenance_desc || 'Perform various system maintenance tasks to keep your computer running smoothly.';
-    desc.style.opacity = '0.8';
-    desc.style.marginBottom = '2rem';
+    desc.classList.add('desc-margin-large');
     container.appendChild(desc);
 
 
     const firstRow = document.createElement('div');
     firstRow.className = 'maintenance-row';
-    firstRow.style.display = 'grid';
-    firstRow.style.gridTemplateColumns = '1fr 1fr';
-    firstRow.style.gap = '1.5rem';
-    firstRow.style.marginBottom = '1.5rem';
-    firstRow.style.alignItems = 'stretch';
+    firstRow.classList.add('grid-2-col-margin');
 
     const tempCard = createMaintenanceCard(
       translations.maintenance.delete_temp_files || 'Delete Temp Files',
@@ -3401,34 +3344,28 @@ let pageEventManager = new EventListenerManager();
 
 
     const tempButton = tempCard.querySelector('button');
-    tempButton.style.height = '40px';
-    tempButton.style.minWidth = '100%';
+    tempButton.classList.add('btn-standard-height');
 
 
     const sfcDismCard = document.createElement('div');
     sfcDismCard.className = 'app-card';
-    sfcDismCard.style.display = 'flex';
-    sfcDismCard.style.flexDirection = 'column';
+    sfcDismCard.classList.add('feature-card');
 
     const sfcDismHeader = document.createElement('div');
     sfcDismHeader.className = 'app-header';
 
     const sfcDismIcon = document.createElement('div');
-    sfcDismIcon.style.fontSize = '2rem';
-    sfcDismIcon.style.marginRight = '1rem';
+    sfcDismIcon.classList.add('feature-card-icon');
     sfcDismIcon.textContent = '🛠️';
     sfcDismHeader.appendChild(sfcDismIcon);
 
     const sfcDismText = document.createElement('div');
     const sfcDismName = document.createElement('h3');
     sfcDismName.textContent = translations.maintenance.system_file_repair || 'System File Repair';
-    sfcDismName.style.margin = '0 0 0.5rem 0';
+    sfcDismName.classList.add('feature-card-name');
     const sfcDismDesc = document.createElement('p');
     sfcDismDesc.textContent = translations.maintenance.system_file_desc || 'SFC Scan & DISM Repair system tools (Admin required)';
-    sfcDismDesc.style.margin = '0';
-    sfcDismDesc.style.opacity = '0.8';
-    sfcDismDesc.style.fontSize = '0.9rem';
-    sfcDismDesc.style.color = 'var(--warning-color)';
+    sfcDismDesc.classList.add('feature-card-desc-warning');
     sfcDismText.appendChild(sfcDismName);
     sfcDismText.appendChild(sfcDismDesc);
     sfcDismHeader.appendChild(sfcDismText);
@@ -3437,29 +3374,21 @@ let pageEventManager = new EventListenerManager();
 
 
     const sfcDismButtons = document.createElement('div');
-    sfcDismButtons.style.display = 'flex';
-    sfcDismButtons.style.gap = '0.75rem';
-    sfcDismButtons.style.marginTop = 'auto';
-    sfcDismButtons.style.alignItems = 'center';
+    sfcDismButtons.classList.add('sfc-dism-buttons');
 
     const sfcButton = document.createElement('button');
     sfcButton.className = 'button';
     sfcButton.textContent = translations.actions.run_sfc || 'Run SFC';
-    sfcButton.style.flex = '1';
-    sfcButton.style.minWidth = '0';
-    sfcButton.style.height = '40px';
+    sfcButton.classList.add('btn-half');
 
     const dismButton = document.createElement('button');
     dismButton.className = 'button';
     dismButton.textContent = translations.actions.run_dism || 'Run DISM';
-    dismButton.style.flex = '1';
-    dismButton.style.minWidth = '0';
-    dismButton.style.height = '40px';
+    dismButton.classList.add('btn-half');
 
     const sfcDismStatus = document.createElement('pre');
     sfcDismStatus.className = 'status-pre';
-    sfcDismStatus.style.display = 'none';
-    sfcDismStatus.style.marginTop = '1rem';
+    sfcDismStatus.classList.add('sfc-dism-status');
 
     sfcDismStatus.dataset.hideStatus = 'true';
 
@@ -3494,11 +3423,10 @@ let pageEventManager = new EventListenerManager();
 
 
     const patchButton = patchCard.querySelector('button');
-    patchButton.style.height = '40px';
-    patchButton.style.minWidth = '100%';
+    patchButton.classList.add('btn-standard-height');
 
 
-    patchCard.style.gridColumn = '1 / -1';
+    patchCard.classList.add('patch-card-full');
 
     secondRow.appendChild(patchCard);
     container.appendChild(secondRow);
@@ -3515,15 +3443,12 @@ let pageEventManager = new EventListenerManager();
     const heading = document.createElement('h2');
     heading.textContent = (translations.debloat && translations.debloat.heading) ||
       'Windows Debloat';
-    heading.style.marginBottom = '0.5rem';
-    heading.style.fontSize = '1.3rem';
-    heading.style.color = 'var(--primary-color)';
+    heading.classList.add('script-heading');
     container.appendChild(heading);
 
 
     const description = document.createElement('p');
-    description.style.marginBottom = '1rem';
-    description.style.lineHeight = '1.5';
+    description.classList.add('script-description');
     description.textContent = (translations.pages && translations.pages.debloat_raphi_desc) ||
       'This will download and run an external debloat script (Raphi) via PowerShell. ' +
       'Administrator privileges and an active internet connection are required. ' +
@@ -3539,7 +3464,7 @@ let pageEventManager = new EventListenerManager();
     if (!isWindows) {
       const warn = document.createElement('p');
       warn.textContent = 'The debloat script is only supported on Windows.';
-      warn.style.color = 'var(--error-color)';
+      warn.classList.add('script-warning');
       container.appendChild(warn);
       return container;
     }
@@ -3549,7 +3474,7 @@ let pageEventManager = new EventListenerManager();
     runBtn.className = 'button';
     runBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.runRaphiScript) ||
       'Run Debloat Script';
-    runBtn.style.minWidth = '10rem';
+    runBtn.classList.add('btn-run');
     runBtn.addEventListener('click', async () => {
       // Prevent double-clicks while an operation is already in progress
       if (runBtn.disabled) return;
@@ -3804,33 +3729,29 @@ let pageEventManager = new EventListenerManager();
   function createMaintenanceCard(name, description, icon, buttonText, taskFunction, requiresAdmin = false, hideStatus = false) {
     const card = document.createElement('div');
     card.className = 'app-card';
-    card.style.display = 'flex';
-    card.style.flexDirection = 'column';
+    card.classList.add('feature-card');
 
     const header = document.createElement('div');
     header.className = 'app-header';
 
     const iconEl = document.createElement('div');
-    iconEl.style.fontSize = '2rem';
-    iconEl.style.marginRight = '1rem';
+    iconEl.classList.add('feature-card-icon');
     iconEl.textContent = icon;
     header.appendChild(iconEl);
 
     const text = document.createElement('div');
     const nameEl = document.createElement('h3');
     nameEl.textContent = name;
-    nameEl.style.margin = '0 0 0.5rem 0';
+    nameEl.classList.add('feature-card-name');
     const descEl = document.createElement('p');
     descEl.textContent = description;
-    descEl.style.margin = '0';
-    descEl.style.opacity = '0.8';
-    descEl.style.fontSize = '0.9rem';
+    descEl.classList.add('feature-card-desc');
 
 
     if (requiresAdmin) {
       const adminWarning = document.createElement('small');
       adminWarning.textContent = ' (Admin required)';
-      adminWarning.style.color = 'var(--warning-color)';
+      adminWarning.classList.add('admin-warning');
       descEl.appendChild(adminWarning);
     }
 
@@ -3841,11 +3762,11 @@ let pageEventManager = new EventListenerManager();
     const button = document.createElement('button');
     button.className = 'button';
     button.textContent = buttonText;
-    button.style.marginTop = 'auto';
+    button.classList.add('btn-full-width');
 
     const status = document.createElement('pre');
     status.className = 'status-pre';
-    status.style.display = 'none';
+    status.classList.remove('visible');
 
     if (hideStatus) {
       status.dataset.hideStatus = 'true';
@@ -3870,7 +3791,7 @@ let pageEventManager = new EventListenerManager();
     const hideStatus = statusElement && statusElement.dataset && statusElement.dataset.hideStatus === 'true';
 
     if (!hideStatus) {
-      statusElement.style.display = 'block';
+      statusElement.classList.add('visible');
       if (requiresAdmin) {
         statusElement.textContent = `Running ${taskName}...\n⚠️ This task may require Administrator privileges\n`;
       } else {
@@ -3907,24 +3828,11 @@ let pageEventManager = new EventListenerManager();
     }
 
     statusElement._autoFadeTimeout = setTimeout(() => {
-      statusElement.style.transition = 'all 0.5s ease';
-      statusElement.style.opacity = '0';
-      statusElement.style.maxHeight = '0';
-      statusElement.style.paddingTop = '0';
-      statusElement.style.paddingBottom = '0';
-      statusElement.style.marginTop = '0';
-      statusElement.style.marginBottom = '0';
-      statusElement.style.border = 'none';
-      statusElement.style.overflow = 'hidden';
+      statusElement.classList.add('status-element', 'fade-out');
 
       setTimeout(() => {
-        statusElement.style.display = 'none';
-        statusElement.style.opacity = '1';
-        statusElement.style.maxHeight = 'none';
-        statusElement.style.padding = '';
-        statusElement.style.margin = '1rem 0 0 0';
-        statusElement.style.border = '';
-        statusElement.style.overflow = 'auto';
+        statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
+        statusElement.classList.remove('fade-out'); statusElement.classList.add('reset');
         statusElement.textContent = '';
         statusElement.classList.remove('status-success', 'status-error', 'status-warning');
       }, 500);
@@ -3991,7 +3899,7 @@ let pageEventManager = new EventListenerManager();
     const hideStatus = statusElement && statusElement.dataset && statusElement.dataset.hideStatus === 'true';
 
     if (!hideStatus) {
-      statusElement.style.display = 'block';
+      statusElement.classList.add('visible');
       statusElement.textContent = `Running ${taskName}...`;
       statusElement.classList.remove('status-success', 'status-error', 'status-warning');
     }
@@ -4022,7 +3930,7 @@ let pageEventManager = new EventListenerManager();
 
 
     statusElement.textContent = '';
-    statusElement.style.display = 'none';
+    statusElement.classList.remove('visible'); statusElement.classList.add('status-element');
     statusElement.classList.remove('status-success', 'status-error', 'status-warning');
 
 
@@ -4221,21 +4129,12 @@ let pageEventManager = new EventListenerManager();
     const notification = document.createElement('div');
     notification.className = `toast status-${type}`;
     notification.textContent = message;
-    notification.style.position = 'fixed';
-    notification.style.bottom = '20px';
-    notification.style.right = '20px';
-    notification.style.padding = '1rem 1.5rem';
-    notification.style.background = 'var(--card-bg)';
-    notification.style.border = '1px solid var(--border-color)';
-    notification.style.borderRadius = '12px';
-    notification.style.boxShadow = '0 8px 32px rgba(0,0,0,0.2)';
-    notification.style.zIndex = '1000';
-    notification.style.animation = 'slideIn 0.3s ease';
+    notification.classList.add('notification');
 
     document.body.appendChild(notification);
 
     setTimeout(() => {
-      notification.style.animation = 'slideOut 0.3s ease';
+      notification.classList.add('slide-out');
       setTimeout(() => notification.remove(), 300);
     }, 3000);
   }
@@ -4450,7 +4349,7 @@ let pageEventManager = new EventListenerManager();
     restartBtn.addEventListener('click', async () => {
       restartBtn.disabled = true;
       restartBtn.innerHTML = '⏳ Processing...';
-      restartBtn.style.opacity = '0.7';
+      restartBtn.classList.add('btn-opacity-low');
 
       try {
         const result = await window.api.restartToBios();
@@ -4458,7 +4357,7 @@ let pageEventManager = new EventListenerManager();
 
         if (result.success) {
           restartBtn.innerHTML = '✅ Success!';
-          restartBtn.style.background = 'linear-gradient(135deg, var(--success-color) 0%, #34d399 100%)';
+          restartBtn.classList.add('btn-success-gradient');
 
           toast('BIOS restart initiated! Computer will restart shortly.', {
             type: 'success',
@@ -4481,13 +4380,13 @@ let pageEventManager = new EventListenerManager();
       } catch (error) {
 
         restartBtn.innerHTML = '❌ Failed';
-        restartBtn.style.background = 'linear-gradient(135deg, var(--error-color) 0%, #f87171 100%)';
+        restartBtn.classList.add('btn-error-gradient');
 
         setTimeout(() => {
           restartBtn.disabled = false;
           restartBtn.innerHTML = '🔄 ' + (translations.messages.restart_to_bios || 'Restart to BIOS');
-          restartBtn.style.opacity = '1';
-          restartBtn.style.background = 'linear-gradient(135deg, var(--warning-color) 0%, #dc2626 100%)';
+          restartBtn.classList.remove('btn-opacity-low');
+          restartBtn.classList.add('btn-warning-gradient');
         }, 2000);
 
         if (error.message.includes('Administrator')) {
@@ -4584,7 +4483,7 @@ let pageEventManager = new EventListenerManager();
     }
 
 
-    updateBtn.style.display = 'none';
+    updateBtn.classList.add('update-btn-hidden');
 
     let updateAvailable = false;
     let updateDownloaded = false;
@@ -5099,18 +4998,10 @@ async function buildInstallPageWingetWithCategories() {
     container.className = 'card';
 
     const searchWrapper = document.createElement('div');
-    searchWrapper.style.cssText = `
-      display: flex;
-      justify-content: center;
-      margin-bottom: 1rem;
-    `;
+    searchWrapper.classList.add('search-wrapper');
     
     const searchContainer = document.createElement('div');
-    searchContainer.style.cssText = `
-      position: relative;
-      width: 100%;
-      max-width: 400px;
-    `;
+    searchContainer.classList.add('search-container');
     
     // Search icon
     const searchIcon = document.createElement('span');
@@ -5120,45 +5011,17 @@ async function buildInstallPageWingetWithCategories() {
         <path d="m21 21-4.3-4.3"></path>
       </svg>
     `;
-    searchIcon.style.cssText = `
-      position: absolute;
-      left: 14px;
-      top: -20px;
-      bottom: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
-      color: var(--text-muted, rgba(255,255,255,0.4));
-    `;
+    searchIcon.classList.add('search-icon');
     
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
     searchInput.placeholder = 'Search apps...';
     searchInput.className = 'search-input-styled';
-    searchInput.style.cssText = `
-      width: 100%;
-      padding: 0.65rem 1rem 0.65rem 2.75rem;
-      border: 1px solid var(--border-color, rgba(255,255,255,0.12));
-      border-radius: 24px;
-      background: var(--search-bg, rgba(255,255,255,0.06));
-      color: inherit;
-      font-size: 0.875rem;
-      transition: all 0.2s ease;
-      outline: none;
-    `;
+    // Search input styles handled by CSS class 'search-input-styled'
     
     // Focus effects
-    searchInput.addEventListener('focus', () => {
-      searchInput.style.borderColor = 'var(--accent-color, #3b82f6)';
-      searchInput.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.12)';
-      searchInput.style.background = 'var(--search-bg-focus, rgba(255,255,255,0.08))';
-    });
-    searchInput.addEventListener('blur', () => {
-      searchInput.style.borderColor = 'var(--border-color, rgba(255,255,255,0.12))';
-      searchInput.style.boxShadow = 'none';
-      searchInput.style.background = 'var(--search-bg, rgba(255,255,255,0.06))';
-    });
+    // Focus styles handled by CSS
+    // Blur styles handled by CSS
     
     searchContainer.appendChild(searchIcon);
     searchContainer.appendChild(searchInput);
@@ -5166,10 +5029,7 @@ async function buildInstallPageWingetWithCategories() {
     container.appendChild(searchWrapper);
 
     const actionsWrapper = document.createElement('div');
-    actionsWrapper.style.display = 'flex';
-    actionsWrapper.style.flexWrap = 'wrap';
-    actionsWrapper.style.gap = '0.5rem';
-    actionsWrapper.style.marginBottom = '0.75rem';
+    actionsWrapper.classList.add('actions-wrapper');
     function makeButton(text, color) {
       const btn = document.createElement('button');
       btn.className = 'action-btn';
@@ -5262,9 +5122,7 @@ async function buildInstallPageWingetWithCategories() {
     });
 
     const listContainer = document.createElement('div');
-    listContainer.style.display = 'flex';
-    listContainer.style.flexDirection = 'column';
-    listContainer.style.gap = '1rem';
+    listContainer.classList.add('list-container');
     container.appendChild(listContainer);
 
     function getCategoryForId(pkgId) {
@@ -5434,22 +5292,14 @@ async function buildInstallPageWingetWithCategories() {
         const group = document.createElement('div');
         const heading = document.createElement('h3');
         heading.textContent = cat;
-        heading.style.margin = '0 0 0.5rem 0';
-        heading.style.fontSize = '1.1rem';
-        heading.style.fontWeight = '600';
+        heading.classList.add('category-heading');
         group.appendChild(heading);
         const ul = document.createElement('ul');
         ul.className = 'install-grid';
-        ul.style.listStyle = 'none';
-        ul.style.padding = '0';
-        ul.style.margin = '0';
+        ul.classList.add('category-list');
       items.sort((a, b) => a.name.localeCompare(b.name)).forEach((app, index) => {
   const li = document.createElement('li');
-  li.style.display = 'flex';
-  li.style.alignItems = 'center';
-  li.style.border = '1px solid var(--border-color, rgba(255,255,255,0.12))';
-  li.style.borderRadius = '8px';
-  li.style.padding = '0.6rem';
+  li.classList.add('app-list-item');
   li.dataset.appId = app.id;
   li.dataset.appName = app.name;
   if (app.custom) {
@@ -5462,14 +5312,10 @@ async function buildInstallPageWingetWithCategories() {
   checkbox.type = 'checkbox';
   const cbId = `pkg-${cat}-${index}`;
   checkbox.id = cbId;
-  checkbox.style.marginRight = '1rem';
+  checkbox.classList.add('app-checkbox');
 
   const fav = document.createElement('img');
-  fav.style.width = '24px';
-  fav.style.height = '24px';
-  fav.style.objectFit = 'contain';
-  fav.style.marginRight = '0.75rem';
-  fav.style.borderRadius = '4px';
+  fav.classList.add('app-favicon');
   fav.src = getFaviconUrl(app.id, app.name);
   fav.onerror = () => {
     if (!fav.dataset.fallback) {
@@ -5480,31 +5326,18 @@ async function buildInstallPageWingetWithCategories() {
   
   const label = document.createElement('label');
   label.setAttribute('for', cbId);
-  label.style.display = 'flex';
-  label.style.flex = '1';
-  label.style.alignItems = 'center';
-  label.style.cursor = 'pointer';
+  label.classList.add('app-label');
   
   const textContainer = document.createElement('div');
-  textContainer.style.display = 'flex';
-  textContainer.style.flexDirection = 'column';
-  textContainer.style.flex = '1';
-  textContainer.style.justifyContent = 'center';
-  textContainer.style.alignItems = 'flex-start';
+  textContainer.classList.add('app-text-container');
   
   const nameEl = document.createElement('span');
   nameEl.textContent = app.name;
-  nameEl.style.fontWeight = '600';
-  nameEl.style.fontSize = '1rem';
-  nameEl.style.marginBottom = '0.25rem';
-  nameEl.style.lineHeight = '1.2';
+  nameEl.classList.add('app-name');
   
   const idEl = document.createElement('span');
   idEl.textContent = app.id;
-  idEl.style.fontSize = '0.85rem';
-  idEl.style.opacity = '0.75';
-  idEl.style.fontFamily = 'Consolas, Monaco, monospace';
-  idEl.style.lineHeight = '1.2';
+  idEl.classList.add('app-id');
   
   textContainer.appendChild(nameEl);
   textContainer.appendChild(idEl);
@@ -5521,12 +5354,7 @@ async function buildInstallPageWingetWithCategories() {
     linkEl.href = '#';
     linkEl.target = '_blank';
     linkEl.rel = 'noopener noreferrer';
-    linkEl.style.marginLeft = 'auto';
-    linkEl.style.display = 'flex';
-    linkEl.style.alignItems = 'center';
-    linkEl.style.color = 'inherit';
-    linkEl.style.opacity = '0.8';
-    linkEl.style.paddingLeft = '0.5rem';
+    linkEl.classList.add('app-link');
     linkEl.setAttribute('aria-label', 'Open developer site');
     linkEl.innerHTML =
       '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></svg>';
@@ -5560,10 +5388,10 @@ async function buildInstallPageWingetWithCategories() {
           const name = li.dataset.appName.toLowerCase();
           const id = li.dataset.appId.toLowerCase();
           const match = !query || name.includes(query) || id.includes(query);
-          li.style.display = match ? 'flex' : 'none';
+          li.classList.toggle('hidden', !match);
           if (match) visible = true;
         });
-        group.style.display = visible ? '' : 'none';
+        group.classList.toggle('hidden', !visible);
       });
     }
     // Apply debounce to search filter for better performance
@@ -5579,7 +5407,7 @@ async function buildInstallPageWingetWithCategories() {
       const fileInput = document.createElement('input');
       fileInput.type = 'file';
       fileInput.accept = '.json,application/json';
-      fileInput.style.display = 'none';
+      fileInput.classList.add('file-input-hidden');
       document.body.appendChild(fileInput);
 
       fileInput.addEventListener('change', () => {
@@ -5676,7 +5504,7 @@ async function buildInstallPageWingetWithCategories() {
               unsubscribe();
               try {
                 const statusEl = document.createElement('span');
-                statusEl.style.display = 'none';
+                statusEl.classList.remove('visible');
                 li.appendChild(statusEl);
                 await window.processAdvancedInstaller(data.path, statusEl, appName);
                 resolve();

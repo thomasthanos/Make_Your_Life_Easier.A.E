@@ -1336,7 +1336,7 @@ input[type="password"],
 input[type="email"],
 select {
   width: 100%;
-  padding: 0.875rem 1rem;
+  padding: 0.875rem 2.2rem;
   border: 2px solid var(--border-color);
   border-radius: 12px;
   background: var(--card-bg);
@@ -4852,3 +4852,5 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 [data-theme="light"] .search-input-styled::placeholder {
   color: rgba(0, 0, 0, 0.4);
 }
+
+
