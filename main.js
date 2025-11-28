@@ -1641,13 +1641,14 @@ ipcMain.handle('run-command', async (event, command) => {
   if (typeof command !== 'string' || !command.trim()) {
     return { error: 'Invalid command' };
   }
-  if (/[^a-zA-Z0-9_\.\-\s]/.test(command)) {
+  // Allow common command characters including dots, hyphens, equals, and colons
+  if (/[^a-zA-Z0-9_\.\-\s\=\:]/i.test(command)) {
     return { error: 'Command contains invalid characters' };
   }
   const parts = command.trim().split(/\s+/);
   const cmd = parts.shift();
-  // Use helper to spawn the command and gather output
-  return runSpawnCommand(cmd, parts, { shell: false, windowsHide: true });
+  // Use shell: true for proper command execution on Windows
+  return runSpawnCommand(cmd, parts, { shell: true, windowsHide: true });
 });
 
 // Execute the Chris Titus Windows Utility script via PowerShell.  This handler

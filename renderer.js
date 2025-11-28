@@ -37,6 +37,267 @@ function debug(level, ...args) {
   }
 }
 
+// ============================================
+// GLOBAL UTILITY: Debounce Function
+// ============================================
+/**
+ * Creates a debounced version of a function that delays execution
+ * until after the specified wait time has elapsed since the last call.
+ * @param {Function} func - The function to debounce
+ * @param {number} wait - Milliseconds to wait (default: 300)
+ * @param {boolean} immediate - Execute on leading edge instead of trailing
+ * @returns {Function} Debounced function with .cancel() method
+ */
+function debounce(func, wait = 300, immediate = false) {
+  let timeoutId = null;
+  
+  const debounced = function(...args) {
+    const callNow = immediate && !timeoutId;
+    
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    
+    timeoutId = setTimeout(() => {
+      timeoutId = null;
+      if (!immediate) {
+        func.apply(this, args);
+      }
+    }, wait);
+    
+    if (callNow) {
+      func.apply(this, args);
+    }
+  };
+  
+  debounced.cancel = function() {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+  
+  return debounced;
+}
+
+// ============================================
+// GLOBAL UTILITY: Button State Manager
+// ============================================
+/**
+ * Manages button states during async operations.
+ * Prevents double-clicks and provides visual feedback.
+ */
+class ButtonStateManager {
+  constructor() {
+    this.buttonStates = new Map();
+  }
+
+  /**
+   * Set button to loading state
+   * @param {HTMLButtonElement} button - The button element
+   * @param {string} loadingText - Optional text to show while loading
+   * @returns {boolean} - Returns false if button is already loading
+   */
+  setLoading(button, loadingText = null) {
+    if (!button || this.buttonStates.has(button)) {
+      return false;
+    }
+
+    const originalState = {
+      disabled: button.disabled,
+      innerHTML: button.innerHTML,
+      className: button.className
+    };
+
+    this.buttonStates.set(button, originalState);
+    button.disabled = true;
+    button.classList.add('btn-loading');
+
+    if (loadingText) {
+      const labelEl = button.querySelector('.btn-label');
+      if (labelEl) {
+        originalState.labelText = labelEl.textContent;
+        labelEl.textContent = loadingText;
+      } else {
+        button.dataset.originalText = button.textContent;
+        button.textContent = loadingText;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Reset button to original state
+   * @param {HTMLButtonElement} button - The button element
+   */
+  resetState(button) {
+    if (!button || !this.buttonStates.has(button)) {
+      return;
+    }
+
+    const originalState = this.buttonStates.get(button);
+    button.disabled = originalState.disabled;
+    button.classList.remove('btn-loading');
+
+    if (originalState.labelText) {
+      const labelEl = button.querySelector('.btn-label');
+      if (labelEl) {
+        labelEl.textContent = originalState.labelText;
+      }
+    } else if (button.dataset.originalText) {
+      button.textContent = button.dataset.originalText;
+      delete button.dataset.originalText;
+    }
+
+    this.buttonStates.delete(button);
+  }
+
+  /**
+   * Check if button is currently loading
+   * @param {HTMLButtonElement} button - The button element
+   * @returns {boolean}
+   */
+  isLoading(button) {
+    return this.buttonStates.has(button);
+  }
+
+  /**
+   * Reset all buttons to original state
+   */
+  resetAll() {
+    for (const button of this.buttonStates.keys()) {
+      this.resetState(button);
+    }
+  }
+
+  /**
+   * Execute async function with button state management
+   * @param {HTMLButtonElement} button - The button element
+   * @param {Function} asyncFn - Async function to execute
+   * @param {string} loadingText - Optional loading text
+   * @returns {Promise} - Result of asyncFn
+   */
+  async withLoading(button, asyncFn, loadingText = null) {
+    if (!this.setLoading(button, loadingText)) {
+      return; // Button already loading
+    }
+
+    try {
+      return await asyncFn();
+    } finally {
+      this.resetState(button);
+    }
+  }
+}
+
+// Global button state manager instance
+const buttonStateManager = new ButtonStateManager();
+
+// ============================================
+// GLOBAL UTILITY: Event Listener Manager
+// ============================================
+/**
+ * Tracks and manages event listeners for proper cleanup.
+ * Prevents memory leaks by ensuring all listeners are removed.
+ */
+class EventListenerManager {
+  constructor() {
+    this.listeners = new Map();
+  }
+
+  /**
+   * Add event listener with automatic tracking
+   * @param {EventTarget} element - DOM element
+   * @param {string} event - Event type
+   * @param {Function} handler - Event handler
+   * @param {Object} options - addEventListener options
+   * @returns {Function} - Cleanup function
+   */
+  add(element, event, handler, options = {}) {
+    if (!element) return () => {};
+
+    element.addEventListener(event, handler, options);
+
+    if (!this.listeners.has(element)) {
+      this.listeners.set(element, []);
+    }
+
+    const listenerInfo = { event, handler, options };
+    this.listeners.get(element).push(listenerInfo);
+
+    // Return cleanup function
+    return () => this.remove(element, event, handler, options);
+  }
+
+  /**
+   * Remove specific event listener
+   * @param {EventTarget} element - DOM element
+   * @param {string} event - Event type
+   * @param {Function} handler - Event handler
+   * @param {Object} options - addEventListener options
+   */
+  remove(element, event, handler, options = {}) {
+    if (!element) return;
+
+    element.removeEventListener(event, handler, options);
+
+    if (this.listeners.has(element)) {
+      const elementListeners = this.listeners.get(element);
+      const index = elementListeners.findIndex(
+        l => l.event === event && l.handler === handler
+      );
+      if (index > -1) {
+        elementListeners.splice(index, 1);
+      }
+      if (elementListeners.length === 0) {
+        this.listeners.delete(element);
+      }
+    }
+  }
+
+  /**
+   * Remove all listeners from a specific element
+   * @param {EventTarget} element - DOM element
+   */
+  removeAll(element) {
+    if (!element || !this.listeners.has(element)) return;
+
+    const elementListeners = this.listeners.get(element);
+    for (const { event, handler, options } of elementListeners) {
+      element.removeEventListener(event, handler, options);
+    }
+    this.listeners.delete(element);
+  }
+
+  /**
+   * Remove all tracked listeners (cleanup)
+   */
+  cleanup() {
+    for (const [element, listeners] of this.listeners) {
+      for (const { event, handler, options } of listeners) {
+        element.removeEventListener(event, handler, options);
+      }
+    }
+    this.listeners.clear();
+  }
+
+  /**
+   * Get count of tracked listeners
+   * @returns {number}
+   */
+  get count() {
+    let total = 0;
+    for (const listeners of this.listeners.values()) {
+      total += listeners.length;
+    }
+    return total;
+  }
+}
+
+// Page-specific event listener manager (cleaned up on page change)
+let pageEventManager = new EventListenerManager();
+
 (() => {
   let currentPage = null;
   let updateOverlay;
@@ -894,6 +1155,13 @@ function debug(level, ...args) {
   }
 
   async function loadPage(key) {
+    // Cleanup previous page's event listeners and button states
+    if (pageEventManager) {
+      pageEventManager.cleanup();
+      pageEventManager = new EventListenerManager();
+    }
+    buttonStateManager.resetAll();
+    
     currentPage = key;
 
 
@@ -5248,7 +5516,14 @@ async function buildInstallPageWingetWithCategories() {
         group.style.display = visible ? '' : 'none';
       });
     }
-    searchInput.addEventListener('input', applySearchFilter);
+    // Apply debounce to search filter for better performance
+    const debouncedSearch = debounce(applySearchFilter, 250);
+    searchInput.addEventListener('input', debouncedSearch);
+    
+    // Store cleanup reference for the debounced search
+    searchInput._searchCleanup = () => {
+      debouncedSearch.cancel();
+    };
 
     importBtn.addEventListener('click', () => {
       const fileInput = document.createElement('input');
@@ -5370,6 +5645,13 @@ async function buildInstallPageWingetWithCategories() {
 
     async function runWingetForSelected(action) {
     const isInstall = action === 'install';
+    const actionBtn = isInstall ? installBtn : uninstallBtn;
+    
+    // Prevent double-clicks using ButtonStateManager
+    if (buttonStateManager.isLoading(actionBtn)) {
+      return;
+    }
+    
     const selectedItems = [];
     const checkboxes = container.querySelectorAll('input[type="checkbox"]');
     
@@ -5385,7 +5667,13 @@ async function buildInstallPageWingetWithCategories() {
         return;
     }
 
-    [installBtn, uninstallBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = true));
+    // Set loading state with ButtonStateManager
+    const loadingText = isInstall ? 'Installing...' : 'Uninstalling...';
+    buttonStateManager.setLoading(actionBtn, loadingText);
+    
+    // Disable other buttons during operation
+    const otherBtn = isInstall ? uninstallBtn : installBtn;
+    [otherBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = true));
     
     let successCount = 0;
     let errorCount = 0;
@@ -5427,31 +5715,99 @@ async function buildInstallPageWingetWithCategories() {
         try {
             const result = await window.api.runCommand(command);
             
-            const output = (result.stdout || '') + (result.stderr || '');
-            const alreadyInstalled = isInstall && (
-                output.includes('No applicable upgrade found') ||
-                output.includes('already installed') ||
-                output.includes('No newer package versions')
-            );
+            const output = ((result.stdout || '') + (result.stderr || '')).toLowerCase();
             
-            if (alreadyInstalled) {
-                window.showToast(`${appName} is already installed`, { 
-                    type: 'success', 
-                    title: 'Install'
-                });
-                successCount++;
-            } else if (result && result.error) {
-                window.showToast(`Failed to ${isInstall ? 'install' : 'uninstall'} ${appName}: ${result.error}`, { 
-                    type: 'error', 
-                    title: isInstall ? 'Install Error' : 'Uninstall Error'
-                });
-                errorCount++;
+            // Check for explicit error from command execution
+            if (result && result.error) {
+                // Check if it's just a non-zero exit code with actual success in output
+                const hasSuccessIndicator = isInstall 
+                    ? (output.includes('successfully installed') || output.includes('already installed'))
+                    : output.includes('successfully uninstalled');
+                
+                if (!hasSuccessIndicator) {
+                    window.showToast(`Failed to ${isInstall ? 'install' : 'uninstall'} ${appName}: ${result.error}`, { 
+                        type: 'error', 
+                        title: isInstall ? 'Install Error' : 'Uninstall Error'
+                    });
+                    errorCount++;
+                    continue;
+                }
+            }
+            
+            if (isInstall) {
+                // Install success checks
+                const alreadyInstalled = 
+                    output.includes('no applicable upgrade found') ||
+                    output.includes('already installed') ||
+                    output.includes('no newer package versions');
+                
+                const installSuccess = 
+                    output.includes('successfully installed') ||
+                    output.includes('installation successful');
+                
+                const installFailed = 
+                    output.includes('installation failed') ||
+                    output.includes('no package found') ||
+                    output.includes('did not find');
+                
+                if (alreadyInstalled) {
+                    window.showToast(`${appName} is already installed`, { 
+                        type: 'success', 
+                        title: 'Install'
+                    });
+                    successCount++;
+                } else if (installFailed && !installSuccess) {
+                    window.showToast(`Failed to install ${appName}`, { 
+                        type: 'error', 
+                        title: 'Install Error'
+                    });
+                    errorCount++;
+                } else {
+                    window.showToast(`${appName} installed successfully!`, { 
+                        type: 'success', 
+                        title: 'Install'
+                    });
+                    successCount++;
+                }
             } else {
-                window.showToast(`${appName} ${isInstall ? 'installed' : 'uninstalled'} successfully!`, { 
-                    type: 'success', 
-                    title: isInstall ? 'Install' : 'Uninstall'
-                });
-                successCount++;
+                // Uninstall checks based on winget output
+                const uninstallSuccess = 
+                    output.includes('successfully uninstalled');
+                
+                const notInstalled = 
+                    output.includes('no installed package found') ||
+                    (output.includes('did not find') && output.includes('installed'));
+                
+                const cancelled = 
+                    output.includes('cancelled') ||
+                    output.includes('canceled');
+                
+                if (uninstallSuccess) {
+                    window.showToast(`${appName} uninstalled successfully!`, { 
+                        type: 'success', 
+                        title: 'Uninstall'
+                    });
+                    successCount++;
+                } else if (notInstalled) {
+                    window.showToast(`${appName} is not installed`, { 
+                        type: 'info', 
+                        title: 'Uninstall'
+                    });
+                    successCount++;
+                } else if (cancelled) {
+                    window.showToast(`${appName} uninstall was cancelled`, { 
+                        type: 'warning', 
+                        title: 'Uninstall Cancelled'
+                    });
+                    errorCount++;
+                } else {
+                    // Winget may have launched the uninstaller - we can't know the result
+                    window.showToast(`${appName} uninstaller launched - check if completed`, { 
+                        type: 'info', 
+                        title: 'Uninstall'
+                    });
+                    successCount++;
+                }
             }
         } catch (err) {
             window.showToast(`Failed to ${isInstall ? 'install' : 'uninstall'} ${appName}: ${err.message}`, { 
@@ -5479,7 +5835,12 @@ async function buildInstallPageWingetWithCategories() {
         });
     }
 
-    [installBtn, uninstallBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = false));
+    // Reset button states using ButtonStateManager
+    buttonStateManager.resetState(actionBtn);
+    [otherBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = false));
+    
+    // Re-evaluate button states based on selection
+    updateActionButtonsState();
 }
     installBtn.addEventListener('click', () => runWingetForSelected('install'));
     uninstallBtn.addEventListener('click', () => runWingetForSelected('uninstall'));

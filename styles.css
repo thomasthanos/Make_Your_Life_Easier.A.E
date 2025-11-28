@@ -4775,3 +4775,53 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   background: rgba(0, 0, 0, 0.08);
   border-color: rgba(0, 0, 0, 0.2);
 }
+
+/* ============================================
+   Button Loading States
+   ============================================ */
+.btn-loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: btn-spinner 0.8s linear infinite;
+}
+
+@keyframes btn-spinner {
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}
+
+.btn-loading .action-icon {
+  opacity: 0.5;
+}
+
+/* Adjust spinner position for buttons with icons */
+.action-btn.btn-loading::after {
+  right: 10px;
+}
+
+/* Disabled state styling */
+.action-btn:disabled:not(.btn-loading) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Focus visible for accessibility */
+.action-btn:focus-visible {
+  outline: 2px solid var(--accent-color, #3b82f6);
+  outline-offset: 2px;
+}
