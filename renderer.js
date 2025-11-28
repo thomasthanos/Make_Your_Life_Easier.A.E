@@ -5099,20 +5099,70 @@ async function buildInstallPageWingetWithCategories() {
     container.className = 'card';
 
     const searchWrapper = document.createElement('div');
-    searchWrapper.style.display = 'flex';
-    searchWrapper.style.alignItems = 'center';
-    searchWrapper.style.gap = '0.5rem';
-    searchWrapper.style.marginBottom = '0.75rem';
+    searchWrapper.style.cssText = `
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1rem;
+    `;
+    
+    const searchContainer = document.createElement('div');
+    searchContainer.style.cssText = `
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+    `;
+    
+    // Search icon
+    const searchIcon = document.createElement('span');
+    searchIcon.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.3-4.3"></path>
+      </svg>
+    `;
+    searchIcon.style.cssText = `
+      position: absolute;
+      left: 14px;
+      top: -20px;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      color: var(--text-muted, rgba(255,255,255,0.4));
+    `;
+    
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
     searchInput.placeholder = 'Search apps...';
-    searchInput.style.flex = '1';
-    searchInput.style.padding = '0.5rem';
-    searchInput.style.border = '1px solid var(--border-color, rgba(255,255,255,0.15))';
-    searchInput.style.borderRadius = '6px';
-    searchInput.style.background = 'var(--input-bg, rgba(255,255,255,0.05))';
-    searchInput.style.color = 'inherit';
-    searchWrapper.appendChild(searchInput);
+    searchInput.className = 'search-input-styled';
+    searchInput.style.cssText = `
+      width: 100%;
+      padding: 0.65rem 1rem 0.65rem 2.75rem;
+      border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+      border-radius: 24px;
+      background: var(--search-bg, rgba(255,255,255,0.06));
+      color: inherit;
+      font-size: 0.875rem;
+      transition: all 0.2s ease;
+      outline: none;
+    `;
+    
+    // Focus effects
+    searchInput.addEventListener('focus', () => {
+      searchInput.style.borderColor = 'var(--accent-color, #3b82f6)';
+      searchInput.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.12)';
+      searchInput.style.background = 'var(--search-bg-focus, rgba(255,255,255,0.08))';
+    });
+    searchInput.addEventListener('blur', () => {
+      searchInput.style.borderColor = 'var(--border-color, rgba(255,255,255,0.12))';
+      searchInput.style.boxShadow = 'none';
+      searchInput.style.background = 'var(--search-bg, rgba(255,255,255,0.06))';
+    });
+    
+    searchContainer.appendChild(searchIcon);
+    searchContainer.appendChild(searchInput);
+    searchWrapper.appendChild(searchContainer);
     container.appendChild(searchWrapper);
 
     const actionsWrapper = document.createElement('div');

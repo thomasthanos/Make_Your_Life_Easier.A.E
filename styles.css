@@ -4825,3 +4825,30 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
   outline: 2px solid var(--accent-color, #3b82f6);
   outline-offset: 2px;
 }
+
+/* ============================================
+   Search Input Styling
+   ============================================ */
+
+/* Dark mode (default) */
+:root {
+  --search-bg: rgba(255, 255, 255, 0.06);
+  --search-bg-focus: rgba(255, 255, 255, 0.1);
+  --text-muted: rgba(255, 255, 255, 0.4);
+}
+
+/* Light mode */
+[data-theme="light"] {
+  --search-bg: rgba(0, 0, 0, 0.04);
+  --search-bg-focus: rgba(0, 0, 0, 0.06);
+  --text-muted: rgba(0, 0, 0, 0.4);
+}
+
+.search-input-styled::placeholder {
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
+  opacity: 1;
+}
+
+[data-theme="light"] .search-input-styled::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
