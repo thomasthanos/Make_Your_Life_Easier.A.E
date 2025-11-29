@@ -288,7 +288,7 @@ function createPasswordManagerWindow() {
   const passwordWindow = new BrowserWindow({
     width: 1600,
     height: 900,
-    icon: path.join(__dirname, 'hacker.ico'),
+    icon: path.join(__dirname, 'src', 'assets', 'icons', 'hacker.ico'),
     parent: mainWindow,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

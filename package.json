@@ -84,7 +84,7 @@
           ]
         }
       ],
-      "icon": "hacker.ico",
+      "icon": "src/assets/icons/hacker.ico",
       "publish": {
         "provider": "github",
         "releaseType": "release"
@@ -96,10 +96,10 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Make Your Life Easier",
-      "installerIcon": "hacker.ico",
-      "uninstallerIcon": "hacker.ico",
-      "installerHeader": "installer_header.bmp",
-      "installerSidebar": "installer_banner.bmp",
+      "installerIcon": "src/assets/icons/hacker.ico",    
+      "uninstallerIcon": "src/assets/icons/hacker.ico",    
+      "installerHeader": "src/assets/images/installer_header.bmp",  
+      "installerSidebar": "src/assets/images/installer_banner.bmp",  
       "warningsAsErrors": false,
       "artifactName": "MakeYourLifeEasier-installer.exe",
       "deleteAppDataOnUninstall": true,
