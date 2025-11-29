@@ -1,0 +1,192 @@
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 768px) {
+  #app {
+    flex-direction: column;
+  }
+
+  #sidebar {
+    width: 100%;
+    height: auto;
+  }
+
+  #menu-list {
+    display: flex;
+    overflow-x: auto;
+    padding: 0.5rem;
+  }
+
+  #menu-list li {
+    flex-shrink: 0;
+    margin: 0 0.75rem;
+  }
+
+  #content {
+    padding: 1.5rem;
+  }
+
+  .install-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .install-grid.crack-grid {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .card {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .app-card {
+    min-height: 140px;
+    max-height: 220px;
+    padding: 0.5rem;
+  }
+
+  .app-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .app-header {
+    gap: 0.5rem;
+  }
+
+  .status-pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 1rem;
+    font-size: 0.7rem;
+    padding: 0.25rem;
+  }
+
+  .tutorial-card-compact {
+    margin: 0 1rem;
+    max-width: none;
+  }
+
+  .tutorial-card-compact p {
+    font-size: 0.8rem !important;
+  }
+
+  .password-manager-card {
+    padding: 2rem;
+    margin: 0 1rem;
+    max-width: none;
+    min-height: 360px;
+  }
+  
+  .password-features {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+  }
+  
+  .feature-item {
+    padding: 1rem;
+    min-height: 65px;
+  }
+  
+  .password-warning-banner {
+    padding: 1.25rem;
+    margin-bottom: 1.75rem;
+    min-height: 80px;
+  }
+  
+  .warning-icon {
+    width: 44px;
+    height: 44px;
+  }
+  
+  .warning-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .password-manager-btn {
+    padding: 1.125rem 2rem;
+    font-size: 1.1rem;
+    min-height: 60px;
+  }
+
+  #toast-container {
+    bottom: 1rem;
+    right: 1rem;
+    left: 1rem;
+    align-items: stretch;
+  }
+
+  .toast {
+    min-width: auto;
+    max-width: none;
+  }
+
+  .dlc-scope .dlc-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .tutorial-card-compact {
+    margin: 0 0.5rem;
+    padding: 0.6rem;
+    gap: 0.75rem;
+  }
+
+  .tutorial-card-compact img {
+    width: 100px !important;
+    height: 56px !important;
+  }
+
+  .password-manager-card {
+    padding: 1.75rem;
+    margin: 0 0.75rem;
+    min-height: 340px;
+  }
+  
+  .password-features {
+    gap: 0.875rem;
+  }
+  
+  .feature-item {
+    padding: 0.875rem;
+    min-height: 60px;
+    gap: 0.875rem;
+  }
+  
+  .feature-icon {
+    font-size: 1.4rem;
+    width: 28px;
+  }
+  
+  .feature-text {
+    font-size: 0.95rem;
+  }
+  
+  .password-warning-banner {
+    padding: 1.125rem;
+    gap: 1rem;
+    min-height: 75px;
+  }
+  
+  .warning-title {
+    font-size: 1.1rem;
+  }
+  
+  .warning-text {
+    font-size: 0.95rem;
+  }
+  
+  .password-manager-btn {
+    padding: 1rem 1.75rem;
+    font-size: 1.05rem;
+    min-height: 55px;
+  }
+}

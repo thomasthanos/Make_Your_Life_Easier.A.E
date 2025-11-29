@@ -1,0 +1,67 @@
+/* ============================================
+   CSS VARIABLES & THEME SETUP
+   ============================================ */
+:root {
+  /* Core Colors */
+  --bg-color: #0f1117;
+  --card-bg: #1a1d25;
+  --text-color: #e2e8f0;
+  --accent-color: #00bfff;
+  --accent-color-light: #1e90ff;
+  --accent-color-dark: #0066cc;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --sidebar-bg: #141721;
+  --sidebar-text: #cbd5e1;
+  --sidebar-hover: #1e2230;
+  --header-bg: #1a1d25;
+  
+  /* Status Colors */
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+
+  /* Glass Morphism */
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+  --glass-border-top: rgba(255, 255, 255, 0.4);
+  --glass-border-left: rgba(255, 255, 255, 0.3);
+  --glass-bg-hover: rgba(255, 255, 255, 0.15);
+  --glass-border-top-hover: rgba(255, 255, 255, 0.5);
+  --glass-border-left-hover: rgba(255, 255, 255, 0.4);
+
+  /* Layout */
+  --title-bar-height: 40px;
+
+  /* Search */
+  --search-bg: rgba(255, 255, 255, 0.06);
+  --search-bg-focus: rgba(255, 255, 255, 0.1);
+  --text-muted: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="light"] {
+  --bg-color: #f8fafc;
+  --card-bg: #ffffff;
+  --text-color: #1e293b;
+  --accent-color: #00bfff;
+  --accent-color-light: #1e90ff;
+  --accent-color-dark: #0066cc;
+  --border-color: rgba(0, 0, 0, 0.06);
+  --sidebar-bg: #f1f5f9;
+  --sidebar-text: #475569;
+  --sidebar-hover: #e2e8f0;
+  --header-bg: #ffffff;
+
+  --glass-bg: rgba(255, 255, 255, 0.4);
+  --glass-border: rgba(0, 0, 0, 0.1);
+  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  --glass-border-top: rgba(0, 0, 0, 0.05);
+  --glass-border-left: rgba(0, 0, 0, 0.03);
+  --glass-bg-hover: rgba(255, 255, 255, 0.5);
+  --glass-border-top-hover: rgba(0, 0, 0, 0.08);
+  --glass-border-left-hover: rgba(0, 0, 0, 0.05);
+
+  --search-bg: rgba(0, 0, 0, 0.04);
+  --search-bg-focus: rgba(0, 0, 0, 0.06);
+  --text-muted: rgba(0, 0, 0, 0.4);
+}

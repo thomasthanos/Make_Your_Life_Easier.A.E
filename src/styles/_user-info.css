@@ -1,0 +1,187 @@
+/* ============================================
+   USER INFO (Sidebar Footer)
+   ============================================ */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sidebar-text);
+  position: relative;
+  cursor: pointer;
+}
+
+.user-info img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-info .logout-menu {
+  display: flex;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: rgba(15, 15, 15, 0.95);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  padding: 8px 12px;
+  border-radius: 10px;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+}
+
+.user-info.show-logout .logout-menu {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.user-info .logout-btn {
+  background: none;
+  border: none;
+  color: var(--sidebar-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.user-info .logout-btn:hover {
+  color: #a80000;
+}
+
+.user-info .login-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--sidebar-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.user-info .login-btn+.login-btn {
+  margin-left: 4px;
+}
+
+.user-info .login-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.user-info .login-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 10px;
+  width: auto;
+  height: 36px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  backdrop-filter: blur(25px) saturate(130%) brightness(1.3);
+  -webkit-backdrop-filter: blur(25px) saturate(130%) brightness(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  transition: all 0.5s ease-in-out;
+  position: relative;
+  overflow: visible;
+}
+
+.user-info .login-card:focus-within {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 60%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+  backdrop-filter: blur(28px) saturate(140%) brightness(1.35);
+  -webkit-backdrop-filter: blur(28px) saturate(140%) brightness(1.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.35);
+}
+
+.user-info .login-card button {
+  width: 26px;
+  height: 26px;
+  padding: 3px;
+  border-radius: 50%;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease-in;
+  position: relative;
+}
+
+.user-info .login-card button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.user-info .login-card button:focus {
+  outline: none;
+  background-color: rgb(255, 255, 255);
+}
+
+.user-info .login-card button svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+[data-theme="light"] .user-info .logout-menu {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .user-info .logout-btn {
+  color: #475569;
+}
+
+[data-theme="light"] .user-info .logout-btn:hover {
+  color: #dc2626;
+}
+
+[data-theme="light"] .user-info .login-card {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0) 60%),
+    radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0) 60%),
+    linear-gradient(135deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.01) 100%);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #475569;
+}
+
+[data-theme="light"] .user-info .login-card:focus-within {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(0, 0, 0, 0.12) 0%, rgba(0, 0, 0, 0) 60%),
+    radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0) 60%),
+    linear-gradient(135deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.02) 100%);
+  border: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+[data-theme="light"] .user-info .login-card button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .user-info .login-card button:focus {
+  background-color: rgba(0, 0, 0, 0.15);
+}

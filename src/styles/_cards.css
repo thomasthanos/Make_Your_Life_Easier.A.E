@@ -1,0 +1,316 @@
+/* ============================================
+   CARDS & CONTENT COMPONENTS
+   ============================================ */
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.card:hover {
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+}
+
+.card h2 {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-color);
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.card > h2, .settings-title {
+  display: none !important;
+}
+
+.card > p {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #e5c0009e;
+  padding: 1rem 1.25rem 1rem 1.5rem;
+  border-radius: 8px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+[data-theme="light"] .card > p {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .card > p {
+  background: rgba(30, 30, 40, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.card > p:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .card > p:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .card > p:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.card > p strong {
+  color: var(--accent-color);
+}
+
+.card > p a {
+  color: var(--accent-color);
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.card > p a:hover {
+  color: var(--accent-color-dark);
+}
+
+.card > p::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent-color);
+  opacity: 0.7;
+  transition: all 0.3s ease;
+}
+
+.card > p:hover::before {
+  opacity: 1;
+  height: 70%;
+}
+
+/* App Cards Grid */
+.install-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+  align-items: start;
+  overflow: visible;
+}
+
+.install-grid.crack-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.25rem;
+  align-items: start;
+}
+
+.app-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 0.75rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-height: 160px;
+  max-height: 240px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.app-card h3 {
+  margin-top: 0;
+  margin-bottom: 0.25rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--accent-color);
+}
+
+.app-card p {
+  flex-grow: 1;
+  margin-bottom: -10.25rem;
+  color: var(--text-color);
+  opacity: 0.8;
+  line-height: 1.5;
+}
+
+.app-card.spc {
+  padding: 1.25rem;
+}
+
+.app-card .spc-desc {
+  opacity: .85;
+  line-height: 1.5;
+  margin: .25rem 0 .75rem;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0rem;
+}
+
+.app-header h3 {
+  margin: 0 0 0.35rem;
+}
+
+.app-header p {
+  margin: 0;
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+
+.app-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 6px;
+}
+
+.app-icon svg {
+  color: var(--accent-color, #22c55e);
+}
+
+.app-icon svg,
+.app-icon svg * {
+  fill: currentColor !important;
+}
+
+.install-grid.crack-grid .app-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.app-card .button {
+  margin-top: 1rem;
+  width: 100%;
+  margin-bottom: 0.25rem;
+}
+
+.install-grid[style*="grid-template-columns: 1fr 1fr"] {
+  align-items: stretch;
+}
+
+.install-grid[style*="grid-template-columns: 1fr 1fr"] .app-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+}
+
+.install-grid[style*="grid-template-columns: 1fr 1fr"] .app-card .button {
+  margin-top: auto;
+  width: calc(100% - 0.5rem);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.install-grid[style*="grid-template-columns: 1fr 1fr"] .app-header p {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+/* List Items */
+.app-list-item {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.app-list-item:hover {
+  background: var(--sidebar-hover);
+  border-color: var(--accent-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.app-list-item input[type='checkbox'],
+.app-checkbox {
+  margin-right: 1rem;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-color);
+  flex-shrink: 0;
+}
+
+.app-list-item .app-status,
+.app-list-item .status-pre {
+  margin-left: auto;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 2rem 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+table th {
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
+  color: white;
+  font-weight: 600;
+  padding: 1rem;
+  text-align: left;
+}
+
+table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--card-bg);
+}
+
+table tr:last-child td {
+  border-bottom: none;
+}
+
+table tr:hover td {
+  background: var(--sidebar-hover);
+}
+
+#pwTable {
+  margin-top: 2rem;
+}
+
+#pwTable th {
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
+}
