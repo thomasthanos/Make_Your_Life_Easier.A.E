@@ -1,935 +1,89 @@
-const { app, BrowserWindow, BrowserView, ipcMain, shell, nativeTheme } = require('electron');
+/**
+ * Make Your Life Easier - Main Process
+ * Refactored version using modular architecture
+ */
+
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const os = require('os');
 const { exec, spawn } = require('child_process');
+const fs = require('fs');
+
+// Import modules
+const { debug } = require('./modules/debug');
+const fileUtils = require('./modules/file-utils');
+const processUtils = require('./modules/process-utils');
+const httpUtils = require('./modules/http-utils');
+const downloadManager = require('./modules/download-manager');
+const userProfile = require('./modules/user-profile');
+const oauth = require('./modules/oauth');
+const systemTools = require('./modules/system-tools');
+const spicetifyModule = require('./modules/spicetify');
+const archiveUtils = require('./modules/archive-utils');
+const sparkleModule = require('./modules/sparkle');
+
+// Auto-updater
 const { autoUpdater } = require('electron-updater');
 
-const fs = require('fs');
-// Import https once at module scope.  This is needed for fetchLatestSparkle().
-const https = require('https');
-
-/**
- * Compare two semantic version strings of the form x.y.z.  Returns 1 if a > b,
- * -1 if a < b, and 0 if they are equal.  Missing parts are treated as 0
- * (e.g. 2.1 is considered equal to 2.1.0).  Any non-numeric components
- * beyond the numeric period-separated segments are ignored.  If parsing
- * fails for either input, the strings are compared lexically as a fallback.
- *
- * @param {string} a - Version string e.g. '2.9.2'
- * @param {string} b - Version string to compare against
- * @returns {number} 1 if a > b, -1 if a < b, 0 if equal
- */
-function compareVersions(a, b) {
-  try {
-    const pa = String(a).split('.').map((x) => parseInt(x.replace(/[^0-9]/g, '') || '0', 10));
-    const pb = String(b).split('.').map((x) => parseInt(x.replace(/[^0-9]/g, '') || '0', 10));
-    const len = Math.max(pa.length, pb.length);
-    for (let i = 0; i < len; i++) {
-      const va = pa[i] || 0;
-      const vb = pb[i] || 0;
-      if (va > vb) return 1;
-      if (va < vb) return -1;
-    }
-    return 0;
-  } catch {
-    // Fallback to lexical comparison if parsing fails
-    if (String(a) > String(b)) return 1;
-    if (String(a) < String(b)) return -1;
-    return 0;
-  }
-}
-
-/**
- * Fetch details about the latest Sparkle release from GitHub.  The API
- * endpoint returns JSON describing the most recent release.  This helper
- * extracts the semantic version from the tag_name and locates the first
- * asset matching the Windows zip pattern (sparkle-*-win.zip).  A User-Agent
- * header is required by GitHub APIs.  Resolves with an object containing
- * the version, the browser download URL and the asset filename.  If an
- * error occurs or the asset isn't found, the promise rejects.
- *
- * @returns {Promise<{version: string, assetUrl: string, fileName: string}>}
- */
-function fetchLatestSparkle() {
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: 'api.github.com',
-      path: '/repos/parcoil/sparkle/releases/latest',
-      method: 'GET',
-      headers: {
-        'User-Agent': 'make-your-life-easier-app',
-        'Accept': 'application/vnd.github+json'
-      }
-    };
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk.toString(); });
-      res.on('end', () => {
-        try {
-          if (res.statusCode !== 200) {
-            return reject(new Error(`GitHub API responded with status ${res.statusCode}`));
-          }
-          const json = JSON.parse(data);
-          let tag = json.tag_name || '';
-          if (typeof tag === 'string' && tag.startsWith('v')) tag = tag.substring(1);
-          const version = tag || '0.0.0';
-          let assetUrl = null;
-          let fileName = null;
-          if (Array.isArray(json.assets)) {
-            for (const asset of json.assets) {
-              if (asset && asset.name && /sparkle-.*-win\.zip$/i.test(asset.name) && asset.browser_download_url) {
-                assetUrl = asset.browser_download_url;
-                fileName = asset.name;
-                break;
-              }
-            }
-          }
-          if (!assetUrl) {
-            return reject(new Error('Unable to locate Windows zip asset for Sparkle'));
-          }
-          resolve({ version, assetUrl, fileName });
-        } catch (err) {
-          reject(err);
-        }
-      });
-    });
-    req.on('error', (err) => reject(err));
-    req.end();
-  });
-}
-
-/**
- * Ensure that the Sparkle utility is downloaded in the user's roaming
- * application folder.  On Windows, Sparkle is distributed as a zip file
- * sparkle-<version>-win.zip containing an executable.  This handler
- * checks the current folder for any existing Sparkle zip matching
- * sparkle-*-win.zip, determines its version, and compares it against
- * the latest release on GitHub.  If the latest version is not present,
- * it signals the renderer to download the new zip.  The handler
- * computes a unique download id and the destination path for the new
- * file.  When needsDownload is false, the existing dest path is
- * returned.  Errors during version checking result in a fallback that
- * always downloads the latest release.
- */
-ipcMain.handle('ensure-sparkle', async () => {
-  try {
-    // Only relevant on Windows.  On other platforms simply indicate no
-    // download is needed.
-    if (process.platform !== 'win32') {
-      return { needsDownload: false };
-    }
-    // Determine the target directory under AppData\Roaming\make-your-life-easier.
-    const userRoaming = path.join(os.homedir(), 'AppData', 'Roaming');
-    const sparkleDir = path.join(userRoaming, 'make-your-life-easier');
-    try {
-      fs.mkdirSync(sparkleDir, { recursive: true });
-    } catch {
-      // ignore mkdir errors; subsequent operations will fail if dir missing
-    }
-    // Find existing Sparkle zip files and extract version
-    let existingVersion = null;
-    let existingFile = null;
-    try {
-      const files = fs.readdirSync(sparkleDir);
-      for (const f of files) {
-        if (/^sparkle-.*-win\.zip$/i.test(f)) {
-          existingFile = f;
-          const match = f.match(/^sparkle-([0-9]+(?:\.[0-9]+)*)-win\.zip$/i);
-          if (match) {
-            existingVersion = match[1];
-          }
-          break;
-        }
-      }
-    } catch {
-      // ignore read errors
-    }
-    // If no zip exists but the extracted 'debloat-sparkle' directory is present, we
-    // assume Sparkle is already up to date.  In this case, avoid making
-    // unnecessary network requests to GitHub and return early with
-    // needsDownload=false.  A placeholder dest is included for API
-    // compatibility but will not be used by the renderer.
-    try {
-      const debloatDir = path.join(sparkleDir, 'debloat-sparkle');
-      if (!existingFile && fs.existsSync(debloatDir)) {
-        const id = `sparkle-${Date.now()}`;
-        const placeholderDest = path.join(sparkleDir, 'sparkle-latest.zip');
-        return { needsDownload: false, id, url: '', dest: placeholderDest };
-      }
-    } catch {
-      // ignore errors when checking extracted folder
-    }
-
-    // Fetch latest release details from GitHub
-    let latest;
-    try {
-      latest = await fetchLatestSparkle();
-    } catch (err) {
-      debug('warn', 'Failed to fetch latest Sparkle release:', err);
-      // If we cannot fetch the latest version, always force download
-      latest = null;
-    }
-    // Determine whether a download is needed
-    let needsDownload = true;
-    let destPath;
-    let downloadUrl;
-    let fileName;
-    if (latest && latest.version && latest.assetUrl && latest.fileName) {
-      const cmp = existingVersion ? compareVersions(latest.version, existingVersion) : 1;
-      // cmp <= 0 means existingVersion >= latest.version
-      if (cmp <= 0) {
-        needsDownload = false;
-        fileName = existingFile;
-        downloadUrl = latest.assetUrl;
-      } else {
-        needsDownload = true;
-        fileName = latest.fileName;
-        downloadUrl = latest.assetUrl;
-        // remove any existing older zip
-        if (existingFile) {
-          try {
-            fs.unlinkSync(path.join(sparkleDir, existingFile));
-          } catch {
-            // ignore deletion errors
-          }
-        }
-      }
-    } else {
-      // If we failed to fetch latest release, but there is an existing file, do not download again.
-      if (existingFile) {
-        needsDownload = false;
-        fileName = existingFile;
-      } else {
-        // Without release info and no existing file, fallback to always download using static URL
-        needsDownload = true;
-        // Use the user-supplied 2.9.2 download as fallback
-        fileName = 'sparkle-2.9.2-win.zip';
-        downloadUrl = 'https://github.com/parcoil/sparkle/releases/download/2.9.2/sparkle-2.9.2-win.zip';
-      }
-    }
-
-    // If there is no zip but the debloat-sparkle directory exists, treat it as up-to-date and
-    // skip the download.  This prevents repeated downloads when the zip has been deleted
-    // after extraction but the extracted folder remains.
-    try {
-      const debloatDir = path.join(sparkleDir, 'debloat-sparkle');
-      if (!existingFile && fs.existsSync(debloatDir)) {
-        needsDownload = false;
-      }
-    } catch {
-      // ignore errors when checking extracted folder
-    }
-    destPath = path.join(sparkleDir, fileName);
-    const id = `sparkle-${Date.now()}`;
-    return { needsDownload, id, url: downloadUrl, dest: destPath };
-  } catch (err) {
-    // In case of unexpected errors, always signal a download with the static URL
-    debug('error', 'ensure-sparkle unexpected error:', err);
-    const fallbackPath = path.join(os.homedir(), 'AppData', 'Roaming', 'make-your-life-easier', 'sparkle-2.9.2-win.zip');
-    return {
-      needsDownload: true,
-      id: `sparkle-${Date.now()}`,
-      url: 'https://github.com/parcoil/sparkle/releases/download/2.9.2/sparkle-2.9.2-win.zip',
-      dest: fallbackPath
-    };
-  }
-});
-
-// Helper to execute a command via spawn and capture its stdout/stderr. This
-// consolidates the repetitive logic of launching child processes and
-// collecting their output into a single place. It resolves with an
-// object containing either { stdout, stderr } on success or { error, stdout, stderr }
-// when the command exits with a non-zero code or encounters an error.
-function runSpawnCommand(cmd, args = [], options = {}) {
-  return new Promise((resolve) => {
-    try {
-      const child = spawn(cmd, args, options);
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', (data) => { stdout += data.toString(); });
-      child.stderr.on('data', (data) => { stderr += data.toString(); });
-      child.on('error', (err) => {
-        resolve({ error: err.message, stdout, stderr });
-      });
-      child.on('close', (code) => {
-        if (code === 0) {
-          resolve({ stdout, stderr });
-        } else {
-          resolve({ error: `Command exited with code ${code}`, stdout, stderr });
-        }
-      });
-    } catch (err) {
-      resolve({ error: err.message });
-    }
-  });
-}
-
-function debug(level, ...args) {
-  const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
-  const colorMap = {
-    info: 'color:#2196F3; font-weight:bold;',
-    warn: 'color:#FF9800; font-weight:bold;',
-    error: 'color:#F44336; font-weight:bold;',
-    success: 'color:#4CAF50; font-weight:bold;'
-  };
-  const emoji = emojiMap[level] || '';
-  const style = colorMap[level] || '';
-  const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
-  const fn =
-    level === 'error'
-      ? console.error
-      : level === 'warn'
-        ? console.warn
-        : console.log;
-  if (isBrowser) {
-    fn.call(console, `%c${emoji}`, style, ...args);
-  } else {
-    fn.call(console, `${emoji}`, ...args);
-  }
-
-  /**
-   * Attach standard output handlers to a child process and resolve when it exits.
-   * This helper consolidates the repetitive boilerplate of capturing stdout/stderr,
-   * handling errors, transforming output and constructing a result object.  It
-   * accepts a prefix used to build a generic error message when the process
-   * exits with a non-zero code.  The outputTransform function can be used to
-   * strip ANSI codes or otherwise process the combined stdout/stderr before
-   * returning it.
-   *
-   * @param {ChildProcess} child - The spawned child process.
-   * @param {Function} resolve - The promise resolver from the caller.
-   * @param {string} errorPrefix - The prefix for the error message on failure.
-   * @param {Function} [outputTransform=stripAnsiCodes] - Function to transform the raw output.
-   */
-  function attachChildProcessHandlers(child, resolve, errorPrefix, outputTransform = stripAnsiCodes) {
-    let stdout = '';
-    let stderr = '';
-    if (child.stdout) {
-      child.stdout.on('data', (data) => { stdout += data.toString(); });
-    }
-    if (child.stderr) {
-      child.stderr.on('data', (data) => { stderr += data.toString(); });
-    }
-    child.on('error', (err) => {
-      const output = outputTransform(stdout + stderr);
-      resolve({ success: false, error: err.message, output });
-    });
-    child.on('close', (code) => {
-      const output = outputTransform(stdout + stderr);
-      if (code === 0) {
-        resolve({ success: true, output });
-      } else {
-        resolve({ success: false, error: `${errorPrefix} exited with code ${code}`, output });
-      }
-    });
-  }
-
-  /**
-   * Run a provided PowerShell script with elevation and wait for it to finish.
-   * This helper encapsulates the common logic of writing a temporary script file,
-   * launching it through Start-Process with the RunAs verb, cleaning up the
-   * temporary file and resolving with a standardized response object.  It is
-   * used by both run-sfc-scan and run-dism-repair handlers to eliminate
-   * duplicated code.
-   *
-   * @param {string} psScript - The PowerShell script contents.
-   * @param {string} successMessage - Message returned when the script exits with code 0.
-   * @param {string} failureMessage - Message returned when the script exits with a non-zero code.
-   * @returns {Promise<Object>} Resolves with an object describing success or failure.
-   */
-  function runElevatedPowerShellScript(psScript, successMessage, failureMessage) {
-    return new Promise((resolve) => {
-      if (process.platform !== 'win32') {
-        resolve({ success: false, error: 'This feature is only available on Windows' });
-        return;
-      }
-      let psFile;
-      try {
-        psFile = path.join(os.tmpdir(), `${Date.now()}_elevated.ps1`);
-        fs.writeFileSync(psFile, psScript, 'utf8');
-        const escapedPsFile = psFile.replace(/"/g, '\\"');
-        const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Normal -Wait`;
-        const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
-        child.on('error', () => {
-          try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-          resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
-        });
-        child.on('exit', (code) => {
-          try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-          if (code === 0) {
-            resolve({ success: true, message: successMessage });
-          } else {
-            resolve({ success: false, error: failureMessage, code: 'PROCESS_FAILED' });
-          }
-        });
-      } catch (error) {
-        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-        resolve({ success: false, error: 'Failed to start process: ' + error.message });
-      }
-    });
-  }
-
-  /**
-   * Safely remove a file if it exists.  Errors are silently ignored.
-   * @param {string} filePath - The absolute path of the file to delete.
-   */
-  function removeFileIfExists(filePath) {
-    try {
-      if (filePath && fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    } catch { }
-  }
-
-  /**
-   * Safely remove a directory if it exists.  Errors are silently ignored.
-   * @param {string} dirPath - The absolute path of the directory to remove.
-   */
-  function removeDirIfExists(dirPath) {
-    try {
-      if (dirPath && fs.existsSync(dirPath)) {
-        fs.rmSync(dirPath, { recursive: true, force: true });
-      }
-    } catch { }
-  }
-
-  /**
-   * Remove any existing extraction directories associated with a given download.
-   * This helper abstracts the repetitive logic of cleaning up old extraction
-   * directories before starting a new download.  It removes both the
-   * underscore-normalized and space-normalized variants of the directory.
-   *
-   * @param {string} finalName - The sanitized filename used for the download.
-   * @param {string} downloadsDir - The parent downloads directory.
-   */
-  function cleanupExtractDirs(finalName, downloadsDir) {
-    const baseNameWithoutExt = path.basename(finalName, path.extname(finalName));
-    const extractDir = path.join(downloadsDir, baseNameWithoutExt);
-    removeDirIfExists(extractDir);
-    const altExtractDir = extractDir.replace(/_/g, ' ');
-    if (altExtractDir !== extractDir) {
-      removeDirIfExists(altExtractDir);
-    }
-  }
-}
-
-
-/**
- * Attach standard output handlers to a child process and resolve when it exits.
- * This helper consolidates the repetitive boilerplate of capturing stdout/stderr,
- * handling errors, transforming output and constructing a result object.  It
- * accepts a prefix used to build a generic error message when the process
- * exits with a non-zero code.  The outputTransform function can be used to
- * strip ANSI codes or otherwise process the combined stdout/stderr before
- * returning it.
- *
- * @param {ChildProcess} child - The spawned child process.
- * @param {Function} resolve - The promise resolver from the caller.
- * @param {string} errorPrefix - The prefix for the error message on failure.
- * @param {Function} [outputTransform=stripAnsiCodes] - Function to transform the raw output.
- */
-function attachChildProcessHandlers(child, resolve, errorPrefix, outputTransform = stripAnsiCodes) {
-  let stdout = '';
-  let stderr = '';
-  if (child.stdout) {
-    child.stdout.on('data', (data) => { stdout += data.toString(); });
-  }
-  if (child.stderr) {
-    child.stderr.on('data', (data) => { stderr += data.toString(); });
-  }
-  child.on('error', (err) => {
-    const output = outputTransform(stdout + stderr);
-    resolve({ success: false, error: err.message, output });
-  });
-  child.on('close', (code) => {
-    const output = outputTransform(stdout + stderr);
-    if (code === 0) {
-      resolve({ success: true, output });
-    } else {
-      resolve({ success: false, error: `${errorPrefix} exited with code ${code}`, output });
-    }
-  });
-}
-
-/**
- * Run a provided PowerShell script with elevation and wait for it to finish.
- * This helper encapsulates the common logic of writing a temporary script file,
- * launching it through Start-Process with the RunAs verb, cleaning up the
- * temporary file and resolving with a standardized response object.  It is
- * used by both run-sfc-scan and run-dism-repair handlers to eliminate
- * duplicated code.
- *
- * @param {string} psScript - The PowerShell script contents.
- * @param {string} successMessage - Message returned when the script exits with code 0.
- * @param {string} failureMessage - Message returned when the script exits with a non-zero code.
- * @returns {Promise<Object>} Resolves with an object describing success or failure.
- */
-function runElevatedPowerShellScript(psScript, successMessage, failureMessage) {
-  return new Promise((resolve) => {
-    if (process.platform !== 'win32') {
-      resolve({ success: false, error: 'This feature is only available on Windows' });
-      return;
-    }
-    let psFile;
-    try {
-      psFile = path.join(os.tmpdir(), `${Date.now()}_elevated.ps1`);
-      fs.writeFileSync(psFile, psScript, 'utf8');
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
-      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
-      child.on('error', () => {
-        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-        resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
-      });
-      child.on('exit', (code) => {
-        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-        if (code === 0) {
-          resolve({ success: true, message: successMessage });
-        } else {
-          resolve({ success: false, error: failureMessage, code: 'PROCESS_FAILED' });
-        }
-      });
-    } catch (error) {
-      try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-      resolve({ success: false, error: 'Failed to start process: ' + error.message });
-    }
-  });
-}
-
-/**
- * Safely remove a file if it exists.  Errors are silently ignored.
- * @param {string} filePath - The absolute path of the file to delete.
- */
-function removeFileIfExists(filePath) {
-  try {
-    if (filePath && fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  } catch { }
-}
-
-/**
- * Safely remove a directory if it exists.  Errors are silently ignored.
- * @param {string} dirPath - The absolute path of the directory to remove.
- */
-function removeDirIfExists(dirPath) {
-  try {
-    if (dirPath && fs.existsSync(dirPath)) {
-      fs.rmSync(dirPath, { recursive: true, force: true });
-    }
-  } catch { }
-}
-
-/**
- * Remove any existing extraction directories associated with a given download.
- * This helper abstracts the repetitive logic of cleaning up old extraction
- * directories before starting a new download.  It removes both the
- * underscore-normalized and space-normalized variants of the directory.
- *
- * @param {string} finalName - The sanitized filename used for the download.
- * @param {string} downloadsDir - The parent downloads directory.
- */
-function cleanupExtractDirs(finalName, downloadsDir) {
-  const baseNameWithoutExt = path.basename(finalName, path.extname(finalName));
-  const extractDir = path.join(downloadsDir, baseNameWithoutExt);
-  removeDirIfExists(extractDir);
-  const altExtractDir = extractDir.replace(/_/g, ' ');
-  if (altExtractDir !== extractDir) {
-    removeDirIfExists(altExtractDir);
-  }
-}
-const downloadedFiles = [];
-
-const extractedDirs = [];
-
-let Sudoer = null;
-try {
-  const sudoModule = require('electron-sudo');
-  Sudoer = sudoModule.default || sudoModule;
-} catch (e) {
-  Sudoer = null;
-}
-let oauthConfig = {};
-try {
-  const oauthPath = path.join(__dirname, 'oauth_config.json');
-  if (fs.existsSync(oauthPath)) {
-    const raw = fs.readFileSync(oauthPath, 'utf-8');
-    oauthConfig = JSON.parse(raw);
-  }
-} catch (err) {
-  debug('warn', 'Failed to load oauth_config.json:', err);
-  oauthConfig = {};
-}
-
-ipcMain.handle('run-raphi-debloat', async () => {
-  // Only support Windows because the script is Windows specific
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'Debloat is only supported on Windows.' };
-  }
-
-  // Determine the PowerShell executable and construct the script command.
-  const psExe = getPowerShellExe() || 'powershell.exe';
-  const scriptCmd = '& ([scriptblock]::Create((irm "https://debloat.raphi.re/")))';
-
-  const runViaStartProcess = () => {
-    return new Promise((resolve) => {
-      // Escape quotes inside the command for the argument list
-      const escapedCmd = scriptCmd.replace(/"/g, '\\"');
-      const argList = `-NoProfile -ExecutionPolicy Bypass -Command \"${escapedCmd}\"`;
-      const psCommand = `Start-Process -FilePath \"${psExe}\" -ArgumentList '${argList}' -Verb RunAs -WindowStyle Normal -Wait`;
-      const child = spawn(psExe, ['-Command', psCommand], { windowsHide: false });
-      let stderrData = '';
-      child.stderr.on('data', (buf) => { stderrData += buf.toString(); });
-      child.on('error', (err) => {
-        resolve({ success: false, error: 'Failed to launch PowerShell: ' + err.message });
-      });
-      child.on('exit', (code) => {
-        if (code === 0) {
-          resolve({ success: true, message: 'Debloat script executed successfully. A restart may be required.' });
-        } else {
-          const msg = stderrData.trim() || 'Debloat script failed or was cancelled.';
-          resolve({ success: false, error: msg });
-        }
-      });
-    });
-  };
-
-  return await runViaStartProcess();
-});
-app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
-
-app.commandLine.appendSwitch('disable-http2');
-
-/**
- * Determine the appropriate PowerShell executable to use on Windows.
- * When running under a 32‑bit Electron process on a 64‑bit OS,
- * `powershell.exe` may resolve to the 32‑bit version located in
- * `C:\\Windows\\SysWOW64`.  Many system‑level registry changes (under
- * HKLM) are only visible through the 64‑bit registry view and will be
- * silently redirected or dropped when run via the 32‑bit PowerShell.
- * To ensure debloat tasks reliably modify the correct registry hive,
- * prefer the 64‑bit PowerShell located under
- * `System32\\WindowsPowerShell\\v1.0\\powershell.exe`.  When this
- * executable is unavailable (e.g. on 32‑bit editions of Windows) fall back
- * to the bare `powershell.exe` on the PATH.
- *
- * @returns {string|null} The absolute path to a 64‑bit PowerShell
- *   executable if available, otherwise `powershell.exe`. Returns
- *   `null` on non‑Windows platforms.
- */
-function getPowerShellExe() {
-  if (process.platform !== 'win32') return null;
-  try {
-    const systemRoot = process.env.SystemRoot || 'C:\\Windows';
-    const pwsh64 = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-    if (fs.existsSync(pwsh64)) {
-      return pwsh64;
-    }
-  } catch (err) {
-    // Ignore fs errors and fall back to default
-  }
-  return 'powershell.exe';
-}
-
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '389774067739-qnshev3gbck4firdc787iqhd44omiajs.apps.googleusercontent.com';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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';
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5252';
-
-const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1329887230482845797';
-const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || 'ZPK2i6WmbGnBhv7LmyzLwTOoKbaH8nDV';
-const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localhost:5252';
-
-let userProfile = null;
-
-const getUserProfilePath = () => {
-  const p = app.getPath('userData');
-  return path.join(p, 'userProfile.json');
-};
-
-function loadUserProfile() {
-  try {
-    const filePath = getUserProfilePath();
-    if (fs.existsSync(filePath)) {
-      const data = fs.readFileSync(filePath, 'utf-8');
-      userProfile = JSON.parse(data);
-    }
-  } catch (err) {
-    debug('warn', 'Failed to load saved user profile:', err);
-    userProfile = null;
-  }
-}
-
-function saveUserProfile() {
-  try {
-    const filePath = getUserProfilePath();
-    if (userProfile) {
-      fs.writeFileSync(filePath, JSON.stringify(userProfile, null, 2));
-    } else {
-      // remove any existing file
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
-  } catch (err) {
-    debug('warn', 'Failed to save user profile:', err);
-  }
-}
-
-function postForm(url, params) {
-  return new Promise((resolve, reject) => {
-    const data = new URLSearchParams(params).toString();
-    const parsed = new URL(url);
-    const https = require(parsed.protocol.replace(':', ''));
-    const options = {
-      hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: parsed.pathname + (parsed.search || ''),
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(data)
-      }
-    };
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(body);
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(json);
-          } else {
-            reject(new Error(json.error_description || json.error || body));
-          }
-        } catch (err) {
-          reject(err);
-        }
-      });
-    });
-    req.on('error', (err) => reject(err));
-    req.write(data);
-    req.end();
-  });
-}
-
-function getJson(url, headers = {}) {
-  return new Promise((resolve, reject) => {
-    const parsed = new URL(url);
-    const https = require(parsed.protocol.replace(':', ''));
-    const options = {
-      hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: parsed.pathname + (parsed.search || ''),
-      method: 'GET',
-      headers
-    };
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(body);
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(json);
-          } else {
-            reject(new Error(json.error || body));
-          }
-        } catch (err) {
-          reject(err);
-        }
-      });
-    });
-    req.on('error', (err) => reject(err));
-    req.end();
-  });
-}
-
-function openAuthWindow(authUrl, redirectUri, handleCallback) {
-  return new Promise((resolve, reject) => {
-    const isGoogle = typeof authUrl === 'string' && (authUrl.includes('accounts.google.com') || authUrl.includes('google.com/oauth'));
-    const windowOpts = {
-      width: 600,
-      height: 700,
-      show: true,
-      parent: mainWindow,
-      modal: true,
-      autoHideMenuBar: true,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true
-      }
-    };
-    const authWindow = new BrowserWindow(windowOpts);
-
-    const loaderView = new BrowserView({
-      webPreferences: { nodeIntegration: false, contextIsolation: true }
-    });
-    const loaderHtml = `
-      <!DOCTYPE html>
-      <html><head><meta charset="utf-8">
-      <style>
-        html, body { margin:0; padding:0; height:100%; background:rgba(255,255,255,0.8); display:flex; align-items:center; justify-content:center; }
-        .spinner { width:40px; height:40px; border:4px solid rgba(0,0,0,0.2); border-top-color:rgba(0,0,0,0.7); border-radius:50%; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform:rotate(0deg); } 100% { transform:rotate(360deg); } }
-      </style></head>
-      <body><div class="spinner"></div></body></html>`;
-    loaderView.webContents.loadURL('data:text/html;base64,' + Buffer.from(loaderHtml).toString('base64'));
-    authWindow.setBrowserView(loaderView);
-    loaderView.setBounds({ x: 0, y: 0, width: windowOpts.width, height: windowOpts.height });
-    loaderView.setAutoResize({ width: true, height: true });
-    const removeLoaderView = () => {
-      try {
-        if (!authWindow.isDestroyed() && authWindow.getBrowserView() === loaderView) {
-          authWindow.setBrowserView(null);
-          loaderView.destroy();
-        }
-      } catch (_) { }
-    };
-    authWindow.webContents.once('did-finish-load', removeLoaderView);
-    authWindow.once('closed', removeLoaderView);
-
-    const cleanup = () => {
-      if (!authWindow.isDestroyed()) authWindow.close();
-    };
-
-    function handleUrl(url) {
-      try {
-        const target = new URL(url);
-        if (url.startsWith(redirectUri)) {
-          handleCallback(target)
-            .then((result) => {
-              cleanup();
-              resolve(result);
-            })
-            .catch((err) => {
-              cleanup();
-              reject(err);
-            });
-        }
-      } catch (e) {
-        // ignore malformed URLs
-      }
-    }
-
-    // Έλεγχος αν είναι Google OAuth
-    function isGoogleOAuth(url) {
-      return url.includes('accounts.google.com') || url.includes('google.com/oauth');
-    }
-
-    // Εφαρμογή dark mode ΜΟΝΟ για Google
-    function applyDarkModeIfGoogle() {
-      return;
-    }
-
-    // Εφαρμογή dark mode κατά τη φόρτωση
-    authWindow.webContents.once('did-finish-load', () => {
-      applyDarkModeIfGoogle();
-    });
-
-    // Εφαρμογή dark mode σε κάθε navigation (για διαφορετικές Google σελίδες)
-    authWindow.webContents.on('did-navigate', () => {
-      setTimeout(() => {
-        applyDarkModeIfGoogle();
-      }, 100);
-    });
-
-    // Εφαρμογή dark mode σε frame φορτώσεις
-    authWindow.webContents.on('frame-loaded', () => {
-      setTimeout(() => {
-        applyDarkModeIfGoogle();
-      }, 50);
-    });
-
-    authWindow.webContents.on('will-redirect', (event, url) => {
-      handleUrl(url);
-    });
-
-    authWindow.webContents.on('will-navigate', (event, url) => {
-      handleUrl(url);
-    });
-
-    authWindow.webContents.on('did-navigate', (event, url) => {
-      handleUrl(url);
-    });
-
-    const applyDiscordAccessibilityFix = () => {
-      try {
-        const current = authWindow.webContents.getURL() || '';
-        if (current.includes('discord.com')) {
-          authWindow.webContents.insertCSS(`
-            input, textarea {
-              color: #dcddde !important;
-              background-color: #2f3136 !important;
-              caret-color: #dcddde !important;
-            }
-            input::placeholder, textarea::placeholder {
-              color: #b9bbbe !important;
-            }
-          `);
-        }
-      } catch (_) { }
-    };
-    authWindow.webContents.on('did-finish-load', applyDiscordAccessibilityFix);
-    authWindow.webContents.on('did-navigate', applyDiscordAccessibilityFix);
-    authWindow.webContents.on('frame-loaded', applyDiscordAccessibilityFix);
-
-    authWindow.on('closed', () => {
-      try {
-        resolve(null);
-      } catch (e) {
-        // If resolve has already been called, ignore any errors.
-      }
-    });
-
-    authWindow.loadURL(authUrl);
-  });
-}
+// Password Manager
 const PasswordManagerAuth = require('./password-manager/auth');
 const PasswordManagerDB = require('./password-manager/database');
-const { dialog } = require('electron');
-// Determine whether the updater should be bypassed.  If the
-// environment variable `ELECTRON_NO_UPDATER` or `BYPASS_UPDATER`
-// is set (to any non‑empty value), or a `--no-updater` flag is
-// provided on the command line, then we skip creating the updater
-// window entirely and launch the main application directly.  This
-// allows developers to run the app without triggering any auto‑
-// update behaviour when testing or when updates are not desired.
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+// Determine whether the updater should be bypassed
 const skipUpdater = Boolean(process.env.ELECTRON_NO_UPDATER) ||
   Boolean(process.env.BYPASS_UPDATER) ||
   process.argv.includes('--no-updater');
 
-// Enable automatic download of updates.  By default the updater
-// will download updates as soon as they are discovered.  This
-// removes the need for the user to click a button in the UI to
-// initiate the download.
-autoUpdater.autoDownload = true;
+// App command line switches
+app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
+app.commandLine.appendSwitch('disable-http2');
 
-// Instruct the updater to bypass any caches when fetching update metadata or
-// binaries.  Without explicit cache control headers, some proxies or CDNs
-// may serve stale `latest.yml` manifests, causing the client to report
-// outdated versions or attempt to download large delta files repeatedly.
+// ============================================================================
+// Auto-Updater Configuration
+// ============================================================================
+
+autoUpdater.autoDownload = true;
 autoUpdater.requestHeaders = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
 };
-
-// Disable automatic install on quit.  We will explicitly call
-// quitAndInstall() ourselves once the update has finished
-// downloading so that the update is applied immediately rather
-// than waiting for the user to quit the application.
 autoUpdater.autoInstallOnAppQuit = false;
+
 let updateAvailable = false;
-// Cache update metadata when an update is available so we can persist
-// the release notes after the update is downloaded.  The info
-// provided in the update-downloaded event may omit releaseNotes, so
-// we capture it here from the update-available event.
 let pendingUpdateInfo = null;
 let isManualCheck = false;
 let updateDownloaded = false;
+
+// ============================================================================
+// Window References
+// ============================================================================
+
+let mainWindow = null;
+let updateWindow = null;
+
+// ============================================================================
+// Password Manager Setup
+// ============================================================================
+
+const documentsPath = path.join(os.homedir(), 'Documents');
+const pmDirectory = path.join(documentsPath, 'MakeYourLifeEasier');
+
+if (!fs.existsSync(pmDirectory)) {
+  fs.mkdirSync(pmDirectory, { recursive: true });
+}
+
+const pmAuth = new PasswordManagerAuth();
+pmAuth.initialize(pmDirectory);
+
+// ============================================================================
+// Auto-Updater Events
+// ============================================================================
+
 autoUpdater.on('checking-for-update', () => {
   debug('info', 'Checking for updates...');
-  // Always send status to the updateWindow if it exists; otherwise send
-  // to the main window only for manual checks.
   if (updateWindow) {
     updateWindow.webContents.send('update-status', { status: 'checking', message: 'Checking for updates...' });
   } else if (mainWindow && isManualCheck) {
@@ -940,57 +94,34 @@ autoUpdater.on('checking-for-update', () => {
 autoUpdater.on('update-available', async (info) => {
   debug('info', 'Update available:', info);
   updateAvailable = true;
-  // Cache update information for later use when the update is downloaded.
   pendingUpdateInfo = {
     version: info.version,
     releaseName: info.releaseName,
     releaseNotes: info.releaseNotes
   };
+
   const title = info.releaseName || '';
   const version = info.version || '';
-  const message = title
-    ? `${title} (v${version})`
-    : `New version available: v${version}`;
+  const message = title ? `${title} (v${version})` : `New version available: v${version}`;
   const releaseNotes = info.releaseNotes || '';
-  // Send update available status to whichever window is currently active.
-  if (updateWindow) {
-    updateWindow.webContents.send('update-status', {
-      status: 'available',
-      message,
-      version,
-      releaseName: title,
-      releaseNotes: releaseNotes
-    });
-  }
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', {
-      status: 'available',
-      message,
-      version,
-      releaseName: title,
-      releaseNotes: releaseNotes
-    });
-  }
-});
 
+  const payload = { status: 'available', message, version, releaseName: title, releaseNotes };
+  if (updateWindow) updateWindow.webContents.send('update-status', payload);
+  if (mainWindow) mainWindow.webContents.send('update-status', payload);
+});
 
 autoUpdater.on('update-not-available', (info) => {
   debug('info', 'Update not available:', info);
-  // If the update window is open this means we are on the initial
-  // application startup.  Instead of immediately closing the updater,
-  // repurpose it as a loading screen for the main application.  We
-  // simulate progress until the main window is ready, then close
-  // the update window and show the main application.
+
   if (updateWindow) {
     let progress = 0;
-    // Send an initial progress update to the update renderer
     updateWindow.webContents.send('update-status', {
       status: 'downloading',
       message: `Loading application: ${progress}%`,
       percent: progress
     });
+
     const progressTimer = setInterval(() => {
-      // Increase progress up to 99% while the app is loading
       progress = Math.min(progress + 5, 99);
       updateWindow.webContents.send('update-status', {
         status: 'downloading',
@@ -998,39 +129,28 @@ autoUpdater.on('update-not-available', (info) => {
         percent: progress
       });
     }, 200);
-    // Only create the main window if it hasn't already been created.  Pass
-    // false to keep it hidden until we explicitly show it after loading.
+
     if (!mainWindow) {
       createMainWindow(false);
     }
-    // If the window exists, set up a handler for when its contents finish
-    // loading.  Once loaded, stop the progress timer, update the progress
-    // to 100% and then close the updater window and show the main app.
+
     if (mainWindow) {
       mainWindow.webContents.once('did-finish-load', () => {
         clearInterval(progressTimer);
-        progress = 100;
         updateWindow.webContents.send('update-status', {
           status: 'downloading',
-          message: `Loading application: ${progress}%`,
-          percent: progress
+          message: 'Loading application: 100%',
+          percent: 100
         });
         setTimeout(() => {
-          if (updateWindow) {
-            updateWindow.close();
-          }
-          try {
-            if (mainWindow) {
-              mainWindow.show();
-            }
-          } catch (_) { }
+          if (updateWindow) updateWindow.close();
+          try { if (mainWindow) mainWindow.show(); } catch { }
         }, 500);
       });
     }
     return;
   }
-  // Otherwise, this was a manual check from the main window.  Notify
-  // the renderer.
+
   if (mainWindow && isManualCheck) {
     mainWindow.webContents.send('update-status', {
       status: 'not-available',
@@ -1046,54 +166,36 @@ autoUpdater.on('download-progress', (progressObj) => {
     message: `Downloading update: ${Math.round(progressObj.percent)}%`,
     percent: progressObj.percent
   };
-  if (updateWindow) {
-    updateWindow.webContents.send('update-status', statusPayload);
-  }
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', statusPayload);
-  }
+  if (updateWindow) updateWindow.webContents.send('update-status', statusPayload);
+  if (mainWindow) mainWindow.webContents.send('update-status', statusPayload);
 });
 
 autoUpdater.on('update-downloaded', (info) => {
   debug('success', 'Update downloaded:', info);
   updateDownloaded = true;
+
   const title = info.releaseName || '';
   const version = info.version || '';
-  const message = title
-    ? `${title} (v${version}) downloaded.`
-    : `v${version} downloaded.`;
-  const payload = {
-    status: 'downloaded',
-    message,
-    version,
-    releaseName: title
-  };
-  if (updateWindow) {
-    updateWindow.webContents.send('update-status', payload);
-  }
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', payload);
-  }
+  const message = title ? `${title} (v${version}) downloaded.` : `v${version} downloaded.`;
+  const payload = { status: 'downloaded', message, version, releaseName: title };
 
-  // Persist update metadata so the changelog can be displayed after the
-  // application restarts.  Use the cached pendingUpdateInfo when
-  // available because the `info` object here may omit release notes.
+  if (updateWindow) updateWindow.webContents.send('update-status', payload);
+  if (mainWindow) mainWindow.webContents.send('update-status', payload);
+
+  // Persist update metadata
   try {
     const updateInfoToSave = pendingUpdateInfo || {
       version: info.version,
       releaseName: info.releaseName,
       releaseNotes: info.releaseNotes
     };
-    // Add a timestamp so the changelog can display relative times
     updateInfoToSave.timestamp = Date.now();
     const updateInfoFilePath = path.join(app.getPath('userData'), 'update-info.json');
     fs.writeFileSync(updateInfoFilePath, JSON.stringify(updateInfoToSave));
   } catch (err) {
     debug('warn', 'Failed to persist update info:', err);
   }
-  // Once the update is downloaded, install it silently and restart
-  // the application.  A short delay allows the renderer time to
-  // display any final messages before the process exits.
+
   setTimeout(() => {
     try {
       autoUpdater.quitAndInstall(true, true);
@@ -1105,36 +207,251 @@ autoUpdater.on('update-downloaded', (info) => {
 
 autoUpdater.on('error', (err) => {
   debug('error', 'Update error:', err);
-  // If an error occurs during the initial update check (updateWindow exists
-  // and no mainWindow yet), treat it as if no update is available.  This
-  // avoids showing a verbose error to the user and simply launches
-  // the main application.
+
   if (updateWindow && !mainWindow) {
     updateWindow.webContents.send('update-status', {
       status: 'not-available',
       message: 'You are running the latest version'
     });
     setTimeout(() => {
-      if (updateWindow) {
-        updateWindow.close();
-      }
+      if (updateWindow) updateWindow.close();
       createMainWindow();
     }, 800);
     return;
   }
-  // For manual checks or errors occurring after the app has loaded, send
-  // a simplified error message to the renderer.
-  const payload = {
-    status: 'error',
-    message: `Update error: ${err.message}`
-  };
-  if (updateWindow) {
-    updateWindow.webContents.send('update-status', payload);
-  }
+
+  const payload = { status: 'error', message: `Update error: ${err.message}` };
+  if (updateWindow) updateWindow.webContents.send('update-status', payload);
+  if (mainWindow) mainWindow.webContents.send('update-status', payload);
+});
+
+// ============================================================================
+// Window Creation
+// ============================================================================
+
+function createMainWindow(showWindow = true) {
+  mainWindow = new BrowserWindow({
+    width: 1100,
+    height: 750,
+    icon: path.join(__dirname, 'hacker.ico'),
+    minWidth: 800,
+    minHeight: 600,
+    autoHideMenuBar: true,
+    titleBarStyle: 'hidden',
+    frame: false,
+    show: showWindow,
+    backgroundColor: '#0f1117',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  mainWindow.loadFile('index.html');
+  setupWindowStateEvents();
+}
+
+function createUpdateWindow() {
+  updateWindow = new BrowserWindow({
+    width: 500,
+    height: 350,
+    resizable: false,
+    movable: true,
+    minimizable: false,
+    maximizable: false,
+    frame: false,
+    show: true,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  updateWindow.setMenuBarVisibility(false);
+  updateWindow.loadFile(path.join('updater', 'update.html'));
+
+  updateWindow.on('closed', () => {
+    updateWindow = null;
+  });
+
+  autoUpdater.checkForUpdates().catch((err) => {
+    debug('error', err);
+  });
+}
+
+function createPasswordManagerWindow() {
+  const passwordWindow = new BrowserWindow({
+    width: 1600,
+    height: 900,
+    icon: path.join(__dirname, 'hacker.ico'),
+    parent: mainWindow,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+  passwordWindow.loadFile('password-manager/index.html');
+  passwordWindow.setMenuBarVisibility(false);
+}
+
+function setupWindowStateEvents() {
   if (mainWindow) {
-    mainWindow.webContents.send('update-status', payload);
+    mainWindow.on('maximize', () => {
+      mainWindow.webContents.send('window-state-changed', { isMaximized: true });
+    });
+    mainWindow.on('unmaximize', () => {
+      mainWindow.webContents.send('window-state-changed', { isMaximized: false });
+    });
+  }
+}
+
+// ============================================================================
+// App Lifecycle
+// ============================================================================
+
+app.whenReady().then(() => {
+  // Initialize user profile
+  try {
+    userProfile.initialize(app.getPath('userData'));
+  } catch { }
+
+  if (skipUpdater) {
+    createMainWindow();
+  } else {
+    createUpdateWindow();
+  }
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      if (skipUpdater) {
+        createMainWindow();
+      } else {
+        createUpdateWindow();
+      }
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  downloadManager.cleanupOnQuit(debug);
+});
+
+// ============================================================================
+// IPC Handlers - Window Controls
+// ============================================================================
+
+ipcMain.handle('window-minimize', () => {
+  if (mainWindow) mainWindow.minimize();
+});
+
+ipcMain.handle('window-maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
   }
 });
+
+ipcMain.handle('window-close', () => {
+  if (mainWindow) mainWindow.close();
+});
+
+ipcMain.handle('window-is-maximized', () => {
+  return mainWindow ? mainWindow.isMaximized() : false;
+});
+
+ipcMain.handle('window-set-size', (event, size) => {
+  try {
+    if (mainWindow && size && typeof size.width !== 'undefined' && typeof size.height !== 'undefined') {
+      const w = parseInt(size.width, 10);
+      const h = parseInt(size.height, 10);
+      if (!Number.isNaN(w) && !Number.isNaN(h)) {
+        mainWindow.setSize(w, h);
+        return true;
+      }
+    }
+  } catch { }
+  return false;
+});
+
+ipcMain.handle('window-get-size', () => {
+  try {
+    if (mainWindow) return mainWindow.getSize();
+  } catch { }
+  return [0, 0];
+});
+
+ipcMain.handle('window-set-bounds-animate', (event, size) => {
+  try {
+    if (mainWindow && size && typeof size.width !== 'undefined') {
+      const bounds = mainWindow.getBounds();
+      const newWidth = parseInt(size.width, 10);
+      const newHeight = typeof size.height !== 'undefined' ? parseInt(size.height, 10) : bounds.height;
+      if (!Number.isNaN(newWidth) && (typeof size.height === 'undefined' || !Number.isNaN(newHeight))) {
+        mainWindow.setBounds({ x: bounds.x, y: bounds.y, width: newWidth, height: newHeight }, true);
+        return true;
+      }
+    }
+  } catch { }
+  return false;
+});
+
+ipcMain.handle('window-animate-resize', (event, { width, height, duration = 200 }) => {
+  return new Promise((resolve) => {
+    try {
+      if (!mainWindow || typeof width === 'undefined' || typeof height === 'undefined') {
+        return resolve(false);
+      }
+      const wTarget = parseInt(width, 10);
+      const hTarget = parseInt(height, 10);
+      if (Number.isNaN(wTarget) || Number.isNaN(hTarget)) {
+        return resolve(false);
+      }
+      const [startW, startH] = mainWindow.getSize();
+      const steps = 15;
+      const stepDelay = Math.max(10, duration / steps);
+      const deltaW = (wTarget - startW) / steps;
+      const deltaH = (hTarget - startH) / steps;
+      let i = 0;
+
+      const animateStep = () => {
+        i += 1;
+        const newW = Math.round(startW + deltaW * i);
+        const newH = Math.round(startH + deltaH * i);
+        try {
+          mainWindow.setSize(newW, newH);
+        } catch {
+          return resolve(false);
+        }
+        if (i < steps) {
+          setTimeout(animateStep, stepDelay);
+        } else {
+          resolve(true);
+        }
+      };
+      animateStep();
+    } catch {
+      resolve(false);
+    }
+  });
+});
+
+// ============================================================================
+// IPC Handlers - Auto-Updater
+// ============================================================================
+
 ipcMain.handle('check-for-updates', async () => {
   try {
     isManualCheck = true;
@@ -1146,6 +463,7 @@ ipcMain.handle('check-for-updates', async () => {
     isManualCheck = false;
   }
 });
+
 ipcMain.handle('download-update', async () => {
   try {
     await autoUpdater.downloadUpdate();
@@ -1154,16 +472,15 @@ ipcMain.handle('download-update', async () => {
     return { success: false, error: error.message };
   }
 });
+
 ipcMain.handle('install-update', async () => {
   if (updateDownloaded) {
-    // Install the update silently and restart the app automatically. Passing
-    // true for both arguments ensures the NSIS installer runs without UI and
-    // the app reopens after completion. See electron-updater docs for details.
     autoUpdater.quitAndInstall(true, true);
     return { success: true };
   }
   return { success: false, error: 'No update downloaded' };
 });
+
 ipcMain.handle('get-app-version', async () => {
   return app.getVersion();
 });
@@ -1191,334 +508,11 @@ ipcMain.handle('get-update-info', async () => {
     return { success: false, error: error.message };
   }
 });
-const http = require('http');
-// https is already imported at the top of this module.  Avoid redeclaring
-// it here to prevent duplicate constant declarations.
-const documentsPath = require('os').homedir() + '/Documents';
-const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
-if (!fs.existsSync(pmDirectory)) {
-  fs.mkdirSync(pmDirectory, { recursive: true });
-}
-const pmAuth = new PasswordManagerAuth();
-pmAuth.initialize(pmDirectory);
-function stripAnsiCodes(str) {
-  return str.replace(/\u001b\[[0-?]*[ -\/]*[@-~]/g, '');
-}
-let mainWindow;
-let updateWindow;
-const activeDownloads = new Map();
-ipcMain.handle('show-file-dialog', async () => {
-  const result = await dialog.showOpenDialog({
-    properties: ['openFile'],
-    filters: [
-      { name: 'Executables', extensions: ['exe'] }
-    ]
-  });
 
-  return result;
-});
-function createMainWindow(showWindow = true) {
-    mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 750,
-    icon: path.join(__dirname, 'hacker.ico'),
-    minWidth: 800,
-    minHeight: 600,
-    autoHideMenuBar: true,
-    // Απενεργοποίηση του default title bar
-    titleBarStyle: 'hidden', // ή 'customButtonsOnHover' για macOS
-    frame: false, // Για απόλυτο custom title bar
-    show: showWindow,
-    // Match the dark theme background during resize animations to avoid white flicker
-    backgroundColor: '#0f1117',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false,
-      contextIsolation: true
-    }
-  });
-  mainWindow.loadFile('index.html');
+// ============================================================================
+// IPC Handlers - System Info
+// ============================================================================
 
-  // Do not perform an additional update check after the main window is
-  // created.  The initial update check is performed when the update
-  // window is shown.  Subsequent checks can be triggered manually
-  // via the UI if desired.
-
-  // Attach window state listeners (e.g. maximize/unmaximize) after
-  // the main window has been created.
-  setupWindowStateEvents();
-}
-
-// Create the updater window shown before the main application.  The
-// updater window provides feedback during the update check and download
-// process.  Once the application is up to date, it closes and the
-// main window is opened.  When an update is downloaded, the app
-// restarts automatically.
-function createUpdateWindow() {
-  updateWindow = new BrowserWindow({
-    width: 500,
-    height: 350,
-    resizable: false,
-    movable: true,
-    minimizable: false,
-    maximizable: false,
-    frame: false,
-    show: true,
-    /**
-     * Use a transparent window so that only the contents rendered in
-     * update.html are visible.  We also disable the OS‑level shadow
-     * to avoid a secondary box.  A fully transparent background
-     * allows the update card to float without any window frame.
-     */
-    transparent: true,
-    backgroundColor: '#00000000',
-    hasShadow: false,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false,
-      contextIsolation: true
-    }
-  });
-  updateWindow.setMenuBarVisibility(false);
-  // Load the update page from the dedicated `updater` folder.  The
-  // update-related assets were moved into their own directory to keep
-  // the project root tidy.  Use path.join here so that Electron
-  // resolves the correct file regardless of the current working
-  // directory.
-  updateWindow.loadFile(path.join('updater', 'update.html'));
-  updateWindow.on('closed', () => {
-    updateWindow = null;
-  });
-  // Kick off an update check immediately when the update window is shown.
-  autoUpdater.checkForUpdates().catch((err) => {
-    debug('error', err);
-  });
-}
-// Window controls handlers
-ipcMain.handle('window-minimize', () => {
-  if (mainWindow) {
-    mainWindow.minimize();
-  }
-});
-
-ipcMain.handle('window-maximize', () => {
-  if (mainWindow) {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow.maximize();
-    }
-  }
-});
-
-ipcMain.handle('window-close', () => {
-  if (mainWindow) {
-    mainWindow.close();
-  }
-});
-
-ipcMain.handle('window-is-maximized', () => {
-  return mainWindow ? mainWindow.isMaximized() : false;
-});
-
-// Allow the renderer process to resize the main window.  When invoked
-// with a width and height, the main process will adjust the current
-// window dimensions.  This can be used, for example, to make the
-// application wider on certain pages (e.g. the install apps view)
-// without permanently maximising it.  The values are coerced to
-// integers to ensure correct types.  Returns true on success.
-ipcMain.handle('window-set-size', (event, size) => {
-  try {
-    if (mainWindow && size && typeof size.width !== 'undefined' && typeof size.height !== 'undefined') {
-      const w = parseInt(size.width, 10);
-      const h = parseInt(size.height, 10);
-      if (!Number.isNaN(w) && !Number.isNaN(h)) {
-        mainWindow.setSize(w, h);
-        return true;
-      }
-    }
-  } catch {
-    // fall through to return false below
-  }
-  return false;
-});
-
-// Expose a handler to retrieve the current window size.  Returns an
-// array [width, height] or [0, 0] if the main window is not yet
-// created.  The renderer can use this to animate window resizes.
-ipcMain.handle('window-get-size', () => {
-  try {
-    if (mainWindow) {
-      return mainWindow.getSize();
-    }
-  } catch {
-    // fall through
-  }
-  return [0, 0];
-});
-
-// Allow the renderer to request an animated resize of the window using
-// setBounds(..., true).  On macOS this triggers a smooth OS‑level
-// animation.  On Windows/Linux, the resize still occurs in a single
-// step but avoids repeated flicker.  The current x/y position and
-// height are preserved, only the width (and optionally height) are
-// adjusted.
-ipcMain.handle('window-set-bounds-animate', (event, size) => {
-  try {
-    if (mainWindow && size && typeof size.width !== 'undefined') {
-      const bounds = mainWindow.getBounds();
-      const newWidth = parseInt(size.width, 10);
-      const newHeight = typeof size.height !== 'undefined' ? parseInt(size.height, 10) : bounds.height;
-      if (!Number.isNaN(newWidth) && (typeof size.height === 'undefined' || !Number.isNaN(newHeight))) {
-        mainWindow.setBounds({ x: bounds.x, y: bounds.y, width: newWidth, height: newHeight }, true);
-        return true;
-      }
-    }
-  } catch {
-    // fall through
-  }
-  return false;
-});
-
-// Provide a custom animation handler that performs a smooth resize in
-// JavaScript on the main process side.  This handler incrementally
-// adjusts the window size over a series of small steps using setSize().
-// Because the loop runs in the main process, it avoids the cost of
-// multiple IPC round-trips for each step and yields a smoother
-// progression on platforms where setBounds(..., true) does not
-// animate (e.g. Windows/Linux).  The renderer specifies a target
-// width and height along with a duration in milliseconds.  If the
-// window does not exist, or if invalid parameters are provided, the
-// handler returns false.  Otherwise it resolves with true once the
-// animation completes.
-ipcMain.handle('window-animate-resize', (event, { width, height, duration = 200 }) => {
-  return new Promise((resolve) => {
-    try {
-      if (!mainWindow || typeof width === 'undefined' || typeof height === 'undefined') {
-        return resolve(false);
-      }
-      const wTarget = parseInt(width, 10);
-      const hTarget = parseInt(height, 10);
-      if (Number.isNaN(wTarget) || Number.isNaN(hTarget)) {
-        return resolve(false);
-      }
-      const [startW, startH] = mainWindow.getSize();
-      const steps = 15;
-      const stepDelay = Math.max(10, duration / steps);
-      const deltaW = (wTarget - startW) / steps;
-      const deltaH = (hTarget - startH) / steps;
-      let i = 0;
-      const animateStep = () => {
-        i += 1;
-        const newW = Math.round(startW + deltaW * i);
-        const newH = Math.round(startH + deltaH * i);
-        try {
-          mainWindow.setSize(newW, newH);
-        } catch {
-          // If setSize fails, resolve early to avoid a tight loop
-          return resolve(false);
-        }
-        if (i < steps) {
-          setTimeout(animateStep, stepDelay);
-        } else {
-          resolve(true);
-        }
-      };
-      animateStep();
-    } catch {
-      resolve(false);
-    }
-  });
-});
-
-// Window state change events
-function setupWindowStateEvents() {
-  if (mainWindow) {
-    mainWindow.on('maximize', () => {
-      mainWindow.webContents.send('window-state-changed', { isMaximized: true });
-    });
-
-    mainWindow.on('unmaximize', () => {
-      mainWindow.webContents.send('window-state-changed', { isMaximized: false });
-    });
-  }
-}
-
-function createPasswordManagerWindow() {
-  const passwordWindow = new BrowserWindow({
-    width: 1600,
-    height: 900,
-    icon: path.join(__dirname, 'hacker.ico'),
-    parent: mainWindow,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false,
-      contextIsolation: true
-    }
-  });
-  passwordWindow.loadFile('password-manager/index.html');
-  passwordWindow.setMenuBarVisibility(false);
-}
-
-app.whenReady().then(() => {
-  try {
-    loadUserProfile();
-  } catch { }
-  // If skipUpdater is true, launch the main window directly.  Otherwise,
-  // show the updater window to check for and download updates prior to
-  // displaying the main application.
-  if (skipUpdater) {
-    createMainWindow();
-  } else {
-    createUpdateWindow();
-  }
-  // Setup of window state events is handled in createMainWindow().  When
-  // the app is reactivated (e.g. clicking the dock icon on macOS), open
-  // whichever window is appropriate based on skipUpdater.
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      if (skipUpdater) {
-        createMainWindow();
-      } else {
-        createUpdateWindow();
-      }
-    }
-  });
-});
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
-
-app.on('before-quit', () => {
-  const tryRemovePath = (target) => {
-    try {
-      if (!target) return;
-      if (fs.existsSync(target)) {
-        // Use rmSync with force for both files and directories.  rmSync will
-        // behave like unlinkSync for files when recursive is omitted.
-        fs.rmSync(target, { recursive: true, force: true });
-      }
-    } catch (err) {
-      // Log a warning but do not interrupt the quit flow
-      debug('warn', 'Failed to remove path:', target, err);
-    }
-  };
-
-  for (const filePath of downloadedFiles) {
-    tryRemovePath(filePath);
-    const altFilePath = filePath.replace(/_/g, ' ');
-    if (altFilePath !== filePath) {
-      tryRemovePath(altFilePath);
-    }
-  }
-  for (const dirPath of extractedDirs) {
-    tryRemovePath(dirPath);
-    const altDirPath = dirPath.replace(/_/g, ' ');
-    if (altDirPath !== dirPath) {
-      tryRemovePath(altDirPath);
-    }
-  }
-});
 ipcMain.handle('get-system-info', async () => {
   return {
     platform: os.platform(),
@@ -1534,142 +528,59 @@ ipcMain.handle('get-system-info', async () => {
   };
 });
 
-ipcMain.handle('login-google', async () => {
-  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-    throw new Error('Google OAuth credentials not configured');
-  }
-  const state = Math.random().toString(36).substring(2);
-  const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: GOOGLE_REDIRECT_URI,
-    response_type: 'code',
-    scope: 'profile email',
-    access_type: 'offline',
-    prompt: 'consent',
-    state
-  });
-  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-  const result = await openAuthWindow(authUrl, GOOGLE_REDIRECT_URI, async (redirectUrl) => {
-    const code = redirectUrl.searchParams.get('code');
-    const returnedState = redirectUrl.searchParams.get('state');
-    if (!code) throw new Error('No authorization code received');
-    if (returnedState !== state) throw new Error('State mismatch');
-    const tokenResponse = await postForm('https://oauth2.googleapis.com/token', {
-      code,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: GOOGLE_REDIRECT_URI,
-      grant_type: 'authorization_code'
-    });
-    const accessToken = tokenResponse.access_token;
-    if (!accessToken) throw new Error('Failed to obtain Google access token');
+// ============================================================================
+// IPC Handlers - OAuth / User Profile
+// ============================================================================
 
-    const profile = await getJson('https://www.googleapis.com/oauth2/v3/userinfo', {
-      Authorization: `Bearer ${accessToken}`
-    });
-    userProfile = {
-      name: profile.name || profile.email || 'User',
-      avatar: profile.picture || null,
-      provider: 'google'
-    };
-    saveUserProfile();
-    return userProfile;
-  });
+ipcMain.handle('login-google', async () => {
+  const result = await oauth.loginGoogle(mainWindow);
+  if (result) {
+    userProfile.set(result);
+  }
   return result;
 });
 
-
 ipcMain.handle('login-discord', async () => {
-  if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET) {
-    throw new Error('Discord OAuth credentials not configured');
+  const result = await oauth.loginDiscord(mainWindow);
+  if (result) {
+    userProfile.set(result);
   }
-  const state = Math.random().toString(36).substring(2);
-  const params = new URLSearchParams({
-    client_id: DISCORD_CLIENT_ID,
-    redirect_uri: DISCORD_REDIRECT_URI,
-    response_type: 'code',
-    scope: 'identify',
-    state
-  });
-  const authUrl = `https://discord.com/api/oauth2/authorize?${params.toString()}`;
-  const result = await openAuthWindow(authUrl, DISCORD_REDIRECT_URI, async (redirectUrl) => {
-    const code = redirectUrl.searchParams.get('code');
-    const returnedState = redirectUrl.searchParams.get('state');
-    if (!code) throw new Error('No authorization code received');
-    if (returnedState !== state) throw new Error('State mismatch');
-    // Exchange the code for a token
-    const tokenResponse = await postForm('https://discord.com/api/oauth2/token', {
-      client_id: DISCORD_CLIENT_ID,
-      client_secret: DISCORD_CLIENT_SECRET,
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: DISCORD_REDIRECT_URI,
-      scope: 'identify'
-    });
-    const accessToken = tokenResponse.access_token;
-    if (!accessToken) throw new Error('Failed to obtain Discord access token');
-    // Retrieve the user profile
-    const profile = await getJson('https://discord.com/api/users/@me', {
-      Authorization: `Bearer ${accessToken}`
-    });
-    // Construct the avatar URL; if the user has no custom avatar, use a default
-    let avatarUrl = null;
-    if (profile.avatar) {
-      avatarUrl = `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`;
-    }
-    userProfile = {
-      name: profile.username + (profile.discriminator ? `#${profile.discriminator}` : ''),
-      avatar: avatarUrl,
-      provider: 'discord'
-    };
-    saveUserProfile();
-    return userProfile;
-  });
   return result;
 });
 
 ipcMain.handle('get-user-profile', async () => {
-  return userProfile;
+  return userProfile.get();
 });
 
 ipcMain.handle('logout', async () => {
-  userProfile = null;
-  saveUserProfile();
+  userProfile.clear();
   return { success: true };
 });
+
+// ============================================================================
+// IPC Handlers - Commands & External
+// ============================================================================
+
 ipcMain.handle('run-command', async (event, command) => {
   if (typeof command !== 'string' || !command.trim()) {
     return { error: 'Invalid command' };
   }
-  // Allow common command characters including dots, hyphens, equals, and colons
   if (/[^a-zA-Z0-9_\.\-\s\=\:]/i.test(command)) {
     return { error: 'Command contains invalid characters' };
   }
   const parts = command.trim().split(/\s+/);
   const cmd = parts.shift();
-  // Use shell: true for proper command execution on Windows
-  return runSpawnCommand(cmd, parts, { shell: true, windowsHide: true });
+  return processUtils.runSpawnCommand(cmd, parts, { shell: true, windowsHide: true });
 });
 
-// Execute the Chris Titus Windows Utility script via PowerShell.  This handler
-// runs a predefined PowerShell command that downloads and executes the
-// script from christitus.com.  The command is executed without shell
-// interpolation, and output is captured for potential logging.  Errors
-// are returned back to the renderer for user feedback.
 ipcMain.handle('run-christitus', async () => {
-  const psExe = getPowerShellExe() || 'powershell';
-  const args = [
-    '-NoProfile',
-    '-ExecutionPolicy', 'Bypass',
-    '-Command',
-    'irm christitus.com/win | iex'
-  ];
-  // Delegate execution to the spawn helper; windowsHide=false to show window when needed
-  return runSpawnCommand(psExe, args, { shell: false, windowsHide: false });
+  return systemTools.runChrisTitus();
 });
+
 ipcMain.handle('open-external', async (event, url) => {
   await shell.openExternal(url);
 });
+
 ipcMain.handle('open-file', async (event, filePath) => {
   return new Promise((resolve) => {
     if (process.platform === 'win32') {
@@ -1684,211 +595,95 @@ ipcMain.handle('open-file', async (event, filePath) => {
     }
   });
 });
+
 ipcMain.handle('open-installer', async (event, filePath) => {
   await shell.openPath(filePath);
   return { success: true };
 });
-function clientFor(url) { return url.startsWith('https:') ? https : http; }
-function sanitizeName(name) {
-  /**
-   * Sanitize a filename while preserving its extension.  The original
-   * implementation stripped all periods which resulted in merged
-   * extensions (e.g. `file.zip` becoming `filezip`).  This version
-   * separates the base name from the extension, removes any
-   * characters that are not alphanumeric, underscore or dash from the
-   * base, collapses multiple underscores into one and then
-   * reassembles the filename with the original (cleaned) extension.
-   * If the resulting base is empty, `unnamed` is used instead.
-   *
-   * @param {string} name The input filename
-   * @returns {string} The sanitized filename
-   */
-  try {
-    const ext = path.extname(name);
-    const base = path.basename(name, ext);
-    let cleanedBase = base.replace(/[^a-zA-Z0-9_-]/g, '_');
-    cleanedBase = cleanedBase.replace(/_+/g, '_').replace(/^_+/, '');
-    // Remove any invalid characters from the extension (leaving the leading period)
-    let cleanedExt = ext.replace(/[^a-zA-Z0-9.]/g, '');
-    // If nothing remains of the extension, drop it entirely
-    if (cleanedExt === '.') cleanedExt = '';
-    const finalBase = cleanedBase || 'unnamed';
-    return finalBase + cleanedExt;
-  } catch {
-    // Fallback to a simple replacement if path parsing fails
-    let cleaned = String(name).replace(/[^a-zA-Z0-9_-]/g, '_');
-    cleaned = cleaned.replace(/_+/g, '_').replace(/^_+/, '');
-    return cleaned || 'unnamed';
-  }
-}
-function extFromUrl(u) { const m = String(u).match(/\.([a-zA-Z0-9]+)(?:\?|$)/); return m ? `.${m[1]}` : ''; }
-ipcMain.on('download-start', (event, { id, url, dest }) => {
-  // Determine the default downloads directory.  This is used only when the
-  // provided dest path is not an absolute path.  When dest is absolute,
-  // files are written directly to that location.
-  const downloadsDir = path.join(os.homedir(), 'Downloads');
-  const start = (downloadUrl) => {
-    const req = clientFor(downloadUrl).get(downloadUrl, (res) => {
-      // Handle HTTP redirects (3xx)
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        res.resume();
-        const nextUrl = new URL(res.headers.location, downloadUrl).toString();
-        start(nextUrl);
-        return;
-      }
-      if (res.statusCode !== 200) {
-        mainWindow.webContents.send('download-event', { id, status: 'error', error: `HTTP ${res.statusCode}` });
-        return;
-      }
 
-      // Determine whether the caller provided an absolute destination.  When
-      // dest is absolute, we use it verbatim as the final path.  Otherwise
-      // construct a filename based on the sanitized dest, content-disposition
-      // header or URL.
-      const isAbsolute = dest && path.isAbsolute(dest);
-      let finalPath;
-      let finalName;
-      let destDirForCleanup;
-      if (isAbsolute) {
-        finalPath = dest;
-        finalName = path.basename(dest);
-        destDirForCleanup = path.dirname(dest);
-      } else {
-        const sanitizedDest = sanitizeName(dest || '');
-        const cd = res.headers['content-disposition'] || '';
-        const cdMatch = cd.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i);
-        const cdFile = cdMatch ? path.basename(cdMatch[1]) : '';
-        const chosenExt = path.extname(sanitizedDest) || (cdFile ? path.extname(cdFile) : '') || extFromUrl(downloadUrl) || '.bin';
-        const base = sanitizedDest ? path.basename(sanitizedDest, path.extname(sanitizedDest)) : (cdFile ? path.basename(cdFile, path.extname(cdFile)) : 'download');
-        finalName = sanitizeName(base) + chosenExt;
-        finalPath = path.join(downloadsDir, finalName);
-        destDirForCleanup = downloadsDir;
-      }
-      const tempPath = finalPath + '.part';
-      // Remove any existing target file and associated extraction directories
-      removeFileIfExists(finalPath);
-      cleanupExtractDirs(finalName, destDirForCleanup);
-      const total = parseInt(res.headers['content-length'] || '0', 10);
-      const file = fs.createWriteStream(tempPath);
-      const d = { response: res, file, total, received: 0, paused: false, filePath: tempPath, finalPath };
-      activeDownloads.set(id, d);
-      mainWindow.webContents.send('download-event', { id, status: 'started', total });
-      const cleanup = (errMsg) => {
-        try { res.removeAllListeners(); res.destroy(); } catch { }
-        try {
-          file.removeAllListeners();
-          // Close the file handle before destroying it to flush buffers
-          file.close(() => {
-            try { file.destroy(); } catch { }
-          });
-        } catch { }
-        try { fs.unlink(tempPath, () => { }); } catch { }
-        activeDownloads.delete(id);
-        if (errMsg) {
-          mainWindow.webContents.send('download-event', { id, status: 'error', error: errMsg });
-        }
-      };
-      res.on('data', (chunk) => {
-        if (d.paused) return;
-        d.received += chunk.length;
-        if (total) {
-          const percent = Math.round((d.received / total) * 100);
-          mainWindow.webContents.send('download-event', { id, status: 'progress', percent });
-        }
-      });
-      res.on('error', (err) => cleanup(err.message));
-      file.on('error', (err) => cleanup(err.message));
-      res.pipe(file);
-      file.once('finish', () => {
-        file.close(() => {
-          fs.rename(tempPath, finalPath, (err) => {
-            if (err) { cleanup(err.message); return; }
-            activeDownloads.delete(id);
-            // Record the completed download so it can be cleaned up on exit
-            try {
-              downloadedFiles.push(finalPath);
-            } catch (_) {
-              // Ignore if push fails for some reason
-            }
-            mainWindow.webContents.send('download-event', { id, status: 'complete', path: finalPath });
-          });
-        });
-      });
-    });
-    req.on('error', (err) => {
-      activeDownloads.delete(id);
-      mainWindow.webContents.send('download-event', { id, status: 'error', error: err.message });
-    });
-  };
-  try { start(url); } catch (e) {
-    mainWindow.webContents.send('download-event', { id, status: 'error', error: e.message });
-  }
+ipcMain.handle('show-file-dialog', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [{ name: 'Executables', extensions: ['exe'] }]
+  });
+  return result;
 });
+
+// ============================================================================
+// IPC Handlers - Downloads
+// ============================================================================
+
+ipcMain.on('download-start', (event, { id, url, dest }) => {
+  downloadManager.startDownload(id, url, dest, mainWindow);
+});
+
 ipcMain.on('download-pause', (event, id) => {
-  const d = activeDownloads.get(id);
-  if (d && d.response) {
-    d.paused = true;
-    try { d.response.pause(); } catch { }
-    mainWindow.webContents.send('download-event', { id, status: 'paused' });
-  }
+  downloadManager.pauseDownload(id, mainWindow);
 });
+
 ipcMain.on('download-resume', (event, id) => {
-  const d = activeDownloads.get(id);
-  if (d && d.response) {
-    d.paused = false;
-    try { d.response.resume(); } catch { }
-    mainWindow.webContents.send('download-event', { id, status: 'resumed' });
-  }
+  downloadManager.resumeDownload(id, mainWindow);
 });
+
 ipcMain.on('download-cancel', (event, id) => {
-  const d = activeDownloads.get(id);
-  if (d) {
-    try {
-      if (d.response) {
-        d.response.removeAllListeners();
-        d.response.destroy();
-      }
-    } catch { }
-    try {
-      if (d.file) {
-        d.file.removeAllListeners();
-        d.file.close(() => {
-          try { d.file.destroy(); } catch { }
-        });
-      }
-    } catch { }
-    try { if (d.filePath) fs.unlink(d.filePath, () => { }); } catch { }
-    activeDownloads.delete(id);
-    mainWindow.webContents.send('download-event', { id, status: 'cancelled' });
-  }
+  downloadManager.cancelDownload(id, mainWindow);
 });
+
+// ============================================================================
+// IPC Handlers - File Operations
+// ============================================================================
+
 ipcMain.handle('file-exists', async (event, filePath) => {
   try {
-    const expandEnv = (input) => {
-      return String(input).replace(/%([^%]+)%/g, (match, name) => {
-        const value = process.env[name];
-        return typeof value === 'string' ? value : match;
-      });
-    };
-    const expanded = expandEnv(filePath);
+    const expanded = fileUtils.expandEnvVars(filePath);
     return fs.existsSync(expanded);
   } catch {
     return false;
   }
 });
 
+ipcMain.handle('delete-file', async (event, filePath) => {
+  return new Promise((resolve) => {
+    try {
+      if (typeof filePath !== 'string' || filePath.trim() === '') {
+        return resolve({ success: false, error: 'Invalid file path' });
+      }
+      fs.unlink(filePath, (err) => {
+        if (err) return resolve({ success: false, error: err.message });
+        resolve({ success: true });
+      });
+    } catch (err) {
+      resolve({ success: false, error: err.message });
+    }
+  });
+});
+
+ipcMain.handle('rename-directory', async (event, { src, dest }) => {
+  return new Promise((resolve) => {
+    try {
+      if (typeof src !== 'string' || typeof dest !== 'string' || !src || !dest) {
+        return resolve({ success: false, error: 'Invalid source or destination' });
+      }
+      try {
+        if (fs.existsSync(dest)) {
+          fs.rmSync(dest, { recursive: true, force: true });
+        }
+      } catch { }
+      fs.rename(src, dest, (err) => {
+        if (err) return resolve({ success: false, error: err.message });
+        resolve({ success: true });
+      });
+    } catch (err) {
+      resolve({ success: false, error: err.message });
+    }
+  });
+});
+
 ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
   return new Promise((resolve) => {
     try {
-      const expandEnv = (input) => {
-        return String(input).replace(/%([^%]+)%/g, (match, name) => {
-          const value = process.env[name];
-          return typeof value === 'string' ? value : match;
-        });
-      };
-
-      const src = expandEnv(sourcePath);
-      const dst = expandEnv(destPath);
+      const src = fileUtils.expandEnvVars(sourcePath);
+      const dst = fileUtils.expandEnvVars(destPath);
 
       debug('info', 'Replacing executable with elevated privileges:');
       debug('info', 'Source:', src);
@@ -1899,12 +694,11 @@ ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
         return;
       }
 
-      // Ensure the destination exists so we don't attempt to replace a file
-      // that isn't present (e.g. when the application hasn't been installed yet).
       if (!fs.existsSync(dst)) {
         resolve({ success: false, error: `Destination file not found: ${dst}`, code: 'DEST_MISSING' });
         return;
       }
+
       const psScript = `
 try {
     Write-Output "Starting file replacement..."
@@ -1942,6 +736,7 @@ catch {
 `;
       const psFile = path.join(os.tmpdir(), `elevated_ps_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
+
       const vbsScript = `
 Set UAC = CreateObject("Shell.Application")
 UAC.ShellExecute "powershell.exe", "-ExecutionPolicy Bypass -File ""${psFile.replace(/\\/g, '\\\\')}""", "", "runas", 1
@@ -1949,7 +744,9 @@ WScript.Sleep(3000)
 `;
       const vbsFile = path.join(os.tmpdir(), `elevate_${Date.now()}.vbs`);
       fs.writeFileSync(vbsFile, vbsScript);
+
       debug('info', 'Requesting UAC elevation for file replacement...');
+
       exec(`wscript "${vbsFile}"`, (error) => {
         setTimeout(() => {
           try { fs.unlinkSync(vbsFile); } catch { }
@@ -1965,7 +762,6 @@ WScript.Sleep(3000)
           });
         } else {
           debug('success', 'UAC accepted, replacement in progress...');
-
           let waited = 0;
           const interval = setInterval(() => {
             waited += 1000;
@@ -1979,639 +775,72 @@ WScript.Sleep(3000)
           }, 1000);
         }
       });
-
     } catch (err) {
       debug('error', 'Replace exception:', err);
       resolve({ success: false, error: `Exception: ${err.message}` });
     }
   });
 });
-async function ensure7za() {
-  const candidates = [];
 
-  debug('info', '🔍 Searching for 7za...');
-  debug('info', 'Resources path:', process.resourcesPath);
-  debug('info', '__dirname:', __dirname);
-  if (process.resourcesPath) {
-    candidates.push(path.join(process.resourcesPath, 'bin', '7za.exe'));
-    candidates.push(path.join(process.resourcesPath, 'bin', '7z.exe'));
+// ============================================================================
+// IPC Handlers - Archive Extraction
+// ============================================================================
 
-    candidates.push(path.join(__dirname, 'bin', '7za.exe'));
-    candidates.push(path.join(__dirname, 'bin', '7z.exe'));
-
-    const parentDir = path.dirname(process.resourcesPath);
-    candidates.push(path.join(parentDir, 'bin', '7za.exe'));
-    candidates.push(path.join(parentDir, 'bin', '7z.exe'));
-  }
-  if (process.platform === 'win32') {
-    const pf = process.env['ProgramFiles'] || 'C:\\Program Files';
-    const pf86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
-    candidates.push(path.join(pf, '7-Zip', '7z.exe'));
-    candidates.push(path.join(pf, '7-Zip', '7za.exe'));
-    candidates.push(path.join(pf86, '7-Zip', '7z.exe'));
-    candidates.push(path.join(pf86, '7-Zip', '7za.exe'));
-  }
-  for (const candidate of candidates) {
-    try {
-      if (fs.existsSync(candidate)) {
-        debug('success', '✅ FOUND 7za at:', candidate);
-        return candidate;
-      }
-    } catch (err) {
-      debug('error', 'Error checking:', candidate, err.message);
-    }
-  }
-  debug('warn', '7za.exe not found in any location');
-  // Candidates list intentionally omitted to reduce noise
-  return null;
-}
 ipcMain.handle('extract-archive', async (event, { filePath, password, destDir }) => {
-  return new Promise(async (resolve) => {
-    const archive = String(filePath);
-    const pwd = String(password || '');
-    let outDir;
-    if (destDir) {
-      outDir = String(destDir);
-    } else {
-      const parent = path.dirname(archive);
-      const base = path.basename(archive, path.extname(archive));
-      outDir = path.join(parent, base);
-    }
-    try {
-      if (fs.existsSync(outDir)) {
-        fs.rmSync(outDir, { recursive: true, force: true });
-      }
-      const altDir = outDir.replace(/_/g, ' ');
-      if (altDir !== outDir && fs.existsSync(altDir)) {
-        fs.rmSync(altDir, { recursive: true, force: true });
-      }
-      fs.mkdirSync(outDir, { recursive: true });
-      // Record the extraction directory so it can be cleaned up when the app quits
-      try {
-        if (!extractedDirs.includes(outDir)) {
-          extractedDirs.push(outDir);
-        }
-      } catch (_) {
-        // ignore errors adding to the list
-      }
-    } catch (e) {
-    }
-    const exe = await ensure7za();
-    if (!exe) {
-      shell.openPath(archive);
-      resolve({ success: true, output: 'File opened directly (7-Zip not available)' });
-      return;
-    }
-    debug('info', 'Using 7za.exe from:', exe);
-    const args = ['x', archive];
-    if (pwd) args.push(`-p${pwd}`);
-    args.push(`-o${outDir}`);
-    args.push('-y');
-    const child = spawn(exe, args, { windowsHide: true });
-    let stderr = '';
-    child.stderr.on('data', (buf) => { stderr += buf.toString(); });
-    child.on('error', (err) => {
-      debug('error', '7za spawn error:', err);
-      resolve({ success: false, error: `7za spawn error: ${err.message}` });
-    });
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve({ success: true, output: stderr.trim() });
-      } else {
-        const errMsg = stderr.trim() || `7za exited with code ${code}`;
-        resolve({ success: false, error: errMsg });
-      }
-    });
-  });
+  return archiveUtils.extractArchive(filePath, password, destDir, downloadManager.trackExtractedDir);
 });
-ipcMain.handle('install-spicetify', async () => {
-  return new Promise((resolve) => {
-    if (process.platform === 'win32') {
-      try {
-        const tmpScriptName = `spicetify_install_${Date.now()}.ps1`;
-        const tmpScriptPath = path.join(os.tmpdir(), tmpScriptName);
-        const psLines = [
-          'Start-Sleep -Seconds 3',
-          "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);' -Name Native -Namespace Win32",
-          '$hwnd = (Get-Process -Id $PID).MainWindowHandle',
-          '[Win32.Native]::ShowWindowAsync($hwnd, 6)',
-          "$ErrorActionPreference = 'Stop'",
-          "$tempCli = [System.IO.Path]::GetTempFileName() + '.ps1'",
-          "Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/spicetify/cli/main/install.ps1' -OutFile $tempCli",
-          "$lines = Get-Content $tempCli",
-          "$skip = $false",
-          "$filtered = @()",
-          "foreach ($line in $lines) {",
-          " if ($line -match '#region Marketplace') { $skip = $true; continue }",
-          " if ($line -match '#endregion Marketplace') { $skip = $false; continue }",
-          " if (-not $skip) { $filtered += $line }",
-          "}",
-          "$filtered | Set-Content $tempCli",
-          "& $tempCli",
-          "Remove-Item $tempCli -Force",
-          "try { Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/spicetify/marketplace/main/resources/install.ps1' | Invoke-Expression } catch {}",
-          "spicetify -v",
-          "spicetify backup apply"
-        ];
-        fs.writeFileSync(tmpScriptPath, psLines.join('\n'), 'utf8');
-        const child = spawn('cmd.exe', [
-          '/c', 'start', '', 'powershell.exe', '-ExecutionPolicy', 'Bypass', '-File', tmpScriptPath
-        ], { detached: true });
-        child.on('error', (err) => {
-          resolve({ success: false, error: err.message, output: '' });
-        });
-        child.on('spawn', () => {
-          resolve({ success: true, output: 'Installer started in a new console window.' });
-        });
-      } catch (e) {
-        resolve({ success: false, error: e.message, output: '' });
-      }
-    } else {
-      const shell = process.env.SHELL || '/bin/sh';
-      const unixCmd = [
-        'tmpfile=$(mktemp /tmp/spicetify_install.XXXXXX.sh)',
-        'curl -fsSL https://raw.githubusercontent.com/spicetify/cli/main/install.sh -o "$tmpfile"',
-        "sed -i '/Do you want to install spicetify Marketplace?/,/spicetify Marketplace installation script/d' \"$tmpfile\"",
-        'sh "$tmpfile"',
-        'rm -f "$tmpfile"',
-        'curl -fsSL https://raw.githubusercontent.com/spicetify/marketplace/main/resources/install.sh | sh || true',
-        'spicetify -v',
-        'spicetify backup apply'
-      ].join(' && ');
-      const child = spawn(shell, ['-c', unixCmd]);
-      // Attach standard output handlers using the helper to reduce duplication
-      attachChildProcessHandlers(child, resolve, 'Installer');
-    }
-  });
+
+// ============================================================================
+// IPC Handlers - Sparkle
+// ============================================================================
+
+ipcMain.handle('ensure-sparkle', async () => {
+  return sparkleModule.ensureSparkle();
 });
-ipcMain.handle('uninstall-spicetify', async () => {
-  return new Promise((resolve) => {
-    if (process.platform === 'win32') {
-      const psCmd = [
-        'try { spicetify restore } catch { }',
-        'try { Remove-Item -Recurse -Force "$env:APPDATA\\spicetify" } catch { }',
-        'try { Remove-Item -Recurse -Force "$env:LOCALAPPDATA\\spicetify" } catch { }'
-      ].join(' ; ');
-      const child = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], { windowsHide: true });
-      // Use helper to collect stdout/stderr and handle result
-      attachChildProcessHandlers(child, resolve, 'Uninstall');
-    } else {
-      const shCmd = 'spicetify restore || true; rm -rf ~/.spicetify || true; rm -rf ~/.config/spicetify || true';
-      const child = spawn('sh', ['-c', shCmd]);
-      // Use helper to collect stdout/stderr and handle result
-      attachChildProcessHandlers(child, resolve, 'Uninstall');
-    }
-  });
+
+// ============================================================================
+// IPC Handlers - System Tools
+// ============================================================================
+
+ipcMain.handle('run-raphi-debloat', async () => {
+  return systemTools.runRaphiDebloat();
 });
-ipcMain.handle('full-uninstall-spotify', async () => {
-  return new Promise((resolve) => {
-    if (process.platform === 'win32') {
-      const psParts = [
-        'try { Get-Process -Name "Spotify*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch { }',
-        'try { spicetify restore } catch { }',
-        'try {',
-        ' $upd = Join-Path $env:LOCALAPPDATA "Spotify\\Update";',
-        ' if (Test-Path $upd) {',
-        ' attrib -R -S -H $upd -Recurse -ErrorAction SilentlyContinue;',
-        ' takeown /F "$upd" /A /R /D Y | Out-Null;',
-        ' icacls "$upd" /grant "*S-1-5-32-544":(OI)(CI)F /T /C | Out-Null;',
-        ' icacls "$upd" /grant "$env:USERNAME":(OI)(CI)F /T /C | Out-Null;',
-        ' }',
-        '} catch { }',
-        'try { $roam = Join-Path $env:APPDATA "Spotify"; if (Test-Path $roam) { attrib -R -S -H $roam -Recurse -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $roam -Recurse -Force -ErrorAction SilentlyContinue } } catch { }',
-        'try { $loc = Join-Path $env:LOCALAPPDATA "Spotify"; if (Test-Path $loc) { attrib -R -S -H $loc -Recurse -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $loc -Recurse -Force -ErrorAction SilentlyContinue } } catch { }',
-        'try { if (Test-Path "HKCU:\\Software\\Spotify") { Remove-Item "HKCU:\\Software\\Spotify" -Recurse -Force -ErrorAction SilentlyContinue } } catch { }',
-        'try { Remove-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" -Name "Spotify" -ErrorAction SilentlyContinue } catch { }',
-        'try { if (Test-Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Spotify") { Remove-Item "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Spotify" -Recurse -Force -ErrorAction SilentlyContinue } } catch { }',
-        'try { Get-ChildItem "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall" -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -like "Spotify*" } | ForEach-Object { Remove-Item $_.PsPath -Recurse -Force -ErrorAction SilentlyContinue } } catch { }',
-        'try { if (Test-Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Spotify") { Remove-Item "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Spotify" -Recurse -Force -ErrorAction SilentlyContinue } } catch { }',
-        'try { Get-ChildItem "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall" -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -like "Spotify*" } | ForEach-Object { Remove-Item $_.PsPath -Recurse -Force -ErrorAction SilentlyContinue } } catch { }',
-        'try { Remove-Item "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Spotify.lnk" -Force -ErrorAction SilentlyContinue } catch { }',
-        'try { Remove-Item "$env:PROGRAMDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Spotify.lnk" -Force -ErrorAction SilentlyContinue } catch { }',
-        'try { Remove-Item "$env:PUBLIC\\Desktop\\Spotify.lnk" -Force -ErrorAction SilentlyContinue } catch { }',
-        '$global:LASTEXITCODE = 0',
-        'exit 0'
-      ];
-      const psCmd = psParts.join(' ; ');
-      const child = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], { windowsHide: true });
-      // Attach standard handlers to capture output and handle result
-      attachChildProcessHandlers(child, resolve, 'Full uninstall');
-    } else {
-      const shellParts = [
-        'pkill -f spotify || true',
-        'spicetify restore || true',
-        'rm -rf ~/.config/spotify || true',
-        'rm -rf ~/.cache/spotify || true',
-        'rm -rf ~/.var/app/com.spotify.Client || true',
-        'rm -rf ~/.local/share/spotify || true',
-        'rm -rf ~/.spicetify || true',
-        'rm -rf ~/.config/spicetify || true'
-      ];
-      const shCmd = shellParts.join('; ');
-      const child = spawn('sh', ['-c', shCmd]);
-      // Attach standard handlers to capture output and handle result
-      attachChildProcessHandlers(child, resolve, 'Full uninstall');
-    }
-  });
-});
+
 ipcMain.handle('run-sfc-scan', async () => {
-  // Execute sfc /scannow using a helper that manages elevation and cleanup
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'SFC is only available on Windows' };
-  }
-  const psScript = `
-Write-Host "=== SYSTEM FILE CHECK (SFC) ===" -ForegroundColor Cyan
-Write-Host "Running sfc /scannow..." -ForegroundColor Yellow
-sfc /scannow
-exit $LASTEXITCODE
-`;
-  return runElevatedPowerShellScript(
-    psScript,
-    '✅ SFC scan completed successfully!',
-    'SFC scan encountered errors or was cancelled. Please accept the UAC prompt and try again.'
-  );
+  return systemTools.runSfcScan();
 });
+
 ipcMain.handle('run-dism-repair', async () => {
-  // Execute DISM RestoreHealth using a helper that manages elevation and cleanup
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'DISM is only available on Windows' };
-  }
-  const psScript = `
-Write-Host "=== DEPLOYMENT IMAGE SERVICING AND MANAGEMENT (DISM) ===" -ForegroundColor Cyan
-Write-Host "Running DISM /Online /Cleanup-Image /RestoreHealth..." -ForegroundColor Yellow
-DISM /Online /Cleanup-Image /RestoreHealth
-exit $LASTEXITCODE
-`;
-  return runElevatedPowerShellScript(
-    psScript,
-    '✅ DISM repair completed successfully!',
-    'DISM repair encountered errors or was cancelled. Please accept the UAC prompt and try again.'
-  );
+  return systemTools.runDismRepair();
 });
+
 ipcMain.handle('run-temp-cleanup', async () => {
-  // Only supported on Windows
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  // Begin new implementation: run the PowerShell script with elevation and wait for completion.
-  return new Promise((resolve) => {
-    // Define the PowerShell script that performs the cleanup.
-    const psScript = `
-Write-Host "=== TEMPORARY FILES CLEANUP ===" -ForegroundColor Cyan
-Write-Host "Running with Administrator privileges..." -ForegroundColor Green
-Write-Host ""
-
-# 1. Clean Recent files
-Write-Host "1. Cleaning Recent files..." -ForegroundColor Yellow
-if (Test-Path "$env:USERPROFILE\\Recent") {
-    Get-ChildItem "$env:USERPROFILE\\Recent\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-    Write-Host "   ✓ Recent files cleaned" -ForegroundColor Green
-} else {
-    Write-Host "   ! Recent folder not found" -ForegroundColor Red
-}
-
-# 2. Clean Prefetch
-Write-Host "2. Cleaning Prefetch..." -ForegroundColor Yellow
-if (Test-Path "C:\\Windows\\Prefetch") {
-    Get-ChildItem "C:\\Windows\\Prefetch\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-    Write-Host "   ✓ Prefetch cleaned" -ForegroundColor Green
-} else {
-    Write-Host "   ! Prefetch folder not found" -ForegroundColor Red
-}
-
-# 3. Clean Windows Temp
-Write-Host "3. Cleaning Windows Temp..." -ForegroundColor Yellow
-if (Test-Path "C:\\Windows\\Temp") {
-    Get-ChildItem "C:\\Windows\\Temp\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-    Write-Host "   ✓ Windows Temp cleaned" -ForegroundColor Green
-} else {
-    Write-Host "   ! Windows Temp folder not found" -ForegroundColor Red
-}
-
-# 4. Clean User Temp
-Write-Host "4. Cleaning User Temp..." -ForegroundColor Yellow
-if (Test-Path "$env:USERPROFILE\\AppData\\Local\\Temp") {
-    Get-ChildItem "$env:USERPROFILE\\AppData\\Local\\Temp\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-    Write-Host "   ✓ User Temp cleaned" -ForegroundColor Green
-} else {
-    Write-Host "   ! User Temp folder not found" -ForegroundColor Red
-}
-
-Write-Host ""
-Write-Host "=== CLEANUP COMPLETED ===" -ForegroundColor Cyan
-Write-Host "All temporary files have been cleaned successfully!" -ForegroundColor Green
-Write-Host ""
-# Removed interactive pause for hidden execution
-`;
-    try {
-      // Save the script to a temporary file
-      const psFile = path.join(os.tmpdir(), `temp_cleanup_${Date.now()}.ps1`);
-      fs.writeFileSync(psFile, psScript, 'utf8');
-      // Escape double quotes for embedding in a PowerShell argument
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      // Build a wrapper command that elevates and waits for completion
-      const psCommand = `Start-Process -FilePath \"powershell.exe\" -ArgumentList '-ExecutionPolicy Bypass -File \"${escapedPsFile}\"' -Verb RunAs -WindowStyle Hidden -Wait`;
-      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
-      // Handle error events (likely UAC denial)
-      child.on('error', (err) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
-        resolve({ success: false, error: 'Administrator privileges required. Please accept the UAC prompt.', code: 'UAC_DENIED' });
-      });
-      child.on('exit', (code) => {
-        try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
-        if (code === 0) {
-          resolve({ success: true, message: '✅ Temporary files cleanup completed successfully!' });
-        } else {
-          resolve({ success: false, error: 'Administrator privileges required or cleanup failed. Please accept the UAC prompt and try again.', code: 'PROCESS_FAILED' });
-        }
-      });
-    } catch (err) {
-      // Attempt to clean up the script file and propagate an error
-      try { if (typeof psFile !== 'undefined' && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch (_) { }
-      resolve({ success: false, error: 'Failed to start temp files cleanup: ' + err.message });
-    }
-  });
-
-  // End of new implementation for run-temp-cleanup
+  return systemTools.runTempCleanup();
 });
+
 ipcMain.handle('restart-to-bios', async () => {
-  return new Promise((resolve) => {
-    const tempDir = os.tmpdir();
-    const vbsPath = path.join(tempDir, 'bios_restart.vbs');
-
-    // Use array join with \r\n to avoid indentation/newline issues
-    const vbsContent = [
-      'Set UAC = CreateObject("Shell.Application")',
-      'UAC.ShellExecute "cmd.exe", "/c shutdown /r /fw /t 0", "", "runas", 1'
-    ].join('\r\n');
-
-    try {
-      fs.writeFileSync(vbsPath, vbsContent);
-      exec(`cscript //nologo "${vbsPath}"`, (error) => {
-        try { fs.unlinkSync(vbsPath); } catch (e) { }
-
-        if (error) {
-          resolve({
-            success: false,
-            error: 'Administrator privileges required. Please run as Administrator.',
-            code: 'ADMIN_REQUIRED'
-          });
-        } else {
-          resolve({
-            success: true,
-            message: 'UAC prompt appeared. Grant permissions to restart to BIOS.'
-          });
-        }
-      });
-    } catch (fileError) {
-      resolve({
-        success: false,
-        error: 'Failed to create elevation script: ' + fileError.message
-      });
-    }
-  });
-});
-ipcMain.handle('password-manager-get-categories', async () => {
-  return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
-
-    const timeout = setTimeout(() => {
-      db.close();
-      resolve({ success: false, error: 'Database timeout' });
-    }, 10000);
-    db.getCategories((err, rows) => {
-      clearTimeout(timeout);
-      db.close();
-      if (err) {
-        debug('error', 'Error getting categories:', err);
-        resolve({ success: false, error: err.message });
-      } else {
-        resolve({ success: true, categories: rows || [] });
-      }
-    });
-  });
-});
-ipcMain.handle('password-manager-add-category', async (event, name) => {
-  return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
-    db.addCategory(name, function (err) {
-      db.close();
-      if (err) {
-        resolve({ success: false, error: err.message });
-      } else {
-        resolve({ success: true, id: this.lastID });
-      }
-    });
-  });
-});
-ipcMain.handle('password-manager-update-category', async (event, id, name) => {
-  return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
-    db.updateCategory(id, name, function (err) {
-      db.close();
-      if (err) {
-        resolve({ success: false, error: err.message });
-      } else {
-        resolve({ success: true, changes: this.changes });
-      }
-    });
-  });
-});
-ipcMain.handle('password-manager-delete-category', async (event, id) => {
-  return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
-    db.deleteCategory(id, function (err) {
-      db.close();
-      if (err) {
-        resolve({ success: false, error: err.message });
-      } else {
-        resolve({ success: true, changes: this.changes });
-      }
-    });
-  });
-});
-ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all') => {
-  return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
-
-    const timeout = setTimeout(() => {
-      db.close();
-      resolve({ success: false, error: 'Database timeout' });
-    }, 10000);
-    db.getPasswordsByCategory(categoryId, (err, rows) => {
-      clearTimeout(timeout);
-      db.close();
-      if (err) {
-        debug('error', 'Error getting passwords:', err);
-        resolve({ success: false, error: err.message });
-      } else {
-        resolve({ success: true, passwords: rows || [] });
-      }
-    });
-  });
-});
-ipcMain.handle('password-manager-add-password', async (event, passwordData) => {
-  return new Promise((resolve) => {
-    // Password add requested
-
-    const db = new PasswordManagerDB(pmAuth);
-
-    const timeout = setTimeout(() => {
-      db.close();
-      resolve({ success: false, error: 'Database timeout' });
-    }, 10000);
-    db.addPassword(passwordData, function (err) {
-      clearTimeout(timeout);
-      db.close();
-      if (err) {
-        debug('error', 'Error adding password:', err);
-        debug('error', 'Error details:', err.message);
-        resolve({ success: false, error: err.message });
-      } else {
-        debug('success', 'Password added successfully, ID:', this.lastID);
-        resolve({ success: true, id: this.lastID });
-      }
-    });
-  });
-});
-ipcMain.handle('password-manager-update-password', async (event, id, passwordData) => {
-  return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
-    db.updatePassword(id, passwordData, function (err) {
-      db.close();
-      if (err) {
-        resolve({ success: false, error: err.message });
-      } else {
-        resolve({ success: true, changes: this.changes });
-      }
-    });
-  });
-});
-ipcMain.handle('password-manager-delete-password', async (event, id) => {
-  return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
-    db.deletePassword(id, function (err) {
-      db.close();
-      if (err) {
-        resolve({ success: false, error: err.message });
-      } else {
-        resolve({ success: true, changes: this.changes });
-      }
-    });
-  });
-});
-ipcMain.handle('password-manager-search-passwords', async (event, query) => {
-  return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
-    db.searchPasswords(query, (err, rows) => {
-      db.close();
-      if (err) {
-        resolve({ success: false, error: err.message });
-      } else {
-        resolve({ success: true, passwords: rows });
-      }
-    });
-  });
-});
-ipcMain.handle('open-password-manager', async () => {
-  createPasswordManagerWindow();
-  return { success: true };
-});
-ipcMain.handle('password-manager-has-master-password', async () => {
-  try {
-    debug('info', 'Checking for master password...');
-
-    if (!pmAuth.configPath) {
-      debug('info', 'Auth manager not initialized, initializing now...');
-      const documentsPath = require('os').homedir() + '/Documents';
-      const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
-      pmAuth.initialize(pmDirectory);
-    }
-
-    const result = pmAuth.hasMasterPassword();
-    debug('info', 'Master password exists:', result);
-    return result;
-  } catch (error) {
-    debug('error', 'Error checking master password:', error);
-    return false;
-  }
-});
-ipcMain.handle('password-manager-create-master-password', async (event, password) => {
-  try {
-    debug('info', 'Creating master password...');
-
-    if (!pmAuth.configPath) {
-      debug('info', 'Auth manager not initialized, initializing now...');
-      const documentsPath = require('os').homedir() + '/Documents';
-      const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
-      pmAuth.initialize(pmDirectory);
-    }
-
-    await pmAuth.createMasterPassword(password);
-    return { success: true };
-  } catch (error) {
-    debug('error', 'Error creating master password:', error);
-    return { success: false, error: error.message };
-  }
-});
-ipcMain.handle('password-manager-authenticate', async (event, password) => {
-  try {
-    debug('info', 'Authenticating...');
-
-    if (!pmAuth.configPath) {
-      debug('info', 'Auth manager not initialized, initializing now...');
-      const documentsPath = require('os').homedir() + '/Documents';
-      const pmDirectory = require('path').join(documentsPath, 'MakeYourLifeEasier');
-      pmAuth.initialize(pmDirectory);
-    }
-
-    await pmAuth.authenticate(password);
-    return { success: true };
-  } catch (error) {
-    debug('error', 'Error authenticating:', error);
-    return { success: false, error: error.message };
-  }
-});
-ipcMain.handle('password-manager-logout', async () => {
-  pmAuth.logout();
-  return { success: true };
-});
-ipcMain.handle('password-manager-change-password', async (event, currentPassword, newPassword) => {
-  try {
-    await pmAuth.changeMasterPassword(currentPassword, newPassword);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-ipcMain.handle('password-manager-validate-password', async (event, password) => {
-  const result = pmAuth.validatePasswordStrength(password);
-  return result;
-});
-ipcMain.handle('run-activate-script', async () => {
-  return new Promise((resolve) => {
-    resolve({ success: true, message: 'Activation script completed' });
-  });
-});
-ipcMain.handle('run-autologin-script', async () => {
-  return new Promise((resolve) => {
-    resolve({ success: true, message: 'Autologin script completed' });
-  });
+  return systemTools.restartToBios();
 });
 
-function getFallbackApps() {
-  return [
-    { id: 'Microsoft.BingNews', name: 'Microsoft News' },
-    { id: 'Microsoft.BingWeather', name: 'Microsoft Weather' },
-    { id: 'Microsoft.Getstarted', name: 'Get Started' },
-    { id: 'Microsoft.MicrosoftSolitaireCollection', name: 'Microsoft Solitaire' },
-    { id: 'Microsoft.YourPhone', name: 'Your Phone' },
-    { id: 'Microsoft.TikTok', name: 'TikTok' },
-    { id: 'SpotifyAB.SpotifyMusic', name: 'Spotify' }
-  ];
-}
+// ============================================================================
+// IPC Handlers - Spicetify
+// ============================================================================
 
+ipcMain.handle('install-spicetify', async () => {
+  return spicetifyModule.installSpicetify();
+});
+
+ipcMain.handle('uninstall-spicetify', async () => {
+  return spicetifyModule.uninstallSpicetify();
+});
+
+ipcMain.handle('full-uninstall-spotify', async () => {
+  return spicetifyModule.fullUninstallSpotify();
+});
+
+// ============================================================================
+// IPC Handlers - Installers
+// ============================================================================
 
 ipcMain.handle('find-exe-files', async (event, directoryPath) => {
   return new Promise((resolve) => {
@@ -2626,13 +855,10 @@ ipcMain.handle('find-exe-files', async (event, directoryPath) => {
       function searchDirectory(dir) {
         try {
           const items = fs.readdirSync(dir);
-
           for (const item of items) {
             const fullPath = path.join(dir, item);
-
             try {
               const stat = fs.statSync(fullPath);
-
               if (stat.isDirectory()) {
                 searchDirectory(fullPath);
               } else if (stat.isFile()) {
@@ -2641,71 +867,47 @@ ipcMain.handle('find-exe-files', async (event, directoryPath) => {
                   executableFiles.push(fullPath);
                 }
               }
-            } catch (e) {
-              continue;
-            }
+            } catch { continue; }
           }
-        } catch (error) {
-        }
+        } catch { }
       }
 
       searchDirectory(directoryPath);
       resolve(executableFiles);
-    } catch (error) {
+    } catch {
       resolve([]);
     }
   });
 });
-// Προσθήκη νέου handler για MSI installers
+
 ipcMain.handle('run-msi-installer', async (event, msiPath) => {
   return new Promise((resolve) => {
-    // MSI installers are only relevant on Windows.  Immediately report
-    // unsupported platforms as an error.
     if (process.platform !== 'win32') {
       resolve({ success: false, error: 'MSI installers are only supported on Windows' });
       return;
     }
 
-    // Normalize the provided path to eliminate any double backslashes or mixed
-    // separators.  This mirrors the behavior in the general run-installer
-    // handler to ensure consistency.
     const normalized = path.normalize(msiPath);
 
     try {
-      // Launch msiexec in a detached child process.  We intentionally
-      // avoid using exec() here because exec() waits for the installer
-      // process to finish and returns its exit code.  When a user cancels
-      // an MSI installer (exit code 1602) or when a reboot is required
-      // (exit code 3010), that non-zero exit code is surfaced as an error
-      // even though the installer started correctly.  By using spawn()
-      // with the detached flag, we simply start the installer and return
-      // success immediately, letting Windows handle any UI and exit codes.
       const child = spawn('msiexec', ['/i', normalized], { detached: true, stdio: 'ignore' });
       child.on('error', (spawnErr) => {
         resolve({ success: false, error: spawnErr.message });
       });
-      // Detach the child so it can continue independently of the parent process.
       child.unref();
       resolve({ success: true });
     } catch (err) {
-      // If spawning fails synchronously, report the error to the caller.
       resolve({ success: false, error: err.message });
     }
   });
 });
-// Νέο handler για εκτέλεση installers
+
 ipcMain.handle('run-installer', async (event, filePath) => {
   return new Promise((resolve) => {
     debug('info', 'Running installer:', filePath);
-    // Normalize the path to avoid double backslashes and handle mixed slashes
     const normalized = path.normalize(filePath);
     const ext = path.extname(normalized).toLowerCase();
 
-    // If the file does not exist on disk, immediately reject.  Without this check
-    // Electron's shell.openPath returns a generic "Failed to open path" error but our
-    // previous implementation incorrectly treated that as success and attempted to
-    // launch a nonexistent file.  This early guard prevents spurious success
-    // responses and surfaces a clear error message back to the renderer.
     try {
       if (!fs.existsSync(normalized)) {
         return resolve({ success: false, error: `File does not exist: ${normalized}` });
@@ -2715,13 +917,6 @@ ipcMain.handle('run-installer', async (event, filePath) => {
     }
 
     if (process.platform === 'win32') {
-      // For MSI packages we rely on msiexec.  Spawning msiexec detached avoids
-      // blocking the main process and allows the user to interact with the
-      // installer UI.  Note: msiexec returns exit code 1602 when the user
-      // cancels the installer.  Historically we treated this as success since
-      // there's no obvious way to distinguish cancellation from failure.  That
-      // behavior is preserved here; consumers should handle cancellation
-      // themselves if needed.
       if (ext === '.msi') {
         try {
           const child = spawn('msiexec', ['/i', normalized], { detached: true, stdio: 'ignore' });
@@ -2735,12 +930,6 @@ ipcMain.handle('run-installer', async (event, filePath) => {
         }
       }
 
-      // For non-MSI executables on Windows we first attempt to launch via
-      // shell.openPath.  If it returns a non-empty error string we treat that
-      // as a failure rather than falling back to spawning directly.  This
-      // avoids incorrectly marking the launch as successful when the file
-      // doesn't exist or the OS fails to open it.  Consumers who need more
-      // complex fallback logic can implement it in the renderer.
       shell.openPath(normalized)
         .then((errStr) => {
           if (!errStr) {
@@ -2754,10 +943,6 @@ ipcMain.handle('run-installer', async (event, filePath) => {
           resolve({ success: false, error: err.message });
         });
     } else {
-      // On non-Windows platforms we simply rely on shell.openPath.  Any non-empty
-      // string returned from openPath indicates failure.  We propagate the
-      // resulting error to the caller so that the UI can reflect the proper
-      // status instead of incorrectly reporting success.
       shell.openPath(normalized)
         .then((errStr) => {
           if (!errStr) {
@@ -2773,78 +958,252 @@ ipcMain.handle('run-installer', async (event, filePath) => {
   });
 });
 
-// Delete a single file on disk.  Accepts an absolute path and attempts
-// to remove the file.  Returns { success: true } on success or
-// { success: false, error } on failure.  This is used by the renderer
-// to remove downloaded archives after extraction.
-ipcMain.handle('delete-file', async (event, filePath) => {
-  return new Promise((resolve) => {
-    try {
-      if (typeof filePath !== 'string' || filePath.trim() === '') {
-        return resolve({ success: false, error: 'Invalid file path' });
-      }
-      fs.unlink(filePath, (err) => {
-        if (err) {
-          return resolve({ success: false, error: err.message });
-        }
-        resolve({ success: true });
-      });
-    } catch (err) {
-      resolve({ success: false, error: err.message });
+// ============================================================================
+// IPC Handlers - Password Manager
+// ============================================================================
+
+ipcMain.handle('open-password-manager', async () => {
+  createPasswordManagerWindow();
+  return { success: true };
+});
+
+ipcMain.handle('password-manager-has-master-password', async () => {
+  try {
+    debug('info', 'Checking for master password...');
+    if (!pmAuth.configPath) {
+      debug('info', 'Auth manager not initialized, initializing now...');
+      pmAuth.initialize(pmDirectory);
     }
+    const result = pmAuth.hasMasterPassword();
+    debug('info', 'Master password exists:', result);
+    return result;
+  } catch (error) {
+    debug('error', 'Error checking master password:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('password-manager-create-master-password', async (event, password) => {
+  try {
+    debug('info', 'Creating master password...');
+    if (!pmAuth.configPath) {
+      pmAuth.initialize(pmDirectory);
+    }
+    await pmAuth.createMasterPassword(password);
+    return { success: true };
+  } catch (error) {
+    debug('error', 'Error creating master password:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('password-manager-authenticate', async (event, password) => {
+  try {
+    debug('info', 'Authenticating...');
+    if (!pmAuth.configPath) {
+      pmAuth.initialize(pmDirectory);
+    }
+    await pmAuth.authenticate(password);
+    return { success: true };
+  } catch (error) {
+    debug('error', 'Error authenticating:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('password-manager-logout', async () => {
+  pmAuth.logout();
+  return { success: true };
+});
+
+ipcMain.handle('password-manager-change-password', async (event, currentPassword, newPassword) => {
+  try {
+    await pmAuth.changeMasterPassword(currentPassword, newPassword);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('password-manager-validate-password', async (event, password) => {
+  const result = pmAuth.validatePasswordStrength(password);
+  return result;
+});
+
+ipcMain.handle('password-manager-get-categories', async () => {
+  return new Promise((resolve) => {
+    const db = new PasswordManagerDB(pmAuth);
+    const timeout = setTimeout(() => {
+      db.close();
+      resolve({ success: false, error: 'Database timeout' });
+    }, 10000);
+
+    db.getCategories((err, rows) => {
+      clearTimeout(timeout);
+      db.close();
+      if (err) {
+        debug('error', 'Error getting categories:', err);
+        resolve({ success: false, error: err.message });
+      } else {
+        resolve({ success: true, categories: rows || [] });
+      }
+    });
   });
 });
 
-// Rename a directory.  If the destination directory already exists it
-// will be removed prior to renaming.  This allows moving a newly
-// extracted archive into a consistent location (e.g. debloat-sparkle).
-ipcMain.handle('rename-directory', async (event, { src, dest }) => {
+ipcMain.handle('password-manager-add-category', async (event, name) => {
   return new Promise((resolve) => {
-    try {
-      if (typeof src !== 'string' || typeof dest !== 'string' || !src || !dest) {
-        return resolve({ success: false, error: 'Invalid source or destination' });
+    const db = new PasswordManagerDB(pmAuth);
+    db.addCategory(name, function (err) {
+      db.close();
+      if (err) {
+        resolve({ success: false, error: err.message });
+      } else {
+        resolve({ success: true, id: this.lastID });
       }
-      // If the destination exists, remove it recursively
-      try {
-        if (fs.existsSync(dest)) {
-          fs.rmSync(dest, { recursive: true, force: true });
-        }
-      } catch {
-        // ignore removal errors
+    });
+  });
+});
+
+ipcMain.handle('password-manager-update-category', async (event, id, name) => {
+  return new Promise((resolve) => {
+    const db = new PasswordManagerDB(pmAuth);
+    db.updateCategory(id, name, function (err) {
+      db.close();
+      if (err) {
+        resolve({ success: false, error: err.message });
+      } else {
+        resolve({ success: true, changes: this.changes });
       }
-      // Attempt to rename the directory
-      fs.rename(src, dest, (err) => {
-        if (err) {
-          return resolve({ success: false, error: err.message });
-        }
-        resolve({ success: true });
-      });
-    } catch (err) {
-      resolve({ success: false, error: err.message });
-    }
+    });
+  });
+});
+
+ipcMain.handle('password-manager-delete-category', async (event, id) => {
+  return new Promise((resolve) => {
+    const db = new PasswordManagerDB(pmAuth);
+    db.deleteCategory(id, function (err) {
+      db.close();
+      if (err) {
+        resolve({ success: false, error: err.message });
+      } else {
+        resolve({ success: true, changes: this.changes });
+      }
+    });
+  });
+});
+
+ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all') => {
+  return new Promise((resolve) => {
+    const db = new PasswordManagerDB(pmAuth);
+    const timeout = setTimeout(() => {
+      db.close();
+      resolve({ success: false, error: 'Database timeout' });
+    }, 10000);
+
+    db.getPasswordsByCategory(categoryId, (err, rows) => {
+      clearTimeout(timeout);
+      db.close();
+      if (err) {
+        debug('error', 'Error getting passwords:', err);
+        resolve({ success: false, error: err.message });
+      } else {
+        resolve({ success: true, passwords: rows || [] });
+      }
+    });
+  });
+});
+
+ipcMain.handle('password-manager-add-password', async (event, passwordData) => {
+  return new Promise((resolve) => {
+    const db = new PasswordManagerDB(pmAuth);
+    const timeout = setTimeout(() => {
+      db.close();
+      resolve({ success: false, error: 'Database timeout' });
+    }, 10000);
+
+    db.addPassword(passwordData, function (err) {
+      clearTimeout(timeout);
+      db.close();
+      if (err) {
+        debug('error', 'Error adding password:', err);
+        resolve({ success: false, error: err.message });
+      } else {
+        debug('success', 'Password added successfully, ID:', this.lastID);
+        resolve({ success: true, id: this.lastID });
+      }
+    });
+  });
+});
+
+ipcMain.handle('password-manager-update-password', async (event, id, passwordData) => {
+  return new Promise((resolve) => {
+    const db = new PasswordManagerDB(pmAuth);
+    db.updatePassword(id, passwordData, function (err) {
+      db.close();
+      if (err) {
+        resolve({ success: false, error: err.message });
+      } else {
+        resolve({ success: true, changes: this.changes });
+      }
+    });
+  });
+});
+
+ipcMain.handle('password-manager-delete-password', async (event, id) => {
+  return new Promise((resolve) => {
+    const db = new PasswordManagerDB(pmAuth);
+    db.deletePassword(id, function (err) {
+      db.close();
+      if (err) {
+        resolve({ success: false, error: err.message });
+      } else {
+        resolve({ success: true, changes: this.changes });
+      }
+    });
+  });
+});
+
+ipcMain.handle('password-manager-search-passwords', async (event, query) => {
+  return new Promise((resolve) => {
+    const db = new PasswordManagerDB(pmAuth);
+    db.searchPasswords(query, (err, rows) => {
+      db.close();
+      if (err) {
+        resolve({ success: false, error: err.message });
+      } else {
+        resolve({ success: true, passwords: rows });
+      }
+    });
   });
 });
 
 ipcMain.handle('password-manager-reset', async () => {
   try {
-    // Διαγραφή config file
     if (fs.existsSync(pmAuth.configPath)) {
       fs.unlinkSync(pmAuth.configPath);
     }
-
-    // Διαγραφή DB file
     const dbPath = path.join(pmAuth.dbDirectory, 'password_manager.db');
     if (fs.existsSync(dbPath)) {
       fs.unlinkSync(dbPath);
     }
-
-    // Logout και reset auth
     pmAuth.logout();
-    pmAuth.initialize(); // Re-init
-
+    pmAuth.initialize(pmDirectory);
     return { success: true };
   } catch (error) {
     debug('error', 'Error resetting password manager:', error);
     return { success: false, error: error.message };
   }
+});
+
+// ============================================================================
+// IPC Handlers - Misc
+// ============================================================================
+
+ipcMain.handle('run-activate-script', async () => {
+  return { success: true, message: 'Activation script completed' };
+});
+
+ipcMain.handle('run-autologin-script', async () => {
+  return { success: true, message: 'Autologin script completed' };
 });
