@@ -10,17 +10,17 @@ const { exec, spawn } = require('child_process');
 const fs = require('fs');
 
 // Import modules
-const { debug } = require('./modules/debug');
-const fileUtils = require('./modules/file-utils');
-const processUtils = require('./modules/process-utils');
-const httpUtils = require('./modules/http-utils');
-const downloadManager = require('./modules/download-manager');
-const userProfile = require('./modules/user-profile');
-const oauth = require('./modules/oauth');
-const systemTools = require('./modules/system-tools');
-const spicetifyModule = require('./modules/spicetify');
-const archiveUtils = require('./modules/archive-utils');
-const sparkleModule = require('./modules/sparkle');
+const { debug } = require('./src/main/debug');
+const fileUtils = require('./src/main/file-utils');
+const processUtils = require('./src/main/process-utils');
+const httpUtils = require('./src/main/http-utils');
+const downloadManager = require('./src/main/download-manager');
+const userProfile = require('./src/main/user-profile');
+const oauth = require('./src/main/oauth');
+const systemTools = require('./src/main/system-tools');
+const spicetifyModule = require('./src/main/spicetify');
+const archiveUtils = require('./src/main/archive-utils');
+const sparkleModule = require('./src/main/sparkle');
 
 // Auto-updater
 const { autoUpdater } = require('electron-updater');
