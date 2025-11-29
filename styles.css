@@ -32,6 +32,10 @@
 
   /* Layout */
   --title-bar-height: 40px;
+
+  --search-bg: rgba(255, 255, 255, 0.06);
+  --search-bg-focus: rgba(255, 255, 255, 0.1);
+  --text-muted: rgba(255, 255, 255, 0.4);
 }
 
 [data-theme="light"] {
@@ -4626,11 +4630,6 @@ button:not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-to
 }
 
 /* Search input variables */
-:root {
-  --search-bg: rgba(255, 255, 255, 0.06);
-  --search-bg-focus: rgba(255, 255, 255, 0.1);
-  --text-muted: rgba(255, 255, 255, 0.4);
-}
 
 [data-theme="light"] {
   --search-bg: rgba(0, 0, 0, 0.04);
