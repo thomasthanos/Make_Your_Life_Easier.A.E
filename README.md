@@ -6,7 +6,7 @@
 
 [![Version](https://img.shields.io/badge/version-3.2.8-blue.svg?style=for-the-badge)](https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases)
 [![Electron](https://img.shields.io/badge/electron-38.7.2-47848f.svg?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/license-Proprietary-red.svg?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078d4.svg?style=for-the-badge&logo=windows)](https://www.microsoft.com/windows)
 
 **A powerful all-in-one desktop application for Windows system management, software installation, and secure password management with military-grade encryption.**
@@ -405,7 +405,7 @@ Modify the `CUSTOM_APPS` array in `renderer.js`. Add name, URL, extension, and c
 
 ## 📄 License
 
-Licensed under **MIT License** - see [LICENSE](LICENSE) file.
+Licensed under **Proprietary License** - see [LICENSE](LICENSE) file for details.
 
 ---
 
