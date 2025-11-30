@@ -1374,20 +1374,32 @@ let pageEventManager = new EventListenerManager();
     const container = document.createElement('div');
     container.className = 'card dlc-scope';
 
+    // Προσθήκη της εικόνας που επικαλύπτει όλα τα άλλα στοιχεία
+    const overlayImage = document.createElement('div');
+    overlayImage.className = 'dlc-overlay-image';
+    
+    const simsImage = document.createElement('img');
+    simsImage.src = 'E:/test/Make_Your_Life_Easier.A.E/src/assets/images/sims.png';
+    simsImage.alt = 'DLC Unlocker';
+    simsImage.className = 'dlc-overlay-img';
+    overlayImage.appendChild(simsImage);
+
+    container.appendChild(overlayImage);
+
     const pageTitle = document.createElement('h2');
     pageTitle.textContent = (translations.pages && translations.pages.dlc_title) || 'DLC Unlocker';
     container.appendChild(pageTitle);
+    
     const pageDesc = document.createElement('p');
     pageDesc.textContent = (translations.pages && translations.pages.dlc_desc) || 'Choose the appropriate tool to unlock DLCs for EA games and The Sims. Use the Sims Installer for the complete Sims DLC package or the EA Unlocker to access all EA game content.';
     pageDesc.classList.add('page-desc');
     container.appendChild(pageDesc);
 
-
     const grid = document.createElement('div');
     grid.className = 'install-grid dlc-grid';
     container.appendChild(grid);
 
-
+    // Sims Card
     const simsCard = document.createElement('div');
     simsCard.className = 'app-card fixed-height dlc-card';
     grid.appendChild(simsCard);
@@ -1399,31 +1411,31 @@ let pageEventManager = new EventListenerManager();
     const simsIcon = document.createElement('div');
     simsIcon.className = 'dlc-icon sims-icon';
     simsIcon.innerHTML = `
-    <svg class="dlc-svg sims-svg" viewBox="0 0 308 734" aria-hidden="true">
-      <path d="M204 733L27.3308 366.25L380.669 366.25L204 733Z" fill="url(#paint0_linear_1_6)"/>
-      <path d="M204 0L380.669 366.75H27.3308L204 0Z" fill="url(#paint1_linear_1_6)"/>
-      <path d="M205.5 734L124.527 366.5L286.473 366.5L205.5 734Z" fill="url(#paint2_linear_1_6)"/>
-      <path d="M205.5 0L286.473 366.75H124.527L205.5 0Z" fill="url(#paint3_linear_1_6)"/>
-      <defs>
-        <linearGradient id="paint0_linear_1_6" x1="34" y1="459" x2="327" y2="537" gradientUnits="userSpaceOnUse">
-          <stop stop-color="#AFD23E"/><stop offset="0.518773" stop-color="#11B14B"/>
-          <stop offset="0.641251" stop-color="#91C34B"/><stop offset="1" stop-color="#02591E"/>
-        </linearGradient>
-        <linearGradient id="paint1_linear_1_6" x1="45.5" y1="262.5" x2="387.5" y2="362" gradientUnits="userSpaceOnUse">
-          <stop stop-color="#F5F8E0"/><stop offset="0.199057" stop-color="#98C868"/>
-          <stop offset="0.609375" stop-color="#1AB04C"/><stop offset="1" stop-color="#99CB47"/>
-        </linearGradient>
-        <linearGradient id="paint2_linear_1_6" x1="117.5" y1="388" x2="290.5" y2="383.5" gradientUnits="userSpaceOnUse">
-          <stop stop-color="#A3D24A"/><stop offset="1" stop-color="#51C251"/>
-        </linearGradient>
-        <linearGradient id="paint3_linear_1_6" x1="144.5" y1="348" x2="299" y2="348.5" gradientUnits="userSpaceOnUse">
-          <stop stop-color="#DBEBB3"/><stop offset="0.375221" stop-color="#9ED167"/>
-          <stop offset="1" stop-color="#61C558"/>
-          <stop offset="1" stop-color="#64C559"/>
-        </linearGradient>
-      </defs>
-    </svg>
-  `;
+      <svg class="dlc-svg sims-svg" viewBox="0 0 308 734" aria-hidden="true">
+        <path d="M204 733L27.3308 366.25L380.669 366.25L204 733Z" fill="url(#paint0_linear_1_6)"/>
+        <path d="M204 0L380.669 366.75H27.3308L204 0Z" fill="url(#paint1_linear_1_6)"/>
+        <path d="M205.5 734L124.527 366.5L286.473 366.5L205.5 734Z" fill="url(#paint2_linear_1_6)"/>
+        <path d="M205.5 0L286.473 366.75H124.527L205.5 0Z" fill="url(#paint3_linear_1_6)"/>
+        <defs>
+          <linearGradient id="paint0_linear_1_6" x1="34" y1="459" x2="327" y2="537" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#AFD23E"/><stop offset="0.518773" stop-color="#11B14B"/>
+            <stop offset="0.641251" stop-color="#91C34B"/><stop offset="1" stop-color="#02591E"/>
+          </linearGradient>
+          <linearGradient id="paint1_linear_1_6" x1="45.5" y1="262.5" x2="387.5" y2="362" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#F5F8E0"/><stop offset="0.199057" stop-color="#98C868"/>
+            <stop offset="0.609375" stop-color="#1AB04C"/><stop offset="1" stop-color="#99CB47"/>
+          </linearGradient>
+          <linearGradient id="paint2_linear_1_6" x1="117.5" y1="388" x2="290.5" y2="383.5" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#A3D24A"/><stop offset="1" stop-color="#51C251"/>
+          </linearGradient>
+          <linearGradient id="paint3_linear_1_6" x1="144.5" y1="348" x2="299" y2="348.5" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#DBEBB3"/><stop offset="0.375221" stop-color="#9ED167"/>
+            <stop offset="1" stop-color="#61C558"/>
+            <stop offset="1" stop-color="#64C559"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    `;
     simsHeader.appendChild(simsIcon);
 
     const simsText = document.createElement('div');
@@ -1458,7 +1470,7 @@ let pageEventManager = new EventListenerManager();
       );
     });
 
-
+    // EA Card
     const eaCard = document.createElement('div');
     eaCard.className = 'app-card fixed-height dlc-card';
     grid.appendChild(eaCard);
@@ -1470,15 +1482,15 @@ let pageEventManager = new EventListenerManager();
     const eaIcon = document.createElement('div');
     eaIcon.className = 'dlc-icon ea-icon';
     eaIcon.innerHTML = `
-    <svg class="dlc-svg ea-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <style>.ea-a{fill:gray;}.ea-b{fill:#b2b2b2;}.ea-c{fill:none;stroke:#191919;stroke-linecap:round;stroke-linejoin:round;}</style>
-      </defs>
-      <polygon class="ea-a" points="16.434 5.5 10.77 14.5 4.563 14.5 5.992 11.5 9.854 11.5 11.256 9.5 2.646 9.5 1.244 11.5 3.304 11.5 0.5 16.5 12.057 16.5 16.434 9.519 18.036 12.5 16.662 12.5 15.261 14.5 19.438 14.5 20.84 16.5 23.5 16.5 16.434 5.5"/>
-      <polygon class="ea-b" points="14.574 5.5 5.449 5.5 4.047 7.5 13.173 7.5 14.574 5.5"/>
-      <path class="ea-c" d="M16.434,5.5l-5.664,9H4.562l1.43-3H9.854l1.4-2H2.646l-1.4,2H3.3l-2.8,5H12.057l4.377-6.981,1.6,2.981H16.662l-1.4,2h4.177l1.4,2H23.5Zm-1.86,0H5.449l-1.4,2h9.126Z"/>
-    </svg>
-  `;
+      <svg class="dlc-svg ea-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <style>.ea-a{fill:gray;}.ea-b{fill:#b2b2b2;}.ea-c{fill:none;stroke:#191919;stroke-linecap:round;stroke-linejoin:round;}</style>
+        </defs>
+        <polygon class="ea-a" points="16.434 5.5 10.77 14.5 4.563 14.5 5.992 11.5 9.854 11.5 11.256 9.5 2.646 9.5 1.244 11.5 3.304 11.5 0.5 16.5 12.057 16.5 16.434 9.519 18.036 12.5 16.662 12.5 15.261 14.5 19.438 14.5 20.84 16.5 23.5 16.5 16.434 5.5"/>
+        <polygon class="ea-b" points="14.574 5.5 5.449 5.5 4.047 7.5 13.173 7.5 14.574 5.5"/>
+        <path class="ea-c" d="M16.434,5.5l-5.664,9H4.562l1.43-3H9.854l1.4-2H2.646l-1.4,2H3.3l-2.8,5H12.057l4.377-6.981,1.6,2.981H16.662l-1.4,2h4.177l1.4,2H23.5Zm-1.86,0H5.449l-1.4,2h9.126Z"/>
+      </svg>
+    `;
     eaHeader.appendChild(eaIcon);
 
     const eaText = document.createElement('div');
@@ -1513,7 +1525,7 @@ let pageEventManager = new EventListenerManager();
       );
     });
 
-
+    // Tutorials Section
     const tutorialsSection = document.createElement('div');
     tutorialsSection.className = 'dlc-tutorials';
     container.appendChild(tutorialsSection);
