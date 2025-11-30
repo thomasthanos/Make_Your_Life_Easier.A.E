@@ -18,38 +18,6 @@
 ## 🎯 Overview
 
 **Make Your Life Easier** is a powerful Electron-based desktop application that streamlines Windows system management, software installation, and password security with military-grade encryption.
-
----
-
-## ✨ Features
-
-### 🔐 **Password Manager**
-- Military-grade AES-256-GCM encryption
-- Master password with scrypt hashing
-- Auto-fetch website logos
-- Password strength validator
-- 30-minute auto-logout
-
-### 💻 **Software Management**
-- One-click app installation
-- Download manager with pause/resume
-- Pre-configured popular apps (Discord, Spotify, Epic Games, etc.)
-
-### 🛠️ **System Maintenance**
-- SFC Scan & DISM Repair
-- Temp files cleanup
-- Windows Debloat scripts
-- Chris Titus Windows Utility
-
-### 🎨 **Customization**
-- Spicetify for Spotify theming
-- DLC Unlockers (EA Games, Sims)
-- Auto-updates with changelog
-
-### 🌍 **Multi-Language**
-- English & Greek support
-- Dark/Light themes
-
 ---
 
 ## 📥 Installation
