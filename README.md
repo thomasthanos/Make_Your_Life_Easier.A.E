@@ -348,12 +348,6 @@ Automatic checks on launch. Updates download in background and install on restar
 </details>
 
 <details>
-<summary><b>Can I use this on macOS or Linux?</b></summary>
-
-Currently Windows-only. macOS/Linux support may come in future versions.
-</details>
-
-<details>
 <summary><b>Why does it need administrator privileges?</b></summary>
 
 Only for system maintenance tools (SFC, temp cleanup). Password manager works without admin rights.
@@ -380,11 +374,10 @@ Modify the `CUSTOM_APPS` array in `renderer.js`. Add name, URL, extension, and c
 - [ ] Two-factor authentication
 
 ### Version 4.0.0 (Future)
-- [ ] macOS and Linux support
 - [ ] Optional encrypted cloud sync
-- [ ] Mobile companion app
 - [ ] Advanced password generator
 - [ ] Plugin system
+- [ ] Enhanced system diagnostics
 
 ### Completed ✅
 - [x] AES-256-GCM encryption
@@ -413,20 +406,6 @@ Modify the `CUSTOM_APPS` array in `renderer.js`. Add name, URL, extension, and c
 ## 📄 License
 
 Licensed under **MIT License** - see [LICENSE](LICENSE) file.
-
----
-
-## 🙏 Acknowledgments
-
-<details>
-<summary><b>Special Thanks - Click to expand</b></summary>
-
-- **Electron Team** - Amazing desktop framework
-- **SQLite** - Reliable local storage
-- **Node.js Community** - Excellent packages ecosystem
-- **All Contributors** - Your support matters!
-
-</details>
 
 ---
 
