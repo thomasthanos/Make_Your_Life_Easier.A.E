@@ -196,6 +196,24 @@ autoUpdater.on('update-downloaded', (info) => {
     debug('warn', 'Failed to persist update info:', err);
   }
 
+  // Schedule cleanup of updater cache after install completes
+  const updaterCachePath = path.join(
+    app.getPath('userData'),
+    '..',
+    'make-your-life-easier-updater'
+  );
+
+  app.once('will-quit', () => {
+    try {
+      if (fs.existsSync(updaterCachePath)) {
+        fs.rmSync(updaterCachePath, { recursive: true, force: true });
+        debug('info', 'Updater cache cleaned successfully');
+      }
+    } catch (e) {
+      debug('warn', 'Could not clean updater cache:', e);
+    }
+  });
+
   setTimeout(() => {
     try {
       autoUpdater.quitAndInstall(true, true);
