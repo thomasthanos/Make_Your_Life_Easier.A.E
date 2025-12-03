@@ -3,10 +3,24 @@ const processStates = new Map();
 
 const CUSTOM_APPS = [
   {
-    id: 'AdvancedInstaller.Dropbox',
+    id: 'AdvancedInstaller.Crack',
     name: 'Advanced Installer',
     url: 'https://www.dropbox.com/scl/fi/nx5ced8mt2t5mye4tus6j/Advanced-Installer-Architect-23.1.0.zip?rlkey=2bre9u83d9lfdvhhz778nvr04&st=cgpe2npr&dl=1',
     ext: 'zip',
+    category: 'Utilities'
+  },
+  {
+    id: 'Spotify.Dropbox',
+    name: 'Spotify',
+    url: 'https://www.dropbox.com/scl/fi/tgfdprtihmfmg0vmje5mw/SpotifySetup.exe?rlkey=55vfvccgpndwys4wvl1gg4u1v&dl=1',
+    ext: 'exe',
+    category: 'Music'
+  },
+  {
+    id: 'BetterDiscord.Dropbox',
+    name: 'BetterDiscord',
+    url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&dl=1',
+    ext: 'exe',
     category: 'Utilities'
   }
 ];
@@ -5154,57 +5168,96 @@ async function buildInstallPageWingetWithCategories() {
       }
       return 'Others';
     }
-
     function getFaviconUrl(pkgId, appName) {
       try {
+        // 🔥 CUSTOM ICONS για ειδικές περιπτώσεις
+        const customIcons = {
+          // IObit apps με softonic favicons
+          "IObit.Uninstaller": "https://www.google.com/s2/favicons?domain=iobit-uninstaller.en.softonic.com&sz=64",
+          "IObit.AdvancedSystemCare": "https://www.google.com/s2/favicons?domain=iobit-advanced-systemcare.en.softonic.com&sz=64",
+          "IObit.SmartDefrag": "https://www.google.com/s2/favicons?domain=smart-defrag.en.softonic.com&sz=64",
+          "IObit.IObitSysInfo": "data:image/svg+xml;base64," + btoa(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24">
+      <path fill="#855cd6" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+      <path fill="#6a3cb8" d="M13 7h-2v2h2zm0 4h-2v6h2z"/>
+    </svg>
+  `),
+          "IObit.IObitSoftwareUpdater": "https://www.google.com/s2/favicons?domain=iobit-software-updater.en.softonic.com&sz=64",
+          "IObit.DriverBooster": "https://www.google.com/s2/favicons?domain=driver-booster-free.en.softonic.com&sz=64",
+          "IObit.MalwareFighter": "https://www.google.com/s2/favicons?domain=iobit-malware-fighter.en.softonic.com&sz=64",
+          
+          // Άλλα apps που χρειάζονται ειδική αντιμετώπιση
+          "Blizzard.BattleNet": "https://www.google.com/s2/favicons?domain=battle.net&sz=64",
+          "Guru3D.Afterburner": "https://www.google.com/s2/favicons?domain=guru3d.com&sz=64",
+
+          "Microsoft.VisualStudio.Professional": "https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VisualStudio-Dark.svg",
+          "Microsoft.VisualStudioCode": "https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VSCode-Dark.svg",
+        };
+        
+        // Πρώτα έλεγξε αν υπάρχει custom icon
+        if (customIcons[pkgId]) {
+          return customIcons[pkgId];
+        }
+        
+        // Αλλιώς συνέχισε με την υπάρχουσα λογική
         const parts = String(pkgId).split('.');
         let publisher = parts[0] || '';
         publisher = publisher.toLowerCase();
+        
         const domainMap = {
-            google: 'google.com',
-            bitdefender: 'bitdefender.com',
-            brave: 'brave.com',
-            discord: 'discord.com',
-            dropbox: 'dropbox.com',
-            electronicarts: 'ea.com',
-            elgato: 'elgato.com',
-            epicgames: 'epicgames.com',
-            git: 'git-scm.com',
-            github: 'github.com',
-            nordsecurity: 'nordvpn.com',
-            mojang: 'minecraft.net',
-            vivaldi: 'vivaldi.com',
-            valve: 'steampowered.com',
-            playstation: 'playstation.com',
-            python: 'python.org',
-            microsoft: 'microsoft.com',
-            rarlab: 'win-rar.com',
-            razerinc: 'razer.com',
-            softdeluxe: 'freedownloadmanager.org',
-            spotify: 'spotify.com',
-            surfshark: 'surfshark.com',
-            zwylair: 'github.com',
-            proton: 'protonvpn.com',
-            openjs: 'nodejs.org',
-            mozilla: 'mozilla.org',
-            '7zip': '7-zip.org',
-            vencord: 'vencord.dev/download/',
-            obsproject: 'obsproject.com',
-            videolan: 'videolan.org',
-            oracle: 'oracle.com',
-            logitech: 'logitech.com',
-            notepadplusplus: 'notepad-plus-plus.org',
-            cpuid: 'cpuid.com',
-            crystaldew: 'crystalmark.info',
-            malwarebytes: 'malwarebytes.com',
-            teamviewer: 'teamviewer.com',
-            anydesk: 'anydesk.com'
+          google: 'google.com',
+          bitdefender: 'bitdefender.com',
+          brave: 'brave.com',
+          discord: 'discord.com',
+          dropbox: 'dropbox.com',
+          electronicarts: 'ea.com',
+          elgato: 'elgato.com',
+          epicgames: 'epicgames.com',
+          git: 'git-scm.com',
+          github: 'github.com',
+          nordsecurity: 'nordvpn.com',
+          mojang: 'minecraft.net',
+          vivaldi: 'vivaldi.com',
+          valve: 'steampowered.com',
+          playstation: 'playstation.com',
+          python: 'python.org',
+          microsoft: 'microsoft.com',
+          rarlab: 'win-rar.com',
+          razerinc: 'razer.com',
+          softdeluxe: 'freedownloadmanager.org',
+          spotify: 'spotify.com',
+          surfshark: 'surfshark.com',
+          zwylair: 'github.com',
+          proton: 'protonvpn.com',
+          openjs: 'nodejs.org',
+          mozilla: 'mozilla.org',
+          '7zip': '7-zip.org',
+          vencord: 'vencord.dev',
+          obsproject: 'obsproject.com',
+          videolan: 'videolan.org',
+          oracle: 'oracle.com',
+          logitech: 'logitech.com',
+          notepadplusplus: 'notepad-plus-plus.org',
+          cpuid: 'cpuid.com',
+          crystaldew: 'crystalmark.info',
+          malwarebytes: 'malwarebytes.com',
+          teamviewer: 'teamviewer.com',
+          anydesk: 'anydesk.com',
+          betterdiscord: 'betterdiscord.app',
+          iobit: 'iobit.com', // Γενικό για IObit (για άλλα apps που λείπουν από custom)
+          blizzard: 'battle.net', // Για Blizzard
+          ubisoft: 'https://store.ubisoft.com/ie/home?lang=en-ZW', // Για Ubisoft
+          guru3d: 'guru3d.com' // Για Guru3D
         };
+        
         const domain = domainMap[publisher] || `${publisher}.com`;
-        return `https://logo.clearbit.com/${domain}`;
+        
+        // 🔥 ΧΡΗΣΗ GOOGLE FAVICON SERVICE (πιο αξιόπιστο)
+        return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+        
       } catch {
         const slug = String(appName || '').toLowerCase().replace(/\s+/g, '');
-        return `https://logo.clearbit.com/${slug}.com`;
+        return `https://www.google.com/s2/favicons?domain=${slug}.com&sz=64`;
       }
     }
 
@@ -5213,44 +5266,49 @@ async function buildInstallPageWingetWithCategories() {
         const parts = String(pkgId).split('.');
         const publisher = (parts[0] || '').toLowerCase();
         const domainMap = {
-            google: 'google.com',
-            bitdefender: 'bitdefender.com',
-            brave: 'brave.com',
-            discord: 'discord.com',
-            dropbox: 'dropbox.com',
-            electronicarts: 'ea.com',
-            elgato: 'elgato.com',
-            epicgames: 'epicgames.com',
-            git: 'git-scm.com',
-            github: 'github.com',
-            nordsecurity: 'nordvpn.com',
-            mojang: 'minecraft.net',
-            vivaldi: 'vivaldi.com',
-            valve: 'steampowered.com',
-            playstation: 'playstation.com',
-            python: 'python.org',
-            microsoft: 'microsoft.com',
-            rarlab: 'win-rar.com',
-            razerinc: 'razer.com',
-            softdeluxe: 'freedownloadmanager.org',
-            spotify: 'spotify.com',
-            surfshark: 'surfshark.com',
-            zwylair: 'github.com',
-            proton: 'protonvpn.com',
-            openjs: 'nodejs.org',
-            mozilla: 'mozilla.org',
-            '7zip': '7-zip.org',
-            vencord: 'vencord.dev/download/',
-            obsproject: 'obsproject.com',
-            videolan: 'videolan.org',
-            oracle: 'oracle.com',
-            logitech: 'logitech.com',
-            notepadplusplus: 'notepad-plus-plus.org',
-            cpuid: 'cpuid.com',
-            crystaldew: 'crystalmark.info',
-            malwarebytes: 'malwarebytes.com',
-            teamviewer: 'teamviewer.com',
-            anydesk: 'anydesk.com'
+          google: 'google.com',
+          bitdefender: 'bitdefender.com',
+          brave: 'brave.com',
+          discord: 'discord.com',
+          dropbox: 'dropbox.com',
+          electronicarts: 'ea.com',
+          elgato: 'elgato.com',
+          epicgames: 'epicgames.com',
+          git: 'git-scm.com',
+          github: 'github.com',
+          nordsecurity: 'nordvpn.com',
+          mojang: 'minecraft.net',
+          vivaldi: 'vivaldi.com',
+          valve: 'steampowered.com',
+          playstation: 'playstation.com',
+          python: 'python.org',
+          microsoft: 'microsoft.com',
+          rarlab: 'win-rar.com',
+          razerinc: 'razer.com',
+          softdeluxe: 'freedownloadmanager.org',
+          spotify: 'spotify.com',
+          surfshark: 'surfshark.com',
+          zwylair: 'github.com',
+          proton: 'protonvpn.com',
+          openjs: 'nodejs.org',
+          mozilla: 'mozilla.org',
+          '7zip': '7-zip.org',
+          vencord: 'vencord.dev/download/',
+          obsproject: 'obsproject.com',
+          videolan: 'videolan.org',
+          oracle: 'oracle.com',
+          logitech: 'logitech.com',
+          notepadplusplus: 'notepad-plus-plus.org',
+          cpuid: 'cpuid.com',
+          crystaldew: 'crystalmark.info',
+          malwarebytes: 'malwarebytes.com',
+          teamviewer: 'teamviewer.com',
+          anydesk: 'anydesk.com',
+          betterdiscord: 'betterdiscord.app',
+          iobit: 'iobit.com', // Προσθήκη για IObit
+          blizzard: 'battle.net', // Προσθήκη για Blizzard
+          ubisoft: 'https://store.ubisoft.com/ie/home?lang=en-ZW', // Προσθήκη για Ubisoft
+          guru3d: 'guru3d.com' // Προσθήκη για Guru3D
         };
         const domain = domainMap[publisher] || `${publisher}.com`;
         return `https://${domain}`;
@@ -5495,31 +5553,63 @@ async function buildInstallPageWingetWithCategories() {
       const appName = li.dataset.appName || li.dataset.appId;
       const url = li.dataset.customUrl;
       const ext = li.dataset.customExt || 'zip';
+      
       if (!url) {
         throw new Error('Download URL missing for custom package');
       }
+      
       const safeName = String(appName)
         .replace(/\s+/g, '_')
         .replace(/[^a-zA-Z0-9_\-]/g, '');
       const dest = `${safeName}.${ext}`;
       const downloadId = `custom-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+      
       return new Promise((resolve, reject) => {
         const unsubscribe = window.api.onDownloadEvent(async (data) => {
           try {
             if (data.id !== downloadId) return;
+            
             if (data.status === 'error') {
               unsubscribe();
               reject(new Error(data.error || 'Download failed'));
               return;
             }
+            
             if (data.status === 'complete') {
               unsubscribe();
+              
               try {
-                const statusEl = document.createElement('span');
-                statusEl.classList.remove('visible');
-                li.appendChild(statusEl);
-                await window.processAdvancedInstaller(data.path, statusEl, appName);
+                // 🔥 CHECK EXTENSION TYPE
+                const downloadedExt = ext.toLowerCase();
+                
+                if (downloadedExt === 'zip') {
+                  // ✅ ZIP files → Extract + Process Advanced Installer logic
+                  // Create hidden status element for processAdvancedInstaller (it expects one)
+                  const statusEl = document.createElement('span');
+                  statusEl.style.display = 'none';
+                  li.appendChild(statusEl);
+                  
+                  await window.processAdvancedInstaller(data.path, statusEl, appName);
+                  
+                } else if (downloadedExt === 'exe') {
+                  // ✅ EXE files → Run directly without status messages
+                  const runRes = await window.api.runInstaller(data.path);
+                  
+                  if (!runRes || !runRes.success) {
+                    throw new Error((runRes && runRes.error) || 'Failed to run installer');
+                  }
+                  
+                } else {
+                  // ⚠️ Unknown extension → Try to run it anyway
+                  const runRes = await window.api.runInstaller(data.path);
+                  
+                  if (!runRes || !runRes.success) {
+                    throw new Error((runRes && runRes.error) || 'Failed to run installer');
+                  }
+                }
+                
                 resolve();
+                
               } catch (err) {
                 reject(err);
               }
@@ -5529,6 +5619,7 @@ async function buildInstallPageWingetWithCategories() {
             reject(err);
           }
         });
+        
         window.api.downloadStart(downloadId, url, dest);
       });
     }
