@@ -1399,7 +1399,7 @@ let pageEventManager = new EventListenerManager();
     overlayImage.className = 'dlc-overlay-image';
     
     const simsImage = document.createElement('img');
-    simsImage.src = 'E:/test/Make_Your_Life_Easier.A.E/src/assets/images/sims.png';
+    simsImage.src = await window.api.getAssetPath('images/sims.png');
     simsImage.alt = 'DLC Unlocker';
     simsImage.className = 'dlc-overlay-img';
     overlayImage.appendChild(simsImage);

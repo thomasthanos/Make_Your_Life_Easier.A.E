@@ -687,6 +687,16 @@ ipcMain.on('download-cancel', (event, id) => {
 // IPC Handlers - File Operations
 // ============================================================================
 
+// Get asset path for images and other assets (works in both dev and production)
+ipcMain.handle('get-asset-path', async (event, relativePath) => {
+  const isDev = !app.isPackaged;
+  if (isDev) {
+    return path.join(__dirname, 'src', 'assets', relativePath);
+  }
+  // In production: assets are in resources/src/assets (extraResources)
+  return path.join(process.resourcesPath, 'src', 'assets', relativePath);
+});
+
 ipcMain.handle('file-exists', async (event, filePath) => {
   try {
     const expanded = fileUtils.expandEnvVars(filePath);

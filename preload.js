@@ -94,5 +94,8 @@ contextBridge.exposeInMainWorld('api', {
   getWindowSize: () => ipcRenderer.invoke('window-get-size'),
   animateWindowSize: (width, height) => ipcRenderer.invoke('window-set-bounds-animate', { width, height }),
   animateResize: (width, height, duration) =>
-    ipcRenderer.invoke('window-animate-resize', { width, height, duration })
+    ipcRenderer.invoke('window-animate-resize', { width, height, duration }),
+  
+  // Asset path helper for images and other assets
+  getAssetPath: (relativePath) => ipcRenderer.invoke('get-asset-path', relativePath)
 });
