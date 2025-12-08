@@ -254,8 +254,8 @@ function getState() {
 function cleanupUpdaterCache() {
   try {
     // Get the updater cache directory path
-    const appName = app.getName().toLowerCase().replace(/\s+/g, '-');
-    const updaterCachePath = path.join(app.getPath('userData'), '..', `${appName}-updater`);
+    // electron-updater uses the 'name' field from package.json, not productName
+    const updaterCachePath = path.join(app.getPath('userData'), '..', 'make-your-life-easier-updater');
     
     if (fs.existsSync(updaterCachePath)) {
       const files = fs.readdirSync(updaterCachePath);
