@@ -1161,6 +1161,12 @@ let pageEventManager = new EventListenerManager();
     }
     buttonStateManager.resetAll();
     
+    // Cleanup any pending debounced functions from previous page
+    const prevSearchInput = document.querySelector('.search-input-styled');
+    if (prevSearchInput && typeof prevSearchInput._searchCleanup === 'function') {
+      prevSearchInput._searchCleanup();
+    }
+    
     currentPage = key;
 
 
@@ -1581,6 +1587,9 @@ let pageEventManager = new EventListenerManager();
   }
 
   async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, dlcName) {
+    // Race condition protection - prevent double-clicks
+    if (buttonStateManager.isLoading(button)) return;
+    
     button.disabled = true;
     const originalText = button.innerHTML;
 
@@ -2012,6 +2021,9 @@ let pageEventManager = new EventListenerManager();
 
 
   async function downloadAndRunActivate(button, statusElement) {
+    // Race condition protection
+    if (buttonStateManager.isLoading(button)) return;
+    
     button.disabled = true;
     const originalText = button.textContent;
 
@@ -2100,6 +2112,9 @@ let pageEventManager = new EventListenerManager();
   }
 
   async function downloadAndRunAutologin(button, statusElement) {
+    // Race condition protection
+    if (buttonStateManager.isLoading(button)) return;
+    
     button.disabled = true;
     const originalText = button.textContent;
 
@@ -3169,6 +3184,9 @@ let pageEventManager = new EventListenerManager();
       }
 
       btn.addEventListener('click', () => {
+        // Race condition protection - prevent double-clicks
+        if (btn.disabled || buttonStateManager.isLoading(btn)) return;
+        
         if (unsubscribe) unsubscribe();
 
         const cardId = `crack-${key}`;
@@ -3950,7 +3968,9 @@ let pageEventManager = new EventListenerManager();
 
 
   async function downloadAndRunPatchMyPC(statusElement, button) {
-
+    // Race condition protection
+    if (buttonStateManager.isLoading(button)) return;
+    
     const downloadId = `patchmypc-${Date.now()}`;
     const patchMyPCUrl = 'https://www.dropbox.com/scl/fi/z66qn3wgiyvh8uy3fedu7/patch_my_pc.exe?rlkey=saht980hb3zfezv2ixve697jo&st=3ww4r4vy&dl=1';
 
@@ -4479,8 +4499,15 @@ let pageEventManager = new EventListenerManager();
 
   function initializeAutoUpdater() {
     const updateBtn = document.getElementById('title-bar-update');
-    if (typeof window.api === 'undefined' || typeof window.api.onUpdateStatus !== 'function') {
-      console.warn('AutoUpdater: preload API not available; skipping update event handlers.');
+    
+    // Safe check for API availability
+    if (typeof window === 'undefined' || typeof window.api === 'undefined') {
+      console.warn('AutoUpdater: window.api not available; skipping update event handlers.');
+      return;
+    }
+    
+    if (typeof window.api.onUpdateStatus !== 'function') {
+      console.warn('AutoUpdater: onUpdateStatus not available; skipping update event handlers.');
       return;
     }
     if (!updateBtn) {
@@ -4757,6 +4784,15 @@ let pageEventManager = new EventListenerManager();
     if (!notes) return '';
 
     let text = typeof notes === 'string' ? notes : String(notes);
+    
+    // XSS Protection - sanitize dangerous patterns before processing
+    text = text
+      .replace(/javascript:/gi, '')
+      .replace(/data:/gi, '')
+      .replace(/vbscript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .replace(/<script[^>]*>.*?<\/script>/gis, '')
+      .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '');
 
     text = text.replace(/^>\s*\[!([A-Z]+)\]\s*\n>\s*(.+?)(?=\n\s*\n|$)/gms, (match, type, content) => {
       const map = {
@@ -4800,7 +4836,14 @@ let pageEventManager = new EventListenerManager();
 
       .replace(/`([^`]+)`/g, '<code>$1</code>')
 
-      .replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+      .replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, (match, text, url) => {
+        // Sanitize URL - only allow http/https protocols
+        const sanitizedUrl = url.trim();
+        if (sanitizedUrl.startsWith('http://') || sanitizedUrl.startsWith('https://')) {
+          return `<a href="${sanitizedUrl}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+        }
+        return text; // Return just the text if URL is suspicious
+      })
 
       .replace(/^\* (.+)$/gm, '<li>$1</li>')
       .replace(/^- (.+)$/gm, '<li>$1</li>')

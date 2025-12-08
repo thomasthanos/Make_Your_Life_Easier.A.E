@@ -120,37 +120,106 @@ Write-Host ""
 
 /**
  * Restart computer to BIOS/UEFI
+ * Requests admin permissions first, then restarts to BIOS
  * @returns {Promise<Object>}
  */
 async function restartToBios() {
   return new Promise((resolve) => {
     const tempDir = os.tmpdir();
-    const vbsPath = path.join(tempDir, 'bios_restart.vbs');
+    const psPath = path.join(tempDir, `bios_restart_${Date.now()}.ps1`);
+    const vbsPath = path.join(tempDir, `bios_elevate_${Date.now()}.vbs`);
+    const resultPath = path.join(tempDir, `bios_result_${Date.now()}.txt`);
 
-    const vbsContent = [
-      'Set UAC = CreateObject("Shell.Application")',
-      'UAC.ShellExecute "cmd.exe", "/c shutdown /r /fw /t 0", "", "runas", 1'
-    ].join('\r\n');
+    // PowerShell script that checks admin rights and performs restart
+    const psScript = `
+# Check if running as Administrator
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $isAdmin) {
+    "ADMIN_FAILED" | Out-File -FilePath "${resultPath.replace(/\\/g, '\\\\')}" -Encoding UTF8
+    exit 1
+}
+
+# Write success marker
+"ADMIN_OK" | Out-File -FilePath "${resultPath.replace(/\\/g, '\\\\')}" -Encoding UTF8
+
+# Perform BIOS restart
+try {
+    shutdown /r /fw /t 3
+    "RESTART_OK" | Out-File -FilePath "${resultPath.replace(/\\/g, '\\\\')}" -Encoding UTF8 -Append
+    exit 0
+} catch {
+    "RESTART_FAILED" | Out-File -FilePath "${resultPath.replace(/\\/g, '\\\\')}" -Encoding UTF8 -Append
+    exit 1
+}
+`;
+
+    // VBS script to request elevation via UAC
+    const vbsScript = `
+Set objShell = CreateObject("Shell.Application")
+objShell.ShellExecute "powershell.exe", "-NoProfile -ExecutionPolicy Bypass -File ""${psPath.replace(/\\/g, '\\\\')}""", "", "runas", 0
+`;
 
     try {
-      fs.writeFileSync(vbsPath, vbsContent);
-      exec(`cscript //nologo "${vbsPath}"`, (error) => {
-        try { fs.unlinkSync(vbsPath); } catch { }
+      // Write PowerShell script
+      fs.writeFileSync(psPath, psScript, 'utf8');
+      // Write VBS script
+      fs.writeFileSync(vbsPath, vbsScript, 'utf8');
 
-        if (error) {
-          resolve({
-            success: false,
-            error: 'Administrator privileges required. Please run as Administrator.',
-            code: 'ADMIN_REQUIRED'
-          });
-        } else {
-          resolve({
-            success: true,
-            message: 'UAC prompt appeared. Grant permissions to restart to BIOS.'
-          });
-        }
+      // Execute VBS which will show UAC prompt
+      exec(`cscript //nologo "${vbsPath}"`, (error) => {
+        // Wait a bit for the elevated PowerShell to complete
+        setTimeout(() => {
+          // Cleanup temp files
+          try { fs.unlinkSync(vbsPath); } catch { }
+          try { fs.unlinkSync(psPath); } catch { }
+
+          // Check result
+          try {
+            if (fs.existsSync(resultPath)) {
+              const result = fs.readFileSync(resultPath, 'utf8').trim();
+              try { fs.unlinkSync(resultPath); } catch { }
+
+              if (result.includes('ADMIN_OK') && result.includes('RESTART_OK')) {
+                resolve({
+                  success: true,
+                  message: 'Restarting to BIOS in 3 seconds...'
+                });
+              } else if (result.includes('ADMIN_FAILED')) {
+                resolve({
+                  success: false,
+                  error: 'Administrator privileges denied. Please accept the UAC prompt.',
+                  code: 'UAC_DENIED'
+                });
+              } else {
+                resolve({
+                  success: false,
+                  error: 'Restart command failed. Your system may not support UEFI firmware access.',
+                  code: 'RESTART_FAILED'
+                });
+              }
+            } else {
+              // No result file means UAC was cancelled or error occurred
+              resolve({
+                success: false,
+                error: 'Administrator privileges required. Please accept the UAC prompt to restart to BIOS.',
+                code: 'UAC_CANCELLED'
+              });
+            }
+          } catch (readError) {
+            resolve({
+              success: false,
+              error: 'Could not verify restart status: ' + readError.message
+            });
+          }
+        }, 2000); // Wait 2 seconds for elevated script to complete
       });
     } catch (fileError) {
+      // Cleanup on error
+      try { fs.unlinkSync(vbsPath); } catch { }
+      try { fs.unlinkSync(psPath); } catch { }
+      try { fs.unlinkSync(resultPath); } catch { }
+      
       resolve({
         success: false,
         error: 'Failed to create elevation script: ' + fileError.message
