@@ -58,6 +58,54 @@ let isManualCheck = false;
 let updateDownloaded = false;
 
 // ============================================================================
+// Updater Cache Cleanup
+// ============================================================================
+
+/**
+ * Clean up the updater cache directory
+ * Removes downloaded installers and temp files after successful update
+ */
+function cleanupUpdaterCache() {
+  try {
+    // electron-updater stores cache in Local AppData, not Roaming
+    const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+    const updaterCachePath = path.join(localAppData, 'make-your-life-easier-updater');
+    
+    if (fs.existsSync(updaterCachePath)) {
+      const files = fs.readdirSync(updaterCachePath);
+      let cleanedSize = 0;
+      
+      for (const file of files) {
+        const filePath = path.join(updaterCachePath, file);
+        
+        if (stat.isDirectory()) {
+          fs.rmSync(filePath, { recursive: true, force: true });
+          debug('info', `Cleaned updater cache directory: ${file}`);
+        } else {
+          cleanedSize += stat.size;
+          fs.unlinkSync(filePath);
+          debug('info', `Cleaned updater cache file: ${file}`);
+        }
+      }
+      
+      if (cleanedSize > 0) {
+        const sizeMB = (cleanedSize / (1024 * 1024)).toFixed(2);
+        debug('success', `Updater cache cleaned: ${sizeMB} MB freed`);
+      }
+      
+      // Remove the empty directory itself
+      try {
+        fs.rmdirSync(updaterCachePath);
+      } catch (e) {
+        // Directory might not be empty or other error, ignore
+      }
+    }
+  } catch (err) {
+    debug('warn', 'Failed to clean updater cache:', err.message);
+  }
+}
+
+// ============================================================================
 // Window References
 // ============================================================================
 
@@ -334,6 +382,9 @@ function setupWindowStateEvents() {
 // ============================================================================
 
 app.whenReady().then(() => {
+  // Clean up any leftover update files from previous updates
+  cleanupUpdaterCache();
+
   // Initialize user profile
   try {
     userProfile.initialize(app.getPath('userData'));
