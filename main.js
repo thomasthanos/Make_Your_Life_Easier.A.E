@@ -77,6 +77,7 @@ function cleanupUpdaterCache() {
       
       for (const file of files) {
         const filePath = path.join(updaterCachePath, file);
+        const stat = fs.statSync(filePath);
         
         if (stat.isDirectory()) {
           fs.rmSync(filePath, { recursive: true, force: true });
