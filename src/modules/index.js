@@ -9,7 +9,6 @@ module.exports = {
   processUtils: require('./process-utils'),
   versionUtils: require('./version-utils'),
   httpUtils: require('./http-utils'),
-  autoUpdater: require('./auto-updater'),
   userProfile: require('./user-profile'),
   downloadManager: require('./download-manager'),
   oauth: require('./oauth'),

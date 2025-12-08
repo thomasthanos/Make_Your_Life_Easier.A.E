@@ -1,21 +1,36 @@
+# Dependencies
 /node_modules/
+
+# Build output
 /dist/
+
+# Executables and archives
 *.exe
 *.zip
 *.7z
+
+# Logs
 logs/npm-build-all.log
 logs/npm-install.log
-3)
-3)
-3)
+
+# Temporary files
 task.bat
-3)
 temp_release_notes.md
 release_notes_2.0.4.md
+
+# Config files with secrets
 oauth_config.json
-!/bin/
-!/bin/7za.exe
+
+# IDE
 /.vscode
+
+# Misc
 adobe_blockfirewall.bat
 55README.md
 Make_Your_Life_Easier.A.E.rar
+
+# Exceptions - keep these
+!/bin/
+!/bin/7za.exe
+!/bin/7za.dll
+!/bin/7zxa.dll
