@@ -1,8 +1,9 @@
 {
   "name": "make-your-life-easier",
-  "version": "3.4.0",
+  "version": "3.4.1",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
+  "homepage": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E",
   "main": "main.js",
   "scripts": {
     "start": "electron . --no-updater",
@@ -92,6 +93,7 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
@@ -103,7 +105,13 @@
       "warningsAsErrors": false,
       "artifactName": "MakeYourLifeEasier-installer.exe",
       "deleteAppDataOnUninstall": true,
-      "include": "build/installer.nsh"
+      "include": "build/installer.nsh",
+      "guid": "MakeYourLifeEasier",
+      "uninstallDisplayName": "Make Your Life Easier 3.4.0",
+      "uninstallUrlHelp": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/copyright.html",
+      "uninstallUrlInfoAbout": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/info/info.html",
+      "uninstallUrlReadme": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/readme.html",
+      "uninstallUrlUpdateInfo": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/changelog.html"
     },
     "portable": {
       "artifactName": "MakeYourLifeEasier-Portable.exe"
