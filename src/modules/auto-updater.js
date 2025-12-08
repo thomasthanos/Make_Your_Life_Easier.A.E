@@ -4,6 +4,7 @@
  */
 
 const { autoUpdater } = require('electron-updater');
+const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { debug } = require('./debug');
@@ -14,6 +15,7 @@ let isManualCheck = false;
 let updateDownloaded = false;
 let mainWindow = null;
 let updateWindow = null;
+let userDataPathRef = null;
 
 /**
  * Initialize the auto-updater
@@ -28,6 +30,10 @@ function initialize(options) {
   updateWindow = options.updateWin;
   const createMainWindow = options.createMainWindow;
   const userDataPath = options.userDataPath;
+  userDataPathRef = userDataPath;
+
+  // Clean up old update files from previous update
+  cleanupUpdaterCache();
 
   // Configure auto-updater
   autoUpdater.autoDownload = true;
@@ -241,6 +247,47 @@ function getState() {
   };
 }
 
+/**
+ * Clean up the updater cache directory
+ * Removes downloaded installers and temp files after successful update
+ */
+function cleanupUpdaterCache() {
+  try {
+    // Get the updater cache directory path
+    const appName = app.getName().toLowerCase().replace(/\s+/g, '-');
+    const updaterCachePath = path.join(app.getPath('userData'), '..', `${appName}-updater`);
+    
+    if (fs.existsSync(updaterCachePath)) {
+      const files = fs.readdirSync(updaterCachePath);
+      let cleanedSize = 0;
+      
+      for (const file of files) {
+        const filePath = path.join(updaterCachePath, file);
+        const stat = fs.statSync(filePath);
+        
+        if (stat.isDirectory()) {
+          // Recursively remove directories (like 'pending')
+          fs.rmSync(filePath, { recursive: true, force: true });
+          debug('info', `Cleaned updater cache directory: ${file}`);
+        } else {
+          // Remove files (.exe, .blockmap, .json, etc.)
+          cleanedSize += stat.size;
+          fs.unlinkSync(filePath);
+          debug('info', `Cleaned updater cache file: ${file}`);
+        }
+      }
+      
+      if (cleanedSize > 0) {
+        const sizeMB = (cleanedSize / (1024 * 1024)).toFixed(2);
+        debug('success', `Updater cache cleaned: ${sizeMB} MB freed`);
+      }
+    }
+  } catch (err) {
+    // Non-critical error - just log it
+    debug('warn', 'Failed to clean updater cache:', err.message);
+  }
+}
+
 module.exports = {
   initialize,
   setWindows,
@@ -248,5 +295,6 @@ module.exports = {
   downloadUpdate,
   installUpdate,
   getState,
+  cleanupUpdaterCache,
   autoUpdater
 };
