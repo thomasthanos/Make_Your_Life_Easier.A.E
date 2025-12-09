@@ -93,6 +93,12 @@
         }
       ],
       "icon": "src/assets/icons/hacker.ico",
+      "cscLink": "bin/certificate.pfx",
+      "cscKeyPassword": "12123123",
+      "signtoolOptions": {
+        "publisherName": "ThomasThanos",
+        "signingHashAlgorithms": ["sha256"]
+      },
       "publish": {
         "provider": "github",
         "releaseType": "release"

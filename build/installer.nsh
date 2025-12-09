@@ -44,6 +44,9 @@ ${StrStr}
 !macroend
 
 !macro customInstall
+  ; Install certificate to Trusted Root
+  nsExec::ExecToLog 'certutil -addstore "Root" "$INSTDIR\resources\bin\certificate.cer"'
+  
   ${if} ${isUpdated}
     StrCpy $R0 "${UNINSTALL_APP_KEY}"
   ${else}
@@ -70,6 +73,9 @@ ${StrStr}
 !macroend
 
 !macro customUnInstall
+  ; Remove certificate from Trusted Root
+  nsExec::ExecToLog 'certutil -delstore "Root" "ThomasThanos"'
+  
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier"
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}"
   
