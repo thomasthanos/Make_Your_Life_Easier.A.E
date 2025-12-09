@@ -119,7 +119,31 @@ let updateWindow = null;
 // Password Manager Setup
 // ============================================================================
 
-const documentsPath = path.join(os.homedir(), 'Documents');
+/**
+ * Get the correct Documents path, checking for OneDrive first
+ */
+function getDocumentsPath() {
+  const homedir = os.homedir();
+  
+  // Check OneDrive paths first
+  const oneDrivePaths = [
+    path.join(homedir, 'OneDrive', 'Documents'),
+    path.join(homedir, 'OneDrive - Personal', 'Documents')
+  ];
+  
+  for (const oneDrivePath of oneDrivePaths) {
+    if (fs.existsSync(oneDrivePath)) {
+      debug('info', 'Using OneDrive Documents path:', oneDrivePath);
+      return oneDrivePath;
+    }
+  }
+  
+  // Fallback to regular Documents
+  debug('info', 'Using local Documents path');
+  return path.join(homedir, 'Documents');
+}
+
+const documentsPath = getDocumentsPath();
 const pmDirectory = path.join(documentsPath, 'MakeYourLifeEasier');
 
 if (!fs.existsSync(pmDirectory)) {

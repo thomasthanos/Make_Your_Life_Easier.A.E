@@ -65,7 +65,10 @@ class PasswordManagerAuth {
     }
     hasMasterPassword() {
         try {
-            return fs.existsSync(this.configPath);
+            const exists = fs.existsSync(this.configPath);
+            debug('info', 'Checking for master password at:', this.configPath);
+            debug('info', 'Config file exists:', exists);
+            return exists;
         } catch (error) {
             debug('error', 'Error checking master password:', error);
             return false;
@@ -75,9 +78,19 @@ class PasswordManagerAuth {
     async createMasterPassword(password) {
         return new Promise((resolve, reject) => {
             try {
+                debug('info', 'Creating master password...');
+                debug('info', 'Config path:', this.configPath);
+                debug('info', 'DB directory:', this.dbDirectory);
+                
                 if (!password || password.length < 8) {
                     reject(new Error('Ο Master Password πρέπει να έχει τουλάχιστον 8 χαρακτήρες'));
                     return;
+                }
+
+                // Ensure directory exists
+                if (!fs.existsSync(this.dbDirectory)) {
+                    debug('info', 'Creating directory:', this.dbDirectory);
+                    fs.mkdirSync(this.dbDirectory, { recursive: true });
                 }
 
                 const salt = crypto.randomBytes(32);
@@ -89,6 +102,7 @@ class PasswordManagerAuth {
                 };
                 crypto.scrypt(password, salt, 64, scryptOptions, (err, derivedKey) => {
                     if (err) {
+                        debug('error', 'Scrypt error:', err);
                         reject(err);
                         return;
                     }
@@ -99,16 +113,30 @@ class PasswordManagerAuth {
                             createdAt: new Date().toISOString(),
                             algorithm: 'scrypt'
                         };
+                        
+                        debug('info', 'Writing config to:', this.configPath);
                         fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2));
+                        
+                        // Verify file was written
+                        if (fs.existsSync(this.configPath)) {
+                            debug('success', 'Config file created successfully!');
+                        } else {
+                            debug('error', 'Config file NOT created!');
+                            reject(new Error('Failed to create config file - file does not exist after write'));
+                            return;
+                        }
+                        
                         // Generate encryption key using HKDF
                         this.generateEncryptionKey(password, salt);
                         this.isAuthenticated = true;
                         resolve(true);
                     } catch (fileError) {
+                        debug('error', 'File write error:', fileError);
                         reject(new Error('Failed to create config file: ' + fileError.message));
                     }
                 });
             } catch (error) {
+                debug('error', 'Create master password error:', error);
                 reject(error);
             }
         });
@@ -126,18 +154,36 @@ class PasswordManagerAuth {
          */
         return new Promise((resolve, reject) => {
             try {
+                debug('info', 'Authentication attempt...');
+                debug('info', 'Config path:', this.configPath);
+                
                 if (!this.hasMasterPassword()) {
+                    debug('error', 'No master password set - config file missing');
                     reject(new Error('Δεν έχει οριστεί Master Password'));
                     return;
                 }
+                
+                debug('info', 'Reading config file...');
                 const configData = fs.readFileSync(this.configPath, 'utf8');
                 const config = JSON.parse(configData);
+                debug('info', 'Config loaded, algorithm:', config.algorithm);
+                debug('info', 'Config created at:', config.createdAt);
+                
                 const salt = Buffer.from(config.salt, 'hex');
                 const verify = (derivedKey) => {
-                    if (derivedKey.toString('hex') !== config.hash) {
+                    const inputHash = derivedKey.toString('hex');
+                    const storedHash = config.hash;
+                    
+                    debug('info', 'Comparing hashes...');
+                    debug('info', 'Input hash (first 16 chars):', inputHash.substring(0, 16) + '...');
+                    debug('info', 'Stored hash (first 16 chars):', storedHash.substring(0, 16) + '...');
+                    
+                    if (inputHash !== storedHash) {
+                        debug('error', 'Hash mismatch - wrong password');
                         reject(new Error('Λανθασμένος Master Password'));
                         return;
                     }
+                    debug('success', 'Hash match - authentication successful!');
                     this.generateEncryptionKey(password, salt);
                     this.isAuthenticated = true;
                     this.resetSessionTimer();
@@ -152,6 +198,7 @@ class PasswordManagerAuth {
                     };
                     crypto.scrypt(password, salt, 64, scryptOptions, (err, derivedKey) => {
                         if (err) {
+                            debug('error', 'Scrypt error during auth:', err);
                             reject(err);
                             return;
                         }
@@ -159,6 +206,7 @@ class PasswordManagerAuth {
                     });
                 } else {
                     // Legacy support: verify PBKDF2 hashes
+                    debug('info', 'Using legacy PBKDF2...');
                     crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derivedKey) => {
                         if (err) {
                             reject(err);
@@ -168,6 +216,7 @@ class PasswordManagerAuth {
                     });
                 }
             } catch (error) {
+                debug('error', 'Authentication error:', error);
                 reject(error);
             }
         });
