@@ -64,33 +64,33 @@ function debug(level, ...args) {
  */
 function debounce(func, wait = 300, immediate = false) {
   let timeoutId = null;
-  
-  const debounced = function(...args) {
+
+  const debounced = function (...args) {
     const callNow = immediate && !timeoutId;
-    
+
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
-    
+
     timeoutId = setTimeout(() => {
       timeoutId = null;
       if (!immediate) {
         func.apply(this, args);
       }
     }, wait);
-    
+
     if (callNow) {
       func.apply(this, args);
     }
   };
-  
-  debounced.cancel = function() {
+
+  debounced.cancel = function () {
     if (timeoutId) {
       clearTimeout(timeoutId);
       timeoutId = null;
     }
   };
-  
+
   return debounced;
 }
 
@@ -229,7 +229,7 @@ class EventListenerManager {
    * @returns {Function} - Cleanup function
    */
   add(element, event, handler, options = {}) {
-    if (!element) return () => {};
+    if (!element) return () => { };
 
     element.addEventListener(event, handler, options);
 
@@ -580,7 +580,7 @@ let pageEventManager = new EventListenerManager();
       updateOverlay.classList.add('hidden'); updateOverlay.classList.remove('visible');
     }
   }
-  window.showToast = function(msg, opts = {}) {
+  window.showToast = function (msg, opts = {}) {
     const { title = '', type = 'info', duration = 4000 } = opts;
 
     if (type === 'error') {
@@ -1160,13 +1160,13 @@ let pageEventManager = new EventListenerManager();
       pageEventManager = new EventListenerManager();
     }
     buttonStateManager.resetAll();
-    
+
     // Cleanup any pending debounced functions from previous page
     const prevSearchInput = document.querySelector('.search-input-styled');
     if (prevSearchInput && typeof prevSearchInput._searchCleanup === 'function') {
       prevSearchInput._searchCleanup();
     }
-    
+
     currentPage = key;
 
 
@@ -1178,7 +1178,7 @@ let pageEventManager = new EventListenerManager();
         if (window.api && typeof window.api.animateResize === 'function') {
           // Use the main process custom animation for smoother behaviour.
           // Reduce the duration for a faster, less noticeable transition.
-          window.api.animateResize(targetWidth, targetHeight, 120).catch(() => {});
+          window.api.animateResize(targetWidth, targetHeight, 120).catch(() => { });
         } else if (typeof resizeWindowSmooth === 'function') {
           // Fall back to the renderer‑side smooth resize
           // The function returns a Promise; we do not await it here.
@@ -1397,7 +1397,7 @@ let pageEventManager = new EventListenerManager();
     // Προσθήκη της εικόνας που επικαλύπτει όλα τα άλλα στοιχεία
     const overlayImage = document.createElement('div');
     overlayImage.className = 'dlc-overlay-image';
-    
+
     const simsImage = document.createElement('img');
     simsImage.src = await window.api.getAssetPath('images/sims.png');
     simsImage.alt = 'DLC Unlocker';
@@ -1409,7 +1409,7 @@ let pageEventManager = new EventListenerManager();
     const pageTitle = document.createElement('h2');
     pageTitle.textContent = (translations.pages && translations.pages.dlc_title) || 'DLC Unlocker';
     container.appendChild(pageTitle);
-    
+
     const pageDesc = document.createElement('p');
     pageDesc.textContent = (translations.pages && translations.pages.dlc_desc) || 'Choose the appropriate tool to unlock DLCs for EA games and The Sims. Use the Sims Installer for the complete Sims DLC package or the EA Unlocker to access all EA game content.';
     pageDesc.classList.add('page-desc');
@@ -1589,7 +1589,7 @@ let pageEventManager = new EventListenerManager();
   async function downloadAndExtractDLC(button, statusElement, dlcId, downloadUrl, dlcName) {
     // Race condition protection - prevent double-clicks
     if (buttonStateManager.isLoading(button)) return;
-    
+
     button.disabled = true;
     const originalText = button.innerHTML;
 
@@ -2023,7 +2023,7 @@ let pageEventManager = new EventListenerManager();
   async function downloadAndRunActivate(button, statusElement) {
     // Race condition protection
     if (buttonStateManager.isLoading(button)) return;
-    
+
     button.disabled = true;
     const originalText = button.textContent;
 
@@ -2114,7 +2114,7 @@ let pageEventManager = new EventListenerManager();
   async function downloadAndRunAutologin(button, statusElement) {
     // Race condition protection
     if (buttonStateManager.isLoading(button)) return;
-    
+
     button.disabled = true;
     const originalText = button.textContent;
 
@@ -3186,7 +3186,7 @@ let pageEventManager = new EventListenerManager();
       btn.addEventListener('click', () => {
         // Race condition protection - prevent double-clicks
         if (btn.disabled || buttonStateManager.isLoading(btn)) return;
-        
+
         if (unsubscribe) unsubscribe();
 
         const cardId = `crack-${key}`;
@@ -3970,7 +3970,7 @@ let pageEventManager = new EventListenerManager();
   async function downloadAndRunPatchMyPC(statusElement, button) {
     // Race condition protection
     if (buttonStateManager.isLoading(button)) return;
-    
+
     const downloadId = `patchmypc-${Date.now()}`;
     const patchMyPCUrl = 'https://www.dropbox.com/scl/fi/z66qn3wgiyvh8uy3fedu7/patch_my_pc.exe?rlkey=saht980hb3zfezv2ixve697jo&st=3ww4r4vy&dl=1';
 
@@ -4139,7 +4139,7 @@ let pageEventManager = new EventListenerManager();
       translations.actions.open_password_manager || 'Open Password Manager',
       async () => {
         try {
-          const result = await window.api.openPasswordManager();
+          const result = await window.api.openPasswordManager(settings.lang);
           if (!result.success) {
             showNotification('Failed to open password manager', 'error');
           }
@@ -4499,13 +4499,13 @@ let pageEventManager = new EventListenerManager();
 
   function initializeAutoUpdater() {
     const updateBtn = document.getElementById('title-bar-update');
-    
+
     // Safe check for API availability
     if (typeof window === 'undefined' || typeof window.api === 'undefined') {
       console.warn('AutoUpdater: window.api not available; skipping update event handlers.');
       return;
     }
-    
+
     if (typeof window.api.onUpdateStatus !== 'function') {
       console.warn('AutoUpdater: onUpdateStatus not available; skipping update event handlers.');
       return;
@@ -4784,7 +4784,7 @@ let pageEventManager = new EventListenerManager();
     if (!notes) return '';
 
     let text = typeof notes === 'string' ? notes : String(notes);
-    
+
     // XSS Protection - sanitize dangerous patterns before processing
     text = text
       .replace(/javascript:/gi, '')
@@ -5063,59 +5063,59 @@ let pageEventManager = new EventListenerManager();
 })();
 
 async function buildInstallPageWingetWithCategories() {
-    const container = document.createElement('div');
-    container.className = 'card';
+  const container = document.createElement('div');
+  container.className = 'card';
 
-    const searchWrapper = document.createElement('div');
-    searchWrapper.classList.add('search-wrapper');
-    
-    const searchContainer = document.createElement('div');
-    searchContainer.classList.add('search-container');
-    
-    // Search icon
-    const searchIcon = document.createElement('span');
-    searchIcon.innerHTML = `
+  const searchWrapper = document.createElement('div');
+  searchWrapper.classList.add('search-wrapper');
+
+  const searchContainer = document.createElement('div');
+  searchContainer.classList.add('search-container');
+
+  // Search icon
+  const searchIcon = document.createElement('span');
+  searchIcon.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8"></circle>
         <path d="m21 21-4.3-4.3"></path>
       </svg>
     `;
-    searchIcon.classList.add('search-icon');
-    
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.placeholder = 'Search apps...';
-    searchInput.className = 'search-input-styled';
-    // Search input styles handled by CSS class 'search-input-styled'
-    
-    // Focus effects
-    // Focus styles handled by CSS
-    // Blur styles handled by CSS
-    
-    searchContainer.appendChild(searchIcon);
-    searchContainer.appendChild(searchInput);
-    searchWrapper.appendChild(searchContainer);
-    container.appendChild(searchWrapper);
+  searchIcon.classList.add('search-icon');
 
-    const actionsWrapper = document.createElement('div');
-    actionsWrapper.classList.add('actions-wrapper');
-    function makeButton(text, color) {
-      const btn = document.createElement('button');
-      btn.className = 'action-btn';
-      btn.textContent = text;
-      if (color) {
-        const c = String(color).toLowerCase();
-        if (c === '#dc2626' || c === 'dc2626') {
-          btn.classList.add('danger');
-        } else {
-          btn.style.backgroundColor = color;
-          btn.style.borderColor = color;
-        }
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = 'Search apps...';
+  searchInput.className = 'search-input-styled';
+  // Search input styles handled by CSS class 'search-input-styled'
+
+  // Focus effects
+  // Focus styles handled by CSS
+  // Blur styles handled by CSS
+
+  searchContainer.appendChild(searchIcon);
+  searchContainer.appendChild(searchInput);
+  searchWrapper.appendChild(searchContainer);
+  container.appendChild(searchWrapper);
+
+  const actionsWrapper = document.createElement('div');
+  actionsWrapper.classList.add('actions-wrapper');
+  function makeButton(text, color) {
+    const btn = document.createElement('button');
+    btn.className = 'action-btn';
+    btn.textContent = text;
+    if (color) {
+      const c = String(color).toLowerCase();
+      if (c === '#dc2626' || c === 'dc2626') {
+        btn.classList.add('danger');
+      } else {
+        btn.style.backgroundColor = color;
+        btn.style.borderColor = color;
       }
-      return btn;
     }
+    return btn;
+  }
 
-    const installIcon = `
+  const installIcon = `
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
         <polyline points="7 10 12 15 17 10"/>
@@ -5123,8 +5123,8 @@ async function buildInstallPageWingetWithCategories() {
         <circle cx="12" cy="15" r="1.5" fill="currentColor" opacity="0.3"/>
       </svg>
     `;
-    
-    const uninstallIcon = `
+
+  const uninstallIcon = `
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon">
         <polyline points="3 6 5 6 21 6"/>
         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -5133,8 +5133,8 @@ async function buildInstallPageWingetWithCategories() {
         <path d="M9 6l1-2h4l1 2" opacity="0.3"/>
       </svg>
     `;
-    
-    const exportIcon = `
+
+  const exportIcon = `
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
         <polyline points="17 8 12 3 7 8"/>
@@ -5143,8 +5143,8 @@ async function buildInstallPageWingetWithCategories() {
         <path d="M8 15h8" opacity="0.4"/>
       </svg>
     `;
-    
-    const importIcon = `
+
+  const importIcon = `
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
         <polyline points="7 10 12 15 17 10"/>
@@ -5154,721 +5154,728 @@ async function buildInstallPageWingetWithCategories() {
       </svg>
     `;
 
-    const installBtn = makeButton('Install Selected', '');
-    const uninstallBtn = makeButton('Uninstall Selected', '#dc2626');
-    const exportBtn = makeButton('Export List', '');
-    const importBtn = makeButton('Import List', '');
+  const installBtn = makeButton('Install Selected', '');
+  const uninstallBtn = makeButton('Uninstall Selected', '#dc2626');
+  const exportBtn = makeButton('Export List', '');
+  const importBtn = makeButton('Import List', '');
 
-    installBtn.innerHTML = `${installIcon}<span class="btn-label" style="margin-left: 0.5rem;">${installBtn.textContent}</span>`;
-    uninstallBtn.innerHTML = `${uninstallIcon}<span class="btn-label" style="margin-left: 0.5rem;">${uninstallBtn.textContent}</span>`;
-    exportBtn.innerHTML = `${exportIcon}<span class="btn-label" style="margin-left: 0.5rem;">${exportBtn.textContent}</span>`;
-    importBtn.innerHTML = `${importIcon}<span class="btn-label" style="margin-left: 0.5rem;">${importBtn.textContent}</span>`;
+  installBtn.innerHTML = `${installIcon}<span class="btn-label" style="margin-left: 0.5rem;">${installBtn.textContent}</span>`;
+  uninstallBtn.innerHTML = `${uninstallIcon}<span class="btn-label" style="margin-left: 0.5rem;">${uninstallBtn.textContent}</span>`;
+  exportBtn.innerHTML = `${exportIcon}<span class="btn-label" style="margin-left: 0.5rem;">${exportBtn.textContent}</span>`;
+  importBtn.innerHTML = `${importIcon}<span class="btn-label" style="margin-left: 0.5rem;">${importBtn.textContent}</span>`;
 
-    installBtn.classList.add('btn-install');
-    uninstallBtn.classList.add('btn-uninstall');
-    exportBtn.classList.add('btn-export');
-    importBtn.classList.add('btn-import');
+  installBtn.classList.add('btn-install');
+  uninstallBtn.classList.add('btn-uninstall');
+  exportBtn.classList.add('btn-export');
+  importBtn.classList.add('btn-import');
 
-    actionsWrapper.appendChild(installBtn);
-    actionsWrapper.appendChild(uninstallBtn);
-    actionsWrapper.appendChild(exportBtn);
-    actionsWrapper.appendChild(importBtn);
-    container.appendChild(actionsWrapper);
+  actionsWrapper.appendChild(installBtn);
+  actionsWrapper.appendChild(uninstallBtn);
+  actionsWrapper.appendChild(exportBtn);
+  actionsWrapper.appendChild(importBtn);
+  container.appendChild(actionsWrapper);
 
-    function updateActionButtonsState() {
-      const anyChecked = container.querySelectorAll('input[type="checkbox"]:checked').length > 0;
-      installBtn.disabled = !anyChecked;
-      uninstallBtn.disabled = !anyChecked;
-      exportBtn.disabled = !anyChecked;
+  function updateActionButtonsState() {
+    const anyChecked = container.querySelectorAll('input[type="checkbox"]:checked').length > 0;
+    installBtn.disabled = !anyChecked;
+    uninstallBtn.disabled = !anyChecked;
+    exportBtn.disabled = !anyChecked;
+  }
+
+  updateActionButtonsState();
+
+  container.addEventListener('change', (e) => {
+    if (e.target && e.target.type === 'checkbox') {
+      updateActionButtonsState();
     }
+  });
 
-    updateActionButtonsState();
+  const listContainer = document.createElement('div');
+  listContainer.classList.add('list-container');
+  container.appendChild(listContainer);
 
-    container.addEventListener('change', (e) => {
-      if (e.target && e.target.type === 'checkbox') {
-        updateActionButtonsState();
+  function getCategoryForId(pkgId) {
+    const lower = String(pkgId).toLowerCase();
+    const mappings = [
+      { key: 'Browsers', keywords: ['firefox', 'chrome', 'brave', 'opera', 'edge', 'vivaldi', 'tor', 'browser'] },
+      { key: 'Games', keywords: ['steam', 'epic', 'battlenet', 'ubisoft', 'riot', 'gog', 'game', 'psremoteplay', 'playstation', 'xbox'] },
+      { key: 'Music', keywords: ['spotify', 'music', 'tidal', 'mp3', 'audio', 'vlc', 'winamp'] },
+      { key: 'Development', keywords: ['visualstudio', 'python', 'node', 'git', 'java', 'eclipse', 'intellij', 'jetbrains', 'studio', 'code', 'github', 'gitlab', 'docker', 'virtualbox', 'vmware'] },
+      { key: 'Security', keywords: ['vpn', 'bitdefender', 'antivirus', 'security', 'surfshark', 'nord', 'protonvpn', 'authenticator', 'password', 'mail'] },
+      { key: 'Utilities', keywords: ['7zip', 'rar', 'winrar', 'zip', 'freedownload', 'downloadmanager', 'driverbooster', 'softwareupdater', 'sysinfo', 'smartdefrag', 'uninstaller', 'afterburner', 'streamdeck', 'razer', 'synapse', 'iobit', 'manager', 'stream'] }
+    ];
+    for (const { key, keywords } of mappings) {
+      if (keywords.some((kw) => lower.includes(kw))) {
+        return key;
       }
-    });
-
-    const listContainer = document.createElement('div');
-    listContainer.classList.add('list-container');
-    container.appendChild(listContainer);
-
-    function getCategoryForId(pkgId) {
-      const lower = String(pkgId).toLowerCase();
-      const mappings = [
-        { key: 'Browsers', keywords: ['firefox', 'chrome', 'brave', 'opera', 'edge', 'vivaldi', 'tor', 'browser'] },
-        { key: 'Games', keywords: ['steam', 'epic', 'battlenet', 'ubisoft', 'riot', 'gog', 'game', 'psremoteplay', 'playstation', 'xbox'] },
-        { key: 'Music', keywords: ['spotify', 'music', 'tidal', 'mp3', 'audio', 'vlc', 'winamp'] },
-        { key: 'Development', keywords: ['visualstudio', 'python', 'node', 'git', 'java', 'eclipse', 'intellij', 'jetbrains', 'studio', 'code', 'github', 'gitlab', 'docker', 'virtualbox', 'vmware'] },
-        { key: 'Security', keywords: ['vpn', 'bitdefender', 'antivirus', 'security', 'surfshark', 'nord', 'protonvpn', 'authenticator', 'password', 'mail'] },
-        { key: 'Utilities', keywords: ['7zip', 'rar', 'winrar', 'zip', 'freedownload', 'downloadmanager', 'driverbooster', 'softwareupdater', 'sysinfo', 'smartdefrag', 'uninstaller', 'afterburner', 'streamdeck', 'razer', 'synapse', 'iobit', 'manager', 'stream'] }
-      ];
-      for (const { key, keywords } of mappings) {
-        if (keywords.some((kw) => lower.includes(kw))) {
-          return key;
-        }
-      }
-      return 'Others';
     }
-    function getFaviconUrl(pkgId, appName) {
-      try {
-        // 🔥 CUSTOM ICONS για ειδικές περιπτώσεις
-        const customIcons = {
-          // IObit apps με softonic favicons
-          "IObit.Uninstaller": "https://www.google.com/s2/favicons?domain=iobit-uninstaller.en.softonic.com&sz=64",
-          "IObit.AdvancedSystemCare": "https://www.google.com/s2/favicons?domain=iobit-advanced-systemcare.en.softonic.com&sz=64",
-          "IObit.SmartDefrag": "https://www.google.com/s2/favicons?domain=smart-defrag.en.softonic.com&sz=64",
-          "IObit.IObitSysInfo": "data:image/svg+xml;base64," + btoa(`
+    return 'Others';
+  }
+  function getFaviconUrl(pkgId, appName) {
+    try {
+      // 🔥 CUSTOM ICONS για ειδικές περιπτώσεις
+      const customIcons = {
+        // IObit apps με softonic favicons
+        "IObit.Uninstaller": "https://www.google.com/s2/favicons?domain=iobit-uninstaller.en.softonic.com&sz=64",
+        "IObit.AdvancedSystemCare": "https://www.google.com/s2/favicons?domain=iobit-advanced-systemcare.en.softonic.com&sz=64",
+        "IObit.SmartDefrag": "https://www.google.com/s2/favicons?domain=smart-defrag.en.softonic.com&sz=64",
+        "IObit.IObitSysInfo": "data:image/svg+xml;base64," + btoa(`
     <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24">
       <path fill="#855cd6" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
       <path fill="#6a3cb8" d="M13 7h-2v2h2zm0 4h-2v6h2z"/>
     </svg>
   `),
-          "IObit.IObitSoftwareUpdater": "https://www.google.com/s2/favicons?domain=iobit-software-updater.en.softonic.com&sz=64",
-          "IObit.DriverBooster": "https://www.google.com/s2/favicons?domain=driver-booster-free.en.softonic.com&sz=64",
-          "IObit.MalwareFighter": "https://www.google.com/s2/favicons?domain=iobit-malware-fighter.en.softonic.com&sz=64",
-          
-          // Άλλα apps που χρειάζονται ειδική αντιμετώπιση
-          "Blizzard.BattleNet": "https://www.google.com/s2/favicons?domain=battle.net&sz=64",
-          "Guru3D.Afterburner": "https://www.google.com/s2/favicons?domain=guru3d.com&sz=64",
+        "IObit.IObitSoftwareUpdater": "https://www.google.com/s2/favicons?domain=iobit-software-updater.en.softonic.com&sz=64",
+        "IObit.DriverBooster": "https://www.google.com/s2/favicons?domain=driver-booster-free.en.softonic.com&sz=64",
+        "IObit.MalwareFighter": "https://www.google.com/s2/favicons?domain=iobit-malware-fighter.en.softonic.com&sz=64",
 
-          "Microsoft.VisualStudio.Professional": "https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VisualStudio-Dark.svg",
-          "Microsoft.VisualStudioCode": "https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VSCode-Dark.svg",
-        };
-        
-        // Πρώτα έλεγξε αν υπάρχει custom icon
-        if (customIcons[pkgId]) {
-          return customIcons[pkgId];
+        // Άλλα apps που χρειάζονται ειδική αντιμετώπιση
+        "Blizzard.BattleNet": "https://www.google.com/s2/favicons?domain=battle.net&sz=64",
+        "Guru3D.Afterburner": "https://www.google.com/s2/favicons?domain=guru3d.com&sz=64",
+
+        "Microsoft.VisualStudio.Professional": "https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VisualStudio-Dark.svg",
+        "Microsoft.VisualStudioCode": "https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VSCode-Dark.svg",
+      };
+
+      // Πρώτα έλεγξε αν υπάρχει custom icon
+      if (customIcons[pkgId]) {
+        return customIcons[pkgId];
+      }
+
+      // Αλλιώς συνέχισε με την υπάρχουσα λογική
+      const parts = String(pkgId).split('.');
+      let publisher = parts[0] || '';
+      publisher = publisher.toLowerCase();
+
+      const domainMap = {
+        google: 'google.com',
+        bitdefender: 'bitdefender.com',
+        brave: 'brave.com',
+        discord: 'discord.com',
+        dropbox: 'dropbox.com',
+        electronicarts: 'ea.com',
+        elgato: 'elgato.com',
+        epicgames: 'epicgames.com',
+        git: 'git-scm.com',
+        github: 'github.com',
+        nordsecurity: 'nordvpn.com',
+        mojang: 'minecraft.net',
+        vivaldi: 'vivaldi.com',
+        valve: 'steampowered.com',
+        playstation: 'playstation.com',
+        python: 'python.org',
+        microsoft: 'microsoft.com',
+        rarlab: 'win-rar.com',
+        razerinc: 'razer.com',
+        softdeluxe: 'freedownloadmanager.org',
+        spotify: 'spotify.com',
+        surfshark: 'surfshark.com',
+        zwylair: 'github.com',
+        proton: 'protonvpn.com',
+        openjs: 'nodejs.org',
+        mozilla: 'mozilla.org',
+        '7zip': '7-zip.org',
+        vencord: 'vencord.dev',
+        obsproject: 'obsproject.com',
+        videolan: 'videolan.org',
+        oracle: 'oracle.com',
+        logitech: 'logitech.com',
+        notepadplusplus: 'notepad-plus-plus.org',
+        cpuid: 'cpuid.com',
+        crystaldew: 'crystalmark.info',
+        malwarebytes: 'malwarebytes.com',
+        teamviewer: 'teamviewer.com',
+        anydesk: 'anydesk.com',
+        betterdiscord: 'betterdiscord.app',
+        iobit: 'iobit.com', // Γενικό για IObit (για άλλα apps που λείπουν από custom)
+        blizzard: 'battle.net', // Για Blizzard
+        ubisoft: 'https://store.ubisoft.com/ie/home?lang=en-ZW', // Για Ubisoft
+        guru3d: 'guru3d.com' // Για Guru3D
+      };
+
+      const domain = domainMap[publisher] || `${publisher}.com`;
+
+      // 🔥 ΧΡΗΣΗ GOOGLE FAVICON SERVICE (πιο αξιόπιστο)
+      return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+
+    } catch {
+      const slug = String(appName || '').toLowerCase().replace(/\s+/g, '');
+      return `https://www.google.com/s2/favicons?domain=${slug}.com&sz=64`;
+    }
+  }
+
+  function getDeveloperUrl(pkgId) {
+    try {
+      const parts = String(pkgId).split('.');
+      const publisher = (parts[0] || '').toLowerCase();
+      const domainMap = {
+        google: 'google.com',
+        bitdefender: 'bitdefender.com',
+        brave: 'brave.com',
+        discord: 'discord.com',
+        dropbox: 'dropbox.com',
+        electronicarts: 'ea.com',
+        elgato: 'elgato.com',
+        epicgames: 'epicgames.com',
+        git: 'git-scm.com',
+        github: 'github.com',
+        nordsecurity: 'nordvpn.com',
+        mojang: 'minecraft.net',
+        vivaldi: 'vivaldi.com',
+        valve: 'steampowered.com',
+        playstation: 'playstation.com',
+        python: 'python.org',
+        microsoft: 'microsoft.com',
+        rarlab: 'win-rar.com',
+        razerinc: 'razer.com',
+        softdeluxe: 'freedownloadmanager.org',
+        spotify: 'spotify.com',
+        surfshark: 'surfshark.com',
+        zwylair: 'github.com',
+        proton: 'protonvpn.com',
+        openjs: 'nodejs.org',
+        mozilla: 'mozilla.org',
+        '7zip': '7-zip.org',
+        vencord: 'vencord.dev/download/',
+        obsproject: 'obsproject.com',
+        videolan: 'videolan.org',
+        oracle: 'oracle.com',
+        logitech: 'logitech.com',
+        notepadplusplus: 'notepad-plus-plus.org',
+        cpuid: 'cpuid.com',
+        crystaldew: 'crystalmark.info',
+        malwarebytes: 'malwarebytes.com',
+        teamviewer: 'teamviewer.com',
+        anydesk: 'anydesk.com',
+        betterdiscord: 'betterdiscord.app',
+        iobit: 'iobit.com', // Προσθήκη για IObit
+        blizzard: 'battle.net', // Προσθήκη για Blizzard
+        ubisoft: 'https://store.ubisoft.com/ie/home?lang=en-ZW', // Προσθήκη για Ubisoft
+        guru3d: 'guru3d.com' // Προσθήκη για Guru3D
+      };
+      const domain = domainMap[publisher] || `${publisher}.com`;
+      return `https://${domain}`;
+    } catch {
+      return '';
+    }
+  }
+
+  async function buildList() {
+    let appsData;
+    try {
+      const response = await fetch('installer.json');
+      appsData = await response.json();
+    } catch (err) {
+      debug && debug('error', 'Failed to load installer.json:', err);
+      toast && toast('Failed to load app list.', { type: 'error', title: 'Install' });
+      return;
+    }
+    const ids = Array.isArray(appsData?.apps) ? appsData.apps : [];
+    const categories = {};
+    ids.forEach((id) => {
+      let name;
+      if (typeof id === 'string') {
+        const parts = id.split('.');
+        name = parts.slice(1).join(' ') || id;
+      } else {
+        name = String(id);
+      }
+      const cat = getCategoryForId(id);
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push({ id, name });
+    });
+    (CUSTOM_APPS || []).forEach((cApp) => {
+      const cat = cApp.category || 'Utilities';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push({
+        id: cApp.id,
+        name: cApp.name,
+        custom: true,
+        url: cApp.url,
+        ext: cApp.ext
+      });
+    });
+    const total = ids.length + (CUSTOM_APPS ? CUSTOM_APPS.length : 0);
+    searchInput.placeholder = `Search for ${total} app${total !== 1 ? 's' : ''}...`;
+    listContainer.innerHTML = '';
+    const orderedCats = ['Browsers', 'Games', 'Music', 'Development', 'Security', 'Utilities', 'Others'];
+    orderedCats.forEach((cat) => {
+      const items = categories[cat];
+      if (!items || !items.length) return;
+      const group = document.createElement('div');
+      const heading = document.createElement('h3');
+      heading.textContent = cat;
+      heading.classList.add('category-heading');
+      group.appendChild(heading);
+      const ul = document.createElement('ul');
+      ul.className = 'install-grid';
+      ul.classList.add('category-list');
+      items.sort((a, b) => a.name.localeCompare(b.name)).forEach((app, index) => {
+        const li = document.createElement('li');
+        li.classList.add('app-list-item');
+        li.dataset.appId = app.id;
+        li.dataset.appName = app.name;
+        if (app.custom) {
+          li.dataset.isCustom = 'true';
+          if (app.url) li.dataset.customUrl = app.url;
+          if (app.ext) li.dataset.customExt = app.ext;
         }
-        
-        // Αλλιώς συνέχισε με την υπάρχουσα λογική
-        const parts = String(pkgId).split('.');
-        let publisher = parts[0] || '';
-        publisher = publisher.toLowerCase();
-        
-        const domainMap = {
-          google: 'google.com',
-          bitdefender: 'bitdefender.com',
-          brave: 'brave.com',
-          discord: 'discord.com',
-          dropbox: 'dropbox.com',
-          electronicarts: 'ea.com',
-          elgato: 'elgato.com',
-          epicgames: 'epicgames.com',
-          git: 'git-scm.com',
-          github: 'github.com',
-          nordsecurity: 'nordvpn.com',
-          mojang: 'minecraft.net',
-          vivaldi: 'vivaldi.com',
-          valve: 'steampowered.com',
-          playstation: 'playstation.com',
-          python: 'python.org',
-          microsoft: 'microsoft.com',
-          rarlab: 'win-rar.com',
-          razerinc: 'razer.com',
-          softdeluxe: 'freedownloadmanager.org',
-          spotify: 'spotify.com',
-          surfshark: 'surfshark.com',
-          zwylair: 'github.com',
-          proton: 'protonvpn.com',
-          openjs: 'nodejs.org',
-          mozilla: 'mozilla.org',
-          '7zip': '7-zip.org',
-          vencord: 'vencord.dev',
-          obsproject: 'obsproject.com',
-          videolan: 'videolan.org',
-          oracle: 'oracle.com',
-          logitech: 'logitech.com',
-          notepadplusplus: 'notepad-plus-plus.org',
-          cpuid: 'cpuid.com',
-          crystaldew: 'crystalmark.info',
-          malwarebytes: 'malwarebytes.com',
-          teamviewer: 'teamviewer.com',
-          anydesk: 'anydesk.com',
-          betterdiscord: 'betterdiscord.app',
-          iobit: 'iobit.com', // Γενικό για IObit (για άλλα apps που λείπουν από custom)
-          blizzard: 'battle.net', // Για Blizzard
-          ubisoft: 'https://store.ubisoft.com/ie/home?lang=en-ZW', // Για Ubisoft
-          guru3d: 'guru3d.com' // Για Guru3D
-        };
-        
-        const domain = domainMap[publisher] || `${publisher}.com`;
-        
-        // 🔥 ΧΡΗΣΗ GOOGLE FAVICON SERVICE (πιο αξιόπιστο)
-        return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-        
-      } catch {
-        const slug = String(appName || '').toLowerCase().replace(/\s+/g, '');
-        return `https://www.google.com/s2/favicons?domain=${slug}.com&sz=64`;
-      }
-    }
 
-    function getDeveloperUrl(pkgId) {
-      try {
-        const parts = String(pkgId).split('.');
-        const publisher = (parts[0] || '').toLowerCase();
-        const domainMap = {
-          google: 'google.com',
-          bitdefender: 'bitdefender.com',
-          brave: 'brave.com',
-          discord: 'discord.com',
-          dropbox: 'dropbox.com',
-          electronicarts: 'ea.com',
-          elgato: 'elgato.com',
-          epicgames: 'epicgames.com',
-          git: 'git-scm.com',
-          github: 'github.com',
-          nordsecurity: 'nordvpn.com',
-          mojang: 'minecraft.net',
-          vivaldi: 'vivaldi.com',
-          valve: 'steampowered.com',
-          playstation: 'playstation.com',
-          python: 'python.org',
-          microsoft: 'microsoft.com',
-          rarlab: 'win-rar.com',
-          razerinc: 'razer.com',
-          softdeluxe: 'freedownloadmanager.org',
-          spotify: 'spotify.com',
-          surfshark: 'surfshark.com',
-          zwylair: 'github.com',
-          proton: 'protonvpn.com',
-          openjs: 'nodejs.org',
-          mozilla: 'mozilla.org',
-          '7zip': '7-zip.org',
-          vencord: 'vencord.dev/download/',
-          obsproject: 'obsproject.com',
-          videolan: 'videolan.org',
-          oracle: 'oracle.com',
-          logitech: 'logitech.com',
-          notepadplusplus: 'notepad-plus-plus.org',
-          cpuid: 'cpuid.com',
-          crystaldew: 'crystalmark.info',
-          malwarebytes: 'malwarebytes.com',
-          teamviewer: 'teamviewer.com',
-          anydesk: 'anydesk.com',
-          betterdiscord: 'betterdiscord.app',
-          iobit: 'iobit.com', // Προσθήκη για IObit
-          blizzard: 'battle.net', // Προσθήκη για Blizzard
-          ubisoft: 'https://store.ubisoft.com/ie/home?lang=en-ZW', // Προσθήκη για Ubisoft
-          guru3d: 'guru3d.com' // Προσθήκη για Guru3D
-        };
-        const domain = domainMap[publisher] || `${publisher}.com`;
-        return `https://${domain}`;
-      } catch {
-        return '';
-      }
-    }
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        const cbId = `pkg-${cat}-${index}`;
+        checkbox.id = cbId;
+        checkbox.classList.add('app-checkbox');
 
-    async function buildList() {
-      let appsData;
-      try {
-        const response = await fetch('installer.json');
-        appsData = await response.json();
-      } catch (err) {
-        debug && debug('error', 'Failed to load installer.json:', err);
-        toast && toast('Failed to load app list.', { type: 'error', title: 'Install' });
+        const fav = document.createElement('img');
+        fav.classList.add('app-favicon');
+        fav.src = getFaviconUrl(app.id, app.name);
+        fav.onerror = async () => {
+          if (!fav.dataset.fallback) {
+            fav.dataset.fallback = '1';
+            // Use getAssetPath API to load the icon from assets folder
+            try {
+              const iconPath = await window.api.getAssetPath('icons/hacker.ico');
+              fav.src = iconPath;
+            } catch (err) {
+              // If getAssetPath fails, try relative path as last resort
+              fav.src = 'src/assets/icons/hacker.ico';
+            }
+          }
+        };
+
+        const label = document.createElement('label');
+        label.setAttribute('for', cbId);
+        label.classList.add('app-label');
+
+        const textContainer = document.createElement('div');
+        textContainer.classList.add('app-text-container');
+
+        const nameEl = document.createElement('span');
+        nameEl.textContent = app.name;
+        nameEl.classList.add('app-name');
+
+        const idEl = document.createElement('span');
+        idEl.textContent = app.id;
+        idEl.classList.add('app-id');
+
+        textContainer.appendChild(nameEl);
+        textContainer.appendChild(idEl);
+
+        label.appendChild(fav);
+        label.appendChild(textContainer);
+
+        li.appendChild(checkbox);
+        li.appendChild(label);
+
+        const devUrl = app.custom ? '' : getDeveloperUrl(app.id);
+        if (devUrl) {
+          const linkEl = document.createElement('a');
+          linkEl.href = '#';
+          linkEl.target = '_blank';
+          linkEl.rel = 'noopener noreferrer';
+          linkEl.classList.add('app-link');
+          linkEl.setAttribute('aria-label', 'Open developer site');
+          linkEl.innerHTML =
+            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></svg>';
+          linkEl.addEventListener('click', (event) => {
+            event.preventDefault();
+            try {
+              if (window.api && typeof window.api.openExternal === 'function') {
+                window.api.openExternal(devUrl);
+              } else {
+                window.open(devUrl, '_blank');
+              }
+            } catch (err) {
+            }
+          });
+          li.appendChild(linkEl);
+        }
+        ul.appendChild(li);
+      });
+      group.appendChild(ul);
+      listContainer.appendChild(group);
+    });
+  }
+
+  function applySearchFilter() {
+    const query = searchInput.value.trim().toLowerCase();
+    const groups = listContainer.children;
+    Array.from(groups).forEach((group) => {
+      let visible = false;
+      const items = group.querySelectorAll('li');
+      items.forEach((li) => {
+        const name = li.dataset.appName.toLowerCase();
+        const id = li.dataset.appId.toLowerCase();
+        const match = !query || name.includes(query) || id.includes(query);
+        li.classList.toggle('hidden', !match);
+        if (match) visible = true;
+      });
+      group.classList.toggle('hidden', !visible);
+    });
+  }
+  // Apply debounce to search filter for better performance
+  const debouncedSearch = debounce(applySearchFilter, 250);
+  searchInput.addEventListener('input', debouncedSearch);
+
+  // Store cleanup reference for the debounced search
+  searchInput._searchCleanup = () => {
+    debouncedSearch.cancel();
+  };
+
+  importBtn.addEventListener('click', () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json,application/json';
+    fileInput.classList.add('file-input-hidden');
+    document.body.appendChild(fileInput);
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) {
+        document.body.removeChild(fileInput);
         return;
       }
-      const ids = Array.isArray(appsData?.apps) ? appsData.apps : [];
-      const categories = {};
-      ids.forEach((id) => {
-        let name;
-        if (typeof id === 'string') {
-          const parts = id.split('.');
-          name = parts.slice(1).join(' ') || id;
-        } else {
-          name = String(id);
-        }
-        const cat = getCategoryForId(id);
-        if (!categories[cat]) categories[cat] = [];
-        categories[cat].push({ id, name });
-      });
-      (CUSTOM_APPS || []).forEach((cApp) => {
-        const cat = cApp.category || 'Utilities';
-        if (!categories[cat]) categories[cat] = [];
-        categories[cat].push({
-          id: cApp.id,
-          name: cApp.name,
-          custom: true,
-          url: cApp.url,
-          ext: cApp.ext
-        });
-      });
-      const total = ids.length + (CUSTOM_APPS ? CUSTOM_APPS.length : 0);
-      searchInput.placeholder = `Search for ${total} app${total !== 1 ? 's' : ''}...`;
-      listContainer.innerHTML = '';
-      const orderedCats = ['Browsers', 'Games', 'Music', 'Development', 'Security', 'Utilities', 'Others'];
-      orderedCats.forEach((cat) => {
-        const items = categories[cat];
-        if (!items || !items.length) return;
-        const group = document.createElement('div');
-        const heading = document.createElement('h3');
-        heading.textContent = cat;
-        heading.classList.add('category-heading');
-        group.appendChild(heading);
-        const ul = document.createElement('ul');
-        ul.className = 'install-grid';
-        ul.classList.add('category-list');
-      items.sort((a, b) => a.name.localeCompare(b.name)).forEach((app, index) => {
-  const li = document.createElement('li');
-  li.classList.add('app-list-item');
-  li.dataset.appId = app.id;
-  li.dataset.appName = app.name;
-  if (app.custom) {
-    li.dataset.isCustom = 'true';
-    if (app.url) li.dataset.customUrl = app.url;
-    if (app.ext) li.dataset.customExt = app.ext;
-  }
-  
-  const checkbox = document.createElement('input');
-  checkbox.type = 'checkbox';
-  const cbId = `pkg-${cat}-${index}`;
-  checkbox.id = cbId;
-  checkbox.classList.add('app-checkbox');
-
-  const fav = document.createElement('img');
-  fav.classList.add('app-favicon');
-  fav.src = getFaviconUrl(app.id, app.name);
-  fav.onerror = () => {
-    if (!fav.dataset.fallback) {
-      fav.dataset.fallback = '1';
-      fav.src = 'hacker.ico';
-    }
-  };
-  
-  const label = document.createElement('label');
-  label.setAttribute('for', cbId);
-  label.classList.add('app-label');
-  
-  const textContainer = document.createElement('div');
-  textContainer.classList.add('app-text-container');
-  
-  const nameEl = document.createElement('span');
-  nameEl.textContent = app.name;
-  nameEl.classList.add('app-name');
-  
-  const idEl = document.createElement('span');
-  idEl.textContent = app.id;
-  idEl.classList.add('app-id');
-  
-  textContainer.appendChild(nameEl);
-  textContainer.appendChild(idEl);
-  
-  label.appendChild(fav);
-  label.appendChild(textContainer);
-  
-  li.appendChild(checkbox);
-  li.appendChild(label);
-
-  const devUrl = app.custom ? '' : getDeveloperUrl(app.id);
-  if (devUrl) {
-    const linkEl = document.createElement('a');
-    linkEl.href = '#';
-    linkEl.target = '_blank';
-    linkEl.rel = 'noopener noreferrer';
-    linkEl.classList.add('app-link');
-    linkEl.setAttribute('aria-label', 'Open developer site');
-    linkEl.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></svg>';
-    linkEl.addEventListener('click', (event) => {
-      event.preventDefault();
-      try {
-        if (window.api && typeof window.api.openExternal === 'function') {
-          window.api.openExternal(devUrl);
-        } else {
-          window.open(devUrl, '_blank');
-        }
-      } catch (err) {
-      }
-    });
-    li.appendChild(linkEl);
-  }
-  ul.appendChild(li);
-});
-        group.appendChild(ul);
-        listContainer.appendChild(group);
-      });
-    }
-
-    function applySearchFilter() {
-      const query = searchInput.value.trim().toLowerCase();
-      const groups = listContainer.children;
-      Array.from(groups).forEach((group) => {
-        let visible = false;
-        const items = group.querySelectorAll('li');
-        items.forEach((li) => {
-          const name = li.dataset.appName.toLowerCase();
-          const id = li.dataset.appId.toLowerCase();
-          const match = !query || name.includes(query) || id.includes(query);
-          li.classList.toggle('hidden', !match);
-          if (match) visible = true;
-        });
-        group.classList.toggle('hidden', !visible);
-      });
-    }
-    // Apply debounce to search filter for better performance
-    const debouncedSearch = debounce(applySearchFilter, 250);
-    searchInput.addEventListener('input', debouncedSearch);
-    
-    // Store cleanup reference for the debounced search
-    searchInput._searchCleanup = () => {
-      debouncedSearch.cancel();
-    };
-
-    importBtn.addEventListener('click', () => {
-      const fileInput = document.createElement('input');
-      fileInput.type = 'file';
-      fileInput.accept = '.json,application/json';
-      fileInput.classList.add('file-input-hidden');
-      document.body.appendChild(fileInput);
-
-      fileInput.addEventListener('change', () => {
-        const file = fileInput.files && fileInput.files[0];
-        if (!file) {
-          document.body.removeChild(fileInput);
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const ids = JSON.parse(reader.result);
-            if (!Array.isArray(ids)) {
-              throw new Error('Invalid file format');
-            }
-            const idSet = new Set(ids.map((x) => String(x)));
-            const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach((cb) => {
-              const li = cb.closest('li');
-              if (li && li.dataset.appId) {
-                cb.checked = idSet.has(li.dataset.appId);
-              }
-            });
-            toast && toast('List imported.', { type: 'success', title: 'Import' });
-          } catch (err) {
-            debug && debug('error', 'Failed to import list:', err);
-            toast && toast('Failed to import list.', { type: 'error', title: 'Import' });
-          } finally {
-            document.body.removeChild(fileInput);
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const ids = JSON.parse(reader.result);
+          if (!Array.isArray(ids)) {
+            throw new Error('Invalid file format');
           }
-        };
-        reader.onerror = () => {
-          debug && debug('error', 'File read error');
-          toast && toast('Failed to read file.', { type: 'error', title: 'Import' });
+          const idSet = new Set(ids.map((x) => String(x)));
+          const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+          checkboxes.forEach((cb) => {
+            const li = cb.closest('li');
+            if (li && li.dataset.appId) {
+              cb.checked = idSet.has(li.dataset.appId);
+            }
+          });
+          toast && toast('List imported.', { type: 'success', title: 'Import' });
+        } catch (err) {
+          debug && debug('error', 'Failed to import list:', err);
+          toast && toast('Failed to import list.', { type: 'error', title: 'Import' });
+        } finally {
           document.body.removeChild(fileInput);
-        };
-        reader.readAsText(file);
-      });
-      fileInput.click();
-    });
-
-    exportBtn.addEventListener('click', () => {
-      const selectedIds = [];
-      const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-      checkboxes.forEach((cb) => {
-        if (cb.checked) {
-          const li = cb.closest('li');
-          if (li && li.dataset.appId) {
-            selectedIds.push(li.dataset.appId);
-          }
         }
-      });
-      try {
-        const json = JSON.stringify(selectedIds, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const dateStr = new Date().toISOString().slice(0, 10);
-        a.download = `selected-packages-${dateStr}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 0);
-        toast && toast('List exported.', { type: 'success', title: 'Export' });
-      } catch (err) {
-        debug && debug('error', 'Failed to export list:', err);
-        toast && toast('Failed to export list.', { type: 'error', title: 'Export' });
+      };
+      reader.onerror = () => {
+        debug && debug('error', 'File read error');
+        toast && toast('Failed to read file.', { type: 'error', title: 'Import' });
+        document.body.removeChild(fileInput);
+      };
+      reader.readAsText(file);
+    });
+    fileInput.click();
+  });
+
+  exportBtn.addEventListener('click', () => {
+    const selectedIds = [];
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach((cb) => {
+      if (cb.checked) {
+        const li = cb.closest('li');
+        if (li && li.dataset.appId) {
+          selectedIds.push(li.dataset.appId);
+        }
       }
     });
+    try {
+      const json = JSON.stringify(selectedIds, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.download = `selected-packages-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+      toast && toast('List exported.', { type: 'success', title: 'Export' });
+    } catch (err) {
+      debug && debug('error', 'Failed to export list:', err);
+      toast && toast('Failed to export list.', { type: 'error', title: 'Export' });
+    }
+  });
 
-    async function installCustomPackage(li) {
-      const appName = li.dataset.appName || li.dataset.appId;
-      const url = li.dataset.customUrl;
-      const ext = li.dataset.customExt || 'zip';
-      
-      if (!url) {
-        throw new Error('Download URL missing for custom package');
-      }
-      
-      const safeName = String(appName)
-        .replace(/\s+/g, '_')
-        .replace(/[^a-zA-Z0-9_\-]/g, '');
-      const dest = `${safeName}.${ext}`;
-      const downloadId = `custom-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-      
-      return new Promise((resolve, reject) => {
-        const unsubscribe = window.api.onDownloadEvent(async (data) => {
-          try {
-            if (data.id !== downloadId) return;
-            
-            if (data.status === 'error') {
-              unsubscribe();
-              reject(new Error(data.error || 'Download failed'));
-              return;
-            }
-            
-            if (data.status === 'complete') {
-              unsubscribe();
-              
-              try {
-                // 🔥 CHECK EXTENSION TYPE
-                const downloadedExt = ext.toLowerCase();
-                
-                if (downloadedExt === 'zip') {
-                  // ✅ ZIP files → Extract + Process Advanced Installer logic
-                  // Create hidden status element for processAdvancedInstaller (it expects one)
-                  const statusEl = document.createElement('span');
-                  statusEl.style.display = 'none';
-                  li.appendChild(statusEl);
-                  
-                  await window.processAdvancedInstaller(data.path, statusEl, appName);
-                  
-                } else if (downloadedExt === 'exe') {
-                  // ✅ EXE files → Run directly without status messages
-                  const runRes = await window.api.runInstaller(data.path);
-                  
-                  if (!runRes || !runRes.success) {
-                    throw new Error((runRes && runRes.error) || 'Failed to run installer');
-                  }
-                  
-                } else {
-                  // ⚠️ Unknown extension → Try to run it anyway
-                  const runRes = await window.api.runInstaller(data.path);
-                  
-                  if (!runRes || !runRes.success) {
-                    throw new Error((runRes && runRes.error) || 'Failed to run installer');
-                  }
-                }
-                
-                resolve();
-                
-              } catch (err) {
-                reject(err);
-              }
-            }
-          } catch (err) {
+  async function installCustomPackage(li) {
+    const appName = li.dataset.appName || li.dataset.appId;
+    const url = li.dataset.customUrl;
+    const ext = li.dataset.customExt || 'zip';
+
+    if (!url) {
+      throw new Error('Download URL missing for custom package');
+    }
+
+    const safeName = String(appName)
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_\-]/g, '');
+    const dest = `${safeName}.${ext}`;
+    const downloadId = `custom-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+
+    return new Promise((resolve, reject) => {
+      const unsubscribe = window.api.onDownloadEvent(async (data) => {
+        try {
+          if (data.id !== downloadId) return;
+
+          if (data.status === 'error') {
             unsubscribe();
-            reject(err);
+            reject(new Error(data.error || 'Download failed'));
+            return;
           }
-        });
-        
-        window.api.downloadStart(downloadId, url, dest);
-      });
-    }
 
-    async function runWingetForSelected(action) {
+          if (data.status === 'complete') {
+            unsubscribe();
+
+            try {
+              // 🔥 CHECK EXTENSION TYPE
+              const downloadedExt = ext.toLowerCase();
+
+              if (downloadedExt === 'zip') {
+                // ✅ ZIP files → Extract + Process Advanced Installer logic
+                // Create hidden status element for processAdvancedInstaller (it expects one)
+                const statusEl = document.createElement('span');
+                statusEl.style.display = 'none';
+                li.appendChild(statusEl);
+
+                await window.processAdvancedInstaller(data.path, statusEl, appName);
+
+              } else if (downloadedExt === 'exe') {
+                // ✅ EXE files → Run directly without status messages
+                const runRes = await window.api.runInstaller(data.path);
+
+                if (!runRes || !runRes.success) {
+                  throw new Error((runRes && runRes.error) || 'Failed to run installer');
+                }
+
+              } else {
+                // ⚠️ Unknown extension → Try to run it anyway
+                const runRes = await window.api.runInstaller(data.path);
+
+                if (!runRes || !runRes.success) {
+                  throw new Error((runRes && runRes.error) || 'Failed to run installer');
+                }
+              }
+
+              resolve();
+
+            } catch (err) {
+              reject(err);
+            }
+          }
+        } catch (err) {
+          unsubscribe();
+          reject(err);
+        }
+      });
+
+      window.api.downloadStart(downloadId, url, dest);
+    });
+  }
+
+  async function runWingetForSelected(action) {
     const isInstall = action === 'install';
     const actionBtn = isInstall ? installBtn : uninstallBtn;
-    
+
     // Prevent double-clicks using ButtonStateManager
     if (buttonStateManager.isLoading(actionBtn)) {
       return;
     }
-    
+
     const selectedItems = [];
     const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-    
+
     checkboxes.forEach((cb) => {
-        if (cb.checked) {
-            const li = cb.closest('li');
-            if (li) selectedItems.push(li);
-        }
+      if (cb.checked) {
+        const li = cb.closest('li');
+        if (li) selectedItems.push(li);
+      }
     });
-    
+
     if (selectedItems.length === 0) {
-        window.showToast('No applications selected.', { type: 'info', title: 'Install' });
-        return;
+      window.showToast('No applications selected.', { type: 'info', title: 'Install' });
+      return;
     }
 
     // Set loading state with ButtonStateManager
     const loadingText = isInstall ? 'Installing...' : 'Uninstalling...';
     buttonStateManager.setLoading(actionBtn, loadingText);
-    
+
     // Disable other buttons during operation
     const otherBtn = isInstall ? uninstallBtn : installBtn;
     [otherBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = true));
-    
+
     let successCount = 0;
     let errorCount = 0;
-    
-        for (const li of selectedItems) {
-        const id = li.dataset.appId;
-        const appName = li.dataset.appName || id;
 
-        if (li.dataset.isCustom === 'true') {
-            if (!isInstall) {
-                window.showToast(`${appName} cannot be uninstalled automatically.`, {
-                    type: 'error',
-                    title: 'Uninstall Error'
-                });
-                errorCount++;
-                continue;
-            }
-            try {
-                await installCustomPackage(li);
-                window.showToast(`${appName} installation initiated.`, {
-                    type: 'success',
-                    title: 'Install'
-                });
-                successCount++;
-            } catch (err) {
-                window.showToast(`Failed to install ${appName}: ${err.message}`, {
-                    type: 'error',
-                    title: 'Install Error'
-                });
-                errorCount++;
-            }
-            continue;
+    for (const li of selectedItems) {
+      const id = li.dataset.appId;
+      const appName = li.dataset.appName || id;
+
+      if (li.dataset.isCustom === 'true') {
+        if (!isInstall) {
+          window.showToast(`${appName} cannot be uninstalled automatically.`, {
+            type: 'error',
+            title: 'Uninstall Error'
+          });
+          errorCount++;
+          continue;
         }
-
-        const command = isInstall
-            ? `winget install --id ${id} -e --accept-source-agreements --accept-package-agreements`
-            : `winget uninstall --id ${id} -e`;
-        
         try {
-            const result = await window.api.runCommand(command);
-            
-            const output = ((result.stdout || '') + (result.stderr || '')).toLowerCase();
-            
-            // Check for explicit error from command execution
-            if (result && result.error) {
-                // Check if it's just a non-zero exit code with actual success in output
-                const hasSuccessIndicator = isInstall 
-                    ? (output.includes('successfully installed') || output.includes('already installed'))
-                    : output.includes('successfully uninstalled');
-                
-                if (!hasSuccessIndicator) {
-                    window.showToast(`Failed to ${isInstall ? 'install' : 'uninstall'} ${appName}: ${result.error}`, { 
-                        type: 'error', 
-                        title: isInstall ? 'Install Error' : 'Uninstall Error'
-                    });
-                    errorCount++;
-                    continue;
-                }
-            }
-            
-            if (isInstall) {
-                // Install success checks
-                const alreadyInstalled = 
-                    output.includes('no applicable upgrade found') ||
-                    output.includes('already installed') ||
-                    output.includes('no newer package versions');
-                
-                const installSuccess = 
-                    output.includes('successfully installed') ||
-                    output.includes('installation successful');
-                
-                const installFailed = 
-                    output.includes('installation failed') ||
-                    output.includes('no package found') ||
-                    output.includes('did not find');
-                
-                if (alreadyInstalled) {
-                    window.showToast(`${appName} is already installed`, { 
-                        type: 'success', 
-                        title: 'Install'
-                    });
-                    successCount++;
-                } else if (installFailed && !installSuccess) {
-                    window.showToast(`Failed to install ${appName}`, { 
-                        type: 'error', 
-                        title: 'Install Error'
-                    });
-                    errorCount++;
-                } else {
-                    window.showToast(`${appName} installed successfully!`, { 
-                        type: 'success', 
-                        title: 'Install'
-                    });
-                    successCount++;
-                }
-            } else {
-                // Uninstall checks based on winget output
-                const uninstallSuccess = 
-                    output.includes('successfully uninstalled');
-                
-                const notInstalled = 
-                    output.includes('no installed package found') ||
-                    (output.includes('did not find') && output.includes('installed'));
-                
-                const cancelled = 
-                    output.includes('cancelled') ||
-                    output.includes('canceled');
-                
-                if (uninstallSuccess) {
-                    window.showToast(`${appName} uninstalled successfully!`, { 
-                        type: 'success', 
-                        title: 'Uninstall'
-                    });
-                    successCount++;
-                } else if (notInstalled) {
-                    window.showToast(`${appName} is not installed`, { 
-                        type: 'info', 
-                        title: 'Uninstall'
-                    });
-                    successCount++;
-                } else if (cancelled) {
-                    window.showToast(`${appName} uninstall was cancelled`, { 
-                        type: 'warning', 
-                        title: 'Uninstall Cancelled'
-                    });
-                    errorCount++;
-                } else {
-                    // Winget may have launched the uninstaller - we can't know the result
-                    window.showToast(`${appName} uninstaller launched - check if completed`, { 
-                        type: 'info', 
-                        title: 'Uninstall'
-                    });
-                    successCount++;
-                }
-            }
+          await installCustomPackage(li);
+          window.showToast(`${appName} installation initiated.`, {
+            type: 'success',
+            title: 'Install'
+          });
+          successCount++;
         } catch (err) {
-            window.showToast(`Failed to ${isInstall ? 'install' : 'uninstall'} ${appName}: ${err.message}`, { 
-                type: 'error', 
-                title: isInstall ? 'Install Error' : 'Uninstall Error'
+          window.showToast(`Failed to install ${appName}: ${err.message}`, {
+            type: 'error',
+            title: 'Install Error'
+          });
+          errorCount++;
+        }
+        continue;
+      }
+
+      const command = isInstall
+        ? `winget install --id ${id} -e --accept-source-agreements --accept-package-agreements`
+        : `winget uninstall --id ${id} -e`;
+
+      try {
+        const result = await window.api.runCommand(command);
+
+        const output = ((result.stdout || '') + (result.stderr || '')).toLowerCase();
+
+        // Check for explicit error from command execution
+        if (result && result.error) {
+          // Check if it's just a non-zero exit code with actual success in output
+          const hasSuccessIndicator = isInstall
+            ? (output.includes('successfully installed') || output.includes('already installed'))
+            : output.includes('successfully uninstalled');
+
+          if (!hasSuccessIndicator) {
+            window.showToast(`Failed to ${isInstall ? 'install' : 'uninstall'} ${appName}: ${result.error}`, {
+              type: 'error',
+              title: isInstall ? 'Install Error' : 'Uninstall Error'
             });
             errorCount++;
+            continue;
+          }
         }
+
+        if (isInstall) {
+          // Install success checks
+          const alreadyInstalled =
+            output.includes('no applicable upgrade found') ||
+            output.includes('already installed') ||
+            output.includes('no newer package versions');
+
+          const installSuccess =
+            output.includes('successfully installed') ||
+            output.includes('installation successful');
+
+          const installFailed =
+            output.includes('installation failed') ||
+            output.includes('no package found') ||
+            output.includes('did not find');
+
+          if (alreadyInstalled) {
+            window.showToast(`${appName} is already installed`, {
+              type: 'success',
+              title: 'Install'
+            });
+            successCount++;
+          } else if (installFailed && !installSuccess) {
+            window.showToast(`Failed to install ${appName}`, {
+              type: 'error',
+              title: 'Install Error'
+            });
+            errorCount++;
+          } else {
+            window.showToast(`${appName} installed successfully!`, {
+              type: 'success',
+              title: 'Install'
+            });
+            successCount++;
+          }
+        } else {
+          // Uninstall checks based on winget output
+          const uninstallSuccess =
+            output.includes('successfully uninstalled');
+
+          const notInstalled =
+            output.includes('no installed package found') ||
+            (output.includes('did not find') && output.includes('installed'));
+
+          const cancelled =
+            output.includes('cancelled') ||
+            output.includes('canceled');
+
+          if (uninstallSuccess) {
+            window.showToast(`${appName} uninstalled successfully!`, {
+              type: 'success',
+              title: 'Uninstall'
+            });
+            successCount++;
+          } else if (notInstalled) {
+            window.showToast(`${appName} is not installed`, {
+              type: 'info',
+              title: 'Uninstall'
+            });
+            successCount++;
+          } else if (cancelled) {
+            window.showToast(`${appName} uninstall was cancelled`, {
+              type: 'warning',
+              title: 'Uninstall Cancelled'
+            });
+            errorCount++;
+          } else {
+            // Winget may have launched the uninstaller - we can't know the result
+            window.showToast(`${appName} uninstaller launched - check if completed`, {
+              type: 'info',
+              title: 'Uninstall'
+            });
+            successCount++;
+          }
+        }
+      } catch (err) {
+        window.showToast(`Failed to ${isInstall ? 'install' : 'uninstall'} ${appName}: ${err.message}`, {
+          type: 'error',
+          title: isInstall ? 'Install Error' : 'Uninstall Error'
+        });
+        errorCount++;
+      }
     }
 
     if (successCount > 0 && errorCount === 0) {
-        window.showToast(`All ${selectedItems.length} applications ${isInstall ? 'installed' : 'uninstalled'} successfully!`, {
-            type: 'success',
-            title: 'Completed'
-        });
+      window.showToast(`All ${selectedItems.length} applications ${isInstall ? 'installed' : 'uninstalled'} successfully!`, {
+        type: 'success',
+        title: 'Completed'
+      });
     } else if (successCount > 0 && errorCount > 0) {
-        window.showToast(`Completed with ${successCount} successful and ${errorCount} failed ${isInstall ? 'installations' : 'uninstallations'}`, {
-            type: 'warning',
-            title: 'Partial Completion'
-        });
+      window.showToast(`Completed with ${successCount} successful and ${errorCount} failed ${isInstall ? 'installations' : 'uninstallations'}`, {
+        type: 'warning',
+        title: 'Partial Completion'
+      });
     } else if (errorCount > 0) {
-        window.showToast(`All ${errorCount} ${isInstall ? 'installations' : 'uninstallations'} failed`, {
-            type: 'error',
-            title: 'Failed'
-        });
+      window.showToast(`All ${errorCount} ${isInstall ? 'installations' : 'uninstallations'} failed`, {
+        type: 'error',
+        title: 'Failed'
+      });
     }
 
     // Reset button states using ButtonStateManager
     buttonStateManager.resetState(actionBtn);
     [otherBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = false));
-    
+
     // Re-evaluate button states based on selection
     updateActionButtonsState();
-}
-    installBtn.addEventListener('click', () => runWingetForSelected('install'));
-    uninstallBtn.addEventListener('click', () => runWingetForSelected('uninstall'));
+  }
+  installBtn.addEventListener('click', () => runWingetForSelected('install'));
+  uninstallBtn.addEventListener('click', () => runWingetForSelected('uninstall'));
 
-    await buildList();
-    return container;
+  await buildList();
+  return container;
 }

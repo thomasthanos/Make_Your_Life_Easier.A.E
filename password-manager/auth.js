@@ -1,10 +1,12 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 
 // Import debug from the shared module
 const { debug } = require('../src/modules/debug');
+
+// Import shared path utilities
+const { getAppDataPath } = require('./utils/paths');
 
 class PasswordManagerAuth {
     constructor() {
@@ -28,8 +30,8 @@ class PasswordManagerAuth {
         }
 
         try {
-            // Use custom path or detect Documents path
-            this.dbDirectory = customPath || this.getDocumentsPath();
+            // Use custom path or shared utility for consistent path detection
+            this.dbDirectory = customPath || getAppDataPath();
             this.configPath = path.join(this.dbDirectory, 'pm_config.json');
 
             debug('info', 'Initializing auth manager...');
@@ -46,23 +48,6 @@ class PasswordManagerAuth {
         }
     }
 
-    getDocumentsPath() {
-        // Try to get OneDrive Documents path first
-        const oneDrivePaths = [
-            path.join(os.homedir(), 'OneDrive', 'Documents'),
-            path.join(os.homedir(), 'OneDrive - Personal', 'Documents'),
-            path.join(os.homedir(), 'Documents')
-        ];
-
-        for (const oneDrivePath of oneDrivePaths) {
-            if (fs.existsSync(oneDrivePath)) {
-                return path.join(oneDrivePath, 'MakeYourLifeEasier');
-            }
-        }
-
-        // Fallback to regular Documents
-        return path.join(os.homedir(), 'Documents', 'MakeYourLifeEasier');
-    }
     hasMasterPassword() {
         try {
             const exists = fs.existsSync(this.configPath);

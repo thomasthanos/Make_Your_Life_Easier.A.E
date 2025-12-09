@@ -1,12 +1,12 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 
 // ✅ Import debug from the shared module
 const { debug } = require('../src/modules/debug');
 
-// ❌ ΔΙΑΓΡΑΦΗ: Αφαίρεσε ολόκληρη τη function debug (γραμμές 7-35)
+// Import shared path utilities
+const { getAppDataPath } = require('./utils/paths');
 
 class PasswordManagerDB {
     constructor(authManager) {
@@ -15,6 +15,37 @@ class PasswordManagerDB {
         this.dbDirectory = null;
         this.isInitialized = false;
         this.initPromise = null;
+    }
+
+    // --- Small promise helpers to avoid callback nesting with sqlite3 ---
+    _runAsync(sql, params = []) {
+        return new Promise((resolve, reject) => {
+            if (!this.db) return reject(new Error('Database not initialized'));
+            this.db.run(sql, params, function (err) {
+                if (err) return reject(err);
+                resolve(this); // keep "this" for lastID/changes when needed
+            });
+        });
+    }
+
+    _getAsync(sql, params = []) {
+        return new Promise((resolve, reject) => {
+            if (!this.db) return reject(new Error('Database not initialized'));
+            this.db.get(sql, params, (err, row) => {
+                if (err) return reject(err);
+                resolve(row);
+            });
+        });
+    }
+
+    _allAsync(sql, params = []) {
+        return new Promise((resolve, reject) => {
+            if (!this.db) return reject(new Error('Database not initialized'));
+            this.db.all(sql, params, (err, rows) => {
+                if (err) return reject(err);
+                resolve(rows);
+            });
+        });
     }
 
     /**
@@ -126,8 +157,8 @@ class PasswordManagerDB {
 
     async initializeDatabase() {
         try {
-            const documentsPath = this.getDocumentsPath();
-            this.dbDirectory = path.join(documentsPath, 'MakeYourLifeEasier');
+            // Use shared utility for consistent path detection
+            this.dbDirectory = getAppDataPath();
 
             debug('info', 'Database directory:', this.dbDirectory);
 
@@ -166,115 +197,68 @@ class PasswordManagerDB {
         }
     }
 
-    getDocumentsPath() {
-        const oneDrivePaths = [
-            path.join(os.homedir(), 'OneDrive', 'Documents'),
-            path.join(os.homedir(), 'OneDrive - Personal', 'Documents'),
-            path.join(os.homedir(), 'Documents')
-        ];
-
-        for (const oneDrivePath of oneDrivePaths) {
-            if (fs.existsSync(oneDrivePath)) {
-                return oneDrivePath;
-            }
-        }
-
-        return path.join(os.homedir(), 'Documents');
-    }
-
     async createTables() {
-        return new Promise((resolve, reject) => {
-            if (!this.db) {
-                reject(new Error('Database not initialized'));
-                return;
+        if (!this.db) throw new Error('Database not initialized');
+
+        try {
+            // Create categories
+            await this._runAsync(`
+                CREATE TABLE IF NOT EXISTS categories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            // Create passwords
+            await this._runAsync(`
+                CREATE TABLE IF NOT EXISTS passwords (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    category_id INTEGER,
+                    category_name TEXT,
+                    title TEXT NOT NULL,
+                    image TEXT,
+                    encrypted_data TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL
+                )
+            `);
+
+            // Migration: ensure category_name exists (older DBs)
+            const columns = await this._allAsync(`PRAGMA table_info(passwords)`);
+            const hasCategoryName = columns.some((c) => c.name === 'category_name');
+            if (!hasCategoryName) {
+                try {
+                    await this._runAsync(`ALTER TABLE passwords ADD COLUMN category_name TEXT`);
+                } catch (alterErr) {
+                    debug('warn', 'Error adding category_name column:', alterErr.message);
+                }
             }
 
-            this.db.serialize(() => {
-                this.db.run(`
-                    CREATE TABLE IF NOT EXISTS categories (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        name TEXT NOT NULL UNIQUE,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                `, (err) => {
-                    if (err) {
-                        debug('error', 'Error creating categories table:', err);
-                        reject(err);
-                        return;
-                    }
-                    // Omit verbose success log for categories table creation
-                });
+            // Seed default categories if empty
+            const row = await this._getAsync("SELECT COUNT(*) as count FROM categories");
+            if (row && row.count === 0) {
+                await this._runAsync("BEGIN TRANSACTION");
+                try {
+                    await this._runAsync("INSERT INTO categories (name) VALUES (?)", ["email"]);
+                    await this._runAsync("INSERT INTO categories (name) VALUES (?)", ["social media"]);
+                    await this._runAsync("INSERT INTO categories (name) VALUES (?)", ["gaming"]);
+                    await this._runAsync("COMMIT");
+                    debug('success', 'Default categories created');
+                } catch (seedErr) {
+                    await this._runAsync("ROLLBACK").catch(() => {});
+                    throw seedErr;
+                }
+            } else {
+                debug('info', 'Categories already exist, skipping default creation');
+            }
 
-                this.db.run(`
-                    CREATE TABLE IF NOT EXISTS passwords (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        category_id INTEGER,
-                        category_name TEXT,
-                        title TEXT NOT NULL,
-                        image TEXT,
-                        encrypted_data TEXT,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL
-                    )
-                `, (err) => {
-                    if (err) {
-                        debug('error', 'Error creating passwords table:', err);
-                        reject(err);
-                        return;
-                    }
-                    // Do not log a verbose success message for passwords table creation
-
-                    this.db.run(`ALTER TABLE passwords ADD COLUMN category_name TEXT`, (alterErr) => {
-                        if (alterErr) {
-                            if (alterErr.message && alterErr.message.includes('duplicate column name')) {
-                                // Column already exists; no action needed
-                                // Skip verbose log
-                            } else {
-                                debug('warn', 'Error adding category_name column (may already exist):', alterErr.message);
-                            }
-                        } else {
-                            // Column added; omit verbose success log
-                        }
-                    });
-                });
-
-                this.db.get("SELECT COUNT(*) as count FROM categories", (err, row) => {
-                    if (err) {
-                        debug('error', 'Error checking categories:', err);
-                        reject(err);
-                        return;
-                    }
-                    if (row.count === 0) {
-                        this.db.serialize(() => {
-                            this.db.run("BEGIN TRANSACTION");
-                            this.db.run("INSERT INTO categories (name) VALUES (?)", ["email"]);
-                            this.db.run("INSERT INTO categories (name) VALUES (?)", ["social media"]);
-                            this.db.run("INSERT INTO categories (name) VALUES (?)", ["gaming"], function (err) {
-                                if (err) {
-                                    debug('error', 'Error inserting default categories:', err);
-                                    this.db.run("ROLLBACK");
-                                    reject(err);
-                                } else {
-                                    debug('success', 'Default categories created');
-                                    this.db.run("COMMIT", (commitErr) => {
-                                        if (commitErr) {
-                                            debug('error', 'Error committing default category insertion:', commitErr);
-                                            reject(commitErr);
-                                        } else {
-                                            resolve(true);
-                                        }
-                                    });
-                                }
-                            }.bind(this));
-                        });
-                    } else {
-                        debug('info', 'Categories already exist, skipping default creation');
-                        resolve(true);
-                    }
-                });
-            });
-        });
+            return true;
+        } catch (error) {
+            debug('error', 'Error creating tables:', error);
+            throw error;
+        }
     }
 
     async waitForDB() {
@@ -380,6 +364,50 @@ class PasswordManagerDB {
                 // Use the unified row processing helper to reduce complexity
                 const processedRows = rows.map(row => this._processRow(row));
                 callback(null, processedRows);
+            });
+        } catch (error) {
+            callback(error, null);
+        }
+    }
+
+    /**
+     * Retrieve a single password row by id (decrypted)
+     * @param {number} id
+     * @param {Function} callback
+     */
+    async getPasswordById(id, callback) {
+        try {
+            await this.waitForDB();
+
+            if (!this.db) {
+                callback(new Error('Database not initialized'), null);
+                return;
+            }
+
+            this.db.get(`
+                SELECT p.id,
+                       p.category_id,
+                       COALESCE(c.name, p.category_name) AS category_name,
+                       p.title,
+                       p.image,
+                       p.encrypted_data,
+                       p.created_at,
+                       p.updated_at
+                FROM passwords p
+                LEFT JOIN categories c ON p.category_id = c.id
+                WHERE p.id = ?
+                LIMIT 1
+            `, [id], (err, row) => {
+                if (err) {
+                    callback(err, null);
+                    return;
+                }
+                if (!row) {
+                    callback(new Error('Password not found'), null);
+                    return;
+                }
+                const processed = this._processRow(row);
+                callback(null, processed);
             });
         } catch (error) {
             callback(error, null);

@@ -3,10 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Basic CSP for the password manager window (allow inline handlers used by legacy HTML) -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';" />
     <title>VaultGuard Password Manager</title>
     <link rel="stylesheet" href="passwordmanager.css" />
   </head>
   <body>
+    <div class="custom-title-bar">
+      <div class="title-group">
+        <img class="title-bar-app-icon" src="../src/assets/icons/hacker.ico" alt="App icon" />
+        <div class="title-bar-title">VaultGuard</div>
+      </div>
+      <div class="title-bar-controls">
+        <button class="title-bar-btn minimize" onclick="window.api?.minimizeWindow?.()">
+          <svg class="minimize-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+            <rect x="2" y="6" width="8" height="1" fill="currentColor"></rect>
+          </svg>
+        </button>
+        <button class="title-bar-btn maximize" onclick="window.api?.maximizeWindow?.()">
+          <svg class="maximize-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+            <rect x="1" y="1" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1"></rect>
+          </svg>
+        </button>
+        <button class="title-bar-btn close" onclick="window.api?.closeWindow?.()">
+          <svg class="close-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+            <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1" stroke-linecap="round"></line>
+            <line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1" stroke-linecap="round"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
     <div class="app-container password-manager">
       <aside class="sidebar">
         <div class="logo">
@@ -165,6 +192,8 @@
       </div>
     </div>
 
+    <script src="pm-debug.js"></script>
+    <script src="utils/i18n.js"></script>
     <script src="auth-ui.js"></script>
     <script src="passwordmanager.js"></script>
   </body>

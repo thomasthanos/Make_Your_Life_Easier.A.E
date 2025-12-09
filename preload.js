@@ -19,13 +19,13 @@ contextBridge.exposeInMainWorld('api', {
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
   renameDirectory: (src, dest) => ipcRenderer.invoke('rename-directory', { src, dest }),
   isWindows: () => process.platform === 'win32',
-  
+
   onDownloadEvent: (callback) => {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('download-event', listener);
     return () => ipcRenderer.removeListener('download-event', listener);
   },
-  
+
   installSpicetify: () => ipcRenderer.invoke('install-spicetify'),
   uninstallSpicetify: () => ipcRenderer.invoke('uninstall-spicetify'),
   fullUninstallSpotify: () => ipcRenderer.invoke('full-uninstall-spotify'),
@@ -42,12 +42,13 @@ contextBridge.exposeInMainWorld('api', {
   passwordManagerUpdateCategory: (id, name) => ipcRenderer.invoke('password-manager-update-category', id, name),
   passwordManagerDeleteCategory: (id) => ipcRenderer.invoke('password-manager-delete-category', id),
   passwordManagerGetPasswords: (categoryId) => ipcRenderer.invoke('password-manager-get-passwords', categoryId),
+  passwordManagerGetPassword: (id) => ipcRenderer.invoke('password-manager-get-password', id),
   passwordManagerAddPassword: (passwordData) => ipcRenderer.invoke('password-manager-add-password', passwordData),
   passwordManagerUpdatePassword: (id, passwordData) => ipcRenderer.invoke('password-manager-update-password', id, passwordData),
   passwordManagerDeletePassword: (id) => ipcRenderer.invoke('password-manager-delete-password', id),
   passwordManagerSearchPasswords: (query) => ipcRenderer.invoke('password-manager-search-passwords', query),
 
-  openPasswordManager: () => ipcRenderer.invoke('open-password-manager'),
+  openPasswordManager: (lang) => ipcRenderer.invoke('open-password-manager', lang),
 
   passwordManagerHasMasterPassword: () => ipcRenderer.invoke('password-manager-has-master-password'),
   passwordManagerCreateMasterPassword: (password) => ipcRenderer.invoke('password-manager-create-master-password', password),
@@ -55,7 +56,7 @@ contextBridge.exposeInMainWorld('api', {
   passwordManagerLogout: () => ipcRenderer.invoke('password-manager-logout'),
   passwordManagerChangePassword: (currentPassword, newPassword) => ipcRenderer.invoke('password-manager-change-password', currentPassword, newPassword),
   passwordManagerValidatePassword: (password) => ipcRenderer.invoke('password-manager-validate-password', password),
-  
+
   findExeFiles: (directoryPath) => ipcRenderer.invoke('find-exe-files', directoryPath),
   showFileDialog: () => ipcRenderer.invoke('show-file-dialog'),
 
@@ -67,7 +68,7 @@ contextBridge.exposeInMainWorld('api', {
   getUpdateInfo: () => ipcRenderer.invoke('get-update-info'),
 
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
-  
+
   onUpdateStatus: (callback) => {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('update-status', listener);
@@ -88,14 +89,14 @@ contextBridge.exposeInMainWorld('api', {
   maximizeWindow: () => ipcRenderer.invoke('window-maximize'),
   closeWindow: () => ipcRenderer.invoke('window-close'),
   isWindowMaximized: () => ipcRenderer.invoke('window-is-maximized'),
-  
+
   onWindowStateChange: (callback) => ipcRenderer.on('window-state-changed', callback),
   setWindowSize: (width, height) => ipcRenderer.invoke('window-set-size', { width, height }),
   getWindowSize: () => ipcRenderer.invoke('window-get-size'),
   animateWindowSize: (width, height) => ipcRenderer.invoke('window-set-bounds-animate', { width, height }),
   animateResize: (width, height, duration) =>
     ipcRenderer.invoke('window-animate-resize', { width, height, duration }),
-  
+
   // Asset path helper for images and other assets
   getAssetPath: (relativePath) => ipcRenderer.invoke('get-asset-path', relativePath)
 });

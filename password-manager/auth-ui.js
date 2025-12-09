@@ -1,122 +1,26 @@
-// auth-ui.js - Ολοκληρωμένο με custom forgot password και show/hide password
+// auth-ui.js - Password Manager Authentication UI
+// Uses shared i18n utilities for translations
 
-// Modern debug logger with emojis and color-coded styles.
-function debug(level, ...args) {
-    const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
-    const colorMap = {
-        info: 'color:#2196F3; font-weight:bold;',
-        warn: 'color:#FF9800; font-weight:bold;',
-        error: 'color:#F44336; font-weight:bold;',
-        success: 'color:#4CAF50; font-weight:bold;'
-    };
-    const emoji = emojiMap[level] || '';
-    const style = colorMap[level] || '';
-    const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
-    if (isBrowser) {
-        const fn =
-            level === 'error'
-                ? console.error
-                : level === 'warn'
-                ? console.warn
-                : console.log;
-        fn.call(console, `%c${emoji}`, style, ...args);
-    } else {
-        const fn =
-            level === 'error'
-                ? console.error
-                : level === 'warn'
-                ? console.warn
-                : console.log;
-        fn.call(console, `${emoji}`, ...args);
-    }
-}
 class PasswordManagerAuthUI {
     constructor() {
         this.isInitialized = false;
         this.hasMasterPassword = false;
         this.authModal = null;
 
-        let selectedLang = null;
-        try {
-            const settings = JSON.parse(localStorage.getItem('myAppSettings'));
-            if (settings && typeof settings.lang === 'string' && settings.lang.length > 0) {
-                selectedLang = settings.lang.toLowerCase();
-            }
-        } catch (e) {
-            // ignore parsing errors
-        }
-        // If no saved language, use the document's lang attribute
-        if (!selectedLang) {
-            const docLang = (document.documentElement.lang || 'en').toLowerCase();
-            selectedLang = docLang;
-        }
-        this.lang = (selectedLang.startsWith('gr') || selectedLang.startsWith('el')) ? 'gr' : 'en';
-
-        // Placeholder for translations; will be loaded from external JSON files
-        this.translations = { en: {}, gr: {} };
+        // Use shared I18n class for translations
+        this.i18n = new I18n();
     }
 
     /**
-     * Translation helper. Looks up a key in the current language and
-     * falls back to English if the key is missing. If a params object is
-     * provided, any placeholders in the translation string formatted as
-     * `{placeholder}` will be replaced with the corresponding values.
-     *
-     * @param {string} key The translation key to look up.
-     * @param {Object} [params] Optional map of placeholder values.
-     * @returns {string} The translated string with any placeholders replaced.
+     * Translation helper - delegates to shared I18n
      */
     t(key, params = {}) {
-        let translation;
-        if (this.translations && this.translations[this.lang] && this.translations[this.lang][key]) {
-            translation = this.translations[this.lang][key];
-        } else if (this.translations && this.translations.en && this.translations.en[key]) {
-            translation = this.translations.en[key];
-        } else {
-            translation = key;
-        }
-        if (typeof translation === 'string' && params && Object.keys(params).length > 0) {
-            return translation.replace(/\{([^}]+)\}/g, (match, p1) => {
-                return Object.prototype.hasOwnProperty.call(params, p1) ? params[p1] : match;
-            });
-        }
-        return translation;
-    }
-
-    /**
-     * Load translations for the auth UI. Fetches the English base translations
-     * and then overlays the selected language. Translation files live in the
-     * top‑level `lang` folder. If any fetch fails, the translations object
-     * will remain with whatever data is available and missing keys will fall
-     * back to English or the key itself.
-     */
-    async loadTranslations() {
-        try {
-            const enResponse = await fetch('lang/en.json');
-            const enData = await enResponse.json();
-            let langData = {};
-            if (this.lang && this.lang !== 'en') {
-                try {
-                    const langResponse = await fetch(`lang/${this.lang}.json`);
-                    langData = await langResponse.json();
-                } catch (err) {
-                    debug('error', 'Failed to load language file:', err);
-                }
-            }
-            this.translations = {
-                en: enData,
-                [this.lang]: { ...enData, ...langData }
-            };
-        } catch (error) {
-            debug('error', 'Error loading translations:', error);
-            // leave translations as empty objects on failure
-        }
+        return this.i18n.t(key, params);
     }
 
     async initialize() {
-        // Load translations before any UI is rendered.  Ensures
-        // translation keys are available when building the modals.
-        await this.loadTranslations();
+        // Load translations before any UI is rendered
+        await this.i18n.load('lang');
 
         if (this.isInitialized) return;
 
@@ -132,8 +36,7 @@ class PasswordManagerAuthUI {
                 this.showLoginModal();
             }
         } catch (error) {
-            debug('error', 'Auth initialization error:', error);
-            // Use translated prefix for initialization errors
+            window.pmDebug('error', 'Auth initialization error:', error);
             this.showErrorModal(this.t('init_error_prefix') + error.message);
         }
     }
@@ -188,7 +91,6 @@ class PasswordManagerAuthUI {
                 <h4 class="title">${this.t('setup_title')}</h4>
                 <form id="setupForm" class="auth-form">
                     <div class="field has-hint">
-                        <!-- Lock icon for password field -->
                         <svg class="input-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
                             <path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4M4.5 7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7zM8 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/>
                         </svg>
@@ -206,12 +108,10 @@ class PasswordManagerAuthUI {
                             </svg>
                         </button>
                     </div>
-                    <!-- Hint for minimum password length displayed below the first password field -->
                     <div class="input-hint">${this.t('create_master_hint')}</div>
                     <div id="passwordStrength" class="password-strength-container"></div>
                     
                     <div class="field">
-                        <!-- Lock icon for confirm password field -->
                         <svg class="input-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
                             <path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4M4.5 7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7zM8 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/>
                         </svg>
@@ -243,7 +143,6 @@ class PasswordManagerAuthUI {
                 <h4 class="title">${this.t('login_title')}</h4>
                 <form id="loginForm" class="auth-form">
                     <div class="field">
-                        <!-- Lock icon for login password field -->
                         <svg class="input-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
                             <path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4M4.5 7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7zM8 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/>
                         </svg>
@@ -295,22 +194,18 @@ class PasswordManagerAuthUI {
     }
 
     togglePasswordVisibility(inputId) {
-        // Retrieve the target input and its associated toggle button
         const input = document.getElementById(inputId);
         if (!input) return;
         const toggleButton = input.nextElementSibling;
         if (!toggleButton) return;
 
-        // Locate the eye icons inside the toggle button
         const eyeOpen = toggleButton.querySelector('.eye-open-icon');
         const eyeClosed = toggleButton.querySelector('.eye-closed-icon');
 
-        // Toggle the input type and update icon visibility and tooltip
         if (input.type === 'password') {
             input.type = 'text';
             if (eyeOpen) eyeOpen.style.display = 'none';
             if (eyeClosed) eyeClosed.style.display = 'inline';
-            // Use translation keys if available
             toggleButton.title = this.t('hide_password');
         } else {
             input.type = 'password';
@@ -433,7 +328,7 @@ class PasswordManagerAuthUI {
                 container.innerHTML = '';
             }
         } catch (error) {
-            debug('error', 'Error validating password:', error);
+            window.pmDebug('error', 'Error validating password:', error);
         }
     }
 
@@ -583,18 +478,5 @@ class PasswordManagerAuthUI {
     }
 }
 
-// Προσθήκη των απαραίτητων CSS styles
-const authStyles = `
-
-`;
-
-// Εισαγωγή των styles στο document
-if (!document.querySelector('#auth-ui-styles')) {
-    const styleSheet = document.createElement('style');
-    styleSheet.id = 'auth-ui-styles';
-    styleSheet.textContent = authStyles;
-    document.head.appendChild(styleSheet);
-}
-
-// Δημιουργία global instance
+// Create global instance
 window.pmAuthUI = new PasswordManagerAuthUI();

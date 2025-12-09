@@ -1,37 +1,4 @@
-// Modern debug logger with emojis and color-coded styles.
-// Usage: debug('info', 'Message', {...});
-function debug(level, ...args) {
-    const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
-    const colorMap = {
-        info: 'color:#2196F3; font-weight:bold;',
-        warn: 'color:#FF9800; font-weight:bold;',
-        error: 'color:#F44336; font-weight:bold;',
-        success: 'color:#4CAF50; font-weight:bold;'
-    };
-    const emoji = emojiMap[level] || '';
-    const style = colorMap[level] || '';
-    // Determine if running in a browser environment to decide whether to use CSS styles
-    const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
-    if (isBrowser) {
-        // Select appropriate console method based on level
-        const fn =
-            level === 'error'
-                ? console.error
-                : level === 'warn'
-                ? console.warn
-                : console.log;
-        fn.call(console, `%c${emoji}`, style, ...args);
-    } else {
-        // Fallback for Node/terminal environments
-        const fn =
-            level === 'error'
-                ? console.error
-                : level === 'warn'
-                ? console.warn
-                : console.log;
-        fn.call(console, `${emoji}`, ...args);
-    }
-}
+// Password Manager - Uses shared i18n utilities for translations
 
 class PasswordManager {
     constructor() {
@@ -50,28 +17,15 @@ class PasswordManager {
         this.isAuthenticated = false;
 
         this.imgurToken = null;
-        
+
         this.authUI = new PasswordManagerAuthUI();
-        this.observeCards = () => {};
+        this.observeCards = () => { };
 
-        let langSetting = null;
-        try {
-            const settings = JSON.parse(localStorage.getItem('myAppSettings'));
-            if (settings && typeof settings.lang === 'string' && settings.lang.length > 0) {
-                langSetting = settings.lang.toLowerCase();
-            }
-        } catch (e) {
-        }
-        const docLang = (document.documentElement.lang || 'en').toLowerCase();
-        const selectedLang = langSetting || docLang;
-        this.lang = (selectedLang.startsWith('gr') || selectedLang.startsWith('el')) ? 'gr' : 'en';
-        
-        // Placeholder for translations; will be populated from external JSON files
-        this.translations = { en: {}, gr: {} };
+        // Use shared I18n class for translations
+        this.i18n = new I18n();
 
-        // Load translations then initialize UI and authentication.  Once
-        // translations are available, static elements can be translated.
-        this.loadTranslations().then(() => {
+        // Load translations then initialize UI and authentication
+        this.i18n.load('lang').then(() => {
             this.initializeEventListeners();
             this.initializeAuth();
             this.initializeAnimations();
@@ -91,7 +45,7 @@ class PasswordManager {
         try {
             await this.authUI.initialize();
         } catch (error) {
-            debug('error', 'Auth initialization failed:', error);
+            window.pmDebug('error', 'Auth initialization failed:', error);
         }
     }
 
@@ -286,10 +240,10 @@ class PasswordManager {
     toggleCompactMode() {
         this.isCompactMode = !this.isCompactMode;
         // No verbose logging for mode toggling; handled silently for modern UX
-        
+
         const manager = document.querySelector('.password-manager');
         const toggle = document.querySelector('.compact-toggle');
-        
+
         this.updateCompactToggleUI(toggle, manager);
         localStorage.setItem('pmCompactMode', this.isCompactMode);
         this.renderPasswords();
@@ -370,7 +324,7 @@ class PasswordManager {
     addGeneratePasswordButton() {
         const passwordField = document.getElementById('password');
         const formGroup = passwordField.closest('.form-group');
-        
+
         const existingBtn = formGroup.querySelector('.generate-password-btn');
         if (existingBtn) {
             existingBtn.remove();
@@ -379,14 +333,14 @@ class PasswordManager {
         if (existingToggle) {
             existingToggle.remove();
         }
-        
+
         const generateBtn = document.createElement('button');
         generateBtn.type = 'button';
         generateBtn.className = 'button generate-password-btn';
         // Accessible label for generate password button
         generateBtn.setAttribute('aria-label', this.t('generate_password_label'));
         generateBtn.innerHTML = '🎲';
-        
+
         generateBtn.addEventListener('click', () => {
             this.generateStrongPassword();
         });
@@ -409,7 +363,7 @@ class PasswordManager {
         // Accessible label for toggle password visibility
         toggleBtn.setAttribute('aria-label', this.t('toggle_password_visibility'));
         toggleBtn.innerHTML = eyeClosedIcon;
-        
+
         toggleBtn.addEventListener('click', () => {
             const input = document.getElementById('password');
             if (input.type === 'password') {
@@ -422,7 +376,7 @@ class PasswordManager {
                 toggleBtn.classList.remove('visible');
             }
         });
-        
+
         const iconsContainer = document.createElement('div');
         iconsContainer.className = 'password-icons-container';
         iconsContainer.appendChild(toggleBtn);
@@ -440,7 +394,7 @@ class PasswordManager {
 
     async loadData() {
         if (!window.api || window.api.isStub) {
-            debug('warn', 'Password manager APIs are not available; using sample data for demonstration.');
+            window.pmDebug('warn', 'Password manager APIs are not available; using sample data for demonstration.');
             this.isAuthenticated = true;
             this.categories = [
                 { id: 1, name: 'email' },
@@ -532,12 +486,12 @@ class PasswordManager {
 
         if (!this.isAuthenticated) {
             // Warn if data load is attempted without authentication
-            debug('warn', 'Not authenticated, skipping data load');
+            window.pmDebug('warn', 'Not authenticated, skipping data load');
             return;
         }
 
         // Informative log for starting data load
-        debug('info', 'Loading password manager data...');
+        window.pmDebug('info', 'Loading password manager data...');
 
         const requiredApis = [
             'passwordManagerGetCategories',
@@ -590,7 +544,7 @@ class PasswordManager {
 
     getPasswordStrength(password) {
         if (!password) return 'weak';
-        
+
         let strength = 0;
         if (password.length >= 8) strength++;
         if (password.length >= 12) strength++;
@@ -598,7 +552,7 @@ class PasswordManager {
         if (/[a-z]/.test(password)) strength++;
         if (/[0-9]/.test(password)) strength++;
         if (/[^A-Za-z0-9]/.test(password)) strength++;
-        
+
         if (strength <= 2) return 'weak';
         if (strength <= 4) return 'medium';
         if (strength <= 5) return 'strong';
@@ -608,7 +562,7 @@ class PasswordManager {
     checkPasswordStrength(password) {
         const strengthBar = document.getElementById('passwordStrength');
         if (!strengthBar) return;
-        
+
         const strength = this.getPasswordStrength(password);
         strengthBar.className = 'strength-bar';
         strengthBar.classList.add(`strength-${strength}`);
@@ -621,20 +575,20 @@ class PasswordManager {
             numbers: '0123456789',
             symbols: '!@#$%^&*()_+-=[]{}|;:,.<>?'
         };
-        
+
         let password = '';
         password += chars.uppercase[Math.floor(Math.random() * chars.uppercase.length)];
         password += chars.lowercase[Math.floor(Math.random() * chars.lowercase.length)];
         password += chars.numbers[Math.floor(Math.random() * chars.numbers.length)];
         password += chars.symbols[Math.floor(Math.random() * chars.symbols.length)];
-        
+
         const allChars = chars.uppercase + chars.lowercase + chars.numbers + chars.symbols;
         for (let i = password.length; i < 16; i++) {
             password += allChars[Math.floor(Math.random() * allChars.length)];
         }
-        
+
         password = password.split('').sort(() => Math.random() - 0.5).join('');
-        
+
         document.getElementById('password').value = password;
         this.checkPasswordStrength(password);
         this.showSuccess(this.t('strong_password_generated'));
@@ -666,14 +620,14 @@ class PasswordManager {
             const result = await window.api.passwordManagerGetPasswords(categoryId);
             if (result.success) {
                 this.passwords = result.passwords;
-            this.passwords.forEach(p => {
-                if (!p.image) {
-                    const storedImg = localStorage.getItem('passwordImage-' + p.id);
-                    if (storedImg) {
-                        p.image = storedImg;
+                this.passwords.forEach(p => {
+                    if (!p.image) {
+                        const storedImg = localStorage.getItem('passwordImage-' + p.id);
+                        if (storedImg) {
+                            p.image = storedImg;
+                        }
                     }
-                }
-            });
+                });
                 this.renderPasswords();
                 this.calculateStats();
             } else {
@@ -708,7 +662,7 @@ class PasswordManager {
         const select = document.getElementById('category');
         const noCat = typeof this.t === 'function' ? this.t('no_category_option') : 'No Category';
         select.innerHTML = `<option value="no_category">${noCat}</option>`;
-        
+
         this.categories.forEach(category => {
             const option = document.createElement('option');
             option.value = category.id;
@@ -1135,17 +1089,18 @@ class PasswordManager {
         }
     }
 
-renderPasswords() {
-    // Trace rendering with layout info using modern logger
-    debug('info', 'Rendering passwords, compact mode:', this.isCompactMode);
-    const grid = document.getElementById('passwordsGrid');
-    
-    if (this.passwords.length === 0) {
-        const noPasswords = typeof this.t === 'function' ? this.t('no_passwords_yet') : 'No Passwords Yet';
-        const firstDesc = typeof this.t === 'function' ? this.t('first_password_desc') : 'Add your first password to secure your digital life';
-        const firstBtn = typeof this.t === 'function' ? this.t('add_first_password') : 'Add Your First Password';
-        grid.innerHTML = `
-            <div class="empty-state">
+    renderPasswords() {
+        // Trace rendering with layout info using modern logger
+        window.pmDebug('info', 'Rendering passwords, compact mode:', this.isCompactMode);
+        const grid = document.getElementById('passwordsGrid');
+
+        if (this.passwords.length === 0) {
+            const noPasswords = typeof this.t === 'function' ? this.t('no_passwords_yet') : 'No Passwords Yet';
+            const firstDesc = typeof this.t === 'function' ? this.t('first_password_desc') : 'Add your first password to secure your digital life';
+            const firstBtn = typeof this.t === 'function' ? this.t('add_first_password') : 'Add Your First Password';
+            const emptyClass = this.isCompactMode ? 'empty-state compact-empty' : 'empty-state';
+            grid.innerHTML = `
+            <div class="${emptyClass}">
                 <i>🔒</i>
                 <h3>${noPasswords}</h3>
                 <p>${firstDesc}</p>
@@ -1154,8 +1109,8 @@ renderPasswords() {
                 </button>
             </div>
         `;
-        return;
-    }
+            return;
+        }
 
         const svgCopy = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
         const svgEye = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`;
@@ -1213,15 +1168,15 @@ renderPasswords() {
             `;
             }).join('');
         } else {
-        grid.innerHTML = this.passwords.map(password => {
-            const title = this.escapeHtml(password.title);
-            const categoryName = this.getCategoryName(password);
-            const updatedDate = this.getUpdatedDate(password);
-            const username = password.username ? this.escapeHtml(password.username) : '';
-            const email = password.email ? this.escapeHtml(password.email) : '';
-            const visitLink = this.getVisitLink(password);
-            const imageHtml = this.getImageHtml(password, title);
-            return `
+            grid.innerHTML = this.passwords.map(password => {
+                const title = this.escapeHtml(password.title);
+                const categoryName = this.getCategoryName(password);
+                const updatedDate = this.getUpdatedDate(password);
+                const username = password.username ? this.escapeHtml(password.username) : '';
+                const email = password.email ? this.escapeHtml(password.email) : '';
+                const visitLink = this.getVisitLink(password);
+                const imageHtml = this.getImageHtml(password, title);
+                return `
             <div class="password-card" data-password-id="${password.id}">
                 <div class="password-header">
                     <div class="password-main">
@@ -1261,10 +1216,41 @@ renderPasswords() {
                 </div>
             </div>
             `;
-        }).join('');
+            }).join('');
+        }
+        this.observeCards();
+        // Scrub sensitive fields after render to reduce in-memory plaintext lifetime
+        this.scrubSensitiveFields();
     }
-    this.observeCards();
-}
+
+    /**
+     * Fetch a single decrypted password row by id from main process.
+     * Returns null on error.
+     */
+    async fetchDecryptedPassword(passwordId) {
+        try {
+            if (!window.api || typeof window.api.passwordManagerGetPassword !== 'function') return null;
+            const result = await window.api.passwordManagerGetPassword(passwordId);
+            if (result && result.success) {
+                return result.password;
+            }
+        } catch (err) {
+            window.pmDebug('warn', 'Failed to fetch decrypted password:', err.message);
+        }
+        return null;
+    }
+
+    /**
+     * Remove highly sensitive fields from in-memory list to minimize plaintext residency.
+     * Keep username/email/url for UI rendering; clear password and notes.
+     */
+    scrubSensitiveFields() {
+        this.passwords = this.passwords.map(p => ({
+            ...p,
+            password: undefined,
+            notes: undefined
+        }));
+    }
 
     async openExternal(url) {
         if (window.api && typeof window.api.openExternal === 'function') {
@@ -1309,7 +1295,7 @@ renderPasswords() {
 
         modal.classList.add('active');
         document.getElementById('title').focus();
-        
+
         setTimeout(() => this.addGeneratePasswordButton(), 100);
     }
 
@@ -1317,7 +1303,7 @@ renderPasswords() {
         document.getElementById('passwordModal').classList.remove('active');
         document.getElementById('passwordForm').reset();
         this.currentEditingId = null;
-        
+
         const generateBtn = document.querySelector('.generate-password-btn');
         if (generateBtn) {
             generateBtn.remove();
@@ -1329,61 +1315,10 @@ renderPasswords() {
     }
 
     /**
-     * Translation helper.  Looks up a key in the current language and falls
-     * back to English if the key is missing.  If a params object is
-     * provided, any placeholders in the translation string formatted as
-     * `{placeholder}` will be replaced with the corresponding values.
-     *
-     * @param {string} key The translation key to look up.
-     * @param {Object} [params] Optional map of placeholder values.
-     * @returns {string} The translated string with any placeholders replaced.
+     * Translation helper - delegates to shared I18n
      */
     t(key, params = {}) {
-        let translation;
-        if (this.translations && this.translations[this.lang] && this.translations[this.lang][key]) {
-            translation = this.translations[this.lang][key];
-        } else if (this.translations && this.translations.en && this.translations.en[key]) {
-            translation = this.translations.en[key];
-        } else {
-            translation = key;
-        }
-        if (typeof translation === 'string' && params && Object.keys(params).length > 0) {
-            return translation.replace(/\{([^}]+)\}/g, (match, p1) => {
-                return Object.prototype.hasOwnProperty.call(params, p1) ? params[p1] : match;
-            });
-        }
-        return translation;
-    }
-
-    /**
-     * Load translations for the password manager UI.  This method fetches the
-     * English base translations and then overlays the selected language.  The
-     * translation files live in the top‑level `lang` folder.  If any fetch
-     * fails, the translations object will remain with whatever data is
-     * available and missing keys will fall back to English or the key itself.
-     */
-    async loadTranslations() {
-        try {
-            // Fetch the English base translations
-            const enResponse = await fetch('lang/en.json');
-            const enData = await enResponse.json();
-            let langData = {};
-            if (this.lang && this.lang !== 'en') {
-                try {
-                    const langResponse = await fetch(`lang/${this.lang}.json`);
-                    langData = await langResponse.json();
-                } catch (err) {
-                    debug('error', 'Failed to load language file:', err);
-                }
-            }
-            this.translations = {
-                en: enData,
-                [this.lang]: { ...enData, ...langData }
-            };
-        } catch (error) {
-            debug('error', 'Error loading translations:', error);
-            // leave translations as empty objects on failure
-        }
+        return this.i18n.t(key, params);
     }
 
     applyTranslations() {
@@ -1394,7 +1329,7 @@ renderPasswords() {
             this.applyCategoriesModalTranslations();
             this.applyDeleteModalTranslations();
         } catch (err) {
-            debug('error', 'Error applying translations:', err);
+            window.pmDebug('error', 'Error applying translations:', err);
         }
     }
 
@@ -1514,7 +1449,14 @@ renderPasswords() {
     }
 
     async fillPasswordForm(passwordId) {
-        const password = this.passwords.find(p => p.id === passwordId);
+        const cached = this.passwords.find(p => p.id === passwordId) || {};
+        let password = cached;
+        if (!cached.username || !cached.password || !cached.email || !cached.url || !cached.notes) {
+            const decrypted = await this.fetchDecryptedPassword(passwordId);
+            if (decrypted) {
+                password = { ...cached, ...decrypted };
+            }
+        }
         if (!password) return;
 
         document.getElementById('passwordId').value = password.id;
@@ -1529,7 +1471,7 @@ renderPasswords() {
         }
         document.getElementById('username').value = password.username || '';
         document.getElementById('email').value = password.email || '';
-        document.getElementById('password').value = password.password;
+        document.getElementById('password').value = password.password || '';
         document.getElementById('url').value = password.url || '';
         document.getElementById('notes').value = password.notes || '';
 
@@ -1538,42 +1480,47 @@ renderPasswords() {
 
         const imgFile = document.getElementById('imageFile');
         if (imgFile) imgFile.value = '';
-        
-        this.checkPasswordStrength(password.password);
-    }
 
-async savePassword(e) {
-    e.preventDefault();
-    // Ensure the API is available before proceeding
-    if (!window.api || typeof window.api.passwordManagerAddPassword !== 'function') {
-        this.showError(this.t('password_manager_unavailable'));
-        return;
-    }
-    // Determine selected category information
-    const { id: categoryIdToStore, name: selectedCategoryName } = this.getSelectedCategoryInfo();
-    // Build the password data object
-    const passwordData = this.buildPasswordData(categoryIdToStore, selectedCategoryName);
-    // Log debug information about the incoming data
-    debug('info', 'Saving password data:', {
-        title: passwordData.title,
-        username: passwordData.username,
-        passwordLength: passwordData.password ? passwordData.password.length : 0
-    });
-    // Validate inputs; if invalid, abort
-    const invalidField = this.validatePasswordInputs(passwordData);
-    if (invalidField) return;
-    try {
-        await this.performSave(passwordData);
-    } catch (error) {
-        debug('error', 'Save password error:', error);
-        this.showError(this.t('save_password_error') + error.message);
-        const saveBtn = document.getElementById('savePasswordBtn');
-        if (saveBtn) {
-            saveBtn.innerHTML = '<span>💾 Save Password</span>';
-            saveBtn.disabled = false;
+        if (password.password) {
+            this.checkPasswordStrength(password.password);
+        } else {
+            const strength = document.getElementById('passwordStrength');
+            if (strength) strength.innerHTML = '';
         }
     }
-}
+
+    async savePassword(e) {
+        e.preventDefault();
+        // Ensure the API is available before proceeding
+        if (!window.api || typeof window.api.passwordManagerAddPassword !== 'function') {
+            this.showError(this.t('password_manager_unavailable'));
+            return;
+        }
+        // Determine selected category information
+        const { id: categoryIdToStore, name: selectedCategoryName } = this.getSelectedCategoryInfo();
+        // Build the password data object
+        const passwordData = this.buildPasswordData(categoryIdToStore, selectedCategoryName);
+        // Log debug information about the incoming data
+        window.pmDebug('info', 'Saving password data:', {
+            title: passwordData.title,
+            username: passwordData.username,
+            passwordLength: passwordData.password ? passwordData.password.length : 0
+        });
+        // Validate inputs; if invalid, abort
+        const invalidField = this.validatePasswordInputs(passwordData);
+        if (invalidField) return;
+        try {
+            await this.performSave(passwordData);
+        } catch (error) {
+            window.pmDebug('error', 'Save password error:', error);
+            this.showError(this.t('save_password_error') + error.message);
+            const saveBtn = document.getElementById('savePasswordBtn');
+            if (saveBtn) {
+                saveBtn.innerHTML = '<span>💾 Save Password</span>';
+                saveBtn.disabled = false;
+            }
+        }
+    }
 
     isValidUrl(string) {
         try {
@@ -1591,17 +1538,17 @@ async savePassword(e) {
     isAscii(str) { return /^[\x00-\x7F]*$/.test(str); }
 
     isValidEmailUnicode(value) {
-    if (!value) return true;
-    const parts = value.split('@');
-    if (parts.length !== 2) return false;
-    const [local, domain] = parts;
-    if (!local || !domain) return false;
-    const label = /^[\p{L}\p{M}\p{N}]+(?:[\p{L}\p{M}\p{N}-]*[\p{L}\p{M}\p{N}])?$/u;
-    const labels = domain.split('.');
-    if (labels.length < 2) return false;
-    if (labels.some(l => !l || !label.test(l))) return false;
-    if (/[^\S\r\n]/.test(local)) return false;
-    return true;
+        if (!value) return true;
+        const parts = value.split('@');
+        if (parts.length !== 2) return false;
+        const [local, domain] = parts;
+        if (!local || !domain) return false;
+        const label = /^[\p{L}\p{M}\p{N}]+(?:[\p{L}\p{M}\p{N}-]*[\p{L}\p{M}\p{N}])?$/u;
+        const labels = domain.split('.');
+        if (labels.length < 2) return false;
+        if (labels.some(l => !l || !label.test(l))) return false;
+        if (/[^\S\r\n]/.test(local)) return false;
+        return true;
     }
 
     async deletePassword(passwordId) {
@@ -1769,10 +1716,10 @@ async savePassword(e) {
                     if (data && data.success && data.data && data.data.link) {
                         imageUrl = data.data.link;
                     } else {
-                        debug('warn', 'Imgur upload failed, using data URI instead:', data);
+                        window.pmDebug('warn', 'Imgur upload failed, using data URI instead:', data);
                     }
                 } catch (err) {
-                    debug('error', 'Error uploading to Imgur:', err);
+                    window.pmDebug('error', 'Error uploading to Imgur:', err);
                 }
             }
 
@@ -1795,7 +1742,7 @@ async savePassword(e) {
             hiddenInput.value = logoUrl;
             this.setUploadBoxImage(logoUrl);
         } catch (err) {
-            debug('error', 'Error fetching site logo:', err);
+            window.pmDebug('error', 'Error fetching site logo:', err);
         }
     }
 
@@ -1941,20 +1888,26 @@ async savePassword(e) {
 
         const valueContainer = button.closest('.password-row, .compact-password-row');
         if (!valueContainer) {
-            debug('error', 'Could not find password row for password toggle');
+            window.pmDebug('error', 'Could not find password row for password toggle');
             return;
         }
 
         const textElement = valueContainer.querySelector('.password-text, .compact-text');
         if (!textElement) {
-            debug('error', 'Could not find text element for password toggle');
+            window.pmDebug('error', 'Could not find text element for password toggle');
             return;
         }
 
         const hiddenClass = this.isCompactMode ? 'compact-password-hidden' : 'password-hidden';
 
-        if (textElement.classList.contains(hiddenClass)) {
-            textElement.textContent = password.password;
+        const reveal = async () => {
+            let value = password.password;
+            if (!value) {
+                const decrypted = await this.fetchDecryptedPassword(passwordId);
+                value = decrypted?.password;
+            }
+            if (!value) value = '••••••••';
+            textElement.textContent = value;
             textElement.classList.remove(hiddenClass);
             button.innerHTML = this.svgEyeOff;
             button.title = this.t('hide_password');
@@ -1966,6 +1919,10 @@ async savePassword(e) {
                     button.title = this.t('reveal_password');
                 }
             }, 30000);
+        };
+
+        if (textElement.classList.contains(hiddenClass)) {
+            reveal().catch(() => {});
         } else {
             textElement.textContent = '••••••••';
             textElement.classList.add(hiddenClass);
@@ -1993,10 +1950,17 @@ async savePassword(e) {
         }
     }
 
-    copyField(passwordId, field) {
+    async copyField(passwordId, field) {
         const pwd = this.passwords.find(p => p.id === passwordId);
-        if (pwd && pwd[field]) {
-            this.copyToClipboard(pwd[field]);
+        if (!pwd) return;
+        let value = pwd[field];
+        if (!value) {
+            const decrypted = await this.fetchDecryptedPassword(passwordId);
+            value = decrypted ? decrypted[field] : null;
+        }
+        if (value) {
+            await this.copyToClipboard(value);
+            value = null;
         }
     }
 
@@ -2045,8 +2009,8 @@ async savePassword(e) {
 
         const icons = {
             success: { char: '✔', colorClass: 'icon-success' },
-            error:   { char: '✖', colorClass: 'icon-error' },
-            info:    { char: 'ℹ', colorClass: 'icon-info' }
+            error: { char: '✖', colorClass: 'icon-error' },
+            info: { char: 'ℹ', colorClass: 'icon-info' }
         };
         const { char, colorClass } = icons[type] || icons.info;
 

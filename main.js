@@ -21,6 +21,7 @@ const systemTools = require('./src/modules/system-tools');
 const spicetifyModule = require('./src/modules/spicetify');
 const archiveUtils = require('./src/modules/archive-utils');
 const sparkleModule = require('./src/modules/sparkle');
+const security = require('./src/modules/security');
 
 // Auto-updater
 const { autoUpdater } = require('electron-updater');
@@ -124,20 +125,20 @@ let updateWindow = null;
  */
 function getDocumentsPath() {
   const homedir = os.homedir();
-  
+
   // Check OneDrive paths first
   const oneDrivePaths = [
     path.join(homedir, 'OneDrive', 'Documents'),
     path.join(homedir, 'OneDrive - Personal', 'Documents')
   ];
-  
+
   for (const oneDrivePath of oneDrivePaths) {
     if (fs.existsSync(oneDrivePath)) {
       debug('info', 'Using OneDrive Documents path:', oneDrivePath);
       return oneDrivePath;
     }
   }
-  
+
   // Fallback to regular Documents
   debug('info', 'Using local Documents path');
   return path.join(homedir, 'Documents');
@@ -352,19 +353,23 @@ function createUpdateWindow() {
   });
 }
 
-function createPasswordManagerWindow() {
+function createPasswordManagerWindow(lang = 'en') {
   const passwordWindow = new BrowserWindow({
     width: 1600,
     height: 900,
     icon: path.join(__dirname, 'src', 'assets', 'icons', 'hacker.ico'),
     parent: mainWindow,
+    frame: false,
+    titleBarStyle: 'hidden',
+    autoHideMenuBar: true,
+    backgroundColor: '#0f1117',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true
     }
   });
-  passwordWindow.loadFile('password-manager/index.html');
+  passwordWindow.loadFile('password-manager/index.html', { query: { lang } });
   passwordWindow.setMenuBarVisibility(false);
 }
 
@@ -646,14 +651,23 @@ ipcMain.handle('run-command', async (event, command) => {
     return { error: `Command '${cmd}' is not allowed. Only winget is permitted.` };
   }
 
-  // Block dangerous shell characters
-  const dangerousPatterns = /[;&|`$><]/;
-  if (dangerousPatterns.test(command)) {
-    return { error: 'Command contains potentially dangerous characters' };
+  // Validate command arguments using security module
+  const args = parts.slice(1); // Get arguments (everything after command)
+  const argsValidation = security.validateCommandArgs(args);
+  if (!argsValidation.valid) {
+    return { error: argsValidation.error };
+  }
+
+  // Additional validation: check for path traversal in arguments
+  for (const arg of args) {
+    if (arg.includes('..')) {
+      return { error: 'Path traversal detected in command arguments' };
+    }
   }
 
   // Use shell: false for better security (spawn directly)
-  return processUtils.runSpawnCommand(parts.shift(), parts, { shell: false, windowsHide: true });
+  // This prevents shell injection attacks
+  return processUtils.runSpawnCommand(parts[0], args, { shell: false, windowsHide: true });
 });
 
 ipcMain.handle('run-christitus', async () => {
@@ -665,16 +679,53 @@ ipcMain.handle('open-external', async (event, url) => {
 });
 
 ipcMain.handle('open-file', async (event, filePath) => {
-  return new Promise((resolve) => {
-    if (process.platform === 'win32') {
-      exec(`start "" "${filePath}"`, (error) => {
-        resolve(error ? { success: false, error: error.message } : { success: true });
-      });
-    } else {
-      const cmd = process.platform === 'darwin' ? 'open' : 'xdg-open';
-      exec(`${cmd} "${filePath}"`, (error) => {
-        resolve(error ? { success: false, error: error.message } : { success: true });
-      });
+  return new Promise(async (resolve) => {
+    try {
+      if (typeof filePath !== 'string' || !filePath.trim()) {
+        return resolve({ success: false, error: 'Invalid file path' });
+      }
+
+      const expanded = fileUtils.expandEnvVars(filePath);
+
+      // Validate path
+      const validation = security.validatePath(expanded);
+      if (!validation.valid) {
+        return resolve({ success: false, error: validation.error });
+      }
+
+      const normalized = validation.normalized;
+
+      // Verify file exists
+      if (!fs.existsSync(normalized)) {
+        return resolve({ success: false, error: 'File does not exist' });
+      }
+
+      // Use shell.openPath which is safer than exec with string concatenation
+      if (process.platform === 'win32') {
+        // For Windows, use shell.openPath which handles paths safely
+        shell.openPath(normalized)
+          .then((errStr) => {
+            if (errStr) {
+              resolve({ success: false, error: errStr });
+            } else {
+              resolve({ success: true });
+            }
+          })
+          .catch((err) => {
+            resolve({ success: false, error: err.message });
+          });
+      } else {
+        const cmd = process.platform === 'darwin' ? 'open' : 'xdg-open';
+        // Use spawn instead of exec to avoid shell injection
+        const child = spawn(cmd, [normalized], { detached: true, stdio: 'ignore' });
+        child.on('error', (err) => {
+          resolve({ success: false, error: err.message });
+        });
+        child.unref();
+        resolve({ success: true });
+      }
+    } catch (err) {
+      resolve({ success: false, error: err.message });
     }
   });
 });
@@ -717,122 +768,259 @@ ipcMain.on('download-cancel', (event, id) => {
 // ============================================================================
 
 // Get asset path for images and other assets (works in both dev and production)
+// Returns file:// URL for use in <img> tags
 ipcMain.handle('get-asset-path', async (event, relativePath) => {
   const isDev = !app.isPackaged;
+  let assetPath;
   if (isDev) {
-    return path.join(__dirname, 'src', 'assets', relativePath);
+    assetPath = path.join(__dirname, 'src', 'assets', relativePath);
+  } else {
+    // In production: assets are in resources/src/assets (extraResources)
+    assetPath = path.join(process.resourcesPath, 'src', 'assets', relativePath);
   }
-  // In production: assets are in resources/src/assets (extraResources)
-  return path.join(process.resourcesPath, 'src', 'assets', relativePath);
+  // Convert to file:// URL for use in renderer
+  // Windows needs file:/// (3 slashes), Unix needs file:// (2 slashes)
+  const normalizedPath = assetPath.replace(/\\/g, '/');
+  if (process.platform === 'win32' && normalizedPath.match(/^[A-Za-z]:/)) {
+    return `file:///${normalizedPath}`;
+  }
+  return `file://${normalizedPath}`;
 });
 
 ipcMain.handle('file-exists', async (event, filePath) => {
   try {
+    if (typeof filePath !== 'string' || !filePath.trim()) {
+      return false;
+    }
+
     const expanded = fileUtils.expandEnvVars(filePath);
-    return fs.existsSync(expanded);
+
+    // Validate path before checking existence
+    const validation = security.validatePath(expanded);
+    if (!validation.valid) {
+      return false;
+    }
+
+    return fs.existsSync(validation.normalized);
   } catch {
     return false;
   }
 });
 
 ipcMain.handle('delete-file', async (event, filePath) => {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     try {
       if (typeof filePath !== 'string' || filePath.trim() === '') {
         return resolve({ success: false, error: 'Invalid file path' });
       }
-      fs.unlink(filePath, (err) => {
-        if (err) return resolve({ success: false, error: err.message });
+
+      // Expand environment variables
+      const expanded = fileUtils.expandEnvVars(filePath);
+
+      // Validate path with security module - use delete-specific validation
+      // Allow deletion in temp, downloads, and user directories
+      const allowedDirs = [
+        os.tmpdir(),
+        path.join(os.homedir(), 'Downloads'),
+        os.homedir()
+      ];
+
+      const validation = security.validateDeletePath(expanded, allowedDirs);
+      if (!validation.valid) {
+        return resolve({ success: false, error: validation.error, code: 'VALIDATION_FAILED' });
+      }
+
+      const normalizedPath = validation.normalized;
+
+      // Additional check: ensure file exists and is actually a file (not directory)
+      try {
+        const stats = fs.statSync(normalizedPath);
+        if (stats.isDirectory()) {
+          return resolve({ success: false, error: 'Cannot delete directory. Use rename-directory for directories.', code: 'IS_DIRECTORY' });
+        }
+      } catch (statErr) {
+        if (statErr.code === 'ENOENT') {
+          return resolve({ success: false, error: 'File does not exist', code: 'FILE_NOT_FOUND' });
+        }
+        return resolve({ success: false, error: `Cannot access file: ${statErr.message}`, code: 'ACCESS_ERROR' });
+      }
+
+      // Perform deletion
+      fs.unlink(normalizedPath, (err) => {
+        if (err) {
+          return resolve({ success: false, error: err.message, code: 'DELETE_FAILED' });
+        }
         resolve({ success: true });
       });
     } catch (err) {
-      resolve({ success: false, error: err.message });
+      resolve({ success: false, error: err.message, code: 'EXCEPTION' });
     }
   });
 });
 
 ipcMain.handle('rename-directory', async (event, { src, dest }) => {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     try {
       if (typeof src !== 'string' || typeof dest !== 'string' || !src || !dest) {
         return resolve({ success: false, error: 'Invalid source or destination' });
       }
+
+      // Expand environment variables
+      const srcExpanded = fileUtils.expandEnvVars(src);
+      const destExpanded = fileUtils.expandEnvVars(dest);
+
+      // Validate both paths
+      const srcValidation = security.validatePath(srcExpanded);
+      if (!srcValidation.valid) {
+        return resolve({ success: false, error: `Invalid source path: ${srcValidation.error}`, code: 'INVALID_SOURCE' });
+      }
+
+      const destValidation = security.validatePath(destExpanded);
+      if (!destValidation.valid) {
+        return resolve({ success: false, error: `Invalid destination path: ${destValidation.error}`, code: 'INVALID_DEST' });
+      }
+
+      const srcNormalized = srcValidation.normalized;
+      const destNormalized = destValidation.normalized;
+
+      // Verify source exists and is a directory
       try {
-        if (fs.existsSync(dest)) {
-          fs.rmSync(dest, { recursive: true, force: true });
+        const srcStats = fs.statSync(srcNormalized);
+        if (!srcStats.isDirectory()) {
+          return resolve({ success: false, error: 'Source is not a directory', code: 'NOT_DIRECTORY' });
         }
-      } catch { }
-      fs.rename(src, dest, (err) => {
-        if (err) return resolve({ success: false, error: err.message });
+      } catch (statErr) {
+        if (statErr.code === 'ENOENT') {
+          return resolve({ success: false, error: 'Source directory does not exist', code: 'SRC_NOT_FOUND' });
+        }
+        return resolve({ success: false, error: `Cannot access source: ${statErr.message}`, code: 'SRC_ACCESS_ERROR' });
+      }
+
+      // Remove destination if it exists (only if it's a directory)
+      try {
+        if (fs.existsSync(destNormalized)) {
+          const destStats = fs.statSync(destNormalized);
+          if (destStats.isDirectory()) {
+            fs.rmSync(destNormalized, { recursive: true, force: true });
+          } else {
+            return resolve({ success: false, error: 'Destination exists and is not a directory', code: 'DEST_EXISTS' });
+          }
+        }
+      } catch (rmErr) {
+        // If we can't remove, continue - rename might still work
+        debug('warn', 'Could not remove existing destination:', rmErr.message);
+      }
+
+      // Perform rename
+      fs.rename(srcNormalized, destNormalized, (err) => {
+        if (err) {
+          return resolve({ success: false, error: err.message, code: 'RENAME_FAILED' });
+        }
         resolve({ success: true });
       });
     } catch (err) {
-      resolve({ success: false, error: err.message });
+      resolve({ success: false, error: err.message, code: 'EXCEPTION' });
     }
   });
 });
 
 ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     try {
-      const src = fileUtils.expandEnvVars(sourcePath);
-      const dst = fileUtils.expandEnvVars(destPath);
+      // Expand environment variables first
+      const srcExpanded = fileUtils.expandEnvVars(sourcePath);
+      const dstExpanded = fileUtils.expandEnvVars(destPath);
 
-      // Validate paths don't contain dangerous patterns
-      const dangerousPatterns = [
-        /;/,           // Command separator
-        /\|/,          // Pipe
-        /`/,           // Backtick (PS escape)
-        /\$\(/,        // Subexpression
-        /\$\{/,        // Variable with braces
-      ];
-
-      for (const pattern of dangerousPatterns) {
-        if (pattern.test(src) || pattern.test(dst)) {
-          resolve({ success: false, error: 'Invalid characters in path', code: 'INVALID_PATH' });
-          return;
-        }
+      // Validate and normalize paths using security module
+      const srcValidation = security.validatePath(srcExpanded);
+      if (!srcValidation.valid) {
+        resolve({ success: false, error: srcValidation.error, code: 'INVALID_SOURCE_PATH' });
+        return;
       }
+
+      const dstValidation = security.validatePath(dstExpanded);
+      if (!dstValidation.valid) {
+        resolve({ success: false, error: dstValidation.error, code: 'INVALID_DEST_PATH' });
+        return;
+      }
+
+      const src = srcValidation.normalized;
+      const dst = dstValidation.normalized;
 
       debug('info', 'Replacing executable with elevated privileges:');
       debug('info', 'Source:', src);
       debug('info', 'Destination:', dst);
 
-      if (!fs.existsSync(src)) {
+      // Verify files exist
+      const srcExists = await security.validateFileExists(src);
+      if (!srcExists.valid || !srcExists.exists) {
         resolve({ success: false, error: `Source file not found: ${src}`, code: 'SRC_MISSING' });
         return;
       }
 
-      if (!fs.existsSync(dst)) {
+      const dstExists = await security.validateFileExists(dst);
+      if (!dstExists.valid || !dstExists.exists) {
         resolve({ success: false, error: `Destination file not found: ${dst}`, code: 'DEST_MISSING' });
         return;
       }
 
+      // Sanitize paths for PowerShell (properly escaped)
+      const srcSanitized = security.sanitizePathForPowerShell(src);
+      const dstSanitized = security.sanitizePathForPowerShell(dst);
+
+      if (!srcSanitized.valid || !dstSanitized.valid) {
+        resolve({ success: false, error: 'Failed to sanitize paths for PowerShell', code: 'SANITIZATION_FAILED' });
+        return;
+      }
+
+      // Use JSON file to pass parameters - much safer than command-line arguments
+      // This completely prevents injection attacks
+      const configFile = path.join(os.tmpdir(), `replace_exe_config_${Date.now()}.json`);
+      const config = {
+        sourcePath: src,
+        destPath: dst
+      };
+      fs.writeFileSync(configFile, JSON.stringify(config), 'utf8');
+
+      // PowerShell script reads from JSON file - no string interpolation
       const psScript = `
+$configPath = '${configFile.replace(/\\/g, '\\\\')}'
+$config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+$sourcePath = $config.sourcePath
+$destPath = $config.destPath
+
 try {
     Write-Output "Starting file replacement..."
-    Write-Output "Source: '${src}'"
-    Write-Output "Destination: '${dst}'"
+    Write-Output "Source: $sourcePath"
+    Write-Output "Destination: $destPath"
    
-    if (-not (Test-Path '${src}')) {
-        throw "Source file does not exist: '${src}'"
+    # Validate paths exist (defense in depth)
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+        throw "Source file does not exist: $sourcePath"
+    }
+    
+    if (-not (Test-Path -LiteralPath $destPath)) {
+        throw "Destination file does not exist: $destPath"
     }
    
     Write-Output "Taking ownership..."
-    & takeown /f '${dst}' /r /d y 2>&1 | Out-Null
+    & takeown /f $destPath /r /d y 2>&1 | Out-Null
    
-    & icacls '${dst}' /grant '%username%':F /T /C 2>&1 | Out-Null
+    $username = $env:USERNAME
+    & icacls $destPath /grant "${username}:F" /T /C 2>&1 | Out-Null
    
-    if (Test-Path '${dst}') {
+    if (Test-Path -LiteralPath $destPath) {
         Write-Output "Removing existing file..."
-        Remove-Item -Path '${dst}' -Force -ErrorAction Stop
+        Remove-Item -LiteralPath $destPath -Force -ErrorAction Stop
     }
    
     Write-Output "Copying new file..."
-    Copy-Item -Path '${src}' -Destination '${dst}' -Force -ErrorAction Stop
+    Copy-Item -LiteralPath $sourcePath -Destination $destPath -Force -ErrorAction Stop
    
-    if (Test-Path '${dst}') {
+    if (Test-Path -LiteralPath $destPath) {
         Write-Output "SUCCESS: File replacement completed"
+        # Cleanup config file
+        Remove-Item -LiteralPath $configPath -Force -ErrorAction SilentlyContinue
         exit 0
     } else {
         throw "File replacement failed - destination file not found"
@@ -840,15 +1028,21 @@ try {
 }
 catch {
     Write-Output "ERROR: $($_.Exception.Message)"
+    # Cleanup config file on error
+    Remove-Item -LiteralPath $configPath -Force -ErrorAction SilentlyContinue
     exit 1
 }
 `;
+
+      // Write the script to a temporary file
       const psFile = path.join(os.tmpdir(), `elevated_ps_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
 
+      // VBS script only needs to pass the script file - no user input
+      const escapedPsFile = psFile.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       const vbsScript = `
 Set UAC = CreateObject("Shell.Application")
-UAC.ShellExecute "powershell.exe", "-ExecutionPolicy Bypass -File ""${psFile.replace(/\\/g, '\\\\')}""", "", "runas", 1
+UAC.ShellExecute "powershell.exe", "-ExecutionPolicy Bypass -File ""${escapedPsFile}""", "", "runas", 1
 WScript.Sleep(3000)
 `;
       const vbsFile = path.join(os.tmpdir(), `elevate_${Date.now()}.vbs`);
@@ -860,6 +1054,7 @@ WScript.Sleep(3000)
         setTimeout(() => {
           try { fs.unlinkSync(vbsFile); } catch { }
           try { fs.unlinkSync(psFile); } catch { }
+          try { fs.unlinkSync(configFile); } catch { }
         }, 10000);
 
         if (error) {
@@ -1071,8 +1266,8 @@ ipcMain.handle('run-installer', async (event, filePath) => {
 // IPC Handlers - Password Manager
 // ============================================================================
 
-ipcMain.handle('open-password-manager', async () => {
-  createPasswordManagerWindow();
+ipcMain.handle('open-password-manager', async (_event, lang = 'en') => {
+  createPasswordManagerWindow(lang);
   return { success: true };
 });
 
@@ -1142,12 +1337,17 @@ ipcMain.handle('password-manager-validate-password', async (event, password) => 
 ipcMain.handle('password-manager-get-categories', async () => {
   return new Promise((resolve) => {
     const db = new PasswordManagerDB(pmAuth);
+    let finished = false;
     const timeout = setTimeout(() => {
+      if (finished) return;
+      finished = true;
       db.close();
       resolve({ success: false, error: 'Database timeout' });
     }, 10000);
 
     db.getCategories((err, rows) => {
+      if (finished) return;
+      finished = true;
       clearTimeout(timeout);
       db.close();
       if (err) {
@@ -1205,12 +1405,17 @@ ipcMain.handle('password-manager-delete-category', async (event, id) => {
 ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all') => {
   return new Promise((resolve) => {
     const db = new PasswordManagerDB(pmAuth);
+    let finished = false;
     const timeout = setTimeout(() => {
+      if (finished) return;
+      finished = true;
       db.close();
       resolve({ success: false, error: 'Database timeout' });
     }, 10000);
 
     db.getPasswordsByCategory(categoryId, (err, rows) => {
+      if (finished) return;
+      finished = true;
       clearTimeout(timeout);
       db.close();
       if (err) {
@@ -1223,15 +1428,34 @@ ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all
   });
 });
 
+ipcMain.handle('password-manager-get-password', async (event, id) => {
+  return new Promise((resolve) => {
+    const db = new PasswordManagerDB(pmAuth);
+    db.getPasswordById(id, (err, row) => {
+      db.close();
+      if (err) {
+        resolve({ success: false, error: err.message });
+      } else {
+        resolve({ success: true, password: row });
+      }
+    });
+  });
+});
+
 ipcMain.handle('password-manager-add-password', async (event, passwordData) => {
   return new Promise((resolve) => {
     const db = new PasswordManagerDB(pmAuth);
+    let finished = false;
     const timeout = setTimeout(() => {
+      if (finished) return;
+      finished = true;
       db.close();
       resolve({ success: false, error: 'Database timeout' });
     }, 10000);
 
     db.addPassword(passwordData, function (err) {
+      if (finished) return;
+      finished = true;
       clearTimeout(timeout);
       db.close();
       if (err) {
