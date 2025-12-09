@@ -171,9 +171,30 @@ function runElevatedPowerShellScriptHidden(psScript, successMessage, failureMess
     }
     
     let psFile;
+    let resultFile;
+    let startedFile;
     try {
-      psFile = path.join(os.tmpdir(), `${Date.now()}_elevated.ps1`);
-      fs.writeFileSync(psFile, psScript, 'utf8');
+      const timestamp = Date.now();
+      psFile = path.join(os.tmpdir(), `${timestamp}_elevated.ps1`);
+      // Write result next to the script to avoid temp-profile differences when elevated
+      resultFile = `${psFile}.result`;
+      startedFile = `${psFile}.started`;
+      
+      // Wrap the script to write markers for UAC detection
+      const wrappedScript = `
+# Write started marker immediately (proves UAC was accepted)
+"STARTED" | Out-File -FilePath "${startedFile.replace(/\\/g, '\\\\')}" -Encoding UTF8
+try {
+${psScript}
+    "SUCCESS" | Out-File -FilePath "${resultFile.replace(/\\/g, '\\\\')}" -Encoding UTF8
+    exit 0
+} catch {
+    "FAILED: $($_.Exception.Message)" | Out-File -FilePath "${resultFile.replace(/\\/g, '\\\\')}" -Encoding UTF8
+    exit 1
+}
+`;
+      
+      fs.writeFileSync(psFile, wrappedScript, 'utf8');
       
       const escapedPsFile = psFile.replace(/"/g, '\\"');
       const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Hidden -Wait`;
@@ -182,6 +203,7 @@ function runElevatedPowerShellScriptHidden(psScript, successMessage, failureMess
       
       child.on('error', () => {
         try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+        try { if (resultFile && fs.existsSync(resultFile)) fs.unlinkSync(resultFile); } catch { }
         resolve({ 
           success: false, 
           error: 'Administrator privileges required. Please accept the UAC prompt.', 
@@ -189,16 +211,79 @@ function runElevatedPowerShellScriptHidden(psScript, successMessage, failureMess
         });
       });
       
-      child.on('exit', (code) => {
-        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-        if (code === 0) {
-          resolve({ success: true, message: successMessage });
-        } else {
-          resolve({ success: false, error: failureMessage, code: 'PROCESS_FAILED' });
-        }
+      child.on('exit', () => {
+        // Poll for result file instead of fixed delay
+        const maxWait = 60000; // 60 seconds max for long operations
+        const uacTimeout = 1500; // 1.5 seconds to detect UAC rejection
+        const pollInterval = 150; // Check every 150ms
+        let waited = 0;
+        let scriptStarted = false;
+        
+        const cleanup = () => {
+          try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+          try { if (startedFile && fs.existsSync(startedFile)) fs.unlinkSync(startedFile); } catch { }
+        };
+        
+        const checkResult = () => {
+          try {
+            // Check if script started (UAC was accepted)
+            if (!scriptStarted && fs.existsSync(startedFile)) {
+              scriptStarted = true;
+            }
+            
+            // Check for completion
+            if (fs.existsSync(resultFile)) {
+              const result = fs.readFileSync(resultFile, 'utf8').trim();
+              cleanup();
+              try { fs.unlinkSync(resultFile); } catch { }
+              
+              if (result.startsWith('SUCCESS')) {
+                resolve({ success: true, message: successMessage });
+              } else {
+                resolve({ success: false, error: failureMessage, code: 'SCRIPT_FAILED' });
+              }
+              return;
+            }
+            
+            waited += pollInterval;
+            
+            // Quick UAC rejection detection
+            if (!scriptStarted && waited >= uacTimeout) {
+              cleanup();
+              resolve({
+                success: false,
+                error: 'Administrator privileges required. Please accept the UAC prompt.',
+                code: 'UAC_DENIED'
+              });
+              return;
+            }
+            
+            // Max timeout for long-running scripts
+            if (waited >= maxWait) {
+              cleanup();
+              resolve({
+                success: false,
+                error: 'Operation timed out.',
+                code: 'TIMEOUT'
+              });
+              return;
+            }
+            
+            // Keep polling
+            setTimeout(checkResult, pollInterval);
+          } catch (readError) {
+            cleanup();
+            resolve({ success: false, error: 'Could not verify operation: ' + readError.message });
+          }
+        };
+        
+        // Start polling immediately
+        setTimeout(checkResult, 100);
       });
     } catch (error) {
       try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+      try { if (resultFile && fs.existsSync(resultFile)) fs.unlinkSync(resultFile); } catch { }
+      try { if (startedFile && fs.existsSync(startedFile)) fs.unlinkSync(startedFile); } catch { }
       resolve({ success: false, error: 'Failed to start process: ' + error.message });
     }
   });

@@ -3,36 +3,10 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-// Modern debug logger with emojis and color-coded styles.
-function debug(level, ...args) {
-    const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
-    const colorMap = {
-        info: 'color:#2196F3; font-weight:bold;',
-        warn: 'color:#FF9800; font-weight:bold;',
-        error: 'color:#F44336; font-weight:bold;',
-        success: 'color:#4CAF50; font-weight:bold;'
-    };
-    const emoji = emojiMap[level] || '';
-    const style = colorMap[level] || '';
-    const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
-    if (isBrowser) {
-        const fn =
-            level === 'error'
-                ? console.error
-                : level === 'warn'
-                ? console.warn
-                : console.log;
-        fn.call(console, `%c${emoji}`, style, ...args);
-    } else {
-        const fn =
-            level === 'error'
-                ? console.error
-                : level === 'warn'
-                ? console.warn
-                : console.log;
-        fn.call(console, `${emoji}`, ...args);
-    }
-}
+// ✅ Import debug from the shared module
+const { debug } = require('../src/modules/debug');
+
+// ❌ ΔΙΑΓΡΑΦΗ: Αφαίρεσε ολόκληρη τη function debug (γραμμές 7-35)
 
 class PasswordManagerDB {
     constructor(authManager) {
@@ -154,9 +128,9 @@ class PasswordManagerDB {
         try {
             const documentsPath = this.getDocumentsPath();
             this.dbDirectory = path.join(documentsPath, 'MakeYourLifeEasier');
-            
+
             debug('info', 'Database directory:', this.dbDirectory);
-            
+
             if (!fs.existsSync(this.dbDirectory)) {
                 // Inform when the database directory is first created
                 debug('info', 'Creating database directory...');
@@ -166,7 +140,7 @@ class PasswordManagerDB {
             // Compose database path
             const dbPath = path.join(this.dbDirectory, 'password_manager.db');
             debug('info', 'Database path:', dbPath);
-            
+
             return new Promise((resolve, reject) => {
                 this.db = new sqlite3.Database(dbPath, (err) => {
                     if (err) {
@@ -276,7 +250,7 @@ class PasswordManagerDB {
                             this.db.run("BEGIN TRANSACTION");
                             this.db.run("INSERT INTO categories (name) VALUES (?)", ["email"]);
                             this.db.run("INSERT INTO categories (name) VALUES (?)", ["social media"]);
-                            this.db.run("INSERT INTO categories (name) VALUES (?)", ["gaming"], function(err) {
+                            this.db.run("INSERT INTO categories (name) VALUES (?)", ["gaming"], function (err) {
                                 if (err) {
                                     debug('error', 'Error inserting default categories:', err);
                                     this.db.run("ROLLBACK");
@@ -314,12 +288,12 @@ class PasswordManagerDB {
     async getCategories(callback) {
         try {
             await this.waitForDB();
-            
+
             if (!this.db) {
                 callback(new Error('Database not initialized'), null);
                 return;
             }
-            
+
             this.db.all("SELECT * FROM categories ORDER BY name", callback);
         } catch (error) {
             callback(error, null);
@@ -329,12 +303,12 @@ class PasswordManagerDB {
     async addCategory(name, callback) {
         try {
             await this.waitForDB();
-            
+
             if (!this.db) {
                 callback(new Error('Database not initialized'), null);
                 return;
             }
-            
+
             this.db.run("INSERT INTO categories (name) VALUES (?)", [name], callback);
         } catch (error) {
             callback(error, null);
@@ -344,12 +318,12 @@ class PasswordManagerDB {
     async updateCategory(id, name, callback) {
         try {
             await this.waitForDB();
-            
+
             if (!this.db) {
                 callback(new Error('Database not initialized'), null);
                 return;
             }
-            
+
             this.db.run("UPDATE categories SET name = ? WHERE id = ?", [name, id], callback);
         } catch (error) {
             callback(error, null);
@@ -359,12 +333,12 @@ class PasswordManagerDB {
     async deleteCategory(id, callback) {
         try {
             await this.waitForDB();
-            
+
             if (!this.db) {
                 callback(new Error('Database not initialized'), null);
                 return;
             }
-            
+
             this.db.run("UPDATE passwords SET category_id = NULL WHERE category_id = ?", [id], (err) => {
                 if (err) return callback(err);
                 this.db.run("DELETE FROM categories WHERE id = ?", [id], callback);
@@ -377,7 +351,7 @@ class PasswordManagerDB {
     async getPasswords(callback) {
         try {
             await this.waitForDB();
-            
+
             if (!this.db) {
                 callback(new Error('Database not initialized'), null);
                 return;
@@ -415,7 +389,7 @@ class PasswordManagerDB {
     async getPasswordsByCategory(categoryId, callback) {
         try {
             await this.waitForDB();
-            
+
             if (!this.db) {
                 callback(new Error('Database not initialized'), null);
                 return;
@@ -455,7 +429,7 @@ class PasswordManagerDB {
     async addPassword(passwordData, callback) {
         try {
             await this.waitForDB();
-            
+
             if (!this.db) {
                 callback(new Error('Database not initialized'), null);
                 return;
@@ -500,7 +474,7 @@ class PasswordManagerDB {
     async updatePassword(id, passwordData, callback) {
         try {
             await this.waitForDB();
-            
+
             if (!this.db) {
                 callback(new Error('Database not initialized'), null);
                 return;
@@ -542,12 +516,12 @@ class PasswordManagerDB {
     async deletePassword(id, callback) {
         try {
             await this.waitForDB();
-            
+
             if (!this.db) {
                 callback(new Error('Database not initialized'), null);
                 return;
             }
-            
+
             this.db.run("DELETE FROM passwords WHERE id = ?", [id], callback);
         } catch (error) {
             callback(error, null);
@@ -557,13 +531,13 @@ class PasswordManagerDB {
     async searchPasswords(query, callback) {
         try {
             await this.waitForDB();
-            
+
             if (!this.db) {
                 callback(new Error('Database not initialized'), null);
                 return;
             }
 
-            const searchTerm = `%${query}%`;
+            // Get all passwords first (they need to be decrypted for full search)
             this.db.all(`
                 SELECT p.id,
                        p.category_id,
@@ -575,9 +549,30 @@ class PasswordManagerDB {
                        p.updated_at
                 FROM passwords p
                 LEFT JOIN categories c ON p.category_id = c.id
-                WHERE p.title LIKE ?
                 ORDER BY p.title
-            `, [searchTerm], callback);
+            `, (err, rows) => {
+                if (err) {
+                    callback(err, null);
+                    return;
+                }
+
+                // Decrypt all rows
+                const processedRows = rows.map(row => this._processRow(row));
+
+                // Filter by query (search in title, username, email, url, notes)
+                const queryLower = query.toLowerCase();
+                const filteredRows = processedRows.filter(row => {
+                    return (
+                        (row.title && row.title.toLowerCase().includes(queryLower)) ||
+                        (row.username && row.username.toLowerCase().includes(queryLower)) ||
+                        (row.email && row.email.toLowerCase().includes(queryLower)) ||
+                        (row.url && row.url.toLowerCase().includes(queryLower)) ||
+                        (row.notes && row.notes.toLowerCase().includes(queryLower))
+                    );
+                });
+
+                callback(null, filteredRows);
+            });
         } catch (error) {
             callback(error, null);
         }

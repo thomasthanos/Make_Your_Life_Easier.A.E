@@ -3,36 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Modern debug logger for auth operations with emojis and color-coded styles.
-function debug(level, ...args) {
-    const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
-    const colorMap = {
-        info: 'color:#2196F3; font-weight:bold;',
-        warn: 'color:#FF9800; font-weight:bold;',
-        error: 'color:#F44336; font-weight:bold;',
-        success: 'color:#4CAF50; font-weight:bold;'
-    };
-    const emoji = emojiMap[level] || '';
-    const style = colorMap[level] || '';
-    const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
-    if (isBrowser) {
-        const fn =
-            level === 'error'
-                ? console.error
-                : level === 'warn'
-                ? console.warn
-                : console.log;
-        fn.call(console, `%c${emoji}`, style, ...args);
-    } else {
-        const fn =
-            level === 'error'
-                ? console.error
-                : level === 'warn'
-                ? console.warn
-                : console.log;
-        fn.call(console, `${emoji}`, ...args);
-    }
-}
+// Import debug from the shared module
+const { debug } = require('../src/modules/debug');
 
 class PasswordManagerAuth {
     constructor() {
@@ -40,31 +12,40 @@ class PasswordManagerAuth {
         this.encryptionKey = null;
         this.sessionTimeout = 30 * 60 * 1000;
         this.sessionTimer = null;
-        
-        // Auto-initialize on creation
-        this.initialize();
+        this.dbDirectory = null;
+        this.configPath = null;
     }
 
-    initialize() {
+    /**
+     * Initialize the auth manager with a custom directory path
+     * @param {string} customPath - Optional custom directory path
+     */
+    initialize(customPath = null) {
+        // Skip if already initialized with valid paths
+        if (this.configPath && !customPath) {
+            debug('info', 'Auth manager already initialized');
+            return;
+        }
+
         try {
-            // Χρήση της ίδιας λογικής με το database.js για OneDrive
-            this.dbDirectory = this.getDocumentsPath();
+            // Use custom path or detect Documents path
+            this.dbDirectory = customPath || this.getDocumentsPath();
             this.configPath = path.join(this.dbDirectory, 'pm_config.json');
-            
-            debug('info', 'Auto-initializing auth manager...');
+
+            debug('info', 'Initializing auth manager...');
             debug('info', 'Config path:', this.configPath);
-            
-            // Δημιουργία directory αν δεν υπάρχει
+
+            // Create directory if it doesn't exist
             if (!fs.existsSync(this.dbDirectory)) {
                 fs.mkdirSync(this.dbDirectory, { recursive: true });
             }
-            
+
             debug('success', 'Auth manager initialized successfully');
         } catch (error) {
-            debug('error', 'Error auto-initializing auth manager:', error);
+            debug('error', 'Error initializing auth manager:', error);
         }
     }
-    
+
     getDocumentsPath() {
         // Try to get OneDrive Documents path first
         const oneDrivePaths = [
@@ -199,12 +180,12 @@ class PasswordManagerAuth {
             const hkdf = crypto.createHmac('sha256', password);
             hkdf.update(salt);
             const pseudoRandomKey = hkdf.digest();
-            
+
             // Δημιουργία τελικού κλειδιού AES-256
             const finalHkdf = crypto.createHmac('sha256', pseudoRandomKey);
             finalHkdf.update('encryption-key');
             this.encryptionKey = finalHkdf.digest();
-            
+
             debug('success', 'Encryption key generated successfully');
         } catch (error) {
             debug('error', 'Error generating encryption key:', error);
@@ -213,12 +194,12 @@ class PasswordManagerAuth {
     }
 
     // Κρυπτογράφηση δεδομένων
-// Στο encryptData method:
-encryptData(data) {
-    if (!this.isAuthenticated || !this.encryptionKey) {
-        debug('error', 'Cannot encrypt: Not authenticated or no encryption key');
-        throw new Error('Δεν έχετε πιστοποιηθεί');
-    }
+    // Στο encryptData method:
+    encryptData(data) {
+        if (!this.isAuthenticated || !this.encryptionKey) {
+            debug('error', 'Cannot encrypt: Not authenticated or no encryption key');
+            throw new Error('Δεν έχετε πιστοποιηθεί');
+        }
 
         try {
             // Perform AES‑256‑GCM encryption.  Avoid logging sensitive
@@ -239,7 +220,7 @@ encryptData(data) {
             debug('error', 'Encryption error');
             throw error;
         }
-}
+    }
 
     // Αποκρυπτογράφηση δεδομένων
     decryptData(encryptedData) {
@@ -250,13 +231,13 @@ encryptData(data) {
         try {
             const iv = Buffer.from(encryptedData.iv, 'hex');
             const authTag = Buffer.from(encryptedData.authTag, 'hex');
-            
+
             const decipher = crypto.createDecipheriv('aes-256-gcm', this.encryptionKey, iv);
             decipher.setAuthTag(authTag);
-            
+
             let decrypted = decipher.update(encryptedData.data, 'hex', 'utf8');
             decrypted += decipher.final('utf8');
-            
+
             return JSON.parse(decrypted);
         } catch (error) {
             debug('error', 'Decryption error:', error);
@@ -269,7 +250,7 @@ encryptData(data) {
         if (this.sessionTimer) {
             clearTimeout(this.sessionTimer);
         }
-        
+
         this.sessionTimer = setTimeout(() => {
             debug('warn', 'Session expired');
             this.logout();
@@ -280,18 +261,18 @@ encryptData(data) {
     logout() {
         debug('info', 'Logging out...');
         this.isAuthenticated = false;
-        
+
         // Ασφαλής εκκαθάριση κλειδιού από μνήμη
         if (this.encryptionKey) {
             this.encryptionKey.fill(0);
             this.encryptionKey = null;
         }
-        
+
         if (this.sessionTimer) {
             clearTimeout(this.sessionTimer);
             this.sessionTimer = null;
         }
-        
+
         debug('success', 'Logout completed');
     }
 
@@ -303,10 +284,10 @@ encryptData(data) {
 
         // Επαλήθευση τρέχοντος κωδικού
         await this.authenticate(currentPassword);
-        
+
         // Δημιουργία νέου Master Password
         await this.createMasterPassword(newPassword);
-        
+
         return true;
     }
 
@@ -321,7 +302,7 @@ encryptData(data) {
         };
 
         const strength = Object.values(requirements).filter(Boolean).length;
-        
+
         return {
             requirements,
             strength,

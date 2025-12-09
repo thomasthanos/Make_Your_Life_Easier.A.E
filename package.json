@@ -114,7 +114,7 @@
       "deleteAppDataOnUninstall": true,
       "include": "build/installer.nsh",
       "guid": "MakeYourLifeEasier",
-      "uninstallDisplayName": "Make Your Life Easier 3.4.0",
+      "uninstallDisplayName": "Make Your Life Easier ${version}",
       "uninstallUrlHelp": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/copyright.html",
       "uninstallUrlInfoAbout": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/info/info.html",
       "uninstallUrlReadme": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/readme.html",

@@ -54,8 +54,10 @@ autoUpdater.autoInstallOnAppQuit = false;
 
 let updateAvailable = false;
 let pendingUpdateInfo = null;
-let isManualCheck = false;
 let updateDownloaded = false;
+
+// ❌ ΔΙΑΓΡΑΦΗ: Αφαίρεσε αυτή τη γραμμή
+// let currentManualCheckId = null;
 
 // ============================================================================
 // Updater Cache Cleanup
@@ -70,15 +72,15 @@ function cleanupUpdaterCache() {
     // electron-updater stores cache in Local AppData, not Roaming
     const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
     const updaterCachePath = path.join(localAppData, 'make-your-life-easier-updater');
-    
+
     if (fs.existsSync(updaterCachePath)) {
       const files = fs.readdirSync(updaterCachePath);
       let cleanedSize = 0;
-      
+
       for (const file of files) {
         const filePath = path.join(updaterCachePath, file);
         const stat = fs.statSync(filePath);
-        
+
         if (stat.isDirectory()) {
           fs.rmSync(filePath, { recursive: true, force: true });
           debug('info', `Cleaned updater cache directory: ${file}`);
@@ -88,12 +90,12 @@ function cleanupUpdaterCache() {
           debug('info', `Cleaned updater cache file: ${file}`);
         }
       }
-      
+
       if (cleanedSize > 0) {
         const sizeMB = (cleanedSize / (1024 * 1024)).toFixed(2);
         debug('success', `Updater cache cleaned: ${sizeMB} MB freed`);
       }
-      
+
       // Remove the empty directory itself
       try {
         fs.rmdirSync(updaterCachePath);
@@ -135,8 +137,6 @@ autoUpdater.on('checking-for-update', () => {
   debug('info', 'Checking for updates...');
   if (updateWindow) {
     updateWindow.webContents.send('update-status', { status: 'checking', message: 'Checking for updates...' });
-  } else if (mainWindow && isManualCheck) {
-    mainWindow.webContents.send('update-status', { status: 'checking', message: 'Checking for updates...' });
   }
 });
 
@@ -197,15 +197,8 @@ autoUpdater.on('update-not-available', (info) => {
         }, 500);
       });
     }
-    return;
   }
-
-  if (mainWindow && isManualCheck) {
-    mainWindow.webContents.send('update-status', {
-      status: 'not-available',
-      message: 'You are running the latest version'
-    });
-  }
+  // ❌ ΔΙΑΓΡΑΦΗ: Αφαίρεσε τον έλεγχο για manual check εδώ
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
@@ -373,7 +366,9 @@ app.whenReady().then(() => {
   // Initialize user profile
   try {
     userProfile.initialize(app.getPath('userData'));
-  } catch { }
+  } catch (err) {
+    debug('warn', 'Failed to initialize user profile:', err.message);
+  }
 
   if (skipUpdater) {
     createMainWindow();
@@ -506,15 +501,13 @@ ipcMain.handle('window-animate-resize', (event, { width, height, duration = 200 
 // IPC Handlers - Auto-Updater
 // ============================================================================
 
+// ✅ Απλοποιημένος handler - απλά κάνει check, χωρίς complex logic
 ipcMain.handle('check-for-updates', async () => {
   try {
-    isManualCheck = true;
     await autoUpdater.checkForUpdates();
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
-  } finally {
-    isManualCheck = false;
   }
 });
 
@@ -619,12 +612,24 @@ ipcMain.handle('run-command', async (event, command) => {
   if (typeof command !== 'string' || !command.trim()) {
     return { error: 'Invalid command' };
   }
-  if (/[^a-zA-Z0-9_\.\-\s\=\:]/i.test(command)) {
-    return { error: 'Command contains invalid characters' };
-  }
+
+  // Whitelist of allowed commands (for security)
+  const allowedCommands = ['winget'];
   const parts = command.trim().split(/\s+/);
-  const cmd = parts.shift();
-  return processUtils.runSpawnCommand(cmd, parts, { shell: true, windowsHide: true });
+  const cmd = parts[0].toLowerCase();
+
+  if (!allowedCommands.includes(cmd)) {
+    return { error: `Command '${cmd}' is not allowed. Only winget is permitted.` };
+  }
+
+  // Block dangerous shell characters
+  const dangerousPatterns = /[;&|`$><]/;
+  if (dangerousPatterns.test(command)) {
+    return { error: 'Command contains potentially dangerous characters' };
+  }
+
+  // Use shell: false for better security (spawn directly)
+  return processUtils.runSpawnCommand(parts.shift(), parts, { shell: false, windowsHide: true });
 });
 
 ipcMain.handle('run-christitus', async () => {
@@ -748,6 +753,22 @@ ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
     try {
       const src = fileUtils.expandEnvVars(sourcePath);
       const dst = fileUtils.expandEnvVars(destPath);
+
+      // Validate paths don't contain dangerous patterns
+      const dangerousPatterns = [
+        /;/,           // Command separator
+        /\|/,          // Pipe
+        /`/,           // Backtick (PS escape)
+        /\$\(/,        // Subexpression
+        /\$\{/,        // Variable with braces
+      ];
+
+      for (const pattern of dangerousPatterns) {
+        if (pattern.test(src) || pattern.test(dst)) {
+          resolve({ success: false, error: 'Invalid characters in path', code: 'INVALID_PATH' });
+          return;
+        }
+      }
 
       debug('info', 'Replacing executable with elevated privileges:');
       debug('info', 'Source:', src);

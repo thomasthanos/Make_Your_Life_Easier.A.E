@@ -13,6 +13,9 @@ const activeDownloads = new Map();
 const downloadedFiles = [];
 const extractedDirs = [];
 
+// Maximum items to track (prevent unbounded growth)
+const MAX_TRACKED_ITEMS = 50;
+
 /**
  * Start a download
  * @param {string} id - Unique download identifier
@@ -22,7 +25,7 @@ const extractedDirs = [];
  */
 function startDownload(id, url, dest, mainWindow) {
   const downloadsDir = path.join(os.homedir(), 'Downloads');
-  
+
   const start = (downloadUrl) => {
     const req = clientFor(downloadUrl).get(downloadUrl, (res) => {
       // Handle HTTP redirects (3xx)
@@ -32,7 +35,7 @@ function startDownload(id, url, dest, mainWindow) {
         start(nextUrl);
         return;
       }
-      
+
       if (res.statusCode !== 200) {
         mainWindow.webContents.send('download-event', { id, status: 'error', error: `HTTP ${res.statusCode}` });
         return;
@@ -43,7 +46,7 @@ function startDownload(id, url, dest, mainWindow) {
       let finalPath;
       let finalName;
       let destDirForCleanup;
-      
+
       if (isAbsolute) {
         finalPath = dest;
         finalName = path.basename(dest);
@@ -59,20 +62,20 @@ function startDownload(id, url, dest, mainWindow) {
         finalPath = path.join(downloadsDir, finalName);
         destDirForCleanup = downloadsDir;
       }
-      
+
       const tempPath = finalPath + '.part';
-      
+
       // Cleanup existing files
       removeFileIfExistsSync(finalPath);
       cleanupExtractDirs(finalName, destDirForCleanup);
-      
+
       const total = parseInt(res.headers['content-length'] || '0', 10);
       const file = fs.createWriteStream(tempPath);
       const d = { response: res, file, total, received: 0, paused: false, filePath: tempPath, finalPath };
       activeDownloads.set(id, d);
-      
+
       mainWindow.webContents.send('download-event', { id, status: 'started', total });
-      
+
       const cleanup = (errMsg) => {
         try { res.removeAllListeners(); res.destroy(); } catch { }
         try {
@@ -87,7 +90,7 @@ function startDownload(id, url, dest, mainWindow) {
           mainWindow.webContents.send('download-event', { id, status: 'error', error: errMsg });
         }
       };
-      
+
       res.on('data', (chunk) => {
         if (d.paused) return;
         d.received += chunk.length;
@@ -96,31 +99,34 @@ function startDownload(id, url, dest, mainWindow) {
           mainWindow.webContents.send('download-event', { id, status: 'progress', percent });
         }
       });
-      
+
       res.on('error', (err) => cleanup(err.message));
       file.on('error', (err) => cleanup(err.message));
       res.pipe(file);
-      
+
       file.once('finish', () => {
         file.close(() => {
           fs.rename(tempPath, finalPath, (err) => {
             if (err) { cleanup(err.message); return; }
             activeDownloads.delete(id);
-            try { downloadedFiles.push(finalPath); } catch { }
+
+            // ✅ Track with limit
+            trackDownloadedFile(finalPath);
+
             mainWindow.webContents.send('download-event', { id, status: 'complete', path: finalPath });
           });
         });
       });
     });
-    
+
     req.on('error', (err) => {
       activeDownloads.delete(id);
       mainWindow.webContents.send('download-event', { id, status: 'error', error: err.message });
     });
   };
-  
-  try { 
-    start(url); 
+
+  try {
+    start(url);
   } catch (e) {
     mainWindow.webContents.send('download-event', { id, status: 'error', error: e.message });
   }
@@ -183,6 +189,36 @@ function cancelDownload(id, mainWindow) {
 }
 
 /**
+ * Track a downloaded file with size limit
+ * @param {string} filePath - File path to track
+ */
+function trackDownloadedFile(filePath) {
+  if (!downloadedFiles.includes(filePath)) {
+    downloadedFiles.push(filePath);
+
+    // ✅ Remove oldest entries if over limit
+    while (downloadedFiles.length > MAX_TRACKED_ITEMS) {
+      downloadedFiles.shift();
+    }
+  }
+}
+
+/**
+ * Add a directory to the extraction tracking list
+ * @param {string} dirPath - Directory path
+ */
+function trackExtractedDir(dirPath) {
+  if (!extractedDirs.includes(dirPath)) {
+    extractedDirs.push(dirPath);
+
+    // ✅ Remove oldest entries if over limit
+    while (extractedDirs.length > MAX_TRACKED_ITEMS) {
+      extractedDirs.shift();
+    }
+  }
+}
+
+/**
  * Cleanup downloaded files on app quit
  * @param {Function} debug - Debug logging function
  */
@@ -205,7 +241,7 @@ function cleanupOnQuit(debug) {
       tryRemovePath(altFilePath);
     }
   }
-  
+
   for (const dirPath of extractedDirs) {
     tryRemovePath(dirPath);
     const altDirPath = dirPath.replace(/_/g, ' ');
@@ -213,15 +249,29 @@ function cleanupOnQuit(debug) {
       tryRemovePath(altDirPath);
     }
   }
+
+  // ✅ Clear arrays after cleanup
+  downloadedFiles.length = 0;
+  extractedDirs.length = 0;
 }
 
 /**
- * Add a directory to the extraction tracking list
- * @param {string} dirPath - Directory path
+ * Remove entries for files that no longer exist
+ * Call this periodically or before adding new entries
  */
-function trackExtractedDir(dirPath) {
-  if (!extractedDirs.includes(dirPath)) {
-    extractedDirs.push(dirPath);
+function pruneNonExistentPaths() {
+  // Clean downloadedFiles
+  for (let i = downloadedFiles.length - 1; i >= 0; i--) {
+    if (!fs.existsSync(downloadedFiles[i])) {
+      downloadedFiles.splice(i, 1);
+    }
+  }
+
+  // Clean extractedDirs
+  for (let i = extractedDirs.length - 1; i >= 0; i--) {
+    if (!fs.existsSync(extractedDirs[i])) {
+      extractedDirs.splice(i, 1);
+    }
   }
 }
 
@@ -246,6 +296,8 @@ module.exports = {
   cancelDownload,
   cleanupOnQuit,
   trackExtractedDir,
+  trackDownloadedFile,      // ✅ Export new function
+  pruneNonExistentPaths,    // ✅ Export new function
   getDownloadedFiles,
   getExtractedDirs
 };

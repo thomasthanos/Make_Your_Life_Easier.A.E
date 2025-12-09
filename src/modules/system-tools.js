@@ -8,6 +8,7 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const { runElevatedPowerShellScript, runElevatedPowerShellScriptHidden, getPowerShellExe, runSpawnCommand, attachChildProcessHandlers, stripAnsiCodes } = require('./process-utils');
+const { debug } = require('./debug');
 
 /**
  * Run SFC scan with elevation
@@ -64,58 +65,137 @@ async function runTempCleanup() {
     return { success: false, error: 'This feature is only available on Windows' };
   }
 
+  const timestamp = Date.now();
+  const logFile = path.join(os.tmpdir(), `cleanup_log_${timestamp}.txt`);
+  const logFileEscaped = logFile.replace(/\\/g, '\\\\');
+
   const psScript = `
-Write-Host "=== TEMPORARY FILES CLEANUP ===" -ForegroundColor Cyan
-Write-Host "Running with Administrator privileges..." -ForegroundColor Green
-Write-Host ""
+$logFile = "${logFileEscaped}"
+$log = @()
+$log += "=== TEMPORARY FILES CLEANUP ==="
+$log += "Started at: $(Get-Date)"
+$log += ""
+
+$totalCleaned = 0
+$totalErrors = 0
 
 # 1. Clean Recent files
-Write-Host "1. Cleaning Recent files..." -ForegroundColor Yellow
-if (Test-Path "$env:USERPROFILE\\Recent") {
-    Get-ChildItem "$env:USERPROFILE\\Recent\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-    Write-Host "   ✓ Recent files cleaned" -ForegroundColor Green
+$log += "1. Cleaning Recent files..."
+$recentPath = [System.IO.Path]::Combine($env:APPDATA, "Microsoft", "Windows", "Recent")
+if (Test-Path $recentPath) {
+    try {
+        $items = Get-ChildItem $recentPath -Force -ErrorAction SilentlyContinue
+        $count = ($items | Measure-Object).Count
+        $items | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+        $totalCleaned += $count
+        $log += "   OK: Recent files cleaned ($count items)"
+    } catch {
+        $log += "   ERROR: $($_.Exception.Message)"
+        $totalErrors++
+    }
 } else {
-    Write-Host "   ! Recent folder not found" -ForegroundColor Red
+    $log += "   SKIP: Recent folder not found"
 }
 
 # 2. Clean Prefetch
-Write-Host "2. Cleaning Prefetch..." -ForegroundColor Yellow
-if (Test-Path "C:\\Windows\\Prefetch") {
-    Get-ChildItem "C:\\Windows\\Prefetch\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-    Write-Host "   ✓ Prefetch cleaned" -ForegroundColor Green
+$log += "2. Cleaning Prefetch..."
+$prefetchPath = "C:\\Windows\\Prefetch"
+if (Test-Path $prefetchPath) {
+    try {
+        $items = Get-ChildItem $prefetchPath -Force -ErrorAction SilentlyContinue
+        $count = ($items | Measure-Object).Count
+        $items | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+        $totalCleaned += $count
+        $log += "   OK: Prefetch cleaned ($count items)"
+    } catch {
+        $log += "   ERROR: $($_.Exception.Message)"
+        $totalErrors++
+    }
 } else {
-    Write-Host "   ! Prefetch folder not found" -ForegroundColor Red
+    $log += "   SKIP: Prefetch folder not found"
 }
 
 # 3. Clean Windows Temp
-Write-Host "3. Cleaning Windows Temp..." -ForegroundColor Yellow
-if (Test-Path "C:\\Windows\\Temp") {
-    Get-ChildItem "C:\\Windows\\Temp\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-    Write-Host "   ✓ Windows Temp cleaned" -ForegroundColor Green
+$log += "3. Cleaning Windows Temp..."
+$winTemp = "C:\\Windows\\Temp"
+if (Test-Path $winTemp) {
+    try {
+        $items = Get-ChildItem $winTemp -Force -ErrorAction SilentlyContinue
+        $count = ($items | Measure-Object).Count
+        $items | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+        $totalCleaned += $count
+        $log += "   OK: Windows Temp cleaned ($count items)"
+    } catch {
+        $log += "   ERROR: $($_.Exception.Message)"
+        $totalErrors++
+    }
 } else {
-    Write-Host "   ! Windows Temp folder not found" -ForegroundColor Red
+    $log += "   SKIP: Windows Temp folder not found"
 }
 
 # 4. Clean User Temp
-Write-Host "4. Cleaning User Temp..." -ForegroundColor Yellow
-if (Test-Path "$env:USERPROFILE\\AppData\\Local\\Temp") {
-    Get-ChildItem "$env:USERPROFILE\\AppData\\Local\\Temp\\*.*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-    Write-Host "   ✓ User Temp cleaned" -ForegroundColor Green
+$log += "4. Cleaning User Temp..."
+$userTemp = $env:TEMP
+if (Test-Path $userTemp) {
+    $items = Get-ChildItem $userTemp -Force -ErrorAction SilentlyContinue
+    $count = ($items | Measure-Object).Count
+    $deleted = 0
+    $skipped = 0
+    foreach ($item in $items) {
+        try {
+            Remove-Item $item.FullName -Force -Recurse -ErrorAction Stop
+            $deleted++
+        } catch {
+            $skipped++
+        }
+    }
+    $totalCleaned += $deleted
+    $log += "   OK: User Temp cleaned ($deleted items, $skipped skipped - in use)"
 } else {
-    Write-Host "   ! User Temp folder not found" -ForegroundColor Red
+    $log += "   SKIP: User Temp not found"
 }
 
-Write-Host ""
-Write-Host "=== CLEANUP COMPLETED ===" -ForegroundColor Cyan
-Write-Host "All temporary files have been cleaned successfully!" -ForegroundColor Green
-Write-Host ""
+$log += ""
+$log += "=== CLEANUP COMPLETED ==="
+$log += "Total items processed: $totalCleaned"
+$log += "Total errors: $totalErrors"
+$log += "Finished at: $(Get-Date)"
+
+# Write log to file
+$log | Out-File -FilePath $logFile -Encoding UTF8
+
+# NOTE: Do NOT use 'exit' here! The wrapper script needs to write SUCCESS marker.
+# The wrapper will handle the exit code.
 `;
 
-  return runElevatedPowerShellScriptHidden(
+  const result = await runElevatedPowerShellScriptHidden(
     psScript,
     '✅ Temporary files cleanup completed successfully!',
     'Administrator privileges required or cleanup failed. Please accept the UAC prompt and try again.'
   );
+  
+  // Read log file for details
+  try {
+    if (fs.existsSync(logFile)) {
+      const logContent = fs.readFileSync(logFile, 'utf8');
+      fs.unlinkSync(logFile); // Clean up log file
+      result.details = logContent;
+
+      // If there were errors, mark as warning but keep success = true
+      const match = logContent.match(/Total errors:\s+(\d+)/i);
+      const errorCount = match ? parseInt(match[1], 10) : 0;
+      if (!Number.isNaN(errorCount) && errorCount > 0) {
+        result.warning = true;
+        result.message = `Cleanup completed with warnings. Skipped or failed items: ${errorCount}.`;
+      }
+    } else {
+      debug('warn', '🧹 Cleanup may have been cancelled (UAC denied)');
+    }
+  } catch (e) {
+    // Ignore log file errors
+  }
+  
+  return result;
 }
 
 /**
