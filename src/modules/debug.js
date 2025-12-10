@@ -3,11 +3,11 @@
  * Provides consistent logging with color-coded output
  */
 
-const emojiMap = { 
-  info: 'ℹ️', 
-  warn: '⚠️', 
-  error: '❌', 
-  success: '✅' 
+const emojiMap = {
+  info: '',  // emoji removed for compatibility with non-UTF8 consoles
+  warn: '',
+  error: '',
+  success: ''
 };
 
 const colorMap = {
@@ -26,14 +26,14 @@ function debug(level, ...args) {
   const emoji = emojiMap[level] || '';
   const style = colorMap[level] || '';
   const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
-  
+
   const fn =
     level === 'error'
       ? console.error
       : level === 'warn'
         ? console.warn
         : console.log;
-        
+
   if (isBrowser) {
     fn.call(console, `%c${emoji}`, style, ...args);
   } else {

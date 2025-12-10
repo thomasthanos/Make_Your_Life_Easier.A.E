@@ -166,15 +166,18 @@ class PasswordManagerAuthUI {
     }
 
     createForgotPasswordModal() {
+        const extraWarning = (() => {
+            const txt = this.t('forgot_warning_delete');
+            if (!txt || txt === 'forgot_warning_delete') return '';
+            return txt;
+        })();
         return `
             <div class="card">
-                <h4 class="title">${this.t('forgot_title')}</h4>
+                <h4 class="title"><span class="title-icon" aria-hidden="true">⚠️</span>${this.t('forgot_title')}</h4>
                 <div class="forgot-password-content">
-                    <div class="warning-icon">${this.t('warning_prefix')}</div>
                     <p class="forgot-warning-text">
-                        <strong>${this.t('irreversible_action')}</strong><br><br>
                         ${this.t('forgot_warning_1')}
-                        ${this.t('forgot_warning_delete')}
+                        ${extraWarning}
                     </p>
                     <ul class="forgot-list">
                         <li>${this.t('forgot_list_passwords')}</li>

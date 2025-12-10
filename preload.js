@@ -96,6 +96,7 @@ contextBridge.exposeInMainWorld('api', {
   animateWindowSize: (width, height) => ipcRenderer.invoke('window-set-bounds-animate', { width, height }),
   animateResize: (width, height, duration) =>
     ipcRenderer.invoke('window-animate-resize', { width, height, duration }),
+  passwordManagerCloseWindow: () => ipcRenderer.invoke('password-window-close'),
 
   // Asset path helper for images and other assets
   getAssetPath: (relativePath) => ipcRenderer.invoke('get-asset-path', relativePath)

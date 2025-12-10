@@ -311,13 +311,13 @@ class EventListenerManager {
 
 // Page-specific event listener manager (cleaned up on page change)
 let pageEventManager = new EventListenerManager();
+let translations = {};
 
 (() => {
   let currentPage = null;
   let updateOverlay;
   let lastInteractionWasKeyboard = false;
   let appLoaderInterval;
-  let translations = {};
   let currentErrorCard = null;
   let errorPaletteIndex = 0;
   const errorBulletColours = ['#575757', '#e34ba9', '#80b1ff', '#f59e0b', '#10b981'];
@@ -802,6 +802,7 @@ let pageEventManager = new EventListenerManager();
         const res = await fetch(url);
         if (res.ok) {
           translations = await res.json();
+          document.documentElement.setAttribute('lang', settings.lang || 'en');
           return;
         }
       } catch (e) {
@@ -809,6 +810,7 @@ let pageEventManager = new EventListenerManager();
     }
 
     translations = {};
+    document.documentElement.setAttribute('lang', settings.lang || 'en');
   }
 
   function applyTheme() {
@@ -1311,6 +1313,9 @@ let pageEventManager = new EventListenerManager();
     const activateName = document.createElement('h3');
     activateName.textContent = translations.activation.activate_windows || 'Activate Windows';
     activateName.classList.add('feature-card-name');
+    if (settings.lang === 'gr') {
+      activateName.classList.add('feature-card-name-gr');
+    }
     const activateDesc = document.createElement('p');
     activateDesc.textContent = translations.activation.activate_desc || 'Downloads and runs the Windows activation script. Administrator rights required';
     activateDesc.classList.add('feature-card-desc-warning');
@@ -1319,6 +1324,9 @@ let pageEventManager = new EventListenerManager();
     activateHeader.appendChild(activateText);
 
     activateCard.appendChild(activateHeader);
+
+    const activateActions = document.createElement('div');
+    activateActions.className = 'feature-actions';
 
     const activateButton = document.createElement('button');
     activateButton.className = 'button';
@@ -1333,8 +1341,9 @@ let pageEventManager = new EventListenerManager();
       await downloadAndRunActivate(activateButton, activateStatus);
     });
 
-    activateCard.appendChild(activateButton);
-    activateCard.appendChild(activateStatus);
+    activateActions.appendChild(activateButton);
+    activateActions.appendChild(activateStatus);
+    activateCard.appendChild(activateActions);
 
 
     const autologinCard = document.createElement('div');
@@ -1361,6 +1370,9 @@ let pageEventManager = new EventListenerManager();
 
     autologinCard.appendChild(autologinHeader);
 
+    const autologinActions = document.createElement('div');
+    autologinActions.className = 'feature-actions';
+
     const autologinButton = document.createElement('button');
     autologinButton.className = 'button';
     autologinButton.textContent = translations.actions.setup_autologin || 'Download & Setup Auto Login';
@@ -1374,8 +1386,9 @@ let pageEventManager = new EventListenerManager();
       await downloadAndRunAutologin(autologinButton, autologinStatus);
     });
 
-    autologinCard.appendChild(autologinButton);
-    autologinCard.appendChild(autologinStatus);
+    autologinActions.appendChild(autologinButton);
+    autologinActions.appendChild(autologinStatus);
+    autologinCard.appendChild(autologinActions);
 
 
     const grid = document.createElement('div');
@@ -5084,7 +5097,7 @@ async function buildInstallPageWingetWithCategories() {
 
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
-  searchInput.placeholder = 'Search apps...';
+  searchInput.placeholder = (translations.messages && translations.messages.search_apps) || 'Search apps...';
   searchInput.className = 'search-input-styled';
   // Search input styles handled by CSS class 'search-input-styled'
 
@@ -5154,15 +5167,20 @@ async function buildInstallPageWingetWithCategories() {
       </svg>
     `;
 
-  const installBtn = makeButton('Install Selected', '');
-  const uninstallBtn = makeButton('Uninstall Selected', '#dc2626');
-  const exportBtn = makeButton('Export List', '');
-  const importBtn = makeButton('Import List', '');
+  const installText = (translations.actions && translations.actions.install_selected) || 'Install Selected';
+  const uninstallText = (translations.actions && translations.actions.uninstall_selected) || 'Uninstall Selected';
+  const exportText = (translations.actions && translations.actions.export_list) || 'Export List';
+  const importText = (translations.actions && translations.actions.import_list) || 'Import List';
 
-  installBtn.innerHTML = `${installIcon}<span class="btn-label" style="margin-left: 0.5rem;">${installBtn.textContent}</span>`;
-  uninstallBtn.innerHTML = `${uninstallIcon}<span class="btn-label" style="margin-left: 0.5rem;">${uninstallBtn.textContent}</span>`;
-  exportBtn.innerHTML = `${exportIcon}<span class="btn-label" style="margin-left: 0.5rem;">${exportBtn.textContent}</span>`;
-  importBtn.innerHTML = `${importIcon}<span class="btn-label" style="margin-left: 0.5rem;">${importBtn.textContent}</span>`;
+  const installBtn = makeButton(installText, '');
+  const uninstallBtn = makeButton(uninstallText, '#dc2626');
+  const exportBtn = makeButton(exportText, '');
+  const importBtn = makeButton(importText, '');
+
+  installBtn.innerHTML = `${installIcon}<span class="btn-label" style="margin-left: 0.5rem;">${installText}</span>`;
+  uninstallBtn.innerHTML = `${uninstallIcon}<span class="btn-label" style="margin-left: 0.5rem;">${uninstallText}</span>`;
+  exportBtn.innerHTML = `${exportIcon}<span class="btn-label" style="margin-left: 0.5rem;">${exportText}</span>`;
+  importBtn.innerHTML = `${importIcon}<span class="btn-label" style="margin-left: 0.5rem;">${importText}</span>`;
 
   installBtn.classList.add('btn-install');
   uninstallBtn.classList.add('btn-uninstall');
@@ -5396,7 +5414,13 @@ async function buildInstallPageWingetWithCategories() {
       });
     });
     const total = ids.length + (CUSTOM_APPS ? CUSTOM_APPS.length : 0);
-    searchInput.placeholder = `Search for ${total} app${total !== 1 ? 's' : ''}...`;
+    const plural = total !== 1 ? 's' : '';
+    const suffix = total !== 1 ? 'ές' : 'ή';
+    const template = (translations.messages && translations.messages.search_for_total) || 'Search for {total} app{plural}...';
+    searchInput.placeholder = template
+      .replace('{total}', total)
+      .replace('{plural}', plural)
+      .replace('{suffix}', suffix);
     listContainer.innerHTML = '';
     const orderedCats = ['Browsers', 'Games', 'Music', 'Development', 'Security', 'Utilities', 'Others'];
     orderedCats.forEach((cat) => {

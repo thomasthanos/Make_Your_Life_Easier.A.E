@@ -151,6 +151,11 @@
   color: var(--accent-color);
 }
 
+/* Greek language - smaller font for "Ενεργοποίηση Windows" */
+.app-card h3.feature-card-name-gr {
+  font-size: 1.2rem;
+}
+
 .app-card p {
   flex-grow: 1;
   margin-bottom: -10.25rem;
@@ -212,6 +217,14 @@
   margin-top: 1rem;
   width: 100%;
   margin-bottom: 0.25rem;
+}
+
+/* Keep action buttons aligned at the bottom of cards */
+.app-card .feature-actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .install-grid[style*="grid-template-columns: 1fr 1fr"] {

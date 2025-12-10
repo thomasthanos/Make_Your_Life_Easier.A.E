@@ -144,7 +144,7 @@
   "forgot_title": "Επαναφορά Διαχειριστή Κωδικών",
   "irreversible_action": "Αυτή η ενέργεια δεν μπορεί να αναιρεθεί!",
   "forgot_warning_1": "Αυτό θα αφαιρέσει μόνιμα το master password και όλα τα αποθηκευμένα δεδομένα.",
-  "forgot_warning_delete": " Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.",
+  "forgot_warning_delete": "",
   "forgot_warning_2": "Μετά την επαναφορά θα χρειαστεί να δημιουργήσετε νέο master password.",
   "forgot_list_passwords": "Όλοι οι αποθηκευμένοι κωδικοί",
   "forgot_list_categories": "Όλες οι κατηγορίες",

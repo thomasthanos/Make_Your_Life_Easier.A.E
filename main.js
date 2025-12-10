@@ -446,6 +446,13 @@ ipcMain.handle('window-close', () => {
   if (mainWindow) mainWindow.close();
 });
 
+ipcMain.handle('password-window-close', (event) => {
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  if (senderWin && senderWin !== mainWindow) {
+    senderWin.close();
+  }
+});
+
 ipcMain.handle('window-is-maximized', () => {
   return mainWindow ? mainWindow.isMaximized() : false;
 });

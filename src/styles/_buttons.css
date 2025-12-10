@@ -118,6 +118,12 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+[lang="gr"] .action-btn {
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+  min-width: 150px;
+}
+
 .action-btn::before {
   content: '';
   position: absolute;

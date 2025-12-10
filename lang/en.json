@@ -77,7 +77,11 @@
     "run_dism": "Run DISM",
     "clean_temp_files": "Clean Temp Files",
     "download_run": "Download & Run",
-    "install": "Install"
+    "install": "Install",
+    "install_selected": "Install Selected",
+    "uninstall_selected": "Uninstall Selected",
+    "export_list": "Export List",
+    "import_list": "Import List"
   },
   "messages": {
     "bios_instructions": "Restart into BIOS for advanced hardware settings. Make sure to save all your work before proceeding!",
@@ -105,7 +109,9 @@
     "extraction_failed": "Extraction failed",
     "installer_started": "Installer started successfully!",
     "could_not_open": "Could not open automatically",
-    "download_timed_out": "Download timed out"
+    "download_timed_out": "Download timed out",
+    "search_apps": "Search apps...",
+    "search_for_total": "Search for {total} app{plural}..."
   },
   "maintenance": {
     "delete_temp_files": "Clean Cache",
@@ -129,7 +135,7 @@
     "activate_windows": "Activate Windows",
     "activate_desc": "Automatic activation - click and done",
     "auto_login": "Auto Login",
-    "auto_login_desc": "Set up password-free automatic login - perfect for personal computers"
+    "auto_login_desc": "Set up password-free automatic login"
   },
   "apps": {
     "betterdiscord": {

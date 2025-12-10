@@ -144,7 +144,7 @@
   "forgot_title": "Reset Password Manager",
   "irreversible_action": "This action cannot be undone!",
   "forgot_warning_1": "This will permanently remove your master password and all saved data.",
-  "forgot_warning_delete": " This action cannot be undone.",
+  "forgot_warning_delete": "",
   "forgot_warning_2": "After resetting you will need to set up a new master password.",
   "forgot_list_passwords": "All saved passwords",
   "forgot_list_categories": "All categories",
