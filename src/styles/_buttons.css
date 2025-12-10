@@ -27,7 +27,7 @@
   .btn-import,
   .activator-button-fixed,
   button
-):not(.no-glass-effect):not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close):not(.error-close):not(.error-copy):not(.bulk-action-btn):not(.bulk-install):not(.bulk-uninstall):not(.bulk-export):not(.bulk-import) {
+):not(.no-glass-effect):not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close):not(.error-close):not(.error-copy):not(.bulk-action-btn):not(.bulk-install):not(.bulk-uninstall):not(.bulk-export):not(.bulk-import):not(.login-discord):not(.login-google) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -56,21 +56,21 @@
   margin: 0.25rem 0.5rem 0.25rem 0;
 }
 
-:where(.button, .button-secondary, .button-danger, .button.success, .button.error, .bios-restart-btn, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, button):not(.no-glass-effect):not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close):not(.bulk-action-btn):not(.bulk-install):not(.bulk-uninstall):not(.bulk-export):not(.bulk-import):hover {
+:where(.button, .button-secondary, .button-danger, .button.success, .button.error, .bios-restart-btn, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, button):not(.no-glass-effect):not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close):not(.bulk-action-btn):not(.bulk-install):not(.bulk-uninstall):not(.bulk-export):not(.bulk-import):not(.login-discord):not(.login-google):hover {
   box-shadow: var(--btn-shadow-strong);
 }
 
-:where(.button, .button-secondary, .button-danger, .button.success, .button.error, .bios-restart-btn, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, button):not(.no-glass-effect):not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close):not(.bulk-action-btn):not(.bulk-install):not(.bulk-uninstall):not(.bulk-export):not(.bulk-import):active {
+:where(.button, .button-secondary, .button-danger, .button.success, .button.error, .bios-restart-btn, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, button):not(.no-glass-effect):not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close):not(.bulk-action-btn):not(.bulk-install):not(.bulk-uninstall):not(.bulk-export):not(.bulk-import):not(.login-discord):not(.login-google):active {
   box-shadow: var(--btn-shadow);
 }
 
-:where(.button, .button-secondary, .button-danger, .button.success, .button.error, .bios-restart-btn, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, button):not(.no-glass-effect):not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close):not(.bulk-action-btn):not(.bulk-install):not(.bulk-uninstall):not(.bulk-export):not(.bulk-import):disabled {
+:where(.button, .button-secondary, .button-danger, .button.success, .button.error, .bios-restart-btn, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, button):not(.no-glass-effect):not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close):not(.bulk-action-btn):not(.bulk-install):not(.bulk-uninstall):not(.bulk-export):not(.bulk-import):not(.login-discord):not(.login-google):disabled {
   opacity: 0.6;
   cursor: not-allowed;
   pointer-events: none;
 }
 
-:where(.button, .button-secondary, .button-danger, .button.success, .button.error, .bios-restart-btn, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, button):not(.no-glass-effect):not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close):not(.bulk-action-btn):not(.bulk-install):not(.bulk-uninstall):not(.bulk-export):not(.bulk-import):focus-visible {
+:where(.button, .button-secondary, .button-danger, .button.success, .button.error, .bios-restart-btn, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, button):not(.no-glass-effect):not(#menu-list button):not(.ui-button):not(.info-close-btn):not(.theme-toggle):not(.lang-toggle):not(.info-toggle):not(.menu-toggle):not(.logout-btn):not(.title-bar-btn):not(.changelog-btn):not(.changelog-close):not(.bulk-action-btn):not(.bulk-install):not(.bulk-uninstall):not(.bulk-export):not(.bulk-import):not(.login-discord):not(.login-google):focus-visible {
   outline: 2px solid var(--accent-color, #3b82f6);
   outline-offset: 2px;
   box-shadow: var(--btn-shadow-strong);
@@ -205,6 +205,20 @@
   background: rgba(148, 163, 184, 0.18);
   border-color: rgba(148, 163, 184, 0.55);
 }
+
+/* Disabled state for bulk actions */
+.bulk-action-btn:disabled,
+.bulk-install:disabled,
+.bulk-uninstall:disabled,
+.bulk-export:disabled,
+.bulk-import:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: grayscale(25%);
+  box-shadow: none;
+}
+
 .download-replace-btn {
   white-space: nowrap;
   font-size: 0.9rem;

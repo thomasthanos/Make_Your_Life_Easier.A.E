@@ -10,6 +10,7 @@
   color: var(--sidebar-text);
   position: relative;
   cursor: pointer;
+  flex: 0 0 auto;
 }
 
 .user-info img {
@@ -101,6 +102,7 @@
   transition: all 0.5s ease-in-out;
   position: relative;
   overflow: visible;
+  z-index: 2;
 }
 
 .user-info .login-card:focus-within {
@@ -115,27 +117,32 @@
 }
 
 .user-info .login-card button {
-  width: 26px;
-  height: 26px;
-  padding: 3px;
-  border-radius: 50%;
-  background-color: transparent;
-  border: none;
+  width: 26px !important;
+  height: 26px !important;
+  padding: 3px !important;
+  border-radius: 50% !important;
+  background-color: transparent !important;
+  border: none !important;
   cursor: pointer;
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
   transition: background-color 0.2s ease-in;
   position: relative;
+  z-index: 1;
+  min-width: unset !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .user-info .login-card button:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.2) !important;
 }
 
 .user-info .login-card button:focus {
   outline: none;
-  background-color: rgb(255, 255, 255);
+  background-color: rgb(255, 255, 255) !important;
 }
 
 .user-info .login-card button svg {
