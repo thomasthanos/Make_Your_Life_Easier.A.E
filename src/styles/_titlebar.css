@@ -112,8 +112,7 @@
 
 .theme-toggle,
 .info-toggle,
-.menu-toggle,
-.title-bar-update-btn {
+.menu-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,8 +130,7 @@
 
 .theme-toggle:hover,
 .info-toggle:hover,
-.menu-toggle:hover,
-.title-bar-update-btn:hover {
+.menu-toggle:hover {
   opacity: 1;
   background: transparent;
   color: var(--text-color);

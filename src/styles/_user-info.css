@@ -34,14 +34,14 @@
     0 0 0 1px rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.08);
   opacity: 0;
-  transform: translateY(6px);
+  transform: none;
   pointer-events: none;
   transition: opacity 0.25s ease-out, transform 0.25s ease-out;
 }
 
 .user-info.show-logout .logout-menu {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
   pointer-events: auto;
 }
 

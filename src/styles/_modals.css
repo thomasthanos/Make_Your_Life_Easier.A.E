@@ -266,7 +266,6 @@
 .bios-cancel-btn:hover {
   border-color: var(--accent-color);
   color: var(--accent-color);
-  transform: translateY(-2px);
 }
 
 .bios-restart-btn {
@@ -284,12 +283,7 @@
 }
 
 .bios-restart-btn:hover {
-  transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
-}
-
-.bios-restart-btn:active {
-  transform: translateY(0);
 }
 
 .bios-overlay.fade-out {

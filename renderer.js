@@ -3054,118 +3054,76 @@ let translations = {};
       btn.dataset.originalText = btn.textContent;
       const status = document.createElement('pre');
       status.className = 'status-pre';
-      const progressContainer = document.createElement('div');
-      progressContainer.className = 'progress-container';
-      progressContainer.classList.add('download-progress-container');
-      const progressBar = document.createElement('div');
-      progressBar.className = 'progress-bar';
-      progressBar.classList.add('download-progress-bar');
-      const progressFill = document.createElement('div');
-      progressFill.className = 'progress-fill';
-      progressFill.classList.add('download-progress-fill');
-      progressBar.appendChild(progressFill);
-      const pauseBtn = document.createElement('button');
-      pauseBtn.className = 'button button-secondary';
-      pauseBtn.textContent = 'Pause';
-      pauseBtn.classList.add('download-pause-btn');
-
-      const cancelBtn = document.createElement('button');
-      cancelBtn.className = 'button button-secondary';
-      cancelBtn.textContent = 'Cancel';
-      cancelBtn.classList.add('download-cancel-btn');
-
-      const controls = document.createElement('div');
-      controls.className = 'controls';
-      controls.classList.add('download-controls');
-      controls.appendChild(pauseBtn);
-      controls.appendChild(cancelBtn);
-
-
-
-      const replaceBtn = document.createElement('button');
-      replaceBtn.className = 'button button-secondary';
-      replaceBtn.textContent = 'Replace EXE';
-
-      replaceBtn.classList.add('download-replace-btn');
-
       const isClipStudio = key === 'clip_studio_paint';
+      let replaceBtn = null;
+      if (isClipStudio) {
+        replaceBtn = document.createElement('button');
+        replaceBtn.className = 'button button-secondary';
+        replaceBtn.textContent = 'Replace EXE';
+        replaceBtn.classList.add('download-replace-btn');
+        replaceBtn.style.display = 'none';
+
+        replaceBtn.addEventListener('click', async () => {
+          const cardId = `crack-${key}`;
+          trackProcess(cardId, 'replace', replaceBtn, status);
+
+          replaceBtn.disabled = true;
+          replaceBtn.textContent = 'Replacing...';
+
+          status.classList.add('visible');
+
+          try {
+            const dynamicSourceDir = replaceBtn.dataset.sourceDir;
+            if (dynamicSourceDir) {
+              const clipTarget = 'C\\\\Program Files\\CELSYS\\CLIP STUDIO 1.5\\CLIP STUDIO PAINT\\CLIPStudioPaint.exe';
+              await performReplacement('C:/Program Files/CELSYS/CLIP STUDIO 1.5/CLIP STUDIO PAINT/CLIPStudioPaint.exe', dynamicSourceDir, status, replaceBtn);
+              completeProcess(cardId, 'replace', true);
+              return;
+            }
+            const sourcePath = 'C:\\Users\\%USERNAME%\\Downloads\\Clip_Studio\\CLIPStudioPaint.exe';
+            const targetPath = 'C:/Program Files/CELSYS/CLIP STUDIO 1.5/CLIP STUDIO PAINT/CLIPStudioPaint.exe';
+
+            const result = await window.api.replaceExe(sourcePath, targetPath);
+
+            if (result.success) {
+              status.classList.add('status-success');
+              completeProcess(cardId, 'replace', true);
+
+              toast('Clip Studio crack applied successfully!', {
+                type: 'success',
+                title: 'Crack Installer'
+              });
+            } else {
+              if (result.code === 'SRC_MISSING') {
+                toast('Patch file not found. Please re-download the installer or check your antivirus.', {
+                  type: 'error',
+                  title: 'Replace EXE'
+                });
+              } else if (result.code === 'DEST_MISSING') {
+                toast('Clip Studio does not seem to be installed. Please install it first.', {
+                  type: 'error',
+                  title: 'Replace EXE'
+                });
+              } else if (result.code === 'UAC_DENIED') {
+                showManualReplacementInstructions(sourcePath, targetPath);
+              } else {
+                toast(`Replacement failed: ${result.error}`, { type: 'error', title: 'Replace EXE' });
+              }
+              status.classList.add('status-error');
+              completeProcess(cardId, 'replace', false);
+            }
+          } catch (error) {
+            toast(`Replacement failed: ${error.message}`, { type: 'error', title: 'Replace EXE' });
+            status.classList.add('status-error');
+            completeProcess(cardId, 'replace', false);
+          }
+        });
+      }
 
       card.dataset.crackCard = 'true';
 
       const downloadId = `crack-${key}-${Date.now()}`;
-      let isPaused = false;
       let unsubscribe;
-
-
-
-      replaceBtn.addEventListener('click', async () => {
-        const cardId = `crack-${key}`;
-        trackProcess(cardId, 'replace', replaceBtn, status);
-
-        replaceBtn.disabled = true;
-        replaceBtn.textContent = 'Replacing...';
-
-
-
-        status.classList.add('visible');
-
-        toast('Starting replacement process...', { type: 'success', title: 'Replace EXE' });
-
-        try {
-          const dynamicSourceDir = replaceBtn.dataset.sourceDir;
-          if (dynamicSourceDir) {
-            const clipTarget = 'C\\\\Program Files\\CELSYS\\CLIP STUDIO 1.5\\CLIP STUDIO PAINT\\CLIPStudioPaint.exe';
-            await performReplacement('C:/Program Files/CELSYS/CLIP STUDIO 1.5/CLIP STUDIO PAINT/CLIPStudioPaint.exe', dynamicSourceDir, status, replaceBtn);
-            completeProcess(cardId, 'replace', true);
-            return;
-          }
-          const sourcePath = 'C:\\Users\\%USERNAME%\\Downloads\\Clip_Studio\\CLIPStudioPaint.exe';
-          const targetPath = 'C:/Program Files/CELSYS/CLIP STUDIO 1.5/CLIP STUDIO PAINT/CLIPStudioPaint.exe';
-
-          const result = await window.api.replaceExe(sourcePath, targetPath);
-
-          if (result.success) {
-
-            status.classList.add('status-success');
-
-
-            completeProcess(cardId, 'replace', true);
-
-            toast('Clip Studio crack applied successfully!', {
-              type: 'success',
-              title: 'Crack Installer'
-            });
-          } else {
-
-            if (result.code === 'SRC_MISSING') {
-              toast('Patch file not found. Please re-download the installer or check your antivirus.', {
-                type: 'error',
-                title: 'Replace EXE'
-              });
-            } else if (result.code === 'DEST_MISSING') {
-              toast('Clip Studio does not seem to be installed. Please install it first.', {
-                type: 'error',
-                title: 'Replace EXE'
-              });
-            } else if (result.code === 'UAC_DENIED') {
-              showManualReplacementInstructions(sourcePath, targetPath);
-            } else {
-
-              toast(`Replacement failed: ${result.error}`, { type: 'error', title: 'Replace EXE' });
-            }
-            status.classList.add('status-error');
-
-
-            completeProcess(cardId, 'replace', false);
-          }
-        } catch (error) {
-
-          toast(`Replacement failed: ${error.message}`, { type: 'error', title: 'Replace EXE' });
-          status.classList.add('status-error');
-          completeProcess(cardId, 'replace', false);
-        }
-      });
-
       async function performReplacement(targetPath, sourceDir, statusElement, button) {
         const exeFiles = await window.api.findExeFiles(sourceDir);
         const patchFile = exeFiles.find(file => {
@@ -3217,9 +3175,10 @@ let translations = {};
         status.textContent = '';
         status.classList.remove('visible');
 
-        progressContainer.classList.add('download-progress-container');
-
-        replaceBtn.classList.remove('visible');
+        if (replaceBtn) {
+          replaceBtn.classList.remove('visible');
+          replaceBtn.style.display = 'none';
+        }
 
         const downloadId = `${cardId}-${Date.now()}`;
 
@@ -3229,14 +3188,10 @@ let translations = {};
           switch (data.status) {
             case 'started':
 
-              progressFill.style.width = '0%';
-
               btn.textContent = 'Downloading... 0%';
               break;
 
             case 'progress':
-
-              progressFill.style.width = `${data.percent}%`;
 
               btn.textContent = `Downloading... ${data.percent}%`;
               break;
@@ -3245,8 +3200,6 @@ let translations = {};
 
               btn.textContent = 'Download complete! Extracting...';
 
-              pauseBtn.classList.remove('visible');
-              cancelBtn.classList.remove('visible');
               try {
                 const extractResult = await window.api.extractArchive(data.path, '123');
 
@@ -3270,10 +3223,10 @@ let translations = {};
                         completeProcess(cardId, 'download', true);
 
                         replaceBtn.classList.add('visible');
+                        replaceBtn.style.display = '';
                         replaceBtn.disabled = false;
                         replaceBtn.dataset.sourceDir = extractedDir;
                         replaceBtn.dataset.targetPath = 'C:/Program Files/CELSYS/CLIP STUDIO 1.5/CLIP STUDIO PAINT/CLIPStudioPaint.exe';
-                        replaceBtn.dataset.targetPath = 'C\\\\Program Files\\\\CELSYS\\\\CLIP STUDIO 1.5\\\\CLIP STUDIO PAINT\\\\CLIPStudioPaint.exe';
 
                         toast('Clip Studio installer started! Complete installation first.', {
                           type: 'info',
@@ -3307,9 +3260,7 @@ let translations = {};
                 });
                 completeProcess(cardId, 'download', false);
               } finally {
-
-                progressContainer.classList.add('download-progress-container');
-                progressFill.style.width = '0%';
+                // no progress bar; nothing to reset
               }
               break;
             }
@@ -3326,12 +3277,10 @@ let translations = {};
               });
               completeProcess(cardId, 'download', false);
 
-              pauseBtn.classList.remove('visible');
-              cancelBtn.classList.remove('visible');
-              progressContainer.classList.add('download-progress-container');
-              progressFill.style.width = '0%';
-
-              replaceBtn.classList.remove('visible');
+              if (replaceBtn) {
+                replaceBtn.classList.remove('visible');
+                replaceBtn.style.display = 'none';
+              }
               if (unsubscribe) unsubscribe();
               break;
             }
@@ -3341,28 +3290,15 @@ let translations = {};
 
         window.api.downloadStart(downloadId, url, name);
       });
-      pauseBtn.addEventListener('click', () => {
-        if (isPaused) {
-          window.api.downloadResume(downloadId);
-        } else {
-          window.api.downloadPause(downloadId);
-        }
-      });
-      cancelBtn.addEventListener('click', () => {
-        window.api.downloadCancel(downloadId);
-      });
-
-
       const buttonWrapper = document.createElement('div');
       buttonWrapper.classList.add('button-wrapper');
       buttonWrapper.appendChild(btn);
-      buttonWrapper.appendChild(replaceBtn);
+      if (replaceBtn) {
+        buttonWrapper.appendChild(replaceBtn);
+      }
 
       card.appendChild(p);
       card.appendChild(buttonWrapper);
-      card.appendChild(controls);
-      card.appendChild(progressContainer);
-      card.appendChild(progressBar);
       card.appendChild(status);
       grid.appendChild(card);
     });
@@ -5182,10 +5118,10 @@ async function buildInstallPageWingetWithCategories() {
   exportBtn.innerHTML = `${exportIcon}<span class="btn-label" style="margin-left: 0.5rem;">${exportText}</span>`;
   importBtn.innerHTML = `${importIcon}<span class="btn-label" style="margin-left: 0.5rem;">${importText}</span>`;
 
-  installBtn.classList.add('btn-install');
-  uninstallBtn.classList.add('btn-uninstall');
-  exportBtn.classList.add('btn-export');
-  importBtn.classList.add('btn-import');
+  installBtn.classList.add('btn-install', 'bulk-action-btn', 'bulk-install');
+  uninstallBtn.classList.add('btn-uninstall', 'bulk-action-btn', 'bulk-uninstall');
+  exportBtn.classList.add('btn-export', 'bulk-action-btn', 'bulk-export');
+  importBtn.classList.add('btn-import', 'bulk-action-btn', 'bulk-import');
 
   actionsWrapper.appendChild(installBtn);
   actionsWrapper.appendChild(uninstallBtn);

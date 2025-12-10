@@ -24,7 +24,7 @@
 
 .status-pre.fade-out {
   opacity: 0;
-  transform: translateY(-10px);
+  transform: none;
   max-height: 0;
   padding-top: 0;
   padding-bottom: 0;

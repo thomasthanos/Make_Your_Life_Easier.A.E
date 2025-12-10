@@ -215,7 +215,7 @@ input:checked+.slider:before {
   overflow-y: auto;
   opacity: 0;
   visibility: hidden;
-  transform: translateY(6px);
+  transform: none;
   transition: opacity 0.15s ease, transform 0.15s ease;
   z-index: 1000;
 }
@@ -223,7 +223,7 @@ input:checked+.slider:before {
 .custom-select.open .custom-select-options {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0);
+  transform: none;
 }
 
 .custom-select-options li {

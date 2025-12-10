@@ -10,16 +10,18 @@
   flex-direction: column;
   gap: 1rem;
   z-index: 1200;
+  max-width: min(640px, 90vw);
 }
 
 .error-card {
-  padding: 1rem;
+  padding: 0.25rem;
   overflow: hidden;
   border: 1px solid #c5c5c5;
   border-radius: 12px;
   background-color: #d9d9d92f;
   backdrop-filter: blur(8px);
-  min-width: 344px;
+  min-width: 320px;
+  max-width: min(640px, 90vw);
   color: var(--text-color);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
@@ -51,15 +53,18 @@
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
   background-color: #202425;
+  gap: 4px;
+  height: 40px;
 }
 
 .error-card .error-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 2.5rem;
+  gap: 6px;
+  height: 2rem;
   user-select: none;
   font-weight: 600;
+  font-size: 0.95rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -67,9 +72,9 @@
 }
 
 .error-card .error-title svg {
-  height: 18px;
-  width: 18px;
-  margin-top: 2px;
+  height: 16px;
+  width: 16px;
+  margin-top: 1px;
   color: #006adc;
 }
 
@@ -80,23 +85,42 @@
   border-bottom-right-radius: 8px;
   border-bottom-left-radius: 8px;
   overflow-x: auto;
-  padding: 1rem;
+  padding: 0.85rem 0.95rem;
   line-height: 19px;
   color: white;
   background-color: black;
   white-space: pre;
+  scrollbar-width: thin;
+  scrollbar-color: #4a4f55 #0f1113;
+}
+
+.error-card .error-body::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.error-card .error-body::-webkit-scrollbar-track {
+  background: #0f1113;
+  border-radius: 8px;
+}
+
+.error-card .error-body::-webkit-scrollbar-thumb {
+  background: #4a4f55;
+  border-radius: 8px;
 }
 
 .error-close {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.25rem;
-  border: 0.65px solid #c1c2c5;
-  margin-left: 0.5rem;
-  border-radius: 6px;
-  background-color: #202425;
-  color: #8e8e8e;
+  min-width: 28px;
+  height: 28px;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid #5a5d60;
+  margin-left: 0.35rem;
+  border-radius: 8px;
+  background-color: #1c1f22;
+  color: #cdd0d4;
   cursor: pointer;
 }
 
@@ -104,18 +128,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.25rem;
-  border: 0.65px solid #c1c2c5;
+  min-width: 28px;
+  height: 28px;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid #5a5d60;
   margin-left: auto;
-  border-radius: 6px;
-  background-color: #202425;
-  color: #8e8e8e;
+  border-radius: 8px;
+  background-color: #1c1f22;
+  color: #cdd0d4;
   cursor: pointer;
 }
 
 .error-copy > svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
 }
 
 .error-copy:active > svg > path,
@@ -124,8 +150,8 @@
 }
 
 .error-close > svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
 }
 
 .error-close:active > svg > path,
