@@ -86,25 +86,33 @@ function App() {
     window.api.triggerBuild(projectPath);
   };
 
+
   const handleCreateRelease = async () => {
     if (!version || !title || !projectPath) return alert("Please fill in version and title");
-    if (!confirm(`Release ${version} to GitHub?`)) return;
+    if (!confirm(`Build and release ${version} to GitHub?\n\nThis will:\n1. Build your project\n2. Create GitHub release\n3. Upload build artifacts`)) return;
 
-    setLogs(prev => prev + `\n🚀 Initiating Release ${version}...\n`);
+    setLogs(prev => prev + `\n🚀 Starting Release Process for ${version}...\n`);
+    setActiveTab('logs'); // Switch to logs tab to show progress
+    
     const result = await window.api.createRelease({ path: projectPath, version, title, notes });
 
-    if (result.success) {
-      setLogs(prev => prev + `✅ Release Published!\n`);
-      alert("Release Created Successfully!");
+    if (result.success || result.partialSuccess) {
+      setLogs(prev => prev + `\n✅ Release Process Completed!\n`);
+      if (result.partialSuccess) {
+        alert("Release created with some warnings. Check logs for details.");
+      } else {
+        alert("Release created and artifacts uploaded successfully!");
+      }
       fetchReleases(projectPath);
       setVersion('');
       setTitle('');
       setNotes('### What\'s New\n\n- Bug fixes\n- Performance improvements\n- New features');
     } else {
-      alert("Failed to create release");
-      setLogs(prev => prev + `❌ Error: ${result.error}\n`);
+      alert("Failed to create release. Check logs for details.");
+      setLogs(prev => prev + `\n❌ Error: ${result.error}\n`);
     }
   };
+
 
   const handleDeleteRelease = async (tagName) => {
     setIsDeleting(true);

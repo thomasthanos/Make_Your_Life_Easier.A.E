@@ -9,7 +9,6 @@ const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
 
-// Στο main.js αφαίρεσε το titleBarOverlay και titleBarStyle
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 800,
@@ -17,7 +16,7 @@ function createWindow() {
         minWidth: 1000,
         minHeight: 700,
         backgroundColor: '#0f172a',
-        frame: false, // Αυτό δίνει το custom titlebar
+        frame: false,
         titleBarStyle: 'hidden',
         titleBarOverlay: {
             color: '#00000000',
@@ -49,9 +48,8 @@ function createWindow() {
 
 app.whenReady().then(createWindow);
 
-// --- HANDLERS ---
+// --- WINDOW CONTROL HANDLERS ---
 
-// Window control handlers for the custom titlebar
 ipcMain.on('window-minimize', () => {
     if (mainWindow) {
         mainWindow.minimize();
@@ -79,6 +77,8 @@ ipcMain.on('window-toggle-maximize', () => {
     }
 });
 
+// --- PROJECT HANDLERS ---
+
 ipcMain.handle('select-folder', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
         properties: ['openDirectory']
@@ -86,11 +86,9 @@ ipcMain.handle('select-folder', async () => {
     return result.canceled ? null : result.filePaths[0];
 });
 
-// GET RELEASES (SAFE MODE - NO DESCRIPTION)
-// main.js - τροποποίηση του get-releases handler
+// GET RELEASES
 ipcMain.handle('get-releases', async (event, projectPath) => {
     return new Promise((resolve) => {
-        // Πρώτα πάρε το repository URL
         const getRepoCmd = 'gh repo view --json url';
         exec(getRepoCmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
             if (error) {
@@ -102,7 +100,6 @@ ipcMain.handle('get-releases', async (event, projectPath) => {
                 const repoInfo = JSON.parse(stdout);
                 const repoUrl = repoInfo.url;
 
-                // Τώρα πάρε τα releases
                 const cmd = 'gh release list --json tagName,publishedAt,name,isDraft --limit 20';
                 exec(cmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
                     if (error) {
@@ -113,7 +110,6 @@ ipcMain.handle('get-releases', async (event, projectPath) => {
                             const releases = rawData.map(rel => ({
                                 tagName: rel.tagName,
                                 publishedAt: rel.publishedAt,
-                                // Χρησιμοποίησε το σωστό URL για το release
                                 url: `${repoUrl}/releases/tag/${rel.tagName}`,
                                 title: rel.name || rel.tagName,
                                 isDraft: rel.isDraft || false
@@ -133,17 +129,137 @@ ipcMain.handle('get-releases', async (event, projectPath) => {
     });
 });
 
+// CREATE RELEASE WITH BUILD & UPLOAD
 ipcMain.handle('create-release', async (event, { path: projectPath, version, title, notes }) => {
     return new Promise((resolve) => {
-        const safeNotes = notes.replace(/"/g, '\\"');
-        const command = `gh release create "${version}" --title "${title}" --notes "${safeNotes}"`;
-        exec(command, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
-            if (error) resolve({ success: false, error: stderr });
-            else resolve({ success: true, output: stdout });
+        // Step 1: Build the project
+        mainWindow.webContents.send('build-log', `\n🔨 Step 1/3: Building project...\n`);
+
+        const pkgPath = path.join(projectPath, 'package.json');
+        let buildCommand = null;
+
+        try {
+            const pkgRaw = fs.readFileSync(pkgPath, 'utf-8');
+            const pkg = JSON.parse(pkgRaw);
+            const scripts = pkg.scripts || {};
+
+            if (scripts['build-all']) {
+                buildCommand = 'npm run build-all';
+            } else if (scripts.build) {
+                buildCommand = 'npm run build';
+            }
+        } catch (err) {
+            resolve({ success: false, error: `Could not read package.json: ${err.message}` });
+            return;
+        }
+
+        if (!buildCommand) {
+            resolve({ success: false, error: 'No build script found in package.json' });
+            return;
+        }
+
+        const buildProcess = exec(buildCommand, { cwd: projectPath });
+
+        buildProcess.stdout.on('data', (data) => {
+            mainWindow.webContents.send('build-log', data);
+        });
+
+        buildProcess.stderr.on('data', (data) => {
+            mainWindow.webContents.send('build-log', `[BUILD] ${data}`);
+        });
+
+        buildProcess.on('close', (buildCode) => {
+            if (buildCode !== 0) {
+                mainWindow.webContents.send('build-log', `\n❌ Build failed with code ${buildCode}\n`);
+                resolve({ success: false, error: `Build failed with exit code ${buildCode}` });
+                return;
+            }
+
+            mainWindow.webContents.send('build-log', `\n✅ Build completed successfully!\n`);
+
+            // Step 2: Create GitHub release
+            mainWindow.webContents.send('build-log', `\n🚀 Step 2/3: Creating GitHub release ${version}...\n`);
+
+            const safeNotes = notes.replace(/"/g, '\\"');
+            const createReleaseCmd = `gh release create "${version}" --title "${title}" --notes "${safeNotes}"`;
+
+            exec(createReleaseCmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
+                if (error) {
+                    mainWindow.webContents.send('build-log', `\n❌ Failed to create release: ${stderr}\n`);
+                    resolve({ success: false, error: stderr });
+                    return;
+                }
+
+                mainWindow.webContents.send('build-log', `\n✅ Release created successfully!\n`);
+
+                // Step 3: Upload artifacts
+                mainWindow.webContents.send('build-log', `\n📦 Step 3/3: Uploading build artifacts...\n`);
+
+                const distPath = path.join(projectPath, 'dist');
+
+                if (!fs.existsSync(distPath)) {
+                    mainWindow.webContents.send('build-log', `\n⚠️ No dist folder found. Skipping artifact upload.\n`);
+                    resolve({ success: true, output: stdout });
+                    return;
+                }
+
+                // Find all relevant files to upload
+                const files = fs.readdirSync(distPath);
+                const artifactFiles = files.filter(f =>
+                    f.endsWith('.exe') ||
+                    f.endsWith('.yml') ||
+                    f.endsWith('.blockmap') ||
+                    f.endsWith('.dmg') ||
+                    f.endsWith('.AppImage')
+                );
+
+                if (artifactFiles.length === 0) {
+                    mainWindow.webContents.send('build-log', `\n⚠️ No artifacts found to upload.\n`);
+                    resolve({ success: true, output: stdout });
+                    return;
+                }
+
+                mainWindow.webContents.send('build-log', `\nFound ${artifactFiles.length} files to upload:\n${artifactFiles.map(f => `  - ${f}`).join('\n')}\n`);
+
+                // Upload each file
+                let uploadCount = 0;
+                let uploadErrors = [];
+
+                artifactFiles.forEach((file, index) => {
+                    const filePath = path.join(distPath, file);
+                    const uploadCmd = `gh release upload "${version}" "${filePath}"`;
+
+                    exec(uploadCmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
+                        if (error) {
+                            uploadErrors.push(`${file}: ${stderr}`);
+                            mainWindow.webContents.send('build-log', `\n❌ Failed to upload ${file}\n`);
+                        } else {
+                            mainWindow.webContents.send('build-log', `\n✅ Uploaded ${file}\n`);
+                        }
+
+                        uploadCount++;
+
+                        // Check if all uploads are done
+                        if (uploadCount === artifactFiles.length) {
+                            if (uploadErrors.length > 0) {
+                                mainWindow.webContents.send('build-log', `\n⚠️ Some uploads failed:\n${uploadErrors.join('\n')}\n`);
+                            } else {
+                                mainWindow.webContents.send('build-log', `\n🎉 All artifacts uploaded successfully!\n`);
+                            }
+                            resolve({
+                                success: uploadErrors.length === 0,
+                                output: stdout,
+                                partialSuccess: uploadErrors.length < artifactFiles.length
+                            });
+                        }
+                    });
+                });
+            });
         });
     });
 });
 
+// DELETE RELEASE
 ipcMain.handle('delete-release', async (event, { path: projectPath, tagName }) => {
     return new Promise((resolve) => {
         const cmdDeleteRelease = `gh release delete "${tagName}" --yes`;
@@ -159,6 +275,7 @@ ipcMain.handle('delete-release', async (event, { path: projectPath, tagName }) =
     });
 });
 
+// TRIGGER BUILD
 ipcMain.handle('trigger-build', (event, projectPath) => {
     const pkgPath = path.join(projectPath, 'package.json');
     let buildCommand = null;
@@ -168,7 +285,6 @@ ipcMain.handle('trigger-build', (event, projectPath) => {
         const pkg = JSON.parse(pkgRaw);
         const scripts = pkg.scripts || {};
 
-        // Prefer build-all if present, otherwise fall back to build
         if (scripts['build-all']) {
             buildCommand = 'npm run build-all';
         } else if (scripts.build) {
