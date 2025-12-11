@@ -358,6 +358,7 @@ body {
   height: calc(100vh - 32px);
   position: relative;
   background: var(--bg-secondary);
+  margin-bottom: 12px;
 }
 
 .sidebar-content {
