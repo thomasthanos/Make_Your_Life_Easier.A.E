@@ -35,7 +35,7 @@ function getBuildCommand(projectPath, overrideCommand) {
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 800,
+        width: 1000,
         height: 850,
         minWidth: 1000,
         minHeight: 700,
@@ -130,40 +130,28 @@ ipcMain.handle('get-project-info', async (event, projectPath) => {
 });
 
 // GET RELEASES
+// GET RELEASES & TAGS
 ipcMain.handle('get-releases', async (event, projectPath) => {
     return new Promise((resolve) => {
         const getRepoCmd = 'gh repo view --json url';
         exec(getRepoCmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
             if (error) {
-                resolve([]);
+                // Αν αποτύχει το gh repo view, δοκιμάζουμε με git remote
+                exec('git remote get-url origin', { cwd: projectPath }, (gitError, gitStdout) => {
+                    if (gitError) {
+                        resolve([]);
+                        return;
+                    }
+                    const repoUrl = gitStdout.trim().replace('.git', '');
+                    fetchReleasesAndTags(projectPath, repoUrl, resolve);
+                });
                 return;
             }
 
             try {
                 const repoInfo = JSON.parse(stdout);
                 const repoUrl = repoInfo.url;
-
-                const cmd = 'gh release list --json tagName,publishedAt,name,isDraft --limit 20';
-                exec(cmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
-                    if (error) {
-                        resolve([]);
-                    } else {
-                        try {
-                            const rawData = JSON.parse(stdout);
-                            const releases = rawData.map(rel => ({
-                                tagName: rel.tagName,
-                                publishedAt: rel.publishedAt,
-                                url: `${repoUrl}/releases/tag/${rel.tagName}`,
-                                title: rel.name || rel.tagName,
-                                isDraft: rel.isDraft || false
-                            }));
-                            resolve(releases);
-                        } catch (e) {
-                            console.error('Error parsing releases:', e);
-                            resolve([]);
-                        }
-                    }
-                });
+                fetchReleasesAndTags(projectPath, repoUrl, resolve);
             } catch (e) {
                 console.error('Error parsing repo info:', e);
                 resolve([]);
@@ -171,6 +159,70 @@ ipcMain.handle('get-releases', async (event, projectPath) => {
         });
     });
 });
+
+function fetchReleasesAndTags(projectPath, repoUrl, resolve) {
+    // Πάρε releases
+    const releasesCmd = 'gh release list --json tagName,publishedAt,name,isDraft --limit 50';
+    exec(releasesCmd, { cwd: projectPath, env: baseEnv }, (releaseError, releaseStdout, releaseStderr) => {
+        let releases = [];
+        let releaseTags = new Set();
+
+        if (!releaseError) {
+            try {
+                const rawReleases = JSON.parse(releaseStdout);
+                releases = rawReleases.map(rel => ({
+                    tagName: rel.tagName,
+                    publishedAt: rel.publishedAt,
+                    url: `${repoUrl}/releases/tag/${rel.tagName}`,
+                    title: rel.name || rel.tagName,
+                    isDraft: rel.isDraft || false,
+                    type: 'release'
+                }));
+                // Κρατάμε τα tags που έχουν release
+                releases.forEach(rel => releaseTags.add(rel.tagName));
+            } catch (e) {
+                console.error('Error parsing releases:', e);
+            }
+        }
+
+        // Πάρε όλα τα tags (git tags)
+        const tagsCmd = 'git tag --list --sort=-creatordate';
+        exec(tagsCmd, { cwd: projectPath }, (tagsError, tagsStdout, tagsStderr) => {
+            let tagsWithoutReleases = [];
+
+            if (!tagsError && tagsStdout.trim()) {
+                const allTags = tagsStdout.trim().split('\n');
+
+                // Φίλτραρε μόνο τα tags που ΔΕΝ έχουν release
+                tagsWithoutReleases = allTags
+                    .filter(tag => tag && !releaseTags.has(tag))
+                    .slice(0, 20) // Περιορισμός για απόδοση
+                    .map(tag => ({
+                        tagName: tag,
+                        publishedAt: null,
+                        url: `${repoUrl}/releases/tag/${tag}`,
+                        title: tag,
+                        isDraft: false,
+                        type: 'tag-only' // Διαφορετικός τύπος
+                    }));
+            }
+
+            // Ενώνουμε releases και tags χωρίς releases
+            const allItems = [...releases, ...tagsWithoutReleases]
+                .sort((a, b) => {
+                    // Ταξινόμηση βάσει ημερομηνίας (αν υπάρχει) ή αλφαβητικά
+                    if (a.publishedAt && b.publishedAt) {
+                        return new Date(b.publishedAt) - new Date(a.publishedAt);
+                    }
+                    if (a.publishedAt) return -1;
+                    if (b.publishedAt) return 1;
+                    return b.tagName.localeCompare(a.tagName);
+                });
+
+            resolve(allItems);
+        });
+    });
+}
 
 // CREATE RELEASE WITH BUILD & UPLOAD
 ipcMain.handle('create-release', async (event, { path: projectPath, version, title, notes, buildCommand }) => {
@@ -303,37 +355,107 @@ ipcMain.handle('create-release', async (event, { path: projectPath, version, tit
 });
 
 // DELETE RELEASE + TAGS (remote & local)
+// DELETE RELEASE + TAGS - Robust έκδοση
 ipcMain.handle('delete-release', async (event, { path: projectPath, tagName }) => {
-    const runCmd = (cmd) =>
-        new Promise((resolve, reject) => {
+    const execWithLog = (cmd, description) => {
+        return new Promise((resolve) => {
             exec(cmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
                 if (error) {
-                    reject(stderr || error.message);
+                    resolve({ success: false, error: stderr || error.message });
                 } else {
-                    resolve(stdout);
+                    resolve({ success: true, output: stdout });
                 }
             });
         });
+    };
 
     try {
-        await runCmd(`gh release delete "${tagName}" --yes`);
-    } catch (err) {
-        return { success: false, error: `Failed to delete release: ${err}` };
-    }
+        // STRATEGY 1: Προσπάθεια με GitHub CLI (για releases)
+        const ghResult = await execWithLog(
+            `gh release delete "${tagName}" --yes`,
+            'GitHub release delete'
+        );
 
-    try {
-        await runCmd(`git push origin :refs/tags/${tagName}`);
-    } catch (err) {
-        return { success: false, error: `Release deleted, but failed to delete remote tag: ${err}` };
-    }
+        // STRATEGY 2: Προσπάθεια με Git (για tags)
+        // 2a. Διαγραφή remote tag
+        const remoteResult = await execWithLog(
+            `git push origin --delete "${tagName}"`,
+            'Delete remote tag (method 1)'
+        );
 
-    try {
-        await runCmd(`git tag -d "${tagName}"`);
-    } catch (err) {
-        return { success: false, error: `Release deleted, remote tag removed, but failed to delete local tag: ${err}` };
-    }
+        // 2b. Εναλλακτική μέθοδος διαγραφής remote tag
+        if (!remoteResult.success) {
+            await execWithLog(
+                `git push origin :refs/tags/${tagName}`,
+                'Delete remote tag (method 2)'
+            );
+        }
 
-    return { success: true };
+        // 2c. Διαγραφή local tag
+        const localResult = await execWithLog(
+            `git tag -d "${tagName}"`,
+            'Delete local tag'
+        );
+
+        // STRATEGY 3: Force delete αν τα παραπάνω αποτύχουν
+        if (!localResult.success) {
+            await execWithLog(
+                `git tag -d "${tagName}" 2>/dev/null || true`,
+                'Force delete local tag'
+            );
+        }
+
+        // STRATEGY 4: Cleanup και sync
+        await execWithLog('git fetch --prune --tags', 'Prune tags');
+        await execWithLog('git fetch --prune origin', 'Prune origin');
+        await execWithLog('git tag | grep -v "${tagName}" | xargs git tag -d 2>/dev/null || true', 'Clean orphaned tags');
+
+        // ΕΛΕΓΧΟΣ: Επαλήθευση ότι το tag έχει διαγραφεί
+        const verifyLocal = await execWithLog(`git tag -l "${tagName}"`, 'Verify local tag deleted');
+        const verifyRemote = await execWithLog(`git ls-remote --tags origin "${tagName}"`, 'Verify remote tag deleted');
+
+        if (verifyLocal.success && verifyLocal.output.includes(tagName)) {
+            // Προσπάθεια force delete
+            await execWithLog(`git tag -d "${tagName}"`, 'Final force delete');
+        }
+
+        // ΑΠΟΤΕΛΕΣΜΑΤΑ
+        const hasLocalTag = verifyLocal.success && verifyLocal.output.includes(tagName);
+        const hasRemoteTag = verifyRemote.success && verifyRemote.output.includes(tagName);
+
+        if (!hasLocalTag && !hasRemoteTag) {
+            return {
+                success: true,
+                message: `Successfully deleted ${tagName} from both local and remote repositories`
+            };
+        } else if (!hasLocalTag && hasRemoteTag) {
+            return {
+                success: true,
+                message: `Deleted ${tagName} locally. Remote tag may still exist due to permissions.`,
+                warning: 'Remote tag deletion may need manual intervention'
+            };
+        } else if (hasLocalTag && !hasRemoteTag) {
+            return {
+                success: true,
+                message: `Deleted ${tagName} remotely. Local tag may be cached.`,
+                warning: 'Run "git fetch --prune --tags" to sync local tags'
+            };
+        } else {
+            return {
+                success: false,
+                error: `Could not delete ${tagName}. It may be protected or you lack permissions.`,
+                suggestion: 'Try deleting manually: 1) Delete from GitHub website, 2) Run: git push origin --delete TAG_NAME, 3) Run: git tag -d TAG_NAME'
+            };
+        }
+
+    } catch (err) {
+        console.error(`❌ UNEXPECTED ERROR deleting ${tagName}:`, err);
+        return {
+            success: false,
+            error: `Unexpected error: ${err.message}`,
+            suggestion: 'Check your Git and GitHub CLI configuration'
+        };
+    }
 });
 
 // TRIGGER BUILD

@@ -1305,14 +1305,24 @@ body {
 
 .footer-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
 }
 
 .stat {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.stat.status-stat {
+  flex-direction: row;
+  justify-content: center;
+  gap: 8px;
+}
+
+.stat.status-stat .stat-label {
+  margin-bottom: 0;
 }
 
 .stat-label {
@@ -1513,4 +1523,99 @@ body {
   .footer-stats {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+/* Subtab styling */
+.subtab-nav {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.subtab-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+}
+
+.subtab-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.subtab-btn.active {
+  font-weight: 600;
+}
+
+.subtab-btn.active.release {
+  background: rgba(108, 99, 255, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.subtab-btn.active.tag {
+  background: rgba(108, 117, 125, 0.15);
+  border-color: #6c757d;
+  color: #adb5bd;
+}
+
+.subtab-count {
+  background: var(--text-secondary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.subtab-btn.active .subtab-count {
+  background: currentColor;
+}
+
+/* Tag-only card styling */
+.tag-only-card {
+  border-color: rgba(108, 117, 125, 0.3) !important;
+}
+
+.tag-only-title {
+  color: #adb5bd !important;
+}
+/* Προσθήκη στο App.css */
+.error-message {
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin: 12px 0;
+  font-size: 13px;
+  color: #ff6b6b;
+}
+
+.warning-message {
+  background: rgba(255, 179, 71, 0.1);
+  border: 1px solid rgba(255, 179, 71, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin: 12px 0;
+  font-size: 13px;
+  color: #ffb347;
+}
+
+.success-message {
+  background: rgba(46, 213, 115, 0.1);
+  border: 1px solid rgba(46, 213, 115, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin: 12px 0;
+  font-size: 13px;
+  color: #2ed573;
 }

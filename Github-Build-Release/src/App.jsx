@@ -7,7 +7,7 @@ import {
   FaSpinner, FaCopy, FaRegClock, FaRegCalendarAlt, 
   FaSync, FaSun, FaMoon, FaCloud, FaCode, FaTimes,
   FaCheckCircle, FaFolder, FaDatabase, FaCircle,
-  FaPaintBrush // Νέο εικονίδιο για το theme
+  FaPaintBrush, FaTag // Προστέθηκε το FaTag
 } from 'react-icons/fa';
 import './App.css';
 
@@ -17,6 +17,7 @@ function App() {
   const [releases, setReleases] = useState([]);
   const [logs, setLogs] = useState('');
   const [activeTab, setActiveTab] = useState('create');
+  const [activeHistorySubTab, setActiveHistorySubTab] = useState('releases'); // 'releases' ή 'tags'
   const [theme, setTheme] = useState('dark');
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildCommand, setBuildCommand] = useState('npm run build-all');
@@ -62,7 +63,6 @@ function App() {
   }, []);
 
   const handleSelectFolder = async () => {
-    console.log('Select folder clicked - debugging'); // Debug
     const path = await window.api.selectFolder();
     if (path) {
       setProjectPath(path);
@@ -105,7 +105,6 @@ function App() {
     window.api.triggerBuild({ path: projectPath, command: buildCommand });
   };
 
-
   const handleCreateRelease = () => {
     if (!version || !title || !projectPath) return alert("Please fill in version and title");
     setShowReleaseConfirm(true);
@@ -120,7 +119,7 @@ function App() {
     setShowReleaseConfirm(false);
     setIsReleasing(true);
     setLogs(prev => prev + `\n🚀 Starting Release Process for ${version}...\n`);
-    setActiveTab('logs'); // Switch to logs tab to show progress
+    setActiveTab('logs');
     
     const result = await window.api.createRelease({ path: projectPath, version, title, notes, buildCommand });
     setIsReleasing(false);
@@ -142,19 +141,25 @@ function App() {
     }
   };
 
-
-  const handleDeleteRelease = async (tagName) => {
+  const handleDeleteRelease = async (deleteInfo) => {
+    if (!deleteInfo || !deleteInfo.tagName) return;
+    
     setIsDeleting(true);
-    setLogs(prev => prev + `\n🗑️ Deleting release and tag: ${tagName}...\n`);
-    const result = await window.api.deleteRelease({ path: projectPath, tagName });
+    setLogs(prev => prev + `\n🗑️ Deleting ${deleteInfo.type === 'tag-only' ? 'tag' : 'release'}: ${deleteInfo.tagName}...\n`);
+    
+    const result = await window.api.deleteRelease({ 
+      path: projectPath, 
+      tagName: deleteInfo.tagName
+    });
+    
     setIsDeleting(false);
     setPendingDelete(null);
 
     if (result.success) {
-      setLogs(prev => prev + `✅ Successfully deleted ${tagName}.\n`);
+      setLogs(prev => prev + `✅ Successfully deleted ${deleteInfo.tagName}.\n`);
       fetchReleases(projectPath);
     } else {
-      alert(`Failed to delete ${tagName}`);
+      alert(`Failed to delete ${deleteInfo.tagName}`);
       setLogs(prev => prev + `❌ Delete Error: ${result.error}\n`);
     }
   };
@@ -175,6 +180,10 @@ function App() {
     const parts = path.split(/[\\/]/);
     return parts[parts.length - 1] || path;
   };
+
+  // Φίλτρα για releases και tags
+  const releasesOnly = releases.filter(r => r.type === 'release');
+  const tagsOnly = releases.filter(r => r.type === 'tag-only');
 
   return (
     <div className={`app-container ${theme}-theme`}>
@@ -218,15 +227,15 @@ function App() {
             {activeTab === 'logs' && 'Build Console'}
           </div>
 
-          {/* Δεξιά πλευρά - Κενή τώρα (ή μπορείς να βάλεις κάτι άλλο εδώ) */}
+          {/* Δεξιά πλευρά - Κενή τώρα */}
           <div className="header-actions">
             {/* Κενό ή βάλε εδώ κάποιο άλλο στοιχείο αν θες */}
           </div>
         </div>
       </header>
 
-{/* DRAG REGION - ΑΦΟΥ το header (τώρα δεν καλύπτει τα κουμπιά) */}
-<div className="drag-region" style={{ top: '0', left: '220px', right: '138px', height: '36px' }}></div>
+      {/* DRAG REGION - ΑΦΟΥ το header */}
+      <div className="drag-region" style={{ top: '0', left: '220px', right: '138px', height: '36px' }}></div>
 
       {/* MAIN LAYOUT */}
       <div className="main-layout">
@@ -252,8 +261,8 @@ function App() {
                   <FaCodeBranch size={14} />
                 </div>
                 <span>Release History</span>
-                {releases.length > 0 && (
-                  <span className="nav-badge">{releases.length}</span>
+                {releasesOnly.length > 0 && (
+                  <span className="nav-badge">{releasesOnly.length}</span>
                 )}
               </button>
               
@@ -294,7 +303,7 @@ function App() {
                       <FaCopy size={11} />
                     </button>
                   </div>
-                  {/* Build command placed under project path */}
+                  {/* Build command */}
                   <textarea
                     className="glass-input"
                     style={{
@@ -304,7 +313,8 @@ function App() {
                       lineHeight: '22px',
                       padding: '5px 10px',
                       resize: 'none',
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      marginBottom: '12px'
                     }}
                     value={buildCommand}
                     onChange={e => setBuildCommand(e.target.value)}
@@ -321,8 +331,12 @@ function App() {
                   </div>
                   <div className="project-stats">
                     <div className="stat-item">
-                      <span className="stat-value">{releases.length}</span>
+                      <span className="stat-value">{releasesOnly.length}</span>
                       <span className="stat-label">Releases</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-value">{tagsOnly.length}</span>
+                      <span className="stat-label">Tags</span>
                     </div>
                     <div className="stat-item">
                       <span className="stat-value">V{projectVersion || '-'}</span>
@@ -545,7 +559,7 @@ function App() {
                       <div className="tab-header-content">
                         <h1>Release History</h1>
                         <p className="tab-description">
-                          {releases.length} release{releases.length !== 1 ? 's' : ''} published to GitHub
+                          Manage GitHub releases and Git tags
                         </p>
                       </div>
                       <button 
@@ -557,73 +571,244 @@ function App() {
                       </button>
                     </div>
                     
+                    {/* SUBTABS για Releases/Tags */}
+                    <div className="subtab-nav" style={{ 
+                      display: 'flex', 
+                      gap: '4px', 
+                      marginBottom: '24px',
+                      borderBottom: '1px solid var(--border)',
+                      paddingBottom: '8px'
+                    }}>
+                      <button 
+                        className={`subtab-btn ${activeHistorySubTab === 'releases' ? 'active' : ''}`}
+                        onClick={() => setActiveHistorySubTab('releases')}
+                        style={{
+                          background: activeHistorySubTab === 'releases' ? 'rgba(108, 99, 255, 0.15)' : 'transparent',
+                          border: '1px solid',
+                          borderColor: activeHistorySubTab === 'releases' ? 'var(--accent)' : 'var(--border)',
+                          color: activeHistorySubTab === 'releases' ? 'var(--accent)' : 'var(--text-secondary)',
+                          padding: '8px 16px',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          fontWeight: activeHistorySubTab === 'releases' ? '600' : '400',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          transition: 'var(--transition)'
+                        }}
+                      >
+                        <FaRocket size={12} />
+                        Releases
+                        <span style={{
+                          background: activeHistorySubTab === 'releases' ? 'var(--accent)' : 'var(--text-secondary)',
+                          color: 'white',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          fontSize: '11px',
+                          fontWeight: '600'
+                        }}>
+                          {releasesOnly.length}
+                        </span>
+                      </button>
+                      
+                      <button 
+                        className={`subtab-btn ${activeHistorySubTab === 'tags' ? 'active' : ''}`}
+                        onClick={() => setActiveHistorySubTab('tags')}
+                        style={{
+                          background: activeHistorySubTab === 'tags' ? 'rgba(108, 117, 125, 0.15)' : 'transparent',
+                          border: '1px solid',
+                          borderColor: activeHistorySubTab === 'tags' ? '#6c757d' : 'var(--border)',
+                          color: activeHistorySubTab === 'tags' ? '#adb5bd' : 'var(--text-secondary)',
+                          padding: '8px 16px',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          fontWeight: activeHistorySubTab === 'tags' ? '600' : '400',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          transition: 'var(--transition)'
+                        }}
+                      >
+                        <FaTag size={12} />
+                        Tags Only
+                        <span style={{
+                          background: activeHistorySubTab === 'tags' ? '#6c757d' : 'var(--text-secondary)',
+                          color: 'white',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          fontSize: '11px',
+                          fontWeight: '600'
+                        }}>
+                          {tagsOnly.length}
+                        </span>
+                      </button>
+                    </div>
+                    
                     {isLoading ? (
                       <div className="loading-state glass-panel">
                         <FaSpinner className="spinner" size={36} />
-                        <p>Fetching releases from GitHub...</p>
-                      </div>
-                    ) : releases.length === 0 ? (
-                      <div className="empty-state glass-panel">
-                        <FaCodeBranch size={48} />
-                        <h3>No Releases Found</h3>
-                        <p>Create your first release using the "Create Release" tab</p>
+                        <p>Fetching releases & tags from GitHub...</p>
                       </div>
                     ) : (
-                      <div className="release-grid">
-                        {releases.map((rel, idx) => (
-                          <div key={idx} className="release-card glass-panel">
-                            <div className="card-header">
-                              <div className="release-tag">
-                                <span className="tag-badge">{rel.tagName}</span>
-                                {rel.isDraft && (
-                                  <span className="draft-badge">Draft</span>
-                                )}
-                              </div>
-                              
-                              <div className="release-time">
-                                <span className="time-item">
-                                  <FaRegCalendarAlt size={10} />
-                                  {new Date(rel.publishedAt).toLocaleDateString()}
-                                </span>
-                                <span className="time-item">
-                                  <FaRegClock size={10} />
-                                  {new Date(rel.publishedAt).toLocaleTimeString([], { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                  })}
-                                </span>
-                              </div>
+                      <>
+                        {/* RELEASES SUBTAB */}
+                        {activeHistorySubTab === 'releases' && (
+                          releasesOnly.length === 0 ? (
+                            <div className="empty-state glass-panel" style={{ maxWidth: '500px', margin: '40px auto' }}>
+                              <FaRocket size={48} />
+                              <h3>No Releases Found</h3>
+                              <p>Create your first release using the "Create Release" tab</p>
                             </div>
-                            
-                            <div className="card-body">
-                              <div className="release-content">
-                                <h3 className="release-title">{rel.title}</h3>
-                                <div className="release-links">
-                                  <a 
-                                    href={rel.url} 
-                                    target="_blank" 
-                                    rel="noreferrer" 
-                                    className="action-link"
-                                  >
-                                    <FaExternalLinkAlt size={11} /> View on GitHub
-                                  </a>
+                          ) : (
+                            <div className="release-grid">
+                              {releasesOnly.map((rel, idx) => (
+                                <div key={idx} className="release-card glass-panel">
+                                  <div className="card-header">
+                                    <div className="release-tag">
+                                      <span className="tag-badge" style={{
+                                        background: 'linear-gradient(135deg, var(--accent), #9d4edd)'
+                                      }}>
+                                        {rel.tagName}
+                                      </span>
+                                      {rel.isDraft && (
+                                        <span className="draft-badge">Draft</span>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="release-time">
+                                      <span className="time-item">
+                                        <FaRegCalendarAlt size={10} />
+                                        {new Date(rel.publishedAt).toLocaleDateString()}
+                                      </span>
+                                      <span className="time-item">
+                                        <FaRegClock size={10} />
+                                        {new Date(rel.publishedAt).toLocaleTimeString([], { 
+                                          hour: '2-digit', 
+                                          minute: '2-digit' 
+                                        })}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="card-body">
+                                    <div className="release-content">
+                                      <h3 className="release-title">{rel.title}</h3>
+                                      <div className="release-links">
+                                        <a 
+                                          href={rel.url} 
+                                          target="_blank" 
+                                          rel="noreferrer" 
+                                          className="action-link"
+                                        >
+                                          <FaExternalLinkAlt size={11} /> View on GitHub
+                                        </a>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="release-actions">
+                                      <button 
+                                        className="delete-btn"
+                                        onClick={() => setPendingDelete({
+                                          tagName: rel.tagName,
+                                          type: 'release'
+                                        })}
+                                        title="Delete release and tag"
+                                        disabled={isDeleting}
+                                      >
+                                        <FaTrash size={11} />
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                              
-                              <div className="release-actions">
-                                <button 
-                                  className="delete-btn"
-                                  onClick={() => setPendingDelete(rel.tagName)}
-                                  title="Delete release and tag"
-                                  disabled={isDeleting}
-                                >
-                                  <FaTrash size={11} />
-                                </button>
-                              </div>
+                              ))}
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          )
+                        )}
+                        
+                        {/* TAGS SUBTAB */}
+                        {activeHistorySubTab === 'tags' && (
+                          tagsOnly.length === 0 ? (
+                            <div className="empty-state glass-panel" style={{ maxWidth: '500px', margin: '40px auto' }}>
+                              <FaTag size={48} />
+                              <h3>No Tags Without Releases</h3>
+                              <p>All Git tags have associated GitHub releases</p>
+                            </div>
+                          ) : (
+                            <div className="release-grid">
+                              {tagsOnly.map((tag, idx) => (
+                                <div key={idx} className="release-card glass-panel" style={{ borderColor: 'rgba(108, 117, 125, 0.3)' }}>
+                                  <div className="card-header">
+                                    <div className="release-tag">
+                                      <span className="tag-badge" style={{
+                                        background: 'linear-gradient(135deg, #6c757d, #495057)',
+                                        color: '#e9ecef'
+                                      }}>
+                                        {tag.tagName}
+                                      </span>
+                                      <span style={{
+                                        background: 'rgba(108, 117, 125, 0.2)',
+                                        color: '#adb5bd',
+                                        padding: '4px 8px',
+                                        borderRadius: '12px',
+                                        fontSize: '10px',
+                                        fontWeight: '600',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}>
+                                        <FaTag size={8} /> Tag Only
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="release-time">
+                                      <span className="time-item" style={{ color: '#adb5bd' }}>
+                                        <FaCodeBranch size={10} />
+                                        No GitHub Release
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="card-body">
+                                    <div className="release-content">
+                                      <h3 className="release-title" style={{ color: '#adb5bd' }}>
+                                        {tag.title}
+                                      </h3>
+                                      <div className="release-links">
+                                        <span className="action-link" style={{ 
+                                          color: '#6c757d',
+                                          cursor: 'default'
+                                        }}>
+                                          <FaTag size={11} /> Git tag only (no release page)
+                                        </span>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="release-actions">
+                                      <button 
+                                        className="delete-btn"
+                                        style={{
+                                          borderColor: 'rgba(255, 107, 107, 0.3)',
+                                          color: '#ff6b6b'
+                                        }}
+                                        onClick={() => setPendingDelete({
+                                          tagName: tag.tagName,
+                                          type: 'tag-only'
+                                        })}
+                                        title="Delete tag only"
+                                        disabled={isDeleting}
+                                      >
+                                        <FaTrash size={11} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -703,9 +888,13 @@ function App() {
               </div>
               <div className="stat">
                 <span className="stat-label">Releases</span>
-                <span className="stat-value">{releases.length}</span>
+                <span className="stat-value">{releasesOnly.length}</span>
               </div>
               <div className="stat">
+                <span className="stat-label">Tags Only</span>
+                <span className="stat-value">{tagsOnly.length}</span>
+              </div>
+              <div className="stat status-stat">
                 <span className="stat-label">Status</span>
                 <span className="stat-value">
                   <span className={`status-indicator ${isBuilding ? 'building' : 'idle'}`}>
@@ -725,8 +914,14 @@ function App() {
             <div className="modal-header">
               <div className="modal-icon danger">!</div>
               <div>
-                <h3>Delete release {pendingDelete}?</h3>
-                <p>This will remove the GitHub release and delete the git tag (remote & local).</p>
+                <h3>
+                  Delete {pendingDelete.type === 'tag-only' ? 'tag' : 'release'} {pendingDelete.tagName}?
+                </h3>
+                <p>
+                  {pendingDelete.type === 'tag-only' 
+                    ? 'This will delete the Git tag (remote & local). There is no GitHub release to delete.' 
+                    : 'This will remove the GitHub release and delete the git tag (remote & local).'}
+                </p>
               </div>
             </div>
             <div className="modal-actions">
