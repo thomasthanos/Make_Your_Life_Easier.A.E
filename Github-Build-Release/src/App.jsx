@@ -226,7 +226,7 @@ function App() {
       </header>
 
 {/* DRAG REGION - ΑΦΟΥ το header (τώρα δεν καλύπτει τα κουμπιά) */}
-<div className="drag-region" style={{ top: '0', left: '220px', right: '138px', height: '32px' }}></div>
+<div className="drag-region" style={{ top: '0', left: '220px', right: '138px', height: '36px' }}></div>
 
       {/* MAIN LAYOUT */}
       <div className="main-layout">

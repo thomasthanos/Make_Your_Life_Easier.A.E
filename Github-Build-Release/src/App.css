@@ -81,7 +81,7 @@ body {
   top: 0;
   left: 200px; /* αφήνει χώρο για brand & toggle */
   right: 0;
-  height: 32px; /* περιορισμένο ύψος για να μην μπλοκάρει περιεχόμενο */
+  height: 36px !important; /* περιορισμένο ύψος για να μην μπλοκάρει περιεχόμενο */
   -webkit-app-region: drag;
   z-index: 1;
   background: transparent;
@@ -180,7 +180,7 @@ body {
 
 /* --- CUSTOM HEADER --- */
 .app-header {
-  height: 32px;
+  height: 36px !important;
   position: fixed;
   top: 0;
   left: 0;
@@ -345,7 +345,7 @@ body {
   position: relative;
   z-index: 1;
   height: 100vh;
-  padding-top: 32px;
+  padding-top: 36px !important;
   align-items: flex-start;
 }
 
@@ -357,7 +357,7 @@ body {
   flex-direction: column;
   border-right: 1px solid var(--border);
   margin-top: 15px;
-  height: calc(100vh - 32px - 15px);
+  height: calc(100vh - 36px - 15px);
   position: relative;
   background: var(--bg-secondary);
 }
