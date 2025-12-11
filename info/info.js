@@ -1,13 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
   const navItems = document.querySelectorAll('.nav-item');
   const sections = document.querySelectorAll('.info-section');
-  
+
   // Navigation functionality
   navItems.forEach(item => {
     item.addEventListener('click', () => {
       navItems.forEach(i => i.classList.remove('active'));
       item.classList.add('active');
-      
+
       const targetId = item.getAttribute('data-target');
       sections.forEach(sec => {
         sec.classList.toggle('active', sec.id === targetId);
@@ -40,14 +40,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.nav-item').forEach(item => {
       const labelSpan = item.querySelector('.nav-label');
       if (!labelSpan) return;
-      
+
       const navClass = Array.from(item.classList).find(c => c.startsWith('nav-'));
       const key = navClass?.replace('nav-', '');
-      
+
       if (key && translations[lang]?.nav[key]) {
         labelSpan.textContent = translations[lang].nav[key];
       }
     });
+
+    // Update menu hint
+    const menuHintEl = document.querySelector('.info-menu-hint');
+    if (menuHintEl) {
+      const hintText = translations[lang]?.menuHint || 'Title bar menu: theme, language, info panel.';
+      menuHintEl.textContent = hintText;
+    }
 
     // Update section content
     document.querySelectorAll('.info-section').forEach(section => {
@@ -63,16 +70,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Update content cards
       const cards = section.querySelectorAll('.column-card');
-      
+
       // First card - What it does
       if (cards[0]) {
         const whatTitleEl = cards[0].querySelector('.column-title');
         const whatDescEl = cards[0].querySelector('p');
         const featureList = cards[0].querySelector('.feature-list');
-        
+
         if (whatTitleEl) whatTitleEl.textContent = data.whatTitle;
         if (whatDescEl) whatDescEl.textContent = data.whatDesc;
-        
+
         // Update feature lists
         if (featureList && data.features) {
           featureList.innerHTML = data.features;
@@ -84,10 +91,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const howTitleEl = cards[1].querySelector('.column-title');
         const stepsList = cards[1].querySelector('.usage-list');
         const warningNote = cards[1].querySelector('.warning-note');
-        
+
         if (howTitleEl) howTitleEl.textContent = data.howTitle;
         if (stepsList && data.steps) {
-          stepsList.innerHTML = data.steps.map(step => 
+          stepsList.innerHTML = data.steps.map(step =>
             `<li>${step}</li>`
           ).join('');
         }

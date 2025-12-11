@@ -22,9 +22,9 @@
     <button class="info-close-btn" aria-label="Κλείσιμο">&times;</button>
 
     <nav class="info-nav">
-      <div class="nav-item nav-settings" data-target="section-settings">
-        <span class="icon-container" aria-hidden="true">⚙️</span>
-        <span class="nav-label">Settings</span>
+      <div class="nav-item nav-menu" data-target="section-menu">
+        <span class="icon-container" aria-hidden="true">🧭</span>
+        <span class="nav-label">Menu</span>
       </div>
       <div class="nav-item nav-install active" data-target="section-install">
         <span class="icon-container" aria-hidden="true">📥</span>
@@ -69,6 +69,44 @@
     </nav>
 
     <div class="info-content">
+      <!-- Title Bar Menu -->
+      <section id="section-menu" class="info-section">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">🧭</span>
+          <span class="section-title-text">Title Bar Menu</span>
+        </h2>
+        <div class="section-content">
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">🧭</span>
+                <h3 class="column-title">Τι κάνει;</h3>
+              </div>
+              <p>
+                <!-- Content will be filled by JavaScript -->
+              </p>
+              <div class="feature-list">
+                <!-- Content will be filled by JavaScript -->
+              </div>
+            </div>
+          </div>
+          <div class="info-column">
+            <div class="column-card">
+              <div class="column-header">
+                <span class="column-icon-container" aria-hidden="true">📄</span>
+                <h3 class="column-title">Οδηγίες Χρήσης</h3>
+              </div>
+              <ol class="usage-list">
+                <!-- Content will be filled by JavaScript -->
+              </ol>
+              <div class="warning-note">
+                <!-- Content will be filled by JavaScript -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Εγκατάσταση Εφαρμογών -->
       <section id="section-install" class="info-section active">
         <h2 class="section-title">
@@ -449,43 +487,6 @@
         </div>
       </section>
 
-      <!-- Ρυθμίσεις -->
-      <section id="section-settings" class="info-section">
-        <h2 class="section-title">
-          <span class="section-icon" aria-hidden="true">⚙️</span>
-          <span class="section-title-text">Ρυθμίσεις Εφαρμογής</span>
-        </h2>
-        <div class="section-content">
-          <div class="info-column">
-            <div class="column-card">
-              <div class="column-header">
-                <span class="column-icon-container" aria-hidden="true">🌐</span>
-                <h3 class="column-title">Τι κάνει;</h3>
-              </div>
-              <p>
-                <!-- Content will be filled by JavaScript -->
-              </p>
-              <div class="feature-list">
-                <!-- Content will be filled by JavaScript -->
-              </div>
-            </div>
-          </div>
-          <div class="info-column">
-            <div class="column-card">
-              <div class="column-header">
-                <span class="column-icon-container" aria-hidden="true">📄</span>
-                <h3 class="column-title">Οδηγίες Χρήσης</h3>
-              </div>
-              <ol class="usage-list">
-                <!-- Content will be filled by JavaScript -->
-              </ol>
-              <div class="warning-note">
-                <!-- Content will be filled by JavaScript -->
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   </div>
   <script src="translations.js"></script>

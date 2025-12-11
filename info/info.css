@@ -88,6 +88,16 @@ html, body {
   gap: 0.75rem;
 }
 
+.info-menu-hint {
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
 .info-logo {
   font-size: 2rem;
   line-height: 1;
@@ -137,7 +147,6 @@ html, body {
   border-radius: 12px;
   overflow-x: auto;
   overflow-y: hidden;
-  width: 100%;
   margin: 0 auto;
   scrollbar-width: thin;
   scrollbar-color: var(--accent-color) rgba(255, 255, 255, 0.05);

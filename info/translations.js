@@ -1,7 +1,8 @@
 const translations = {
   en: {
+    menuHint: 'Title bar menu: theme toggle, language toggle, info panel.',
     nav: {
-      settings: 'Settings',
+      menu: 'Menu',
       install: 'Install',
       crack: 'Crack',
       maintain: 'Maintain',
@@ -14,52 +15,69 @@ const translations = {
       dlc: 'DLC'
     },
     sections: {
-      'section-install': {
-        title: 'Install Apps',
+      'section-menu': {
+        title: 'Title Bar Menu',
         whatTitle: 'What does it do?',
-        whatDesc: 'Automatically installs popular programs with one click! The application downloads and installs safe versions without viruses or bloatware.',
+        whatDesc: 'Quick access to theme toggle, language switch, and this info panel.',
         features: `
-          <strong>Available programs:</strong>
           <ul>
-            <li>📱 Discord & Discord PTB</li>
-            <li>🎵 Spotify</li>
-            <li>🎮 Epic Games Launcher</li>
-            <li>🕹️ Ubisoft Connect</li>
-            <li>🛠️ Advanced Installer</li>
+            <li>🎨 Toggle Light/Dark theme</li>
+            <li>🌍 Switch language (EN/GR)</li>
+            <li>ℹ️ Open the info/help panel</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Select the programs you want (check the boxes)',
-          'Click "Download Selected"',
-          'Wait for the download to complete',
-          'Follow the installation instructions',
-          'Ready! The programs are installed automatically'
+          'Open the title bar menu',
+          'Choose theme or language',
+          'Click ℹ️ to reopen this panel anytime'
         ],
-        warning: '⚠️ <strong>Internet connection required</strong>'
+        warning: ''
+      },
+      'section-install': {
+        title: 'Install Apps (winget)',
+        whatTitle: 'What does it do?',
+        whatDesc: 'Uses winget to search and install apps. Multi-select, search, and import/export lists via JSON.',
+        features: `
+          <ul>
+            <li>🪟 Uses winget (official feeds) with silent installs</li>
+            <li>🎯 Multi-select + queue with progress and retries</li>
+            <li>🔍 Search and filter packages before installing</li>
+            <li>📦 Import/Export selections as JSON</li>
+            <li>📜 Per-app logs and status toasts</li>
+          </ul>
+        `,
+        howTitle: 'How to use it?',
+        steps: [
+          'Search or select the apps you want',
+          'Optionally import a JSON list',
+          'Click "Install Selected"',
+          'Watch progress/logs in the app',
+          'Launch apps if needed after completion'
+        ],
+        warning: '⚠️ Internet + winget required (the app will prompt/install winget if missing).'
       },
       'section-activate': {
-        title: 'Activate Windows & Auto Login',
+        title: 'Activate + Auto Login',
         whatTitle: 'What does it do?',
-        whatDesc: 'Activates your Windows and sets up automatic login without a password.',
+        whatDesc: 'Runs activation and sets automatic login for your account.',
         features: `
-          <strong>Advantages:</strong>
           <ul>
-            <li>✅ Remove "Activate Windows" messages</li>
-            <li>🚀 Automatic system login</li>
-            <li>⚡ Faster startup</li>
-            <li>🔧 Full access to all Windows features</li>
+            <li>✅ Windows activation script</li>
+            <li>🔓 Enables auto login</li>
+            <li>🚀 Faster boot experience</li>
+            <li>🛠️ Restores full Windows features</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Click "Download & Activate Windows"',
-          'Grant administrator permissions when prompted',
-          'Wait for the process to complete',
-          'Restart your computer',
-          'Enable Auto Login for automatic sign-in'
+          'Click "Activate Windows"',
+          'Allow admin rights when prompted',
+          'Wait for the script to finish',
+          'Restart the PC',
+          'Enable/confirm Auto Login'
         ],
-        warning: '⚠️ <strong>Administrator rights required</strong>'
+        warning: '⚠️ Administrator rights required.'
       },
       'section-maintain': {
         title: 'System Maintenance',
@@ -109,57 +127,27 @@ const translations = {
         ],
         warning: '⚠️ <strong>For educational purposes only</strong>'
       },
-      'section-dlc': {
-        title: 'DLC Unlocker',
-        whatTitle: 'What does it do?',
-        whatDesc: 'Unlocks additional content for games.',
-        features: `
-          <strong>Available unlockers:</strong>
-          <ul>
-            <li>🎮 <strong>Sims 4 Installer</strong> - Complete DLC package</li>
-            <li>⚡ <strong>EA Unlocker</strong> - Unlock for all EA games</li>
-          </ul>
-          <strong>Includes:</strong>
-          <ul>
-            <li>📦 All expansions</li>
-            <li>🎒 Cosmetic items</li>
-            <li>⚡ Game features</li>
-            <li>🔓 Bonus content</li>
-          </ul>
-        `,
-        howTitle: 'How to use it?',
-        steps: [
-          'Select the unlocker (Sims or EA)',
-          'Click "DOWNLOAD [UNLOCKER]"',
-          'Wait for download and extraction',
-          'Follow the installer instructions',
-          'Open the game and enjoy the DLCs!'
-        ],
-        warning: '⚠️ <strong>Base game installation required</strong>'
-      },
       'section-passwords': {
         title: 'Password Manager',
         whatTitle: 'What does it do?',
-        whatDesc: 'Secure storage and management of passwords.',
+        whatDesc: 'Secure local vault with categories, search, and optional import/export.',
         features: `
-          <strong>Security features:</strong>
           <ul>
-            <li>🔐 <strong>Military-grade encryption</strong></li>
-            <li>💾 <strong>Local storage</strong> (no cloud)</li>
-            <li>⚡ <strong>One-click autofill</strong></li>
-            <li>🔍 <strong>Encrypted search</strong></li>
-            <li>🛡️ <strong>Zero-knowledge architecture</strong></li>
+            <li>🔐 Encrypted local storage (no cloud)</li>
+            <li>🗂️ Categories and search</li>
+            <li>📥 Import/Export vault</li>
+            <li>⚡ Quick access to credentials</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Click "Open Password Manager"',
+          'Open the Password Manager',
           'Create a master password',
-          'Add your passwords',
-          'Use auto-fill to log in',
-          'Regularly back up your vault'
+          'Add categories and passwords',
+          'Use search/quick copy to fill logins',
+          'Export a backup regularly'
         ],
-        warning: '💡 <strong>Don\'t forget the master password - it cannot be recovered!</strong>'
+        warning: '💡 Keep the master password safe — it cannot be recovered.'
       },
       'section-spicetify': {
         title: 'Spicetify',
@@ -209,81 +197,66 @@ const translations = {
         warning: '⚠️ <strong>Administrator rights required</strong>'
       },
       'section-bios': {
-        title: 'BIOS Settings',
+        title: 'BIOS',
         whatTitle: 'What does it do?',
-        whatDesc: 'Restarts into BIOS/UEFI to configure hardware.',
+        whatDesc: 'Restarts directly into BIOS/UEFI settings.',
         features: `
-          <strong>Common BIOS settings:</strong>
           <ul>
-            <li>⚡ <strong>Boot order</strong> - Boot sequence</li>
-            <li>💾 <strong>RAM settings</strong> - Memory settings</li>
-            <li>🔋 <strong>Power management</strong> - Power management</li>
-            <li>🖥️ <strong>CPU settings</strong> - Processor settings</li>
-            <li>💨 <strong>Fan control</strong> - Fan control</li>
+            <li>⚡ One-click restart to BIOS/UEFI</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Save all your work',
-          'Close all applications',
+          'Save your work',
           'Click "Restart to BIOS"',
-          'Wait for restart',
-          'Configure the desired settings in BIOS'
+          'Configure settings in BIOS/UEFI'
         ],
-        warning: '⚠️ <strong>Wrong settings can cause problems!</strong>'
+        warning: '⚠️ Only change BIOS settings you understand.'
       },
       'section-debloat': {
-        title: 'Debloat Windows',
+        title: 'Debloat App',
         whatTitle: 'What does it do?',
-        whatDesc: 'Cleans and optimizes Windows using the Raphi script.',
+        whatDesc: 'GUI debloat experience with toggles and safer defaults.',
         features: `
-          <strong>Bloatware removal:</strong>
           <ul>
-            <li>🗑️ <strong>Preinstalled applications</strong></li>
-            <li>📱 <strong>Windows suggestions</strong></li>
-            <li>🔍 <strong>Bing web search</strong></li>
-            <li>📢 <strong>Telemetry & ads</strong></li>
-            <li>🎯 <strong>Unnecessary services</strong></li>
+            <li>🧹 App-based debloat (no raw script prompts)</li>
+            <li>🎚️ Toggle modules and presets</li>
+            <li>💾 Restore point recommendation</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Click "Run Debloat Script"',
-          'Grant administrator permissions',
-          'Wait for the script to execute',
-          'Follow the on-screen instructions',
-          'Restart the system'
+          'Open the Debloat app',
+          'Pick profile or toggle modules',
+          'Run the cleanup',
+          'Restart if prompted'
         ],
-        warning: '⚠️ <strong>Make backup before - changes may not be reversible!</strong>'
+        warning: '⚠️ Create/keep a restore point before heavy changes.'
       },
-      'section-settings': {
-        title: 'Application Settings',
+      'section-dlc': {
+        title: 'DLC Unlocker / Patch',
         whatTitle: 'What does it do?',
-        whatDesc: 'Customizes the application to your preferences.',
+        whatDesc: 'Compact DLC helper; patch flow for unlockers.',
         features: `
-          <strong>Available settings:</strong>
           <ul>
-            <li>🌍 <strong>Language</strong> (English/Ελληνικά)</li>
-            <li>🎨 <strong>Theme</strong> (Light/Dark)</li>
-            <li>ℹ️ <strong>Application information</strong></li>
-            <li>🔄 <strong>Auto-updates</strong></li>
+            <li>🎮 Sims / EA unlocker patch flow</li>
+            <li>📦 Compact steps, fewer prompts</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Select your preferred language',
-          'Change theme from the header button',
-          'Press "Save" to save',
-          'Click the ℹ️ for information',
-          'Enjoy your personalized experience!'
+          'Pick unlocker/patch',
+          'Run it and follow prompts',
+          'Restart the game to load DLC'
         ],
-        warning: '💡 <strong>Changes are applied immediately</strong>'
-      }
+        warning: '⚠️ Base game required; AV may flag unlockers.'
+      },
     }
   },
   gr: {
+    menuHint: 'Μενού στη γραμμή τίτλου: αλλαγή θέματος, γλώσσας, info panel.',
     nav: {
-      settings: 'Ρυθμίσεις',
+      menu: 'Μενού',
       install: 'Εγκατάσταση',
       crack: 'Crack',
       maintain: 'Συντήρηση',
@@ -296,52 +269,69 @@ const translations = {
       dlc: 'DLC'
     },
     sections: {
-      'section-install': {
-        title: 'Εγκατάσταση Εφαρμογών',
+      'section-menu': {
+        title: 'Μενού Γραμμής Τίτλου',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Αυτόματη εγκατάσταση δημοφιλών προγραμμάτων με ένα κλικ! Η εφαρμογή κατεβάζει και εγκαθιστά ασφαλείς εκδόσεις χωρίς ιούς ή bloatware.',
+        whatDesc: 'Γρήγορη πρόσβαση σε αλλαγή θέματος, γλώσσας και το info panel.',
         features: `
-          <strong>Διαθέσιμα προγράμματα:</strong>
           <ul>
-            <li>📱 Discord & Discord PTB</li>
-            <li>🎵 Spotify</li>
-            <li>🎮 Epic Games Launcher</li>
-            <li>🕹️ Ubisoft Connect</li>
-            <li>🛠️ Advanced Installer</li>
+            <li>🎨 Εναλλαγή Light/Dark</li>
+            <li>🌍 Αλλαγή γλώσσας (EN/GR)</li>
+            <li>ℹ️ Άνοιγμα του info/help panel</li>
           </ul>
         `,
         howTitle: 'Οδηγίες Χρήσης',
         steps: [
-          'Επίλεξε τα προγράμματα που θέλεις (βάλε tick)',
-          'Πάτα "Download Selected"',
-          'Περίμενε να ολοκληρωθεί η λήψη',
-          'Ακολούθησε τις οδηγίες εγκατάστασης',
-          'Έτοιμο! Τα προγράμματα εγκαταστάθηκαν αυτόματα'
+          'Άνοιξε το μενού στη γραμμή τίτλου',
+          'Επίλεξε θέμα ή γλώσσα',
+          'Πάτα ℹ️ για να ξαναδείς το panel'
         ],
-        warning: '⚠️ <strong>Απαιτείται σύνδεση στο internet</strong>'
+        warning: ''
+      },
+      'section-install': {
+        title: 'Εγκατάσταση (winget)',
+        whatTitle: 'Τι κάνει;',
+        whatDesc: 'Χρησιμοποιεί winget για αναζήτηση/εγκατάσταση εφαρμογών. Multi-select, search, import/export JSON.',
+        features: `
+          <ul>
+            <li>🪟 Winget (επίσημα feeds) με silent installs</li>
+            <li>🎯 Multi-select + ουρά με progress/retries</li>
+            <li>🔍 Αναζήτηση/φίλτρα πριν την εγκατάσταση</li>
+            <li>📦 Import/Export λίστας σε JSON</li>
+            <li>📜 Logs ανά εφαρμογή και ειδοποιήσεις</li>
+          </ul>
+        `,
+        howTitle: 'Οδηγίες Χρήσης',
+        steps: [
+          'Ψάξε ή επίλεξε τις εφαρμογές',
+          'Προαιρετικά κάνε import JSON λίστας',
+          'Πάτα "Install Selected"',
+          'Παρακολούθησε progress/logs',
+          'Άνοιξε τις εφαρμογές αν χρειάζεται'
+        ],
+        warning: '⚠️ Απαιτείται internet + winget (θα γίνει prompt/εγκατάσταση αν λείπει).'
       },
       'section-activate': {
-        title: 'Ενεργοποίηση Windows & Auto Login',
+        title: 'Ενεργοποίηση + Auto Login',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Ενεργοποιεί το Windows σου και ρυθμίζει αυτόματη σύνδεση χωρίς κωδικό.',
+        whatDesc: 'Τρέχει ενεργοποίηση και ρυθμίζει αυτόματη σύνδεση στον λογαριασμό σου.',
         features: `
-          <strong>Πλεονεκτήματα:</strong>
           <ul>
-            <li>✅ Διαγραφή μηνυμάτων "Activate Windows"</li>
-            <li>🚀 Αυτόματη είσοδος στο σύστημα</li>
-            <li>⚡ Γρηγορότερη εκκίνηση</li>
-            <li>🔧 Πλήρης πρόσβαση σε όλες τις λειτουργίες Windows</li>
+            <li>✅ Script ενεργοποίησης Windows</li>
+            <li>🔓 Ενεργοποίηση αυτόματης εισόδου</li>
+            <li>🚀 Πιο γρήγορη εκκίνηση</li>
+            <li>🛠️ Πλήρη features Windows</li>
           </ul>
         `,
         howTitle: 'Οδηγίες Χρήσης',
         steps: [
-          'Κάνε κλικ στο "Download & Activate Windows"',
-          'Δώσε δικαιώματα διαχειριστή όταν ζητηθεί',
-          'Περίμενε να ολοκληρωθεί η διαδικασία',
-          'Επανεκκίνησε τον υπολογιστή σου',
-          'Ενεργοποίησε το Auto Login για αυτόματη σύνδεση'
+          'Πάτα "Activate Windows"',
+          'Δώσε δικαιώματα διαχειριστή',
+          'Περίμενε να τελειώσει το script',
+          'Κάνε επανεκκίνηση',
+          'Επιβεβαίωσε/άνοιξε Auto Login'
         ],
-        warning: '⚠️ <strong>Απαιτούνται δικαιώματα διαχειριστή</strong>'
+        warning: '⚠️ Απαιτούνται δικαιώματα διαχειριστή.'
       },
       'section-maintain': {
         title: 'Συντήρηση Συστήματος',
@@ -391,57 +381,27 @@ const translations = {
         ],
         warning: '⚠️ <strong>Χρήση για εκπαιδευτικούς σκοπούς</strong>'
       },
-      'section-dlc': {
-        title: 'DLC Unlocker',
-        whatTitle: 'Τι κάνει;',
-        whatDesc: 'Ξεκλειδώνει πρόσθετο περιεχόμενο για παιχνίδια.',
-        features: `
-          <strong>Διαθέσιμα unlockers:</strong>
-          <ul>
-            <li>🎮 <strong>Sims 4 Installer</strong> - Πλήρες DLC package</li>
-            <li>⚡ <strong>EA Unlocker</strong> - Ξεκλείδωμα για όλα τα EA games</li>
-          </ul>
-          <strong>Περιλαμβάνει:</strong>
-          <ul>
-            <li>📦 Όλες τις επεκτάσεις</li>
-            <li>🎒 Cosmetic items</li>
-            <li>⚡ Game features</li>
-            <li>🔓 Bonus content</li>
-          </ul>
-        `,
-        howTitle: 'Οδηγίες Χρήσης',
-        steps: [
-          'Επίλεξε το unlocker (Sims ή EA)',
-          'Κάνε κλικ "DOWNLOAD [UNLOCKER]"',
-          'Περίμενε λήψη και εξαγωγή',
-          'Ακολούθησε τις οδηγίες του installer',
-          'Άνοιξε το παιχνίδι και απόλαυσε τα DLCs!'
-        ],
-        warning: '⚠️ <strong>Απαιτείται το βασικό παιχνίδι εγκατεστημένο</strong>'
-      },
       'section-passwords': {
         title: 'Διαχειριστής Κωδικών',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Ασφαλής αποθήκευση και διαχείριση κωδικών πρόσβασης.',
+        whatDesc: 'Ασφαλές τοπικό vault με κατηγορίες, αναζήτηση και import/export.',
         features: `
-          <strong>Χαρακτηριστικά ασφαλείας:</strong>
           <ul>
-            <li>🔐 <strong>Military-grade encryption</strong></li>
-            <li>💾 <strong>Τοπική αποθήκευση</strong> (όχι cloud)</li>
-            <li>⚡ <strong>One-click autofill</strong></li>
-            <li>🔍 <strong>Encrypted search</strong></li>
-            <li>🛡️ <strong>Zero-knowledge architecture</strong></li>
+            <li>🔐 Κρυπτογράφηση, τοπική αποθήκευση</li>
+            <li>🗂️ Κατηγορίες και αναζήτηση</li>
+            <li>📥 Import/Export του vault</li>
+            <li>⚡ Γρήγορη αντιγραφή/χρήση κωδικών</li>
           </ul>
         `,
         howTitle: 'Οδηγίες Χρήσης',
         steps: [
-          'Κάνε κλικ "Open Password Manager"',
-          'Δημιούργησε master password',
-          'Πρόσθεσε τους κωδικούς σου',
-          'Χρησιμοποίησε auto-fill για σύνδεση',
-          'Κάνε backup τακτικά το vault σου'
+          'Άνοιξε το Password Manager',
+          'Φτιάξε master password',
+          'Πρόσθεσε κατηγορίες και κωδικούς',
+          'Χρησιμοποίησε αναζήτηση/quick copy',
+          'Κάνε export για backup'
         ],
-        warning: '💡 <strong>Μην ξεχάσεις το master password - δεν μπορεί να ανακτηθεί!</strong>'
+        warning: '💡 Κράτα ασφαλές το master password — δεν ανακτάται.'
       },
       'section-spicetify': {
         title: 'Spicetify',
@@ -491,76 +451,60 @@ const translations = {
         warning: '⚠️ <strong>Απαιτούνται δικαιώματα διαχειριστή</strong>'
       },
       'section-bios': {
-        title: 'BIOS Settings',
+        title: 'BIOS',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Επανεκκίνηση στο BIOS/UEFI για ρύθμιση hardware.',
+        whatDesc: 'Επανεκκινεί απευθείας σε BIOS/UEFI.',
         features: `
-          <strong>Συνήθεις ρυθμίσεις BIOS:</strong>
           <ul>
-            <li>⚡ <strong>Boot order</strong> - Σειρά εκκίνησης</li>
-            <li>💾 <strong>RAM settings</strong> - Ρυθμίσεις μνήμης</li>
-            <li>🔋 <strong>Power management</strong> - Διαχείριση ενέργειας</li>
-            <li>🖥️ <strong>CPU settings</strong> - Ρυθμίσεις επεξεργαστή</li>
-            <li>💨 <strong>Fan control</strong> - Έλεγχος ανεμιστήρων</li>
+            <li>⚡ Επανεκκίνηση με ένα κλικ σε BIOS/UEFI</li>
           </ul>
         `,
         howTitle: 'Οδηγίες Χρήσης',
         steps: [
-          'Αποθήκευσε όλη σου την εργασία',
-          'Κλείσε όλες τις εφαρμογές',
+          'Αποθήκευσε την εργασία σου',
           'Κάνε κλικ "Restart to BIOS"',
-          'Περίμενε επανεκκίνηση',
-          'Ρύθμισε τις επιθυμητές ρυθμίσεις στο BIOS'
+          'Ρύθμισε ό,τι χρειάζεσαι στο BIOS/UEFI'
         ],
-        warning: '⚠️ <strong>Λάθος ρυθμίσεις μπορεί να προκαλέσουν προβλήματα!</strong>'
+        warning: '⚠️ Άλλαξε μόνο ρυθμίσεις που γνωρίζεις.'
       },
       'section-debloat': {
-        title: 'Debloat Windows',
+        title: 'Debloat App',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Καθαρισμός και βελτιστοποίηση Windows με το Raphi script.',
+        whatDesc: 'Debloat μέσω εφαρμογής με toggles και ασφαλέστερα προφίλ.',
         features: `
-          <strong>Αφαίρεση bloatware:</strong>
           <ul>
-            <li>🗑️ <strong>Προεγκατεστημένες εφαρμογές</strong></li>
-            <li>📱 <strong>Windows suggestions</strong></li>
-            <li>🔍 <strong>Bing web search</strong></li>
-            <li>📢 <strong>Telemetry & ads</strong></li>
-            <li>🎯 <strong>Unnecessary services</strong></li>
+            <li>🧹 Debloat μέσα από GUI (όχι ωμές εντολές)</li>
+            <li>🎚️ Toggles/προφίλ για modules</li>
+            <li>💾 Σύσταση για restore point</li>
           </ul>
         `,
         howTitle: 'Οδηγίες Χρήσης',
         steps: [
-          'Κάνε κλικ "Run Debloat Script"',
-          'Δώσε δικαιώματα διαχειριστή',
-          'Περίμενε εκτέλεση του script',
-          'Ακολούθησε τις οδηγίες στην οθόνη',
-          'Επανεκκίνησε το σύστημα'
+          'Άνοιξε την Debloat εφαρμογή',
+          'Επίλεξε προφίλ ή toggles',
+          'Τρέξε το cleanup',
+          'Κάνε restart αν ζητηθεί'
         ],
-        warning: '⚠️ <strong>Κάνε backup πριν - οι αλλαγές μπορεί να μην είναι αναστρέψιμες!</strong>'
+        warning: '⚠️ Κράτα restore point πριν από βαριές αλλαγές.'
       },
-      'section-settings': {
-        title: 'Ρυθμίσεις Εφαρμογής',
+      'section-dlc': {
+        title: 'DLC Unlocker / Patch',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Προσαρμογή της εφαρμογής στις προτιμήσεις σου.',
+        whatDesc: 'Συμπαγής ροή για unlocker/patch.',
         features: `
-          <strong>Διαθέσιμες ρυθμίσεις:</strong>
           <ul>
-            <li>🌍 <strong>Γλώσσα</strong> (English/Ελληνικά)</li>
-            <li>🎨 <strong>Θέμα</strong> (Light/Dark)</li>
-            <li>ℹ️ <strong>Πληροφορίες εφαρμογής</strong></li>
-            <li>🔄 <strong>Auto-updates</strong></li>
+            <li>🎮 Sims / EA unlocker με patch flow</li>
+            <li>📦 Λιγότερα βήματα, καθαρό UI</li>
           </ul>
         `,
         howTitle: 'Οδηγίες Χρήσης',
         steps: [
-          'Επίλεξε τη γλώσσα που προτιμάς',
-          'Αλλαγή θέματος από το κουμπί στην κεφαλίδα',
-          'Πάτα "Save" για αποθήκευση',
-          'Κάνε κλικ στο ℹ️ για πληροφορίες',
-          'Απόλαυσε την προσωποποιημένη σου εμπειρία!'
+          'Διάλεξε unlocker/patch',
+          'Τρέξε το και ακολούθησε τις οδηγίες',
+          'Κάνε restart το παιχνίδι'
         ],
-        warning: '💡 <strong>Οι αλλαγές εφαρμόζονται αμέσως</strong>'
-      }
+        warning: '⚠️ Απαιτείται το βασικό παιχνίδι, πιθανό AV flag.'
+      },
     }
   }
 };
