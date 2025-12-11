@@ -346,6 +346,7 @@ body {
   z-index: 1;
   height: 100vh;
   padding-top: 32px;
+  align-items: flex-start;
 }
 
 /* --- SIDEBAR --- */
@@ -355,10 +356,10 @@ body {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
-  height: calc(100vh - 32px);
+  margin-top: 15px;
+  height: calc(100vh - 32px - 15px);
   position: relative;
   background: var(--bg-secondary);
-  margin-bottom: 12px;
 }
 
 .sidebar-content {
@@ -367,7 +368,9 @@ body {
   flex-direction: column;
   overflow-y: auto;
 }
-
+[class="sidebar glass-panel"]{
+  margin-top: 15px !important;
+}
 /* --- MODERN PROJECT CARD --- */
 .project-card {
   background: var(--card-bg);
