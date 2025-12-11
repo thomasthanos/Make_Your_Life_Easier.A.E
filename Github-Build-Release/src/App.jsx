@@ -294,6 +294,16 @@ function App() {
                       <FaCopy size={11} />
                     </button>
                   </div>
+                  {/* Build command placed under project path */}
+                  <div className="glass-panel" style={{ padding: '10px 12px', marginTop: '10px' }}>
+                    <textarea
+                      className="glass-input"
+                      style={{ minHeight: '56px', resize: 'vertical' }}
+                      value={buildCommand}
+                      onChange={e => setBuildCommand(e.target.value)}
+                      placeholder="npm run build-all"
+                    />
+                  </div>
                   <div className="project-subinfo">
                     <span className="project-version">Version: {projectVersion || 'Unknown'}</span>
                     <button 
@@ -304,7 +314,6 @@ function App() {
                       <FaFolderOpen size={12} /> Change Project
                     </button>
                   </div>
-                  
                   <div className="project-stats">
                     <div className="stat-item">
                       <span className="stat-value">{releases.length}</span>
@@ -329,24 +338,6 @@ function App() {
               )}
             </div>
             
-            {/* BUILD COMMAND INPUT */}
-            <div className="glass-panel" style={{ padding: '12px', marginTop: '12px' }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ marginBottom: '6px' }}>
-                  Build Command
-                </label>
-                <input
-                  className="glass-input"
-                  value={buildCommand}
-                  onChange={e => setBuildCommand(e.target.value)}
-                  placeholder="npm run build-all"
-                />
-                <div className="hint" style={{ marginTop: '4px' }}>
-                  Default: npm run build-all (you can override)
-                </div>
-              </div>
-            </div>
-
             {/* BUILD BUTTON */}
             <button 
               className={`build-btn glass-panel ${isBuilding ? 'building' : ''}`} 
