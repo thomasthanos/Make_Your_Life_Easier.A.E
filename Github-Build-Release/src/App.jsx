@@ -295,17 +295,22 @@ function App() {
                     </button>
                   </div>
                   {/* Build command placed under project path */}
-                  <div className="glass-panel" style={{ padding: '10px 12px', marginTop: '10px' }}>
-                    <textarea
-                      className="glass-input"
-                      style={{ minHeight: '56px', resize: 'vertical' }}
-                      value={buildCommand}
-                      onChange={e => setBuildCommand(e.target.value)}
-                      placeholder="npm run build-all"
-                    />
-                  </div>
+                  <textarea
+                    className="glass-input"
+                    style={{
+                      height: '32px',
+                      minHeight: '32px',
+                      maxHeight: '32px',
+                      lineHeight: '22px',
+                      padding: '5px 10px',
+                      resize: 'none',
+                      overflow: 'hidden'
+                    }}
+                    value={buildCommand}
+                    onChange={e => setBuildCommand(e.target.value)}
+                    placeholder="npm run build-all"
+                  />
                   <div className="project-subinfo">
-                    <span className="project-version">Version: {projectVersion || 'Unknown'}</span>
                     <button 
                       className="select-project-btn" 
                       onClick={handleSelectFolder}
