@@ -57,6 +57,17 @@ let updateAvailable = false;
 let pendingUpdateInfo = null;
 let updateDownloaded = false;
 
+// Persist update metadata in two places:
+// 1) temp: survives app update cycle even if userData is wiped by NSIS.
+// 2) userData: survives temp cleanup and keeps backward compatibility.
+// Persist update metadata in durable locations (no temp):
+// 1) userData (per-user, survives temp cleanup)
+// 2) ProgramData on Windows (machine-wide fallback, survives uninstall in most cases)
+const updateInfoPrimaryPath = path.join(app.getPath('userData'), 'update-info.json');
+const updateInfoSecondaryPath = process.platform === 'win32'
+  ? path.join(process.env.PROGRAMDATA || path.join('C:\\', 'ProgramData'), 'MakeYourLifeEasier', 'update-info.json')
+  : null;
+
 // ❌ ΔΙΑΓΡΑΦΗ: Αφαίρεσε αυτή τη γραμμή
 // let currentManualCheckId = null;
 
@@ -257,7 +268,6 @@ autoUpdater.on('update-downloaded', (info) => {
       releaseNotes: info.releaseNotes
     };
     updateInfoToSave.timestamp = Date.now();
-    const updateInfoFilePath = path.join(app.getPath('userData'), 'update-info.json');
     fs.writeFileSync(updateInfoFilePath, JSON.stringify(updateInfoToSave));
   } catch (err) {
     debug('warn', 'Failed to persist update info:', err);
@@ -568,11 +578,19 @@ ipcMain.handle('get-app-version', async () => {
   return app.getVersion();
 });
 
-const updateInfoFilePath = path.join(app.getPath('userData'), 'update-info.json');
-
 ipcMain.handle('save-update-info', async (event, info) => {
   try {
-    await fs.promises.writeFile(updateInfoFilePath, JSON.stringify(info));
+    const payload = JSON.stringify(info);
+    // Write to both locations; ignore secondary errors so at least one persists.
+    await fs.promises.writeFile(updateInfoPrimaryPath, payload);
+    if (updateInfoSecondaryPath) {
+      try {
+        fs.mkdirSync(path.dirname(updateInfoSecondaryPath), { recursive: true });
+        await fs.promises.writeFile(updateInfoSecondaryPath, payload);
+      } catch (secondaryErr) {
+        debug('warn', 'Failed to persist update info to ProgramData (secondary):', secondaryErr.message);
+      }
+    }
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -581,11 +599,25 @@ ipcMain.handle('save-update-info', async (event, info) => {
 
 ipcMain.handle('get-update-info', async () => {
   try {
-    if (fs.existsSync(updateInfoFilePath)) {
-      const content = await fs.promises.readFile(updateInfoFilePath, 'utf-8');
-      await fs.promises.unlink(updateInfoFilePath);
+    const pathToRead = fs.existsSync(updateInfoPrimaryPath)
+      ? updateInfoPrimaryPath
+      : (updateInfoSecondaryPath && fs.existsSync(updateInfoSecondaryPath)
+        ? updateInfoSecondaryPath
+        : null);
+
+    if (pathToRead) {
+      const content = await fs.promises.readFile(pathToRead, 'utf-8');
+      try {
+        await fs.promises.unlink(pathToRead);
+      } catch { /* ignore cleanup errors */ }
+
+      // Ensure both copies are removed so the changelog is not shown repeatedly.
+      try { if (fs.existsSync(updateInfoPrimaryPath)) await fs.promises.unlink(updateInfoPrimaryPath); } catch { }
+      try { if (fs.existsSync(updateInfoSecondaryPath)) await fs.promises.unlink(updateInfoSecondaryPath); } catch { }
+
       return { success: true, info: JSON.parse(content) };
     }
+
     return { success: false, error: 'No update info' };
   } catch (error) {
     return { success: false, error: error.message };

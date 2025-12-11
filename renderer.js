@@ -4588,24 +4588,72 @@ let translations = {};
     if (!notes) return '';
     const text = typeof notes === 'string' ? notes : String(notes);
 
+    // Respect CSP: do not attempt to load external scripts. If marked is already
+    // bundled/available, use it; otherwise fall back to the sanitizer/formatter.
     if (typeof window !== 'undefined' && window.marked && typeof window.marked.parse === 'function') {
       try {
         return window.marked.parse(text);
       } catch (err) {
-
+        console.warn('Failed to parse markdown with marked, falling back', err);
       }
-    }
-
-    try {
-      await import('https://cdn.jsdelivr.net/npm/marked/marked.min.js');
-      if (window.marked && typeof window.marked.parse === 'function') {
-        return window.marked.parse(text);
-      }
-    } catch (err) {
-
     }
 
     return formatReleaseNotes(text);
+  }
+
+  function normalizeVersionTag(v) {
+    const normalized = normalizeVersion(v);
+    return normalized ? `v${normalized}` : null;
+  }
+
+  function shouldShowChangelog(version) {
+    const key = normalizeVersionTag(version);
+    if (!key) return true;
+    return localStorage.getItem('changelog_shown_version') !== key;
+  }
+
+  function markChangelogShown(version) {
+    const key = normalizeVersionTag(version);
+    if (key) {
+      try {
+        localStorage.setItem('changelog_shown_version', key);
+      } catch { }
+    }
+  }
+
+  async function fetchReleaseNotesFromGithub() {
+    try {
+      // Get current app version (normalize to bare digits)
+      const rawVersion = await getAppVersionWithFallback();
+      const normalizedVersion = normalizeVersion(rawVersion);
+      if (!normalizedVersion) return null;
+
+      const res = await fetch('https://api.github.com/repos/thomasthanos/Make_Your_Life_Easier.A.E/releases', {
+        headers: {
+          'Accept': 'application/vnd.github+json'
+        }
+      });
+      if (!res.ok) return null;
+      const releases = await res.json();
+      if (!Array.isArray(releases)) return null;
+
+      const match = releases.find((rel) => {
+        const tag = normalizeVersion(rel.tag_name);
+        const name = normalizeVersion(rel.name);
+        return tag === normalizedVersion || name === normalizedVersion;
+      }) || releases.find((rel) => normalizeVersion(rel.tag_name) === normalizedVersion);
+
+      if (!match) return null;
+
+      return {
+        version: match.tag_name || `v${normalizedVersion}`,
+        releaseName: match.name || match.tag_name || '',
+        releaseNotes: match.body || ''
+      };
+    } catch (error) {
+      console.error('Error fetching release notes from GitHub:', error);
+      return null;
+    }
   }
 
   async function checkForChangelog() {
@@ -4627,6 +4675,13 @@ let translations = {};
         const info = JSON.parse(updateInfo);
         localStorage.removeItem('pendingUpdateInfo');
         setTimeout(() => showChangelog(info), 1000);
+        return;
+      }
+
+      // Fallback: fetch release notes for current version directly from GitHub Releases.
+      const fetched = await fetchReleaseNotesFromGithub();
+      if (fetched) {
+        setTimeout(() => showChangelog(fetched), 1000);
       }
     } catch (error) {
       console.error('Error checking changelog:', error);
@@ -4634,6 +4689,10 @@ let translations = {};
   }
 
   async function showChangelog(updateInfo) {
+    // Prevent repeat for the same version
+    if (!shouldShowChangelog(updateInfo?.version)) return;
+    markChangelogShown(updateInfo?.version || 'unknown');
+
     const overlay = document.createElement('div');
     overlay.className = 'changelog-overlay';
 
