@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { exec } = require('child_process');
 
 const baseEnv = { ...process.env };
@@ -180,10 +181,20 @@ ipcMain.handle('create-release', async (event, { path: projectPath, version, tit
             // Step 2: Create GitHub release
             mainWindow.webContents.send('build-log', `\n🚀 Step 2/3: Creating GitHub release ${version}...\n`);
 
-            const safeNotes = notes.replace(/"/g, '\\"');
-            const createReleaseCmd = `gh release create "${version}" --title "${title}" --notes "${safeNotes}"`;
+            const notesFilePath = path.join(os.tmpdir(), `release-notes-${Date.now()}.md`);
+
+            try {
+                fs.writeFileSync(notesFilePath, notes, 'utf-8');
+            } catch (err) {
+                resolve({ success: false, error: `Failed to write release notes: ${err.message}` });
+                return;
+            }
+
+            const createReleaseCmd = `gh release create "${version}" --title "${title}" --notes-file "${notesFilePath}"`;
 
             exec(createReleaseCmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
+                fs.unlink(notesFilePath, () => { });
+
                 if (error) {
                     mainWindow.webContents.send('build-log', `\n❌ Failed to create release: ${stderr}\n`);
                     resolve({ success: false, error: stderr });
@@ -205,13 +216,18 @@ ipcMain.handle('create-release', async (event, { path: projectPath, version, tit
 
                 // Find all relevant files to upload
                 const files = fs.readdirSync(distPath);
-                const artifactFiles = files.filter(f =>
-                    f.endsWith('.exe') ||
-                    f.endsWith('.yml') ||
-                    f.endsWith('.blockmap') ||
-                    f.endsWith('.dmg') ||
-                    f.endsWith('.AppImage')
-                );
+                const artifactFiles = files.filter(f => {
+                    const lower = f.toLowerCase();
+                    if (lower === 'builder-debug.yml') return false;
+
+                    return (
+                        lower.endsWith('.exe') ||
+                        lower.endsWith('.yml') ||
+                        lower.endsWith('.blockmap') ||
+                        lower.endsWith('.dmg') ||
+                        lower.endsWith('.appimage')
+                    );
+                });
 
                 if (artifactFiles.length === 0) {
                     mainWindow.webContents.send('build-log', `\n⚠️ No artifacts found to upload.\n`);
