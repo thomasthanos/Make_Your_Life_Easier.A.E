@@ -188,8 +188,38 @@ ipcMain.handle('trigger-build', (event, projectPath) => {
     const buildProcess = exec(buildCommand, { cwd: projectPath });
     buildProcess.stdout.on('data', (data) => mainWindow.webContents.send('build-log', data));
     buildProcess.stderr.on('data', (data) => mainWindow.webContents.send('build-log', `[MSG] ${data}`));
-    buildProcess.on('close', (code) => {
-        const msg = code === 0 ? '\n✅ Build Completed Successfully!' : `\n❌ Build Failed (Code ${code})`;
+    buildProcess.on('close', async (code) => {
+        let msg;
+
+        if (code === 0) {
+            msg = '\n✅ Build Completed Successfully!';
+
+            const distPath = path.join(projectPath, 'dist');
+            const releasePath = path.join(projectPath, 'release');
+            let openedPath = null;
+
+            if (fs.existsSync(distPath)) {
+                openedPath = distPath;
+            } else if (fs.existsSync(releasePath)) {
+                openedPath = releasePath;
+            }
+
+            if (openedPath) {
+                try {
+                    const openResult = await shell.openPath(openedPath);
+                    if (openResult) {
+                        msg += `\n⚠️ Could not open output folder: ${openResult}`;
+                    } else {
+                        msg += `\n📂 Opened output folder: ${path.basename(openedPath)}`;
+                    }
+                } catch (err) {
+                    msg += `\n⚠️ Could not open output folder: ${err.message}`;
+                }
+            }
+        } else {
+            msg = `\n❌ Build Failed (Code ${code})`;
+        }
+
         mainWindow.webContents.send('build-log', msg);
     });
 });
