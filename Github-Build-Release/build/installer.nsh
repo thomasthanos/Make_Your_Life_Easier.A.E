@@ -7,7 +7,9 @@
 
 !macro _KillRunningApp
   ; Ensure existing running instance is closed so upgrade/install can proceed
-  nsExec::Exec 'taskkill /F /IM "github-release-manager.exe" /T'
+  ; Avoid killing the installer itself by excluding current PID.
+  System::Call 'kernel32::GetCurrentProcessId() i .r0'
+  nsExec::Exec 'taskkill /F /IM "github-release-manager.exe" /FI "PID ne $0" /T'
 !macroend
 
 !macro customInit
