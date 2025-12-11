@@ -13,9 +13,15 @@
 !macroend
 
 !macro customInit
-  !insertmacro _KillRunningApp
   ; Set default install directory
   StrCpy $INSTDIR "$PROGRAMFILES64\MakeYourLifeEasier\Github Builder"
+
+  ; Close running app instances
+  !insertmacro _KillRunningApp
+
+  ; Remove previous install to avoid partial/dirty upgrades
+  IfFileExists "$INSTDIR\*.*" 0 +2
+    RMDir /r "$INSTDIR"
 !macroend
 
 !macro customInstall

@@ -10,6 +10,29 @@ const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
 
+function getBuildCommand(projectPath, overrideCommand) {
+    if (overrideCommand && overrideCommand.trim()) return overrideCommand.trim();
+
+    const pkgPath = path.join(projectPath, 'package.json');
+    let buildCommand = null;
+
+    try {
+        const pkgRaw = fs.readFileSync(pkgPath, 'utf-8');
+        const pkg = JSON.parse(pkgRaw);
+        const scripts = pkg.scripts || {};
+
+        if (scripts['build-all']) {
+            buildCommand = 'npm run build-all';
+        } else if (scripts.build) {
+            buildCommand = 'npm run build';
+        }
+    } catch (err) {
+        buildCommand = null;
+    }
+
+    return buildCommand;
+}
+
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 800,
@@ -87,6 +110,25 @@ ipcMain.handle('select-folder', async () => {
     return result.canceled ? null : result.filePaths[0];
 });
 
+// PROJECT INFO
+ipcMain.handle('get-project-info', async (event, projectPath) => {
+    const pkgPath = path.join(projectPath, 'package.json');
+    let version = null;
+    let suggestedBuildCommand = null;
+
+    try {
+        const pkgRaw = fs.readFileSync(pkgPath, 'utf-8');
+        const pkg = JSON.parse(pkgRaw);
+        version = pkg.version || null;
+        suggestedBuildCommand = getBuildCommand(projectPath, null);
+    } catch (err) {
+        version = null;
+        suggestedBuildCommand = null;
+    }
+
+    return { version, suggestedBuildCommand };
+});
+
 // GET RELEASES
 ipcMain.handle('get-releases', async (event, projectPath) => {
     return new Promise((resolve) => {
@@ -131,35 +173,20 @@ ipcMain.handle('get-releases', async (event, projectPath) => {
 });
 
 // CREATE RELEASE WITH BUILD & UPLOAD
-ipcMain.handle('create-release', async (event, { path: projectPath, version, title, notes }) => {
+ipcMain.handle('create-release', async (event, { path: projectPath, version, title, notes, buildCommand }) => {
     return new Promise((resolve) => {
         // Step 1: Build the project
         mainWindow.webContents.send('build-log', `\n🔨 Step 1/3: Building project...\n`);
 
         const pkgPath = path.join(projectPath, 'package.json');
-        let buildCommand = null;
+        const resolvedBuildCommand = getBuildCommand(projectPath, buildCommand);
 
-        try {
-            const pkgRaw = fs.readFileSync(pkgPath, 'utf-8');
-            const pkg = JSON.parse(pkgRaw);
-            const scripts = pkg.scripts || {};
-
-            if (scripts['build-all']) {
-                buildCommand = 'npm run build-all';
-            } else if (scripts.build) {
-                buildCommand = 'npm run build';
-            }
-        } catch (err) {
-            resolve({ success: false, error: `Could not read package.json: ${err.message}` });
+        if (!resolvedBuildCommand) {
+            resolve({ success: false, error: 'No build script found in package.json and no custom command provided.' });
             return;
         }
 
-        if (!buildCommand) {
-            resolve({ success: false, error: 'No build script found in package.json' });
-            return;
-        }
-
-        const buildProcess = exec(buildCommand, { cwd: projectPath });
+        const buildProcess = exec(resolvedBuildCommand, { cwd: projectPath });
 
         buildProcess.stdout.on('data', (data) => {
             mainWindow.webContents.send('build-log', data);
@@ -292,32 +319,16 @@ ipcMain.handle('delete-release', async (event, { path: projectPath, tagName }) =
 });
 
 // TRIGGER BUILD
-ipcMain.handle('trigger-build', (event, projectPath) => {
-    const pkgPath = path.join(projectPath, 'package.json');
-    let buildCommand = null;
+ipcMain.handle('trigger-build', (event, { path: projectPath, command }) => {
+    const resolvedBuildCommand = getBuildCommand(projectPath, command);
 
-    try {
-        const pkgRaw = fs.readFileSync(pkgPath, 'utf-8');
-        const pkg = JSON.parse(pkgRaw);
-        const scripts = pkg.scripts || {};
-
-        if (scripts['build-all']) {
-            buildCommand = 'npm run build-all';
-        } else if (scripts.build) {
-            buildCommand = 'npm run build';
-        }
-    } catch (err) {
-        mainWindow.webContents.send('build-log', `\n❌ Could not read package.json at ${pkgPath}: ${err.message}\n`);
+    if (!resolvedBuildCommand) {
+        mainWindow.webContents.send('build-log', `\n❌ No build script found (looking for "build-all" or "build") and no custom command provided.\n`);
         return;
     }
 
-    if (!buildCommand) {
-        mainWindow.webContents.send('build-log', `\n❌ No build script found (looking for "build-all" or "build").\n`);
-        return;
-    }
-
-    mainWindow.webContents.send('build-log', `\n🚀 Starting ${buildCommand} in: ${projectPath}...\n`);
-    const buildProcess = exec(buildCommand, { cwd: projectPath });
+    mainWindow.webContents.send('build-log', `\n🚀 Starting ${resolvedBuildCommand} in: ${projectPath}...\n`);
+    const buildProcess = exec(resolvedBuildCommand, { cwd: projectPath });
     buildProcess.stdout.on('data', (data) => mainWindow.webContents.send('build-log', data));
     buildProcess.stderr.on('data', (data) => mainWindow.webContents.send('build-log', `[MSG] ${data}`));
     buildProcess.on('close', async (code) => {

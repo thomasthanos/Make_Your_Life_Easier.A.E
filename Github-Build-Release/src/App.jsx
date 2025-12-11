@@ -13,11 +13,13 @@ import './App.css';
 
 function App() {
   const [projectPath, setProjectPath] = useState('');
+  const [projectVersion, setProjectVersion] = useState('');
   const [releases, setReleases] = useState([]);
   const [logs, setLogs] = useState('');
   const [activeTab, setActiveTab] = useState('create');
   const [theme, setTheme] = useState('dark');
   const [isBuilding, setIsBuilding] = useState(false);
+  const [buildCommand, setBuildCommand] = useState('npm run build-all');
   
   // Form State
   const [version, setVersion] = useState('');
@@ -27,6 +29,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showReleaseConfirm, setShowReleaseConfirm] = useState(false);
+  const [isReleasing, setIsReleasing] = useState(false);
 
   const logEndRef = useRef(null);
 
@@ -64,6 +68,20 @@ function App() {
       setProjectPath(path);
       fetchReleases(path);
       setLogs(`📂 Project loaded: ${path}\n`);
+      loadProjectInfo(path);
+    }
+  };
+
+  const loadProjectInfo = async (path) => {
+    if (!path) return;
+    const info = await window.api.getProjectInfo(path);
+    if (info?.version) setProjectVersion(info.version);
+    else setProjectVersion('');
+
+    if (info?.suggestedBuildCommand) {
+      setBuildCommand(info.suggestedBuildCommand);
+    } else {
+      setBuildCommand(prev => prev || 'npm run build-all');
     }
   };
 
@@ -80,21 +98,32 @@ function App() {
 
   const handleBuild = () => {
     if (!projectPath) return;
+    if (!buildCommand?.trim()) return alert('Please set a build command');
     setLogs('');
     setActiveTab('logs');
     setIsBuilding(true);
-    window.api.triggerBuild(projectPath);
+    window.api.triggerBuild({ path: projectPath, command: buildCommand });
   };
 
 
-  const handleCreateRelease = async () => {
+  const handleCreateRelease = () => {
     if (!version || !title || !projectPath) return alert("Please fill in version and title");
-    if (!confirm(`Build and release ${version} to GitHub?\n\nThis will:\n1. Build your project\n2. Create GitHub release\n3. Upload build artifacts`)) return;
+    setShowReleaseConfirm(true);
+  };
 
+  const handleConfirmRelease = async () => {
+    if (!version || !title || !projectPath) {
+      setShowReleaseConfirm(false);
+      return alert("Please fill in version and title");
+    }
+
+    setShowReleaseConfirm(false);
+    setIsReleasing(true);
     setLogs(prev => prev + `\n🚀 Starting Release Process for ${version}...\n`);
     setActiveTab('logs'); // Switch to logs tab to show progress
     
-    const result = await window.api.createRelease({ path: projectPath, version, title, notes });
+    const result = await window.api.createRelease({ path: projectPath, version, title, notes, buildCommand });
+    setIsReleasing(false);
 
     if (result.success || result.partialSuccess) {
       setLogs(prev => prev + `\n✅ Release Process Completed!\n`);
@@ -265,6 +294,16 @@ function App() {
                       <FaCopy size={11} />
                     </button>
                   </div>
+                  <div className="project-subinfo">
+                    <span className="project-version">Version: {projectVersion || 'Unknown'}</span>
+                    <button 
+                      className="select-project-btn" 
+                      onClick={handleSelectFolder}
+                      style={{ marginLeft: 'auto' }}
+                    >
+                      <FaFolderOpen size={12} /> Change Project
+                    </button>
+                  </div>
                   
                   <div className="project-stats">
                     <div className="stat-item">
@@ -272,14 +311,8 @@ function App() {
                       <span className="stat-label">Releases</span>
                     </div>
                     <div className="stat-item">
-                      <span className="stat-value">Git</span>
-                      <span className="stat-label">VCS</span>
-                    </div>
-                    <div className="stat-item">
-                      <span className="stat-value">
-                        <FaCheckCircle size={10} color="#2ed573" />
-                      </span>
-                      <span className="stat-label">Ready</span>
+                      <span className="stat-value">V{projectVersion || '-'}</span>
+                      <span className="stat-label">Version</span>
                     </div>
                   </div>
                 </>
@@ -296,6 +329,24 @@ function App() {
               )}
             </div>
             
+            {/* BUILD COMMAND INPUT */}
+            <div className="glass-panel" style={{ padding: '12px', marginTop: '12px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ marginBottom: '6px' }}>
+                  Build Command
+                </label>
+                <input
+                  className="glass-input"
+                  value={buildCommand}
+                  onChange={e => setBuildCommand(e.target.value)}
+                  placeholder="npm run build-all"
+                />
+                <div className="hint" style={{ marginTop: '4px' }}>
+                  Default: npm run build-all (you can override)
+                </div>
+              </div>
+            </div>
+
             {/* BUILD BUTTON */}
             <button 
               className={`build-btn glass-panel ${isBuilding ? 'building' : ''}`} 
@@ -310,7 +361,7 @@ function App() {
                   <span className="build-title">
                     {isBuilding ? 'Building...' : 'Build Project'}
                   </span>
-                  <span className="build-subtitle">npm run build</span>
+                  <span className="build-subtitle">{buildCommand || 'npm run build-all'}</span>
                 </div>
               </div>
             </button>
@@ -482,9 +533,9 @@ function App() {
                         <button 
                           className="primary-btn glass-panel accent" 
                           onClick={handleCreateRelease}
-                          disabled={!version || !title}
+                          disabled={!version || !title || isReleasing}
                         >
-                          <FaRocket size={14} /> Publish Release
+                          <FaRocket size={14} /> {isReleasing ? 'Working...' : 'Publish Release'}
                         </button>
                       </div>
                     </div>
@@ -696,6 +747,58 @@ function App() {
                 disabled={isDeleting}
               >
                 {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Release Confirmation Modal */}
+      {showReleaseConfirm && (
+        <div className="modal-backdrop">
+          <div className="modal-card glass-panel">
+            <div className="modal-header">
+              <div className="modal-icon" style={{ background: 'linear-gradient(135deg, #4ade80, #22d3ee)' }}>🚀</div>
+              <div>
+                <h3>Build and release {version || '(no tag)'}?</h3>
+                <p>This will build your project, create a GitHub release, and upload artifacts.</p>
+              </div>
+            </div>
+
+            <div className="modal-body" style={{ gap: '8px' }}>
+              <div className="modal-row">
+                <span className="modal-label">Title</span>
+                <span className="modal-value">{title || 'No title'}</span>
+              </div>
+              <div className="modal-row">
+                <span className="modal-label">Project</span>
+                <span className="modal-value">{formatProjectName(projectPath) || 'None'}</span>
+              </div>
+              <div className="modal-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span className="modal-label">Notes (preview)</span>
+                <div className="modal-notes glass-panel-light" style={{ width: '100%', maxHeight: '140px', overflow: 'auto', padding: '10px', borderRadius: '10px' }}>
+                  <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+                    {notes?.trim() ? notes.split('\n').slice(0, 8).join('\n') : 'No notes'}
+                    {notes.split('\n').length > 8 ? '\n…' : ''}
+                  </pre>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button 
+                className="btn ghost" 
+                onClick={() => setShowReleaseConfirm(false)}
+                disabled={isReleasing}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn primary" 
+                onClick={handleConfirmRelease}
+                disabled={isReleasing}
+              >
+                {isReleasing ? 'Working...' : 'Confirm & Release'}
               </button>
             </div>
           </div>

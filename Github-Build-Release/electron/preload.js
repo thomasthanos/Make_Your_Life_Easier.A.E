@@ -2,11 +2,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
     selectFolder: () => ipcRenderer.invoke('select-folder'),
+    getProjectInfo: (path) => ipcRenderer.invoke('get-project-info', path),
     getReleases: (path) => ipcRenderer.invoke('get-releases', path),
     createRelease: (data) => ipcRenderer.invoke('create-release', data),
     deleteRelease: (data) => ipcRenderer.invoke('delete-release', data),
 
-    triggerBuild: (path) => ipcRenderer.invoke('trigger-build', path),
+    triggerBuild: (data) => ipcRenderer.invoke('trigger-build', data),
     onBuildLog: (callback) => ipcRenderer.on('build-log', (_event, value) => callback(value)),
     removeBuildLogListener: () => ipcRenderer.removeAllListeners('build-log'),
 
