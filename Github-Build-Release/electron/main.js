@@ -302,20 +302,38 @@ ipcMain.handle('create-release', async (event, { path: projectPath, version, tit
     });
 });
 
-// DELETE RELEASE
+// DELETE RELEASE + TAGS (remote & local)
 ipcMain.handle('delete-release', async (event, { path: projectPath, tagName }) => {
-    return new Promise((resolve) => {
-        const cmdDeleteRelease = `gh release delete "${tagName}" --yes`;
-        exec(cmdDeleteRelease, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
-            if (error) {
-                resolve({ success: false, error: stderr });
-            } else {
-                exec(`git push origin --delete "${tagName}"`, { cwd: projectPath, env: baseEnv }, () => { });
-                exec(`git tag -d "${tagName}"`, { cwd: projectPath, env: baseEnv }, () => { });
-                resolve({ success: true });
-            }
+    const runCmd = (cmd) =>
+        new Promise((resolve, reject) => {
+            exec(cmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
+                if (error) {
+                    reject(stderr || error.message);
+                } else {
+                    resolve(stdout);
+                }
+            });
         });
-    });
+
+    try {
+        await runCmd(`gh release delete "${tagName}" --yes`);
+    } catch (err) {
+        return { success: false, error: `Failed to delete release: ${err}` };
+    }
+
+    try {
+        await runCmd(`git push origin :refs/tags/${tagName}`);
+    } catch (err) {
+        return { success: false, error: `Release deleted, but failed to delete remote tag: ${err}` };
+    }
+
+    try {
+        await runCmd(`git tag -d "${tagName}"`);
+    } catch (err) {
+        return { success: false, error: `Release deleted, remote tag removed, but failed to delete local tag: ${err}` };
+    }
+
+    return { success: true };
 });
 
 // TRIGGER BUILD
