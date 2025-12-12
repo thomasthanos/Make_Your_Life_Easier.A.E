@@ -110,6 +110,26 @@ ipcMain.handle('select-folder', async () => {
     return result.canceled ? null : result.filePaths[0];
 });
 
+// CHECK GITHUB CLI STATUS
+ipcMain.handle('check-gh-status', async () => {
+    return new Promise((resolve) => {
+        // Check if gh is installed
+        exec('gh --version', { env: baseEnv }, (versionError) => {
+            if (versionError) {
+                resolve({ installed: false, loggedIn: false });
+                return;
+            }
+            
+            // Check if logged in
+            exec('gh auth status', { env: baseEnv }, (authError, stdout, stderr) => {
+                const output = stdout + stderr;
+                const loggedIn = !authError && output.includes('Logged in');
+                resolve({ installed: true, loggedIn });
+            });
+        });
+    });
+});
+
 // PROJECT INFO
 ipcMain.handle('get-project-info', async (event, projectPath) => {
     const pkgPath = path.join(projectPath, 'package.json');

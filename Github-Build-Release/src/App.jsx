@@ -1,23 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import React, { useState, useEffect } from 'react';
 import { 
-  FaGithub, FaFolderOpen, FaRocket, FaCodeBranch, 
-  FaTerminal, FaPen, FaTrash, FaExternalLinkAlt, 
-  FaSpinner, FaCopy, FaRegClock, FaRegCalendarAlt, 
-  FaSync, FaSun, FaMoon, FaCloud, FaCode, FaTimes,
-  FaCheckCircle, FaFolder, FaDatabase, FaCircle,
-  FaPaintBrush, FaTag // Προστέθηκε το FaTag
-} from 'react-icons/fa';
+  Sidebar, 
+  Header, 
+  Footer, 
+  EmptyState, 
+  CreateRelease, 
+  ReleaseHistory, 
+  BuildLogs,
+  DeleteModal,
+  ReleaseModal
+} from './components';
 import './App.css';
 
 function App() {
+  // Project State
   const [projectPath, setProjectPath] = useState('');
   const [projectVersion, setProjectVersion] = useState('');
   const [releases, setReleases] = useState([]);
   const [logs, setLogs] = useState('');
+  
+  // UI State
   const [activeTab, setActiveTab] = useState('create');
-  const [activeHistorySubTab, setActiveHistorySubTab] = useState('releases'); // 'releases' ή 'tags'
+  const [activeHistorySubTab, setActiveHistorySubTab] = useState('releases');
   const [theme, setTheme] = useState('dark');
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildCommand, setBuildCommand] = useState('npm run build-all');
@@ -28,23 +32,44 @@ function App() {
   const [notes, setNotes] = useState('### What\'s New\n\n- Bug fixes\n- Performance improvements\n- New features');
   const [isPreview, setIsPreview] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Modal State
   const [pendingDelete, setPendingDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showReleaseConfirm, setShowReleaseConfirm] = useState(false);
   const [isReleasing, setIsReleasing] = useState(false);
+  
+  // GitHub CLI Status
+  const [ghStatus, setGhStatus] = useState({ installed: null, loggedIn: null });
 
-  const logEndRef = useRef(null);
+  // Computed values
+  const releasesOnly = releases.filter(r => r.type === 'release');
+  const tagsOnly = releases.filter(r => r.type === 'tag-only');
 
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
+  // Suggested next version based on package.json
+  const suggestedVersion = projectVersion ? `v${projectVersion}` : '';
 
+  // ============ EFFECTS ============
+
+  // Theme initialization
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     setTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
   }, []);
 
+  // Check GitHub CLI status on mount
+  useEffect(() => {
+    const checkStatus = async () => {
+      if (window.api?.checkGhStatus) {
+        const status = await window.api.checkGhStatus();
+        setGhStatus(status);
+      }
+    };
+    checkStatus();
+  }, []);
+
+  // Build log listener
   useEffect(() => {
     if (window.api) {
       window.api.onBuildLog((data) => {
@@ -62,6 +87,8 @@ function App() {
     };
   }, []);
 
+  // ============ HANDLERS ============
+
   const handleSelectFolder = async () => {
     const path = await window.api.selectFolder();
     if (path) {
@@ -75,8 +102,11 @@ function App() {
   const loadProjectInfo = async (path) => {
     if (!path) return;
     const info = await window.api.getProjectInfo(path);
-    if (info?.version) setProjectVersion(info.version);
-    else setProjectVersion('');
+    if (info?.version) {
+      setProjectVersion(info.version);
+    } else {
+      setProjectVersion('');
+    }
 
     if (info?.suggestedBuildCommand) {
       setBuildCommand(info.suggestedBuildCommand);
@@ -121,7 +151,13 @@ function App() {
     setLogs(prev => prev + `\n🚀 Starting Release Process for ${version}...\n`);
     setActiveTab('logs');
     
-    const result = await window.api.createRelease({ path: projectPath, version, title, notes, buildCommand });
+    const result = await window.api.createRelease({ 
+      path: projectPath, 
+      version, 
+      title, 
+      notes, 
+      buildCommand 
+    });
     setIsReleasing(false);
 
     if (result.success || result.partialSuccess) {
@@ -132,36 +168,40 @@ function App() {
         alert("Release created and artifacts uploaded successfully!");
       }
       fetchReleases(projectPath);
-      setVersion('');
-      setTitle('');
-      setNotes('### What\'s New\n\n- Bug fixes\n- Performance improvements\n- New features');
+      resetForm();
     } else {
       alert("Failed to create release. Check logs for details.");
       setLogs(prev => prev + `\n❌ Error: ${result.error}\n`);
     }
   };
 
-  const handleDeleteRelease = async (deleteInfo) => {
-    if (!deleteInfo || !deleteInfo.tagName) return;
+  const handleDeleteRelease = async () => {
+    if (!pendingDelete || !pendingDelete.tagName) return;
     
     setIsDeleting(true);
-    setLogs(prev => prev + `\n🗑️ Deleting ${deleteInfo.type === 'tag-only' ? 'tag' : 'release'}: ${deleteInfo.tagName}...\n`);
+    setLogs(prev => prev + `\n🗑️ Deleting ${pendingDelete.type === 'tag-only' ? 'tag' : 'release'}: ${pendingDelete.tagName}...\n`);
     
     const result = await window.api.deleteRelease({ 
       path: projectPath, 
-      tagName: deleteInfo.tagName
+      tagName: pendingDelete.tagName
     });
     
     setIsDeleting(false);
     setPendingDelete(null);
 
     if (result.success) {
-      setLogs(prev => prev + `✅ Successfully deleted ${deleteInfo.tagName}.\n`);
+      setLogs(prev => prev + `✅ Successfully deleted ${pendingDelete.tagName}.\n`);
       fetchReleases(projectPath);
     } else {
-      alert(`Failed to delete ${deleteInfo.tagName}`);
+      alert(`Failed to delete ${pendingDelete.tagName}`);
       setLogs(prev => prev + `❌ Delete Error: ${result.error}\n`);
     }
+  };
+
+  const resetForm = () => {
+    setVersion('');
+    setTitle('');
+    setNotes('### What\'s New\n\n- Bug fixes\n- Performance improvements\n- New features');
   };
 
   const handleCopyToClipboard = (text) => {
@@ -181,820 +221,129 @@ function App() {
     return parts[parts.length - 1] || path;
   };
 
-  // Φίλτρα για releases και tags
-  const releasesOnly = releases.filter(r => r.type === 'release');
-  const tagsOnly = releases.filter(r => r.type === 'tag-only');
+  // ============ RENDER ============
 
   return (
     <div className={`app-container ${theme}-theme`}>
-      {/* AMBIENT PARTICLES */}
+      {/* AMBIENT EFFECTS */}
       <div className="ambient-particles"></div>
-      
-      {/* GLOW EFFECTS BACKGROUND */}
       <div className="glow-orb orb-1"></div>
       <div className="glow-orb orb-2"></div>
       <div className="glow-orb orb-3"></div>
 
-      {/* DRAG REGION - CUSTOM TITLEBAR */}
+      {/* DRAG REGION */}
       <div className="drag-region"></div>
 
-      {/* CUSTOM HEADER με κεντρικό τίτλο */}
-      <header className="app-header">
-        <div className="header-content">
-          {/* Αριστερή πλευρά - Brand και Theme Toggle ΔΙΠΛΑ */}
-          <div className="brand-section">
-            <div className="brand-logo">
-              <FaGithub size={14} className="logo-icon" />
-              <span className="brand-text">Release<span className="brand-highlight">Flow</span></span>
-            </div>
-            
-            {/* Theme Toggle ΔΙΠΛΑ στο brand - πιο αριστερά */}
-            <button 
-              className="theme-toggle-with-icon" 
-              onClick={toggleTheme}
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-              style={{ zIndex: 10000, position: 'relative' }}
-            >
-              <FaPaintBrush size={12} className="theme-icon" />
-              {theme === 'dark' ? <FaSun size={11} /> : <FaMoon size={11} />}
-            </button>
-          </div>
+      {/* HEADER */}
+      <Header 
+        activeTab={activeTab}
+        theme={theme}
+        toggleTheme={toggleTheme}
+      />
 
-          {/* Κεντρικός τίτλος */}
-          <div className="header-center">
-            {activeTab === 'create' && 'Create New Release'}
-            {activeTab === 'history' && 'Release History'}
-            {activeTab === 'logs' && 'Build Console'}
-          </div>
-
-          {/* Δεξιά πλευρά - Κενή τώρα */}
-          <div className="header-actions">
-            {/* Κενό ή βάλε εδώ κάποιο άλλο στοιχείο αν θες */}
-          </div>
-        </div>
-      </header>
-
-      {/* DRAG REGION - ΑΦΟΥ το header */}
+      {/* SECONDARY DRAG REGION */}
       <div className="drag-region" style={{ top: '0', left: '220px', right: '138px', height: '36px' }}></div>
 
       {/* MAIN LAYOUT */}
       <div className="main-layout">
         {/* SIDEBAR */}
-        <aside className="sidebar glass-panel">
-          <div className="sidebar-content">
-            <nav className="sidebar-nav">
-              <button 
-                className={`nav-item ${activeTab === 'create' ? 'active' : ''}`} 
-                onClick={() => setActiveTab('create')}
-              >
-                <div className="nav-icon">
-                  <FaPen size={14} />
-                </div>
-                <span>Create Release</span>
-              </button>
-              
-              <button 
-                className={`nav-item ${activeTab === 'history' ? 'active' : ''}`} 
-                onClick={() => setActiveTab('history')}
-              >
-                <div className="nav-icon">
-                  <FaCodeBranch size={14} />
-                </div>
-                <span>Release History</span>
-                {releasesOnly.length > 0 && (
-                  <span className="nav-badge">{releasesOnly.length}</span>
-                )}
-              </button>
-              
-              <button 
-                className={`nav-item ${activeTab === 'logs' ? 'active' : ''}`} 
-                onClick={() => setActiveTab('logs')}
-              >
-                <div className="nav-icon">
-                  <FaTerminal size={14} />
-                </div>
-                <span>Build Logs</span>
-              </button>
-            </nav>
-
-            {/* MODERN PROJECT CARD */}
-            <div className="project-card">
-              <div className="project-header">
-                <div className="project-icon">
-                  <FaFolder size={14} />
-                </div>
-                <div>
-                  <div className="project-title">Project</div>
-                  <div className="project-subtitle">Current Workspace</div>
-                </div>
-              </div>
-
-              {projectPath ? (
-                <>
-                  <div className="project-path">
-                    <code title={projectPath}>
-                      {formatProjectName(projectPath)}
-                    </code>
-                    <button 
-                      className="copy-btn" 
-                      onClick={() => handleCopyToClipboard(projectPath)}
-                      title="Copy path to clipboard"
-                    >
-                      <FaCopy size={11} />
-                    </button>
-                  </div>
-                  {/* Build command */}
-                  <textarea
-                    className="glass-input"
-                    style={{
-                      height: '32px',
-                      minHeight: '32px',
-                      maxHeight: '32px',
-                      lineHeight: '22px',
-                      padding: '5px 10px',
-                      resize: 'none',
-                      overflow: 'hidden',
-                      marginBottom: '12px'
-                    }}
-                    value={buildCommand}
-                    onChange={e => setBuildCommand(e.target.value)}
-                    placeholder="npm run build-all"
-                  />
-                  <div className="project-subinfo">
-                    <button 
-                      className="select-project-btn" 
-                      onClick={handleSelectFolder}
-                      style={{ marginLeft: 'auto' }}
-                    >
-                      <FaFolderOpen size={12} /> Change Project
-                    </button>
-                  </div>
-                  <div className="project-stats">
-                    <div className="stat-item">
-                      <span className="stat-value">{releasesOnly.length}</span>
-                      <span className="stat-label">Releases</span>
-                    </div>
-                    <div className="stat-item">
-                      <span className="stat-value">{tagsOnly.length}</span>
-                      <span className="stat-label">Tags</span>
-                    </div>
-                    <div className="stat-item">
-                      <span className="stat-value">V{projectVersion || '-'}</span>
-                      <span className="stat-label">Version</span>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="empty-project">
-                  <p>No project selected</p>
-                  <button 
-                    className="select-project-btn" 
-                    onClick={handleSelectFolder}
-                  >
-                    <FaFolderOpen size={12} /> Select Project Folder
-                  </button>
-                </div>
-              )}
-            </div>
-            
-            {/* BUILD BUTTON */}
-            <button 
-              className={`build-btn glass-panel ${isBuilding ? 'building' : ''}`} 
-              onClick={handleBuild}
-              disabled={!projectPath || isBuilding}
-            >
-              <div className="build-btn-content">
-                <div className="build-icon">
-                  {isBuilding ? <FaSpinner className="spin" size={14} /> : <FaRocket size={14} />}
-                </div>
-                <div className="build-text">
-                  <span className="build-title">
-                    {isBuilding ? 'Building...' : 'Build Project'}
-                  </span>
-                  <span className="build-subtitle">{buildCommand || 'npm run build-all'}</span>
-                </div>
-              </div>
-            </button>
-
-            {/* SIDEBAR ACTIONS με Connection Status */}
-            <div className="sidebar-actions">
-              <div className="project-info">
-                <div className="project-name">
-                  {projectPath ? formatProjectName(projectPath) : 'No Project'}
-                </div>
-                {projectPath && (
-                  <div className="project-folder" title={projectPath}>
-                    {projectPath.length > 40 
-                      ? `${projectPath.substring(0, 37)}...` 
-                      : projectPath}
-                  </div>
-                )}
-              </div>
-              
-              {/* Connection Status ΚΑΤΩ στο sidebar */}
-              <div className="connection-status">
-                <FaCircle 
-                  size={6} 
-                  className={`status-dot ${projectPath ? 'connected' : ''}`} 
-                />
-                <span>{projectPath ? 'Connected' : 'Offline'}</span>
-              </div>
-            </div>
-          </div>
-        </aside>
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          projectPath={projectPath}
+          projectVersion={projectVersion}
+          buildCommand={buildCommand}
+          setBuildCommand={setBuildCommand}
+          handleSelectFolder={handleSelectFolder}
+          handleBuild={handleBuild}
+          isBuilding={isBuilding}
+          releasesCount={releasesOnly.length}
+          tagsCount={tagsOnly.length}
+          handleCopyToClipboard={handleCopyToClipboard}
+        />
 
         {/* MAIN CONTENT */}
         <main className="main-content">
-          {/* CONTENT AREA */}
           <div className="content-area">
             {!projectPath ? (
-              <div className="empty-state glass-panel">
-                <div className="empty-state-icon">
-                  <FaCloud size={80} />
-                  <div className="empty-state-glow"></div>
-                </div>
-                <h2>Welcome to ReleaseFlow</h2>
-                <p>Select a Git repository to start managing releases and builds</p>
-                <button className="primary-btn glass-panel" onClick={handleSelectFolder}>
-                  <FaFolderOpen size={14} /> Open Project
-                </button>
-                <div className="empty-state-tips">
-                  <div className="tip">
-                    <FaCode size={14} />
-                    <span>Supports all Node.js projects</span>
-                  </div>
-                  <div className="tip">
-                    <FaGithub size={14} />
-                    <span>GitHub Releases & Tags</span>
-                  </div>
-                  <div className="tip">
-                    <FaDatabase size={14} />
-                    <span>Local & Remote Repositories</span>
-                  </div>
-                </div>
-              </div>
+              <EmptyState 
+                handleSelectFolder={handleSelectFolder}
+                ghStatus={ghStatus}
+              />
             ) : (
               <>
-                {/* CREATE TAB */}
                 {activeTab === 'create' && (
-                  <div className="tab-content fade-in">
-                    <div className="tab-header">
-                      <div className="tab-header-content">
-                        <h1>Create New Release</h1>
-                        <p className="tab-description">
-                          Fill in the details below to publish a new release to GitHub
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="form-container glass-panel">
-                      <div className="form-grid">
-                        <div className="form-group">
-                          <label className="form-label">
-                            <span>Version Tag</span>
-                            <span className="hint">(e.g., v1.0.0)</span>
-                          </label>
-                          <div className="input-with-icon">
-                            <input 
-                              className="glass-input" 
-                              value={version} 
-                              onChange={e => setVersion(e.target.value)} 
-                              placeholder="v1.2.0" 
-                            />
-                            <span className="input-icon">#</span>
-                          </div>
-                        </div>
-                        
-                        <div className="form-group">
-                          <label className="form-label">
-                            <span>Release Title</span>
-                            <span className="hint">(Keep it descriptive)</span>
-                          </label>
-                          <div className="input-with-icon">
-                            <input 
-                              className="glass-input" 
-                              value={title} 
-                              onChange={e => setTitle(e.target.value)} 
-                              placeholder="Major Update: New Features & Improvements" 
-                            />
-                            <span className="input-icon"><FaPen size={12} /></span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="form-group">
-                        <label className="form-label">Release Notes</label>
-                        <div className="editor-wrapper glass-panel-light">
-                          <div className="editor-header">
-                            <div className="editor-tabs">
-                              <button 
-                                className={`tab-btn ${!isPreview ? 'active' : ''}`} 
-                                onClick={() => setIsPreview(false)}
-                              >
-                                Edit Markdown
-                              </button>
-                              <button 
-                                className={`tab-btn ${isPreview ? 'active' : ''}`} 
-                                onClick={() => setIsPreview(true)}
-                              >
-                                Preview
-                              </button>
-                            </div>
-                            <div className="editor-actions">
-                              <button 
-                                className="action-btn" 
-                                onClick={() => setNotes('')}
-                              >
-                                Clear
-                              </button>
-                            </div>
-                          </div>
-                          
-                          <div className="editor-body">
-                            {isPreview ? (
-                              <div className="markdown-preview">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                  {notes}
-                                </ReactMarkdown>
-                              </div>
-                            ) : (
-                              <textarea 
-                                className="markdown-editor" 
-                                value={notes} 
-                                onChange={e => setNotes(e.target.value)}
-                                placeholder="Write your release notes in Markdown..."
-                              />
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="form-actions">
-                        <button 
-                          className="secondary-btn glass-panel" 
-                          onClick={() => {
-                            setVersion('');
-                            setTitle('');
-                            setNotes('### What\'s New\n\n- Bug fixes\n- Performance improvements\n- New features');
-                          }}
-                        >
-                          Reset Form
-                        </button>
-                        <button 
-                          className="primary-btn glass-panel accent" 
-                          onClick={handleCreateRelease}
-                          disabled={!version || !title || isReleasing}
-                        >
-                          <FaRocket size={14} /> {isReleasing ? 'Working...' : 'Publish Release'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <CreateRelease
+                    version={version}
+                    setVersion={setVersion}
+                    title={title}
+                    setTitle={setTitle}
+                    notes={notes}
+                    setNotes={setNotes}
+                    isPreview={isPreview}
+                    setIsPreview={setIsPreview}
+                    isReleasing={isReleasing}
+                    handleCreateRelease={handleCreateRelease}
+                    suggestedVersion={suggestedVersion}
+                  />
                 )}
 
-                {/* HISTORY TAB */}
                 {activeTab === 'history' && (
-                  <div className="tab-content fade-in">
-                    <div className="tab-header">
-                      <div className="tab-header-content">
-                        <h1>Release History</h1>
-                        <p className="tab-description">
-                          Manage GitHub releases and Git tags
-                        </p>
-                      </div>
-                      <button 
-                        className="refresh-btn-primary glass-panel" 
-                        onClick={() => fetchReleases(projectPath)}
-                      >
-                        <FaSync className={isLoading ? 'spin' : ''} size={14} /> 
-                        {isLoading ? 'Refreshing...' : 'Refresh'}
-                      </button>
-                    </div>
-                    
-                    {/* SUBTABS για Releases/Tags */}
-                    <div className="subtab-nav" style={{ 
-                      display: 'flex', 
-                      gap: '4px', 
-                      marginBottom: '24px',
-                      borderBottom: '1px solid var(--border)',
-                      paddingBottom: '8px'
-                    }}>
-                      <button 
-                        className={`subtab-btn ${activeHistorySubTab === 'releases' ? 'active' : ''}`}
-                        onClick={() => setActiveHistorySubTab('releases')}
-                        style={{
-                          background: activeHistorySubTab === 'releases' ? 'rgba(108, 99, 255, 0.15)' : 'transparent',
-                          border: '1px solid',
-                          borderColor: activeHistorySubTab === 'releases' ? 'var(--accent)' : 'var(--border)',
-                          color: activeHistorySubTab === 'releases' ? 'var(--accent)' : 'var(--text-secondary)',
-                          padding: '8px 16px',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          fontWeight: activeHistorySubTab === 'releases' ? '600' : '400',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          transition: 'var(--transition)'
-                        }}
-                      >
-                        <FaRocket size={12} />
-                        Releases
-                        <span style={{
-                          background: activeHistorySubTab === 'releases' ? 'var(--accent)' : 'var(--text-secondary)',
-                          color: 'white',
-                          padding: '2px 8px',
-                          borderRadius: '10px',
-                          fontSize: '11px',
-                          fontWeight: '600'
-                        }}>
-                          {releasesOnly.length}
-                        </span>
-                      </button>
-                      
-                      <button 
-                        className={`subtab-btn ${activeHistorySubTab === 'tags' ? 'active' : ''}`}
-                        onClick={() => setActiveHistorySubTab('tags')}
-                        style={{
-                          background: activeHistorySubTab === 'tags' ? 'rgba(108, 117, 125, 0.15)' : 'transparent',
-                          border: '1px solid',
-                          borderColor: activeHistorySubTab === 'tags' ? '#6c757d' : 'var(--border)',
-                          color: activeHistorySubTab === 'tags' ? '#adb5bd' : 'var(--text-secondary)',
-                          padding: '8px 16px',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          fontWeight: activeHistorySubTab === 'tags' ? '600' : '400',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          transition: 'var(--transition)'
-                        }}
-                      >
-                        <FaTag size={12} />
-                        Tags Only
-                        <span style={{
-                          background: activeHistorySubTab === 'tags' ? '#6c757d' : 'var(--text-secondary)',
-                          color: 'white',
-                          padding: '2px 8px',
-                          borderRadius: '10px',
-                          fontSize: '11px',
-                          fontWeight: '600'
-                        }}>
-                          {tagsOnly.length}
-                        </span>
-                      </button>
-                    </div>
-                    
-                    {isLoading ? (
-                      <div className="loading-state glass-panel">
-                        <FaSpinner className="spinner" size={36} />
-                        <p>Fetching releases & tags from GitHub...</p>
-                      </div>
-                    ) : (
-                      <>
-                        {/* RELEASES SUBTAB */}
-                        {activeHistorySubTab === 'releases' && (
-                          releasesOnly.length === 0 ? (
-                            <div className="empty-state glass-panel" style={{ maxWidth: '500px', margin: '40px auto' }}>
-                              <FaRocket size={48} />
-                              <h3>No Releases Found</h3>
-                              <p>Create your first release using the "Create Release" tab</p>
-                            </div>
-                          ) : (
-                            <div className="release-grid">
-                              {releasesOnly.map((rel, idx) => (
-                                <div key={idx} className="release-card glass-panel">
-                                  <div className="card-header">
-                                    <div className="release-tag">
-                                      <span className="tag-badge" style={{
-                                        background: 'linear-gradient(135deg, var(--accent), #9d4edd)'
-                                      }}>
-                                        {rel.tagName}
-                                      </span>
-                                      {rel.isDraft && (
-                                        <span className="draft-badge">Draft</span>
-                                      )}
-                                    </div>
-                                    
-                                    <div className="release-time">
-                                      <span className="time-item">
-                                        <FaRegCalendarAlt size={10} />
-                                        {new Date(rel.publishedAt).toLocaleDateString()}
-                                      </span>
-                                      <span className="time-item">
-                                        <FaRegClock size={10} />
-                                        {new Date(rel.publishedAt).toLocaleTimeString([], { 
-                                          hour: '2-digit', 
-                                          minute: '2-digit' 
-                                        })}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="card-body">
-                                    <div className="release-content">
-                                      <h3 className="release-title">{rel.title}</h3>
-                                      <div className="release-links">
-                                        <a 
-                                          href={rel.url} 
-                                          target="_blank" 
-                                          rel="noreferrer" 
-                                          className="action-link"
-                                        >
-                                          <FaExternalLinkAlt size={11} /> View on GitHub
-                                        </a>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="release-actions">
-                                      <button 
-                                        className="delete-btn"
-                                        onClick={() => setPendingDelete({
-                                          tagName: rel.tagName,
-                                          type: 'release'
-                                        })}
-                                        title="Delete release and tag"
-                                        disabled={isDeleting}
-                                      >
-                                        <FaTrash size={11} />
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )
-                        )}
-                        
-                        {/* TAGS SUBTAB */}
-                        {activeHistorySubTab === 'tags' && (
-                          tagsOnly.length === 0 ? (
-                            <div className="empty-state glass-panel" style={{ maxWidth: '500px', margin: '40px auto' }}>
-                              <FaTag size={48} />
-                              <h3>No Tags Without Releases</h3>
-                              <p>All Git tags have associated GitHub releases</p>
-                            </div>
-                          ) : (
-                            <div className="release-grid">
-                              {tagsOnly.map((tag, idx) => (
-                                <div key={idx} className="release-card glass-panel" style={{ borderColor: 'rgba(108, 117, 125, 0.3)' }}>
-                                  <div className="card-header">
-                                    <div className="release-tag">
-                                      <span className="tag-badge" style={{
-                                        background: 'linear-gradient(135deg, #6c757d, #495057)',
-                                        color: '#e9ecef'
-                                      }}>
-                                        {tag.tagName}
-                                      </span>
-                                      <span style={{
-                                        background: 'rgba(108, 117, 125, 0.2)',
-                                        color: '#adb5bd',
-                                        padding: '4px 8px',
-                                        borderRadius: '12px',
-                                        fontSize: '10px',
-                                        fontWeight: '600',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                      }}>
-                                        <FaTag size={8} /> Tag Only
-                                      </span>
-                                    </div>
-                                    
-                                    <div className="release-time">
-                                      <span className="time-item" style={{ color: '#adb5bd' }}>
-                                        <FaCodeBranch size={10} />
-                                        No GitHub Release
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="card-body">
-                                    <div className="release-content">
-                                      <h3 className="release-title" style={{ color: '#adb5bd' }}>
-                                        {tag.title}
-                                      </h3>
-                                      <div className="release-links">
-                                        <span className="action-link" style={{ 
-                                          color: '#6c757d',
-                                          cursor: 'default'
-                                        }}>
-                                          <FaTag size={11} /> Git tag only (no release page)
-                                        </span>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="release-actions">
-                                      <button 
-                                        className="delete-btn"
-                                        style={{
-                                          borderColor: 'rgba(255, 107, 107, 0.3)',
-                                          color: '#ff6b6b'
-                                        }}
-                                        onClick={() => setPendingDelete({
-                                          tagName: tag.tagName,
-                                          type: 'tag-only'
-                                        })}
-                                        title="Delete tag only"
-                                        disabled={isDeleting}
-                                      >
-                                        <FaTrash size={11} />
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )
-                        )}
-                      </>
-                    )}
-                  </div>
+                  <ReleaseHistory
+                    releases={releases}
+                    isLoading={isLoading}
+                    activeHistorySubTab={activeHistorySubTab}
+                    setActiveHistorySubTab={setActiveHistorySubTab}
+                    fetchReleases={fetchReleases}
+                    projectPath={projectPath}
+                    setPendingDelete={setPendingDelete}
+                    isDeleting={isDeleting}
+                  />
                 )}
 
-                {/* LOGS TAB */}
                 {activeTab === 'logs' && (
-                  <div className="tab-content fade-in full-height">
-                    <div className="tab-header">
-                      <div className="tab-header-content">
-                        <h1>Build Console</h1>
-                        <p className="tab-description">
-                          Monitor build process in real-time
-                        </p>
-                      </div>
-                      <div className="log-actions">
-                        <button 
-                          className="secondary-btn glass-panel" 
-                          onClick={() => setLogs('')}
-                        >
-                          Clear Logs
-                        </button>
-                        <button 
-                          className="primary-btn glass-panel" 
-                          onClick={handleBuild}
-                        >
-                          <FaRocket size={14} /> Run Build
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="terminal-container glass-panel">
-                      <div className="terminal-header">
-                        <div className="terminal-title">
-                          <div className="terminal-dot red"></div>
-                          <div className="terminal-dot yellow"></div>
-                          <div className="terminal-dot green"></div>
-                          <span>console.log</span>
-                        </div>
-                        <div className="terminal-stats">
-                          {isBuilding && (
-                            <span className="building-indicator">⚡ Building</span>
-                          )}
-                          <span className="log-count">
-                            {logs.length.toLocaleString()} chars
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <div className="terminal-body glass-panel-light">
-                        <pre className="terminal-output">
-                          {logs || "➜ Ready to build. Click 'Run Build' to start."}
-                        </pre>
-                        <div ref={logEndRef} />
-                      </div>
-                      
-                      <div className="terminal-footer">
-                        <div className="terminal-hint">
-                          Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to run build • 
-                          Press <kbd>Esc</kbd> to clear logs
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <BuildLogs
+                    logs={logs}
+                    setLogs={setLogs}
+                    isBuilding={isBuilding}
+                    handleBuild={handleBuild}
+                  />
                 )}
               </>
             )}
           </div>
 
           {/* FOOTER */}
-          <footer className="app-footer glass-panel">
-            <div className="footer-stats">
-              <div className="stat">
-                <span className="stat-label">Project</span>
-                <span className="stat-value">
-                  {projectPath ? formatProjectName(projectPath) : 'None'}
-                </span>
-              </div>
-              <div className="stat">
-                <span className="stat-label">Releases</span>
-                <span className="stat-value">{releasesOnly.length}</span>
-              </div>
-              <div className="stat">
-                <span className="stat-label">Tags Only</span>
-                <span className="stat-value">{tagsOnly.length}</span>
-              </div>
-              <div className="stat status-stat">
-                <span className="stat-label">Status</span>
-                <span className="stat-value">
-                  <span className={`status-indicator ${isBuilding ? 'building' : 'idle'}`}>
-                    {isBuilding ? 'Building' : 'Ready'}
-                  </span>
-                </span>
-              </div>
-            </div>
-          </footer>
+          <Footer
+            projectPath={projectPath}
+            releasesCount={releasesOnly.length}
+            tagsCount={tagsOnly.length}
+            isBuilding={isBuilding}
+          />
         </main>
       </div>
 
-      {/* Delete Confirmation Modal */}
-      {pendingDelete && (
-        <div className="modal-backdrop">
-          <div className="modal-card glass-panel">
-            <div className="modal-header">
-              <div className="modal-icon danger">!</div>
-              <div>
-                <h3>
-                  Delete {pendingDelete.type === 'tag-only' ? 'tag' : 'release'} {pendingDelete.tagName}?
-                </h3>
-                <p>
-                  {pendingDelete.type === 'tag-only' 
-                    ? 'This will delete the Git tag (remote & local). There is no GitHub release to delete.' 
-                    : 'This will remove the GitHub release and delete the git tag (remote & local).'}
-                </p>
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button 
-                className="btn ghost" 
-                onClick={() => setPendingDelete(null)}
-                disabled={isDeleting}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn danger" 
-                onClick={() => handleDeleteRelease(pendingDelete)}
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* MODALS */}
+      <DeleteModal
+        isOpen={!!pendingDelete}
+        pendingDelete={pendingDelete}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={handleDeleteRelease}
+        isDeleting={isDeleting}
+      />
 
-      {/* Release Confirmation Modal */}
-      {showReleaseConfirm && (
-        <div className="modal-backdrop">
-          <div className="modal-card glass-panel">
-            <div className="modal-header">
-              <div className="modal-icon" style={{ background: 'linear-gradient(135deg, #4ade80, #22d3ee)' }}>🚀</div>
-              <div>
-                <h3>Build and release {version || '(no tag)'}?</h3>
-                <p>This will build your project, create a GitHub release, and upload artifacts.</p>
-              </div>
-            </div>
-
-            <div className="modal-body" style={{ gap: '8px' }}>
-              <div className="modal-row">
-                <span className="modal-label">Title</span>
-                <span className="modal-value">{title || 'No title'}</span>
-              </div>
-              <div className="modal-row">
-                <span className="modal-label">Project</span>
-                <span className="modal-value">{formatProjectName(projectPath) || 'None'}</span>
-              </div>
-              <div className="modal-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span className="modal-label">Notes (preview)</span>
-                <div className="modal-notes glass-panel-light" style={{ width: '100%', maxHeight: '140px', overflow: 'auto', padding: '10px', borderRadius: '10px' }}>
-                  <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                    {notes?.trim() ? notes.split('\n').slice(0, 8).join('\n') : 'No notes'}
-                    {notes.split('\n').length > 8 ? '\n…' : ''}
-                  </pre>
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-actions">
-              <button 
-                className="btn ghost" 
-                onClick={() => setShowReleaseConfirm(false)}
-                disabled={isReleasing}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn primary" 
-                onClick={handleConfirmRelease}
-                disabled={isReleasing}
-              >
-                {isReleasing ? 'Working...' : 'Confirm & Release'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ReleaseModal
+        isOpen={showReleaseConfirm}
+        onClose={() => setShowReleaseConfirm(false)}
+        onConfirm={handleConfirmRelease}
+        version={version}
+        title={title}
+        notes={notes}
+        projectName={formatProjectName(projectPath)}
+        isReleasing={isReleasing}
+      />
     </div>
   );
 }

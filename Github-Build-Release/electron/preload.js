@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
     selectFolder: () => ipcRenderer.invoke('select-folder'),
     getProjectInfo: (path) => ipcRenderer.invoke('get-project-info', path),
+    checkGhStatus: () => ipcRenderer.invoke('check-gh-status'),
     getReleases: (path) => ipcRenderer.invoke('get-releases', path),
     createRelease: (data) => ipcRenderer.invoke('create-release', data),
     deleteRelease: (data) => ipcRenderer.invoke('delete-release', data),
