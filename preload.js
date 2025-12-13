@@ -99,5 +99,11 @@ contextBridge.exposeInMainWorld('api', {
   passwordManagerCloseWindow: () => ipcRenderer.invoke('password-window-close'),
 
   // Asset path helper for images and other assets
-  getAssetPath: (relativePath) => ipcRenderer.invoke('get-asset-path', relativePath)
+  getAssetPath: (relativePath) => ipcRenderer.invoke('get-asset-path', relativePath),
+
+  // App ready signal - notify main process that the app is fully loaded
+  signalAppReady: () => ipcRenderer.invoke('app-ready'),
+  
+  // Loading progress update
+  updateLoadingProgress: (progress, message) => ipcRenderer.invoke('update-loading-progress', { progress, message })
 });

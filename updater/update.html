@@ -3,7 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Updating…</title>
+    <title>Make Your Life Easier - Loading</title>
+    <!-- Preload critical assets -->
+    <link rel="preload" href="../src/assets/icons/hacker.ico" as="image" type="image/x-icon">
+    <link rel="icon" type="image/x-icon" href="../src/assets/icons/hacker.ico" />
     <style>
       html, body {
         margin: 0;
@@ -79,9 +82,15 @@
         width: 0%;
         height: 100%;
         background: linear-gradient(90deg, #0088ff 0%, #0055cc 50%, #0088ff 100%);
+        background-size: 200% 100%;
         border-radius: 4px;
         box-shadow: 0 0 8px #0055cc;
-        transition: width 0.25s ease;
+        transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: shimmer 2s infinite linear;
+      }
+      @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
       }
     </style>
   </head>

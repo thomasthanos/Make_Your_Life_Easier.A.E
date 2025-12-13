@@ -4424,26 +4424,67 @@ let translations = {};
   async function init() {
     // Display the application loader to indicate that the app is starting up
     showAppLoader('Loading application…');
+    
+    // Helper to update loading progress in both local loader and updater window
+    const updateProgress = async (progress, message) => {
+      if (window.api?.updateLoadingProgress) {
+        try {
+          await window.api.updateLoadingProgress(progress, message);
+        } catch { /* ignore if not available */ }
+      }
+    };
 
-    await loadTranslations();
-    applyTheme();
-    renderMenu();
+    try {
+      // Stage 1: Load translations (10%)
+      await updateProgress(10, 'Loading translations...');
+      await loadTranslations();
+      
+      // Stage 2: Apply theme (20%)
+      await updateProgress(20, 'Applying theme...');
+      applyTheme();
+      
+      // Stage 3: Render menu (30%)
+      await updateProgress(30, 'Building interface...');
+      renderMenu();
 
-    const firstKey = menuKeys && menuKeys[0];
-    const pageKey = (typeof currentPage === 'string' && currentPage) || firstKey;
-    if (pageKey) {
-      await loadPage(pageKey);
-    }
+      // Stage 4: Load initial page (50%)
+      await updateProgress(50, 'Loading content...');
+      const firstKey = menuKeys && menuKeys[0];
+      const pageKey = (typeof currentPage === 'string' && currentPage) || firstKey;
+      if (pageKey) {
+        await loadPage(pageKey);
+      }
 
-    await ensureSidebarVersion();
-    initializeAutoUpdater();
+      // Stage 5: Load sidebar version (70%)
+      await updateProgress(70, 'Finalizing...');
+      await ensureSidebarVersion();
+      
+      // Stage 6: Initialize auto-updater (85%)
+      await updateProgress(85, 'Initializing services...');
+      initializeAutoUpdater();
 
-    if (typeof checkForChangelog === 'function') {
-      checkForChangelog();
+      // Stage 7: Check for changelog (95%)
+      await updateProgress(95, 'Almost ready...');
+      if (typeof checkForChangelog === 'function') {
+        checkForChangelog();
+      }
+
+      // Stage 8: Complete (100%)
+      await updateProgress(100, 'Launching application...');
+      
+    } catch (error) {
+      console.error('Initialization error:', error);
     }
 
     // Hide the application loader once all initialisation tasks have completed
     hideAppLoader();
+    
+    // Signal to main process that the app is fully ready
+    if (window.api?.signalAppReady) {
+      try {
+        await window.api.signalAppReady();
+      } catch { /* ignore if not available */ }
+    }
   }
 
   function initializeAutoUpdater() {

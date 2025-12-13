@@ -199,42 +199,20 @@ autoUpdater.on('update-not-available', (info) => {
   debug('info', 'Update not available:', info);
 
   if (updateWindow) {
-    let progress = 0;
+    // Show initial loading state
     updateWindow.webContents.send('update-status', {
       status: 'downloading',
-      message: `Loading application: ${progress}%`,
-      percent: progress
+      message: 'Initializing application...',
+      percent: 0
     });
-
-    const progressTimer = setInterval(() => {
-      progress = Math.min(progress + 5, 99);
-      updateWindow.webContents.send('update-status', {
-        status: 'downloading',
-        message: `Loading application: ${progress}%`,
-        percent: progress
-      });
-    }, 200);
 
     if (!mainWindow) {
       createMainWindow(false);
     }
 
-    if (mainWindow) {
-      mainWindow.webContents.once('did-finish-load', () => {
-        clearInterval(progressTimer);
-        updateWindow.webContents.send('update-status', {
-          status: 'downloading',
-          message: 'Loading application: 100%',
-          percent: 100
-        });
-        setTimeout(() => {
-          if (updateWindow) updateWindow.close();
-          try { if (mainWindow) mainWindow.show(); } catch { }
-        }, 500);
-      });
-    }
+    // The renderer will signal when it's fully ready via 'app-ready' IPC
+    // Progress updates will come from 'update-loading-progress' IPC
   }
-  // ❌ ΔΙΑΓΡΑΦΗ: Αφαίρεσε τον έλεγχο για manual check εδώ
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
@@ -576,6 +554,49 @@ ipcMain.handle('install-update', async () => {
 
 ipcMain.handle('get-app-version', async () => {
   return app.getVersion();
+});
+
+// App ready signal - renderer signals when it's fully loaded
+ipcMain.handle('app-ready', async () => {
+  debug('success', 'Application ready signal received from renderer');
+  
+  if (updateWindow) {
+    // Send final progress update
+    updateWindow.webContents.send('update-status', {
+      status: 'downloading',
+      message: 'Launching application...',
+      percent: 100
+    });
+    
+    // Short delay for visual feedback, then close updater and show main
+    setTimeout(() => {
+      if (updateWindow) {
+        updateWindow.close();
+      }
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    }, 300);
+  } else if (mainWindow && !mainWindow.isVisible()) {
+    // If no update window, just show main window
+    mainWindow.show();
+    mainWindow.focus();
+  }
+  
+  return { success: true };
+});
+
+// Update loading progress from renderer
+ipcMain.handle('update-loading-progress', async (event, { progress, message }) => {
+  if (updateWindow) {
+    updateWindow.webContents.send('update-status', {
+      status: 'downloading',
+      message: message || `Loading application: ${Math.round(progress)}%`,
+      percent: progress
+    });
+  }
+  return { success: true };
 });
 
 ipcMain.handle('save-update-info', async (event, info) => {

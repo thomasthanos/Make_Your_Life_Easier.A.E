@@ -28,8 +28,8 @@
 .custom-title-bar .title-group {
   display: flex;
   align-items: center;
-  gap: 8px;
   -webkit-app-region: drag;
+  margin-left: 10px;
 }
 
 .title-bar-toggles {

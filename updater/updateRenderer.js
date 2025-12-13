@@ -7,6 +7,9 @@ window.addEventListener('DOMContentLoaded', () => {
   // Select the progress bar element and the status element.
   const progressBar = document.querySelector('.progress-bar');
   const statusEl = document.getElementById('status');
+  
+  // Track last progress for smooth animation
+  let lastProgress = 0;
 
   /**
    * Update the progress bar width and optional status message.
@@ -15,7 +18,9 @@ window.addEventListener('DOMContentLoaded', () => {
    */
   function updateProgress(percent, text) {
     if (typeof percent === 'number') {
-      const clamped = Math.max(0, Math.min(100, percent));
+      // Only animate forward, don't go backwards
+      const clamped = Math.max(lastProgress, Math.min(100, percent));
+      lastProgress = clamped;
       progressBar.style.width = `${clamped}%`;
     }
     if (text) {
@@ -28,10 +33,10 @@ window.addEventListener('DOMContentLoaded', () => {
   window.api.onUpdateStatus((data) => {
     switch (data.status) {
       case 'checking':
-        statusEl.textContent = 'Checking for updates…';
+        updateProgress(5, 'Checking for updates…');
         break;
       case 'available':
-        statusEl.textContent = 'Downloading update…';
+        updateProgress(10, 'Update available! Downloading…');
         break;
       case 'downloading': {
         const percent = Math.round(data.percent || 0);
