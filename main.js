@@ -199,39 +199,42 @@ autoUpdater.on('update-not-available', (info) => {
   debug('info', 'Update not available:', info);
 
   if (updateWindow) {
-    // Show initial loading state
+    // Show initial loading state - use 10% to show progress moving
     updateWindow.webContents.send('update-status', {
       status: 'downloading',
       message: 'Initializing application...',
-      percent: 0
+      percent: 10
     });
 
-    if (!mainWindow) {
-      createMainWindow(false);
-    }
-
-    // Fallback: if app-ready signal doesn't come within 15 seconds,
-    // show the main window anyway to prevent hanging
-    const fallbackTimeout = setTimeout(() => {
-      debug('warn', 'App ready signal timeout - showing window anyway');
-      if (updateWindow) {
-        updateWindow.webContents.send('update-status', {
-          status: 'downloading',
-          message: 'Launching application...',
-          percent: 100
-        });
-        setTimeout(() => {
-          if (updateWindow) updateWindow.close();
-          if (mainWindow) {
-            mainWindow.show();
-            mainWindow.focus();
-          }
-        }, 300);
+    // Small delay to ensure UI updates before heavy loading starts
+    setTimeout(() => {
+      if (!mainWindow) {
+        createMainWindow(false);
       }
-    }, 15000);
 
-    // Store timeout reference so app-ready handler can clear it
-    global.appReadyFallbackTimeout = fallbackTimeout;
+      // Fallback: if app-ready signal doesn't come within 15 seconds,
+      // show the main window anyway to prevent hanging
+      const fallbackTimeout = setTimeout(() => {
+        debug('warn', 'App ready signal timeout - showing window anyway');
+        if (updateWindow) {
+          updateWindow.webContents.send('update-status', {
+            status: 'downloading',
+            message: 'Launching application...',
+            percent: 100
+          });
+          setTimeout(() => {
+            if (updateWindow) updateWindow.close();
+            if (mainWindow) {
+              mainWindow.show();
+              mainWindow.focus();
+            }
+          }, 300);
+        }
+      }, 15000);
+
+      // Store timeout reference so app-ready handler can clear it
+      global.appReadyFallbackTimeout = fallbackTimeout;
+    }, 100);
   }
 });
 
@@ -291,32 +294,35 @@ autoUpdater.on('error', (err) => {
     updateWindow.webContents.send('update-status', {
       status: 'downloading',
       message: 'Initializing application...',
-      percent: 0
+      percent: 10
     });
     
-    // Create main window hidden
-    createMainWindow(false);
-    
-    // Fallback timeout
-    const fallbackTimeout = setTimeout(() => {
-      debug('warn', 'App ready signal timeout after error - showing window anyway');
-      if (updateWindow) {
-        updateWindow.webContents.send('update-status', {
-          status: 'downloading',
-          message: 'Launching application...',
-          percent: 100
-        });
-        setTimeout(() => {
-          if (updateWindow) updateWindow.close();
-          if (mainWindow) {
-            mainWindow.show();
-            mainWindow.focus();
-          }
-        }, 300);
-      }
-    }, 15000);
-    
-    global.appReadyFallbackTimeout = fallbackTimeout;
+    // Small delay to ensure UI updates before heavy loading starts
+    setTimeout(() => {
+      // Create main window hidden
+      createMainWindow(false);
+      
+      // Fallback timeout
+      const fallbackTimeout = setTimeout(() => {
+        debug('warn', 'App ready signal timeout after error - showing window anyway');
+        if (updateWindow) {
+          updateWindow.webContents.send('update-status', {
+            status: 'downloading',
+            message: 'Launching application...',
+            percent: 100
+          });
+          setTimeout(() => {
+            if (updateWindow) updateWindow.close();
+            if (mainWindow) {
+              mainWindow.show();
+              mainWindow.focus();
+            }
+          }, 300);
+        }
+      }, 15000);
+      
+      global.appReadyFallbackTimeout = fallbackTimeout;
+    }, 100);
     return;
   }
 

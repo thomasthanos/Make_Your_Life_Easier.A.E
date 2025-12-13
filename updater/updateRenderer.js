@@ -10,15 +10,23 @@ window.addEventListener('DOMContentLoaded', () => {
   
   // Track last progress for smooth animation
   let lastProgress = 0;
+  let currentPhase = 'init'; // Track phase to allow progress reset
 
   /**
    * Update the progress bar width and optional status message.
    * @param {number} percent Progress percentage (0–100)
    * @param {string} [text] Optional status text to display
+   * @param {string} [phase] Optional phase identifier to allow progress reset
    */
-  function updateProgress(percent, text) {
+  function updateProgress(percent, text, phase = null) {
+    // If phase changed, allow progress to reset
+    if (phase && phase !== currentPhase) {
+      currentPhase = phase;
+      lastProgress = 0;
+    }
+    
     if (typeof percent === 'number') {
-      // Only animate forward, don't go backwards
+      // Only animate forward within same phase
       const clamped = Math.max(lastProgress, Math.min(100, percent));
       lastProgress = clamped;
       if (progressBar) {
@@ -41,30 +49,38 @@ window.addEventListener('DOMContentLoaded', () => {
   window.api.onUpdateStatus((data) => {
     switch (data.status) {
       case 'checking':
-        updateProgress(5, 'Checking for updates…');
+        updateProgress(5, 'Checking for updates…', 'update-check');
         break;
       case 'available':
-        updateProgress(10, 'Update available! Downloading…');
+        updateProgress(10, 'Update available! Downloading…', 'update-download');
         break;
       case 'downloading': {
         const percent = Math.round(data.percent || 0);
-        // If a custom message is provided by the main process (e.g. for
-        // application loading), use it.
+        // If message contains "Loading" or "Initializing", it's app loading phase
+        const isAppLoading = data.message && 
+          (data.message.includes('Loading') || 
+           data.message.includes('Initializing') ||
+           data.message.includes('Building') ||
+           data.message.includes('Finalizing') ||
+           data.message.includes('Almost') ||
+           data.message.includes('Launching'));
+        
+        const phase = isAppLoading ? 'app-loading' : 'update-download';
         const text = typeof data.message === 'string'
           ? data.message
           : `Downloading update: ${percent}%`;
-        updateProgress(percent, text);
+        updateProgress(percent, text, phase);
         break;
       }
       case 'downloaded':
-        updateProgress(100, 'Installing update…');
+        updateProgress(100, 'Installing update…', 'update-install');
         break;
       case 'not-available':
-        updateProgress(100, 'Launching application…');
+        updateProgress(100, 'Launching application…', 'app-loading');
         break;
       case 'error':
-        // Don't show error to user, just proceed
-        updateProgress(0, 'Initializing application…');
+        // Reset for app loading - start at 10%
+        updateProgress(10, 'Initializing application…', 'app-loading');
         break;
       default:
         break;

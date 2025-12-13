@@ -4435,28 +4435,28 @@ let translations = {};
     };
 
     try {
-      // Stage 1: Load translations (10%)
-      await updateProgress(10, 'Loading translations...');
+      // Stage 1: Load translations (15%)
+      await updateProgress(15, 'Loading translations...');
       await loadTranslations();
       
-      // Stage 2: Apply theme (20%)
-      await updateProgress(20, 'Applying theme...');
+      // Stage 2: Apply theme (25%)
+      await updateProgress(25, 'Applying theme...');
       applyTheme();
       
-      // Stage 3: Render menu (30%)
-      await updateProgress(30, 'Building interface...');
+      // Stage 3: Render menu (40%)
+      await updateProgress(40, 'Building interface...');
       renderMenu();
 
-      // Stage 4: Load initial page (50%)
-      await updateProgress(50, 'Loading content...');
+      // Stage 4: Load initial page (60%)
+      await updateProgress(60, 'Loading content...');
       const firstKey = menuKeys && menuKeys[0];
       const pageKey = (typeof currentPage === 'string' && currentPage) || firstKey;
       if (pageKey) {
         await loadPage(pageKey);
       }
 
-      // Stage 5: Load sidebar version (70%)
-      await updateProgress(70, 'Finalizing...');
+      // Stage 5: Load sidebar version (75%)
+      await updateProgress(75, 'Finalizing...');
       await ensureSidebarVersion();
       
       // Stage 6: Initialize auto-updater (85%)
