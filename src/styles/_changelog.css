@@ -324,7 +324,7 @@
   }
   
   .changelog-content li {
-    margin: 0.5rem 0;
+    margin: -1rem 0;
     color: rgba(220, 230, 255, 0.85);
     position: relative;
   }

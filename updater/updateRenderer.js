@@ -21,15 +21,23 @@ window.addEventListener('DOMContentLoaded', () => {
       // Only animate forward, don't go backwards
       const clamped = Math.max(lastProgress, Math.min(100, percent));
       lastProgress = clamped;
-      progressBar.style.width = `${clamped}%`;
+      if (progressBar) {
+        progressBar.style.width = `${clamped}%`;
+      }
     }
-    if (text) {
+    if (text && statusEl) {
       statusEl.textContent = text;
     }
   }
 
-  // Listen for update status messages from the main process.  The
-  // preload script exposes onUpdateStatus which registers a callback.
+  // Check if API is available
+  if (!window.api || typeof window.api.onUpdateStatus !== 'function') {
+    console.warn('UpdateRenderer: window.api.onUpdateStatus not available');
+    updateProgress(0, 'Loading...');
+    return;
+  }
+
+  // Listen for update status messages from the main process.
   window.api.onUpdateStatus((data) => {
     switch (data.status) {
       case 'checking':
@@ -41,8 +49,7 @@ window.addEventListener('DOMContentLoaded', () => {
       case 'downloading': {
         const percent = Math.round(data.percent || 0);
         // If a custom message is provided by the main process (e.g. for
-        // application loading), use it.  Otherwise fall back to the
-        // default "Downloading update" phrasing.
+        // application loading), use it.
         const text = typeof data.message === 'string'
           ? data.message
           : `Downloading update: ${percent}%`;
@@ -50,19 +57,14 @@ window.addEventListener('DOMContentLoaded', () => {
         break;
       }
       case 'downloaded':
-        // Set progress to complete and indicate installation.  The main
-        // process will handle the installation and restart.
         updateProgress(100, 'Installing update…');
         break;
       case 'not-available':
-        // No update found — the main process will close this window and
-        // open the main application shortly.
         updateProgress(100, 'Launching application…');
         break;
       case 'error':
-        // Show a friendly error message instead of the raw error text.
-        // The main process will handle launching the main window.
-        updateProgress(100, 'Unable to check for updates. Launching application…');
+        // Don't show error to user, just proceed
+        updateProgress(0, 'Initializing application…');
         break;
       default:
         break;

@@ -210,8 +210,28 @@ autoUpdater.on('update-not-available', (info) => {
       createMainWindow(false);
     }
 
-    // The renderer will signal when it's fully ready via 'app-ready' IPC
-    // Progress updates will come from 'update-loading-progress' IPC
+    // Fallback: if app-ready signal doesn't come within 15 seconds,
+    // show the main window anyway to prevent hanging
+    const fallbackTimeout = setTimeout(() => {
+      debug('warn', 'App ready signal timeout - showing window anyway');
+      if (updateWindow) {
+        updateWindow.webContents.send('update-status', {
+          status: 'downloading',
+          message: 'Launching application...',
+          percent: 100
+        });
+        setTimeout(() => {
+          if (updateWindow) updateWindow.close();
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+          }
+        }, 300);
+      }
+    }, 15000);
+
+    // Store timeout reference so app-ready handler can clear it
+    global.appReadyFallbackTimeout = fallbackTimeout;
   }
 });
 
@@ -265,15 +285,38 @@ autoUpdater.on('update-downloaded', (info) => {
 autoUpdater.on('error', (err) => {
   debug('error', 'Update error:', err);
 
+  // If we have an update window but no main window, treat error as "no update"
+  // and proceed with loading the app normally
   if (updateWindow && !mainWindow) {
     updateWindow.webContents.send('update-status', {
-      status: 'not-available',
-      message: 'You are running the latest version'
+      status: 'downloading',
+      message: 'Initializing application...',
+      percent: 0
     });
-    setTimeout(() => {
-      if (updateWindow) updateWindow.close();
-      createMainWindow();
-    }, 800);
+    
+    // Create main window hidden
+    createMainWindow(false);
+    
+    // Fallback timeout
+    const fallbackTimeout = setTimeout(() => {
+      debug('warn', 'App ready signal timeout after error - showing window anyway');
+      if (updateWindow) {
+        updateWindow.webContents.send('update-status', {
+          status: 'downloading',
+          message: 'Launching application...',
+          percent: 100
+        });
+        setTimeout(() => {
+          if (updateWindow) updateWindow.close();
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+          }
+        }, 300);
+      }
+    }, 15000);
+    
+    global.appReadyFallbackTimeout = fallbackTimeout;
     return;
   }
 
@@ -318,7 +361,7 @@ function createUpdateWindow() {
     minimizable: false,
     maximizable: false,
     frame: false,
-    show: true,
+    show: false, // Start hidden, show when ready
     transparent: true,
     backgroundColor: '#00000000',
     hasShadow: false,
@@ -336,8 +379,16 @@ function createUpdateWindow() {
     updateWindow = null;
   });
 
-  autoUpdater.checkForUpdates().catch((err) => {
-    debug('error', err);
+  // Wait for window to be ready before checking for updates
+  updateWindow.webContents.once('did-finish-load', () => {
+    // Show the window now that it's loaded
+    updateWindow.show();
+    
+    // Now check for updates
+    autoUpdater.checkForUpdates().catch((err) => {
+      debug('error', 'Check for updates failed:', err);
+      // Error will be handled by autoUpdater.on('error') event
+    });
   });
 }
 
@@ -559,6 +610,12 @@ ipcMain.handle('get-app-version', async () => {
 // App ready signal - renderer signals when it's fully loaded
 ipcMain.handle('app-ready', async () => {
   debug('success', 'Application ready signal received from renderer');
+  
+  // Clear fallback timeout if exists
+  if (global.appReadyFallbackTimeout) {
+    clearTimeout(global.appReadyFallbackTimeout);
+    global.appReadyFallbackTimeout = null;
+  }
   
   if (updateWindow) {
     // Send final progress update
