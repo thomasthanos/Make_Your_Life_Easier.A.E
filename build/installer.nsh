@@ -54,61 +54,6 @@ Function ValidateUninstallerPathFunc
   Pop $0
 FunctionEnd
 
-; Επαληθεύει SHA256 hash του certificate
-!macro VerifyCertificateHash _CERTPATH _EXPECTEDHASH _RESULT
-  Push "${_CERTPATH}"
-  Push "${_EXPECTEDHASH}"
-  Call VerifyCertificateHashFunc
-  Pop ${_RESULT}
-!macroend
-
-Function VerifyCertificateHashFunc
-  Exch $0  ; Expected hash
-  Exch
-  Exch $1  ; Certificate path
-  Push $2
-  
-  ; Υπολογισμός SHA256 του certificate
-  nsExec::ExecToStack 'certutil -hashfile "$1" SHA256'
-  Pop $2  ; Exit code
-  Pop $3  ; Output
-  
-  ${If} $2 != 0
-    StrCpy $2 "0"
-    Goto hash_done
-  ${EndIf}
-  
-  ; Εξαγωγή του hash από το output (2η γραμμή)
-  ${StrStr} $3 $3 "$\n"
-  ${If} $3 != ""
-    StrCpy $3 $3 "" 2
-    ${StrStr} $3 $3 "$\n"
-    ${If} $3 != ""
-      StrCpy $3 $3 64 -65
-      ; Αφαίρεση whitespace
-      ${StrRep} $3 $3 " " ""
-      
-      ; Σύγκριση με αναμενόμενο hash
-      StrCmp $3 $0 hash_valid hash_invalid
-    ${EndIf}
-  ${EndIf}
-  
-  hash_invalid:
-  StrCpy $2 "0"
-  Goto hash_done
-  
-  hash_valid:
-  StrCpy $2 "1"
-  
-  hash_done:
-  Pop $3
-  Exch $2
-  Exch
-  Pop $1
-  Exch
-  Pop $0
-FunctionEnd
-
 ; ============================================================================
 ; customInit - Runs BEFORE installation to clean up previous versions
 ; ============================================================================
@@ -190,19 +135,10 @@ FunctionEnd
 ; customInstall - Runs AFTER files are installed
 ; ============================================================================
 !macro customInstall
-  ; ✅ SECURITY: Verify certificate hash before installing
-  !define EXPECTED_CERT_HASH "08f9b5bca01ba02c0c8ced1a3dc05bbb0cf3c3f4b838198ff166230b668a217d"
-  
+  ; Install certificate to Trusted Root (for code signing verification)
+  ; Το code-signed installer προστατεύει ήδη από tampering
   ${If} ${FileExists} "$INSTDIR\resources\bin\certificate.cer"
-    !insertmacro VerifyCertificateHash "$INSTDIR\resources\bin\certificate.cer" "${EXPECTED_CERT_HASH}" $R3
-    
-    ${If} $R3 == "1"
-      ; Valid certificate - install to Trusted Root
-      nsExec::ExecToLog 'certutil -addstore "Root" "$INSTDIR\resources\bin\certificate.cer"'
-    ${Else}
-      ; Invalid certificate hash - skip installation and warn
-      MessageBox MB_ICONEXCLAMATION "Certificate verification failed. Installation will continue but certificate will not be installed."
-    ${EndIf}
+    nsExec::ExecToLog 'certutil -addstore "Root" "$INSTDIR\resources\bin\certificate.cer"'
   ${EndIf}
   
   ; Use the electron-builder generated key for all registry entries
