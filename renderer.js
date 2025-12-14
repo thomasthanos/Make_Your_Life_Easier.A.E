@@ -5301,22 +5301,20 @@ async function buildInstallPageWingetWithCategories() {
         "IObit.Uninstaller": "https://www.google.com/s2/favicons?domain=iobit-uninstaller.en.softonic.com&sz=64",
         "IObit.AdvancedSystemCare": "https://www.google.com/s2/favicons?domain=iobit-advanced-systemcare.en.softonic.com&sz=64",
         "IObit.SmartDefrag": "https://www.google.com/s2/favicons?domain=smart-defrag.en.softonic.com&sz=64",
-        "IObit.IObitSysInfo": "data:image/svg+xml;base64," + btoa(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24">
-      <path fill="#855cd6" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-      <path fill="#6a3cb8" d="M13 7h-2v2h2zm0 4h-2v6h2z"/>
-    </svg>
-  `),
+        "IObit.IObitSysInfo": "https://i.postimg.cc/tC6TkWFV/isf-icon-big.png",
         "IObit.IObitSoftwareUpdater": "https://www.google.com/s2/favicons?domain=iobit-software-updater.en.softonic.com&sz=64",
         "IObit.DriverBooster": "https://www.google.com/s2/favicons?domain=driver-booster-free.en.softonic.com&sz=64",
         "IObit.MalwareFighter": "https://www.google.com/s2/favicons?domain=iobit-malware-fighter.en.softonic.com&sz=64",
-
+        "LeagueOfLegends.Dropbox": "https://www.google.com/s2/favicons?domain=riotgames.com&sz=64",
         // Άλλα apps που χρειάζονται ειδική αντιμετώπιση
         "Blizzard.BattleNet": "https://www.google.com/s2/favicons?domain=battle.net&sz=64",
         "Guru3D.Afterburner": "https://www.google.com/s2/favicons?domain=guru3d.com&sz=64",
-
+        "Mobalytics.Dropbox": "https://www.google.com/s2/favicons?domain=mobalytics.gg/.com&sz=64",
+        "ProjectLightning.Dropbox": "https://i.postimg.cc/Xvj1xKB3/d929685ba0bcef6866fe68a7fe44b237.png",
         "Microsoft.VisualStudio.Professional": "https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VisualStudio-Dark.svg",
         "Microsoft.VisualStudioCode": "https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VSCode-Dark.svg",
+
+
       };
 
       // Πρώτα έλεγξε αν υπάρχει custom icon
