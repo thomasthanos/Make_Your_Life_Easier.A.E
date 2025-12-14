@@ -22,6 +22,34 @@ const CUSTOM_APPS = [
     url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&dl=1',
     ext: 'exe',
     category: 'Utilities'
+  },
+  {
+    id: 'LeagueOfLegends.Dropbox',
+    name: 'League of Legends',
+    url: 'https://www.dropbox.com/scl/fi/8e2lozlfwbw5uz00zxl78/League-of-Legends.exe?rlkey=q781tbxxn3k4l18jxws57d1a6&dl=1',
+    ext: 'exe',
+    category: 'Gaming'
+  },
+  {
+    id: 'Mobalytics.Dropbox',
+    name: 'Mobalytics',
+    url: 'https://www.dropbox.com/scl/fi/ud8dijdfoe6sg3ntjqsxt/Mobalytics.exe?rlkey=agawubkfhkpw9mluzn8tpydu8&dl=1',
+    ext: 'exe',
+    category: 'Gaming'
+  },
+  {
+    id: 'ProjectLightning.Dropbox',
+    name: 'ProjectLightning',
+    url: 'https://www.dropbox.com/scl/fi/0i9ikwaiwui6z6befhxtq/ProjectLightning.exe?rlkey=s49qkhhli071on5d23xz1gut7&dl=1',
+    ext: 'exe',
+    category: 'Utilities'
+  },
+  {
+    id: 'Cursor.Dropbox',
+    name: 'Cursor',
+    url: 'https://www.dropbox.com/scl/fi/bjjx57hosduostifzkjjr/Cursor.exe?rlkey=o60g8k5ct0j36bwysfk9sh53l&dl=1',
+    ext: 'exe',
+    category: 'Development'
   }
 ];
 
@@ -5768,32 +5796,47 @@ async function buildInstallPageWingetWithCategories() {
 
     let successCount = 0;
     let errorCount = 0;
+    const totalItems = selectedItems.length;
+    const results = []; // Store results for summary
 
+    // Helper to yield control to UI
+    const yieldToUI = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    // Helper to update button progress
+    const updateProgress = (current) => {
+      const labelEl = actionBtn.querySelector('.btn-label');
+      const progressText = isInstall 
+        ? `Installing ${current}/${totalItems}...` 
+        : `Uninstalling ${current}/${totalItems}...`;
+      if (labelEl) {
+        labelEl.textContent = progressText;
+      } else {
+        actionBtn.textContent = progressText;
+      }
+    };
+
+    let currentIndex = 0;
     for (const li of selectedItems) {
+      currentIndex++;
+      updateProgress(currentIndex);
+      
+      // Yield to UI every iteration to keep it responsive
+      await yieldToUI();
       const id = li.dataset.appId;
       const appName = li.dataset.appName || id;
 
       if (li.dataset.isCustom === 'true') {
         if (!isInstall) {
-          window.showToast(`${appName} cannot be uninstalled automatically.`, {
-            type: 'error',
-            title: 'Uninstall Error'
-          });
+          results.push({ name: appName, success: false, error: 'Cannot uninstall automatically', type: 'custom' });
           errorCount++;
           continue;
         }
         try {
           await installCustomPackage(li);
-          window.showToast(`${appName} installation initiated.`, {
-            type: 'success',
-            title: 'Install'
-          });
+          results.push({ name: appName, success: true, type: 'custom' });
           successCount++;
         } catch (err) {
-          window.showToast(`Failed to install ${appName}: ${err.message}`, {
-            type: 'error',
-            title: 'Install Error'
-          });
+          results.push({ name: appName, success: false, error: err.message, type: 'custom' });
           errorCount++;
         }
         continue;
@@ -5816,10 +5859,7 @@ async function buildInstallPageWingetWithCategories() {
             : output.includes('successfully uninstalled');
 
           if (!hasSuccessIndicator) {
-            window.showToast(`Failed to ${isInstall ? 'install' : 'uninstall'} ${appName}: ${result.error}`, {
-              type: 'error',
-              title: isInstall ? 'Install Error' : 'Uninstall Error'
-            });
+            results.push({ name: appName, success: false, error: result.error });
             errorCount++;
             continue;
           }
@@ -5842,22 +5882,13 @@ async function buildInstallPageWingetWithCategories() {
             output.includes('did not find');
 
           if (alreadyInstalled) {
-            window.showToast(`${appName} is already installed`, {
-              type: 'success',
-              title: 'Install'
-            });
+            results.push({ name: appName, success: true, status: 'already_installed' });
             successCount++;
           } else if (installFailed && !installSuccess) {
-            window.showToast(`Failed to install ${appName}`, {
-              type: 'error',
-              title: 'Install Error'
-            });
+            results.push({ name: appName, success: false, status: 'failed' });
             errorCount++;
           } else {
-            window.showToast(`${appName} installed successfully!`, {
-              type: 'success',
-              title: 'Install'
-            });
+            results.push({ name: appName, success: true, status: 'installed' });
             successCount++;
           }
         } else {
@@ -5874,53 +5905,46 @@ async function buildInstallPageWingetWithCategories() {
             output.includes('canceled');
 
           if (uninstallSuccess) {
-            window.showToast(`${appName} uninstalled successfully!`, {
-              type: 'success',
-              title: 'Uninstall'
-            });
+            results.push({ name: appName, success: true, status: 'uninstalled' });
             successCount++;
           } else if (notInstalled) {
-            window.showToast(`${appName} is not installed`, {
-              type: 'info',
-              title: 'Uninstall'
-            });
+            results.push({ name: appName, success: true, status: 'not_installed' });
             successCount++;
           } else if (cancelled) {
-            window.showToast(`${appName} uninstall was cancelled`, {
-              type: 'warning',
-              title: 'Uninstall Cancelled'
-            });
+            results.push({ name: appName, success: false, status: 'cancelled' });
             errorCount++;
           } else {
             // Winget may have launched the uninstaller - we can't know the result
-            window.showToast(`${appName} uninstaller launched - check if completed`, {
-              type: 'info',
-              title: 'Uninstall'
-            });
+            results.push({ name: appName, success: true, status: 'launched' });
             successCount++;
           }
         }
       } catch (err) {
-        window.showToast(`Failed to ${isInstall ? 'install' : 'uninstall'} ${appName}: ${err.message}`, {
-          type: 'error',
-          title: isInstall ? 'Install Error' : 'Uninstall Error'
-        });
+        results.push({ name: appName, success: false, error: err.message });
         errorCount++;
       }
+      
+      // Yield to UI after each operation
+      await yieldToUI();
     }
 
+    // Show summary with failed apps if any
+    const failedApps = results.filter(r => !r.success);
+    
     if (successCount > 0 && errorCount === 0) {
       window.showToast(`All ${selectedItems.length} applications ${isInstall ? 'installed' : 'uninstalled'} successfully!`, {
         type: 'success',
         title: 'Completed'
       });
     } else if (successCount > 0 && errorCount > 0) {
-      window.showToast(`Completed with ${successCount} successful and ${errorCount} failed ${isInstall ? 'installations' : 'uninstallations'}`, {
+      const failedNames = failedApps.map(f => f.name).join(', ');
+      window.showToast(`Completed: ${successCount} successful, ${errorCount} failed. Failed: ${failedNames}`, {
         type: 'warning',
         title: 'Partial Completion'
       });
     } else if (errorCount > 0) {
-      window.showToast(`All ${errorCount} ${isInstall ? 'installations' : 'uninstallations'} failed`, {
+      const failedNames = failedApps.map(f => f.name).join(', ');
+      window.showToast(`All ${errorCount} ${isInstall ? 'installations' : 'uninstallations'} failed: ${failedNames}`, {
         type: 'error',
         title: 'Failed'
       });

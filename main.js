@@ -788,9 +788,10 @@ ipcMain.handle('run-command', async (event, command) => {
     }
   }
 
-  // Use shell: false for better security (spawn directly)
-  // This prevents shell injection attacks
-  return processUtils.runSpawnCommand(parts[0], args, { shell: false, windowsHide: true });
+  // Use shell: true for winget commands to ensure proper environment context
+  // winget requires proper shell context to handle UAC prompts and Windows Store integration
+  // The command has already been validated and sanitized above
+  return processUtils.runSpawnCommand(parts[0], args, { shell: true, windowsHide: false });
 });
 
 ipcMain.handle('run-christitus', async () => {

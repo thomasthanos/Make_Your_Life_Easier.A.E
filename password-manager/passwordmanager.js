@@ -345,16 +345,18 @@ class PasswordManager {
             this.generateStrongPassword();
         });
 
+        // Eye icon (open) - shown when password is hidden (click to reveal)
+        const eyeOpenIcon = `
+            <svg width="1.4em" height="1.4em" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 5C7 5 3.05 9.55 2 12c1.05 2.45 5 7 10 7s8.95-4.55 10-7c-1.05-2.45-5-7-10-7z" stroke="currentColor" stroke-width="2" fill="none" />
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none" />
+            </svg>`;
+        // Eye-off icon (with slash) - shown when password is visible (click to hide)
         const eyeClosedIcon = `
             <svg width="1.4em" height="1.4em" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 5C7 5 3.05 9.55 2 12c1.05 2.45 5 7 10 7s8.95-4.55 10-7c-1.05-2.45-5-7-10-7z" stroke="currentColor" stroke-width="2" fill="none" />
               <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none" />
               <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" stroke-width="2" />
-            </svg>`;
-        const eyeOpenIcon = `
-            <svg width="1.4em" height="1.4em" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 5C7 5 3.05 9.55 2 12c1.05 2.45 5 7 10 7s8.95-4.55 10-7c-1.05-2.45-5-7-10-7z" stroke="currentColor" stroke-width="2" fill="none" />
-              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none" />
             </svg>`;
 
         const toggleBtn = document.createElement('button');
@@ -362,17 +364,20 @@ class PasswordManager {
         toggleBtn.className = 'button toggle-visibility-btn';
         // Accessible label for toggle password visibility
         toggleBtn.setAttribute('aria-label', this.t('toggle_password_visibility'));
-        toggleBtn.innerHTML = eyeClosedIcon;
+        // Start with open eye (password is hidden, click to reveal)
+        toggleBtn.innerHTML = eyeOpenIcon;
 
         toggleBtn.addEventListener('click', () => {
             const input = document.getElementById('password');
             if (input.type === 'password') {
+                // Reveal password - show eye-off icon (click to hide)
                 input.type = 'text';
-                toggleBtn.innerHTML = eyeOpenIcon;
+                toggleBtn.innerHTML = eyeClosedIcon;
                 toggleBtn.classList.add('visible');
             } else {
+                // Hide password - show eye icon (click to reveal)
                 input.type = 'password';
-                toggleBtn.innerHTML = eyeClosedIcon;
+                toggleBtn.innerHTML = eyeOpenIcon;
                 toggleBtn.classList.remove('visible');
             }
         });

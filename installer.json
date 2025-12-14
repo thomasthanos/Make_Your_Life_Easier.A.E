@@ -1,6 +1,7 @@
 {
   "apps": [
     "7zip.7zip",
+    "Anthropic.Claude",
     "Bitdefender.Bitdefender",
     "Blizzard.BattleNet",
     "Brave.Brave",
