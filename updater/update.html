@@ -4,9 +4,23 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Make Your Life Easier - Loading</title>
-    <!-- Preload critical assets -->
+    
+    <!-- DNS Prefetch & Preconnect (static - added dynamically would be too late) -->
+    <link rel="dns-prefetch" href="https://www.google.com">
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://i.postimg.cc">
+    <link rel="preconnect" href="https://www.google.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://i.postimg.cc" crossorigin>
+    
+    <!-- Preload local critical assets -->
     <link rel="preload" href="../src/assets/icons/hacker.ico" as="image" type="image/x-icon">
+    <link rel="preload" href="../src/assets/images/sims.png" as="image" type="image/png">
+    <link rel="preload" href="../styles.css" as="style">
+    
+    <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="../src/assets/icons/hacker.ico" />
+    
     <style>
       html, body {
         margin: 0;
@@ -96,7 +110,7 @@
   </head>
   <body>
     <div class="update-card">
-        <img class="icon" src="../src/assets/icons/hacker.ico" alt="App logo">
+      <img class="icon" src="../src/assets/icons/hacker.ico" alt="App logo">
       <h1 class="title">Make Your Life Easier</h1>
       <p id="status" class="status">Checking for updates…</p>
       <div class="progress-wrapper">
@@ -105,6 +119,10 @@
         </div>
       </div>
     </div>
+    
+    <!-- Load favicon config and preloader -->
+    <script src="../src/config/favicon-config.js"></script>
     <script src="updateRenderer.js"></script>
+    <script src="preloader.js"></script>
   </body>
 </html>

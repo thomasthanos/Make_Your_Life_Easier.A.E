@@ -2995,49 +2995,49 @@ let translations = {};
         fallbackName: 'Clip Studio Paint',
         desc: 'Digital painting and illustration software',
         url: 'https://www.dropbox.com/scl/fi/kx8gqow9zfian7g8ocqg3/Clip-Studio-Paint.zip?rlkey=wz4b7kfkchzgnsq9tpnp40rcw&st=rmp98tmo&dl=1',
-        icon: 'https://i.postimg.cc/HLrJgc2G/clipstudio.png'
+        icon: FaviconConfig?.projectIcons?.clipstudio || 'https://i.postimg.cc/HLrJgc2G/clipstudio.png'
       },
       {
         key: 'encoder',
         fallbackName: 'Media Encoder',
         desc: 'Tool for encoding multimedia content',
         url: 'https://www.dropbox.com/scl/fi/mw4sk0dvdk2r8ux9g1lfc/encoder.zip?rlkey=qwnelw8d920jlum14n1x44zku&st=70gqw7ba&dl=1',
-        icon: 'https://i.postimg.cc/tCGFN5zh/mediaencoder.png'
+        icon: FaviconConfig?.projectIcons?.mediaencoder || 'https://i.postimg.cc/tCGFN5zh/mediaencoder.png'
       },
       {
         key: 'illustrator',
         fallbackName: 'Illustrator',
         desc: 'Vector graphics and illustration tool',
         url: 'https://www.dropbox.com/scl/fi/aw95btp46onbyhk50gn7b/Illustrator.zip?rlkey=mvklovmenagfasuhr6clorbfj&st=0ds5v39w&dl=1',
-        icon: 'https://i.postimg.cc/W1nm3kg2/illustrator.png'
+        icon: FaviconConfig?.projectIcons?.illustrator || 'https://i.postimg.cc/W1nm3kg2/illustrator.png'
       },
       {
         key: 'lightroom_classic',
         fallbackName: 'Adobe Lightroom Classic',
         desc: 'Photo editing and organising application',
         url: 'https://www.dropbox.com/scl/fi/0p9rln704lc3qgqtjad9n/Lightroom-Classic.zip?rlkey=gp29smsg6t8oxhox80661k4gu&st=cdv50zpy&dl=1',
-        icon: 'https://i.postimg.cc/K8rfMVSR/lightroom-classic.png'
+        icon: FaviconConfig?.projectIcons?.lightroom || 'https://i.postimg.cc/K8rfMVSR/lightroom-classic.png'
       },
       {
         key: 'office',
         fallbackName: 'Office',
         desc: 'Microsoft Office suite (Word, Excel, etc.)',
         url: 'https://www.dropbox.com/scl/fi/pcfv8ft3egcq4x6jzigny/Office2024.zip?rlkey=qbic04ie56dvoxzk1smri0hoo&st=1r1veinx&dl=1',
-        icon: 'https://i.postimg.cc/fb8JmWgm/office.png'
+        icon: FaviconConfig?.projectIcons?.office || 'https://i.postimg.cc/fb8JmWgm/office.png'
       },
       {
         key: 'photoshop',
         fallbackName: 'Photoshop',
         desc: 'Image editing and graphic design software',
         url: 'https://www.dropbox.com/scl/fi/8vf3d46sq1wj1rb55r4jz/Photoshop.zip?rlkey=6u0dpbfnqopfndwcwq1082f7a&st=5u4v6m3x&dl=1',
-        icon: 'https://i.postimg.cc/HnzW5d2w/photoshop.png'
+        icon: FaviconConfig?.projectIcons?.photoshop || 'https://i.postimg.cc/HnzW5d2w/photoshop.png'
       },
       {
         key: 'premiere',
         fallbackName: 'Premiere',
         desc: 'Video editing software',
         url: 'https://www.dropbox.com/scl/fi/1yqqufgow2v4rc93l6wu4/premiere.zip?rlkey=49ymly6zgzufwtijnf2se35tc&st=5i77afac&dl=1',
-        icon: 'https://i.postimg.cc/g2JjVX1j/premiere-pro.png'
+        icon: FaviconConfig?.projectIcons?.premiere || 'https://i.postimg.cc/g2JjVX1j/premiere-pro.png'
       }
     ];
     const grid = document.createElement('div');
@@ -5293,95 +5293,14 @@ async function buildInstallPageWingetWithCategories() {
     }
     return 'Others';
   }
+  // getFaviconUrl - Uses centralized FaviconConfig (src/config/favicon-config.js)
   function getFaviconUrl(pkgId, appName) {
-    try {
-      // 🔥 CUSTOM ICONS για ειδικές περιπτώσεις
-      const customIcons = {
-        // IObit apps με softonic favicons
-        "IObit.Uninstaller": "https://www.google.com/s2/favicons?domain=iobit-uninstaller.en.softonic.com&sz=64",
-        "IObit.AdvancedSystemCare": "https://www.google.com/s2/favicons?domain=iobit-advanced-systemcare.en.softonic.com&sz=64",
-        "IObit.SmartDefrag": "https://www.google.com/s2/favicons?domain=smart-defrag.en.softonic.com&sz=64",
-        "IObit.IObitSysInfo": "https://i.postimg.cc/tC6TkWFV/isf-icon-big.png",
-        "IObit.IObitSoftwareUpdater": "https://www.google.com/s2/favicons?domain=iobit-software-updater.en.softonic.com&sz=64",
-        "IObit.DriverBooster": "https://www.google.com/s2/favicons?domain=driver-booster-free.en.softonic.com&sz=64",
-        "IObit.MalwareFighter": "https://www.google.com/s2/favicons?domain=iobit-malware-fighter.en.softonic.com&sz=64",
-        "LeagueOfLegends.Dropbox": "https://www.google.com/s2/favicons?domain=riotgames.com&sz=64",
-        // Άλλα apps που χρειάζονται ειδική αντιμετώπιση
-        "Blizzard.BattleNet": "https://www.google.com/s2/favicons?domain=battle.net&sz=64",
-        "Guru3D.Afterburner": "https://www.google.com/s2/favicons?domain=guru3d.com&sz=64",
-        "Mobalytics.Dropbox": "https://www.google.com/s2/favicons?domain=mobalytics.gg/.com&sz=64",
-        "ProjectLightning.Dropbox": "https://i.postimg.cc/Xvj1xKB3/d929685ba0bcef6866fe68a7fe44b237.png",
-        "Microsoft.VisualStudio.Professional": "https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VisualStudio-Dark.svg",
-        "Microsoft.VisualStudioCode": "https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VSCode-Dark.svg",
-
-
-      };
-
-      // Πρώτα έλεγξε αν υπάρχει custom icon
-      if (customIcons[pkgId]) {
-        return customIcons[pkgId];
-      }
-
-      // Αλλιώς συνέχισε με την υπάρχουσα λογική
-      const parts = String(pkgId).split('.');
-      let publisher = parts[0] || '';
-      publisher = publisher.toLowerCase();
-
-      const domainMap = {
-        google: 'google.com',
-        bitdefender: 'bitdefender.com',
-        brave: 'brave.com',
-        discord: 'discord.com',
-        dropbox: 'dropbox.com',
-        electronicarts: 'ea.com',
-        elgato: 'elgato.com',
-        epicgames: 'epicgames.com',
-        git: 'git-scm.com',
-        github: 'github.com',
-        nordsecurity: 'nordvpn.com',
-        mojang: 'minecraft.net',
-        vivaldi: 'vivaldi.com',
-        valve: 'steampowered.com',
-        playstation: 'playstation.com',
-        python: 'python.org',
-        microsoft: 'microsoft.com',
-        rarlab: 'win-rar.com',
-        razerinc: 'razer.com',
-        softdeluxe: 'freedownloadmanager.org',
-        spotify: 'spotify.com',
-        surfshark: 'surfshark.com',
-        zwylair: 'github.com',
-        proton: 'protonvpn.com',
-        openjs: 'nodejs.org',
-        mozilla: 'mozilla.org',
-        '7zip': '7-zip.org',
-        vencord: 'vencord.dev',
-        obsproject: 'obsproject.com',
-        videolan: 'videolan.org',
-        oracle: 'oracle.com',
-        logitech: 'logitech.com',
-        notepadplusplus: 'notepad-plus-plus.org',
-        cpuid: 'cpuid.com',
-        crystaldew: 'crystalmark.info',
-        malwarebytes: 'malwarebytes.com',
-        teamviewer: 'teamviewer.com',
-        anydesk: 'anydesk.com',
-        betterdiscord: 'betterdiscord.app',
-        iobit: 'iobit.com', // Γενικό για IObit (για άλλα apps που λείπουν από custom)
-        blizzard: 'battle.net', // Για Blizzard
-        ubisoft: 'https://store.ubisoft.com/ie/home?lang=en-ZW', // Για Ubisoft
-        guru3d: 'guru3d.com' // Για Guru3D
-      };
-
-      const domain = domainMap[publisher] || `${publisher}.com`;
-
-      // 🔥 ΧΡΗΣΗ GOOGLE FAVICON SERVICE (πιο αξιόπιστο)
-      return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-
-    } catch {
-      const slug = String(appName || '').toLowerCase().replace(/\s+/g, '');
-      return `https://www.google.com/s2/favicons?domain=${slug}.com&sz=64`;
+    if (typeof FaviconConfig !== 'undefined') {
+      return FaviconConfig.getFaviconUrl(pkgId, appName);
     }
+    // Fallback if config not loaded
+    const slug = String(appName || pkgId || '').toLowerCase().replace(/\s+/g, '');
+    return `https://www.google.com/s2/favicons?domain=${slug}.com&sz=64`;
   }
 
   function getDeveloperUrl(pkgId) {
