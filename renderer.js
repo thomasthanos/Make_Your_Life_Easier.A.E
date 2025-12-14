@@ -28,14 +28,14 @@ const CUSTOM_APPS = [
     name: 'League of Legends',
     url: 'https://www.dropbox.com/scl/fi/8e2lozlfwbw5uz00zxl78/League-of-Legends.exe?rlkey=q781tbxxn3k4l18jxws57d1a6&dl=1',
     ext: 'exe',
-    category: 'Gaming'
+    category: 'Games'
   },
   {
     id: 'Mobalytics.Dropbox',
     name: 'Mobalytics',
     url: 'https://www.dropbox.com/scl/fi/ud8dijdfoe6sg3ntjqsxt/Mobalytics.exe?rlkey=agawubkfhkpw9mluzn8tpydu8&dl=1',
     ext: 'exe',
-    category: 'Gaming'
+    category: 'Games'
   },
   {
     id: 'ProjectLightning.Dropbox',
@@ -4452,7 +4452,7 @@ let translations = {};
   async function init() {
     // Display the application loader to indicate that the app is starting up
     showAppLoader('Loading application…');
-    
+
     // Helper to update loading progress in both local loader and updater window
     const updateProgress = async (progress, message) => {
       if (window.api?.updateLoadingProgress) {
@@ -4466,11 +4466,11 @@ let translations = {};
       // Stage 1: Load translations (15%)
       await updateProgress(15, 'Loading translations...');
       await loadTranslations();
-      
+
       // Stage 2: Apply theme (25%)
       await updateProgress(25, 'Applying theme...');
       applyTheme();
-      
+
       // Stage 3: Render menu (40%)
       await updateProgress(40, 'Building interface...');
       renderMenu();
@@ -4486,7 +4486,7 @@ let translations = {};
       // Stage 5: Load sidebar version (75%)
       await updateProgress(75, 'Finalizing...');
       await ensureSidebarVersion();
-      
+
       // Stage 6: Initialize auto-updater (85%)
       await updateProgress(85, 'Initializing services...');
       initializeAutoUpdater();
@@ -4499,14 +4499,14 @@ let translations = {};
 
       // Stage 8: Complete (100%)
       await updateProgress(100, 'Launching application...');
-      
+
     } catch (error) {
       console.error('Initialization error:', error);
     }
 
     // Hide the application loader once all initialisation tasks have completed
     hideAppLoader();
-    
+
     // Signal to main process that the app is fully ready
     if (window.api?.signalAppReady) {
       try {
@@ -5805,8 +5805,8 @@ async function buildInstallPageWingetWithCategories() {
     // Helper to update button progress
     const updateProgress = (current) => {
       const labelEl = actionBtn.querySelector('.btn-label');
-      const progressText = isInstall 
-        ? `Installing ${current}/${totalItems}...` 
+      const progressText = isInstall
+        ? `Installing ${current}/${totalItems}...`
         : `Uninstalling ${current}/${totalItems}...`;
       if (labelEl) {
         labelEl.textContent = progressText;
@@ -5819,7 +5819,7 @@ async function buildInstallPageWingetWithCategories() {
     for (const li of selectedItems) {
       currentIndex++;
       updateProgress(currentIndex);
-      
+
       // Yield to UI every iteration to keep it responsive
       await yieldToUI();
       const id = li.dataset.appId;
@@ -5923,14 +5923,14 @@ async function buildInstallPageWingetWithCategories() {
         results.push({ name: appName, success: false, error: err.message });
         errorCount++;
       }
-      
+
       // Yield to UI after each operation
       await yieldToUI();
     }
 
     // Show summary with failed apps if any
     const failedApps = results.filter(r => !r.success);
-    
+
     if (successCount > 0 && errorCount === 0) {
       window.showToast(`All ${selectedItems.length} applications ${isInstall ? 'installed' : 'uninstalled'} successfully!`, {
         type: 'success',

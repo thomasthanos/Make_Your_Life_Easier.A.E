@@ -33,6 +33,11 @@
     },
     "files": [
       "**/*",
+      "!dist/**/*",
+      "!Github-Build-Release/**/*",
+      "!build/**/*",
+      "!python/**/*",
+      "!build-css.js",
       "!**/node_modules/*/{README.md,README,readme.md,readme}",
       "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
       "!**/node_modules/*.d.ts",
@@ -97,7 +102,9 @@
       "cscKeyPassword": "12123123",
       "signtoolOptions": {
         "publisherName": "ThomasThanos",
-        "signingHashAlgorithms": ["sha256"]
+        "signingHashAlgorithms": [
+          "sha256"
+        ]
       },
       "publish": {
         "provider": "github",
