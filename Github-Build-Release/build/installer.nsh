@@ -19,9 +19,24 @@
   ; Close running app instances
   !insertmacro _KillRunningApp
 
-  ; Remove previous install to avoid partial/dirty upgrades
-  IfFileExists "$INSTDIR\*.*" 0 +2
-    RMDir /r "$INSTDIR"
+  ; Ασφαλής καθαρισμός παλιάς εγκατάστασης
+  ; Διαγράφουμε ΜΟΝΟ συγκεκριμένα αρχεία της εφαρμογής
+  ${If} ${FileExists} "$INSTDIR\github-release-manager.exe"
+    ; Διαγραφή εκτελέσιμων και DLLs
+    Delete "$INSTDIR\github-release-manager.exe"
+    Delete "$INSTDIR\*.dll"
+    
+    ; Διαγραφή γνωστών φακέλων της εφαρμογής
+    RMDir /r "$INSTDIR\resources"
+    RMDir /r "$INSTDIR\locales"
+    RMDir /r "$INSTDIR\swiftshader"
+    
+    ; Αφαίρεση shortcuts
+    Delete "$INSTDIR\Uninstall github-release-manager.exe"
+  ${EndIf}
+  
+  ; ΣΗΜΕΙΩΣΗ: ΔΕΝ διαγράφουμε ολόκληρο τον $INSTDIR για λόγους ασφαλείας
+  ; Το NSIS installer θα κάνει overwrite τα απαραίτητα αρχεία
 !macroend
 
 !macro customInstall
