@@ -25,6 +25,8 @@ const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localho
  */
 function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
   return new Promise((resolve, reject) => {
+    let settled = false;  // Prevent double resolution race condition
+
     const windowOpts = {
       width: 600,
       height: 700,
@@ -79,13 +81,17 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
     function handleUrl(url) {
       try {
         const target = new URL(url);
-        if (url.startsWith(redirectUri)) {
+        if (!settled && url.startsWith(redirectUri)) {
           handleCallback(target)
             .then((result) => {
+              if (settled) return;
+              settled = true;
               cleanup();
               resolve(result);
             })
             .catch((err) => {
+              if (settled) return;
+              settled = true;
               cleanup();
               reject(err);
             });
@@ -122,10 +128,9 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
     authWindow.webContents.on('frame-loaded', applyDiscordAccessibilityFix);
 
     authWindow.on('closed', () => {
-      try {
+      if (!settled) {
+        settled = true;
         resolve(null);
-      } catch {
-        // If resolve has already been called, ignore
       }
     });
 

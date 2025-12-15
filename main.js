@@ -75,43 +75,51 @@ const updateInfoSecondaryPath = process.platform === 'win32'
 /**
  * Clean up the updater cache directory
  * Removes downloaded installers and temp files after successful update
+ * Uses async operations to prevent throwing on concurrent access
  */
-function cleanupUpdaterCache() {
+async function cleanupUpdaterCache() {
   try {
     // electron-updater stores cache in Local AppData, not Roaming
     const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
     const updaterCachePath = path.join(localAppData, 'make-your-life-easier-updater');
 
-    if (fs.existsSync(updaterCachePath)) {
-      const files = fs.readdirSync(updaterCachePath);
-      let cleanedSize = 0;
+    // Check if directory exists
+    try {
+      await fs.promises.access(updaterCachePath);
+    } catch {
+      return; // Directory doesn't exist, nothing to clean
+    }
 
-      for (const file of files) {
-        const filePath = path.join(updaterCachePath, file);
-        const stat = fs.statSync(filePath);
+    const files = await fs.promises.readdir(updaterCachePath).catch(() => []);
+    let cleanedSize = 0;
+
+    for (const file of files) {
+      const filePath = path.join(updaterCachePath, file);
+      try {
+        const stat = await fs.promises.stat(filePath).catch(() => null);
+        if (!stat) continue;
 
         if (stat.isDirectory()) {
-          fs.rmSync(filePath, { recursive: true, force: true });
+          await fs.promises.rm(filePath, { recursive: true, force: true, maxRetries: 2 });
           debug('info', `Cleaned updater cache directory: ${file}`);
         } else {
           cleanedSize += stat.size;
-          fs.unlinkSync(filePath);
+          await fs.promises.unlink(filePath).catch(() => {});
           debug('info', `Cleaned updater cache file: ${file}`);
         }
-      }
-
-      if (cleanedSize > 0) {
-        const sizeMB = (cleanedSize / (1024 * 1024)).toFixed(2);
-        debug('success', `Updater cache cleaned: ${sizeMB} MB freed`);
-      }
-
-      // Remove the empty directory itself
-      try {
-        fs.rmdirSync(updaterCachePath);
-      } catch (e) {
-        // Directory might not be empty or other error, ignore
+      } catch (err) {
+        // File might be in use or locked, skip it
+        debug('warn', `Could not clean ${file}: ${err.code || err.message}`);
       }
     }
+
+    if (cleanedSize > 0) {
+      const sizeMB = (cleanedSize / (1024 * 1024)).toFixed(2);
+      debug('success', `Updater cache cleaned: ${sizeMB} MB freed`);
+    }
+
+    // Try to remove the empty directory itself
+    await fs.promises.rmdir(updaterCachePath).catch(() => {});
   } catch (err) {
     debug('warn', 'Failed to clean updater cache:', err.message);
   }
@@ -161,6 +169,18 @@ if (!fs.existsSync(pmDirectory)) {
 
 const pmAuth = new PasswordManagerAuth();
 pmAuth.initialize(pmDirectory);
+
+// Singleton Password Manager DB instance to prevent connection exhaustion
+let pmDBInstance = null;
+function getPasswordDB() {
+  if (!pmDBInstance) {
+    pmDBInstance = new PasswordManagerDB(pmAuth);
+  }
+  return pmDBInstance;
+}
+
+// Track temp files for cleanup on app quit (Fix #4)
+const pendingCleanupFiles = new Set();
 
 // ============================================================================
 // Auto-Updater Events
@@ -476,6 +496,27 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   downloadManager.cleanupOnQuit(debug);
+  
+  // Cleanup any pending temp files from replace-exe operations (Fix #4)
+  pendingCleanupFiles.forEach(filePath => {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        debug('info', 'Cleaned up temp file:', filePath);
+      }
+    } catch (err) {
+      debug('warn', 'Failed to cleanup temp file:', filePath, err.message);
+    }
+  });
+  pendingCleanupFiles.clear();
+  
+  // Close singleton DB connection if open
+  if (pmDBInstance) {
+    try {
+      pmDBInstance.close();
+      pmDBInstance = null;
+    } catch { }
+  }
 });
 
 // ============================================================================
@@ -1181,14 +1222,25 @@ WScript.Sleep(3000)
       const vbsFile = path.join(os.tmpdir(), `elevate_${Date.now()}.vbs`);
       fs.writeFileSync(vbsFile, vbsScript);
 
+      // Track temp files for cleanup on app quit (Fix #4)
+      pendingCleanupFiles.add(vbsFile);
+      pendingCleanupFiles.add(psFile);
+      pendingCleanupFiles.add(configFile);
+
       debug('info', 'Requesting UAC elevation for file replacement...');
 
       exec(`wscript "${vbsFile}"`, (error) => {
-        setTimeout(() => {
-          try { fs.unlinkSync(vbsFile); } catch { }
-          try { fs.unlinkSync(psFile); } catch { }
-          try { fs.unlinkSync(configFile); } catch { }
-        }, 10000);
+        // Cleanup function that also removes from tracking set
+        const cleanupTempFiles = () => {
+          [vbsFile, psFile, configFile].forEach(f => {
+            try {
+              if (fs.existsSync(f)) fs.unlinkSync(f);
+              pendingCleanupFiles.delete(f);
+            } catch { }
+          });
+        };
+        
+        setTimeout(cleanupTempFiles, 10000);
 
         if (error) {
           debug('warn', 'User denied UAC or elevation failed:', error);
@@ -1476,12 +1528,12 @@ ipcMain.handle('password-manager-validate-password', async (event, password) => 
 
 ipcMain.handle('password-manager-get-categories', async () => {
   return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
+    const db = getPasswordDB();  // Use singleton
     let finished = false;
     const timeout = setTimeout(() => {
       if (finished) return;
       finished = true;
-      db.close();
+      // Don't close singleton DB
       resolve({ success: false, error: 'Database timeout' });
     }, 10000);
 
@@ -1489,7 +1541,7 @@ ipcMain.handle('password-manager-get-categories', async () => {
       if (finished) return;
       finished = true;
       clearTimeout(timeout);
-      db.close();
+      // Don't close singleton DB
       if (err) {
         debug('error', 'Error getting categories:', err);
         resolve({ success: false, error: err.message });
@@ -1502,9 +1554,9 @@ ipcMain.handle('password-manager-get-categories', async () => {
 
 ipcMain.handle('password-manager-add-category', async (event, name) => {
   return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
+    const db = getPasswordDB();  // Use singleton
     db.addCategory(name, function (err) {
-      db.close();
+      // Don't close singleton DB
       if (err) {
         resolve({ success: false, error: err.message });
       } else {
@@ -1516,9 +1568,9 @@ ipcMain.handle('password-manager-add-category', async (event, name) => {
 
 ipcMain.handle('password-manager-update-category', async (event, id, name) => {
   return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
+    const db = getPasswordDB();  // Use singleton
     db.updateCategory(id, name, function (err) {
-      db.close();
+      // Don't close singleton DB
       if (err) {
         resolve({ success: false, error: err.message });
       } else {
@@ -1530,9 +1582,9 @@ ipcMain.handle('password-manager-update-category', async (event, id, name) => {
 
 ipcMain.handle('password-manager-delete-category', async (event, id) => {
   return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
+    const db = getPasswordDB();  // Use singleton
     db.deleteCategory(id, function (err) {
-      db.close();
+      // Don't close singleton DB
       if (err) {
         resolve({ success: false, error: err.message });
       } else {
@@ -1544,12 +1596,12 @@ ipcMain.handle('password-manager-delete-category', async (event, id) => {
 
 ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all') => {
   return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
+    const db = getPasswordDB();  // Use singleton
     let finished = false;
     const timeout = setTimeout(() => {
       if (finished) return;
       finished = true;
-      db.close();
+      // Don't close singleton DB
       resolve({ success: false, error: 'Database timeout' });
     }, 10000);
 
@@ -1557,7 +1609,7 @@ ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all
       if (finished) return;
       finished = true;
       clearTimeout(timeout);
-      db.close();
+      // Don't close singleton DB
       if (err) {
         debug('error', 'Error getting passwords:', err);
         resolve({ success: false, error: err.message });
@@ -1570,9 +1622,9 @@ ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all
 
 ipcMain.handle('password-manager-get-password', async (event, id) => {
   return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
+    const db = getPasswordDB();  // Use singleton
     db.getPasswordById(id, (err, row) => {
-      db.close();
+      // Don't close singleton DB
       if (err) {
         resolve({ success: false, error: err.message });
       } else {
@@ -1584,12 +1636,12 @@ ipcMain.handle('password-manager-get-password', async (event, id) => {
 
 ipcMain.handle('password-manager-add-password', async (event, passwordData) => {
   return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
+    const db = getPasswordDB();  // Use singleton
     let finished = false;
     const timeout = setTimeout(() => {
       if (finished) return;
       finished = true;
-      db.close();
+      // Don't close singleton DB
       resolve({ success: false, error: 'Database timeout' });
     }, 10000);
 
@@ -1597,7 +1649,7 @@ ipcMain.handle('password-manager-add-password', async (event, passwordData) => {
       if (finished) return;
       finished = true;
       clearTimeout(timeout);
-      db.close();
+      // Don't close singleton DB
       if (err) {
         debug('error', 'Error adding password:', err);
         resolve({ success: false, error: err.message });
@@ -1611,9 +1663,9 @@ ipcMain.handle('password-manager-add-password', async (event, passwordData) => {
 
 ipcMain.handle('password-manager-update-password', async (event, id, passwordData) => {
   return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
+    const db = getPasswordDB();  // Use singleton
     db.updatePassword(id, passwordData, function (err) {
-      db.close();
+      // Don't close singleton DB
       if (err) {
         resolve({ success: false, error: err.message });
       } else {
@@ -1625,9 +1677,9 @@ ipcMain.handle('password-manager-update-password', async (event, id, passwordDat
 
 ipcMain.handle('password-manager-delete-password', async (event, id) => {
   return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
+    const db = getPasswordDB();  // Use singleton
     db.deletePassword(id, function (err) {
-      db.close();
+      // Don't close singleton DB
       if (err) {
         resolve({ success: false, error: err.message });
       } else {
@@ -1639,9 +1691,9 @@ ipcMain.handle('password-manager-delete-password', async (event, id) => {
 
 ipcMain.handle('password-manager-search-passwords', async (event, query) => {
   return new Promise((resolve) => {
-    const db = new PasswordManagerDB(pmAuth);
+    const db = getPasswordDB();  // Use singleton
     db.searchPasswords(query, (err, rows) => {
-      db.close();
+      // Don't close singleton DB
       if (err) {
         resolve({ success: false, error: err.message });
       } else {
@@ -1653,6 +1705,12 @@ ipcMain.handle('password-manager-search-passwords', async (event, query) => {
 
 ipcMain.handle('password-manager-reset', async () => {
   try {
+    // Close singleton DB before resetting
+    if (pmDBInstance) {
+      try { pmDBInstance.close(); } catch { }
+      pmDBInstance = null;
+    }
+    
     if (fs.existsSync(pmAuth.configPath)) {
       fs.unlinkSync(pmAuth.configPath);
     }

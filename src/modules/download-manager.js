@@ -77,14 +77,17 @@ function startDownload(id, url, dest, mainWindow) {
       mainWindow.webContents.send('download-event', { id, status: 'started', total });
 
       const cleanup = (errMsg) => {
-        try { res.removeAllListeners(); res.destroy(); } catch { }
-        try {
-          file.removeAllListeners();
-          file.close(() => {
-            try { file.destroy(); } catch { }
-          });
-        } catch { }
-        try { fs.unlink(tempPath, () => { }); } catch { }
+        // Stop piping first to prevent further writes
+        try { res.unpipe(file); } catch { }
+        // Remove listeners before destroying
+        try { res.removeAllListeners(); } catch { }
+        try { res.destroy(); } catch { }
+        // Destroy file stream immediately, then close for safety
+        try { file.removeAllListeners(); } catch { }
+        try { file.destroy(); } catch { }
+        try { file.close(() => {}); } catch { }
+        // Clean up temp file
+        try { fs.unlink(tempPath, () => {}); } catch { }
         activeDownloads.delete(id);
         if (errMsg) {
           mainWindow.webContents.send('download-event', { id, status: 'error', error: errMsg });
