@@ -1,7 +1,7 @@
 {
   "name": "github-release-manager",
   "private": true,
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Desktop app to manage GitHub releases.",
   "author": "github-release-manager",
   "main": "electron/main.js",
@@ -53,21 +53,24 @@
       "icon": "src/public/build.ico",
       "requestedExecutionLevel": "requireAdministrator"
     },
-      "nsis": {
-        "oneClick": false,
-        "allowToChangeInstallationDirectory": true,
-        "perMachine": true,
-        "createDesktopShortcut": true,
-        "createStartMenuShortcut": true,
-        "shortcutName": "GitHub Release Manager",
-        "installerIcon": "src/public/build.ico",
-        "uninstallerIcon": "src/public/build.ico",
-        "deleteAppDataOnUninstall": true,
-        "allowElevation": true,
-        "include": "build/installer.nsh",
-        "installerLanguages": ["en_US", "el_GR"],
-        "menuCategory": "GitHub Tools",
-        "multiLanguageInstaller": true
-      }
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "GitHub Release Manager",
+      "installerIcon": "src/public/build.ico",
+      "uninstallerIcon": "src/public/build.ico",
+      "deleteAppDataOnUninstall": true,
+      "allowElevation": true,
+      "include": "build/installer.nsh",
+      "installerLanguages": [
+        "en_US",
+        "el_GR"
+      ],
+      "menuCategory": "GitHub Tools",
+      "multiLanguageInstaller": true
+    }
   }
 }
