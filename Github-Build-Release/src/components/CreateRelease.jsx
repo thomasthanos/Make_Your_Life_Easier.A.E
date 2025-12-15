@@ -162,7 +162,7 @@ function CreateRelease({
         </div>
 
         {/* Action Buttons */}
-        <div className="release-actions">
+        <div className="release-form-actions">
           <button
             className="reset-btn glass-panel"
             onClick={() => {
