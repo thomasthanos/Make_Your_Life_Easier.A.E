@@ -21,7 +21,7 @@
 
   <!-- Preload critical assets for faster loading -->
   <link rel="preload" href="styles.css" as="style" />
-  <link rel="preload" href="renderer.js" as="script" />
+  <link rel="modulepreload" href="src/renderer/index.js" />
   <link rel="preload" href="src/assets/icons/hacker.ico" as="image" type="image/x-icon" />
 
   <link rel="stylesheet" href="styles.css" />
@@ -185,7 +185,7 @@
 
   <script src="src/config/favicon-config.js"></script>
   <script src="src/config/titlebar-init.js"></script>
-  <script src="renderer.js" defer></script>
+  <script type="module" src="src/renderer/index.js"></script>
 
 </body>
 
