@@ -7,7 +7,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Select the progress bar element and the status element.
   const progressBar = document.querySelector('.progress-bar');
   const statusEl = document.getElementById('status');
-  
+
   // Track last progress for smooth animation
   let lastProgress = 0;
   let currentPhase = 'init'; // Track phase to allow progress reset
@@ -24,7 +24,7 @@ window.addEventListener('DOMContentLoaded', () => {
       currentPhase = phase;
       lastProgress = 0;
     }
-    
+
     if (typeof percent === 'number') {
       // Only animate forward within same phase
       const clamped = Math.max(lastProgress, Math.min(100, percent));
@@ -57,14 +57,14 @@ window.addEventListener('DOMContentLoaded', () => {
       case 'downloading': {
         const percent = Math.round(data.percent || 0);
         // If message contains "Loading" or "Initializing", it's app loading phase
-        const isAppLoading = data.message && 
-          (data.message.includes('Loading') || 
-           data.message.includes('Initializing') ||
-           data.message.includes('Building') ||
-           data.message.includes('Finalizing') ||
-           data.message.includes('Almost') ||
-           data.message.includes('Launching'));
-        
+        const isAppLoading = data.message &&
+          (data.message.includes('Loading') ||
+            data.message.includes('Initializing') ||
+            data.message.includes('Building') ||
+            data.message.includes('Finalizing') ||
+            data.message.includes('Almost') ||
+            data.message.includes('Launching'));
+
         const phase = isAppLoading ? 'app-loading' : 'update-download';
         const text = typeof data.message === 'string'
           ? data.message
@@ -73,7 +73,7 @@ window.addEventListener('DOMContentLoaded', () => {
         break;
       }
       case 'downloaded':
-        updateProgress(100, 'Installing update…', 'update-install');
+        updateProgress(100, 'Update downloaded! Launching installer…', 'update-install');
         break;
       case 'not-available':
         updateProgress(100, 'Launching application…', 'app-loading');

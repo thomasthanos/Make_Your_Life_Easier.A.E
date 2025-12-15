@@ -51,7 +51,9 @@ autoUpdater.autoDownload = true;
 autoUpdater.requestHeaders = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
 };
-autoUpdater.autoInstallOnAppQuit = false;
+autoUpdater.autoInstallOnAppQuit = true;
+// Force run installer as admin for NSIS
+autoUpdater.forceRunAfter = true;
 
 let updateAvailable = false;
 let pendingUpdateInfo = null;
@@ -305,13 +307,32 @@ autoUpdater.on('update-downloaded', (info) => {
 
   // Note: Updater cache cleanup is handled by cleanupUpdaterCache() on app startup
 
+  // Give UI time to show "Installing update..." message, then quit and install
+  // Use a longer delay to ensure the installer file is fully ready
   setTimeout(() => {
     try {
-      autoUpdater.quitAndInstall(true, true);
+      // Close all windows first to prevent conflicts
+      if (updateWindow) {
+        updateWindow.close();
+        updateWindow = null;
+      }
+      if (mainWindow) {
+        mainWindow.close();
+        mainWindow = null;
+      }
+
+      // Small delay after closing windows before running installer
+      setTimeout(() => {
+        // isSilent = false to show installer UI (required for oneClick: false)
+        // isForceRunAfter = true to ensure app restarts after install
+        autoUpdater.quitAndInstall(false, true);
+      }, 500);
     } catch (e) {
       debug('error', 'Failed to install update automatically:', e);
+      // Fallback: try with app.quit
+      app.quit();
     }
-  }, 1000);
+  }, 1500);
 });
 
 autoUpdater.on('error', (err) => {
@@ -653,7 +674,17 @@ ipcMain.handle('download-update', async () => {
 
 ipcMain.handle('install-update', async () => {
   if (updateDownloaded) {
-    autoUpdater.quitAndInstall(true, true);
+    // Close windows first, then run installer with UI visible
+    if (updateWindow) {
+      updateWindow.close();
+      updateWindow = null;
+    }
+    if (mainWindow) {
+      mainWindow.close();
+      mainWindow = null;
+    }
+    // isSilent = false because NSIS installer has oneClick: false
+    setTimeout(() => autoUpdater.quitAndInstall(false, true), 500);
     return { success: true };
   }
   return { success: false, error: 'No update downloaded' };
