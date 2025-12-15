@@ -118,7 +118,7 @@ async function runMaintenanceTask(button, statusElement, taskFunction, taskName,
 // MAINTENANCE TASK FUNCTIONS
 // ============================================
 
-async function runSfcScan(statusElement) {
+async function runSfcScan(_statusElement) {
     try {
         const result = await window.api.runSfcScan();
         if (result && result.success) {
@@ -132,7 +132,7 @@ async function runSfcScan(statusElement) {
     }
 }
 
-async function runDismRepair(statusElement) {
+async function runDismRepair(_statusElement) {
     try {
         const result = await window.api.runDismRepair();
         if (result && result.success) {
@@ -146,7 +146,7 @@ async function runDismRepair(statusElement) {
     }
 }
 
-async function cleanTempFiles(statusElement) {
+async function cleanTempFiles(_statusElement) {
     try {
         const result = await window.api.runTempCleanup();
         if (result && result.success) {
@@ -202,7 +202,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
                                 toast('Failed to open Patch My PC', { type: 'error', title: 'Maintenance' });
                             }
                         })
-                        .catch((error) => {
+                        .catch(() => {
                             button.textContent = originalText;
                             toast('Error opening Patch My PC', { type: 'error', title: 'Maintenance' });
                         })
@@ -239,7 +239,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 // SYSTEM MAINTENANCE PAGE
 // ============================================
 
-export async function buildMaintenancePage(translations, settings) {
+export async function buildMaintenancePage(translations, _settings) {
     const container = document.createElement('div');
     container.className = 'card';
 
@@ -355,7 +355,7 @@ export async function buildMaintenancePage(translations, settings) {
 // DEBLOAT PAGE
 // ============================================
 
-export async function buildDebloatPage(translations, settings) {
+export async function buildDebloatPage(translations, _settings) {
     const container = document.createElement('div');
     container.className = 'card';
 

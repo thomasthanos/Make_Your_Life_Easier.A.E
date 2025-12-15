@@ -141,7 +141,7 @@ export async function resizeWindowSmooth(targetWidth, targetHeight, duration = 2
  * Initialize the auto-updater functionality
  * @param {Object} callbacks - Optional callbacks for update events
  */
-export function initializeAutoUpdater(callbacks = {}) {
+export function initializeAutoUpdater(_callbacks = {}) {
     const updateBtn = document.getElementById('title-bar-update');
 
     if (typeof window === 'undefined' || typeof window.api === 'undefined') {
@@ -574,7 +574,7 @@ export async function checkForChangelog() {
  * Ensure the sidebar version badge is present and updated
  * @param {Object} state - App state with settings
  */
-export async function ensureSidebarVersion(state = {}) {
+export async function ensureSidebarVersion(_state = {}) {
     const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
     if (!sidebar) return;
 

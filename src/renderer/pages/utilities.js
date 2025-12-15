@@ -4,53 +4,9 @@
  * CSS classes match original renderer.js structure
  */
 
-import { debug, escapeHtml } from '../utils.js';
+import { debug, escapeHtml, createModernButton } from '../utils.js';
 import { buttonStateManager } from '../managers.js';
-import { toast } from '../components.js';
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-/**
- * Creates a modern styled button (original structure)
- */
-function createModernButton(text, onClick, options = {}) {
-    const button = document.createElement('button');
-    button.className = options.secondary ? 'button button-secondary' : 'button';
-    button.textContent = text;
-
-    if (options.icon) {
-        button.innerHTML = `${options.icon} ${escapeHtml(text)}`;
-    }
-
-    if (onClick) {
-        button.addEventListener('click', onClick);
-    }
-
-    if (options.style) {
-        Object.assign(button.style, options.style);
-    }
-
-    return button;
-}
-
-/**
- * Shows notification message
- */
-function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `toast status-${type}`;
-    notification.textContent = message;
-    notification.classList.add('notification');
-
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-        notification.classList.add('slide-out');
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
+import { toast, showNotification } from '../components.js';
 
 // ============================================
 // PASSWORD MANAGER PAGE (Original Structure)
@@ -157,7 +113,7 @@ export function buildPasswordManagerPage(translations, settings) {
 
 const svgDataUrl = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
-export function buildChrisTitusPage(translations, settings) {
+export function buildChrisTitusPage(translations, _settings) {
     const el = (t, cls, html) => {
         const n = document.createElement(t);
         if (cls) n.className = cls;

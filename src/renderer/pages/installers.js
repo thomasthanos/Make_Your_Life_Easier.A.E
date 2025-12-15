@@ -165,12 +165,12 @@ async function findProjectInstaller(extractedDir, projectName) {
         if (install) return install;
 
         return null;
-    } catch (err) {
+    } catch {
         return null;
     }
 }
 
-async function processAdvancedInstaller(zipPath, statusElement, appName) {
+async function processAdvancedInstaller(zipPath, statusElement, _appName) {
     statusElement.textContent = 'Extracting Advanced Installer...';
 
     try {

@@ -58,7 +58,7 @@ async function downloadAndRunActivate(button, statusElement) {
                                 toast('Failed to run activation script', { type: 'error', title: 'Activation' });
                             }
                         })
-                        .catch((err) => {
+                        .catch(() => {
                             button.textContent = originalText;
                             statusElement.textContent = '';
                             statusElement.classList.remove('visible');
@@ -147,7 +147,7 @@ async function downloadAndRunAutologin(button, statusElement) {
                                 toast('Failed to run auto login tool', { type: 'error', title: 'Auto Login' });
                             }
                         })
-                        .catch((err) => {
+                        .catch(() => {
                             button.textContent = originalText;
                             statusElement.textContent = '';
                             statusElement.classList.remove('visible');
