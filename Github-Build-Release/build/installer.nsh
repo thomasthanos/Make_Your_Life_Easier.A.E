@@ -13,8 +13,8 @@
 !macroend
 
 !macro customInit
-  ; Set default install directory - standalone folder
-  StrCpy $INSTDIR "$PROGRAMFILES64\Github Release Manager"
+  ; Set default install directory
+  StrCpy $INSTDIR "$PROGRAMFILES64\ThomasThanos\Github Builder"
 
   ; Close running app instances
   !insertmacro _KillRunningApp
