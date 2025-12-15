@@ -82,6 +82,38 @@ async function cleanupUpdaterCache(debug) {
 }
 
 /**
+ * Create a fallback timeout to show the main window
+ * Used when waiting for app-ready signal times out
+ * @param {Object} options - Configuration options
+ * @param {Function} options.getUpdateWindow - Function to get update window
+ * @param {Function} options.getMainWindow - Function to get main window
+ * @param {Function} options.debug - Debug logging function
+ * @param {string} options.message - Warning message for debug
+ * @returns {number} Timeout ID
+ */
+function createAppReadyFallbackTimeout({ getUpdateWindow, getMainWindow, debug, message }) {
+    return setTimeout(() => {
+        debug('warn', message);
+        const updateWin = getUpdateWindow();
+        const mainWin = getMainWindow();
+        if (updateWin) {
+            updateWin.webContents.send('update-status', {
+                status: 'downloading',
+                message: 'Launching application...',
+                percent: 100
+            });
+            setTimeout(() => {
+                if (updateWin) updateWin.close();
+                if (mainWin) {
+                    mainWin.show();
+                    mainWin.focus();
+                }
+            }, 300);
+        }
+    }, 15000);
+}
+
+/**
  * Setup auto-updater event handlers
  * @param {Object} options - Configuration options
  * @param {Function} options.getUpdateWindow - Function to get update window
@@ -141,25 +173,12 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
                     createMainWindow(false);
                 }
 
-                const fallbackTimeout = setTimeout(() => {
-                    debug('warn', 'App ready signal timeout - showing window anyway');
-                    const updateWin = getUpdateWindow();
-                    const mainWin = getMainWindow();
-                    if (updateWin) {
-                        updateWin.webContents.send('update-status', {
-                            status: 'downloading',
-                            message: 'Launching application...',
-                            percent: 100
-                        });
-                        setTimeout(() => {
-                            if (updateWin) updateWin.close();
-                            if (mainWin) {
-                                mainWin.show();
-                                mainWin.focus();
-                            }
-                        }, 300);
-                    }
-                }, 15000);
+                const fallbackTimeout = createAppReadyFallbackTimeout({
+                    getUpdateWindow,
+                    getMainWindow,
+                    debug,
+                    message: 'App ready signal timeout - showing window anyway'
+                });
 
                 global.appReadyFallbackTimeout = fallbackTimeout;
             }, 100);
@@ -260,25 +279,12 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             setTimeout(() => {
                 createMainWindow(false);
 
-                const fallbackTimeout = setTimeout(() => {
-                    debug('warn', 'App ready signal timeout after error - showing window anyway');
-                    const updateWin = getUpdateWindow();
-                    const mainWin = getMainWindow();
-                    if (updateWin) {
-                        updateWin.webContents.send('update-status', {
-                            status: 'downloading',
-                            message: 'Launching application...',
-                            percent: 100
-                        });
-                        setTimeout(() => {
-                            if (updateWin) updateWin.close();
-                            if (mainWin) {
-                                mainWin.show();
-                                mainWin.focus();
-                            }
-                        }, 300);
-                    }
-                }, 15000);
+                const fallbackTimeout = createAppReadyFallbackTimeout({
+                    getUpdateWindow,
+                    getMainWindow,
+                    debug,
+                    message: 'App ready signal timeout after error - showing window anyway'
+                });
 
                 global.appReadyFallbackTimeout = fallbackTimeout;
             }, 100);

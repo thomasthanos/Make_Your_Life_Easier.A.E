@@ -109,21 +109,7 @@
   border-radius: 8px;
 }
 
-.error-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  height: 28px;
-  padding: 0.15rem 0.35rem;
-  border: 1px solid #5a5d60;
-  margin-left: 0.35rem;
-  border-radius: 8px;
-  background-color: #1c1f22;
-  color: #cdd0d4;
-  cursor: pointer;
-}
-
+.error-close,
 .error-copy {
   display: flex;
   align-items: center;
@@ -132,30 +118,30 @@
   height: 28px;
   padding: 0.15rem 0.35rem;
   border: 1px solid #5a5d60;
-  margin-left: auto;
   border-radius: 8px;
   background-color: #1c1f22;
   color: #cdd0d4;
   cursor: pointer;
 }
 
+.error-close {
+  margin-left: 0.35rem;
+}
+
+.error-copy {
+  margin-left: auto;
+}
+
+.error-close > svg,
 .error-copy > svg {
   width: 16px;
   height: 16px;
 }
 
+.error-close:active > svg > path,
+.error-close:focus-within > svg > path,
 .error-copy:active > svg > path,
 .error-copy:focus-within > svg > path {
-  animation: clipboard-check 500ms linear forwards;
-}
-
-.error-close > svg {
-  width: 16px;
-  height: 16px;
-}
-
-.error-close:active > svg > path,
-.error-close:focus-within > svg > path {
   animation: clipboard-check 500ms linear forwards;
 }
 

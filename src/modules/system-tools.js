@@ -247,7 +247,7 @@ objShell.ShellExecute "powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Fil
       fs.writeFileSync(vbsPath, vbsScript, 'utf8');
 
       // Execute VBS which will show UAC prompt
-      exec(`cscript //nologo "${vbsPath}"`, (error) => {
+      exec(`cscript //nologo "${vbsPath}"`, () => {
         // Wait a bit for the elevated PowerShell to complete
         setTimeout(() => {
           // Cleanup temp files
