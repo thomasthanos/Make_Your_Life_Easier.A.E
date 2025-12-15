@@ -39,14 +39,14 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
         contextIsolation: true
       }
     };
-    
+
     const authWindow = new BrowserWindow(windowOpts);
 
     // Create loader view
     const loaderView = new BrowserView({
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
-    
+
     const loaderHtml = `
       <!DOCTYPE html>
       <html><head><meta charset="utf-8">
@@ -56,12 +56,12 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
         @keyframes spin { 0% { transform:rotate(0deg); } 100% { transform:rotate(360deg); } }
       </style></head>
       <body><div class="spinner"></div></body></html>`;
-    
+
     loaderView.webContents.loadURL('data:text/html;base64,' + Buffer.from(loaderHtml).toString('base64'));
     authWindow.setBrowserView(loaderView);
     loaderView.setBounds({ x: 0, y: 0, width: windowOpts.width, height: windowOpts.height });
     loaderView.setAutoResize({ width: true, height: true });
-    
+
     const removeLoaderView = () => {
       try {
         if (!authWindow.isDestroyed() && authWindow.getBrowserView() === loaderView) {
@@ -70,7 +70,7 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
         }
       } catch { }
     };
-    
+
     authWindow.webContents.once('did-finish-load', removeLoaderView);
     authWindow.once('closed', removeLoaderView);
 
@@ -147,7 +147,7 @@ async function loginGoogle(parentWindow) {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     throw new Error('Google OAuth credentials not configured');
   }
-  
+
   const state = Math.random().toString(36).substring(2);
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
@@ -158,16 +158,16 @@ async function loginGoogle(parentWindow) {
     prompt: 'consent',
     state
   });
-  
+
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-  
+
   return openAuthWindow(authUrl, GOOGLE_REDIRECT_URI, async (redirectUrl) => {
     const code = redirectUrl.searchParams.get('code');
     const returnedState = redirectUrl.searchParams.get('state');
-    
+
     if (!code) throw new Error('No authorization code received');
     if (returnedState !== state) throw new Error('State mismatch');
-    
+
     const tokenResponse = await postForm('https://oauth2.googleapis.com/token', {
       code,
       client_id: GOOGLE_CLIENT_ID,
@@ -175,14 +175,14 @@ async function loginGoogle(parentWindow) {
       redirect_uri: GOOGLE_REDIRECT_URI,
       grant_type: 'authorization_code'
     });
-    
+
     const accessToken = tokenResponse.access_token;
     if (!accessToken) throw new Error('Failed to obtain Google access token');
 
     const profile = await getJson('https://www.googleapis.com/oauth2/v3/userinfo', {
       Authorization: `Bearer ${accessToken}`
     });
-    
+
     return {
       name: profile.name || profile.email || 'User',
       avatar: profile.picture || null,
@@ -200,7 +200,7 @@ async function loginDiscord(parentWindow) {
   if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET) {
     throw new Error('Discord OAuth credentials not configured');
   }
-  
+
   const state = Math.random().toString(36).substring(2);
   const params = new URLSearchParams({
     client_id: DISCORD_CLIENT_ID,
@@ -209,16 +209,16 @@ async function loginDiscord(parentWindow) {
     scope: 'identify',
     state
   });
-  
+
   const authUrl = `https://discord.com/api/oauth2/authorize?${params.toString()}`;
-  
+
   return openAuthWindow(authUrl, DISCORD_REDIRECT_URI, async (redirectUrl) => {
     const code = redirectUrl.searchParams.get('code');
     const returnedState = redirectUrl.searchParams.get('state');
-    
+
     if (!code) throw new Error('No authorization code received');
     if (returnedState !== state) throw new Error('State mismatch');
-    
+
     const tokenResponse = await postForm('https://discord.com/api/oauth2/token', {
       client_id: DISCORD_CLIENT_ID,
       client_secret: DISCORD_CLIENT_SECRET,
@@ -227,19 +227,19 @@ async function loginDiscord(parentWindow) {
       redirect_uri: DISCORD_REDIRECT_URI,
       scope: 'identify'
     });
-    
+
     const accessToken = tokenResponse.access_token;
     if (!accessToken) throw new Error('Failed to obtain Discord access token');
-    
+
     const profile = await getJson('https://discord.com/api/users/@me', {
       Authorization: `Bearer ${accessToken}`
     });
-    
+
     let avatarUrl = null;
     if (profile.avatar) {
       avatarUrl = `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`;
     }
-    
+
     return {
       name: profile.username + (profile.discriminator ? `#${profile.discriminator}` : ''),
       avatar: avatarUrl,

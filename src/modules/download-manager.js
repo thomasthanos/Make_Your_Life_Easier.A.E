@@ -85,9 +85,9 @@ function startDownload(id, url, dest, mainWindow) {
         // Destroy file stream immediately, then close for safety
         try { file.removeAllListeners(); } catch { }
         try { file.destroy(); } catch { }
-        try { file.close(() => {}); } catch { }
+        try { file.close(() => { }); } catch { }
         // Clean up temp file
-        try { fs.unlink(tempPath, () => {}); } catch { }
+        try { fs.unlink(tempPath, () => { }); } catch { }
         activeDownloads.delete(id);
         if (errMsg) {
           mainWindow.webContents.send('download-event', { id, status: 'error', error: errMsg });

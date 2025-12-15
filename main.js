@@ -104,7 +104,7 @@ async function cleanupUpdaterCache() {
           debug('info', `Cleaned updater cache directory: ${file}`);
         } else {
           cleanedSize += stat.size;
-          await fs.promises.unlink(filePath).catch(() => {});
+          await fs.promises.unlink(filePath).catch(() => { });
           debug('info', `Cleaned updater cache file: ${file}`);
         }
       } catch (err) {
@@ -119,7 +119,7 @@ async function cleanupUpdaterCache() {
     }
 
     // Try to remove the empty directory itself
-    await fs.promises.rmdir(updaterCachePath).catch(() => {});
+    await fs.promises.rmdir(updaterCachePath).catch(() => { });
   } catch (err) {
     debug('warn', 'Failed to clean updater cache:', err.message);
   }
@@ -496,7 +496,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   downloadManager.cleanupOnQuit(debug);
-  
+
   // Cleanup any pending temp files from replace-exe operations (Fix #4)
   pendingCleanupFiles.forEach(filePath => {
     try {
@@ -509,7 +509,7 @@ app.on('before-quit', () => {
     }
   });
   pendingCleanupFiles.clear();
-  
+
   // Close singleton DB connection if open
   if (pmDBInstance) {
     try {
@@ -1239,7 +1239,7 @@ WScript.Sleep(3000)
             } catch { }
           });
         };
-        
+
         setTimeout(cleanupTempFiles, 10000);
 
         if (error) {
@@ -1710,7 +1710,7 @@ ipcMain.handle('password-manager-reset', async () => {
       try { pmDBInstance.close(); } catch { }
       pmDBInstance = null;
     }
-    
+
     if (fs.existsSync(pmAuth.configPath)) {
       fs.unlinkSync(pmAuth.configPath);
     }
