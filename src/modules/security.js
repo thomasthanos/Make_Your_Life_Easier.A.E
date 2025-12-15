@@ -180,6 +180,34 @@ function validateCommandArgs(args) {
 }
 
 /**
+ * Validate command arguments and throw on failure
+ * Use this when you want to ensure execution stops on invalid arguments
+ * @param {string[]} args - Command arguments to validate
+ * @throws {Error} If validation fails
+ */
+function validateCommandArgsOrThrow(args) {
+  const result = validateCommandArgs(args);
+  if (!result.valid) {
+    throw new Error(`Command argument validation failed: ${result.error}`);
+  }
+}
+
+/**
+ * Validate path and throw on failure
+ * Use this when you want to ensure execution stops on invalid path
+ * @param {string} filePath - The path to validate
+ * @returns {string} The normalized path
+ * @throws {Error} If validation fails
+ */
+function validatePathOrThrow(filePath) {
+  const result = validatePath(filePath);
+  if (!result.valid) {
+    throw new Error(`Path validation failed: ${result.error}`);
+  }
+  return result.normalized;
+}
+
+/**
  * Validate that a file exists and is accessible
  * @param {string} filePath - The path to check
  * @returns {Promise<{valid: boolean, error?: string, exists?: boolean}>}
@@ -228,9 +256,11 @@ function isPathInAllowedDirs(filePath, allowedDirs) {
 
 module.exports = {
   validatePath,
+  validatePathOrThrow,
   validateDeletePath,
   sanitizePathForPowerShell,
   validateCommandArgs,
+  validateCommandArgsOrThrow,
   validateFileExists,
   isPathInAllowedDirs
 };

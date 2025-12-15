@@ -80,6 +80,27 @@ function debug(level, ...args) {
 }
 
 // ============================================
+// GLOBAL UTILITY: HTML Escape Function
+// ============================================
+/**
+ * Escapes HTML special characters to prevent XSS attacks
+ * @param {string} text - The text to escape
+ * @returns {string} The escaped text safe for innerHTML
+ */
+function escapeHtml(text) {
+  if (text == null) return '';
+  const str = String(text);
+  const htmlEscapeMap = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  };
+  return str.replace(/[&<>"']/g, (char) => htmlEscapeMap[char]);
+}
+
+// ============================================
 // GLOBAL UTILITY: Debounce Function
 // ============================================
 /**
@@ -1906,6 +1927,16 @@ let translations = {};
               if (matchingFiles.length > 0) {
 
                 const bestFile = selectBestExe(matchingFiles, dlcName);
+                // Guard against null return from selectBestExe
+                if (!bestFile) {
+                  // Fallback to first matching file
+                  return resolve({
+                    success: true,
+                    exePath: matchingFiles[0],
+                    exeName: getBaseName(matchingFiles[0], ''),
+                    alternative: true
+                  });
+                }
                 return resolve({
                   success: true,
                   exePath: bestFile,
@@ -1925,6 +1956,16 @@ let translations = {};
 
             if (keywordFiles.length > 0) {
               const bestFile = selectBestExe(keywordFiles, dlcName);
+              // Guard against null return from selectBestExe
+              if (!bestFile) {
+                // Fallback to first keyword file
+                return resolve({
+                  success: true,
+                  exePath: keywordFiles[0],
+                  exeName: getBaseName(keywordFiles[0], ''),
+                  alternative: true
+                });
+              }
               return resolve({
                 success: true,
                 exePath: bestFile,
@@ -2024,6 +2065,10 @@ let translations = {};
   }
 
   function selectBestExe(files, dlcName) {
+    // Guard against empty or invalid input
+    if (!files || !Array.isArray(files) || files.length === 0) {
+      return null;
+    }
 
     const scoredFiles = files.map(file => {
       const fileName = getBaseName(file, '').toLowerCase();
@@ -2056,6 +2101,10 @@ let translations = {};
 
     scoredFiles.sort((a, b) => b.score - a.score);
 
+    // Safety check - should not happen due to guard above, but defensive
+    if (scoredFiles.length === 0 || !scoredFiles[0]) {
+      return null;
+    }
 
     return scoredFiles[0].file;
   }
@@ -4208,9 +4257,10 @@ let translations = {};
     const titleText = (translations.menu && translations.menu.christitus) || 'Windows Utility';
     const subtitleText = (translations.christitus_page && translations.christitus_page.subtitle_full) || 'COMPREHENSIVE TOOLBOX FOR WINDOWS OPTIMIZATION';
     const titleWrapper = el('div');
+    // Escape HTML to prevent XSS from potentially malicious translations
     titleWrapper.innerHTML = `
-      <h2 class="ctt-title">${titleText}</h2>
-      <p class="ctt-sub">${subtitleText}</p>
+      <h2 class="ctt-title">${escapeHtml(titleText)}</h2>
+      <p class="ctt-sub">${escapeHtml(subtitleText)}</p>
     `;
     header.appendChild(icon);
     header.appendChild(titleWrapper);
@@ -4226,7 +4276,11 @@ let translations = {};
         'Essential software installation'
       ];
 
-    const bulletHtml = features.map((item) => `<li>${item}</li>`).join('');
+    // Filter out null/undefined items and escape HTML to prevent XSS
+    const bulletHtml = features
+      .filter(item => item != null && item !== '')
+      .map((item) => `<li>${escapeHtml(item)}</li>`)
+      .join('');
     card.appendChild(el('ul', 'ctt-bullets', bulletHtml));
 
 

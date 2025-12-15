@@ -1295,9 +1295,16 @@ ipcMain.handle('find-exe-files', async (event, directoryPath) => {
                   executableFiles.push(fullPath);
                 }
               }
-            } catch { continue; }
+            } catch (statErr) {
+              // Skip files that can't be accessed (permissions, in use, etc.)
+              debug('warn', `Cannot access ${fullPath}: ${statErr.code || statErr.message}`);
+              continue;
+            }
           }
-        } catch { }
+        } catch (readErr) {
+          // Log directory read errors but don't propagate
+          debug('warn', `Cannot read directory ${dir}: ${readErr.code || readErr.message}`);
+        }
       }
 
       searchDirectory(directoryPath);
