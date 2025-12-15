@@ -66,7 +66,7 @@ class PasswordManagerAuth {
                 debug('info', 'Creating master password...');
                 debug('info', 'Config path:', this.configPath);
                 debug('info', 'DB directory:', this.dbDirectory);
-                
+
                 if (!password || password.length < 8) {
                     reject(new Error('Ο Master Password πρέπει να έχει τουλάχιστον 8 χαρακτήρες'));
                     return;
@@ -98,10 +98,10 @@ class PasswordManagerAuth {
                             createdAt: new Date().toISOString(),
                             algorithm: 'scrypt'
                         };
-                        
+
                         debug('info', 'Writing config to:', this.configPath);
                         fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2));
-                        
+
                         // Verify file was written
                         if (fs.existsSync(this.configPath)) {
                             debug('success', 'Config file created successfully!');
@@ -110,7 +110,7 @@ class PasswordManagerAuth {
                             reject(new Error('Failed to create config file - file does not exist after write'));
                             return;
                         }
-                        
+
                         // Generate encryption key using HKDF
                         this.generateEncryptionKey(password, salt);
                         this.isAuthenticated = true;
@@ -141,28 +141,28 @@ class PasswordManagerAuth {
             try {
                 debug('info', 'Authentication attempt...');
                 debug('info', 'Config path:', this.configPath);
-                
+
                 if (!this.hasMasterPassword()) {
                     debug('error', 'No master password set - config file missing');
                     reject(new Error('Δεν έχει οριστεί Master Password'));
                     return;
                 }
-                
+
                 debug('info', 'Reading config file...');
                 const configData = fs.readFileSync(this.configPath, 'utf8');
                 const config = JSON.parse(configData);
                 debug('info', 'Config loaded, algorithm:', config.algorithm);
                 debug('info', 'Config created at:', config.createdAt);
-                
+
                 const salt = Buffer.from(config.salt, 'hex');
                 const verify = (derivedKey) => {
                     const inputHash = derivedKey.toString('hex');
                     const storedHash = config.hash;
-                    
+
                     debug('info', 'Comparing hashes...');
                     debug('info', 'Input hash (first 16 chars):', inputHash.substring(0, 16) + '...');
                     debug('info', 'Stored hash (first 16 chars):', storedHash.substring(0, 16) + '...');
-                    
+
                     if (inputHash !== storedHash) {
                         debug('error', 'Hash mismatch - wrong password');
                         reject(new Error('Λανθασμένος Master Password'));
@@ -210,15 +210,15 @@ class PasswordManagerAuth {
     // Δημιουργία κλειδιού κρυπτογράφησης
     generateEncryptionKey(password, salt) {
         try {
-            // Χρήση HKDF για εξαγωγή κλειδιού από τον κωδικό
-            const hkdf = crypto.createHmac('sha256', password);
-            hkdf.update(salt);
-            const pseudoRandomKey = hkdf.digest();
-
-            // Δημιουργία τελικού κλειδιού AES-256
-            const finalHkdf = crypto.createHmac('sha256', pseudoRandomKey);
-            finalHkdf.update('encryption-key');
-            this.encryptionKey = finalHkdf.digest();
+            // Χρήση RFC 5869 HKDF για ασφαλή εξαγωγή κλειδιού
+            // hkdfSync(digest, ikm, salt, info, keylen)
+            this.encryptionKey = crypto.hkdfSync(
+                'sha256',
+                password,
+                salt,
+                'encryption-key',
+                32 // 256 bits για AES-256
+            );
 
             debug('success', 'Encryption key generated successfully');
         } catch (error) {

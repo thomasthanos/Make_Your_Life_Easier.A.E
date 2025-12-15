@@ -1190,7 +1190,8 @@ let translations = {};
     button.textContent = text;
 
     if (options.icon) {
-      button.innerHTML = `${options.icon} ${text}`;
+      // Use escapeHtml for text to prevent XSS
+      button.innerHTML = `${options.icon} ${escapeHtml(text)}`;
     }
 
     if (onClick) {
@@ -5295,10 +5296,10 @@ async function buildInstallPageWingetWithCategories() {
   const exportBtn = makeButton(exportText, '');
   const importBtn = makeButton(importText, '');
 
-  installBtn.innerHTML = `${installIcon}<span class="btn-label" style="margin-left: 0.5rem;">${installText}</span>`;
-  uninstallBtn.innerHTML = `${uninstallIcon}<span class="btn-label" style="margin-left: 0.5rem;">${uninstallText}</span>`;
-  exportBtn.innerHTML = `${exportIcon}<span class="btn-label" style="margin-left: 0.5rem;">${exportText}</span>`;
-  importBtn.innerHTML = `${importIcon}<span class="btn-label" style="margin-left: 0.5rem;">${importText}</span>`;
+  installBtn.innerHTML = `${installIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(installText)}</span>`;
+  uninstallBtn.innerHTML = `${uninstallIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(uninstallText)}</span>`;
+  exportBtn.innerHTML = `${exportIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(exportText)}</span>`;
+  importBtn.innerHTML = `${importIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(importText)}</span>`;
 
   installBtn.classList.add('btn-install', 'bulk-action-btn', 'bulk-install');
   uninstallBtn.classList.add('btn-uninstall', 'bulk-action-btn', 'bulk-uninstall');

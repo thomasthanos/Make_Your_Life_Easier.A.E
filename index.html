@@ -1,165 +1,202 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#7c3aed" />
-    <meta name="description" content="Make Your Life Easier - A comprehensive tool for system management and productivity" />
-    <!-- Content Security Policy to prevent XSS attacks -->
-    <!-- img-src allows: self, data URIs, file:// URLs, and all HTTPS image sources -->
-    <!-- Note: In Electron, we allow all HTTPS for images since we control the app content -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https:; font-src 'self'; connect-src 'self' https:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';" />
-    <title>Make Your Life Easier</title>
 
-    <script>
-      (function () {
-        try {
-          const t = localStorage.getItem('myle-theme');
-          if (t) document.documentElement.setAttribute('data-theme', t);
-        } catch (_) {}
-      })();
-    </script>
-    
-    <!-- Preload critical assets for faster loading -->
-    <link rel="preload" href="styles.css" as="style" />
-    <link rel="preload" href="renderer.js" as="script" />
-    <link rel="preload" href="src/assets/icons/hacker.ico" as="image" type="image/x-icon" />
-    
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="icon" type="image/x-icon" href="src/assets/icons/hacker.ico" />
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="description"
+    content="Make Your Life Easier - A comprehensive tool for system management and productivity" />
+  <!-- Content Security Policy to prevent XSS attacks -->
+  <!-- img-src allows: self, data URIs, file:// URLs, and all HTTPS image sources -->
+  <!-- Note: In Electron, we allow all HTTPS for images since we control the app content -->
+  <!-- Removed 'unsafe-inline' from script-src for better XSS protection -->
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https:; font-src 'self'; connect-src 'self' https:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';" />
+  <title>Make Your Life Easier</title>
 
-    
-    <style>
-      .loader {
-        --cloud-color: #4387f4;
-        --arrows-color: #80b1ff;
-        --time-animation: 1s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        
-        transform: scale(2);
+  <!-- Theme initialization moved to external script for CSP compliance -->
+  <script src="src/config/theme-init.js"></script>
+
+  <!-- Preload critical assets for faster loading -->
+  <link rel="preload" href="styles.css" as="style" />
+  <link rel="preload" href="renderer.js" as="script" />
+  <link rel="preload" href="src/assets/icons/hacker.ico" as="image" type="image/x-icon" />
+
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" type="image/x-icon" href="src/assets/icons/hacker.ico" />
+
+
+  <style>
+    .loader {
+      --cloud-color: #4387f4;
+      --arrows-color: #80b1ff;
+      --time-animation: 1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      transform: scale(2);
+    }
+
+    .loader #cloud {
+      width: 100px;
+      height: 100px;
+    }
+
+    .loader #cloud rect {
+      fill: var(--cloud-color);
+    }
+
+    .loader #cloud g:nth-child(3) {
+      transform-origin: 50% 72.8938%;
+      fill: var(--arrows-color);
+      filter: drop-shadow(0 0 8px black);
+      animation: rotation var(--time-animation) linear infinite;
+    }
+
+    .loader #shapes g g circle {
+      animation: cloud calc(var(--time-animation) * 2) linear infinite;
+    }
+
+    .loader #shapes g g circle:nth-child(2) {
+      animation-delay: calc((var(--time-animation) * 2) / -3);
+    }
+
+    .loader #shapes g g circle:nth-child(3) {
+      animation-delay: calc((var(--time-animation) * 2) / -1.5);
+    }
+
+    .loader svg #lines g line {
+      stroke-width: 5;
+      transform-origin: 50% 50%;
+      rotate: -65deg;
+      animation: lines calc(var(--time-animation) / 1.33) linear infinite;
+    }
+
+    @keyframes rotation {
+      0% {
+        transform: rotate(0deg);
       }
-      .loader #cloud {
-        width: 100px;
-        height: 100px;
+
+      50% {
+        transform: rotate(180deg);
       }
-      .loader #cloud rect {
-        fill: var(--cloud-color);
+
+      100% {
+        transform: rotate(360deg);
       }
-      .loader #cloud g:nth-child(3) {
-        transform-origin: 50% 72.8938%;
-        fill: var(--arrows-color);
-        filter: drop-shadow(0 0 8px black);
-        animation: rotation var(--time-animation) linear infinite;
+    }
+
+    @keyframes lines {
+      0% {
+        transform: translateY(-10px);
       }
-      .loader #shapes g g circle {
-        animation: cloud calc(var(--time-animation) * 2) linear infinite;
+
+      100% {
+        transform: translateY(8px);
       }
-      .loader #shapes g g circle:nth-child(2) {
-        animation-delay: calc((var(--time-animation) * 2) / -3);
+    }
+
+    @keyframes cloud {
+      0% {
+        cx: 20;
+        cy: 60;
+        r: 15;
       }
-      .loader #shapes g g circle:nth-child(3) {
-        animation-delay: calc((var(--time-animation) * 2) / -1.5);
+
+      50% {
+        cx: 50;
+        cy: 45;
+        r: 20;
       }
-      .loader svg #lines g line {
-        stroke-width: 5;
-        transform-origin: 50% 50%;
-        rotate: -65deg;
-        animation: lines calc(var(--time-animation) / 1.33) linear infinite;
+
+      100% {
+        cx: 80;
+        cy: 60;
+        r: 15;
       }
-      @keyframes rotation {
-        0% { transform: rotate(0deg); }
-        50% { transform: rotate(180deg); }
-        100% { transform: rotate(360deg); }
-      }
-      @keyframes lines {
-        0% { transform: translateY(-10px); }
-        100% { transform: translateY(8px); }
-      }
-      @keyframes cloud {
-        0%   { cx: 20; cy: 60; r: 15; }
-        50%  { cx: 50; cy: 45; r: 20; }
-        100% { cx: 80; cy: 60; r: 15; }
-      }
-      
-      #loading.loading-overlay {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="custom-title-bar">
-  <div class="title-group">
-    <img class="title-bar-app-icon" src="src/assets/icons/hacker.ico" alt="App icon" />
-    <div class="title-bar-title">Make Your Life Easier</div>
-  </div>
+    }
+
+    #loading.loading-overlay {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="custom-title-bar">
+    <div class="title-group">
+      <img class="title-bar-app-icon" src="src/assets/icons/hacker.ico" alt="App icon" />
+      <div class="title-bar-title">Make Your Life Easier</div>
+    </div>
     <div class="title-bar-menu">
-    <button id="menu-toggle" class="menu-toggle" aria-label="Menu" data-tooltip="Menu"></button>
-    <div id="titlebar-menu-dropdown" class="menu-dropdown hidden">
-      <button id="theme-toggle" class="theme-toggle"></button>
-      <button id="lang-toggle" class="lang-toggle">EN</button>
-      <button id="info-toggle" class="info-toggle"></button>
+      <button id="menu-toggle" class="menu-toggle" aria-label="Menu" data-tooltip="Menu"></button>
+      <div id="titlebar-menu-dropdown" class="menu-dropdown hidden">
+        <button id="theme-toggle" class="theme-toggle"></button>
+        <button id="lang-toggle" class="lang-toggle">EN</button>
+        <button id="info-toggle" class="info-toggle"></button>
+      </div>
+    </div>
+    <div class="title-bar-controls">
+      <button class="title-bar-btn minimize" onclick="window.api?.minimizeWindow?.()">
+        <svg class="minimize-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+          <rect x="2" y="6" width="8" height="1" fill="currentColor"></rect>
+        </svg>
+      </button>
+      <button class="title-bar-btn maximize" onclick="window.api?.maximizeWindow?.()">
+        <svg class="maximize-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+          <rect x="1" y="1" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1"></rect>
+        </svg>
+      </button>
+      <button class="title-bar-btn close" onclick="window.api?.closeWindow?.()">
+        <svg class="close-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+          <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1" stroke-linecap="round"></line>
+          <line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1" stroke-linecap="round"></line>
+        </svg>
+      </button>
     </div>
   </div>
-  <div class="title-bar-controls">
-    <button class="title-bar-btn minimize" onclick="window.api?.minimizeWindow?.()">
-      <svg class="minimize-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
-        <rect x="2" y="6" width="8" height="1" fill="currentColor"></rect>
-      </svg>
-    </button>
-    <button class="title-bar-btn maximize" onclick="window.api?.maximizeWindow?.()">
-      <svg class="maximize-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
-        <rect x="1" y="1" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1"></rect>
-      </svg>
-    </button>
-    <button class="title-bar-btn close" onclick="window.api?.closeWindow?.()">
-      <svg class="close-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
-        <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1" stroke-linecap="round"></line>
-        <line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1" stroke-linecap="round"></line>
-      </svg>
-    </button>
-  </div>
-</div>
-    <div id="app">
-      <nav id="sidebar" role="navigation" aria-label="Sidebar">
-        <div class="sidebar-header">
-          <div class="title-group">
-            <div class="app-title"></div>
-            <div class="app-subtitle"></div>
-            
-          </div>
-        </div>
-        <ul id="menu-list"></ul>
-        <div class="sidebar-footer">
-          <div class="user-info" id="userInfo"></div>
-          <div class="version-wrap" data-tooltip="App version">
-            <span id="appVersion" class="version-text">v0.0.0</span>
-          </div>
-        </div>
-      </nav>
-      <main id="main" role="main">
-        <header id="header"></header>
-        <div id="content" class="content"></div>
-      </main>
-    </div>
-    
-    <script src="src/config/favicon-config.js"></script>
-    <script src="renderer.js" defer></script>
-    <script>
-      (function() {
-        if (typeof window.api === 'undefined') {
-          const titleBar = document.querySelector('.custom-title-bar');
-          if (titleBar) {
-            titleBar.style.display = 'none';
-          }
-          document.documentElement.style.setProperty('--title-bar-height', '0px');
-        }
-      })();
-    </script>
+  <div id="app">
+    <nav id="sidebar" role="navigation" aria-label="Sidebar">
+      <div class="sidebar-header">
+        <div class="title-group">
+          <div class="app-title"></div>
+          <div class="app-subtitle"></div>
 
-  </body>
+        </div>
+      </div>
+      <ul id="menu-list"></ul>
+      <div class="sidebar-footer">
+        <div class="user-info" id="userInfo"></div>
+        <div class="version-wrap" data-tooltip="App version">
+          <span id="appVersion" class="version-text">v0.0.0</span>
+        </div>
+      </div>
+    </nav>
+    <main id="main" role="main">
+      <header id="header"></header>
+      <div id="content" class="content"></div>
+    </main>
+  </div>
+
+  <script src="src/config/favicon-config.js"></script>
+  <script src="renderer.js" defer></script>
+  <script>
+    (function () {
+      if (typeof window.api === 'undefined') {
+        const titleBar = document.querySelector('.custom-title-bar');
+        if (titleBar) {
+          titleBar.style.display = 'none';
+        }
+        document.documentElement.style.setProperty('--title-bar-height', '0px');
+      }
+    })();
+  </script>
+
+</body>
+
 </html>

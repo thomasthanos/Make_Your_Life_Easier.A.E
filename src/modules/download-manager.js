@@ -24,6 +24,18 @@ const MAX_TRACKED_ITEMS = 50;
  * @param {BrowserWindow} mainWindow - Window to send events to
  */
 function startDownload(id, url, dest, mainWindow) {
+  // Validate URL protocol - only allow http/https
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      mainWindow.webContents.send('download-event', { id, status: 'error', error: 'Only http/https URLs are allowed' });
+      return;
+    }
+  } catch (err) {
+    mainWindow.webContents.send('download-event', { id, status: 'error', error: 'Invalid URL format' });
+    return;
+  }
+
   const downloadsDir = path.join(os.homedir(), 'Downloads');
 
   const start = (downloadUrl) => {

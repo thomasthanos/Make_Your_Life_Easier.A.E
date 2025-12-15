@@ -831,6 +831,13 @@ ipcMain.handle('run-command', async (event, command) => {
     return { error: argsValidation.error };
   }
 
+  // Whitelist of allowed winget subcommands (prevent 'winget run' bypass)
+  const allowedWingetSubcommands = ['install', 'upgrade', 'search', 'list', 'show', 'source', 'settings', 'uninstall'];
+  const subcommand = args[0]?.toLowerCase();
+  if (!subcommand || !allowedWingetSubcommands.includes(subcommand)) {
+    return { error: `Winget subcommand '${subcommand || ''}' is not allowed. Allowed: ${allowedWingetSubcommands.join(', ')}` };
+  }
+
   // Additional validation: check for path traversal in arguments
   for (const arg of args) {
     if (arg.includes('..')) {
@@ -849,7 +856,20 @@ ipcMain.handle('run-christitus', async () => {
 });
 
 ipcMain.handle('open-external', async (event, url) => {
-  await shell.openExternal(url);
+  if (typeof url !== 'string' || !url.trim()) {
+    return { success: false, error: 'Invalid URL' };
+  }
+
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return { success: false, error: 'Only http/https URLs are allowed' };
+    }
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: 'Invalid URL format' };
+  }
 });
 
 ipcMain.handle('open-file', async (event, filePath) => {
@@ -905,7 +925,25 @@ ipcMain.handle('open-file', async (event, filePath) => {
 });
 
 ipcMain.handle('open-installer', async (event, filePath) => {
-  await shell.openPath(filePath);
+  if (typeof filePath !== 'string' || !filePath.trim()) {
+    return { success: false, error: 'Invalid file path' };
+  }
+
+  const validation = security.validatePath(filePath);
+  if (!validation.valid) {
+    return { success: false, error: validation.error };
+  }
+
+  // Only allow running installers from Downloads or temp directory
+  const downloadsDir = path.join(os.homedir(), 'Downloads').toLowerCase();
+  const tempDir = os.tmpdir().toLowerCase();
+  const normalizedPath = validation.normalized.toLowerCase();
+
+  if (!normalizedPath.startsWith(downloadsDir) && !normalizedPath.startsWith(tempDir)) {
+    return { success: false, error: 'Installers can only be run from Downloads or temp folder' };
+  }
+
+  await shell.openPath(validation.normalized);
   return { success: true };
 });
 
