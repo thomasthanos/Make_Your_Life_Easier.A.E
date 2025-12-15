@@ -395,22 +395,42 @@ export async function loadPage(key) {
 export async function init() {
     try {
         showAppLoader('Loading application...');
+        
+        // Report progress: Loading settings
+        if (window.api?.updateLoadingProgress) {
+            await window.api.updateLoadingProgress(20, 'Loading settings...').catch(() => {});
+        }
 
         // Load settings
         settings = loadSettings();
 
         // Apply theme
         applyTheme(settings.theme);
+        
+        // Report progress: Loading translations
+        if (window.api?.updateLoadingProgress) {
+            await window.api.updateLoadingProgress(40, 'Loading translations...').catch(() => {});
+        }
 
         // Load translations
         translations = await loadTranslations(settings.lang);
         setTranslations(translations);
+        
+        // Report progress: Building UI
+        if (window.api?.updateLoadingProgress) {
+            await window.api.updateLoadingProgress(60, 'Building interface...').catch(() => {});
+        }
 
         // Render menu
         renderMenu();
 
         // Ensure sidebar version is displayed
         await ensureSidebarVersion({ settings });
+        
+        // Report progress: Initializing
+        if (window.api?.updateLoadingProgress) {
+            await window.api.updateLoadingProgress(80, 'Initializing...').catch(() => {});
+        }
 
         // Initialize auto-updater
         initializeAutoUpdater();
@@ -421,15 +441,13 @@ export async function init() {
         if (defaultButton) {
             await loadPage(defaultButton.dataset.key);
         }
-
-        // Check for changelog after update
-        setTimeout(() => {
-            checkForChangelog();
-        }, 1500);
-
-        hideAppLoader();
         
-        // Signal to main process that app is ready (for updater window transition)
+        // Report progress: Almost ready
+        if (window.api?.updateLoadingProgress) {
+            await window.api.updateLoadingProgress(95, 'Almost ready...').catch(() => {});
+        }
+
+        // Signal to main process that app is ready FIRST (for updater window transition)
         if (window.api && typeof window.api.signalAppReady === 'function') {
             try {
                 await window.api.signalAppReady();
@@ -438,17 +456,26 @@ export async function init() {
                 debug('warn', 'Failed to signal app ready:', err);
             }
         }
+        
+        // Hide loader after signaling (ensures smooth transition)
+        hideAppLoader();
+        
+        // Check for changelog after everything is ready
+        setTimeout(() => {
+            checkForChangelog();
+        }, 1500);
     } catch (error) {
         debug('error', 'Initialization error:', error);
-        hideAppLoader();
-        toast('Failed to initialize application', { type: 'error', title: 'Error' });
         
-        // Still signal app ready even on error, to close update window
+        // Signal app ready even on error, to close update window
         if (window.api && typeof window.api.signalAppReady === 'function') {
             try {
                 await window.api.signalAppReady();
             } catch { }
         }
+        
+        hideAppLoader();
+        toast('Failed to initialize application', { type: 'error', title: 'Error' });
     }
 }
 
