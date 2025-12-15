@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
 
 const baseEnv = { ...process.env };
 
@@ -119,7 +119,7 @@ ipcMain.handle('check-gh-status', async () => {
                 resolve({ installed: false, loggedIn: false });
                 return;
             }
-            
+
             // Check if logged in
             exec('gh auth status', { env: baseEnv }, (authError, stdout, stderr) => {
                 const output = stdout + stderr;
@@ -291,7 +291,10 @@ ipcMain.handle('create-release', async (event, { path: projectPath, version, tit
 
             const createReleaseCmd = `gh release create "${version}" --title "${title}" --notes-file "${notesFilePath}"`;
 
-            exec(createReleaseCmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
+            // Use execFile with array args to prevent command injection
+            const ghArgs = ['release', 'create', version, '--title', title, '--notes-file', notesFilePath];
+
+            execFile('gh', ghArgs, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
                 fs.unlink(notesFilePath, () => { });
 
                 if (error) {
@@ -336,37 +339,37 @@ ipcMain.handle('create-release', async (event, { path: projectPath, version, tit
 
                 mainWindow.webContents.send('build-log', `\nFound ${artifactFiles.length} files to upload:\n${artifactFiles.map(f => `  - ${f}`).join('\n')}\n`);
 
-                // Upload each file
-                let uploadCount = 0;
-                let uploadErrors = [];
-
-                artifactFiles.forEach((file, index) => {
-                    const filePath = path.join(distPath, file);
-                    const uploadCmd = `gh release upload "${version}" "${filePath}"`;
-
-                    exec(uploadCmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
-                        if (error) {
-                            uploadErrors.push(`${file}: ${stderr}`);
-                            mainWindow.webContents.send('build-log', `\n❌ Failed to upload ${file}\n`);
-                        } else {
-                            mainWindow.webContents.send('build-log', `\n✅ Uploaded ${file}\n`);
-                        }
-
-                        uploadCount++;
-
-                        // Check if all uploads are done
-                        if (uploadCount === artifactFiles.length) {
-                            if (uploadErrors.length > 0) {
-                                mainWindow.webContents.send('build-log', `\n⚠️ Some uploads failed:\n${uploadErrors.join('\n')}\n`);
+                // Upload files with proper Promise handling to avoid race conditions
+                const uploadPromises = artifactFiles.map((file) => {
+                    return new Promise((uploadResolve) => {
+                        const filePath = path.join(distPath, file);
+                        // Use execFile to prevent command injection
+                        execFile('gh', ['release', 'upload', version, filePath], { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
+                            if (error) {
+                                mainWindow.webContents.send('build-log', `\n❌ Failed to upload ${file}\n`);
+                                uploadResolve({ success: false, file, error: stderr });
                             } else {
-                                mainWindow.webContents.send('build-log', `\n🎉 All artifacts uploaded successfully!\n`);
+                                mainWindow.webContents.send('build-log', `\n✅ Uploaded ${file}\n`);
+                                uploadResolve({ success: true, file });
                             }
-                            resolve({
-                                success: uploadErrors.length === 0,
-                                output: stdout,
-                                partialSuccess: uploadErrors.length < artifactFiles.length
-                            });
-                        }
+                        });
+                    });
+                });
+
+                Promise.allSettled(uploadPromises).then((results) => {
+                    const uploadErrors = results
+                        .filter(r => r.status === 'fulfilled' && !r.value.success)
+                        .map(r => `${r.value.file}: ${r.value.error}`);
+
+                    if (uploadErrors.length > 0) {
+                        mainWindow.webContents.send('build-log', `\n⚠️ Some uploads failed:\n${uploadErrors.join('\n')}\n`);
+                    } else {
+                        mainWindow.webContents.send('build-log', `\n🎉 All artifacts uploaded successfully!\n`);
+                    }
+                    resolve({
+                        success: uploadErrors.length === 0,
+                        output: stdout,
+                        partialSuccess: uploadErrors.length < artifactFiles.length
                     });
                 });
             });

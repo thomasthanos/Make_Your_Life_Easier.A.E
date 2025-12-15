@@ -18,14 +18,14 @@ async function runSfcScan() {
   if (process.platform !== 'win32') {
     return { success: false, error: 'SFC is only available on Windows' };
   }
-  
+
   const psScript = `
 Write-Host "=== SYSTEM FILE CHECK (SFC) ===" -ForegroundColor Cyan
 Write-Host "Running sfc /scannow..." -ForegroundColor Yellow
 sfc /scannow
 exit $LASTEXITCODE
 `;
-  
+
   return runElevatedPowerShellScript(
     psScript,
     '✅ SFC scan completed successfully!',
@@ -41,14 +41,14 @@ async function runDismRepair() {
   if (process.platform !== 'win32') {
     return { success: false, error: 'DISM is only available on Windows' };
   }
-  
+
   const psScript = `
 Write-Host "=== DEPLOYMENT IMAGE SERVICING AND MANAGEMENT (DISM) ===" -ForegroundColor Cyan
 Write-Host "Running DISM /Online /Cleanup-Image /RestoreHealth..." -ForegroundColor Yellow
 DISM /Online /Cleanup-Image /RestoreHealth
 exit $LASTEXITCODE
 `;
-  
+
   return runElevatedPowerShellScript(
     psScript,
     '✅ DISM repair completed successfully!',
@@ -173,7 +173,7 @@ $log | Out-File -FilePath $logFile -Encoding UTF8
     '✅ Temporary files cleanup completed successfully!',
     'Administrator privileges required or cleanup failed. Please accept the UAC prompt and try again.'
   );
-  
+
   // Read log file for details
   try {
     if (fs.existsSync(logFile)) {
@@ -194,7 +194,7 @@ $log | Out-File -FilePath $logFile -Encoding UTF8
   } catch (e) {
     // Ignore log file errors
   }
-  
+
   return result;
 }
 
@@ -251,14 +251,13 @@ objShell.ShellExecute "powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Fil
         // Wait a bit for the elevated PowerShell to complete
         setTimeout(() => {
           // Cleanup temp files
-          try { fs.unlinkSync(vbsPath); } catch { }
-          try { fs.unlinkSync(psPath); } catch { }
+          try { fs.unlinkSync(vbsPath); } catch (e) { debug('warn', 'Failed to cleanup vbs file:', e.message); }
+          try { fs.unlinkSync(psPath); } catch (e) { debug('warn', 'Failed to cleanup ps file:', e.message); }
 
-          // Check result
           try {
             if (fs.existsSync(resultPath)) {
               const result = fs.readFileSync(resultPath, 'utf8').trim();
-              try { fs.unlinkSync(resultPath); } catch { }
+              try { fs.unlinkSync(resultPath); } catch (e) { debug('warn', 'Failed to cleanup result file:', e.message); }
 
               if (result.includes('ADMIN_OK') && result.includes('RESTART_OK')) {
                 resolve({
@@ -296,10 +295,10 @@ objShell.ShellExecute "powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Fil
       });
     } catch (fileError) {
       // Cleanup on error
-      try { fs.unlinkSync(vbsPath); } catch { }
-      try { fs.unlinkSync(psPath); } catch { }
-      try { fs.unlinkSync(resultPath); } catch { }
-      
+      try { fs.unlinkSync(vbsPath); } catch (e) { /* Cleanup failed, ignore */ }
+      try { fs.unlinkSync(psPath); } catch (e) { /* Cleanup failed, ignore */ }
+      try { fs.unlinkSync(resultPath); } catch (e) { /* Cleanup failed, ignore */ }
+
       resolve({
         success: false,
         error: 'Failed to create elevation script: ' + fileError.message
@@ -324,16 +323,16 @@ async function runRaphiDebloat() {
     const escapedCmd = scriptCmd.replace(/"/g, '\\"');
     const argList = `-NoProfile -ExecutionPolicy Bypass -Command \"${escapedCmd}\"`;
     const psCommand = `Start-Process -FilePath \"${psExe}\" -ArgumentList '${argList}' -Verb RunAs -WindowStyle Normal -Wait`;
-    
+
     const child = spawn(psExe, ['-Command', psCommand], { windowsHide: false });
     let stderrData = '';
-    
+
     child.stderr.on('data', (buf) => { stderrData += buf.toString(); });
-    
+
     child.on('error', (err) => {
       resolve({ success: false, error: 'Failed to launch PowerShell: ' + err.message });
     });
-    
+
     child.on('exit', (code) => {
       if (code === 0) {
         resolve({ success: true, message: 'Debloat script executed successfully. A restart may be required.' });
@@ -357,7 +356,7 @@ async function runChrisTitus() {
     '-Command',
     'irm christitus.com/win | iex'
   ];
-  
+
   return runSpawnCommand(psExe, args, { shell: false, windowsHide: false });
 }
 

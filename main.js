@@ -68,9 +68,6 @@ const updateInfoSecondaryPath = process.platform === 'win32'
   ? path.join(process.env.PROGRAMDATA || path.join('C:\\', 'ProgramData'), 'MakeYourLifeEasier', 'update-info.json')
   : null;
 
-// ❌ ΔΙΑΓΡΑΦΗ: Αφαίρεσε αυτή τη γραμμή
-// let currentManualCheckId = null;
-
 // ============================================================================
 // Updater Cache Cleanup
 // ============================================================================
@@ -269,7 +266,19 @@ autoUpdater.on('update-downloaded', (info) => {
       releaseNotes: info.releaseNotes
     };
     updateInfoToSave.timestamp = Date.now();
-    fs.writeFileSync(updateInfoFilePath, JSON.stringify(updateInfoToSave));
+    fs.writeFileSync(updateInfoPrimaryPath, JSON.stringify(updateInfoToSave));
+    // Also write to secondary path if available
+    if (updateInfoSecondaryPath) {
+      try {
+        const secondaryDir = path.dirname(updateInfoSecondaryPath);
+        if (!fs.existsSync(secondaryDir)) {
+          fs.mkdirSync(secondaryDir, { recursive: true });
+        }
+        fs.writeFileSync(updateInfoSecondaryPath, JSON.stringify(updateInfoToSave));
+      } catch (secErr) {
+        debug('warn', 'Failed to write secondary update info:', secErr);
+      }
+    }
   } catch (err) {
     debug('warn', 'Failed to persist update info:', err);
   }
@@ -296,12 +305,12 @@ autoUpdater.on('error', (err) => {
       message: 'Initializing application...',
       percent: 10
     });
-    
+
     // Small delay to ensure UI updates before heavy loading starts
     setTimeout(() => {
       // Create main window hidden
       createMainWindow(false);
-      
+
       // Fallback timeout
       const fallbackTimeout = setTimeout(() => {
         debug('warn', 'App ready signal timeout after error - showing window anyway');
@@ -320,7 +329,7 @@ autoUpdater.on('error', (err) => {
           }, 300);
         }
       }, 15000);
-      
+
       global.appReadyFallbackTimeout = fallbackTimeout;
     }, 100);
     return;
@@ -389,7 +398,7 @@ function createUpdateWindow() {
   updateWindow.webContents.once('did-finish-load', () => {
     // Show the window now that it's loaded
     updateWindow.show();
-    
+
     // Now check for updates
     autoUpdater.checkForUpdates().catch((err) => {
       debug('error', 'Check for updates failed:', err);
@@ -616,13 +625,13 @@ ipcMain.handle('get-app-version', async () => {
 // App ready signal - renderer signals when it's fully loaded
 ipcMain.handle('app-ready', async () => {
   debug('success', 'Application ready signal received from renderer');
-  
+
   // Clear fallback timeout if exists
   if (global.appReadyFallbackTimeout) {
     clearTimeout(global.appReadyFallbackTimeout);
     global.appReadyFallbackTimeout = null;
   }
-  
+
   if (updateWindow) {
     // Send final progress update
     updateWindow.webContents.send('update-status', {
@@ -630,7 +639,7 @@ ipcMain.handle('app-ready', async () => {
       message: 'Launching application...',
       percent: 100
     });
-    
+
     // Short delay for visual feedback, then close updater and show main
     setTimeout(() => {
       if (updateWindow) {
@@ -646,7 +655,7 @@ ipcMain.handle('app-ready', async () => {
     mainWindow.show();
     mainWindow.focus();
   }
-  
+
   return { success: true };
 });
 
