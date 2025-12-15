@@ -428,10 +428,27 @@ export async function init() {
         }, 1500);
 
         hideAppLoader();
+        
+        // Signal to main process that app is ready (for updater window transition)
+        if (window.api && typeof window.api.signalAppReady === 'function') {
+            try {
+                await window.api.signalAppReady();
+                debug('info', 'Signaled app ready to main process');
+            } catch (err) {
+                debug('warn', 'Failed to signal app ready:', err);
+            }
+        }
     } catch (error) {
         debug('error', 'Initialization error:', error);
         hideAppLoader();
         toast('Failed to initialize application', { type: 'error', title: 'Error' });
+        
+        // Still signal app ready even on error, to close update window
+        if (window.api && typeof window.api.signalAppReady === 'function') {
+            try {
+                await window.api.signalAppReady();
+            } catch { }
+        }
     }
 }
 

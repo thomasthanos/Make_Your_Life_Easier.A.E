@@ -66,6 +66,10 @@ contextBridge.exposeInMainWorld('api', {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   saveUpdateInfo: (info) => ipcRenderer.invoke('save-update-info', info),
   getUpdateInfo: () => ipcRenderer.invoke('get-update-info'),
+  getUpdateState: () => ipcRenderer.invoke('get-update-state'),
+  cancelUpdate: () => ipcRenderer.invoke('cancel-update'),
+  forceCheckUpdates: () => ipcRenderer.invoke('force-check-updates'),
+  retryUpdate: () => ipcRenderer.invoke('retry-update'),
 
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
 

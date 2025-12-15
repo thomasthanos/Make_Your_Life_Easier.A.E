@@ -131,11 +131,13 @@
       "uninstallUrlHelp": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/copyright.html",
       "uninstallUrlInfoAbout": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/info/info.html",
       "uninstallUrlReadme": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/readme.html",
-      "uninstallUrlUpdateInfo": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/changelog.html"
+      "uninstallUrlUpdateInfo": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/changelog.html",
+      "differentialPackage": true
     },
     "portable": {
       "artifactName": "MakeYourLifeEasier-Portable.exe"
     },
+    "generateUpdatesFilesForAllChannels": true,
     "publish": {
       "provider": "github",
       "owner": "thomasthanos",

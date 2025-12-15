@@ -51,9 +51,14 @@ window.addEventListener('DOMContentLoaded', () => {
       case 'checking':
         updateProgress(5, 'Checking for updates…', 'update-check');
         break;
-      case 'available':
-        updateProgress(10, 'Update available! Downloading…', 'update-download');
+      case 'available': {
+        const sizeInfo = data.size ? ` (${data.size})` : '';
+        const message = data.releaseName 
+          ? `${data.releaseName} available${sizeInfo}! Downloading…`
+          : `Update available${sizeInfo}! Downloading…`;
+        updateProgress(10, message, 'update-download');
         break;
+      }
       case 'downloading': {
         const percent = Math.round(data.percent || 0);
         // If message contains "Loading" or "Initializing", it's app loading phase
@@ -66,22 +71,33 @@ window.addEventListener('DOMContentLoaded', () => {
             data.message.includes('Launching'));
 
         const phase = isAppLoading ? 'app-loading' : 'update-download';
-        const text = typeof data.message === 'string'
+        
+        // Enhanced message with speed and ETA if available
+        let text = typeof data.message === 'string'
           ? data.message
           : `Downloading update: ${percent}%`;
+        
+        // Add retry indicator if retrying
+        if (data.message && data.message.includes('Retrying')) {
+          text = `⟳ ${text}`;
+        }
+        
         updateProgress(percent, text, phase);
         break;
       }
       case 'downloaded':
-        updateProgress(100, 'Update downloaded! Launching installer…', 'update-install');
+        updateProgress(100, 'Update downloaded! Installing…', 'update-install');
         break;
       case 'not-available':
         updateProgress(100, 'Launching application…', 'app-loading');
         break;
-      case 'error':
-        // Reset for app loading - start at 10%
-        updateProgress(10, 'Initializing application…', 'app-loading');
+      case 'error': {
+        const errorMsg = data.canRetry 
+          ? 'Connection error. Retrying…' 
+          : 'Update failed. Launching app…';
+        updateProgress(10, errorMsg, 'app-loading');
         break;
+      }
       default:
         break;
     }

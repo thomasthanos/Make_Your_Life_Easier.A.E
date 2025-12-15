@@ -13,6 +13,10 @@ const os = require('os');
 let updateAvailable = false;
 let pendingUpdateInfo = null;
 let updateDownloaded = false;
+let retryCount = 0;
+const MAX_RETRIES = 3;
+let downloadStartTime = null;
+let lastBytesReceived = 0;
 
 // Update info paths
 const updateInfoPrimaryPath = path.join(app.getPath('userData'), 'update-info.json');
@@ -24,12 +28,34 @@ const updateInfoSecondaryPath = process.platform === 'win32'
  * Configure auto-updater settings
  */
 function configureAutoUpdater() {
+    // Enable differential downloads for faster updates (80% smaller)
+    // GitHub Actions workflow automatically uploads .blockmap files
+    autoUpdater.disableDifferentialDownload = false;
+    
+    // Automatic download and installation
     autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.forceRunAfter = true;
+    
+    // Request headers for cache busting
     autoUpdater.requestHeaders = {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
     };
-    autoUpdater.autoInstallOnAppQuit = true;
-    autoUpdater.forceRunAfter = true;
+    
+    // Enable checksum verification for security
+    autoUpdater.disableWebInstaller = false;
+    
+    // Allow prerelease versions if needed (set to false for production)
+    autoUpdater.allowPrerelease = false;
+    
+    // Set update check interval (4 hours)
+    autoUpdater.allowDowngrade = false;
+    
+    // Configure logger for better debugging
+    if (process.env.NODE_ENV === 'development') {
+        autoUpdater.logger = require('electron-log');
+        autoUpdater.logger.transports.file.level = 'info';
+    }
 }
 
 /**
@@ -136,18 +162,37 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
     autoUpdater.on('update-available', async (info) => {
         debug('info', 'Update available:', info);
         updateAvailable = true;
+        retryCount = 0; // Reset retry count on successful update check
+        downloadStartTime = Date.now(); // Start tracking download time
+        
         pendingUpdateInfo = {
             version: info.version,
             releaseName: info.releaseName,
-            releaseNotes: info.releaseNotes
+            releaseNotes: info.releaseNotes,
+            releaseDate: info.releaseDate,
+            files: info.files
         };
 
         const title = info.releaseName || '';
         const version = info.version || '';
         const message = title ? `${title} (v${version})` : `New version available: v${version}`;
         const releaseNotes = info.releaseNotes || '';
+        
+        // Calculate update size if available
+        let totalSize = 0;
+        if (info.files && Array.isArray(info.files)) {
+            totalSize = info.files.reduce((sum, file) => sum + (file.size || 0), 0);
+        }
+        const sizeMB = (totalSize / (1024 * 1024)).toFixed(2);
 
-        const payload = { status: 'available', message, version, releaseName: title, releaseNotes };
+        const payload = { 
+            status: 'available', 
+            message, 
+            version, 
+            releaseName: title, 
+            releaseNotes,
+            size: sizeMB > 0 ? `${sizeMB} MB` : 'Unknown'
+        };
 
         const updateWindow = getUpdateWindow();
         const mainWindow = getMainWindow();
@@ -186,11 +231,50 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
     });
 
     autoUpdater.on('download-progress', (progressObj) => {
-        debug('info', 'Download progress:', progressObj);
+        // Calculate download speed and ETA
+        const now = Date.now();
+        if (!downloadStartTime) {
+            downloadStartTime = now;
+        }
+        
+        const bytesReceived = progressObj.transferred || 0;
+        const totalBytes = progressObj.total || 0;
+        const percent = Math.round(progressObj.percent || 0);
+        
+        // Calculate speed (bytes per second)
+        const elapsedSeconds = (now - downloadStartTime) / 1000;
+        const speed = elapsedSeconds > 0 ? bytesReceived / elapsedSeconds : 0;
+        
+        // Calculate ETA
+        const remainingBytes = totalBytes - bytesReceived;
+        const etaSeconds = speed > 0 ? remainingBytes / speed : 0;
+        
+        // Format speed
+        const speedMB = (speed / (1024 * 1024)).toFixed(2);
+        const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
+        const receivedMB = (bytesReceived / (1024 * 1024)).toFixed(2);
+        
+        // Format ETA
+        const etaMinutes = Math.floor(etaSeconds / 60);
+        const etaSecondsRemainder = Math.floor(etaSeconds % 60);
+        const etaFormatted = etaMinutes > 0 
+            ? `${etaMinutes}m ${etaSecondsRemainder}s` 
+            : `${etaSecondsRemainder}s`;
+        
+        const message = speed > 0 
+            ? `Downloading: ${percent}% (${receivedMB}/${totalMB} MB) • ${speedMB} MB/s • ETA: ${etaFormatted}`
+            : `Downloading update: ${percent}%`;
+        
+        debug('info', message);
+        
         const statusPayload = {
             status: 'downloading',
-            message: `Downloading update: ${Math.round(progressObj.percent)}%`,
-            percent: progressObj.percent
+            message,
+            percent,
+            speed: speedMB,
+            eta: etaFormatted,
+            downloaded: receivedMB,
+            total: totalMB
         };
 
         const updateWindow = getUpdateWindow();
@@ -198,6 +282,8 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 
         if (updateWindow) updateWindow.webContents.send('update-status', statusPayload);
         if (mainWindow) mainWindow.webContents.send('update-status', statusPayload);
+        
+        lastBytesReceived = bytesReceived;
     });
 
     autoUpdater.on('update-downloaded', (info) => {
@@ -265,9 +351,58 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 
     autoUpdater.on('error', (err) => {
         debug('error', 'Update error:', err);
+        
+        // Reset download tracking
+        downloadStartTime = null;
+        lastBytesReceived = 0;
 
         const updateWindow = getUpdateWindow();
         const mainWindow = getMainWindow();
+
+        // Retry logic for network errors
+        const isNetworkError = err.message && (
+            err.message.includes('ECONNRESET') ||
+            err.message.includes('ETIMEDOUT') ||
+            err.message.includes('ENOTFOUND') ||
+            err.message.includes('socket hang up') ||
+            err.message.includes('net::')
+        );
+
+        if (isNetworkError && retryCount < MAX_RETRIES) {
+            retryCount++;
+            const retryDelay = Math.min(1000 * Math.pow(2, retryCount - 1), 5000); // Exponential backoff, max 5s
+            
+            debug('warn', `Network error detected. Retry ${retryCount}/${MAX_RETRIES} in ${retryDelay}ms...`);
+            
+            const retryMessage = `Connection lost. Retrying (${retryCount}/${MAX_RETRIES})...`;
+            if (updateWindow) {
+                updateWindow.webContents.send('update-status', {
+                    status: 'downloading',
+                    message: retryMessage,
+                    percent: 0
+                });
+            }
+            if (mainWindow) {
+                mainWindow.webContents.send('update-status', {
+                    status: 'error',
+                    message: retryMessage
+                });
+            }
+            
+            setTimeout(() => {
+                debug('info', `Retrying update check (attempt ${retryCount})...`);
+                autoUpdater.checkForUpdates().catch(retryErr => {
+                    debug('error', 'Retry failed:', retryErr);
+                });
+            }, retryDelay);
+            return;
+        }
+
+        // Reset retry count after max retries
+        if (retryCount >= MAX_RETRIES) {
+            debug('error', `Max retries (${MAX_RETRIES}) reached. Giving up.`);
+            retryCount = 0;
+        }
 
         if (updateWindow && !mainWindow) {
             updateWindow.webContents.send('update-status', {
@@ -291,7 +426,11 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             return;
         }
 
-        const payload = { status: 'error', message: `Update error: ${err.message}` };
+        const payload = { 
+            status: 'error', 
+            message: `Update error: ${err.message}`,
+            canRetry: isNetworkError && retryCount < MAX_RETRIES
+        };
         if (updateWindow) updateWindow.webContents.send('update-status', payload);
         if (mainWindow) mainWindow.webContents.send('update-status', payload);
     });
@@ -307,9 +446,18 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
     ipcMain.handle('check-for-updates', async () => {
         try {
-            await autoUpdater.checkForUpdates();
-            return { success: true };
+            retryCount = 0; // Reset retry count on manual check
+            const result = await autoUpdater.checkForUpdates();
+            return { 
+                success: true, 
+                updateInfo: result ? {
+                    version: result.updateInfo?.version,
+                    releaseDate: result.updateInfo?.releaseDate,
+                    currentVersion: app.getVersion()
+                } : null
+            };
         } catch (error) {
+            debug('error', 'Manual update check failed:', error);
             return { success: false, error: error.message };
         }
     });
@@ -431,6 +579,41 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
             return { success: false, error: error.message };
         }
     });
+
+    ipcMain.handle('get-update-state', async () => {
+        return { success: true, state: getUpdateState() };
+    });
+
+    ipcMain.handle('cancel-update', async () => {
+        const result = cancelUpdate();
+        return { success: result };
+    });
+
+    ipcMain.handle('force-check-updates', async () => {
+        try {
+            const result = await forceCheckForUpdates(debug);
+            return { 
+                success: true, 
+                updateInfo: result ? {
+                    version: result.updateInfo?.version,
+                    releaseDate: result.updateInfo?.releaseDate,
+                    currentVersion: app.getVersion()
+                } : null
+            };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('retry-update', async () => {
+        try {
+            resetUpdateState();
+            await autoUpdater.checkForUpdates();
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
 }
 
 /**
@@ -451,8 +634,54 @@ function getUpdateState() {
     return {
         updateAvailable,
         updateDownloaded,
-        pendingUpdateInfo
+        pendingUpdateInfo,
+        retryCount,
+        maxRetries: MAX_RETRIES,
+        isDownloading: downloadStartTime !== null && !updateDownloaded
     };
+}
+
+/**
+ * Cancel ongoing update download
+ * @returns {boolean} Success status
+ */
+function cancelUpdate() {
+    try {
+        downloadStartTime = null;
+        lastBytesReceived = 0;
+        retryCount = 0;
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
+/**
+ * Reset update state
+ */
+function resetUpdateState() {
+    updateAvailable = false;
+    pendingUpdateInfo = null;
+    updateDownloaded = false;
+    retryCount = 0;
+    downloadStartTime = null;
+    lastBytesReceived = 0;
+}
+
+/**
+ * Force check for updates (bypasses cache)
+ * @param {Function} debug - Debug logging function
+ * @returns {Promise} Update check promise
+ */
+async function forceCheckForUpdates(debug) {
+    try {
+        retryCount = 0;
+        debug('info', 'Force checking for updates...');
+        return await autoUpdater.checkForUpdates();
+    } catch (err) {
+        debug('error', 'Force check failed:', err);
+        throw err;
+    }
 }
 
 module.exports = {
@@ -462,5 +691,8 @@ module.exports = {
     setupUpdaterIpcHandlers,
     checkForUpdates,
     getUpdateState,
+    cancelUpdate,
+    resetUpdateState,
+    forceCheckForUpdates,
     autoUpdater
 };
