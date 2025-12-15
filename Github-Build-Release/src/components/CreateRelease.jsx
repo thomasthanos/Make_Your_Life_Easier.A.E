@@ -45,7 +45,7 @@ function CreateRelease({
           </p>
         </div>
       </div>
-      
+
       <div className="release-form-container glass-panel">
         {/* Version & Title Row */}
         <div className="form-row">
@@ -55,10 +55,10 @@ function CreateRelease({
               <span>Version Tag</span>
             </div>
             <div className="form-card-body">
-              <input 
-                className="modern-input" 
-                value={version} 
-                onChange={e => setVersion(e.target.value)} 
+              <input
+                className="modern-input"
+                value={version}
+                onChange={e => setVersion(e.target.value)}
                 onFocus={handleVersionFocus}
                 placeholder={suggestedVersion || "v1.0.0"}
               />
@@ -70,23 +70,23 @@ function CreateRelease({
               )}
             </div>
           </div>
-          
+
           <div className="form-card glass-panel-light flex-2">
             <div className="form-card-header">
               <FaPen className="form-card-icon" />
               <span>Release Title</span>
             </div>
             <div className="form-card-body">
-              <input 
-                className="modern-input" 
-                value={title} 
-                onChange={e => setTitle(e.target.value)} 
-                placeholder="e.g. Major Update: New Features & Improvements" 
+              <input
+                className="modern-input"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="e.g. Major Update: New Features & Improvements"
               />
             </div>
           </div>
         </div>
-        
+
         {/* Notes Editor */}
         <div className="form-card notes-card glass-panel-light">
           <div className="form-card-header">
@@ -95,7 +95,7 @@ function CreateRelease({
               <span>Release Notes</span>
             </div>
             <div className="editor-mode-toggle">
-              <button 
+              <button
                 className={`mode-btn ${!isPreview ? 'active' : ''}`}
                 onClick={() => setIsPreview(false)}
                 title="Edit Mode"
@@ -103,7 +103,7 @@ function CreateRelease({
                 <FaEdit size={12} />
                 <span>Edit</span>
               </button>
-              <button 
+              <button
                 className={`mode-btn ${isPreview ? 'active' : ''}`}
                 onClick={() => setIsPreview(true)}
                 title="Preview Mode"
@@ -113,7 +113,7 @@ function CreateRelease({
               </button>
             </div>
           </div>
-          
+
           <div className="notes-editor-container">
             {isPreview ? (
               <div className="markdown-preview custom-scrollbar">
@@ -129,18 +129,18 @@ function CreateRelease({
                 )}
               </div>
             ) : (
-              <textarea 
-                className="notes-textarea custom-scrollbar" 
-                value={notes} 
+              <textarea
+                className="notes-textarea custom-scrollbar"
+                value={notes}
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Write your release notes in Markdown..."
               />
             )}
           </div>
-          
+
           <div className="notes-footer">
             <div className="quick-actions">
-              <button 
+              <button
                 className="quick-btn"
                 onClick={generateQuickNotes}
                 title="Generate template"
@@ -148,7 +148,7 @@ function CreateRelease({
                 <FaMagic size={11} />
                 <span>Template</span>
               </button>
-              <button 
+              <button
                 className="quick-btn danger"
                 onClick={() => setNotes('')}
                 title="Clear notes"
@@ -160,11 +160,11 @@ function CreateRelease({
             <span className="char-count">{notes.length} characters</span>
           </div>
         </div>
-        
+
         {/* Action Buttons */}
         <div className="release-actions">
-          <button 
-            className="reset-btn glass-panel" 
+          <button
+            className="reset-btn glass-panel"
             onClick={() => {
               setVersion('');
               setTitle('');
@@ -173,8 +173,8 @@ function CreateRelease({
           >
             Reset Form
           </button>
-          <button 
-            className="publish-btn" 
+          <button
+            className="publish-btn"
             onClick={handleCreateRelease}
             disabled={!version || !title || isReleasing}
           >
