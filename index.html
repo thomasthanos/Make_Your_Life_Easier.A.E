@@ -142,17 +142,17 @@
       </div>
     </div>
     <div class="title-bar-controls">
-      <button class="title-bar-btn minimize" onclick="window.api?.minimizeWindow?.()">
+      <button class="title-bar-btn minimize" id="title-bar-minimize">
         <svg class="minimize-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
           <rect x="2" y="6" width="8" height="1" fill="currentColor"></rect>
         </svg>
       </button>
-      <button class="title-bar-btn maximize" onclick="window.api?.maximizeWindow?.()">
+      <button class="title-bar-btn maximize" id="title-bar-maximize">
         <svg class="maximize-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
           <rect x="1" y="1" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1"></rect>
         </svg>
       </button>
-      <button class="title-bar-btn close" onclick="window.api?.closeWindow?.()">
+      <button class="title-bar-btn close" id="title-bar-close">
         <svg class="close-icon" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
           <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1" stroke-linecap="round"></line>
           <line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1" stroke-linecap="round"></line>
@@ -184,18 +184,8 @@
   </div>
 
   <script src="src/config/favicon-config.js"></script>
+  <script src="src/config/titlebar-init.js"></script>
   <script src="renderer.js" defer></script>
-  <script>
-    (function () {
-      if (typeof window.api === 'undefined') {
-        const titleBar = document.querySelector('.custom-title-bar');
-        if (titleBar) {
-          titleBar.style.display = 'none';
-        }
-        document.documentElement.style.setProperty('--title-bar-height', '0px');
-      }
-    })();
-  </script>
 
 </body>
 

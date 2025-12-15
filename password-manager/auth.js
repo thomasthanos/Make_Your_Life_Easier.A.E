@@ -210,15 +210,15 @@ class PasswordManagerAuth {
     // Δημιουργία κλειδιού κρυπτογράφησης
     generateEncryptionKey(password, salt) {
         try {
-            // Χρήση RFC 5869 HKDF για ασφαλή εξαγωγή κλειδιού
-            // hkdfSync(digest, ikm, salt, info, keylen)
-            this.encryptionKey = crypto.hkdfSync(
-                'sha256',
-                password,
-                salt,
-                'encryption-key',
-                32 // 256 bits για AES-256
-            );
+            // Χρήση HKDF για εξαγωγή κλειδιού από τον κωδικό
+            const hkdf = crypto.createHmac('sha256', password);
+            hkdf.update(salt);
+            const pseudoRandomKey = hkdf.digest();
+
+            // Δημιουργία τελικού κλειδιού AES-256
+            const finalHkdf = crypto.createHmac('sha256', pseudoRandomKey);
+            finalHkdf.update('encryption-key');
+            this.encryptionKey = finalHkdf.digest();
 
             debug('success', 'Encryption key generated successfully');
         } catch (error) {
