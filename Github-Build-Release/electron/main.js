@@ -487,6 +487,7 @@ ipcMain.handle('trigger-build', (event, { path: projectPath, command }) => {
 
     if (!resolvedBuildCommand) {
         mainWindow.webContents.send('build-log', `\n❌ No build script found (looking for "build-all" or "build") and no custom command provided.\n`);
+        mainWindow.webContents.send('build-complete');
         return;
     }
 
@@ -527,5 +528,7 @@ ipcMain.handle('trigger-build', (event, { path: projectPath, command }) => {
         }
 
         mainWindow.webContents.send('build-log', msg);
+        // Send build complete event
+        mainWindow.webContents.send('build-complete');
     });
 });

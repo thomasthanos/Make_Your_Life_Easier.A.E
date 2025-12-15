@@ -12,6 +12,10 @@ contextBridge.exposeInMainWorld('api', {
     onBuildLog: (callback) => ipcRenderer.on('build-log', (_event, value) => callback(value)),
     removeBuildLogListener: () => ipcRenderer.removeAllListeners('build-log'),
 
+    // Build completion event
+    onBuildComplete: (callback) => ipcRenderer.on('build-complete', () => callback()),
+    removeBuildCompleteListener: () => ipcRenderer.removeAllListeners('build-complete'),
+
     // Προσθήκη: Window control functions
     minimize: () => ipcRenderer.send('window-minimize'),
     maximize: () => ipcRenderer.send('window-maximize'),

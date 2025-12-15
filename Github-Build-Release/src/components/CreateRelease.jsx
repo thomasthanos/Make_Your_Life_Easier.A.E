@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { FaRocket, FaPen } from 'react-icons/fa';
+import { FaRocket, FaPen, FaTag, FaFileAlt, FaEye, FaEdit, FaTrash, FaMagic } from 'react-icons/fa';
 
 function CreateRelease({
   version,
@@ -23,108 +23,148 @@ function CreateRelease({
     }
   };
 
+  const generateQuickNotes = () => {
+    const templates = [
+      '### 🚀 What\'s New\n\n- ✨ New feature added\n- 🐛 Bug fixes and improvements\n- ⚡ Performance enhancements\n\n### 📝 Notes\n\n- Please report any issues on GitHub',
+      '### 📦 Release Highlights\n\n- 🎉 Major update with new features\n- 🔧 Various fixes and improvements\n- 📚 Updated documentation\n\n### ⚠️ Breaking Changes\n\n- None',
+      '### ✨ Features\n\n- New functionality\n\n### 🐛 Bug Fixes\n\n- Fixed issue with...\n\n### 🔄 Changes\n\n- Updated dependencies'
+    ];
+    setNotes(templates[Math.floor(Math.random() * templates.length)]);
+  };
+
   return (
     <div className="tab-content fade-in">
       <div className="tab-header">
         <div className="tab-header-content">
-          <h1>Create New Release</h1>
+          <h1>
+            <span className="header-icon"><FaRocket /></span>
+            Create New Release
+          </h1>
           <p className="tab-description">
-            Fill in the details below to publish a new release to GitHub
+            Configure and publish a new release to GitHub
           </p>
         </div>
       </div>
       
-      <div className="form-container glass-panel">
-        <div className="form-grid">
-          <div className="form-group">
-            <label className="form-label">
+      <div className="release-form-container glass-panel">
+        {/* Version & Title Row */}
+        <div className="form-row">
+          <div className="form-card glass-panel-light">
+            <div className="form-card-header">
+              <FaTag className="form-card-icon" />
               <span>Version Tag</span>
-              <span className="hint">(e.g., v1.0.0)</span>
-            </label>
-            <div className="input-with-icon">
+            </div>
+            <div className="form-card-body">
               <input 
-                className="glass-input" 
+                className="modern-input" 
                 value={version} 
                 onChange={e => setVersion(e.target.value)} 
                 onFocus={handleVersionFocus}
-                placeholder={suggestedVersion || "v1.2.0"}
+                placeholder={suggestedVersion || "v1.0.0"}
               />
-              <span className="input-icon">#</span>
-            </div>
-            {suggestedVersion && !version && (
-              <p className="input-hint">
-                💡 Click to auto-fill: <strong>{suggestedVersion}</strong>
-              </p>
-            )}
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label">
-              <span>Release Title</span>
-              <span className="hint">(Keep it descriptive)</span>
-            </label>
-            <div className="input-with-icon">
-              <input 
-                className="glass-input" 
-                value={title} 
-                onChange={e => setTitle(e.target.value)} 
-                placeholder="Major Update: New Features & Improvements" 
-              />
-              <span className="input-icon"><FaPen size={12} /></span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="form-group">
-          <label className="form-label">Release Notes</label>
-          <div className="editor-wrapper glass-panel-light">
-            <div className="editor-header">
-              <div className="editor-tabs">
-                <button 
-                  className={`tab-btn ${!isPreview ? 'active' : ''}`} 
-                  onClick={() => setIsPreview(false)}
-                >
-                  Edit Markdown
-                </button>
-                <button 
-                  className={`tab-btn ${isPreview ? 'active' : ''}`} 
-                  onClick={() => setIsPreview(true)}
-                >
-                  Preview
-                </button>
-              </div>
-              <div className="editor-actions">
-                <button 
-                  className="action-btn" 
-                  onClick={() => setNotes('')}
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-            
-            <div className="editor-body">
-              {isPreview ? (
-                <div className="markdown-preview">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {notes}
-                  </ReactMarkdown>
+              {suggestedVersion && !version && (
+                <div className="input-suggestion" onClick={() => setVersion(suggestedVersion)}>
+                  <FaMagic size={10} />
+                  <span>Use {suggestedVersion}</span>
                 </div>
-              ) : (
-                <textarea 
-                  className="markdown-editor" 
-                  value={notes} 
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="Write your release notes in Markdown..."
-                />
               )}
             </div>
           </div>
+          
+          <div className="form-card glass-panel-light flex-2">
+            <div className="form-card-header">
+              <FaPen className="form-card-icon" />
+              <span>Release Title</span>
+            </div>
+            <div className="form-card-body">
+              <input 
+                className="modern-input" 
+                value={title} 
+                onChange={e => setTitle(e.target.value)} 
+                placeholder="e.g. Major Update: New Features & Improvements" 
+              />
+            </div>
+          </div>
         </div>
         
-        <div className="form-actions">
+        {/* Notes Editor */}
+        <div className="form-card notes-card glass-panel-light">
+          <div className="form-card-header">
+            <div className="header-left">
+              <FaFileAlt className="form-card-icon" />
+              <span>Release Notes</span>
+            </div>
+            <div className="editor-mode-toggle">
+              <button 
+                className={`mode-btn ${!isPreview ? 'active' : ''}`}
+                onClick={() => setIsPreview(false)}
+                title="Edit Mode"
+              >
+                <FaEdit size={12} />
+                <span>Edit</span>
+              </button>
+              <button 
+                className={`mode-btn ${isPreview ? 'active' : ''}`}
+                onClick={() => setIsPreview(true)}
+                title="Preview Mode"
+              >
+                <FaEye size={12} />
+                <span>Preview</span>
+              </button>
+            </div>
+          </div>
+          
+          <div className="notes-editor-container">
+            {isPreview ? (
+              <div className="markdown-preview custom-scrollbar">
+                {notes ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {notes}
+                  </ReactMarkdown>
+                ) : (
+                  <div className="empty-preview">
+                    <FaFileAlt size={32} />
+                    <p>No content to preview</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <textarea 
+                className="notes-textarea custom-scrollbar" 
+                value={notes} 
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Write your release notes in Markdown..."
+              />
+            )}
+          </div>
+          
+          <div className="notes-footer">
+            <div className="quick-actions">
+              <button 
+                className="quick-btn"
+                onClick={generateQuickNotes}
+                title="Generate template"
+              >
+                <FaMagic size={11} />
+                <span>Template</span>
+              </button>
+              <button 
+                className="quick-btn danger"
+                onClick={() => setNotes('')}
+                title="Clear notes"
+              >
+                <FaTrash size={11} />
+                <span>Clear</span>
+              </button>
+            </div>
+            <span className="char-count">{notes.length} characters</span>
+          </div>
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="release-actions">
           <button 
-            className="secondary-btn glass-panel" 
+            className="reset-btn glass-panel" 
             onClick={() => {
               setVersion('');
               setTitle('');
@@ -134,11 +174,13 @@ function CreateRelease({
             Reset Form
           </button>
           <button 
-            className="primary-btn glass-panel accent" 
+            className="publish-btn" 
             onClick={handleCreateRelease}
             disabled={!version || !title || isReleasing}
           >
-            <FaRocket size={14} /> {isReleasing ? 'Working...' : 'Publish Release'}
+            <FaRocket size={14} />
+            <span>{isReleasing ? 'Publishing...' : 'Publish Release'}</span>
+            {isReleasing && <div className="btn-loader"></div>}
           </button>
         </div>
       </div>

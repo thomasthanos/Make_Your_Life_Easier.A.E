@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Sidebar, 
-  Header, 
-  Footer, 
-  EmptyState, 
-  CreateRelease, 
-  ReleaseHistory, 
+import {
+  Sidebar,
+  Header,
+  Footer,
+  EmptyState,
+  CreateRelease,
+  ReleaseHistory,
   BuildLogs,
   DeleteModal,
   ReleaseModal
@@ -18,27 +18,27 @@ function App() {
   const [projectVersion, setProjectVersion] = useState('');
   const [releases, setReleases] = useState([]);
   const [logs, setLogs] = useState('');
-  
+
   // UI State
   const [activeTab, setActiveTab] = useState('create');
   const [activeHistorySubTab, setActiveHistorySubTab] = useState('releases');
   const [theme, setTheme] = useState('dark');
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildCommand, setBuildCommand] = useState('npm run build-all');
-  
+
   // Form State
   const [version, setVersion] = useState('');
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('### What\'s New\n\n- Bug fixes\n- Performance improvements\n- New features');
   const [isPreview, setIsPreview] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Modal State
   const [pendingDelete, setPendingDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showReleaseConfirm, setShowReleaseConfirm] = useState(false);
   const [isReleasing, setIsReleasing] = useState(false);
-  
+
   // GitHub CLI Status
   const [ghStatus, setGhStatus] = useState({ installed: null, loggedIn: null });
 
@@ -74,12 +74,23 @@ function App() {
     if (window.api) {
       window.api.onBuildLog((data) => {
         setLogs((prev) => prev + data);
-        if (data.includes('Building') || data.includes('Compiling')) {
+        // Detect build start
+        if (data.includes('Building project') || data.includes('🔨 Step 1')) {
           setIsBuilding(true);
         }
-        if (data.includes('Completed') || data.includes('Failed')) {
+        // Detect build completion (success or failure)
+        if (data.includes('Build completed successfully') ||
+          data.includes('Build failed') ||
+          data.includes('❌ Build failed') ||
+          data.includes('🎉 All artifacts uploaded') ||
+          data.includes('Release Process Completed')) {
           setIsBuilding(false);
         }
+      });
+
+      // Listen for build complete event
+      window.api.onBuildComplete?.(() => {
+        setIsBuilding(false);
       });
     }
     return () => {
@@ -150,13 +161,13 @@ function App() {
     setIsReleasing(true);
     setLogs(prev => prev + `\n🚀 Starting Release Process for ${version}...\n`);
     setActiveTab('logs');
-    
-    const result = await window.api.createRelease({ 
-      path: projectPath, 
-      version, 
-      title, 
-      notes, 
-      buildCommand 
+
+    const result = await window.api.createRelease({
+      path: projectPath,
+      version,
+      title,
+      notes,
+      buildCommand
     });
     setIsReleasing(false);
 
@@ -177,15 +188,15 @@ function App() {
 
   const handleDeleteRelease = async () => {
     if (!pendingDelete || !pendingDelete.tagName) return;
-    
+
     setIsDeleting(true);
     setLogs(prev => prev + `\n🗑️ Deleting ${pendingDelete.type === 'tag-only' ? 'tag' : 'release'}: ${pendingDelete.tagName}...\n`);
-    
-    const result = await window.api.deleteRelease({ 
-      path: projectPath, 
+
+    const result = await window.api.deleteRelease({
+      path: projectPath,
       tagName: pendingDelete.tagName
     });
-    
+
     setIsDeleting(false);
     setPendingDelete(null);
 
@@ -235,7 +246,7 @@ function App() {
       <div className="drag-region"></div>
 
       {/* HEADER */}
-      <Header 
+      <Header
         activeTab={activeTab}
         theme={theme}
         toggleTheme={toggleTheme}
@@ -268,7 +279,7 @@ function App() {
         <main className="main-content">
           <div className="content-area">
             {!projectPath ? (
-              <EmptyState 
+              <EmptyState
                 handleSelectFolder={handleSelectFolder}
                 ghStatus={ghStatus}
               />
