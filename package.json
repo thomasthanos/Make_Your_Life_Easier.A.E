@@ -1,11 +1,12 @@
 {
   "name": "make-your-life-easier",
-  "version": "2.0.1",
+  "version": "3.6.1",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
-  "main": "main.js",
+  "homepage": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E",
+  "main": "src/main/index.js",
   "scripts": {
-    "start": "electron .",
+    "start": "electron . --no-updater",
     "build-portable": "electron-builder --win portable",
     "build-installer": "electron-builder --win nsis",
     "build-all": "npm run build-portable && npm run build-installer",
@@ -14,15 +15,15 @@
     "release": "npm run build-all && npm run publish"
   },
   "dependencies": {
-    "electron-store": "^8.1.0",
+    "electron-store": "^11.0.2",
     "electron-sudo": "^4.0.12",
+    "electron-updater": "^6.7.2",
     "node-windows": "^1.0.0-beta.8",
-    "sqlite3": "^5.1.6",
-    "electron-updater": "^6.1.7"
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^26.0.12"
+    "electron": "^39.2.4",
+    "electron-builder": "^26.3.2"
   },
   "build": {
     "appId": "com.kolokithes.makeyourlifeeasier",
@@ -32,6 +33,11 @@
     },
     "files": [
       "**/*",
+      "!dist/**/*",
+      "!Github-Build-Release/**/*",
+      "!build/**/*",
+      "!python/**/*",
+      "!build-css.js",
       "!**/node_modules/*/{README.md,README,readme.md,readme}",
       "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
       "!**/node_modules/*.d.ts",
@@ -66,6 +72,13 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "src/assets",
+        "to": "src/assets",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "asar": true,
@@ -84,7 +97,15 @@
           ]
         }
       ],
-      "icon": "hacker.ico",
+      "icon": "src/assets/icons/hacker.ico",
+      "cscLink": "bin/certificate.pfx",
+      "cscKeyPassword": "12123123",
+      "signtoolOptions": {
+        "publisherName": "ThomasThanos",
+        "signingHashAlgorithms": [
+          "sha256"
+        ]
+      },
       "publish": {
         "provider": "github",
         "releaseType": "release"
@@ -92,14 +113,25 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Make Your Life Easier",
-      "installerIcon": "hacker.ico",
-      "uninstallerIcon": "hacker.ico",
+      "installerIcon": "src/assets/icons/hacker.ico",
+      "uninstallerIcon": "src/assets/icons/hacker.ico",
+      "installerHeader": "src/assets/images/installer_header.bmp",
+      "installerSidebar": "src/assets/images/installer_banner.bmp",
       "warningsAsErrors": false,
-      "artifactName": "MakeYourLifeEasier-installer.exe"
+      "artifactName": "MakeYourLifeEasier-installer.exe",
+      "deleteAppDataOnUninstall": true,
+      "include": "build/installer.nsh",
+      "guid": "MakeYourLifeEasier",
+      "uninstallDisplayName": "Make Your Life Easier ${version}",
+      "uninstallUrlHelp": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/copyright.html",
+      "uninstallUrlInfoAbout": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/info/info.html",
+      "uninstallUrlReadme": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/readme.html",
+      "uninstallUrlUpdateInfo": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/changelog.html"
     },
     "portable": {
       "artifactName": "MakeYourLifeEasier-Portable.exe"

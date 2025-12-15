@@ -1,0 +1,44 @@
+/* ============================================
+   LAYOUT COMPONENTS
+   ============================================ */
+
+/* Main App Structure */
+#app {
+  display: flex;
+  height: 100%;
+  backdrop-filter: blur(20px);
+  margin-top: var(--title-bar-height);
+}
+
+/* Main Content Area */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-color);
+  height: calc(100% - var(--title-bar-height));
+  margin-top: 0;
+}
+
+#header {
+  padding: 1.25rem 2rem;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  color: var(--text-color);
+  backdrop-filter: blur(10px);
+  flex-shrink: 0;
+}
+
+#content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem;
+  background: var(--bg-color);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}

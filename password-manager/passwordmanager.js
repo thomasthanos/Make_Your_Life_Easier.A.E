@@ -1,3 +1,5 @@
+// Password Manager - Uses shared i18n utilities for translations
+
 class PasswordManager {
     constructor() {
         this.categories = [];
@@ -10,74 +12,210 @@ class PasswordManager {
             reused: 0,
             categories: 0
         };
-        this.isCompactMode = false;
+        const storedMode = localStorage.getItem('pmCompactMode');
+        this.isCompactMode = storedMode !== null ? storedMode === 'true' : false;
         this.isAuthenticated = false;
-        
-        // Initialize auth UI first
+
+        this.imgurToken = null;
+
         this.authUI = new PasswordManagerAuthUI();
-        
-        setTimeout(() => {
+        this.observeCards = () => { };
+
+        // Use shared I18n class for translations
+        this.i18n = new I18n();
+
+        // Load translations then initialize UI and authentication
+        this.i18n.load('lang').then(() => {
             this.initializeEventListeners();
             this.initializeAuth();
-        }, 1000);
+            this.initializeAnimations();
+            this.applyTranslations();
+        });
+
+        this.eventsInitialized = false;
+        this.isDataLoaded = false;
+        this.svgCopy = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
+        this.svgEye = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`;
+        this.svgEyeOff = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="svg-icon"><path fill="currentColor" d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7 7 0 0 0-2.79.588l.77.771A6 6 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755q-.247.248-.517.486z"/><path fill="currentColor" d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829"/><path fill="currentColor" d="M3.35 5.47q-.27.24-.518.487A13 13 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7 7 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12z"/></svg>`;
+
+        // Removed the delayed initialization; translations are loaded first.
     }
 
     async initializeAuth() {
         try {
             await this.authUI.initialize();
-            // Μην φορτώσεις τα δεδομένα αμέσως - περιμένει την επιτυχή πιστοποίηση
         } catch (error) {
-            console.error('Auth initialization failed:', error);
+            window.pmDebug('error', 'Auth initialization failed:', error);
         }
     }
-    // Νέα μέθοδος που καλείται όταν η πιστοποίηση είναι επιτυχής
+
     async onAuthSuccess() {
+        if (this.isDataLoaded) {
+            return;
+        }
+
         this.isAuthenticated = true;
         await this.loadData();
-        this.showSuccess('Password Manager unlocked!');
+        this.isDataLoaded = true;
+        this.showSuccess(this.t('password_manager_unlocked'));
     }
 
     initializeEventListeners() {
-        // Password modal
+        if (this.eventsInitialized) {
+            return;
+        }
+        this.eventsInitialized = true;
+
         document.getElementById('addPasswordBtn').addEventListener('click', () => this.openPasswordModal());
-        document.getElementById('fabAddPassword').addEventListener('click', () => this.openPasswordModal());
         document.getElementById('closePasswordModal').addEventListener('click', () => this.closePasswordModal());
         document.getElementById('cancelPasswordBtn').addEventListener('click', () => this.closePasswordModal());
         document.getElementById('passwordForm').addEventListener('submit', (e) => this.savePassword(e));
 
-        // Categories modal
-        document.getElementById('manageCategoriesBtn').addEventListener('click', () => this.openCategoriesModal());
-        document.getElementById('closeCategoriesModal').addEventListener('click', () => this.closeCategoriesModal());
-        document.getElementById('closeCategoriesBtn').addEventListener('click', () => this.closeCategoriesModal());
-        document.getElementById('addCategoryBtn').addEventListener('click', () => this.addCategory());
+        const manageBtn = document.getElementById('manageCategoriesBtn');
+        if (manageBtn) {
+            manageBtn.addEventListener('click', () => this.openCategoriesModal());
+        }
+        const closeCategoriesModal = document.getElementById('closeCategoriesModal');
+        if (closeCategoriesModal) {
+            closeCategoriesModal.addEventListener('click', () => this.closeCategoriesModal());
+        }
+        const closeCategoriesBtn = document.getElementById('closeCategoriesBtn');
+        if (closeCategoriesBtn) {
+            closeCategoriesBtn.addEventListener('click', () => this.closeCategoriesModal());
+        }
+        const addCategoryBtn = document.getElementById('addCategoryBtn');
+        if (addCategoryBtn) {
+            addCategoryBtn.addEventListener('click', () => this.addCategory());
+        }
 
-        // Search with debounce
         let searchTimeout;
         document.getElementById('searchInput').addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => this.searchPasswords(e.target.value), 300);
         });
 
-        // Password strength indicator
         document.getElementById('password').addEventListener('input', (e) => this.checkPasswordStrength(e.target.value));
 
-        // Generate password button
         document.getElementById('password').addEventListener('focus', () => {
             this.addGeneratePasswordButton();
         });
 
-        // Compact mode toggle
-        this.createCompactToggle();
+        const imageFileInput = document.getElementById('imageFile');
+        if (imageFileInput) {
+            imageFileInput.addEventListener('change', (e) => this.handleImageSelection(e));
+            const uploadBox = document.getElementById('imageUploadBox');
+            if (uploadBox) {
+                uploadBox.addEventListener('click', () => {
+                    imageFileInput.click();
+                });
+            }
+        }
 
-        // Close modals on backdrop click
-        document.getElementById('passwordModal').addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) this.closePasswordModal();
-        });
+        const urlInput = document.getElementById('url');
+        if (urlInput) {
+            urlInput.addEventListener('blur', (e) => {
+                const urlValue = e.target.value ? e.target.value.trim() : '';
+                if (urlValue) {
+                    this.fetchSiteLogo(urlValue);
+                }
+            });
+        }
+
+        const gridToggleBtn = document.getElementById('gridToggle');
+        if (gridToggleBtn) {
+            gridToggleBtn.addEventListener('click', () => this.toggleCompactMode());
+            const manager = document.querySelector('.password-manager');
+            this.updateCompactToggleUI(gridToggleBtn, manager);
+        }
+
         document.getElementById('categoriesModal').addEventListener('click', (e) => {
             if (e.target === e.currentTarget) this.closeCategoriesModal();
         });
 
-        // Keyboard shortcuts
+        document.getElementById('passwordModal').addEventListener('click', (e) => {
+        });
+
+        const inlineCatBtn = document.getElementById('addCategoryInline');
+        const inlineWrapper = document.getElementById('inlineCategoryInputWrapper');
+        const inlineNameInput = document.getElementById('inlineCategoryName');
+        const inlineSaveBtn = document.getElementById('inlineCatSaveBtn');
+        const inlineCancelBtn = document.getElementById('inlineCatCancelBtn');
+
+        if (inlineCatBtn && inlineWrapper && inlineNameInput) {
+            inlineCatBtn.addEventListener('click', () => {
+                inlineCatBtn.classList.add('hidden');
+                inlineWrapper.classList.remove('hidden');
+                const selectEl = document.getElementById('category');
+                if (selectEl) {
+                    selectEl.classList.add('hidden');
+                    const customSelect = document.getElementById('customCategorySelect');
+                    if (customSelect) {
+                        customSelect.classList.add('hidden');
+                    }
+                }
+                inlineNameInput.value = '';
+                inlineNameInput.focus();
+            });
+        }
+
+        if (inlineSaveBtn && inlineWrapper && inlineCatBtn && inlineNameInput) {
+            inlineSaveBtn.addEventListener('click', async () => {
+                const name = inlineNameInput.value ? inlineNameInput.value.trim() : '';
+                // Validate category name using translation keys
+                if (!name) {
+                    this.showError(this.t('category_name_required'));
+                    return;
+                }
+                // Check for duplicate names
+                if (this.categories.some(cat => cat.name.toLowerCase() === name.toLowerCase())) {
+                    this.showError(this.t('category_exists'));
+                    return;
+                }
+                try {
+                    const result = await window.api.passwordManagerAddCategory(name);
+                    if (result && result.success) {
+                        await this.loadCategories();
+                        const newCat = this.categories.find(cat => cat.name.toLowerCase() === name.toLowerCase());
+                        const selectEl = document.getElementById('category');
+                        if (newCat && selectEl) selectEl.value = newCat.id;
+                        this.showSuccess(this.t('category_added_successfully'));
+                    } else {
+                        const err = result && result.error ? result.error : this.t('unknown_error');
+                        this.showError(this.t('add_category_failed') + err);
+                    }
+                } catch (error) {
+                    this.showError(this.t('add_category_error') + error.message);
+                }
+                inlineWrapper.classList.add('hidden');
+                inlineCatBtn.classList.remove('hidden');
+                const selectEl = document.getElementById('category');
+                if (selectEl) {
+                    selectEl.classList.remove('hidden');
+                    const customSelect = document.getElementById('customCategorySelect');
+                    if (customSelect) {
+                        customSelect.classList.remove('hidden');
+                    }
+                }
+                inlineNameInput.value = '';
+            });
+        }
+
+        if (inlineCancelBtn && inlineWrapper && inlineCatBtn && inlineNameInput) {
+            inlineCancelBtn.addEventListener('click', () => {
+                inlineWrapper.classList.add('hidden');
+                inlineCatBtn.classList.remove('hidden');
+                const selectEl = document.getElementById('category');
+                if (selectEl) {
+                    selectEl.classList.remove('hidden');
+                    const customSelect = document.getElementById('customCategorySelect');
+                    if (customSelect) {
+                        customSelect.classList.remove('hidden');
+                    }
+                }
+                inlineNameInput.value = '';
+            });
+        }
+
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'n') {
                 e.preventDefault();
@@ -93,35 +231,45 @@ class PasswordManager {
     createCompactToggle() {
         const toggle = document.createElement('button');
         toggle.className = 'compact-toggle';
-        toggle.innerHTML = '📱 Compact Mode';
         toggle.addEventListener('click', () => this.toggleCompactMode());
         document.body.appendChild(toggle);
+        const manager = document.querySelector('.password-manager');
+        this.updateCompactToggleUI(toggle, manager);
     }
 
     toggleCompactMode() {
         this.isCompactMode = !this.isCompactMode;
-        console.log('Toggling compact mode to:', this.isCompactMode);
-        console.log('Current passwords count:', this.passwords.length);
-        
+        // No verbose logging for mode toggling; handled silently for modern UX
+
         const manager = document.querySelector('.password-manager');
         const toggle = document.querySelector('.compact-toggle');
-        
+
+        this.updateCompactToggleUI(toggle, manager);
+        localStorage.setItem('pmCompactMode', this.isCompactMode);
+        this.renderPasswords();
+    }
+
+    updateCompactToggleUI(toggle, manager) {
+        if (!toggle || !manager) return;
         if (this.isCompactMode) {
             manager.classList.add('compact');
-            toggle.innerHTML = '📱 Normal Mode';
-            toggle.style.background = 'var(--accent-color)';
-            toggle.style.color = 'white';
-            toggle.style.borderColor = 'var(--accent-color)';
+            toggle.classList.add('active');
         } else {
             manager.classList.remove('compact');
-            toggle.innerHTML = '📱 Compact Mode';
-            toggle.style.background = 'var(--card-bg)';
-            toggle.style.color = 'var(--sidebar-text)';
-            toggle.style.borderColor = 'var(--border-color)';
+            toggle.classList.remove('active');
         }
-        
-        // Re-render τα passwords
-        this.renderPasswords();
+        const labelKey = this.isCompactMode ? 'normal_mode' : 'compact_mode';
+        toggle.setAttribute('aria-label', this.t(labelKey));
+        if (!toggle.querySelector('.icon-grid')) {
+            toggle.innerHTML = '';
+            const icon = document.createElement('div');
+            icon.className = 'icon-grid';
+            for (let i = 0; i < 9; i++) {
+                const sq = document.createElement('span');
+                icon.appendChild(sq);
+            }
+            toggle.appendChild(icon);
+        }
     }
 
     initializeAnimations() {
@@ -140,7 +288,7 @@ class PasswordManager {
         }, observerOptions);
 
         this.observeCards = () => {
-            document.querySelectorAll('.password-card').forEach(card => {
+            document.querySelectorAll('.password-card, .compact-password-card').forEach(card => {
                 card.style.opacity = '0';
                 card.style.transform = 'translateY(20px)';
                 observer.observe(card);
@@ -176,44 +324,191 @@ class PasswordManager {
     addGeneratePasswordButton() {
         const passwordField = document.getElementById('password');
         const formGroup = passwordField.closest('.form-group');
-        
-        if (formGroup.querySelector('.generate-password-btn')) return;
-        
+
+        const existingBtn = formGroup.querySelector('.generate-password-btn');
+        if (existingBtn) {
+            existingBtn.remove();
+        }
+        const existingToggle = formGroup.querySelector('.toggle-visibility-btn');
+        if (existingToggle) {
+            existingToggle.remove();
+        }
+
         const generateBtn = document.createElement('button');
         generateBtn.type = 'button';
         generateBtn.className = 'button generate-password-btn';
-        generateBtn.innerHTML = '🎲 Generate Strong Password';
-        
+        // Accessible label for generate password button
+        generateBtn.setAttribute('aria-label', this.t('generate_password_label'));
+        generateBtn.innerHTML = '🎲';
+
         generateBtn.addEventListener('click', () => {
             this.generateStrongPassword();
         });
-        
-        formGroup.appendChild(generateBtn);
+
+        // Eye icon (open) - shown when password is hidden (click to reveal)
+        const eyeOpenIcon = `
+            <svg width="1.4em" height="1.4em" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 5C7 5 3.05 9.55 2 12c1.05 2.45 5 7 10 7s8.95-4.55 10-7c-1.05-2.45-5-7-10-7z" stroke="currentColor" stroke-width="2" fill="none" />
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none" />
+            </svg>`;
+        // Eye-off icon (with slash) - shown when password is visible (click to hide)
+        const eyeClosedIcon = `
+            <svg width="1.4em" height="1.4em" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 5C7 5 3.05 9.55 2 12c1.05 2.45 5 7 10 7s8.95-4.55 10-7c-1.05-2.45-5-7-10-7z" stroke="currentColor" stroke-width="2" fill="none" />
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none" />
+              <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" stroke-width="2" />
+            </svg>`;
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'button toggle-visibility-btn';
+        // Accessible label for toggle password visibility
+        toggleBtn.setAttribute('aria-label', this.t('toggle_password_visibility'));
+        // Start with open eye (password is hidden, click to reveal)
+        toggleBtn.innerHTML = eyeOpenIcon;
+
+        toggleBtn.addEventListener('click', () => {
+            const input = document.getElementById('password');
+            if (input.type === 'password') {
+                // Reveal password - show eye-off icon (click to hide)
+                input.type = 'text';
+                toggleBtn.innerHTML = eyeClosedIcon;
+                toggleBtn.classList.add('visible');
+            } else {
+                // Hide password - show eye icon (click to reveal)
+                input.type = 'password';
+                toggleBtn.innerHTML = eyeOpenIcon;
+                toggleBtn.classList.remove('visible');
+            }
+        });
+
+        const iconsContainer = document.createElement('div');
+        iconsContainer.className = 'password-icons-container';
+        iconsContainer.appendChild(toggleBtn);
+        iconsContainer.appendChild(generateBtn);
+        formGroup.appendChild(iconsContainer);
+
+        requestAnimationFrame(() => {
+            const passwordRect = passwordField.getBoundingClientRect();
+            const groupRect = formGroup.getBoundingClientRect();
+            const iconsRect = iconsContainer.getBoundingClientRect();
+            const offsetTop = passwordRect.top - groupRect.top + (passwordRect.height - iconsRect.height) / 2;
+            iconsContainer.style.top = `${offsetTop}px`;
+        });
     }
 
     async loadData() {
-        if (!this.isAuthenticated) {
-            console.log('Not authenticated, skipping data load');
+        if (!window.api || window.api.isStub) {
+            window.pmDebug('warn', 'Password manager APIs are not available; using sample data for demonstration.');
+            this.isAuthenticated = true;
+            this.categories = [
+                { id: 1, name: 'email' },
+                { id: 2, name: 'social media' },
+                { id: 3, name: 'gaming' }
+            ];
+            this.passwords = [
+                {
+                    id: 1,
+                    category_id: 1,
+                    title: 'Gmail',
+                    username: 'user',
+                    email: 'user@gmail.com',
+                    password: 'abc123',
+                    url: '',
+                    notes: '',
+                    updated_at: '2024-01-15'
+                },
+                {
+                    id: 2,
+                    category_id: 2,
+                    title: 'GitHub',
+                    username: 'developer',
+                    email: 'dev@example.com',
+                    password: 'Str0ngP@ssword!',
+                    url: '',
+                    notes: '',
+                    updated_at: '2024-02-20'
+                },
+                {
+                    id: 3,
+                    category_id: 3,
+                    title: 'Netflix',
+                    username: 'viewer',
+                    email: 'viewer@example.com',
+                    password: 'Anoth3r$trong1',
+                    url: '',
+                    notes: '',
+                    updated_at: '2024-03-10'
+                },
+                {
+                    id: 4,
+                    category_id: 2,
+                    title: 'AWS Console',
+                    username: 'admin',
+                    email: 'admin@company.com',
+                    password: 'S3cur3P@ss!',
+                    url: '',
+                    notes: '',
+                    updated_at: '2024-01-05'
+                },
+                {
+                    id: 5,
+                    category_id: 2,
+                    title: 'dfg',
+                    username: 'dfg',
+                    email: 'thomasthanos28@gmail.com',
+                    password: 'Difficult!Pass5',
+                    url: '',
+                    notes: '',
+                    updated_at: '2025-11-08'
+                },
+                {
+                    id: 6,
+                    category_id: 2,
+                    title: 'Discord',
+                    username: 'Thomas2873',
+                    email: 'thomasthanos28@gmail.com',
+                    password: 'B3stP@ss6$',
+                    url: '',
+                    notes: '',
+                    updated_at: '2025-11-08'
+                }
+            ];
+            this.passwords.forEach(p => {
+                const cat = this.categories.find(c => String(c.id) === String(p.category_id));
+                p.category_name = cat ? cat.name : '';
+                const storedImg = localStorage.getItem('passwordImage-' + p.id);
+                if (storedImg) {
+                    p.image = storedImg;
+                }
+            });
+            this.renderCategories();
+            this.renderCategorySelect();
+            this.calculateStats();
+            this.renderPasswords();
             return;
         }
 
-        console.log('Loading password manager data...');
-        
-        if (!window.api) {
-            this.showError('Password manager APIs are not available.');
+        if (!this.isAuthenticated) {
+            // Warn if data load is attempted without authentication
+            window.pmDebug('warn', 'Not authenticated, skipping data load');
             return;
         }
+
+        // Informative log for starting data load
+        window.pmDebug('info', 'Loading password manager data...');
 
         const requiredApis = [
             'passwordManagerGetCategories',
             'passwordManagerGetPasswords',
             'passwordManagerAddPassword'
         ];
-        
+
         const missingApis = requiredApis.filter(api => typeof window.api[api] !== 'function');
-        
+
         if (missingApis.length > 0) {
-            this.showError(`Missing password manager APIs: ${missingApis.join(', ')}`);
+            // Show a generic error if required APIs are missing
+            this.showError(this.t('password_manager_apis_unavailable'));
             return;
         }
 
@@ -225,41 +520,36 @@ class PasswordManager {
         this.stats.total = this.passwords.length;
         this.stats.categories = this.categories.length;
         this.stats.weak = this.passwords.filter(p => this.getPasswordStrength(p.password) === 'weak').length;
-        
+        this.stats.strong = this.passwords.filter(p => this.getPasswordStrength(p.password) !== 'weak').length;
         const passwordCounts = {};
         this.passwords.forEach(p => {
             passwordCounts[p.password] = (passwordCounts[p.password] || 0) + 1;
         });
         this.stats.reused = Object.values(passwordCounts).filter(count => count > 1).length;
-
         this.renderStats();
     }
 
     renderStats() {
         const container = document.getElementById('statsContainer');
-        container.innerHTML = `
+        if (!container) return;
+        const statsArray = [
+            { icon: '🔒', value: this.stats.total, label: this.t('stats_total') },
+            { icon: '🛡️', value: this.stats.strong || 0, label: this.t('stats_strong') },
+            { icon: '⚠️', value: this.stats.weak, label: this.t('stats_weak') },
+            { icon: '📂', value: this.stats.categories, label: this.t('stats_categories') }
+        ];
+        container.innerHTML = statsArray.map(({ icon, value, label }) => `
             <div class="stat-card">
-                <span class="stat-number">${this.stats.total}</span>
-                <span class="stat-label">Total Passwords</span>
+                <div class="stat-icon">${icon}</div>
+                <span class="stat-number">${value}</span>
+                <span class="stat-label">${label}</span>
             </div>
-            <div class="stat-card">
-                <span class="stat-number">${this.stats.categories}</span>
-                <span class="stat-label">Categories</span>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number">${this.stats.weak}</span>
-                <span class="stat-label">Weak Passwords</span>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number">${this.stats.reused}</span>
-                <span class="stat-label">Reused</span>
-            </div>
-        `;
+        `).join('');
     }
 
     getPasswordStrength(password) {
         if (!password) return 'weak';
-        
+
         let strength = 0;
         if (password.length >= 8) strength++;
         if (password.length >= 12) strength++;
@@ -267,7 +557,7 @@ class PasswordManager {
         if (/[a-z]/.test(password)) strength++;
         if (/[0-9]/.test(password)) strength++;
         if (/[^A-Za-z0-9]/.test(password)) strength++;
-        
+
         if (strength <= 2) return 'weak';
         if (strength <= 4) return 'medium';
         if (strength <= 5) return 'strong';
@@ -277,7 +567,7 @@ class PasswordManager {
     checkPasswordStrength(password) {
         const strengthBar = document.getElementById('passwordStrength');
         if (!strengthBar) return;
-        
+
         const strength = this.getPasswordStrength(password);
         strengthBar.className = 'strength-bar';
         strengthBar.classList.add(`strength-${strength}`);
@@ -290,37 +580,43 @@ class PasswordManager {
             numbers: '0123456789',
             symbols: '!@#$%^&*()_+-=[]{}|;:,.<>?'
         };
-        
+
         let password = '';
         password += chars.uppercase[Math.floor(Math.random() * chars.uppercase.length)];
         password += chars.lowercase[Math.floor(Math.random() * chars.lowercase.length)];
         password += chars.numbers[Math.floor(Math.random() * chars.numbers.length)];
         password += chars.symbols[Math.floor(Math.random() * chars.symbols.length)];
-        
+
         const allChars = chars.uppercase + chars.lowercase + chars.numbers + chars.symbols;
         for (let i = password.length; i < 16; i++) {
             password += allChars[Math.floor(Math.random() * allChars.length)];
         }
-        
+
         password = password.split('').sort(() => Math.random() - 0.5).join('');
-        
+
         document.getElementById('password').value = password;
         this.checkPasswordStrength(password);
-        this.showSuccess('Strong password generated!');
+        this.showSuccess(this.t('strong_password_generated'));
     }
 
     async loadCategories() {
         try {
             const result = await window.api.passwordManagerGetCategories();
             if (result.success) {
-                this.categories = result.categories;
+                if (Array.isArray(result.categories)) {
+                    this.categories = result.categories.filter(cat => {
+                        return !(cat && cat.name && typeof cat.name === 'string' && cat.name.toLowerCase() === 'general');
+                    });
+                } else {
+                    this.categories = result.categories || [];
+                }
                 this.renderCategories();
                 this.renderCategorySelect();
             } else {
-                this.showError('Failed to load categories: ' + result.error);
+                this.showError(this.t('load_categories_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error loading categories: ' + error.message);
+            this.showError(this.t('load_categories_error') + error.message);
         }
     }
 
@@ -329,13 +625,21 @@ class PasswordManager {
             const result = await window.api.passwordManagerGetPasswords(categoryId);
             if (result.success) {
                 this.passwords = result.passwords;
+                this.passwords.forEach(p => {
+                    if (!p.image) {
+                        const storedImg = localStorage.getItem('passwordImage-' + p.id);
+                        if (storedImg) {
+                            p.image = storedImg;
+                        }
+                    }
+                });
                 this.renderPasswords();
                 this.calculateStats();
             } else {
-                this.showError('Failed to load passwords: ' + result.error);
+                this.showError(this.t('load_passwords_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error loading passwords: ' + error.message);
+            this.showError(this.t('load_passwords_error') + error.message);
         }
     }
 
@@ -345,7 +649,8 @@ class PasswordManager {
 
         const allBtn = document.createElement('button');
         allBtn.className = `category-btn ${this.currentCategory === 'all' ? 'active' : ''}`;
-        allBtn.innerHTML = '<span>🌐 All</span>';
+        const allLabel = typeof this.t === 'function' ? this.t('all_categories') : 'All';
+        allBtn.innerHTML = `<span>🌐 ${allLabel}</span>`;
         allBtn.addEventListener('click', () => this.filterByCategory('all'));
         container.appendChild(allBtn);
 
@@ -360,265 +665,602 @@ class PasswordManager {
 
     renderCategorySelect() {
         const select = document.getElementById('category');
-        select.innerHTML = '<option value="">No Category</option>';
-        
+        const noCat = typeof this.t === 'function' ? this.t('no_category_option') : 'No Category';
+        select.innerHTML = `<option value="no_category">${noCat}</option>`;
+
         this.categories.forEach(category => {
             const option = document.createElement('option');
             option.value = category.id;
             option.textContent = category.name;
             select.appendChild(option);
         });
+
+        this.renderCustomSelect();
     }
 
-renderPasswords() {
-    console.log('Rendering passwords, compact mode:', this.isCompactMode);
-    const grid = document.getElementById('passwordsGrid');
-    
-    if (this.passwords.length === 0) {
-        grid.innerHTML = `
-            <div class="empty-state">
+    renderCustomSelect() {
+        const selectEl = document.getElementById('category');
+        if (!selectEl) return;
+        const wrapper = selectEl.closest('.category-select-wrapper');
+        if (!wrapper) return;
+        const existingCustom = wrapper.querySelector('.custom-select');
+        if (existingCustom) {
+            existingCustom.remove();
+        }
+        const custom = document.createElement('div');
+        custom.className = 'custom-select';
+        custom.setAttribute('id', 'customCategorySelect');
+        const display = document.createElement('div');
+        display.className = 'select-display';
+        let selectedOption = selectEl.options[selectEl.selectedIndex];
+        if (!selectedOption) {
+            selectedOption = selectEl.options[0];
+        }
+        display.textContent = selectedOption ? selectedOption.textContent : '';
+        custom.appendChild(display);
+        const optionsList = document.createElement('div');
+        optionsList.className = 'select-options';
+        Array.from(selectEl.options).forEach(option => {
+            const item = document.createElement('div');
+            item.textContent = option.textContent;
+            item.dataset.value = option.value;
+            if (option.value === selectEl.value) {
+                item.classList.add('selected');
+            }
+            item.addEventListener('click', (e) => {
+                selectEl.value = option.value;
+                const changeEvent = new Event('change', { bubbles: true });
+                selectEl.dispatchEvent(changeEvent);
+                display.textContent = option.textContent;
+                optionsList.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+                item.classList.add('selected');
+                custom.classList.remove('open');
+            });
+            optionsList.appendChild(item);
+        });
+        custom.appendChild(optionsList);
+        display.addEventListener('click', (e) => {
+            e.stopPropagation();
+            custom.classList.toggle('open');
+        });
+        document.addEventListener('click', (e) => {
+            if (!custom.contains(e.target)) {
+                custom.classList.remove('open');
+            }
+        });
+        wrapper.insertBefore(custom, selectEl);
+        selectEl.style.display = 'none';
+    }
+
+    /* ====================================================================
+     *                            Helper Methods
+     * These helpers centralise logic used across multiple class methods to
+     * reduce complexity and repetition.  They are defined before
+     * `renderPasswords()` to ensure they are part of the PasswordManager
+     * prototype.
+     * ==================================================================== */
+
+    /**
+     * Helper: Determine the displayable category name for a password entry.
+     * If the password already has a non‑`no_category` name, it is escaped and
+     * returned.  Otherwise it attempts to look up the category by id in the
+     * local categories list.  If no category id is present, a translated
+     * “no category” fallback is returned.  An empty string is used when a
+     * category id exists but no matching category can be found.  This logic
+     * consolidates the repeated conditional checks used throughout the
+     * rendering code.
+     *
+     * @param {Object} password The password object to inspect
+     * @returns {string} The escaped category name or appropriate fallback
+     */
+    getCategoryName(password) {
+        let categoryName = '';
+        if (password.category_name && password.category_name !== 'no_category') {
+            // explicit category name set on the password
+            categoryName = this.escapeHtml(password.category_name);
+        } else {
+            // attempt to find the category by id
+            const catObj = this.categories.find(c => String(c.id) === String(password.category_id));
+            if (catObj) {
+                categoryName = this.escapeHtml(catObj.name);
+            } else {
+                if (!password.category_id) {
+                    // no category id provided, return the translated no-category option
+                    categoryName = (typeof this.t === 'function' ? this.t('no_category_option') : 'No Category');
+                } else {
+                    // category id exists but not found in list
+                    categoryName = '';
+                }
+            }
+        }
+        return categoryName;
+    }
+
+    /**
+     * Helper: Returns a formatted date string for a password's `updated_at`
+     * property.  If `updated_at` is falsy, a dash is returned instead.  This
+     * helper centralises the date formatting logic.
+     * @param {Object} password The password object containing the date
+     * @returns {string} A locale date string or '—'
+     */
+    getUpdatedDate(password) {
+        return password.updated_at ? new Date(password.updated_at).toLocaleDateString() : '—';
+    }
+
+    /**
+     * Helper: Builds an HTML anchor element to open the password's URL in an
+     * external browser.  If no URL is present, an empty string is returned.
+     * The display URL is computed but currently unused; this method focuses on
+     * consistent escaping and translation usage.
+     * @param {Object} password The password object with the `url` property
+     * @returns {string} A string containing an anchor tag or ''
+     */
+    getVisitLink(password) {
+        if (!password.url) return '';
+        try {
+            // Parse to validate; host name not used but ensures correct URL
+            const urlObj = new URL(password.url);
+            void urlObj; // silence unused variable warning
+        } catch (e) {
+            // If parsing fails, we still attempt to use the raw value
+        }
+        return `<a href="#" onclick="pm.openExternal('${this.escapeHtml(password.url)}')" title="${this.t('open_in_browser')}">${this.t('open_website') || 'Visit site'}</a>`;
+    }
+
+    /**
+     * Helper: Returns an HTML string representing either the stored image for
+     * the password or a fallback with the first letter of the title.  This
+     * function centralises image handling for both compact and full card views.
+     * @param {Object} password The password object to render
+     * @param {string} title The already escaped title string
+     * @returns {string} An HTML string for the image element
+     */
+    getImageHtml(password, title) {
+        const imgSrc = this.getImageForPassword(password.id);
+        if (imgSrc) {
+            return `<img src="${imgSrc}" class="card-image" alt="" />`;
+        } else {
+            const initial = title.trim().charAt(0).toUpperCase();
+            return `<div class="card-image initial">${initial}</div>`;
+        }
+    }
+
+    /**
+     * Helper: Determines which info field to show on a compact password card.
+     * It prioritises the email if present, otherwise falls back to the
+     * username.  Returns an object containing the formatted value, the field
+     * name for copying, the title for the copy button, and the appropriate
+     * SVG icon.  This helps simplify the logic within the render method.
+     *
+     * @param {Object} password The password object
+     * @param {Object} icons A mapping of SVG icon variables used for rendering
+     * @returns {{value:string, field:string, title:string, icon:string}}
+     */
+    getCompactInfo(password, icons) {
+        const username = password.username ? this.escapeHtml(password.username) : '';
+        const email = password.email ? this.escapeHtml(password.email) : '';
+        if (email) {
+            return {
+                value: email,
+                field: 'email',
+                title: this.t('copy_email'),
+                icon: icons.mail
+            };
+        }
+        if (username) {
+            return {
+                value: username,
+                field: 'username',
+                title: this.t('copy_username'),
+                icon: icons.user
+            };
+        }
+        return { value: '', field: '', title: '', icon: '' };
+    }
+
+    /**
+     * Helper: Retrieves the selected category information from the category
+     * dropdown.  Returns both the id (or null) and the name as strings.
+     * Extracting this logic into a helper reduces complexity in savePassword.
+     * @returns {{id:string|null, name:string}}
+     */
+    getSelectedCategoryInfo() {
+        const categorySelectEl = document.getElementById('category');
+        const selectedCategoryId = categorySelectEl ? categorySelectEl.value : null;
+        let selectedCategoryName = '';
+        let categoryIdToStore = null;
+        if (selectedCategoryId && selectedCategoryId !== 'no_category') {
+            categoryIdToStore = selectedCategoryId;
+            // Try to find the category object from the local categories list
+            const catObj = this.categories.find(c => String(c.id) === String(selectedCategoryId));
+            if (catObj) {
+                selectedCategoryName = catObj.name;
+            } else if (categorySelectEl) {
+                const opt = categorySelectEl.options[categorySelectEl.selectedIndex];
+                if (opt) selectedCategoryName = opt.textContent.trim();
+            }
+        } else {
+            categoryIdToStore = null;
+            selectedCategoryName = 'no_category';
+        }
+        return { id: categoryIdToStore, name: selectedCategoryName };
+    }
+
+    /**
+     * Helper: Gathers and sanitises all password form inputs into a single
+     * object.  Additional processing such as trimming values and defaulting
+     * empty fields to null occurs here.  The category info should be
+     * passed in from getSelectedCategoryInfo().
+     *
+     * @param {string|null} categoryId The selected category id or null
+     * @param {string} categoryName The display name of the selected category
+     * @returns {Object} A password data object ready to be saved
+     */
+    buildPasswordData(categoryId, categoryName) {
+        const getValue = id => {
+            const el = document.getElementById(id);
+            return el ? el.value.trim() : '';
+        };
+        return {
+            title: getValue('title'),
+            category_id: categoryId,
+            category_name: categoryName,
+            username: getValue('username'),
+            email: getValue('email'),
+            password: document.getElementById('password')?.value ?? '',
+            url: getValue('url') || null,
+            notes: getValue('notes') || null,
+            image: document.getElementById('imageData') ? (document.getElementById('imageData').value || null) : null
+        };
+    }
+
+    /**
+     * Helper: Validates the necessary fields of a password before save.  If
+     * validation fails, this method will handle displaying the error message
+     * and applying the appropriate shaking animation.  When validation
+     * succeeds it returns null, otherwise it returns the name of the field
+     * that failed which can be used by the caller if needed.
+     *
+     * @param {Object} passwordData The object returned from buildPasswordData()
+     * @returns {string|null} The name of the invalid field or null if valid
+     */
+    validatePasswordInputs(passwordData) {
+        /*
+         * Consolidate validations into a list of objects describing each rule.
+         * Each rule has a condition function, a field identifier, a translation
+         * key for the error message, and the IDs of the input elements to
+         * apply the shake animation.  Iterating over this array reduces the
+         * cyclomatic complexity of the validation logic.
+         */
+        const validations = [
+            {
+                condition: () => !passwordData.title,
+                field: 'title',
+                messageKey: 'title_required',
+                elements: ['title']
+            },
+            {
+                condition: () => !passwordData.password,
+                field: 'password',
+                messageKey: 'password_required',
+                elements: ['password']
+            },
+            {
+                condition: () => passwordData.password && passwordData.password.trim().length === 0,
+                field: 'password',
+                messageKey: 'password_empty',
+                elements: ['password']
+            },
+            {
+                condition: () => !passwordData.username && !passwordData.email,
+                field: 'username_or_email',
+                messageKey: 'username_or_email_required',
+                elements: ['username', 'email']
+            },
+            {
+                condition: () => !passwordData.url,
+                field: 'url',
+                messageKey: 'url_required',
+                elements: ['url']
+            },
+            {
+                condition: () => passwordData.email && !this.isValidEmailUnicode(passwordData.email),
+                field: 'email',
+                messageKey: 'invalid_email_format',
+                elements: ['email']
+            }
+        ];
+        for (const rule of validations) {
+            if (rule.condition()) {
+                // Determine the error message; some keys may not map directly so we
+                // fallback to default English strings when necessary.
+                let msg;
+                if (rule.messageKey === 'username_or_email_required') {
+                    msg = typeof this.t === 'function' ? this.t(rule.messageKey) : 'Either Username or Email is required.';
+                } else if (rule.messageKey === 'invalid_email_format') {
+                    msg = typeof this.t === 'function' ? this.t(rule.messageKey) : 'Invalid email format.';
+                } else {
+                    msg = this.t(rule.messageKey);
+                }
+                this.showError(msg);
+                // Apply the shake class to all relevant elements
+                rule.elements.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.add('shake');
+                });
+                // Remove the shake class after a short delay
+                setTimeout(() => {
+                    rule.elements.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.classList.remove('shake');
+                    });
+                }, 500);
+                return rule.field;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Helper: Performs the asynchronous save or update via the appropriate
+     * password manager API and updates the local state accordingly.  This
+     * encapsulates the API interaction, UI locking/unlocking, error handling
+     * and subsequent refresh of passwords and statistics.  All DOM updates
+     * after a successful call are delegated to updateUIAfterSave().
+     *
+     * @param {Object} passwordData The data to save
+     * @returns {Promise<void>}
+     */
+    async performSave(passwordData) {
+        const saveBtn = document.getElementById('savePasswordBtn');
+        const originalText = saveBtn ? saveBtn.innerHTML : '';
+        if (saveBtn) {
+            saveBtn.innerHTML = '<span class="loading"></span> Saving...';
+            saveBtn.disabled = true;
+        }
+        let result;
+        if (this.currentEditingId) {
+            result = await window.api.passwordManagerUpdatePassword(this.currentEditingId, passwordData);
+        } else {
+            result = await window.api.passwordManagerAddPassword(passwordData);
+        }
+        if (saveBtn) {
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }
+        if (result.success) {
+            await this.updateUIAfterSave(passwordData);
+            // Show appropriate success message
+            if (this.currentEditingId) {
+                this.showSuccess(this.t('password_updated_successfully'));
+            } else {
+                this.showSuccess(this.t('password_saved_successfully'));
+            }
+        } else {
+            const errMsg = result.error || this.t('unknown_error');
+            this.showError(this.t('save_password_failed') + errMsg);
+        }
+    }
+
+    /**
+     * Helper: Handles the post‑save UI updates such as reloading the passwords
+     * from the server, updating local images, refreshing stats, and
+     * re‑rendering the password grid.  This method ensures that the
+     * necessary state changes occur in a single place.  It also closes the
+     * password modal when appropriate.  Uses this.currentEditingId to
+     * distinguish between add and update operations.
+     *
+     * @param {Object} passwordData The saved password data
+     */
+    async updateUIAfterSave(passwordData) {
+        const editingId = this.currentEditingId;
+        // store existing ids to detect new record after reload
+        const previousIds = this.passwords.map(p => p.id);
+
+        // close the modal before refreshing the list
+        this.closePasswordModal();
+        let storedId = editingId || null;
+
+        // Preserve image for editing record before reload
+        if (storedId && passwordData.image) {
+            const existing = this.passwords.find(p => p.id === storedId);
+            if (existing) {
+                existing.image = passwordData.image;
+            }
+        }
+        // reload passwords
+        await this.loadPasswords(this.currentCategory);
+        // After reload, update storedId if this is a new record and an image exists
+        if (!storedId && passwordData.image) {
+            const newPw = this.passwords.find(p => !previousIds.includes(p.id));
+            if (newPw) {
+                storedId = newPw.id;
+                newPw.image = passwordData.image;
+            }
+        }
+        // restore images from localStorage
+        this.passwords.forEach(p => {
+            const img = localStorage.getItem('passwordImage-' + p.id);
+            if (img) {
+                p.image = img;
+            }
+        });
+        // re-render UI
+        this.renderPasswords();
+        this.calculateStats();
+        // update the UI image element if needed
+        if (passwordData.image && storedId) {
+            this.updatePasswordImageInUI(storedId, passwordData.image);
+        }
+    }
+
+    renderPasswords() {
+        // Trace rendering with layout info using modern logger
+        window.pmDebug('info', 'Rendering passwords, compact mode:', this.isCompactMode);
+        const grid = document.getElementById('passwordsGrid');
+
+        if (this.passwords.length === 0) {
+            const noPasswords = typeof this.t === 'function' ? this.t('no_passwords_yet') : 'No Passwords Yet';
+            const firstDesc = typeof this.t === 'function' ? this.t('first_password_desc') : 'Add your first password to secure your digital life';
+            const firstBtn = typeof this.t === 'function' ? this.t('add_first_password') : 'Add Your First Password';
+            const emptyClass = this.isCompactMode ? 'empty-state compact-empty' : 'empty-state';
+            grid.innerHTML = `
+            <div class="${emptyClass}">
                 <i>🔒</i>
-                <h3>No Passwords Yet</h3>
-                <p>Add your first password to secure your digital life</p>
+                <h3>${noPasswords}</h3>
+                <p>${firstDesc}</p>
                 <button class="button" onclick="pm.openPasswordModal()" style="margin-top: 1rem;">
-                    Add Your First Password
+                    ${firstBtn}
                 </button>
             </div>
         `;
-        return;
-    }
+            return;
+        }
 
-    // ULTRA COMPACT MODE
-    if (this.isCompactMode) {
-        console.log('Rendering COMPACT mode cards');
-        grid.innerHTML = this.passwords.map(password => {
-            const strength = this.getPasswordStrength(password.password);
-            const strengthIcons = {
-                'weak': '🔴',
-                'medium': '🟡', 
-                'strong': '🟢',
-                'very-strong': '🔵'
-            };
-            
-            // Build login fields - ALWAYS show both if they exist
-            let loginFields = [];
-            
-            // ALWAYS show username if exists
-            if (password.username) {
-                loginFields.push(`
-                    <div class="compact-field">
-                        <div class="compact-value">
-                            <span class="compact-text" title="${this.escapeHtml(password.username)}">
-                                👤 ${this.escapeHtml(password.username)}
-                            </span>
-                            <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.username)}')" title="Copy username">📋</button>
-                        </div>
-                    </div>
-                `);
-            }
-            
-            // ALWAYS show email if exists  
-            if (password.email) {
-                loginFields.push(`
-                    <div class="compact-field">
-                        <div class="compact-value">
-                            <span class="compact-text" title="${this.escapeHtml(password.email)}">
-                                📧 ${this.escapeHtml(password.email)}
-                            </span>
-                            <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.email)}')" title="Copy email">📋</button>
-                        </div>
-                    </div>
-                `);
-            }
-            
-            // If no username or email, show placeholder
-            if (loginFields.length === 0) {
-                loginFields.push(`
-                    <div class="compact-field">
-                        <div class="compact-value">
-                            <span class="compact-text" style="opacity: 0.7;">
-                                👤 No username/email
-                            </span>
-                        </div>
-                    </div>
-                `);
-            }
-            
-            // Add URL field if exists
-            let urlField = '';
-            if (password.url) {
-                let displayUrl = password.url;
-                try {
-                    const url = new URL(password.url);
-                    displayUrl = url.hostname.replace('www.', '');
-                } catch (e) {
-                    // Keep original URL if parsing fails
-                }
-                urlField = `
-                    <div class="compact-field">
-                        <div class="compact-value">
-                            <span class="compact-text" title="${this.escapeHtml(password.url)}">
-                                🌐 ${this.escapeHtml(displayUrl)}
-                            </span>
-                            <button class="compact-action-btn" onclick="pm.openExternal('${this.escapeHtml(password.url)}')" title="Open website">🔗</button>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Add notes field if exists (truncated)
-            let notesField = '';
-            if (password.notes) {
-                const truncatedNotes = password.notes.length > 50 ? 
-                    password.notes.substring(0, 50) + '...' : password.notes;
-                notesField = `
-                    <div class="compact-field">
-                        <div class="compact-value">
-                            <span class="compact-text" title="${this.escapeHtml(password.notes)}">
-                                📝 ${this.escapeHtml(truncatedNotes)}
-                            </span>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            return `
-            <div class="compact-password-card">
+        const svgCopy = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
+        const svgEye = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`;
+        const svgDots = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><circle cx="12" cy="5" r="1.5" fill="currentColor"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor"></circle><circle cx="12" cy="19" r="1.5" fill="currentColor"></circle></svg>`;
+        const svgEdit = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.004 1.004 0 0 0 0-1.42l-2.34-2.34a1.004 1.004 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.82z"/></svg>`;
+        const svgDelete = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zm3.46-9.12l1.41-1.41L12 10.59l1.12-1.12 1.42 1.42L13.41 12l1.13 1.12-1.42 1.42L12 13.41l-1.12 1.13-1.42-1.42L10.59 12l-1.13-1.12zm7.54-7.88V4H7V2h5.5l1-1h5v1h-3.54z"/></svg>`;
+        const svgUser = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.31 0-10 1.67-10 5v3h20v-3c0-3.33-6.69-5-10-5z"/></svg>`;
+        const svgMail = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg>`;
+        const svgLock = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zm-5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm-3-7V7a3 3 0 0 1 6 0v2H9z"/></svg>`;
+
+        if (this.isCompactMode) {
+            // Map icons for use in compact info helper
+            const icons = { user: svgUser, mail: svgMail };
+            grid.innerHTML = this.passwords.map(password => {
+                const title = this.escapeHtml(password.title);
+                const categoryName = this.getCategoryName(password);
+                const updatedDate = this.getUpdatedDate(password);
+                const info = this.getCompactInfo(password, icons);
+                const visitLink = this.getVisitLink(password);
+                const imageHtml = this.getImageHtml(password, title);
+                return `
+            <div class="compact-password-card" data-password-id="${password.id}">
                 <div class="compact-header">
-                    <h3 class="compact-title" title="${this.escapeHtml(password.title)}">
-                        ${this.escapeHtml(password.title)}
-                    </h3>
+                    <div class="compact-main">
+                        ${imageHtml}
+                        <div class="compact-headings">
+                            <h3 class="compact-title">${title}</h3>
+                            ${categoryName ? `<div class="compact-category-footer">${categoryName}</div>` : ''}
+                        </div>
+                    </div>
                     <div class="compact-actions">
-                        <button class="compact-action-btn" onclick="pm.editPassword(${password.id})" title="Edit">✏️</button>
-                        <button class="compact-action-btn" onclick="pm.deletePassword(${password.id})" title="Delete">🗑️</button>
+                        <button class="menu-btn" onclick="pm.toggleActionMenu(event, this)" title="${this.t('options') || 'Options'}">${svgDots}</button>
+                        <div class="actions-menu">
+                            <button class="action-item edit" onclick="pm.editPassword(${password.id})" title="${this.t('edit')}">${svgEdit} <span>${this.t('edit')}</span></button>
+                            <button class="action-item delete" onclick="pm.deletePassword(${password.id})" title="${this.t('delete')}">${svgDelete} <span>${this.t('delete')}</span></button>
+                        </div>
                     </div>
                 </div>
-                
-                ${loginFields.join('')}
-                
-                <!-- Password Field -->
-                <div class="compact-field">
-                    <div class="compact-value">
-                        <span class="compact-text compact-password-hidden">
-                            ${strengthIcons[strength]} ••••••••
-                        </span>
-                        <button class="compact-reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="Reveal password">👁️</button>
-                        <button class="compact-copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.password)}')" title="Copy password">📋</button>
-                    </div>
+                ${info.value ? `<div class="compact-info-line">
+                    <span class="info-icon">${info.icon}</span>
+                    <span class="info-value">${info.value}</span>
+                    <button class="compact-copy-btn" onclick="pm.copyField(${password.id}, '${info.field}')" title="${info.title}">${svgCopy}</button>
+                </div>` : ''}
+                <div class="compact-password-row">
+                    <span class="password-icon">${svgLock}</span>
+                    <span class="compact-text compact-password-hidden">••••••••</span>
+                    <button class="compact-reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="${this.t('reveal_password')}">${svgEye}</button>
+                    <button class="compact-copy-btn" onclick="pm.copyField(${password.id}, 'password')" title="${this.t('copy_password')}">${svgCopy}</button>
                 </div>
-                
-                ${urlField}
-                ${notesField}
-                
-                <!-- Last Updated -->
-                <div class="compact-field" style="font-size: 0.8em; opacity: 0.7;">
-                    <div class="compact-value">
-                        <span class="compact-text">
-                            📅 ${password.updated_at ? new Date(password.updated_at).toLocaleDateString() : 'Unknown'}
-                        </span>
-                    </div>
+                <div class="compact-bottom">
+                    ${visitLink}
+                    <span class="compact-date">${updatedDate}</span>
                 </div>
             </div>
             `;
-        }).join('');
-    } else {
-        // NORMAL MODE - Original detailed view
-        // ... keep the existing normal mode code unchanged
-        grid.innerHTML = this.passwords.map(password => {
-            const strength = this.getPasswordStrength(password.password);
-            const strengthIcons = {
-                'weak': '🔴',
-                'medium': '🟡', 
-                'strong': '🟢',
-                'very-strong': '🔵'
-            };
-            
-            let displayUrl = '—';
-            try {
-                if (password.url) {
-                    const url = new URL(password.url);
-                    displayUrl = url.hostname.replace('www.', '');
-                }
-            } catch (e) {
-                displayUrl = password.url;
-            }
-            
-            return `
-            <div class="password-card">
+            }).join('');
+        } else {
+            grid.innerHTML = this.passwords.map(password => {
+                const title = this.escapeHtml(password.title);
+                const categoryName = this.getCategoryName(password);
+                const updatedDate = this.getUpdatedDate(password);
+                const username = password.username ? this.escapeHtml(password.username) : '';
+                const email = password.email ? this.escapeHtml(password.email) : '';
+                const visitLink = this.getVisitLink(password);
+                const imageHtml = this.getImageHtml(password, title);
+                return `
+            <div class="password-card" data-password-id="${password.id}">
                 <div class="password-header">
-                    <h3 class="password-title">${this.escapeHtml(password.title)}</h3>
+                    <div class="password-main">
+                        ${imageHtml}
+                        <div class="password-headings">
+                            <h3 class="password-title">${title}</h3>
+                            ${categoryName ? `<div class="password-category-footer">${categoryName}</div>` : ''}
+                        </div>
+                    </div>
                     <div class="password-actions">
-                        <button class="action-btn" onclick="pm.editPassword(${password.id})" title="Edit">✏️</button>
-                        <button class="action-btn" onclick="pm.deletePassword(${password.id})" title="Delete">🗑️</button>
+                        <button class="menu-btn" onclick="pm.toggleActionMenu(event, this)" title="${this.t('options') || 'Options'}">${svgDots}</button>
+                        <div class="actions-menu">
+                            <button class="action-item edit" onclick="pm.editPassword(${password.id})" title="${this.t('edit')}">${svgEdit} <span>${this.t('edit')}</span></button>
+                            <button class="action-item delete" onclick="pm.deletePassword(${password.id})" title="${this.t('delete')}">${svgDelete} <span>${this.t('delete')}</span></button>
+                        </div>
                     </div>
                 </div>
-                
-                ${password.category_name ? `
-                <div class="password-category">${this.escapeHtml(password.category_name)}</div>` : ''}
-                
-                <div class="password-field">
-                    <span class="password-label">Username</span>
-                    <div class="password-value">
-                        <span class="password-text">${password.username ? this.escapeHtml(password.username) : '—'}</span>
-                        ${password.username ? `<button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.username)}')" title="Copy username">📋</button>` : ''}
-                    </div>
-                </div>
-                
-                <div class="password-field">
-                    <span class="password-label">Email</span>
-                    <div class="password-value">
-                        <span class="password-text">${password.email ? this.escapeHtml(password.email) : '—'}</span>
-                        ${password.email ? `<button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.email)}')" title="Copy email">📋</button>` : ''}
-                    </div>
-                </div>
-                
-                <div class="password-field">
-                    <span class="password-label">Password ${strengthIcons[strength]}</span>
-                    <div class="password-value">
-                        <span class="password-text password-hidden">••••••••</span>
-                        <button class="reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="Reveal password">👁️</button>
-                        <button class="copy-btn" onclick="pm.copyToClipboard('${this.escapeHtml(password.password)}')" title="Copy password">📋</button>
-                    </div>
-                </div>
-                
-                ${password.url ? `
-                <div class="password-field">
-                    <span class="password-label">Website</span>
-                    <div class="password-value">
-                        <button class="website-link-btn" onclick="pm.openExternal('${this.escapeHtml(password.url)}')" title="Open in default browser">
-                            🌐 ${this.escapeHtml(displayUrl)}
-                        </button>
-                    </div>
+                ${username ? `<div class="password-info-line">
+                    <span class="info-icon">${svgUser}</span>
+                    <span class="info-value">${username}</span>
+                    <button class="copy-info-btn" onclick="pm.copyField(${password.id}, 'username')" title="${this.t('copy_username')}">${svgCopy}</button>
                 </div>` : ''}
-                
-                ${password.notes ? `
-                <div class="password-field">
-                    <span class="password-label">Notes</span>
-                    <div class="password-value">
-                        <span class="password-text">${this.escapeHtml(password.notes)}</span>
-                    </div>
+                ${email ? `<div class="password-info-line">
+                    <span class="info-icon">${svgMail}</span>
+                    <span class="info-value">${email}</span>
+                    <button class="copy-info-btn" onclick="pm.copyField(${password.id}, 'email')" title="${this.t('copy_email')}">${svgCopy}</button>
                 </div>` : ''}
-                
-                <div class="password-field">
-                    <span class="password-label">Last Updated</span>
-                    <div class="password-value">
-                        <span class="password-text">${password.updated_at ? new Date(password.updated_at).toLocaleDateString() : '—'}</span>
-                    </div>
+                <div class="password-row">
+                    <span class="password-icon">${svgLock}</span>
+                    <span class="password-text password-hidden">••••••••</span>
+                    <button class="reveal-btn" onclick="pm.togglePassword(this, ${password.id})" title="${this.t('reveal_password')}">${svgEye}</button>
+                    <button class="copy-password-btn" onclick="pm.copyField(${password.id}, 'password')" title="${this.t('copy_password')}">${svgCopy}</button>
+                </div>
+                <div class="password-bottom">
+                    ${visitLink}
+                    <span class="updated-date">${updatedDate}</span>
                 </div>
             </div>
             `;
-        }).join('');
+            }).join('');
+        }
+        this.observeCards();
+        // Scrub sensitive fields after render to reduce in-memory plaintext lifetime
+        this.scrubSensitiveFields();
     }
 
-    this.observeCards();
-}
+    /**
+     * Fetch a single decrypted password row by id from main process.
+     * Returns null on error.
+     */
+    async fetchDecryptedPassword(passwordId) {
+        try {
+            if (!window.api || typeof window.api.passwordManagerGetPassword !== 'function') return null;
+            const result = await window.api.passwordManagerGetPassword(passwordId);
+            if (result && result.success) {
+                return result.password;
+            }
+        } catch (err) {
+            window.pmDebug('warn', 'Failed to fetch decrypted password:', err.message);
+        }
+        return null;
+    }
+
+    /**
+     * Remove highly sensitive fields from in-memory list to minimize plaintext residency.
+     * Keep username/email/url for UI rendering; clear password and notes.
+     */
+    scrubSensitiveFields() {
+        this.passwords = this.passwords.map(p => ({
+            ...p,
+            password: undefined,
+            notes: undefined
+        }));
+    }
 
     async openExternal(url) {
-        // Always open in default system browser, not in-app browser
         if (window.api && typeof window.api.openExternal === 'function') {
             await window.api.openExternal(url);
         } else {
-            // Fallback that always opens in default browser
             window.open(url, '_blank', 'noopener,noreferrer');
         }
     }
@@ -636,18 +1278,29 @@ renderPasswords() {
         const form = document.getElementById('passwordForm');
 
         if (passwordId) {
-            title.textContent = 'Edit Password';
+            title.textContent = typeof this.t === 'function' ? this.t('modal_edit_title') : 'Edit Password';
             this.fillPasswordForm(passwordId);
+            const password = this.passwords.find(p => p.id === passwordId);
+            if (password) {
+                this.setUploadBoxImage(password.image || null);
+            }
         } else {
-            title.textContent = 'Add New Password';
+            title.textContent = typeof this.t === 'function' ? this.t('modal_add_title') : 'Add New Password';
             form.reset();
             document.getElementById('passwordId').value = '';
             document.getElementById('passwordStrength').className = 'strength-bar';
+
+            const imgData = document.getElementById('imageData');
+            if (imgData) imgData.value = '';
+            const imgFile = document.getElementById('imageFile');
+            if (imgFile) imgFile.value = '';
+
+            this.setUploadBoxImage(null);
         }
 
         modal.classList.add('active');
         document.getElementById('title').focus();
-        
+
         setTimeout(() => this.addGeneratePasswordButton(), 100);
     }
 
@@ -655,111 +1308,224 @@ renderPasswords() {
         document.getElementById('passwordModal').classList.remove('active');
         document.getElementById('passwordForm').reset();
         this.currentEditingId = null;
-        
+
         const generateBtn = document.querySelector('.generate-password-btn');
         if (generateBtn) {
             generateBtn.remove();
         }
+        const toggleBtn = document.querySelector('.toggle-visibility-btn');
+        if (toggleBtn) {
+            toggleBtn.remove();
+        }
+    }
+
+    /**
+     * Translation helper - delegates to shared I18n
+     */
+    t(key, params = {}) {
+        return this.i18n.t(key, params);
+    }
+
+    applyTranslations() {
+        try {
+            this.applyTopBarTranslations();
+            this.applyFormFieldTranslations();
+            this.applyCategorySelectTranslations();
+            this.applyCategoriesModalTranslations();
+            this.applyDeleteModalTranslations();
+        } catch (err) {
+            window.pmDebug('error', 'Error applying translations:', err);
+        }
+    }
+
+    /**
+     * Translation helper: apply translations to the top bar and global UI
+     * components such as the add password button, manage categories button,
+     * search placeholder, tagline, categories label and grid toggle title.
+     */
+    applyTopBarTranslations() {
+        const addBtnSpan = document.querySelector('#addPasswordBtn span');
+        if (addBtnSpan) addBtnSpan.textContent = this.t('add_password_btn');
+        const manageCatSpan = document.querySelector('#manageCategoriesBtn span');
+        if (manageCatSpan) manageCatSpan.textContent = this.t('manage_categories_btn');
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) searchInput.placeholder = this.t('search_placeholder');
+        const tagline = document.querySelector('.app-tagline');
+        if (tagline) tagline.textContent = this.t('app_tagline');
+        const categoriesLabel = document.querySelector('.categories-label');
+        if (categoriesLabel) categoriesLabel.textContent = this.t('categories_label');
+        const gridToggle = document.getElementById('gridToggle');
+        if (gridToggle) gridToggle.title = this.t('toggle_layout');
+    }
+
+    /**
+     * Translation helper: apply translations to form labels and placeholders
+     * within the password modal.  Uses mapping objects to iterate over
+     * supported fields.
+     */
+    applyFormFieldTranslations() {
+        // Modal title and buttons
+        const passwordModalTitle = document.getElementById('passwordModalTitle');
+        if (passwordModalTitle) passwordModalTitle.textContent = this.t('modal_add_title');
+        const cancelBtn = document.getElementById('cancelPasswordBtn');
+        if (cancelBtn) cancelBtn.textContent = this.t('cancel_button');
+        const saveBtnSpan = document.querySelector('#savePasswordBtn span');
+        if (saveBtnSpan) saveBtnSpan.textContent = this.t('save_password');
+        // Image label and upload instructions
+        const imageLabel = document.querySelector("label[for='imageFile']");
+        if (imageLabel) imageLabel.textContent = this.t('image_label');
+        const uploadPlaceholder = document.querySelector('#imageUploadBox .upload-placeholder');
+        if (uploadPlaceholder) {
+            const children = uploadPlaceholder.children;
+            if (children && children.length >= 3) {
+                children[1].textContent = this.t('upload_click');
+                children[2].textContent = this.t('upload_formats');
+            }
+        }
+        // Form field labels
+        const labelMap = {
+            'title': 'title_label',
+            'password': 'password_label',
+            'url': 'url_label',
+            'category': 'category_label',
+            'username': 'username_label',
+            'notes': 'notes_label',
+            'email': 'email_label'
+        };
+        Object.keys(labelMap).forEach(inputId => {
+            const label = document.querySelector(`label[for='${inputId}']`);
+            if (label) label.textContent = this.t(labelMap[inputId]);
+        });
+        // Form field placeholders
+        const placeholderMap = {
+            'title': 'title_placeholder',
+            'password': 'password_placeholder',
+            'url': 'url_placeholder',
+            'username': 'username_placeholder',
+            'notes': 'notes_placeholder',
+            'email': 'email_placeholder'
+        };
+        Object.keys(placeholderMap).forEach(inputId => {
+            const input = document.getElementById(inputId);
+            if (input) input.placeholder = this.t(placeholderMap[inputId]);
+        });
+    }
+
+    /**
+     * Translation helper: apply the translation to the first option of the
+     * category select element which represents the 'no category' option.
+     */
+    applyCategorySelectTranslations() {
+        const categorySelect = document.getElementById('category');
+        if (categorySelect) {
+            const firstOption = categorySelect.querySelector('option[value=""]');
+            if (firstOption) firstOption.textContent = this.t('no_category_option');
+        }
+    }
+
+    /**
+     * Translation helper: apply translations for the categories management
+     * modal, including modal title, input placeholder, and buttons.
+     */
+    applyCategoriesModalTranslations() {
+        const catModalTitle = document.querySelector('#categoriesModal h2');
+        if (catModalTitle) catModalTitle.textContent = this.t('manage_categories_title');
+        const newCatInput = document.getElementById('newCategoryName');
+        if (newCatInput) newCatInput.placeholder = this.t('new_category_placeholder');
+        const addCatBtn = document.getElementById('addCategoryBtn');
+        if (addCatBtn) addCatBtn.textContent = this.t('add_category_btn');
+        const closeCatBtn = document.getElementById('closeCategoriesBtn');
+        if (closeCatBtn) closeCatBtn.textContent = this.t('close_button');
+        const closeCatModal = document.getElementById('closeCategoriesModal');
+        if (closeCatModal) closeCatModal.title = this.t('close_button');
+    }
+
+    /**
+     * Translation helper: apply translations for the delete confirmation modal
+     * buttons and icons.
+     */
+    applyDeleteModalTranslations() {
+        const delCancelBtn = document.getElementById('deleteCancelBtn');
+        if (delCancelBtn) delCancelBtn.textContent = this.t('cancel_button');
+        const delConfirmBtn = document.getElementById('deleteConfirmBtn');
+        if (delConfirmBtn) delConfirmBtn.textContent = this.t('delete_button');
+        const delCloseBtn = document.getElementById('deleteConfirmClose');
+        if (delCloseBtn) delCloseBtn.title = this.t('close_button');
     }
 
     async fillPasswordForm(passwordId) {
-        const password = this.passwords.find(p => p.id === passwordId);
+        const cached = this.passwords.find(p => p.id === passwordId) || {};
+        let password = cached;
+        if (!cached.username || !cached.password || !cached.email || !cached.url || !cached.notes) {
+            const decrypted = await this.fetchDecryptedPassword(passwordId);
+            if (decrypted) {
+                password = { ...cached, ...decrypted };
+            }
+        }
         if (!password) return;
 
         document.getElementById('passwordId').value = password.id;
         document.getElementById('title').value = password.title;
-        document.getElementById('category').value = password.category_id || '';
+        const catSelect = document.getElementById('category');
+        if (catSelect) {
+            if (!password.category_id) {
+                catSelect.value = 'no_category';
+            } else {
+                catSelect.value = password.category_id;
+            }
+        }
         document.getElementById('username').value = password.username || '';
         document.getElementById('email').value = password.email || '';
-        document.getElementById('password').value = password.password;
+        document.getElementById('password').value = password.password || '';
         document.getElementById('url').value = password.url || '';
         document.getElementById('notes').value = password.notes || '';
-        
-        this.checkPasswordStrength(password.password);
-    }
 
-async savePassword(e) {
-    e.preventDefault();
+        const imgData = document.getElementById('imageData');
+        if (imgData) imgData.value = password.image || '';
 
-    if (!window.api || typeof window.api.passwordManagerAddPassword !== 'function') {
-        this.showError('Password manager is not available.');
-        return;
-    }
+        const imgFile = document.getElementById('imageFile');
+        if (imgFile) imgFile.value = '';
 
-    const passwordData = {
-        title: document.getElementById('title').value.trim(),
-        category_id: document.getElementById('category').value || null,
-        username: document.getElementById('username').value.trim() || null,
-        email: document.getElementById('email').value.trim() || null,
-        password: document.getElementById('password').value,
-        url: document.getElementById('url').value.trim() || null,
-        notes: document.getElementById('notes').value.trim() || null
-    };
-
-    console.log('Saving password data:', {
-        title: passwordData.title,
-        passwordLength: passwordData.password ? passwordData.password.length : 0,
-        hasUsername: !!passwordData.username,
-        hasEmail: !!passwordData.email
-    });
-
-    // Validation: Title is required
-    if (!passwordData.title) {
-        this.showError('Title is required.');
-        document.getElementById('title').classList.add('shake');
-        setTimeout(() => document.getElementById('title').classList.remove('shake'), 500);
-        return;
-    }
-
-    // Validation: Password is required
-    if (!passwordData.password) {
-        this.showError('Password is required.');
-        document.getElementById('password').classList.add('shake');
-        setTimeout(() => document.getElementById('password').classList.remove('shake'), 500);
-        return;
-    }
-
-    // Validation: Password cannot be only whitespace
-    if (passwordData.password.trim().length === 0) {
-        this.showError('Password cannot be empty.');
-        document.getElementById('password').classList.add('shake');
-        setTimeout(() => document.getElementById('password').classList.remove('shake'), 500);
-        return;
-    }
-
-    try {
-        let result;
-        const saveBtn = document.getElementById('savePasswordBtn');
-        const originalText = saveBtn.innerHTML;
-        
-        saveBtn.innerHTML = '<span class="loading"></span> Saving...';
-        saveBtn.disabled = true;
-
-        if (this.currentEditingId) {
-            result = await window.api.passwordManagerUpdatePassword(this.currentEditingId, passwordData);
+        if (password.password) {
+            this.checkPasswordStrength(password.password);
         } else {
-            result = await window.api.passwordManagerAddPassword(passwordData);
+            const strength = document.getElementById('passwordStrength');
+            if (strength) strength.innerHTML = '';
         }
-
-        saveBtn.innerHTML = originalText;
-        saveBtn.disabled = false;
-
-        if (result.success) {
-            this.closePasswordModal();
-            await this.loadPasswords(this.currentCategory);
-            this.showSuccess(`Password ${this.currentEditingId ? 'updated' : 'saved'} successfully!`);
-        } else {
-            this.showError('Failed to save password: ' + (result.error || 'Unknown error'));
-        }
-    } catch (error) {
-        console.error('Save password error:', error);
-        this.showError('Error saving password: ' + error.message);
-        
-        const saveBtn = document.getElementById('savePasswordBtn');
-        saveBtn.innerHTML = '<span>💾 Save Password</span>';
-        saveBtn.disabled = false;
     }
-}
+
+    async savePassword(e) {
+        e.preventDefault();
+        // Ensure the API is available before proceeding
+        if (!window.api || typeof window.api.passwordManagerAddPassword !== 'function') {
+            this.showError(this.t('password_manager_unavailable'));
+            return;
+        }
+        // Determine selected category information
+        const { id: categoryIdToStore, name: selectedCategoryName } = this.getSelectedCategoryInfo();
+        // Build the password data object
+        const passwordData = this.buildPasswordData(categoryIdToStore, selectedCategoryName);
+        // Log debug information about the incoming data
+        window.pmDebug('info', 'Saving password data:', {
+            title: passwordData.title,
+            username: passwordData.username,
+            passwordLength: passwordData.password ? passwordData.password.length : 0
+        });
+        // Validate inputs; if invalid, abort
+        const invalidField = this.validatePasswordInputs(passwordData);
+        if (invalidField) return;
+        try {
+            await this.performSave(passwordData);
+        } catch (error) {
+            window.pmDebug('error', 'Save password error:', error);
+            this.showError(this.t('save_password_error') + error.message);
+            const saveBtn = document.getElementById('savePasswordBtn');
+            if (saveBtn) {
+                saveBtn.innerHTML = '<span>💾 Save Password</span>';
+                saveBtn.disabled = false;
+            }
+        }
+    }
 
     isValidUrl(string) {
         try {
@@ -774,38 +1540,214 @@ async savePassword(e) {
         this.openPasswordModal(passwordId);
     }
 
+    isAscii(str) { return /^[\x00-\x7F]*$/.test(str); }
+
+    isValidEmailUnicode(value) {
+        if (!value) return true;
+        const parts = value.split('@');
+        if (parts.length !== 2) return false;
+        const [local, domain] = parts;
+        if (!local || !domain) return false;
+        const label = /^[\p{L}\p{M}\p{N}]+(?:[\p{L}\p{M}\p{N}-]*[\p{L}\p{M}\p{N}])?$/u;
+        const labels = domain.split('.');
+        if (labels.length < 2) return false;
+        if (labels.some(l => !l || !label.test(l))) return false;
+        if (/[^\S\r\n]/.test(local)) return false;
+        return true;
+    }
+
     async deletePassword(passwordId) {
-        if (!confirm('Are you sure you want to delete this password? This action cannot be undone.')) return;
+        const password = this.passwords.find(p => p.id === passwordId);
+        const confirmed = await this.showDeleteConfirm(password);
+        if (!confirmed) return;
 
         try {
             const result = await window.api.passwordManagerDeletePassword(passwordId);
             if (result.success) {
                 await this.loadPasswords(this.currentCategory);
-                this.showSuccess('Password deleted successfully!');
+                // Successfully deleted
+                const msg = typeof this.t === 'function' ? this.t('password_deleted_successfully') : 'Password deleted successfully!';
+                this.showSuccess(msg);
             } else {
-                this.showError('Failed to delete password: ' + result.error);
+                const errMsg = typeof this.t === 'function' ? this.t('delete_password_failed') : 'Failed to delete password: ';
+                this.showError(errMsg + result.error);
             }
         } catch (error) {
-            this.showError('Error deleting password: ' + error.message);
+            const errMsg = typeof this.t === 'function' ? this.t('delete_password_error') : 'Error deleting password: ';
+            this.showError(errMsg + error.message);
+        }
+    }
+
+    showDeleteConfirm(password) {
+        return new Promise(resolve => {
+            const modal = document.getElementById('deleteConfirmModal');
+            const closeBtn = document.getElementById('deleteConfirmClose');
+            const cancelBtn = document.getElementById('deleteCancelBtn');
+            const confirmBtn = document.getElementById('deleteConfirmBtn');
+            const titleEl = document.getElementById('deleteConfirmTitle');
+            const messageEl = document.getElementById('deleteConfirmMessage');
+
+            // Default English fallback values if translations are missing
+            const defaultTitle = 'Confirm Deletion';
+            const defaultMsg = `Are you sure you want to delete “${password?.title ?? ''}”? This action cannot be undone.`;
+            let translatedTitle = null;
+            let translatedMsg = null;
+            if (typeof this.t === 'function') {
+                const maybeTitle = this.t('delete_confirm_title');
+                if (maybeTitle && maybeTitle !== 'delete_confirm_title') {
+                    translatedTitle = maybeTitle;
+                }
+                const maybeMsg = this.t('delete_confirm_message', { title: password?.title });
+                if (maybeMsg && maybeMsg !== 'delete_confirm_message') {
+                    translatedMsg = maybeMsg;
+                }
+            }
+            titleEl.textContent = translatedTitle || defaultTitle;
+            messageEl.textContent = translatedMsg || defaultMsg;
+
+            modal.classList.add('active');
+
+            const cleanup = () => {
+                modal.classList.remove('active');
+                closeBtn.removeEventListener('click', onCancel);
+                cancelBtn.removeEventListener('click', onCancel);
+                confirmBtn.removeEventListener('click', onConfirm);
+            };
+
+            const onCancel = () => {
+                cleanup();
+                resolve(false);
+            };
+
+            const onConfirm = () => {
+                cleanup();
+                resolve(true);
+            };
+
+            closeBtn.addEventListener('click', onCancel);
+            cancelBtn.addEventListener('click', onCancel);
+            confirmBtn.addEventListener('click', onConfirm);
+        });
+    }
+
+    setUploadBoxImage(url) {
+        const uploadBox = document.getElementById('imageUploadBox');
+        if (!uploadBox) return;
+        const placeholder = uploadBox.querySelector('.upload-placeholder');
+        let previewImg = uploadBox.querySelector('.upload-preview');
+        if (url) {
+            if (placeholder) placeholder.style.display = 'none';
+            if (!previewImg) {
+                previewImg = document.createElement('img');
+                previewImg.className = 'upload-preview';
+                uploadBox.appendChild(previewImg);
+            }
+            previewImg.src = url;
+            previewImg.alt = 'Image preview';
+        } else {
+            if (previewImg) {
+                previewImg.remove();
+            }
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+            }
         }
     }
 
     async searchPasswords(query) {
         if (!query.trim()) {
-            this.loadPasswords(this.currentCategory);
+            await this.loadPasswords(this.currentCategory);
             return;
         }
 
         try {
-            const result = await window.api.passwordManagerSearchPasswords(query);
+            const result = await window.api.passwordManagerGetPasswords(this.currentCategory);
             if (result.success) {
-                this.passwords = result.passwords;
+                const allPasswords = result.passwords;
+                const lower = query.toLowerCase();
+                this.passwords = allPasswords.filter(p => {
+                    return [p.title, p.username, p.email, p.url, p.notes]
+                        .map(v => (v || '').toString().toLowerCase())
+                        .some(field => field.includes(lower));
+                });
                 this.renderPasswords();
             } else {
-                this.showError('Search failed: ' + result.error);
+                this.showError(this.t('search_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error searching: ' + error.message);
+            this.showError(this.t('search_error') + error.message);
+        }
+    }
+
+    getImageForPassword(id) {
+        const pwObj = this.passwords ? this.passwords.find(p => p.id === id) : null;
+        if (pwObj && pwObj.image) {
+            return pwObj.image;
+        }
+        try {
+            const img = localStorage.getItem('passwordImage-' + id);
+            return img || null;
+        } catch (ex) {
+            return null;
+        }
+    }
+
+    async handleImageSelection(e) {
+        const file = e.target && e.target.files && e.target.files[0];
+        if (!file) return;
+
+        const hiddenInput = document.getElementById('imageData');
+        if (!hiddenInput) return;
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+            let imageUrl = reader.result;
+
+            const token = this.imgurToken || localStorage.getItem('imgurToken');
+            if (token) {
+                try {
+                    const formData = new FormData();
+                    formData.append('image', file);
+
+                    const res = await fetch('https://api.imgur.com/3/image', {
+                        method: 'POST',
+                        headers: {
+                            Authorization: token.startsWith('Client-ID') ? token : 'Client-ID ' + token
+                        },
+                        body: formData
+                    });
+
+                    const data = await res.json();
+                    if (data && data.success && data.data && data.data.link) {
+                        imageUrl = data.data.link;
+                    } else {
+                        window.pmDebug('warn', 'Imgur upload failed, using data URI instead:', data);
+                    }
+                } catch (err) {
+                    window.pmDebug('error', 'Error uploading to Imgur:', err);
+                }
+            }
+
+            hiddenInput.value = imageUrl;
+            this.setUploadBoxImage(imageUrl);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async fetchSiteLogo(urlString) {
+        if (!urlString) return;
+        const hiddenInput = document.getElementById('imageData');
+        if (!hiddenInput || (hiddenInput.value && hiddenInput.value.trim() !== '')) {
+            return;
+        }
+        try {
+            const urlObj = new URL(urlString);
+            const domain = urlObj.hostname;
+            const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+            hiddenInput.value = logoUrl;
+            this.setUploadBoxImage(logoUrl);
+        } catch (err) {
+            window.pmDebug('error', 'Error fetching site logo:', err);
         }
     }
 
@@ -827,8 +1769,8 @@ async savePassword(e) {
         if (this.categories.length === 0) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 2rem; color: var(--sidebar-text); opacity: 0.7;">
-                    <p>No categories found</p>
-                    <p style="font-size: 0.9rem; margin-top: 0.5rem;">Create your first category to organize passwords</p>
+                    <p>${this.t('category_no_results')}</p>
+                    <p style="font-size: 0.9rem; margin-top: 0.5rem;">${this.t('category_create_first')}</p>
                 </div>
             `;
             return;
@@ -839,8 +1781,12 @@ async savePassword(e) {
             item.className = 'category-item';
             item.innerHTML = `
                 <input type="text" value="${this.escapeHtml(category.name)}" class="form-input category-name" data-id="${category.id}" style="flex: 1;">
-                <button class="button button-secondary" onclick="pm.updateCategory(${category.id})">Update</button>
-                <button class="button button-danger" onclick="pm.deleteCategory(${category.id})">Delete</button>
+                <button class="button button-secondary icon-btn" onclick="pm.updateCategory(${category.id})" aria-label="Edit category">
+                    <span class="icon">✏️</span>
+                </button>
+                <button class="button button-danger icon-btn" onclick="pm.deleteCategory(${category.id})" aria-label="Delete category">
+                    <span class="icon">🗑️</span>
+                </button>
             `;
             container.appendChild(item);
         });
@@ -851,14 +1797,14 @@ async savePassword(e) {
         const name = nameInput.value.trim();
 
         if (!name) {
-            this.showError('Please enter a category name');
+            this.showError(this.t('category_name_required'));
             nameInput.classList.add('shake');
             setTimeout(() => nameInput.classList.remove('shake'), 500);
             return;
         }
 
         if (this.categories.some(cat => cat.name.toLowerCase() === name.toLowerCase())) {
-            this.showError('A category with this name already exists.');
+            this.showError(this.t('category_exists'));
             nameInput.classList.add('shake');
             setTimeout(() => nameInput.classList.remove('shake'), 500);
             return;
@@ -870,12 +1816,12 @@ async savePassword(e) {
                 nameInput.value = '';
                 await this.loadCategories();
                 this.renderCategoriesList();
-                this.showSuccess('Category added successfully!');
+                this.showSuccess(this.t('category_added_successfully'));
             } else {
-                this.showError('Failed to add category: ' + result.error);
+                this.showError(this.t('add_category_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error adding category: ' + error.message);
+            this.showError(this.t('add_category_error') + error.message);
         }
     }
 
@@ -884,7 +1830,7 @@ async savePassword(e) {
         const name = input.value.trim();
 
         if (!name) {
-            this.showError('Category name cannot be empty');
+            this.showError(this.t('category_name_empty'));
             input.classList.add('shake');
             setTimeout(() => input.classList.remove('shake'), 500);
             return;
@@ -895,12 +1841,12 @@ async savePassword(e) {
             if (result.success) {
                 await this.loadCategories();
                 this.renderCategoriesList();
-                this.showSuccess('Category updated successfully!');
+                this.showSuccess(this.t('category_updated_successfully'));
             } else {
-                this.showError('Failed to update category: ' + result.error);
+                this.showError(this.t('update_category_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error updating category: ' + error.message);
+            this.showError(this.t('update_category_error') + error.message);
         }
     }
 
@@ -908,7 +1854,9 @@ async savePassword(e) {
         const category = this.categories.find(c => c.id === categoryId);
         if (!category) return;
 
-        if (!confirm(`Are you sure you want to delete the category "${category.name}"? Passwords in this category will be moved to "No Category".`)) return;
+        // Confirm deletion using translated message
+        const confirmMsg = this.t('delete_category_confirm', { categoryName: category.name });
+        if (!confirm(confirmMsg)) return;
 
         try {
             const result = await window.api.passwordManagerDeleteCategory(categoryId);
@@ -916,12 +1864,26 @@ async savePassword(e) {
                 await this.loadCategories();
                 this.renderCategoriesList();
                 await this.loadPasswords(this.currentCategory);
-                this.showSuccess('Category deleted successfully!');
+                this.showSuccess(this.t('category_deleted_successfully'));
             } else {
-                this.showError('Failed to delete category: ' + result.error);
+                this.showError(this.t('delete_category_failed') + result.error);
             }
         } catch (error) {
-            this.showError('Error deleting category: ' + error.message);
+            this.showError(this.t('delete_category_error') + error.message);
+        }
+    }
+
+    promptAddCategoryInline() {
+        const plusBtn = document.getElementById('addCategoryInline');
+        const wrapper = document.getElementById('inlineCategoryInputWrapper');
+        const nameInput = document.getElementById('inlineCategoryName');
+        if (plusBtn && wrapper) {
+            plusBtn.classList.add('hidden');
+            wrapper.classList.remove('hidden');
+            if (nameInput) {
+                nameInput.value = '';
+                nameInput.focus();
+            }
         }
     }
 
@@ -929,34 +1891,55 @@ async savePassword(e) {
         const password = this.passwords.find(p => p.id === passwordId);
         if (!password) return;
 
-        const textElement = button.previousElementSibling;
-        
-        if (textElement.classList.contains('password-hidden')) {
-            textElement.textContent = password.password;
-            textElement.classList.remove('password-hidden');
-            button.innerHTML = '🙈';
-            button.title = 'Hide password';
-            
+        const valueContainer = button.closest('.password-row, .compact-password-row');
+        if (!valueContainer) {
+            window.pmDebug('error', 'Could not find password row for password toggle');
+            return;
+        }
+
+        const textElement = valueContainer.querySelector('.password-text, .compact-text');
+        if (!textElement) {
+            window.pmDebug('error', 'Could not find text element for password toggle');
+            return;
+        }
+
+        const hiddenClass = this.isCompactMode ? 'compact-password-hidden' : 'password-hidden';
+
+        const reveal = async () => {
+            let value = password.password;
+            if (!value) {
+                const decrypted = await this.fetchDecryptedPassword(passwordId);
+                value = decrypted?.password;
+            }
+            if (!value) value = '••••••••';
+            textElement.textContent = value;
+            textElement.classList.remove(hiddenClass);
+            button.innerHTML = this.svgEyeOff;
+            button.title = this.t('hide_password');
             setTimeout(() => {
-                if (!textElement.classList.contains('password-hidden')) {
+                if (!textElement.classList.contains(hiddenClass)) {
                     textElement.textContent = '••••••••';
-                    textElement.classList.add('password-hidden');
-                    button.innerHTML = '👁️';
-                    button.title = 'Reveal password';
+                    textElement.classList.add(hiddenClass);
+                    button.innerHTML = this.svgEye;
+                    button.title = this.t('reveal_password');
                 }
             }, 30000);
+        };
+
+        if (textElement.classList.contains(hiddenClass)) {
+            reveal().catch(() => {});
         } else {
             textElement.textContent = '••••••••';
-            textElement.classList.add('password-hidden');
-            button.innerHTML = '👁️';
-            button.title = 'Reveal password';
+            textElement.classList.add(hiddenClass);
+            button.innerHTML = this.svgEye;
+            button.title = this.t('reveal_password');
         }
     }
 
     async copyToClipboard(text) {
         try {
             await navigator.clipboard.writeText(text);
-            this.showSuccess('Copied to clipboard!');
+            this.showSuccess(this.t('copied_to_clipboard'));
         } catch (error) {
             const textArea = document.createElement('textarea');
             textArea.value = text;
@@ -964,11 +1947,47 @@ async savePassword(e) {
             textArea.select();
             try {
                 document.execCommand('copy');
-                this.showSuccess('Copied to clipboard!');
+                this.showSuccess(this.t('copied_to_clipboard'));
             } catch (fallbackError) {
-                this.showError('Failed to copy to clipboard. Please copy manually.');
+                this.showError(this.t('failed_copy'));
             }
             document.body.removeChild(textArea);
+        }
+    }
+
+    async copyField(passwordId, field) {
+        const pwd = this.passwords.find(p => p.id === passwordId);
+        if (!pwd) return;
+        let value = pwd[field];
+        if (!value) {
+            const decrypted = await this.fetchDecryptedPassword(passwordId);
+            value = decrypted ? decrypted[field] : null;
+        }
+        if (value) {
+            await this.copyToClipboard(value);
+            value = null;
+        }
+    }
+
+    toggleActionMenu(event, btn) {
+        event.stopPropagation();
+        const menu = btn.nextElementSibling;
+        if (!menu) return;
+        const isVisible = menu.classList.contains('show');
+        document.querySelectorAll('.actions-menu.show').forEach(m => {
+            if (m !== menu) m.classList.remove('show');
+        });
+        if (isVisible) {
+            menu.classList.remove('show');
+        } else {
+            menu.classList.add('show');
+            const onClickOutside = (e) => {
+                if (!menu.contains(e.target) && e.target !== btn) {
+                    menu.classList.remove('show');
+                    document.removeEventListener('click', onClickOutside);
+                }
+            };
+            document.addEventListener('click', onClickOutside);
         }
     }
 
@@ -981,29 +2000,64 @@ async savePassword(e) {
     }
 
     showNotification(message, type = 'info') {
-        const existingNotifications = document.querySelectorAll('.notification');
-        existingNotifications.forEach(notification => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        });
+        document.querySelectorAll('.notification').forEach(el => el.remove());
+
+        let container = document.querySelector('.notifications-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'notifications-container';
+            document.body.appendChild(container);
+        }
 
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
+
+        const icons = {
+            success: { char: '✔', colorClass: 'icon-success' },
+            error: { char: '✖', colorClass: 'icon-error' },
+            info: { char: 'ℹ', colorClass: 'icon-info' }
+        };
+        const { char, colorClass } = icons[type] || icons.info;
+
         notification.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
-                <span>${message}</span>
+            <div class="notification-inner">
+                <div class="icon-wrapper ${colorClass}">${char}</div>
+                <div class="message-wrapper">${this.escapeHtml(message)}</div>
+                <button class="notification-close" aria-label="Close">×</button>
             </div>
         `;
 
-        document.body.appendChild(notification);
+        container.appendChild(notification);
+
+        const closeButton = notification.querySelector('.notification-close');
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                notification.remove();
+            });
+        }
 
         setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
+            notification.remove();
         }, 4000);
+    }
+
+    updatePasswordImageInUI(passwordId, imageUrl) {
+        if (!passwordId || !imageUrl) return;
+        const passwordCard = document.querySelector(`[data-password-id="${passwordId}"]`);
+        if (passwordCard) {
+            const imgElement = passwordCard.querySelector('.card-image');
+            if (imgElement) {
+                if (imgElement.tagName === 'IMG') {
+                    imgElement.src = imageUrl;
+                } else {
+                    const newImg = document.createElement('img');
+                    newImg.className = 'card-image';
+                    newImg.src = imageUrl;
+                    newImg.alt = '';
+                    imgElement.replaceWith(newImg);
+                }
+            }
+        }
     }
 
     escapeHtml(text) {

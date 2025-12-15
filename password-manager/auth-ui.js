@@ -1,149 +1,301 @@
+// auth-ui.js - Password Manager Authentication UI
+// Uses shared i18n utilities for translations
+
 class PasswordManagerAuthUI {
     constructor() {
         this.isInitialized = false;
         this.hasMasterPassword = false;
         this.authModal = null;
+
+        // Use shared I18n class for translations
+        this.i18n = new I18n();
+    }
+
+    /**
+     * Translation helper - delegates to shared I18n
+     */
+    t(key, params = {}) {
+        return this.i18n.t(key, params);
     }
 
     async initialize() {
+        // Load translations before any UI is rendered
+        await this.i18n.load('lang');
+
         if (this.isInitialized) return;
 
         try {
-            // Έλεγχος αν υπάρχει Master Password
             const result = await window.api.passwordManagerHasMasterPassword();
             this.hasMasterPassword = result;
-            
+
             this.isInitialized = true;
-            
-            // Εμφάνιση κατάλληλου modal
+
             if (!this.hasMasterPassword) {
                 this.showSetupModal();
             } else {
                 this.showLoginModal();
             }
         } catch (error) {
-            console.error('Auth initialization error:', error);
-            this.showErrorModal('Σφάλμα αρχικοποίησης: ' + error.message);
+            window.pmDebug('error', 'Auth initialization error:', error);
+            this.showErrorModal(this.t('init_error_prefix') + error.message);
         }
     }
 
     showSetupModal() {
-        // Καθαρισμός υπαρχόντων modals
         this.closeAuthModal();
-        
-        this.authModal = this.createAuthModal(
-            'Δημιουργία Master Password',
-            this.createSetupForm()
-        );
-        document.body.appendChild(this.authModal);
-        
-        // Προσθήκη event listeners
-        setTimeout(() => this.attachEventListeners(), 100);
-    }
 
-    showLoginModal() {
-        // Καθαρισμός υπαρχόντων modals
-        this.closeAuthModal();
-        
-        this.authModal = this.createAuthModal(
-            'Σύνδεση στο Password Manager',
-            this.createLoginForm()
-        );
-        document.body.appendChild(this.authModal);
-        
-        // Προσθήκη event listeners
-        setTimeout(() => this.attachEventListeners(), 100);
-    }
-
-    createAuthModal(title, content) {
         const modal = document.createElement('div');
         modal.className = 'auth-modal active';
         modal.innerHTML = `
             <div class="auth-modal-overlay">
                 <div class="auth-modal-content">
-                    <div class="auth-modal-header">
-                        <h2>🔒 ${title}</h2>
-                    </div>
-                    <div class="auth-modal-body">
-                        ${content}
-                    </div>
+                    ${this.createSetupForm()}
                     <div class="auth-modal-warning">
-                        ⚠️ <strong>Προσοχή:</strong> Αν ξεχάσετε τον Master Password, τα δεδομένα σας θα είναι μη ανακτήσιμα.
+                        ${this.t('warning_prefix')} <strong>${this.t('warning_attention')}</strong> ${this.t('warning_reset_note')}
                     </div>
                 </div>
             </div>
         `;
-        return modal;
+
+        document.body.appendChild(modal);
+        this.authModal = modal;
+
+        setTimeout(() => this.attachSetupEventListeners(), 100);
+    }
+
+    showLoginModal() {
+        this.closeAuthModal();
+
+        const modal = document.createElement('div');
+        modal.className = 'auth-modal active';
+        modal.innerHTML = `
+            <div class="auth-modal-overlay">
+                <div class="auth-modal-content">
+                    ${this.createLoginForm()}
+                    <div class="auth-modal-warning">
+                        ${this.t('warning_prefix')} <strong>${this.t('warning_attention')}</strong> ${this.t('warning_reset_note')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        this.authModal = modal;
+
+        setTimeout(() => this.attachLoginEventListeners(), 100);
     }
 
     createSetupForm() {
         return `
-            <form id="setupForm" class="auth-form">
-                <div class="form-group">
-                    <label class="form-label">Δημιουργία Master Password *</label>
-                    <input type="password" id="masterPassword" class="form-input" 
-                           placeholder="Εισάγετε τουλάχιστον 8 χαρακτήρες" required
-                           minlength="8" autocomplete="new-password">
+            <div class="card">
+                <h4 class="title">${this.t('setup_title')}</h4>
+                <form id="setupForm" class="auth-form">
+                    <div class="field has-hint">
+                        <svg class="input-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4M4.5 7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7zM8 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/>
+                        </svg>
+                        <input type="password" id="masterPassword" class="input-field password-input" 
+                               placeholder="${this.t('create_master_placeholder')}" required
+                               minlength="8" autocomplete="new-password">
+                        <button type="button" class="password-toggle" onclick="pmAuthUI.togglePasswordVisibility('masterPassword')" title="${this.t('show_password')}">
+                            <svg class="eye-open-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12 C3 7, 8 4, 12 4 C16 4, 21 7, 23 12 C21 17, 16 20, 12 20 C8 20, 3 17, 1 12 Z"/>
+                                <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>
+                            </svg>
+                            <svg class="eye-closed-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+                                <path d="M1 12 C3 7, 8 4, 12 4 C16 4, 21 7, 23 12 C21 17, 16 20, 12 20 C8 20, 3 17, 1 12 Z"/>
+                                <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="input-hint">${this.t('create_master_hint')}</div>
                     <div id="passwordStrength" class="password-strength-container"></div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Επιβεβαίωση Master Password *</label>
-                    <input type="password" id="confirmPassword" class="form-input" 
-                           placeholder="Εισάγετε ξανά τον κωδικό" required
-                           autocomplete="new-password">
+                    
+                    <div class="field">
+                        <svg class="input-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4M4.5 7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7zM8 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/>
+                        </svg>
+                        <input type="password" id="confirmPassword" class="input-field password-input" 
+                               placeholder="${this.t('confirm_placeholder')}" required
+                               autocomplete="new-password">
+                        <button type="button" class="password-toggle" onclick="pmAuthUI.togglePasswordVisibility('confirmPassword')" title="${this.t('show_password')}">
+                            <svg class="eye-open-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12 C3 7, 8 4, 12 4 C16 4, 21 7, 23 12 C21 17, 16 20, 12 20 C8 20, 3 17, 1 12 Z"/>
+                                <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>
+                            </svg>
+                            <svg class="eye-closed-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+                                <path d="M1 12 C3 7, 8 4, 12 4 C16 4, 21 7, 23 12 C21 17, 16 20, 12 20 C8 20, 3 17, 1 12 Z"/>
+                                <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </button>
+                    </div>
                     <div id="passwordMatch" class="password-match"></div>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="submit" class="button" id="setupBtn">
-                        <span>🔐 Δημιουργία Master Password</span>
-                    </button>
-                </div>
-            </form>
+                    
+                    <button class="btn" type="submit" id="setupBtn">${this.t('create_button')}</button>
+                </form>
+            </div>
         `;
     }
 
     createLoginForm() {
         return `
-            <form id="loginForm" class="auth-form">
-                <div class="form-group">
-                    <label class="form-label">Master Password *</label>
-                    <input type="password" id="loginPassword" class="form-input" 
-                           placeholder="Εισάγετε τον Master Password" required
-                           autofocus autocomplete="current-password">
-                </div>
-                
-                <div class="form-actions">
-                    <button type="submit" class="button" id="loginBtn">
-                        <span>🔓 Ξεκλείδωμα Password Manager</span>
-                    </button>
-                </div>
-            </form>
+            <div class="card">
+                <h4 class="title">${this.t('login_title')}</h4>
+                <form id="loginForm" class="auth-form">
+                    <div class="field">
+                        <svg class="input-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8 0a4 4 0 0 1 4 4v2.05a2.5 2.5 0 0 1 2 2.45v5a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-5a2.5 2.5 0 0 1 2-2.45V4a4 4 0 0 1 4-4M4.5 7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7zM8 1a3 3 0 0 0-3 3v2h6V4a3 3 0 0 0-3-3"/>
+                        </svg>
+                        <input autocomplete="off" id="loginPassword" placeholder="${this.t('login_placeholder')}" class="input-field password-input" name="logpass" type="password" required autofocus>
+                        <button type="button" class="password-toggle" onclick="pmAuthUI.togglePasswordVisibility('loginPassword')" title="${this.t('show_password')}">
+                            <svg class="eye-open-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12 C3 7, 8 4, 12 4 C16 4, 21 7, 23 12 C21 17, 16 20, 12 20 C8 20, 3 17, 1 12 Z"/>
+                                <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>
+                            </svg>
+                            <svg class="eye-closed-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+                                <path d="M1 12 C3 7, 8 4, 12 4 C16 4, 21 7, 23 12 C21 17, 16 20, 12 20 C8 20, 3 17, 1 12 Z"/>
+                                <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <button class="btn" type="submit" id="loginBtn">${this.t('login_button')}</button>
+                    <a href="#" class="btn-link" id="forgotPasswordLink">${this.t('forgot_link')}</a>
+                </form>
+            </div>
         `;
     }
 
-    attachEventListeners() {
-        // Setup form events
+    createForgotPasswordModal() {
+        const extraWarning = (() => {
+            const txt = this.t('forgot_warning_delete');
+            if (!txt || txt === 'forgot_warning_delete') return '';
+            return txt;
+        })();
+        return `
+            <div class="card">
+                <h4 class="title"><span class="title-icon" aria-hidden="true">⚠️</span>${this.t('forgot_title')}</h4>
+                <div class="forgot-password-content">
+                    <p class="forgot-warning-text">
+                        ${this.t('forgot_warning_1')}
+                        ${extraWarning}
+                    </p>
+                    <ul class="forgot-list">
+                        <li>${this.t('forgot_list_passwords')}</li>
+                        <li>${this.t('forgot_list_categories')}</li>
+                        <li>${this.t('forgot_list_settings')}</li>
+                    </ul>
+                    <p class="forgot-warning-text">
+                        ${this.t('forgot_warning_2')}
+                    </p>
+                    <div class="forgot-actions">
+                        <button class="btn btn-danger" id="confirmResetBtn">${this.t('reset_button')}</button>
+                        <button class="btn btn-secondary" id="cancelResetBtn">${this.t('cancel_button')}</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    togglePasswordVisibility(inputId) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        const toggleButton = input.nextElementSibling;
+        if (!toggleButton) return;
+
+        const eyeOpen = toggleButton.querySelector('.eye-open-icon');
+        const eyeClosed = toggleButton.querySelector('.eye-closed-icon');
+
+        if (input.type === 'password') {
+            input.type = 'text';
+            if (eyeOpen) eyeOpen.style.display = 'none';
+            if (eyeClosed) eyeClosed.style.display = 'inline';
+            toggleButton.title = this.t('hide_password');
+        } else {
+            input.type = 'password';
+            if (eyeOpen) eyeOpen.style.display = 'inline';
+            if (eyeClosed) eyeClosed.style.display = 'none';
+            toggleButton.title = this.t('show_password');
+        }
+    }
+
+    attachSetupEventListeners() {
         const setupForm = document.getElementById('setupForm');
-        if (setupForm) {
-            const masterPassword = document.getElementById('masterPassword');
-            const confirmPassword = document.getElementById('confirmPassword');
-            
+        const masterPassword = document.getElementById('masterPassword');
+        const confirmPassword = document.getElementById('confirmPassword');
+
+        if (setupForm && masterPassword && confirmPassword) {
             masterPassword.addEventListener('input', (e) => {
                 this.checkPasswordStrength(e.target.value);
                 this.checkPasswordMatch();
             });
-            
+
             confirmPassword.addEventListener('input', this.checkPasswordMatch.bind(this));
-            
+
             setupForm.addEventListener('submit', (e) => this.handleSetup(e));
         }
+    }
 
-        // Login form events
+    attachLoginEventListeners() {
         const loginForm = document.getElementById('loginForm');
+        const forgotLink = document.getElementById('forgotPasswordLink');
+
         if (loginForm) {
             loginForm.addEventListener('submit', (e) => this.handleLogin(e));
+        }
+
+        if (forgotLink) {
+            forgotLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showForgotPasswordModal();
+            });
+        }
+    }
+
+    showForgotPasswordModal() {
+        this.closeAuthModal();
+
+        const modal = document.createElement('div');
+        modal.className = 'auth-modal active forgot-modal';
+        modal.innerHTML = `
+            <div class="auth-modal-overlay">
+                <div class="auth-modal-content">
+                    ${this.createForgotPasswordModal()}
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        this.authModal = modal;
+
+        setTimeout(() => {
+            const confirmBtn = document.getElementById('confirmResetBtn');
+            const cancelBtn = document.getElementById('cancelResetBtn');
+
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', () => this.handlePasswordReset());
+            }
+
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => {
+                    this.closeAuthModal();
+                    this.showLoginModal();
+                });
+            }
+        }, 100);
+    }
+
+    async handlePasswordReset() {
+        try {
+            const result = await window.api.passwordManagerReset();
+            if (result.success) {
+                this.showSuccess(this.t('reset_success'));
+                this.closeAuthModal();
+                this.showSetupModal();
+            } else {
+                this.showError(this.t('reset_error_prefix') + result.error);
+            }
+        } catch (error) {
+            this.showError(this.t('general_error_prefix') + error.message);
         }
     }
 
@@ -153,151 +305,127 @@ class PasswordManagerAuthUI {
 
         try {
             const result = await window.api.passwordManagerValidatePassword(password);
-            
-            let strengthText = '';
-            let strengthClass = '';
-            
-            if (password.length === 0) {
-                strengthText = '';
-            } else if (result.strength <= 2) {
-                strengthText = 'Αδύναμος';
-                strengthClass = 'weak';
-            } else if (result.strength === 3) {
-                strengthText = 'Μέτριος';
-                strengthClass = 'medium';
-            } else if (result.strength === 4) {
-                strengthText = 'Ισχυρός';
-                strengthClass = 'strong';
+
+            if (!result.isValid) {
+                container.innerHTML = `
+                    <div class="error-alert">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" class="error-svg">
+                                    <path clip-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" fill-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div class="error-prompt-container">
+                                <p class="error-prompt-heading">${this.t('password_strength_error_heading')}</p>
+                                <div class="error-prompt-wrap">
+                                    <ul class="error-prompt-list" role="list">
+                                        <li>${this.t('password_strength_error_hint1')}</li>
+                                        <li>${this.t('password_strength_error_hint2')}</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
             } else {
-                strengthText = 'Πολύ Ισχυρός';
-                strengthClass = 'very-strong';
+                container.innerHTML = '';
             }
-
-            container.innerHTML = `
-                <div class="password-strength-bar ${strengthClass}">
-                    <div class="strength-text">${strengthText}</div>
-                </div>
-                <div class="password-requirements">
-                    ${this.getRequirementsHtml(result.requirements)}
-                </div>
-            `;
         } catch (error) {
-            console.error('Error checking password strength:', error);
+            window.pmDebug('error', 'Error validating password:', error);
         }
-    }
-
-    getRequirementsHtml(requirements) {
-        const requirementLabels = {
-            minLength: '8+ χαρακτήρες',
-            hasUpperCase: 'Κεφαλαίο γράμμα',
-            hasLowerCase: 'Μικρό γράμμα', 
-            hasNumbers: 'Αριθμός',
-            hasSpecial: 'Ειδικός χαρακτήρας'
-        };
-
-        return Object.entries(requirements)
-            .map(([key, met]) => `
-                <div class="requirement ${met ? 'met' : 'unmet'}">
-                    ${met ? '✓' : '✗'} ${requirementLabels[key]}
-                </div>
-            `).join('');
     }
 
     checkPasswordMatch() {
         const container = document.getElementById('passwordMatch');
         const masterPassword = document.getElementById('masterPassword');
         const confirmPassword = document.getElementById('confirmPassword');
-        
+
         if (!container || !masterPassword || !confirmPassword) return;
 
         if (confirmPassword.value.length === 0) {
             container.innerHTML = '';
         } else if (masterPassword.value === confirmPassword.value) {
-            container.innerHTML = '<div class="match-success">✓ Οι κωδικοί ταιριάζουν</div>';
+            container.innerHTML = '<div class="match-success">' + this.t('password_match_success') + '</div>';
         } else {
-            container.innerHTML = '<div class="match-error">✗ Οι κωδικοί δεν ταιριάζουν</div>';
+            container.innerHTML = '<div class="match-error">' + this.t('password_match_error') + '</div>';
         }
     }
 
     async handleSetup(e) {
         e.preventDefault();
-        
+
         const masterPassword = document.getElementById('masterPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
         const btn = document.getElementById('setupBtn');
-        
-        // Έλεγχος αν ταιριάζουν οι κωδικοί
+
         if (masterPassword !== confirmPassword) {
-            this.showError('Οι κωδικοί δεν ταιριάζουν');
+            this.showError(this.t('passwords_do_not_match_error'));
             return;
         }
 
-        // Έλεγχος ισχύος κωδικού
         const strengthResult = await window.api.passwordManagerValidatePassword(masterPassword);
         if (!strengthResult.isValid) {
-            this.showError('Ο κωδικός είναι πολύ αδύναμος. Βελτιώστε τον σύμφωνα με τις οδηγίες.');
+            this.showError(this.t('weak_password_error'));
             return;
         }
 
         btn.disabled = true;
-        btn.innerHTML = '<span class="loading"></span> Δημιουργία...';
+        btn.innerHTML = '<span class="loading"></span> ' + this.t('setup_loading');
 
         try {
             const result = await window.api.passwordManagerCreateMasterPassword(masterPassword);
-            
+
             if (result.success) {
-                this.showSuccess('Master Password δημιουργήθηκε επιτυχώς!');
+                this.showSuccess(this.t('setup_success'));
                 this.closeAuthModal();
-                
-                // Επανεκκίνηση του Password Manager
+
                 setTimeout(() => {
-                    if (window.pm) {
+                    if (window.pm && typeof window.pm.onAuthSuccess === 'function') {
                         window.pm.onAuthSuccess();
                     }
                 }, 1000);
             } else {
-                this.showError('Σφάλμα δημιουργίας: ' + result.error);
+                this.showError(this.t('setup_error_prefix') + result.error);
                 btn.disabled = false;
-                btn.innerHTML = '<span>🔐 Δημιουργία Master Password</span>';
+                btn.innerHTML = this.t('create_button');
             }
         } catch (error) {
-            this.showError('Σφάλμα: ' + error.message);
+            this.showError(this.t('general_error_prefix') + error.message);
             btn.disabled = false;
-            btn.innerHTML = '<span>🔐 Δημιουργία Master Password</span>';
+            btn.innerHTML = this.t('create_button');
         }
     }
 
     async handleLogin(e) {
         e.preventDefault();
-        
+
         const password = document.getElementById('loginPassword').value;
         const btn = document.getElementById('loginBtn');
-        
+
         btn.disabled = true;
-        btn.innerHTML = '<span class="loading"></span> Σύνδεση...';
+        btn.innerHTML = '<span class="loading"></span> ' + this.t('login_loading');
 
         try {
             const result = await window.api.passwordManagerAuthenticate(password);
-            
+
             if (result.success) {
-                this.showSuccess('Επιτυχής σύνδεση!');
+                this.showSuccess(this.t('login_success'));
                 this.closeAuthModal();
-                
-                // Επανεκκίνηση του Password Manager
+
                 setTimeout(() => {
-                    if (window.pm) {
+                    if (window.pm && typeof window.pm.onAuthSuccess === 'function') {
                         window.pm.onAuthSuccess();
                     }
                 }, 500);
             } else {
-                this.showError('Λανθασμένος Master Password');
+                this.showError(this.t('login_incorrect'));
                 btn.disabled = false;
-                btn.innerHTML = '<span>🔓 Ξεκλείδωμα Password Manager</span>';
+                btn.innerHTML = this.t('login_button');
             }
         } catch (error) {
-            this.showError('Σφάλμα σύνδεσης: ' + error.message);
+            this.showError(this.t('login_error_prefix') + error.message);
             btn.disabled = false;
-            btn.innerHTML = '<span>🔓 Ξεκλείδωμα Password Manager</span>';
+            btn.innerHTML = this.t('login_button');
         }
     }
 
@@ -306,8 +434,7 @@ class PasswordManagerAuthUI {
             this.authModal.remove();
             this.authModal = null;
         }
-        
-        // Καθαρισμός όλων των auth modals (για περίπτωση duplicates)
+
         const existingModals = document.querySelectorAll('.auth-modal');
         existingModals.forEach(modal => modal.remove());
     }
@@ -321,32 +448,30 @@ class PasswordManagerAuthUI {
     }
 
     showNotification(message, type) {
-        // Χρησιμοποιούμε την υπάρχουσα λειτουργικότητα ειδοποιήσεων
         if (window.pm && typeof window.pm.showNotification === 'function') {
             window.pm.showNotification(message, type);
         } else {
-            // Fallback απλής alert
             alert(message);
         }
     }
 
     showErrorModal(message) {
         this.closeAuthModal();
-        
+
         const modal = document.createElement('div');
         modal.className = 'auth-modal active';
         modal.innerHTML = `
             <div class="auth-modal-overlay">
                 <div class="auth-modal-content">
                     <div class="auth-modal-header">
-                        <h2>❌ Σφάλμα</h2>
+                        <h2>❌ ${this.t('error_title')}</h2>
                     </div>
                     <div class="auth-modal-body">
                         <p>${message}</p>
                     </div>
                     <div class="form-actions">
                         <button class="button" onclick="this.closest('.auth-modal').remove(); location.reload();">
-                            Κλείσιμο
+                            ${this.t('error_close')}
                         </button>
                     </div>
                 </div>
@@ -355,3 +480,6 @@ class PasswordManagerAuthUI {
         document.body.appendChild(modal);
     }
 }
+
+// Create global instance
+window.pmAuthUI = new PasswordManagerAuthUI();

@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copyright & License - Make Your Life Easier</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #7c3aed;
+            --primary-dark: #6d28d9;
+            --secondary: #3b82f6;
+            --accent: #10b981;
+            --dark: #0f172a;
+            --dark-lighter: #1e293b;
+            --dark-card: rgba(30, 41, 59, 0.9);
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --warning: #ef4444;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            color: var(--text);
+            line-height: 1.8;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .copyright-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: var(--dark-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .copyright-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+        }
+
+        .copyright-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            display: inline-block;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        .copyright-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #ffffff 0%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .copyright-header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* Language Toggle */
+        .language-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .lang-btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+        }
+
+        .lang-btn.active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-color: var(--primary);
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+        }
+
+        .lang-btn:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        /* Content Sections */
+        .section {
+            background: var(--dark-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(20px);
+            transition: all 0.3s;
+        }
+
+        .section:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.2);
+        }
+
+        .section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section h2::before {
+            content: '';
+            width: 4px;
+            height: 1.8rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 2px;
+        }
+
+        .section h3 {
+            font-size: 1.3rem;
+            margin: 1.5rem 0 1rem;
+            color: var(--text);
+        }
+
+        .section p {
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .section ul {
+            list-style: none;
+            margin-left: 1rem;
+        }
+
+        .section ul li {
+            padding: 0.5rem 0;
+            color: var(--text-muted);
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .section ul li::before {
+            content: '✓';
+            color: var(--accent);
+            font-weight: bold;
+            flex-shrink: 0;
+            margin-top: 0.1rem;
+        }
+
+        .warning-box {
+            background: rgba(239, 68, 68, 0.1);
+            border: 2px solid var(--warning);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .warning-icon {
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+
+        .warning-content h4 {
+            color: var(--warning);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        .warning-content p {
+            color: var(--text);
+        }
+
+        /* Owner Info */
+        .owner-card {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(59, 130, 246, 0.1));
+            border: 1px solid var(--primary);
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .owner-card h3 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .owner-info {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .info-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem;
+            background: var(--glass);
+            border-radius: 10px;
+        }
+
+        .info-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 100px;
+        }
+
+        .info-value {
+            color: var(--text-muted);
+        }
+
+        .info-value a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.25rem .5rem;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(59, 130, 246, 0.1));
+            border: 1.5px solid rgba(124, 58, 237, 0.3);
+            border-radius: 16px;
+            color: gray;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(20px);
+            box-shadow: 
+                0 4px 20px rgba(124, 58, 237, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            animation: gentleGlow 3s ease-in-out infinite;
+        }
+        .info-value a::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255, 255, 255, 0.4), 
+                transparent);
+            transition: left 0.6s ease;
+        }
+
+        .info-value a:hover {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.25), rgba(59, 130, 246, 0.2));
+            border-color: var(--primary);
+            color: var(--text);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 
+                0 12px 40px rgba(124, 58, 237, 0.35),
+                0 8px 25px rgba(59, 130, 246, 0.25),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+
+        .info-value a:hover::before {
+            left: 100%;
+        }
+
+        .info-value a::after {
+            content: '📧';
+            font-size: 1.2em;
+            filter: grayscale(0.3);
+            transition: all 0.4s ease;
+        }
+
+        .info-value a:hover::after {
+            content: '🚀';
+            filter: grayscale(0);
+            transform: scale(1.3) rotate(10deg);
+        }
+
+        /* Micro-interaction animation */
+        @keyframes gentleGlow {
+            0%, 100% {
+                box-shadow: 
+                    0 4px 20px rgba(124, 58, 237, 0.15),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            }
+            50% {
+                box-shadow: 
+                    0 4px 25px rgba(124, 58, 237, 0.25),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            }
+        }
+
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .info-value a {
+                padding: 0.6rem 1.2rem;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Copyright Symbol */
+        .copyright-symbol {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-weight: 600;
+            margin: 1rem 0;
+        }
+        .email-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 0rem 0.2rem;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(59, 130, 246, 0.05));
+            border: 1px solid rgba(124, 58, 237, 0.2);
+            border-radius: 6px;
+            color: gray;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .email-link:hover {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(59, 130, 246, 0.1));
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.25);
+        }
+        /* Footer */
+        .copyright-footer {
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .footer-text {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.6s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .copyright-header h1 {
+                font-size: 2rem;
+            }
+
+            .section {
+                padding: 1.5rem;
+            }
+
+            .section h2 {
+                font-size: 1.5rem;
+            }
+
+            .info-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .info-label {
+                min-width: auto;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+
+            .language-toggle,
+            .section:hover {
+                box-shadow: none;
+            }
+        }
+        .footer-link{
+            display: inline-flex;
+            align-items: center;
+            padding: 0rem 0.2rem;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(59, 130, 246, 0.05));
+            border: 1px solid rgba(124, 58, 237, 0.2);
+            border-radius: 6px;
+            color: gray;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .footer-link:hover {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(59, 130, 246, 0.1));
+            border-color: var(--primary);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.25);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="copyright-header fade-in">
+            <div class="copyright-icon">©</div>
+            <h1>Copyright & License</h1>
+            <p>Make Your Life Easier</p>
+        </div>
+
+        <!-- Language Toggle -->
+        <div class="language-toggle">
+            <button class="lang-btn active" onclick="switchLanguage('el')" id="btn-el">🇬🇷 Ελληνικά</button>
+            <button class="lang-btn" onclick="switchLanguage('en')" id="btn-en">🇬🇧 English</button>
+        </div>
+
+        <!-- Greek Content -->
+        <div id="content-el" class="content-lang">
+            <!-- Copyright Notice -->
+            <section class="section fade-in">
+                <h2>📜 Δήλωση Πνευματικών Δικαιωμάτων</h2>
+                
+                <div class="copyright-symbol">
+                    © 2024 Kolokithes A.E. - Με την Επιφύλαξη Παντός Δικαιώματος
+                </div>
+
+                <p>
+                    Η εφαρμογή <strong>"Make Your Life Easier"</strong> είναι πνευματική ιδιοκτησία της 
+                    <strong>Kolokithes A.E.</strong> και προστατεύεται από νόμους πνευματικής ιδιοκτησίας 
+                    της Ελλάδας, της Ευρωπαϊκής Ένωσης και διεθνείς συνθήκες.
+                </p>
+
+                <div class="owner-card">
+                    <h3>👤 Πληροφορίες Δημιουργού</h3>
+                    <div class="owner-info">
+                        <div class="info-row">
+                            <span class="info-icon">👨‍💻</span>
+                            <span class="info-label">Δημιουργός:</span>
+                            <span class="info-value">ThomasThanos</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-icon">🏢</span>
+                            <span class="info-label">Εταιρεία:</span>
+                            <span class="info-value">Kolokithes A.E.</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-icon">📧</span>
+                            <span class="info-label">Email:</span>
+                            <span class="info-value">
+                                <a href="mailto:thomasthanos28@gmail.com">thomasthanos28@gmail.com</a>
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-icon">💻</span>
+                            <span class="info-label">GitHub:</span>
+                            <span class="info-value">
+                                <a href="https://github.com/thomasthanos" target="_blank">@thomasthanos</a>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Restrictions -->
+            <section class="section fade-in">
+                <h2>🚫 Περιορισμοί Χρήσης</h2>
+                
+                <div class="warning-box">
+                    <div class="warning-icon">⚠️</div>
+                    <div class="warning-content">
+                        <h4>ΑΠΑΓΟΡΕΥΕΤΑΙ ΡΗΤΑ</h4>
+                        <p>
+                            Η τροποποίηση, αποσυναρμολόγηση, αντίστροφη μηχανική ή οποιαδήποτε 
+                            μορφή επεξεργασίας του κώδικα χωρίς ρητή γραπτή άδεια του δημιουργού.
+                        </p>
+                    </div>
+                </div>
+
+                <h3>❌ Απαγορεύονται τα εξής:</h3>
+                <ul>
+                    <li>Τροποποίηση, επεξεργασία ή αλλαγή του πηγαίου κώδικα</li>
+                    <li>Αποσυναρμολόγηση (decompile) ή αντίστροφη μηχανική (reverse engineering)</li>
+                    <li>Αφαίρεση ή τροποποίηση των πνευματικών δικαιωμάτων και προειδοποιήσεων</li>
+                    <li>Εμπορική χρήση χωρίς γραπτή άδεια</li>
+                    <li>Αναδιανομή τροποποιημένων εκδόσεων</li>
+                    <li>Χρήση σε παράνομες δραστηριότητες</li>
+                    <li>Δημιουργία παράγωγων έργων χωρίς άδεια</li>
+                </ul>
+
+                <h3>✅ Επιτρέπονται τα εξής:</h3>
+                <ul>
+                    <li>Προσωπική χρήση του λογισμικού</li>
+                    <li>Εγκατάσταση σε προσωπικούς υπολογιστές</li>
+                    <li>Δημιουργία αντιγράφων ασφαλείας για προσωπική χρήση</li>
+                    <li>Κοινή χρήση του επίσημου installer με άλλους χρήστες</li>
+                </ul>
+            </section>
+
+            <!-- Permission Request -->
+            <section class="section fade-in">
+                <h2>📝 Αίτηση Άδειας Χρήσης</h2>
+                
+                <p>
+                    Εάν επιθυμείτε να τροποποιήσετε, να χρησιμοποιήσετε εμπορικά ή να δημιουργήσετε 
+                    παράγωγο έργο βασισμένο στην εφαρμογή "Make Your Life Easier", πρέπει να λάβετε 
+                    ρητή γραπτή άδεια από τον δημιουργό.
+                </p>
+
+                <h3>📋 Διαδικασία Αίτησης:</h3>
+                <ul>
+                    <li>
+                        Αποστείλετε email στο 
+                        <a href="mailto:thomasthanos28@gmail.com" class="email-link">
+                            thomasthanos28@gmail.com
+                        </a>
+                    </li>
+                    <li>Περιγράψτε λεπτομερώς τον σκοπό χρήσης και τις προτεινόμενες τροποποιήσεις</li>
+                    <li>Αναφέρετε αν πρόκειται για εμπορική ή μη χρήση</li>
+                    <li>Περιμένετε την γραπτή απάντηση και έγκριση</li>
+                </ul>
+
+                <div class="warning-box">
+                    <div class="warning-icon">📧</div>
+                    <div class="warning-content">
+                        <h4>Επικοινωνία</h4>
+                        <p>
+                            Για άδειες χρήσης, ερωτήσεις ή αναφορές προβλημάτων, επικοινωνήστε στο:<br>
+                            <strong>thomasthanos28@gmail.com</strong>
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Warranty Disclaimer -->
+            <section class="section fade-in">
+                <h2>⚖️ Αποποίηση Ευθύνης</h2>
+                
+                <p>
+                    Η εφαρμογή παρέχεται "ΩΣ ΕΧΕΙ" χωρίς καμία μορφή εγγύησης, ρητή ή σιωπηρή, 
+                    συμπεριλαμβανομένων, αλλά όχι περιοριζόμενων σε εγγυήσεις εμπορευσιμότητας, 
+                    καταλληλότητας για συγκεκριμένο σκοπό και μη παραβίασης.
+                </p>
+
+                <p>
+                    Ο δημιουργός δεν φέρει ευθύνη για:
+                </p>
+                <ul>
+                    <li>Οποιαδήποτε άμεση ή έμμεση ζημία από τη χρήση της εφαρμογής</li>
+                    <li>Απώλεια δεδομένων ή κέρδους</li>
+                    <li>Διακοπή εργασιών ή υπηρεσιών</li>
+                    <li>Ζημιές από κακή χρήση της εφαρμογής</li>
+                </ul>
+            </section>
+
+            <!-- Updates and Changes -->
+            <section class="section fade-in">
+                <h2>🔄 Ενημερώσεις & Αλλαγές</h2>
+                
+                <p>
+                    Ο δημιουργός διατηρεί το δικαίωμα να:
+                </p>
+                <ul>
+                    <li>Τροποποιήσει αυτούς τους όρους οποιαδήποτε στιγμή</li>
+                    <li>Διακόψει την υποστήριξη ή ενημερώσεις</li>
+                    <li>Προσθέσει ή αφαιρέσει λειτουργίες</li>
+                    <li>Αλλάξει την άδεια χρήσης</li>
+                </ul>
+
+                <p>
+                    Οι χρήστες θα ενημερώνονται για σημαντικές αλλαγές μέσω του GitHub repository 
+                    και των ενημερώσεων της εφαρμογής.
+                </p>
+            </section>
+
+            <!-- Legal -->
+            <section class="section fade-in">
+                <h2>⚖️ Νομική Ισχύς</h2>
+                
+                <p>
+                    Οι παρόντες όροι διέπονται από την Ελληνική Νομοθεσία και τους νόμους 
+                    πνευματικής ιδιοκτησίας της Ευρωπαϊκής Ένωσης. Οποιαδήποτε διαφορά 
+                    υπόκειται στην αποκλειστική δικαιοδοσία των Ελληνικών Δικαστηρίων.
+                </p>
+
+                <p>
+                    <strong>Ημερομηνία Τελευταίας Ενημέρωσης:</strong> Νοέμβριος 2024
+                </p>
+            </section>
+        </div>
+
+        <!-- English Content -->
+        <div id="content-en" class="content-lang" style="display: none;">
+            <!-- Copyright Notice -->
+            <section class="section fade-in">
+                <h2>📜 Copyright Notice</h2>
+                
+                <div class="copyright-symbol">
+                    © 2024 Kolokithes A.E. - All Rights Reserved
+                </div>
+
+                <p>
+                    The <strong>"Make Your Life Easier"</strong> application is the intellectual property 
+                    of <strong>Kolokithes A.E.</strong> and is protected by copyright laws of Greece, 
+                    the European Union, and international treaties.
+                </p>
+
+                <div class="owner-card">
+                    <h3>👤 Creator Information</h3>
+                    <div class="owner-info">
+                        <div class="info-row">
+                            <span class="info-icon">👨‍💻</span>
+                            <span class="info-label">Creator:</span>
+                            <span class="info-value">ThomasThanos</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-icon">🏢</span>
+                            <span class="info-label">Company:</span>
+                            <span class="info-value">Kolokithes A.E.</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-icon">📧</span>
+                            <span class="info-label">Email:</span>
+                            <span class="info-value">
+                                <a href="mailto:thomasthanos28@gmail.com">thomasthanos28@gmail.com</a>
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-icon">💻</span>
+                            <span class="info-label">GitHub:</span>
+                            <span class="info-value">
+                                <a href="https://github.com/thomasthanos" target="_blank">@thomasthanos</a>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Restrictions -->
+            <section class="section fade-in">
+                <h2>🚫 Usage Restrictions</h2>
+                
+                <div class="warning-box">
+                    <div class="warning-icon">⚠️</div>
+                    <div class="warning-content">
+                        <h4>STRICTLY PROHIBITED</h4>
+                        <p>
+                            Modification, decompilation, reverse engineering, or any form of code 
+                            editing without explicit written permission from the creator.
+                        </p>
+                    </div>
+                </div>
+
+                <h3>❌ The following are prohibited:</h3>
+                <ul>
+                    <li>Modifying, editing, or changing the source code</li>
+                    <li>Decompiling or reverse engineering</li>
+                    <li>Removing or modifying copyright notices and warnings</li>
+                    <li>Commercial use without written permission</li>
+                    <li>Redistributing modified versions</li>
+                    <li>Use in illegal activities</li>
+                    <li>Creating derivative works without permission</li>
+                </ul>
+
+                <h3>✅ The following are permitted:</h3>
+                <ul>
+                    <li>Personal use of the software</li>
+                    <li>Installation on personal computers</li>
+                    <li>Creating backup copies for personal use</li>
+                    <li>Sharing the official installer with other users</li>
+                </ul>
+            </section>
+
+            <!-- Permission Request -->
+            <section class="section fade-in">
+                <h2>📝 Permission Request</h2>
+                
+                <p>
+                    If you wish to modify, use commercially, or create derivative work based on 
+                    the "Make Your Life Easier" application, you must obtain explicit written 
+                    permission from the creator.
+                </p>
+
+                <h3>📋 Request Procedure:</h3>
+                <ul>
+                    <li>
+                        Send an email to 
+                        <a href="mailto:thomasthanos28@gmail.com" class="email-link">
+                            thomasthanos28@gmail.com
+                        </a>
+                    </li>
+                    <li>Describe in detail the purpose of use and proposed modifications</li>
+                    <li>State whether it's for commercial or non-commercial use</li>
+                    <li>Wait for written response and approval</li>
+                </ul>
+
+                <div class="warning-box">
+                    <div class="warning-icon">📧</div>
+                    <div class="warning-content">
+                        <h4>Contact</h4>
+                        <p>
+                            For licenses, questions, or bug reports, contact:<br>
+                            <strong>thomasthanos28@gmail.com</strong>
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Warranty Disclaimer -->
+            <section class="section fade-in">
+                <h2>⚖️ Disclaimer</h2>
+                
+                <p>
+                    The application is provided "AS IS" without warranty of any kind, express or 
+                    implied, including but not limited to warranties of merchantability, fitness 
+                    for a particular purpose, and non-infringement.
+                </p>
+
+                <p>
+                    The creator is not liable for:
+                </p>
+                <ul>
+                    <li>Any direct or indirect damage from using the application</li>
+                    <li>Loss of data or profits</li>
+                    <li>Business interruption or service disruption</li>
+                    <li>Damages from misuse of the application</li>
+                </ul>
+            </section>
+
+            <!-- Updates and Changes -->
+            <section class="section fade-in">
+                <h2>🔄 Updates & Changes</h2>
+                
+                <p>
+                    The creator reserves the right to:
+                </p>
+                <ul>
+                    <li>Modify these terms at any time</li>
+                    <li>Discontinue support or updates</li>
+                    <li>Add or remove features</li>
+                    <li>Change the license</li>
+                </ul>
+
+                <p>
+                    Users will be notified of significant changes through the GitHub repository 
+                    and application updates.
+                </p>
+            </section>
+
+            <!-- Legal -->
+            <section class="section fade-in">
+                <h2>⚖️ Legal Jurisdiction</h2>
+                
+                <p>
+                    These terms are governed by Greek Law and the copyright laws of the European 
+                    Union. Any disputes are subject to the exclusive jurisdiction of Greek Courts.
+                </p>
+
+                <p>
+                    <strong>Last Updated:</strong> November 2024
+                </p>
+            </section>
+        </div>
+
+        <!-- Footer -->
+            <div class="copyright-footer">
+                <div class="footer-text">
+                    <p>© 2024 Kolokithes A.E. - All Rights Reserved</p>
+                    <p style="margin-top: 0.5rem;">
+                        Made with ❤️ by 
+                        <a href="https://github.com/thomasthanos" class="footer-link">
+                            ThomasThanos
+                        </a>
+                    </p>
+                </div>
+            </div>
+    </div>
+
+    <script>
+        function switchLanguage(lang) {
+            // Hide all content
+            document.getElementById('content-el').style.display = 'none';
+            document.getElementById('content-en').style.display = 'none';
+            
+            // Remove active class from all buttons
+            document.getElementById('btn-el').classList.remove('active');
+            document.getElementById('btn-en').classList.remove('active');
+            
+            // Show selected content and activate button
+            document.getElementById('content-' + lang).style.display = 'block';
+            document.getElementById('btn-' + lang).classList.add('active');
+            
+            // Save preference
+            localStorage.setItem('copyright-lang', lang);
+            
+            // Smooth scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Load saved language preference
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedLang = localStorage.getItem('copyright-lang');
+            if (savedLang) {
+                switchLanguage(savedLang);
+            }
+        });
+
+        // Print functionality
+        function printCopyright() {
+            window.print();
+        }
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'p') {
+                e.preventDefault();
+                printCopyright();
+            }
+            if (e.ctrlKey && e.key === '1') {
+                switchLanguage('el');
+            }
+            if (e.ctrlKey && e.key === '2') {
+                switchLanguage('en');
+            }
+        });
+    </script>
+</body>
+</html>

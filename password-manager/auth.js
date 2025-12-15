@@ -1,7 +1,12 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
+
+// Import debug from the shared module
+const { debug } = require('../src/modules/debug');
+
+// Import shared path utilities
+const { getAppDataPath } = require('./utils/paths');
 
 class PasswordManagerAuth {
     constructor() {
@@ -9,53 +14,48 @@ class PasswordManagerAuth {
         this.encryptionKey = null;
         this.sessionTimeout = 30 * 60 * 1000;
         this.sessionTimer = null;
-        
-        // Auto-initialize on creation
-        this.initialize();
+        this.dbDirectory = null;
+        this.configPath = null;
     }
 
-    initialize() {
+    /**
+     * Initialize the auth manager with a custom directory path
+     * @param {string} customPath - Optional custom directory path
+     */
+    initialize(customPath = null) {
+        // Skip if already initialized with valid paths
+        if (this.configPath && !customPath) {
+            debug('info', 'Auth manager already initialized');
+            return;
+        }
+
         try {
-            // Χρήση της ίδιας λογικής με το database.js για OneDrive
-            this.dbDirectory = this.getDocumentsPath();
+            // Use custom path or shared utility for consistent path detection
+            this.dbDirectory = customPath || getAppDataPath();
             this.configPath = path.join(this.dbDirectory, 'pm_config.json');
-            
-            console.log('Auto-initializing auth manager...');
-            console.log('Config path:', this.configPath);
-            
-            // Δημιουργία directory αν δεν υπάρχει
+
+            debug('info', 'Initializing auth manager...');
+            debug('info', 'Config path:', this.configPath);
+
+            // Create directory if it doesn't exist
             if (!fs.existsSync(this.dbDirectory)) {
                 fs.mkdirSync(this.dbDirectory, { recursive: true });
             }
-            
-            console.log('Auth manager initialized successfully');
+
+            debug('success', 'Auth manager initialized successfully');
         } catch (error) {
-            console.error('Error auto-initializing auth manager:', error);
+            debug('error', 'Error initializing auth manager:', error);
         }
     }
-    
-    getDocumentsPath() {
-        // Try to get OneDrive Documents path first
-        const oneDrivePaths = [
-            path.join(os.homedir(), 'OneDrive', 'Documents'),
-            path.join(os.homedir(), 'OneDrive - Personal', 'Documents'),
-            path.join(os.homedir(), 'Documents')
-        ];
 
-        for (const oneDrivePath of oneDrivePaths) {
-            if (fs.existsSync(oneDrivePath)) {
-                return path.join(oneDrivePath, 'MakeYourLifeEasier');
-            }
-        }
-
-        // Fallback to regular Documents
-        return path.join(os.homedir(), 'Documents', 'MakeYourLifeEasier');
-    }
     hasMasterPassword() {
         try {
-            return fs.existsSync(this.configPath);
+            const exists = fs.existsSync(this.configPath);
+            debug('info', 'Checking for master password at:', this.configPath);
+            debug('info', 'Config file exists:', exists);
+            return exists;
         } catch (error) {
-            console.error('Error checking master password:', error);
+            debug('error', 'Error checking master password:', error);
             return false;
         }
     }
@@ -63,36 +63,65 @@ class PasswordManagerAuth {
     async createMasterPassword(password) {
         return new Promise((resolve, reject) => {
             try {
-                if (password.length < 8) {
+                debug('info', 'Creating master password...');
+                debug('info', 'Config path:', this.configPath);
+                debug('info', 'DB directory:', this.dbDirectory);
+
+                if (!password || password.length < 8) {
                     reject(new Error('Ο Master Password πρέπει να έχει τουλάχιστον 8 χαρακτήρες'));
                     return;
                 }
 
+                // Ensure directory exists
+                if (!fs.existsSync(this.dbDirectory)) {
+                    debug('info', 'Creating directory:', this.dbDirectory);
+                    fs.mkdirSync(this.dbDirectory, { recursive: true });
+                }
+
                 const salt = crypto.randomBytes(32);
-                
-                crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derivedKey) => {
+                const scryptOptions = {
+                    N: Math.pow(2, 14),
+                    r: 8,
+                    p: 1,
+                    maxmem: 64 * 1024 * 1024
+                };
+                crypto.scrypt(password, salt, 64, scryptOptions, (err, derivedKey) => {
                     if (err) {
+                        debug('error', 'Scrypt error:', err);
                         reject(err);
                         return;
                     }
-
                     try {
                         const config = {
                             hash: derivedKey.toString('hex'),
                             salt: salt.toString('hex'),
-                            createdAt: new Date().toISOString()
+                            createdAt: new Date().toISOString(),
+                            algorithm: 'scrypt'
                         };
 
+                        debug('info', 'Writing config to:', this.configPath);
                         fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2));
+
+                        // Verify file was written
+                        if (fs.existsSync(this.configPath)) {
+                            debug('success', 'Config file created successfully!');
+                        } else {
+                            debug('error', 'Config file NOT created!');
+                            reject(new Error('Failed to create config file - file does not exist after write'));
+                            return;
+                        }
+
+                        // Generate encryption key using HKDF
                         this.generateEncryptionKey(password, salt);
                         this.isAuthenticated = true;
-                        
                         resolve(true);
                     } catch (fileError) {
+                        debug('error', 'File write error:', fileError);
                         reject(new Error('Failed to create config file: ' + fileError.message));
                     }
                 });
             } catch (error) {
+                debug('error', 'Create master password error:', error);
                 reject(error);
             }
         });
@@ -101,48 +130,78 @@ class PasswordManagerAuth {
 
     // Σύνδεση με Master Password
     async authenticate(password) {
+        /**
+         * Authenticate a user by comparing the provided password with the
+         * stored hash.  Uses scrypt when the stored configuration
+         * indicates scrypt.  No plaintext password details are logged.  On
+         * success the encryption key is regenerated and the session timer
+         * is reset.
+         */
         return new Promise((resolve, reject) => {
             try {
-                console.log('Authenticating...');
-                
+                debug('info', 'Authentication attempt...');
+                debug('info', 'Config path:', this.configPath);
+
                 if (!this.hasMasterPassword()) {
+                    debug('error', 'No master password set - config file missing');
                     reject(new Error('Δεν έχει οριστεί Master Password'));
                     return;
                 }
 
-                // Φόρτωση ρυθμίσεων
-                console.log('Reading config from:', this.configPath);
+                debug('info', 'Reading config file...');
                 const configData = fs.readFileSync(this.configPath, 'utf8');
                 const config = JSON.parse(configData);
+                debug('info', 'Config loaded, algorithm:', config.algorithm);
+                debug('info', 'Config created at:', config.createdAt);
 
                 const salt = Buffer.from(config.salt, 'hex');
+                const verify = (derivedKey) => {
+                    const inputHash = derivedKey.toString('hex');
+                    const storedHash = config.hash;
 
-                // Επαλήθευση κωδικού
-                crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derivedKey) => {
-                    if (err) {
-                        console.error('PBKDF2 error:', err);
-                        reject(err);
-                        return;
-                    }
+                    debug('info', 'Comparing hashes...');
+                    debug('info', 'Input hash (first 16 chars):', inputHash.substring(0, 16) + '...');
+                    debug('info', 'Stored hash (first 16 chars):', storedHash.substring(0, 16) + '...');
 
-                    if (derivedKey.toString('hex') !== config.hash) {
-                        console.log('Password mismatch');
+                    if (inputHash !== storedHash) {
+                        debug('error', 'Hash mismatch - wrong password');
                         reject(new Error('Λανθασμένος Master Password'));
                         return;
                     }
-
-                    // Επιτυχής σύνδεση - δημιουργία κλειδιού κρυπτογράφησης
+                    debug('success', 'Hash match - authentication successful!');
                     this.generateEncryptionKey(password, salt);
                     this.isAuthenticated = true;
-                    
-                    // Ρύθμιση session timeout
                     this.resetSessionTimer();
-                    
-                    console.log('Authentication successful');
                     resolve(true);
-                });
+                };
+                if (config.algorithm === 'scrypt') {
+                    const scryptOptions = {
+                        N: Math.pow(2, 14),
+                        r: 8,
+                        p: 1,
+                        maxmem: 64 * 1024 * 1024
+                    };
+                    crypto.scrypt(password, salt, 64, scryptOptions, (err, derivedKey) => {
+                        if (err) {
+                            debug('error', 'Scrypt error during auth:', err);
+                            reject(err);
+                            return;
+                        }
+                        verify(derivedKey);
+                    });
+                } else {
+                    // Legacy support: verify PBKDF2 hashes
+                    debug('info', 'Using legacy PBKDF2...');
+                    crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derivedKey) => {
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+                        verify(derivedKey);
+                    });
+                }
             } catch (error) {
-                console.error('Authentication error:', error);
+                debug('error', 'Authentication error:', error);
                 reject(error);
             }
         });
@@ -155,55 +214,47 @@ class PasswordManagerAuth {
             const hkdf = crypto.createHmac('sha256', password);
             hkdf.update(salt);
             const pseudoRandomKey = hkdf.digest();
-            
+
             // Δημιουργία τελικού κλειδιού AES-256
             const finalHkdf = crypto.createHmac('sha256', pseudoRandomKey);
             finalHkdf.update('encryption-key');
             this.encryptionKey = finalHkdf.digest();
-            
-            console.log('Encryption key generated successfully');
+
+            debug('success', 'Encryption key generated successfully');
         } catch (error) {
-            console.error('Error generating encryption key:', error);
+            debug('error', 'Error generating encryption key:', error);
             throw error;
         }
     }
 
     // Κρυπτογράφηση δεδομένων
-// Στο encryptData method:
-encryptData(data) {
-    if (!this.isAuthenticated || !this.encryptionKey) {
-        console.error('Cannot encrypt: Not authenticated or no encryption key');
-        throw new Error('Δεν έχετε πιστοποιηθεί');
-    }
+    // Στο encryptData method:
+    encryptData(data) {
+        if (!this.isAuthenticated || !this.encryptionKey) {
+            debug('error', 'Cannot encrypt: Not authenticated or no encryption key');
+            throw new Error('Δεν έχετε πιστοποιηθεί');
+        }
 
-    try {
-        console.log('Encrypting data:', {
-            hasPassword: !!data.password,
-            passwordLength: data.password ? data.password.length : 0,
-            hasUsername: !!data.username,
-            hasEmail: !!data.email
-        });
-
-        const iv = crypto.randomBytes(16);
-        const cipher = crypto.createCipheriv('aes-256-gcm', this.encryptionKey, iv);
-        
-        let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
-        encrypted += cipher.final('hex');
-        
-        const authTag = cipher.getAuthTag();
-        
-        console.log('Encryption successful');
-        
-        return {
-            iv: iv.toString('hex'),
-            data: encrypted,
-            authTag: authTag.toString('hex')
-        };
-    } catch (error) {
-        console.error('Encryption error:', error);
-        throw error;
+        try {
+            // Perform AES‑256‑GCM encryption.  Avoid logging sensitive
+            // properties such as password length【186042565597416†L1395-L1398】.  Only
+            // report generic success or failure messages.
+            const iv = crypto.randomBytes(16);
+            const cipher = crypto.createCipheriv('aes-256-gcm', this.encryptionKey, iv);
+            let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
+            encrypted += cipher.final('hex');
+            const authTag = cipher.getAuthTag();
+            return {
+                iv: iv.toString('hex'),
+                data: encrypted,
+                authTag: authTag.toString('hex')
+            };
+        } catch (error) {
+            // Log a generic message without revealing sensitive details
+            debug('error', 'Encryption error');
+            throw error;
+        }
     }
-}
 
     // Αποκρυπτογράφηση δεδομένων
     decryptData(encryptedData) {
@@ -214,16 +265,16 @@ encryptData(data) {
         try {
             const iv = Buffer.from(encryptedData.iv, 'hex');
             const authTag = Buffer.from(encryptedData.authTag, 'hex');
-            
+
             const decipher = crypto.createDecipheriv('aes-256-gcm', this.encryptionKey, iv);
             decipher.setAuthTag(authTag);
-            
+
             let decrypted = decipher.update(encryptedData.data, 'hex', 'utf8');
             decrypted += decipher.final('utf8');
-            
+
             return JSON.parse(decrypted);
         } catch (error) {
-            console.error('Decryption error:', error);
+            debug('error', 'Decryption error:', error);
             throw error;
         }
     }
@@ -233,30 +284,30 @@ encryptData(data) {
         if (this.sessionTimer) {
             clearTimeout(this.sessionTimer);
         }
-        
+
         this.sessionTimer = setTimeout(() => {
-            console.log('Session expired');
+            debug('warn', 'Session expired');
             this.logout();
         }, this.sessionTimeout);
     }
 
     // Αποσύνδεση
     logout() {
-        console.log('Logging out...');
+        debug('info', 'Logging out...');
         this.isAuthenticated = false;
-        
+
         // Ασφαλής εκκαθάριση κλειδιού από μνήμη
         if (this.encryptionKey) {
             this.encryptionKey.fill(0);
             this.encryptionKey = null;
         }
-        
+
         if (this.sessionTimer) {
             clearTimeout(this.sessionTimer);
             this.sessionTimer = null;
         }
-        
-        console.log('Logout completed');
+
+        debug('success', 'Logout completed');
     }
 
     // Αλλαγή Master Password
@@ -267,10 +318,10 @@ encryptData(data) {
 
         // Επαλήθευση τρέχοντος κωδικού
         await this.authenticate(currentPassword);
-        
+
         // Δημιουργία νέου Master Password
         await this.createMasterPassword(newPassword);
-        
+
         return true;
     }
 
@@ -285,7 +336,7 @@ encryptData(data) {
         };
 
         const strength = Object.values(requirements).filter(Boolean).length;
-        
+
         return {
             requirements,
             strength,
