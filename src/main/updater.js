@@ -52,9 +52,17 @@ function configureAutoUpdater() {
     autoUpdater.allowDowngrade = false;
     
     // Configure logger for better debugging
-    if (process.env.NODE_ENV === 'development') {
-        autoUpdater.logger = require('electron-log');
+    try {
+        const log = require('electron-log');
+        autoUpdater.logger = log;
         autoUpdater.logger.transports.file.level = 'info';
+        
+        // Log file location for troubleshooting
+        if (process.env.NODE_ENV === 'development') {
+            debug('info', `Update logs: ${log.transports.file.getFile().path}`);
+        }
+    } catch (err) {
+        // electron-log not available, continue without logging
     }
 }
 
@@ -332,21 +340,37 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
                 const updateWin = getUpdateWindow();
                 const mainWin = getMainWindow();
 
+                // Send final status
                 if (updateWin) {
-                    updateWin.close();
-                }
-                if (mainWin) {
-                    mainWin.close();
+                    updateWin.webContents.send('update-status', {
+                        status: 'downloaded',
+                        message: 'Preparing installation...',
+                        percent: 100
+                    });
                 }
 
+                // Wait a bit more before closing windows
                 setTimeout(() => {
-                    autoUpdater.quitAndInstall(false, true);
-                }, 100);
+                    if (updateWin) {
+                        updateWin.close();
+                    }
+                    if (mainWin) {
+                        mainWin.close();
+                    }
+
+                    // Give extra time for windows to close gracefully
+                    setTimeout(() => {
+                        debug('info', 'Launching installer...');
+                        // Use immediate install - NSIS will handle the rest
+                        autoUpdater.quitAndInstall(false, true);
+                    }, 500);
+                }, 300);
             } catch (e) {
                 debug('error', 'Failed to install update automatically:', e);
-                app.quit();
+                // Force quit if install fails
+                setTimeout(() => app.quit(), 1000);
             }
-        }, 300);
+        }, 500);
     });
 
     autoUpdater.on('error', (err) => {
@@ -476,14 +500,33 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
             const updateWindow = getUpdateWindow();
             const mainWindow = getMainWindow();
 
+            debug('info', 'Manual install triggered');
+
+            // Send preparing message
             if (updateWindow) {
-                updateWindow.close();
-            }
-            if (mainWindow) {
-                mainWindow.close();
+                updateWindow.webContents.send('update-status', {
+                    status: 'downloaded',
+                    message: 'Preparing installation...',
+                    percent: 100
+                });
             }
 
-            setTimeout(() => autoUpdater.quitAndInstall(false, true), 100);
+            // Graceful window closure
+            setTimeout(() => {
+                if (updateWindow) {
+                    updateWindow.close();
+                }
+                if (mainWindow) {
+                    mainWindow.close();
+                }
+
+                // Wait for windows to close before installing
+                setTimeout(() => {
+                    debug('info', 'Launching installer...');
+                    autoUpdater.quitAndInstall(false, true);
+                }, 500);
+            }, 300);
+
             return { success: true };
         }
         return { success: false, error: 'No update downloaded' };

@@ -15,6 +15,7 @@
     "release": "npm run build-all && npm run publish"
   },
   "dependencies": {
+    "electron-log": "^5.2.2",
     "electron-store": "^11.0.2",
     "electron-sudo": "^4.0.12",
     "electron-updater": "^6.7.2",
@@ -132,7 +133,10 @@
       "uninstallUrlInfoAbout": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/info/info.html",
       "uninstallUrlReadme": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/readme.html",
       "uninstallUrlUpdateInfo": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/changelog.html",
-      "differentialPackage": true
+      "differentialPackage": true,
+      "runAfterFinish": true,
+      "menuCategory": true,
+      "allowElevation": true
     },
     "portable": {
       "artifactName": "MakeYourLifeEasier-Portable.exe"

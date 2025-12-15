@@ -61,6 +61,22 @@ FunctionEnd
   ; Set default install directory first
   StrCpy $INSTDIR "$PROGRAMFILES64\ThomasThanos\MakeYourLifeEasier"
   
+  ; Wait for any running instances to close (max 10 seconds)
+  StrCpy $0 0
+  wait_for_close:
+    FindWindow $1 "" "Make Your Life Easier"
+    IntCmp $1 0 no_window_found
+    IntOp $0 $0 + 1
+    IntCmp $0 20 force_continue  ; 20 * 500ms = 10 seconds
+    Sleep 500
+    Goto wait_for_close
+  
+  force_continue:
+  no_window_found:
+  
+  ; Give extra time for file locks to release
+  Sleep 1000
+  
   ; First, check for our known registry key (legacy name)
   ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" "UninstallString"
   StrCmp $R0 "" check_guid found_known_key
