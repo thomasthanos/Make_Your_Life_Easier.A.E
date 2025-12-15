@@ -108,9 +108,9 @@ function createAppReadyFallbackTimeout({ getUpdateWindow, getMainWindow, debug, 
                     mainWin.show();
                     mainWin.focus();
                 }
-            }, 300);
+            }, 200);
         }
-    }, 15000);
+    }, 8000);
 }
 
 /**
@@ -255,12 +255,12 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 
                 setTimeout(() => {
                     autoUpdater.quitAndInstall(false, true);
-                }, 500);
+                }, 100);
             } catch (e) {
                 debug('error', 'Failed to install update automatically:', e);
                 app.quit();
             }
-        }, 1500);
+        }, 300);
     });
 
     autoUpdater.on('error', (err) => {
@@ -335,7 +335,7 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
                 mainWindow.close();
             }
 
-            setTimeout(() => autoUpdater.quitAndInstall(false, true), 500);
+            setTimeout(() => autoUpdater.quitAndInstall(false, true), 100);
             return { success: true };
         }
         return { success: false, error: 'No update downloaded' };
@@ -367,7 +367,7 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
                     mainWindow.show();
                     mainWindow.focus();
                 }
-            }, 300);
+            }, 150);
         } else if (mainWindow && !mainWindow.isVisible()) {
             mainWindow.show();
             mainWindow.focus();
