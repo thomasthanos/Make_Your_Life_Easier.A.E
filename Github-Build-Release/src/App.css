@@ -1392,7 +1392,7 @@ body {
   margin-bottom: 0;
 }
 
-.stat-label {
+.footer-stats .stat-label {
   font-size: 11px;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -1400,7 +1400,7 @@ body {
   margin-bottom: 4px;
 }
 
-.stat-value {
+.footer-stats .stat-value {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
@@ -2209,8 +2209,8 @@ body {
   opacity: 0.7;
 }
 
-/* Release Actions */
-.release-actions {
+/* Release Form Actions */
+.release-form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
