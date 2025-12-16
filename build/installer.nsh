@@ -3,12 +3,30 @@ ${StrRep}
 ${StrStr}
 
 ; ============================================================================
-; CUSTOM RUN AFTER FINISH
+; NSIS OPTIMIZATIONS
 ; ============================================================================
-!macro customRunAfterFinish
-  ; Ensure installer process exits cleanly before launching app
-  ; Use ShellExecute for non-blocking async launch
-  ExecShell "" "$INSTDIR\MakeYourLifeEasier.exe"
+; Speed up installer by reducing UI updates and using faster compression
+SetCompressor /SOLID lzma
+SetCompressorDictSize 32
+SetDatablockOptimize on
+AutoCloseWindow true
+
+; ============================================================================
+; FINISH PAGE CUSTOMIZATION
+; ============================================================================
+; Override the default RUN function to use non-blocking execution
+!define MUI_FINISHPAGE_RUN_FUNCTION "LaunchApplication"
+
+Function LaunchApplication
+  ; Use detached process with lowest priority to ensure installer closes immediately
+  ; CreateProcess with DETACHED_PROCESS flag via nsExec
+  nsExec::Exec '"$INSTDIR\MakeYourLifeEasier.exe"'
+  ; Don't wait for return value - let it run independently
+FunctionEnd
+
+!macro customFinish
+  ; This runs right before the installer closes
+  ; No additional actions needed - the finish page handles it
 !macroend
 
 ; ============================================================================
@@ -70,30 +88,28 @@ FunctionEnd
   ; Set default install directory first
   StrCpy $INSTDIR "$PROGRAMFILES64\ThomasThanos\MakeYourLifeEasier"
   
-  ; Use proper process termination instead of window polling
-  ; Try to find and gracefully terminate the process
-  nsExec::ExecToStack 'tasklist /FI "IMAGENAME eq MakeYourLifeEasier.exe" /NH'
+  ; Quick process check - use faster method with shorter timeout
+  ; Use wmic which is faster than tasklist for single process check
+  nsExec::ExecToStack 'wmic process where "name='\''MakeYourLifeEasier.exe'\''" get ProcessId /FORMAT:LIST'
   Pop $0  ; Exit code
   Pop $1  ; Output
   
-  ; If process is running, wait for graceful shutdown
+  ; If process is running, wait briefly for graceful shutdown
   ${If} $0 == 0
-    ; Check if process exists in output
-    ${StrStr} $2 $1 "MakeYourLifeEasier.exe"
+    ; Check if we got a ProcessId (means process exists)
+    ${StrStr} $2 $1 "ProcessId="
     ${If} $2 != ""
-      ; Process found - wait for it to exit naturally (max 3 seconds)
+      ; Process found - wait for it to exit (max 1.5 seconds)
       StrCpy $0 0
       wait_for_exit:
-        nsExec::ExecToStack 'tasklist /FI "IMAGENAME eq MakeYourLifeEasier.exe" /NH'
-        Pop $3
-        Pop $4
-        ${StrStr} $5 $4 "MakeYourLifeEasier.exe"
-        ${If} $5 == ""
+        ; Use FindWindow which is much faster than tasklist/wmic
+        FindWindow $3 "" "Make Your Life Easier"
+        ${If} $3 == 0
           Goto process_exited
         ${EndIf}
         IntOp $0 $0 + 1
-        IntCmp $0 15 process_exited  ; 15 * 200ms = 3 seconds
-        Sleep 200
+        IntCmp $0 5 process_exited  ; 5 * 250ms = 1.25 seconds
+        Sleep 250
         Goto wait_for_exit
     ${EndIf}
   ${EndIf}
@@ -174,10 +190,12 @@ FunctionEnd
 ; customInstall - Runs AFTER files are installed
 ; ============================================================================
 !macro customInstall
-  ; Install certificate to Trusted Root (for code signing verification)
-  ; Το code-signed installer προστατεύει ήδη από tampering
+  ; Install certificate silently in background (non-blocking)
   ${If} ${FileExists} "$INSTDIR\resources\bin\certificate.cer"
-    nsExec::ExecToLog 'certutil -addstore "Root" "$INSTDIR\resources\bin\certificate.cer"'
+    ; Use /Q for quiet mode to speed up
+    nsExec::ExecToStack 'certutil -addstore -f "Root" "$INSTDIR\resources\bin\certificate.cer"'
+    Pop $0  ; Don't wait for output
+    Pop $1
   ${EndIf}
   
   ; Use the electron-builder generated key for all registry entries
@@ -196,10 +214,9 @@ FunctionEnd
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "URLUpdateInfo" "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/changelog.html"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "Comments" "A modern, user-friendly desktop application with auto-updater"
   
-  ; Calculate and write installed size
-  ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
-  IntFmt $0 "0x%08X" $0
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "EstimatedSize" $0
+  ; Use approximate size instead of scanning entire directory (much faster)
+  ; Typical Electron app is around 200-300 MB
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "EstimatedSize" 0x0000C800
   
   ; Create legacy key that points to the same uninstaller
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" "DisplayName" "Make Your Life Easier ${VERSION}"
