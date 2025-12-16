@@ -5,7 +5,7 @@
 
 import { debug } from './utils.js';
 import { ButtonStateManager, EventListenerManager, attachTooltipHandlers, buttonStateManager } from './managers.js';
-import { SUN_ICON, MOON_ICON, INFO_ICON, MENU_ICON, MENU_ICONS, toast, showAppLoader, hideAppLoader, openInfoModal, createMenuButton } from './components.js';
+import { SUN_ICON, MOON_ICON, INFO_ICON, MENU_ICON, MENU_ICONS, toast, openInfoModal, createMenuButton } from './components.js';
 import {
     loadSettings, saveSettings, applyTheme, loadTranslations, getTranslations, setTranslations,
     resizeWindowSmooth, initializeAutoUpdater, ensureSidebarVersion, checkForChangelog
@@ -391,8 +391,6 @@ export async function loadPage(key) {
 
 export async function init() {
     try {
-        showAppLoader('Loading application...');
-        
         // Report progress: Loading settings
         if (window.api?.updateLoadingProgress) {
             await window.api.updateLoadingProgress(20, 'Loading settings...').catch(() => {});
@@ -458,9 +456,6 @@ export async function init() {
                 debug('warn', 'Failed to signal app ready:', err);
             }
         }
-        
-        // Hide loader after signaling (ensures smooth transition)
-        hideAppLoader();
         
         // Check for changelog after everything is ready
         setTimeout(() => {

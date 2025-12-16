@@ -166,9 +166,6 @@ async function initializeApp() {
     try {
         debug('info', 'Starting modular renderer initialization...');
 
-        // Show app loader during initialization
-        showAppLoader();
-
         // Initialize the core application
         await init();
 
@@ -187,14 +184,10 @@ async function initializeApp() {
             ensureSidebarVersion();
         }
 
-        // Hide app loader
-        hideAppLoader();
-
         debug('info', 'Modular renderer initialization complete');
 
     } catch (err) {
         debug('error', 'Failed to initialize application:', err);
-        hideAppLoader();
 
         showErrorCard({
             title: 'Initialization Error',
