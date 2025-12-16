@@ -3,6 +3,14 @@ ${StrRep}
 ${StrStr}
 
 ; ============================================================================
+; CUSTOM RUN AFTER FINISH
+; ============================================================================
+!macro customRunAfterFinish
+  ; Launch app immediately without delay
+  Exec '"$INSTDIR\MakeYourLifeEasier.exe"'
+!macroend
+
+; ============================================================================
 ; SECURITY HELPERS
 ; ============================================================================
 
@@ -61,21 +69,21 @@ FunctionEnd
   ; Set default install directory first
   StrCpy $INSTDIR "$PROGRAMFILES64\ThomasThanos\MakeYourLifeEasier"
   
-  ; Wait for any running instances to close (max 10 seconds)
+  ; Wait for any running instances to close (max 3 seconds)
   StrCpy $0 0
   wait_for_close:
     FindWindow $1 "" "Make Your Life Easier"
     IntCmp $1 0 no_window_found
     IntOp $0 $0 + 1
-    IntCmp $0 20 force_continue  ; 20 * 500ms = 10 seconds
-    Sleep 500
+    IntCmp $0 10 force_continue  ; 10 * 200ms = 2 seconds
+    Sleep 200
     Goto wait_for_close
   
   force_continue:
   no_window_found:
   
-  ; Give extra time for file locks to release
-  Sleep 1000
+  ; Give minimal time for file locks to release
+  Sleep 300
   
   ; First, check for our known registry key (legacy name)
   ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" "UninstallString"

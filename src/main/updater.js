@@ -35,7 +35,6 @@ function configureAutoUpdater() {
     // Automatic download and installation
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
-    autoUpdater.forceRunAfter = true;
     
     // Request headers for cache busting
     autoUpdater.requestHeaders = {
@@ -137,14 +136,14 @@ function createAppReadyFallbackTimeout({ getUpdateWindow, getMainWindow, debug, 
                 percent: 100
             });
             setTimeout(() => {
-                if (updateWin) updateWin.close();
+                if (updateWin) updateWin.destroy();
                 if (mainWin) {
                     mainWin.show();
                     mainWin.focus();
                 }
-            }, 200);
+            }, 100);
         }
-    }, 8000);
+    }, 5000);
 }
 
 /**
@@ -334,7 +333,7 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             debug('warn', 'Failed to persist update info:', err);
         }
 
-        // Give UI time to show "Installing update..." message
+        // Give UI minimal time to show final message
         setTimeout(() => {
             try {
                 const updateWin = getUpdateWindow();
@@ -344,33 +343,32 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
                 if (updateWin) {
                     updateWin.webContents.send('update-status', {
                         status: 'downloaded',
-                        message: 'Preparing installation...',
+                        message: 'Installing update...',
                         percent: 100
                     });
                 }
 
-                // Wait a bit more before closing windows
+                // Close windows and install immediately
                 setTimeout(() => {
                     if (updateWin) {
-                        updateWin.close();
+                        updateWin.destroy(); // Use destroy instead of close for faster cleanup
                     }
                     if (mainWin) {
-                        mainWin.close();
+                        mainWin.destroy();
                     }
 
-                    // Give extra time for windows to close gracefully
-                    setTimeout(() => {
-                        debug('info', 'Launching installer...');
-                        // Use immediate install - NSIS will handle the rest
+                    // Install immediately - don't wait
+                    debug('info', 'Launching installer...');
+                    setImmediate(() => {
                         autoUpdater.quitAndInstall(false, true);
-                    }, 500);
-                }, 300);
+                    });
+                }, 100);
             } catch (e) {
                 debug('error', 'Failed to install update automatically:', e);
                 // Force quit if install fails
-                setTimeout(() => app.quit(), 1000);
+                app.quit();
             }
-        }, 500);
+        }, 200);
     });
 
     autoUpdater.on('error', (err) => {
@@ -511,21 +509,21 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
                 });
             }
 
-            // Graceful window closure
+            // Quick window closure
             setTimeout(() => {
                 if (updateWindow) {
-                    updateWindow.close();
+                    updateWindow.destroy();
                 }
                 if (mainWindow) {
-                    mainWindow.close();
+                    mainWindow.destroy();
                 }
 
-                // Wait for windows to close before installing
-                setTimeout(() => {
-                    debug('info', 'Launching installer...');
+                // Install immediately
+                debug('info', 'Launching installer...');
+                setImmediate(() => {
                     autoUpdater.quitAndInstall(false, true);
-                }, 500);
-            }, 300);
+                });
+            }, 100);
 
             return { success: true };
         }
@@ -552,13 +550,13 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
 
             setTimeout(() => {
                 if (updateWindow) {
-                    updateWindow.close();
+                    updateWindow.destroy();
                 }
                 if (mainWindow) {
                     mainWindow.show();
                     mainWindow.focus();
                 }
-            }, 150);
+            }, 100);
         } else if (mainWindow && !mainWindow.isVisible()) {
             mainWindow.show();
             mainWindow.focus();
