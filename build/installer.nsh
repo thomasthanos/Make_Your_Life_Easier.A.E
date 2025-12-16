@@ -24,13 +24,11 @@ AutoCloseWindow true
 !macroend
 
 ; Function to launch app without admin privileges
-; This is called when user checks "Run MakeYourLifeEasier" and clicks Finish
+; This is called when user checks "Run MakeYourLifeEasier" and clicks Finish  
 Function LaunchAppWithoutAdmin
-  ; Use explorer.exe to drop admin privileges when launching
-  ; The installer runs as admin (UAC), but explorer.exe always runs as the logged-in user
-  ; Apps launched via explorer inherit user-level privileges, not admin
+  ; Use cmd /c start which is non-blocking and launches via shell
   SetOutPath "$INSTDIR"
-  Exec '"$WINDIR\explorer.exe" "$INSTDIR\MakeYourLifeEasier.exe"'
+  Exec 'cmd /c start "" "$INSTDIR\MakeYourLifeEasier.exe"'
 FunctionEnd
 
 !macro customFinish
