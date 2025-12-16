@@ -12,14 +12,35 @@ SetDatablockOptimize on
 AutoCloseWindow true
 
 ; ============================================================================
-; FINISH PAGE CUSTOMIZATION
+; PRIVILEGE DROP FOR APP LAUNCH (customHeader macro runs BEFORE MUI includes)
 ; ============================================================================
-; We can't override MUI_FINISHPAGE_RUN_FUNCTION as it's already defined by electron-builder
-; Instead, we'll use customFinish to ensure fast launch
+
+!macro customHeader
+  ; Since runAfterFinish is false in package.json, electron-builder won't add a run checkbox
+  ; We add our own with privilege dropping to fix the Electron hang issue
+  
+  ; Enable the "Run application" checkbox on finish page
+  !define MUI_FINISHPAGE_RUN ""
+  
+  ; Use our custom function that drops admin privileges
+  !define MUI_FINISHPAGE_RUN_FUNCTION "StartApp"
+  
+  ; Customize the checkbox text
+  !define MUI_FINISHPAGE_RUN_TEXT "Run MakeYourLifeEasier"
+!macroend
+
+; Function to launch app without admin privileges
+; This is called when user checks "Run MakeYourLifeEasier" and clicks Finish
+Function StartApp
+  ; Use explorer.exe to drop admin privileges when launching
+  ; The installer runs as admin (UAC), but explorer.exe always runs as the logged-in user
+  ; Apps launched via explorer inherit user-level privileges, not admin
+  SetOutPath "$INSTDIR"
+  Exec '"$WINDIR\explorer.exe" "$INSTDIR\MakeYourLifeEasier.exe"'
+FunctionEnd
 
 !macro customFinish
-  ; This runs when user clicks the "Run" checkbox on finish page
-  ; electron-builder already sets up the run action, we just ensure it's non-blocking
+  ; Empty - launch is handled by StartApp function above
 !macroend
 
 ; ============================================================================

@@ -134,7 +134,7 @@
       "uninstallUrlReadme": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/readme.html",
       "uninstallUrlUpdateInfo": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/changelog.html",
       "differentialPackage": true,
-      "runAfterFinish": true,
+      "runAfterFinish": false,
       "menuCategory": true,
       "allowElevation": true
     },
