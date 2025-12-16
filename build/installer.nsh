@@ -16,22 +16,16 @@ AutoCloseWindow true
 ; ============================================================================
 
 !macro customHeader
-  ; Since runAfterFinish is false in package.json, electron-builder won't add a run checkbox
-  ; We add our own with privilege dropping to fix the Electron hang issue
-  
-  ; Enable the "Run application" checkbox on finish page
-  !define MUI_FINISHPAGE_RUN ""
-  
-  ; Use our custom function that drops admin privileges
-  !define MUI_FINISHPAGE_RUN_FUNCTION "StartApp"
-  
-  ; Customize the checkbox text
-  !define MUI_FINISHPAGE_RUN_TEXT "Run MakeYourLifeEasier"
+  ; Override the run function to drop admin privileges
+  ; electron-builder sets runAfterFinish:true which adds the checkbox
+  ; but runs the app with inherited admin rights causing freeze/hang
+  ; We override to use explorer.exe which drops privileges
+  !define MUI_FINISHPAGE_RUN_FUNCTION "LaunchAppWithoutAdmin"
 !macroend
 
 ; Function to launch app without admin privileges
 ; This is called when user checks "Run MakeYourLifeEasier" and clicks Finish
-Function StartApp
+Function LaunchAppWithoutAdmin
   ; Use explorer.exe to drop admin privileges when launching
   ; The installer runs as admin (UAC), but explorer.exe always runs as the logged-in user
   ; Apps launched via explorer inherit user-level privileges, not admin
