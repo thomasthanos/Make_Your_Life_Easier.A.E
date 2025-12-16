@@ -15,6 +15,15 @@
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https:; font-src 'self'; connect-src 'self' https:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';" />
   <title>Make Your Life Easier</title>
+  
+  <style>
+    html, body {
+      background-color: #0f1117 !important; /* Match window background to prevent gray flash */
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+  </style>
 
   <!-- Theme initialization moved to external script for CSP compliance -->
   <script src="src/config/theme-init.js"></script>
@@ -124,10 +133,66 @@
       align-items: center;
       justify-content: center;
     }
+
+    /* App loader overlay */
+    .app-loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #0f1117;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .app-loader.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .app-loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
   </style>
 </head>
 
 <body>
+  <!-- Loading overlay - shows immediately before JS loads -->
+  <div id="app-loader" class="app-loader visible">
+    <div class="loader">
+      <svg id="cloud" viewBox="0 0 100 100">
+        <defs>
+          <clipPath id="cloud-clip">
+            <circle cx="25" cy="60" r="20"/>
+            <circle cx="50" cy="50" r="28"/>
+            <circle cx="75" cy="60" r="20"/>
+            <rect x="20" y="50" width="60" height="25" rx="5"/>
+          </clipPath>
+        </defs>
+        <rect x="0" y="0" width="100" height="100" clip-path="url(#cloud-clip)"/>
+        <g id="shapes">
+          <g transform="translate(50 50)">
+            <circle r="10" fill="#80b1ff" opacity="0.6"/>
+            <circle r="10" fill="#80b1ff" opacity="0.6"/>
+            <circle r="10" fill="#80b1ff" opacity="0.6"/>
+          </g>
+        </g>
+        <g transform="translate(50 73)">
+          <path d="M-15 0 L0 15 L15 0 M0 -15 L0 15" stroke="#80b1ff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>
+    </div>
+    <p id="loading-status" style="margin-top: 20px; color: #80b1ff; font-size: 14px;">Loading...</p>
+  </div>
+
   <div class="custom-title-bar">
     <div class="title-group">
       <img class="title-bar-app-icon" src="src/assets/icons/hacker.ico" alt="App icon" />

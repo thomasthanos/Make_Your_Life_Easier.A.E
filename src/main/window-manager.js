@@ -44,7 +44,7 @@ function setUpdateWindow(window) {
 
 /**
  * Create the main application window
- * @param {boolean} showWindow - Whether to show the window immediately
+ * @param {boolean} showWindow - Whether to show the window when ready
  * @param {string} preloadPath - Path to preload script
  * @param {Function} setupWindowStateEvents - Callback for setting up window state events
  * @returns {BrowserWindow}
@@ -59,12 +59,13 @@ function createMainWindow(showWindow = true, preloadPath, setupWindowStateEvents
         autoHideMenuBar: true,
         titleBarStyle: 'hidden',
         frame: false,
-        show: showWindow,
+        show: showWindow,  // Show immediately - loading overlay handles visual
         backgroundColor: '#0f1117',
         webPreferences: {
             preload: preloadPath,
             nodeIntegration: false,
-            contextIsolation: true
+            contextIsolation: true,
+            backgroundThrottling: false
         }
     });
 

@@ -115,42 +115,6 @@ async function cleanupUpdaterCache(debug) {
 }
 
 /**
- * Create a fallback timeout to show the main window
- * Used when waiting for app-ready signal times out
- * @param {Object} options - Configuration options
- * @param {Function} options.getUpdateWindow - Function to get update window
- * @param {Function} options.getMainWindow - Function to get main window
- * @param {Function} options.debug - Debug logging function
- * @param {string} options.message - Warning message for debug
- * @returns {number} Timeout ID
- */
-function createAppReadyFallbackTimeout({ getUpdateWindow, getMainWindow, debug, message }) {
-    return setTimeout(() => {
-        debug('warn', message);
-        const updateWin = getUpdateWindow();
-        const mainWin = getMainWindow();
-        if (updateWin) {
-            updateWin.webContents.send('update-status', {
-                status: 'downloading',
-                message: 'Launching application...',
-                percent: 100
-            });
-            // Wait for update window to actually close
-            updateWin.once('closed', () => {
-                if (mainWin) {
-                    mainWin.show();
-                    mainWin.focus();
-                }
-            });
-            updateWin.destroy();
-        } else if (mainWin) {
-            mainWin.show();
-            mainWin.focus();
-        }
-    }, 5000);
-}
-
-/**
  * Setup auto-updater event handlers
  * @param {Object} options - Configuration options
  * @param {Function} options.getUpdateWindow - Function to get update window
@@ -219,32 +183,28 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
         if (updateWindow) {
             updateWindow.webContents.send('update-status', {
                 status: 'downloading',
-                message: 'Initializing application...',
-                percent: 10
+                message: 'Launching application...',
+                percent: 100
             });
 
-            // Use webContents ready state instead of arbitrary delay
+            // Create main window and show it after a brief delay
             const mainWindow = getMainWindow();
             if (!mainWindow) {
-                const newMainWindow = createMainWindow(false);
-                // Wait for main window to be ready before setting up fallback
+                const newMainWindow = createMainWindow(true);  // show: true
+                // Close update window after main window loads
                 newMainWindow.webContents.once('did-finish-load', () => {
-                    const fallbackTimeout = createAppReadyFallbackTimeout({
-                        getUpdateWindow,
-                        getMainWindow,
-                        debug,
-                        message: 'App ready signal timeout - showing window anyway'
-                    });
-                    global.appReadyFallbackTimeout = fallbackTimeout;
+                    setTimeout(() => {
+                        if (updateWindow && !updateWindow.isDestroyed()) {
+                            updateWindow.destroy();
+                        }
+                    }, 100);
                 });
             } else {
-                const fallbackTimeout = createAppReadyFallbackTimeout({
-                    getUpdateWindow,
-                    getMainWindow,
-                    debug,
-                    message: 'App ready signal timeout - showing window anyway'
-                });
-                global.appReadyFallbackTimeout = fallbackTimeout;
+                setTimeout(() => {
+                    if (updateWindow && !updateWindow.isDestroyed()) {
+                        updateWindow.destroy();
+                    }
+                }, 100);
             }
         }
     });
@@ -452,20 +412,18 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
         if (updateWindow && !mainWindow) {
             updateWindow.webContents.send('update-status', {
                 status: 'downloading',
-                message: 'Initializing application...',
-                percent: 10
+                message: 'Launching application...',
+                percent: 100
             });
 
-            // Create main window and wait for it to be ready
-            const newMainWindow = createMainWindow(false);
+            // Create main window and show it
+            const newMainWindow = createMainWindow(true);  // show: true
             newMainWindow.webContents.once('did-finish-load', () => {
-                const fallbackTimeout = createAppReadyFallbackTimeout({
-                    getUpdateWindow,
-                    getMainWindow,
-                    debug,
-                    message: 'App ready signal timeout after error - showing window anyway'
-                });
-                global.appReadyFallbackTimeout = fallbackTimeout;
+                setTimeout(() => {
+                    if (updateWindow && !updateWindow.isDestroyed()) {
+                        updateWindow.destroy();
+                    }
+                }, 100);
             });
             return;
         }
@@ -560,39 +518,31 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
         return { success: false, error: 'No update downloaded' };
     });
 
-    ipcMain.handle('app-ready', async () => {
-        debug('success', 'Application ready signal received from renderer');
-
-        if (global.appReadyFallbackTimeout) {
-            clearTimeout(global.appReadyFallbackTimeout);
-            global.appReadyFallbackTimeout = null;
-        }
-
-        const updateWindow = getUpdateWindow();
+    ipcMain.handle('app-ready', async (event, size) => {
+        debug('info', 'Application ready signal received from renderer');
         const mainWindow = getMainWindow();
-
-        if (updateWindow) {
-            updateWindow.webContents.send('update-status', {
-                status: 'downloading',
-                message: 'Launching application...',
-                percent: 100
-            });
-
-            if (updateWindow && !updateWindow.isDestroyed()) {
-                updateWindow.once('closed', () => {
-                    if (mainWindow) {
-                        mainWindow.show();
-                        mainWindow.focus();
-                    }
-                });
-                updateWindow.destroy();
-            } else if (mainWindow) {
-                mainWindow.show();
-                mainWindow.focus();
+        try {
+            // If renderer sent a target size, apply it
+            if (mainWindow && size && typeof size.width !== 'undefined' && typeof size.height !== 'undefined') {
+                const w = parseInt(size.width, 10);
+                const h = parseInt(size.height, 10);
+                if (!Number.isNaN(w) && !Number.isNaN(h)) {
+                    mainWindow.setSize(w, h);
+                }
             }
-        } else if (mainWindow && !mainWindow.isVisible()) {
-            mainWindow.show();
-            mainWindow.focus();
+
+            // Close the update window if present (smooth transition)
+            const updateWin = getUpdateWindow();
+            if (updateWin && !updateWin.isDestroyed()) {
+                updateWin.close();
+            }
+
+            // Finally show the main window (it may have been created hidden)
+            if (mainWindow && !mainWindow.isVisible()) {
+                mainWindow.show();
+            }
+        } catch (err) {
+            debug('warn', 'Error handling app-ready:', err && err.message);
         }
 
         return { success: true };

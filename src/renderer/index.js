@@ -191,6 +191,7 @@ async function initializeApp() {
         hideAppLoader();
 
         debug('info', 'Modular renderer initialization complete');
+
     } catch (err) {
         debug('error', 'Failed to initialize application:', err);
         hideAppLoader();

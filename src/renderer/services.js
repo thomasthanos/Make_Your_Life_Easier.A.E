@@ -97,32 +97,19 @@ export function setTranslations(trans) {
 // ============================================
 
 /**
- * Smoothly resize the Electron window over a short duration
+ * Smoothly resize the Electron window
  * @param {number} targetWidth - Desired final width in pixels
  * @param {number} targetHeight - Desired final height in pixels
- * @param {number} duration - Total animation duration in ms
+ * @param {number} duration - Animation duration (ignored, uses native animation)
  */
 export async function resizeWindowSmooth(targetWidth, targetHeight, duration = 200) {
     try {
-        if (!window.api || typeof window.api.getWindowSize !== 'function' || typeof window.api.setWindowSize !== 'function') {
-            window.api?.setWindowSize?.(targetWidth, targetHeight);
-            return;
-        }
-        const currentSize = await window.api.getWindowSize();
-        if (!Array.isArray(currentSize) || currentSize.length < 2) {
+        // Use animateResize which now uses native setBounds animation
+        // This avoids gray background during resize
+        if (window.api && typeof window.api.animateResize === 'function') {
+            await window.api.animateResize(targetWidth, targetHeight, duration);
+        } else if (window.api && typeof window.api.setWindowSize === 'function') {
             await window.api.setWindowSize(targetWidth, targetHeight);
-            return;
-        }
-        const [cw, ch] = currentSize;
-        const steps = 15;
-        const interval = duration / steps;
-        const dw = (targetWidth - cw) / steps;
-        const dh = (targetHeight - ch) / steps;
-        for (let i = 1; i <= steps; i++) {
-            const w = Math.round(cw + dw * i);
-            const h = Math.round(ch + dh * i);
-            await window.api.setWindowSize(w, h);
-            await new Promise((resolve) => setTimeout(resolve, interval));
         }
     } catch (err) {
         try {

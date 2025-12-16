@@ -262,26 +262,24 @@ export async function loadPage(key) {
 
     currentPage = key;
 
-    // Handle window resize based on page
-    {
-        const isInstall = key === 'install_apps';
-        const targetWidth = isInstall ? 1400 : 1100;
-        const targetHeight = 750;
-        try {
-            if (window.api && typeof window.api.animateResize === 'function') {
-                window.api.animateResize(targetWidth, targetHeight, 120).catch(() => { });
-            } else if (typeof resizeWindowSmooth === 'function') {
-                resizeWindowSmooth(targetWidth, targetHeight, 250);
-            } else if (window.api && typeof window.api.setWindowSize === 'function') {
-                window.api.setWindowSize(targetWidth, targetHeight);
-            }
-        } catch {
-            // ignore
-        }
-    }
-
     const content = document.getElementById('content');
     if (!content) return;
+    
+    // Determine target window size and resize FIRST
+    const isInstall = key === 'install_apps';
+    const targetWidth = isInstall ? 1400 : 1100;
+    const targetHeight = 750;
+    
+    // Resize window before changing content to avoid gray area
+    try {
+        if (window.api && typeof window.api.setWindowSize === 'function') {
+            await window.api.setWindowSize(targetWidth, targetHeight);
+        }
+    } catch { }
+    
+    // Small delay to let window resize complete
+    await new Promise(resolve => setTimeout(resolve, 80));
+    
     content.innerHTML = '';
 
     // Import page builders dynamically to avoid circular dependencies
@@ -450,7 +448,12 @@ export async function init() {
         // Signal to main process that app is ready FIRST (for updater window transition)
         if (window.api && typeof window.api.signalAppReady === 'function') {
             try {
-                await window.api.signalAppReady();
+                // Determine target size for the default page so main can size the window before showing it
+                const defaultKey = defaultButton?.dataset?.key;
+                const isInstallDefault = defaultKey === 'install_apps';
+                const targetWidthDefault = isInstallDefault ? 1400 : 1100;
+                const targetHeightDefault = 750;
+                await window.api.signalAppReady(targetWidthDefault, targetHeightDefault);
                 debug('info', 'Signaled app ready to main process');
             } catch (err) {
                 debug('warn', 'Failed to signal app ready:', err);

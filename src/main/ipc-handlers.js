@@ -99,29 +99,14 @@ function setupWindowHandlers(getMainWindow) {
                 if (Number.isNaN(wTarget) || Number.isNaN(hTarget)) {
                     return resolve(false);
                 }
-                const [startW, startH] = mainWindow.getSize();
-                const steps = 15;
-                const stepDelay = Math.max(10, duration / steps);
-                const deltaW = (wTarget - startW) / steps;
-                const deltaH = (hTarget - startH) / steps;
-                let i = 0;
-
-                const animateStep = () => {
-                    i += 1;
-                    const newW = Math.round(startW + deltaW * i);
-                    const newH = Math.round(startH + deltaH * i);
-                    try {
-                        mainWindow.setSize(newW, newH);
-                    } catch {
-                        return resolve(false);
-                    }
-                    if (i < steps) {
-                        setTimeout(animateStep, stepDelay);
-                    } else {
-                        resolve(true);
-                    }
-                };
-                animateStep();
+                
+                // Instant resize with content update
+                const bounds = mainWindow.getBounds();
+                
+                // Set new size immediately without animation
+                mainWindow.setSize(wTarget, hTarget, false);
+                
+                resolve(true);
             } catch {
                 resolve(false);
             }

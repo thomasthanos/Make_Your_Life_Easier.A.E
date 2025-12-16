@@ -106,7 +106,7 @@ contextBridge.exposeInMainWorld('api', {
   getAssetPath: (relativePath) => ipcRenderer.invoke('get-asset-path', relativePath),
 
   // App ready signal - notify main process that the app is fully loaded
-  signalAppReady: () => ipcRenderer.invoke('app-ready'),
+  signalAppReady: (width, height) => ipcRenderer.invoke('app-ready', { width, height }),
   
   // Loading progress update
   updateLoadingProgress: (progress, message) => ipcRenderer.invoke('update-loading-progress', { progress, message })
