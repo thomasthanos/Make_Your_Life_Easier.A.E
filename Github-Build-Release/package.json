@@ -1,7 +1,7 @@
 {
   "name": "github-release-manager",
   "private": true,
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "Desktop app to manage GitHub releases.",
   "author": "github-release-manager",
   "main": "electron/main.js",

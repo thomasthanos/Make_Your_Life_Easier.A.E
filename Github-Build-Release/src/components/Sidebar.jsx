@@ -1,15 +1,13 @@
 import React from 'react';
 import { 
-  FaGithub, FaFolderOpen, FaRocket, FaCodeBranch, 
-  FaTerminal, FaPen, FaSpinner, FaCopy, FaSun, FaMoon,
-  FaFolder, FaCircle, FaPaintBrush
+  FaFolderOpen, FaRocket, FaCodeBranch, 
+  FaTerminal, FaPen, FaSpinner, FaCopy,
+  FaFolder
 } from 'react-icons/fa';
 
 function Sidebar({
   activeTab,
   setActiveTab,
-  theme,
-  toggleTheme,
   projectPath,
   projectVersion,
   buildCommand,
@@ -27,14 +25,20 @@ function Sidebar({
     return parts[parts.length - 1] || path;
   };
 
+  const handleNavClick = (tab) => {
+    if (!projectPath) return;
+    setActiveTab(tab);
+  };
+
   return (
     <aside className="sidebar glass-panel">
       <div className="sidebar-content">
         {/* NAVIGATION */}
         <nav className="sidebar-nav">
           <button 
-            className={`nav-item ${activeTab === 'create' ? 'active' : ''}`} 
-            onClick={() => setActiveTab('create')}
+            className={`nav-item ${activeTab === 'create' ? 'active' : ''} ${!projectPath ? 'disabled' : ''}`} 
+            onClick={() => handleNavClick('create')}
+            disabled={!projectPath}
           >
             <div className="nav-icon">
               <FaPen size={14} />
@@ -43,8 +47,9 @@ function Sidebar({
           </button>
           
           <button 
-            className={`nav-item ${activeTab === 'history' ? 'active' : ''}`} 
-            onClick={() => setActiveTab('history')}
+            className={`nav-item ${activeTab === 'history' ? 'active' : ''} ${!projectPath ? 'disabled' : ''}`} 
+            onClick={() => handleNavClick('history')}
+            disabled={!projectPath}
           >
             <div className="nav-icon">
               <FaCodeBranch size={14} />
@@ -56,8 +61,9 @@ function Sidebar({
           </button>
           
           <button 
-            className={`nav-item ${activeTab === 'logs' ? 'active' : ''}`} 
-            onClick={() => setActiveTab('logs')}
+            className={`nav-item ${activeTab === 'logs' ? 'active' : ''} ${!projectPath ? 'disabled' : ''}`} 
+            onClick={() => handleNavClick('logs')}
+            disabled={!projectPath}
           >
             <div className="nav-icon">
               <FaTerminal size={14} />
@@ -167,30 +173,6 @@ function Sidebar({
             </div>
           </div>
         </button>
-
-        {/* SIDEBAR FOOTER */}
-        <div className="sidebar-actions">
-          <div className="project-info">
-            <div className="project-name">
-              {projectPath ? formatProjectName(projectPath) : 'No Project'}
-            </div>
-            {projectPath && (
-              <div className="project-folder" title={projectPath}>
-                {projectPath.length > 40 
-                  ? `${projectPath.substring(0, 37)}...` 
-                  : projectPath}
-              </div>
-            )}
-          </div>
-          
-          <div className="connection-status">
-            <FaCircle 
-              size={6} 
-              className={`status-dot ${projectPath ? 'connected' : ''}`} 
-            />
-            <span>{projectPath ? 'Connected' : 'Offline'}</span>
-          </div>
-        </div>
       </div>
     </aside>
   );

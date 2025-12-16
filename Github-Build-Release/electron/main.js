@@ -101,6 +101,20 @@ ipcMain.on('window-toggle-maximize', () => {
     }
 });
 
+// --- TITLEBAR THEME HANDLER ---
+ipcMain.handle('set-titlebar-theme', (event, theme) => {
+    if (!mainWindow) return;
+    try {
+        mainWindow.setTitleBarOverlay({
+            color: '#00000000',
+            symbolColor: theme === 'dark' ? '#ffffff' : '#1a1d21',
+            height: 36
+        });
+    } catch (err) {
+        console.error('Failed to set titlebar theme:', err);
+    }
+});
+
 // --- PROJECT HANDLERS ---
 
 ipcMain.handle('select-folder', async () => {

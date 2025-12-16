@@ -8,7 +8,9 @@ import {
   ReleaseHistory,
   BuildLogs,
   DeleteModal,
-  ReleaseModal
+  ReleaseModal,
+  ToastContainer,
+  useToast
 } from './components';
 import './App.css';
 
@@ -42,6 +44,9 @@ function App() {
   // GitHub CLI Status
   const [ghStatus, setGhStatus] = useState({ installed: null, loggedIn: null });
 
+  // Toast notifications
+  const toast = useToast();
+
   // Computed values
   const releasesOnly = releases.filter(r => r.type === 'release');
   const tagsOnly = releases.filter(r => r.type === 'tag-only');
@@ -56,6 +61,10 @@ function App() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     setTheme(savedTheme);
     document.documentElement.setAttribute('data-theme', savedTheme);
+    // Update titlebar colors based on theme
+    if (window.api?.setTitleBarTheme) {
+      window.api.setTitleBarTheme(savedTheme);
+    }
   }, []);
 
   // Check GitHub CLI status on mount
@@ -107,6 +116,7 @@ function App() {
       fetchReleases(path);
       setLogs(`📂 Project loaded: ${path}\n`);
       loadProjectInfo(path);
+      toast.success(`Project loaded successfully!`, 'Project Ready');
     }
   };
 
@@ -139,22 +149,30 @@ function App() {
 
   const handleBuild = () => {
     if (!projectPath) return;
-    if (!buildCommand?.trim()) return alert('Please set a build command');
+    if (!buildCommand?.trim()) {
+      toast.warning('Please set a build command first', 'Missing Command');
+      return;
+    }
     setLogs('');
     setActiveTab('logs');
     setIsBuilding(true);
+    toast.info('Build process started...', 'Building');
     window.api.triggerBuild({ path: projectPath, command: buildCommand });
   };
 
   const handleCreateRelease = () => {
-    if (!version || !title || !projectPath) return alert("Please fill in version and title");
+    if (!version || !title || !projectPath) {
+      toast.warning('Please fill in both version and title', 'Missing Fields');
+      return;
+    }
     setShowReleaseConfirm(true);
   };
 
   const handleConfirmRelease = async () => {
     if (!version || !title || !projectPath) {
       setShowReleaseConfirm(false);
-      return alert("Please fill in version and title");
+      toast.error('Please fill in version and title', 'Validation Error');
+      return;
     }
 
     setShowReleaseConfirm(false);
@@ -174,14 +192,14 @@ function App() {
     if (result.success || result.partialSuccess) {
       setLogs(prev => prev + `\n✅ Release Process Completed!\n`);
       if (result.partialSuccess) {
-        alert("Release created with some warnings. Check logs for details.");
+        toast.warning('Release created with some warnings. Check logs for details.', 'Partial Success');
       } else {
-        alert("Release created and artifacts uploaded successfully!");
+        toast.release(`${version} - ${title}`, 'Release Published! 🎉');
       }
       fetchReleases(projectPath);
       resetForm();
     } else {
-      alert("Failed to create release. Check logs for details.");
+      toast.error(result.error || 'Check logs for details', 'Release Failed');
       setLogs(prev => prev + `\n❌ Error: ${result.error}\n`);
     }
   };
@@ -198,13 +216,16 @@ function App() {
     });
 
     setIsDeleting(false);
+    
+    const deletedItem = pendingDelete.tagName;
     setPendingDelete(null);
 
     if (result.success) {
-      setLogs(prev => prev + `✅ Successfully deleted ${pendingDelete.tagName}.\n`);
+      setLogs(prev => prev + `✅ Successfully deleted ${deletedItem}.\n`);
+      toast.success(`${deletedItem} has been deleted`, 'Deleted');
       fetchReleases(projectPath);
     } else {
-      alert(`Failed to delete ${pendingDelete.tagName}`);
+      toast.error(`Failed to delete ${deletedItem}`, 'Delete Error');
       setLogs(prev => prev + `❌ Delete Error: ${result.error}\n`);
     }
   };
@@ -217,6 +238,7 @@ function App() {
 
   const handleCopyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
+    toast.info('Copied to clipboard!', 'Copied');
   };
 
   const toggleTheme = () => {
@@ -224,6 +246,10 @@ function App() {
     setTheme(newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
+    // Update titlebar colors based on theme
+    if (window.api?.setTitleBarTheme) {
+      window.api.setTitleBarTheme(newTheme);
+    }
   };
 
   const formatProjectName = (path) => {
@@ -236,6 +262,9 @@ function App() {
 
   return (
     <div className={`app-container ${theme}-theme`}>
+      {/* TOAST NOTIFICATIONS */}
+      <ToastContainer toasts={toast.toasts} removeToast={toast.removeToast} />
+
       {/* AMBIENT EFFECTS */}
       <div className="ambient-particles"></div>
       <div className="glow-orb orb-1"></div>
@@ -261,8 +290,6 @@ function App() {
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          theme={theme}
-          toggleTheme={toggleTheme}
           projectPath={projectPath}
           projectVersion={projectVersion}
           buildCommand={buildCommand}

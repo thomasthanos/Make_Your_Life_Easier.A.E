@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  FaCloud, FaFolderOpen, FaCode, FaGithub, FaDatabase,
+  FaCloud, FaFolderOpen,
   FaTerminal, FaCheckCircle, FaCircle
 } from 'react-icons/fa';
 
@@ -14,7 +14,7 @@ function EmptyState({ handleSelectFolder, ghStatus }) {
         </div>
         <h2>Welcome to ReleaseFlow</h2>
         <p>Select a Git repository to start managing releases and builds</p>
-        <button className="primary-btn glass-panel" onClick={handleSelectFolder}>
+        <button className="open-project-btn" onClick={handleSelectFolder}>
           <FaFolderOpen size={14} /> Open Project
         </button>
         
@@ -78,21 +78,6 @@ function EmptyState({ handleSelectFolder, ghStatus }) {
                 <li>A <code>package.json</code> with build scripts</li>
               </ul>
             </div>
-          </div>
-        </div>
-        
-        <div className="empty-state-tips">
-          <div className="tip">
-            <FaCode size={14} />
-            <span>Supports all Node.js projects</span>
-          </div>
-          <div className="tip">
-            <FaGithub size={14} />
-            <span>GitHub Releases & Tags</span>
-          </div>
-          <div className="tip">
-            <FaDatabase size={14} />
-            <span>Local & Remote Repositories</span>
           </div>
         </div>
       </div>

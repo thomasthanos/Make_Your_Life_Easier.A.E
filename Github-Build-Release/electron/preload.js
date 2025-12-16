@@ -16,9 +16,12 @@ contextBridge.exposeInMainWorld('api', {
     onBuildComplete: (callback) => ipcRenderer.on('build-complete', () => callback()),
     removeBuildCompleteListener: () => ipcRenderer.removeAllListeners('build-complete'),
 
-    // Προσθήκη: Window control functions
+    // Window control functions
     minimize: () => ipcRenderer.send('window-minimize'),
     maximize: () => ipcRenderer.send('window-maximize'),
     close: () => ipcRenderer.send('window-close'),
-    toggleMaximize: () => ipcRenderer.send('window-toggle-maximize')
+    toggleMaximize: () => ipcRenderer.send('window-toggle-maximize'),
+
+    // Theme change for titlebar
+    setTitleBarTheme: (theme) => ipcRenderer.invoke('set-titlebar-theme', theme)
 });
