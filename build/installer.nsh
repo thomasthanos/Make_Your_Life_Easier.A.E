@@ -14,19 +14,12 @@ AutoCloseWindow true
 ; ============================================================================
 ; FINISH PAGE CUSTOMIZATION
 ; ============================================================================
-; Override the default RUN function to use non-blocking execution
-!define MUI_FINISHPAGE_RUN_FUNCTION "LaunchApplication"
-
-Function LaunchApplication
-  ; Use detached process with lowest priority to ensure installer closes immediately
-  ; CreateProcess with DETACHED_PROCESS flag via nsExec
-  nsExec::Exec '"$INSTDIR\MakeYourLifeEasier.exe"'
-  ; Don't wait for return value - let it run independently
-FunctionEnd
+; We can't override MUI_FINISHPAGE_RUN_FUNCTION as it's already defined by electron-builder
+; Instead, we'll use customFinish to ensure fast launch
 
 !macro customFinish
-  ; This runs right before the installer closes
-  ; No additional actions needed - the finish page handles it
+  ; This runs when user clicks the "Run" checkbox on finish page
+  ; electron-builder already sets up the run action, we just ensure it's non-blocking
 !macroend
 
 ; ============================================================================
