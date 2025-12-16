@@ -135,13 +135,17 @@ function createAppReadyFallbackTimeout({ getUpdateWindow, getMainWindow, debug, 
                 message: 'Launching application...',
                 percent: 100
             });
-            setTimeout(() => {
-                if (updateWin) updateWin.destroy();
+            // Wait for update window to actually close
+            updateWin.once('closed', () => {
                 if (mainWin) {
                     mainWin.show();
                     mainWin.focus();
                 }
-            }, 100);
+            });
+            updateWin.destroy();
+        } else if (mainWin) {
+            mainWin.show();
+            mainWin.focus();
         }
     }, 5000);
 }
@@ -219,21 +223,29 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
                 percent: 10
             });
 
-            setTimeout(() => {
-                const mainWindow = getMainWindow();
-                if (!mainWindow) {
-                    createMainWindow(false);
-                }
-
+            // Use webContents ready state instead of arbitrary delay
+            const mainWindow = getMainWindow();
+            if (!mainWindow) {
+                const newMainWindow = createMainWindow(false);
+                // Wait for main window to be ready before setting up fallback
+                newMainWindow.webContents.once('did-finish-load', () => {
+                    const fallbackTimeout = createAppReadyFallbackTimeout({
+                        getUpdateWindow,
+                        getMainWindow,
+                        debug,
+                        message: 'App ready signal timeout - showing window anyway'
+                    });
+                    global.appReadyFallbackTimeout = fallbackTimeout;
+                });
+            } else {
                 const fallbackTimeout = createAppReadyFallbackTimeout({
                     getUpdateWindow,
                     getMainWindow,
                     debug,
                     message: 'App ready signal timeout - showing window anyway'
                 });
-
                 global.appReadyFallbackTimeout = fallbackTimeout;
-            }, 100);
+            }
         }
     });
 
@@ -333,8 +345,8 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             debug('warn', 'Failed to persist update info:', err);
         }
 
-        // Give UI minimal time to show final message
-        setTimeout(() => {
+        // Use async approach to handle window closure properly
+        (async () => {
             try {
                 const updateWin = getUpdateWindow();
                 const mainWin = getMainWindow();
@@ -348,27 +360,34 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
                     });
                 }
 
-                // Close windows and install immediately
-                setTimeout(() => {
-                    if (updateWin) {
-                        updateWin.destroy(); // Use destroy instead of close for faster cleanup
-                    }
-                    if (mainWin) {
+                // Create promise to wait for windows to close
+                const closePromises = [];
+                
+                if (updateWin && !updateWin.isDestroyed()) {
+                    closePromises.push(new Promise(resolve => {
+                        updateWin.once('closed', resolve);
+                        updateWin.destroy();
+                    }));
+                }
+                
+                if (mainWin && !mainWin.isDestroyed()) {
+                    closePromises.push(new Promise(resolve => {
+                        mainWin.once('closed', resolve);
                         mainWin.destroy();
-                    }
+                    }));
+                }
 
-                    // Install immediately - don't wait
-                    debug('info', 'Launching installer...');
-                    setImmediate(() => {
-                        autoUpdater.quitAndInstall(false, true);
-                    });
-                }, 100);
+                // Wait for all windows to close
+                await Promise.all(closePromises);
+
+                // Install immediately after windows are closed
+                debug('info', 'Launching installer...');
+                autoUpdater.quitAndInstall(false, true);
             } catch (e) {
                 debug('error', 'Failed to install update automatically:', e);
-                // Force quit if install fails
                 app.quit();
             }
-        }, 200);
+        })();
     });
 
     autoUpdater.on('error', (err) => {
@@ -411,12 +430,16 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
                 });
             }
             
-            setTimeout(() => {
+            // Use promise-based delay for cleaner async handling
+            (async () => {
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
                 debug('info', `Retrying update check (attempt ${retryCount})...`);
-                autoUpdater.checkForUpdates().catch(retryErr => {
+                try {
+                    await autoUpdater.checkForUpdates();
+                } catch (retryErr) {
                     debug('error', 'Retry failed:', retryErr);
-                });
-            }, retryDelay);
+                }
+            })();
             return;
         }
 
@@ -433,18 +456,17 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
                 percent: 10
             });
 
-            setTimeout(() => {
-                createMainWindow(false);
-
+            // Create main window and wait for it to be ready
+            const newMainWindow = createMainWindow(false);
+            newMainWindow.webContents.once('did-finish-load', () => {
                 const fallbackTimeout = createAppReadyFallbackTimeout({
                     getUpdateWindow,
                     getMainWindow,
                     debug,
                     message: 'App ready signal timeout after error - showing window anyway'
                 });
-
                 global.appReadyFallbackTimeout = fallbackTimeout;
-            }, 100);
+            });
             return;
         }
 
@@ -509,21 +531,29 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
                 });
             }
 
-            // Quick window closure
-            setTimeout(() => {
-                if (updateWindow) {
-                    updateWindow.destroy();
+            // Use promises to ensure windows are closed before installing
+            (async () => {
+                const closePromises = [];
+                
+                if (updateWindow && !updateWindow.isDestroyed()) {
+                    closePromises.push(new Promise(resolve => {
+                        updateWindow.once('closed', resolve);
+                        updateWindow.destroy();
+                    }));
                 }
-                if (mainWindow) {
-                    mainWindow.destroy();
+                
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    closePromises.push(new Promise(resolve => {
+                        mainWindow.once('closed', resolve);
+                        mainWindow.destroy();
+                    }));
                 }
 
-                // Install immediately
+                await Promise.all(closePromises);
+                
                 debug('info', 'Launching installer...');
-                setImmediate(() => {
-                    autoUpdater.quitAndInstall(false, true);
-                });
-            }, 100);
+                autoUpdater.quitAndInstall(false, true);
+            })();
 
             return { success: true };
         }
@@ -548,15 +578,18 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
                 percent: 100
             });
 
-            setTimeout(() => {
-                if (updateWindow) {
-                    updateWindow.destroy();
-                }
-                if (mainWindow) {
-                    mainWindow.show();
-                    mainWindow.focus();
-                }
-            }, 100);
+            if (updateWindow && !updateWindow.isDestroyed()) {
+                updateWindow.once('closed', () => {
+                    if (mainWindow) {
+                        mainWindow.show();
+                        mainWindow.focus();
+                    }
+                });
+                updateWindow.destroy();
+            } else if (mainWindow) {
+                mainWindow.show();
+                mainWindow.focus();
+            }
         } else if (mainWindow && !mainWindow.isVisible()) {
             mainWindow.show();
             mainWindow.focus();

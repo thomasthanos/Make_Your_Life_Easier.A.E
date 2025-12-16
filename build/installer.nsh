@@ -6,8 +6,9 @@ ${StrStr}
 ; CUSTOM RUN AFTER FINISH
 ; ============================================================================
 !macro customRunAfterFinish
-  ; Launch app immediately without delay
-  Exec '"$INSTDIR\MakeYourLifeEasier.exe"'
+  ; Ensure installer process exits cleanly before launching app
+  ; Use ShellExecute for non-blocking async launch
+  ExecShell "" "$INSTDIR\MakeYourLifeEasier.exe"
 !macroend
 
 ; ============================================================================
@@ -69,21 +70,35 @@ FunctionEnd
   ; Set default install directory first
   StrCpy $INSTDIR "$PROGRAMFILES64\ThomasThanos\MakeYourLifeEasier"
   
-  ; Wait for any running instances to close (max 3 seconds)
-  StrCpy $0 0
-  wait_for_close:
-    FindWindow $1 "" "Make Your Life Easier"
-    IntCmp $1 0 no_window_found
-    IntOp $0 $0 + 1
-    IntCmp $0 10 force_continue  ; 10 * 200ms = 2 seconds
-    Sleep 200
-    Goto wait_for_close
+  ; Use proper process termination instead of window polling
+  ; Try to find and gracefully terminate the process
+  nsExec::ExecToStack 'tasklist /FI "IMAGENAME eq MakeYourLifeEasier.exe" /NH'
+  Pop $0  ; Exit code
+  Pop $1  ; Output
   
-  force_continue:
-  no_window_found:
+  ; If process is running, wait for graceful shutdown
+  ${If} $0 == 0
+    ; Check if process exists in output
+    ${StrStr} $2 $1 "MakeYourLifeEasier.exe"
+    ${If} $2 != ""
+      ; Process found - wait for it to exit naturally (max 3 seconds)
+      StrCpy $0 0
+      wait_for_exit:
+        nsExec::ExecToStack 'tasklist /FI "IMAGENAME eq MakeYourLifeEasier.exe" /NH'
+        Pop $3
+        Pop $4
+        ${StrStr} $5 $4 "MakeYourLifeEasier.exe"
+        ${If} $5 == ""
+          Goto process_exited
+        ${EndIf}
+        IntOp $0 $0 + 1
+        IntCmp $0 15 process_exited  ; 15 * 200ms = 3 seconds
+        Sleep 200
+        Goto wait_for_exit
+    ${EndIf}
+  ${EndIf}
   
-  ; Give minimal time for file locks to release
-  Sleep 300
+  process_exited:
   
   ; First, check for our known registry key (legacy name)
   ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" "UninstallString"
