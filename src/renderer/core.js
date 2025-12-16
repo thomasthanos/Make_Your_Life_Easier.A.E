@@ -265,23 +265,22 @@ export async function loadPage(key) {
     const content = document.getElementById('content');
     if (!content) return;
     
-    // Determine target window size and resize FIRST
+    // Determine target window size
     const isInstall = key === 'install_apps';
     const targetWidth = isInstall ? 1400 : 1100;
     const targetHeight = 750;
     
-    // Resize window before changing content to avoid gray area
+    // Resize BEFORE changing content so old content fills the new size
     try {
         if (window.api && typeof window.api.setWindowSize === 'function') {
             await window.api.setWindowSize(targetWidth, targetHeight);
+            // Small delay to let window resize complete
+            await new Promise(resolve => setTimeout(resolve, 16));
         }
     } catch { }
-    
-    // Small delay to let window resize complete
-    await new Promise(resolve => setTimeout(resolve, 80));
-    
-    content.innerHTML = '';
 
+    // Now clear and load new content
+    content.innerHTML = '';
     // Import page builders dynamically to avoid circular dependencies
     const { buildInstallPageWingetWithCategories, buildCrackInstallerPage } = await import('./pages/installers.js');
     const { buildActivateAutologinPage } = await import('./pages/activation.js');

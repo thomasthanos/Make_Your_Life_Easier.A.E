@@ -5,6 +5,7 @@
 
 import { escapeHtml } from './utils.js';
 import { attachTooltipHandlers, tooltipManager } from './managers.js';
+import { resizeWindowSmooth } from './services.js';
 
 // ============================================
 // ICON DEFINITIONS
@@ -529,17 +530,15 @@ export async function openInfoModal() {
     const targetHeight = 750;
     
     try {
-        if (window.api && typeof window.api.animateResize === 'function') {
-            await window.api.animateResize(targetWidth, targetHeight, 120);
+        if (typeof resizeWindowSmooth === 'function') {
+            await resizeWindowSmooth(targetWidth, targetHeight, 220);
         } else if (window.api && typeof window.api.setWindowSize === 'function') {
             window.api.setWindowSize(targetWidth, targetHeight);
+            await new Promise(resolve => setTimeout(resolve, 150));
         }
     } catch {
         // ignore resize errors
     }
-    
-    // Small delay to let the resize animation complete
-    await new Promise(resolve => setTimeout(resolve, 150));
     
     const overlay = document.createElement('div');
     overlay.id = 'info-modal-overlay';
@@ -585,8 +584,8 @@ async function restoreWindowSize() {
     const { width, height } = previousWindowSize;
     
     try {
-        if (window.api && typeof window.api.animateResize === 'function') {
-            await window.api.animateResize(width, height, 120);
+        if (typeof resizeWindowSmooth === 'function') {
+            await resizeWindowSmooth(width, height, 220);
         } else if (window.api && typeof window.api.setWindowSize === 'function') {
             window.api.setWindowSize(width, height);
         }

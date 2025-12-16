@@ -104,19 +104,12 @@ export function setTranslations(trans) {
  */
 export async function resizeWindowSmooth(targetWidth, targetHeight, duration = 200) {
     try {
-        // Use animateResize which now uses native setBounds animation
-        // This avoids gray background during resize
-        if (window.api && typeof window.api.animateResize === 'function') {
-            await window.api.animateResize(targetWidth, targetHeight, duration);
-        } else if (window.api && typeof window.api.setWindowSize === 'function') {
+        // Simple, direct resize - no animation tricks
+        if (window.api && typeof window.api.setWindowSize === 'function') {
             await window.api.setWindowSize(targetWidth, targetHeight);
         }
     } catch (err) {
-        try {
-            window.api?.setWindowSize?.(targetWidth, targetHeight);
-        } catch {
-            // ignore secondary failures
-        }
+        // Ignore resize errors
     }
 }
 
