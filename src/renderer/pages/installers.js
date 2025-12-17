@@ -170,7 +170,7 @@ async function findProjectInstaller(extractedDir, projectName) {
     }
 }
 
-async function processAdvancedInstaller(zipPath, statusElement, _appName) {
+async function processAdvancedInstaller(zipPath, statusElement, appName, li) {
     statusElement.textContent = 'Extracting Advanced Installer...';
 
     try {
@@ -201,17 +201,119 @@ async function processAdvancedInstaller(zipPath, statusElement, _appName) {
         statusElement.textContent = '✅ Advanced Installer setup started! Complete the installation.';
         statusElement.classList.add('status-success');
 
-        toast('Advanced Installer setup started! Complete the installation.', {
+        // Δημιουργία activate button μετά την εγκατάσταση
+        if (li) {
+            createActivateButtonForAdvancedInstaller(li, activatorPath, appName);
+        }
+
+        toast('Advanced Installer setup started! Complete the installation then click "Activate".', {
             type: 'info',
             title: 'Advanced Installer',
             duration: 5000
         });
+
+        // Επιστροφή του activatorPath για να χρησιμοποιηθεί αργότερα
+        return { activatorPath };
 
     } catch (error) {
         statusElement.textContent = `Error: ${error.message}`;
         statusElement.classList.add('status-error');
         throw error;
     }
+}
+
+// Βοηθητική συνάρτηση για δημιουργία activate button για Advanced Installer
+function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
+    // Ψάξε για υπάρχον activate button
+    let activateBtn = li.querySelector('.activate-btn');
+    
+    if (activateBtn) {
+        // Αν υπάρχει ήδη, ενημέρωσε το path
+        activateBtn.dataset.activatorPath = activatorPath;
+        activateBtn.style.display = 'inline-block';
+        return;
+    }
+    
+    // Δημιούργησε νέο activate button
+    const label = li.querySelector('label.app-label');
+    if (!label) return;
+    
+    // Δημιούργησε ένα container για τα κουμπιά
+    let buttonContainer = li.querySelector('.app-actions');
+    if (!buttonContainer) {
+        buttonContainer = document.createElement('div');
+        buttonContainer.className = 'app-actions';
+        li.appendChild(buttonContainer);
+    }
+    
+    activateBtn = document.createElement('button');
+    activateBtn.className = 'activate-btn';
+    activateBtn.textContent = 'Activate';
+    activateBtn.dataset.activatorPath = activatorPath;
+    
+    // Μικρότερο κουμπί που ταιριάζει με το design
+    activateBtn.style.cssText = `
+        font-size: 12px;
+        padding: 2px 8px;
+        margin-left: 8px;
+        background-color: #059669;
+        border: 1px solid #059669;
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        display: inline-block;
+    `;
+    
+    activateBtn.addEventListener('mouseenter', () => {
+        if (!activateBtn.disabled) {
+            activateBtn.style.backgroundColor = '#047857';
+            activateBtn.style.borderColor = '#047857';
+        }
+    });
+    
+    activateBtn.addEventListener('mouseleave', () => {
+        if (!activateBtn.disabled) {
+            activateBtn.style.backgroundColor = '#059669';
+            activateBtn.style.borderColor = '#059669';
+        }
+    });
+    
+    activateBtn.addEventListener('click', async () => {
+        try {
+            activateBtn.disabled = true;
+            activateBtn.textContent = 'Activating...';
+            activateBtn.style.opacity = '0.7';
+            
+            const runResult = await window.api.runInstaller(activatorPath);
+            if (runResult.success) {
+                activateBtn.textContent = '✅ Activated';
+                activateBtn.style.backgroundColor = '#059669';
+                activateBtn.disabled = true;
+                activateBtn.style.opacity = '1';
+                
+                toast('Advanced Installer activated successfully!', {
+                    type: 'success',
+                    title: 'Advanced Installer',
+                    duration: 3000
+                });
+            } else {
+                throw new Error(runResult.error || 'Activation failed');
+            }
+        } catch (error) {
+            activateBtn.textContent = '❌ Retry';
+            activateBtn.style.backgroundColor = '#dc2626';
+            activateBtn.style.borderColor = '#dc2626';
+            activateBtn.disabled = false;
+            activateBtn.style.opacity = '1';
+            
+            toast(`Activation failed: ${error.message}`, {
+                type: 'error',
+                title: 'Advanced Installer'
+            });
+        }
+    });
+    
+    buttonContainer.appendChild(activateBtn);
 }
 
 // Make processAdvancedInstaller available globally for custom packages
@@ -776,7 +878,9 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                                 const statusEl = document.createElement('span');
                                 statusEl.style.display = 'none';
                                 li.appendChild(statusEl);
-                                await processAdvancedInstaller(data.path, statusEl, appName);
+                                
+                                // Καλεί την processAdvancedInstaller που θα δημιουργήσει το activate button
+                                await processAdvancedInstaller(data.path, statusEl, appName, li);
                             } else if (downloadedExt === 'exe') {
                                 const runRes = await window.api.runInstaller(data.path);
                                 if (!runRes || !runRes.success) {
