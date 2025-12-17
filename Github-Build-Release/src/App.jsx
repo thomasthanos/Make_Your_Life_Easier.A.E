@@ -24,7 +24,7 @@ function App() {
   // UI State
   const [activeTab, setActiveTab] = useState('create');
   const [activeHistorySubTab, setActiveHistorySubTab] = useState('releases');
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildCommand, setBuildCommand] = useState('npm run build-all');
 
@@ -34,6 +34,7 @@ function App() {
   const [notes, setNotes] = useState('### What\'s New\n\n- Bug fixes\n- Performance improvements\n- New features');
   const [isPreview, setIsPreview] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAppReady, setIsAppReady] = useState(false);
 
   // Modal State
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -58,24 +59,36 @@ function App() {
 
   // Theme initialization
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    setTheme(savedTheme);
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    document.documentElement.setAttribute('data-theme', theme);
     // Update titlebar colors based on theme
     if (window.api?.setTitleBarTheme) {
-      window.api.setTitleBarTheme(savedTheme);
+      window.api.setTitleBarTheme(theme);
     }
-  }, []);
+  }, [theme]);
 
   // Check GitHub CLI status on mount
   useEffect(() => {
+    let isMounted = true;
+
     const checkStatus = async () => {
       if (window.api?.checkGhStatus) {
         const status = await window.api.checkGhStatus();
-        setGhStatus(status);
+        if (isMounted) {
+          setGhStatus(status);
+        }
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 220));
+      if (isMounted) {
+        setIsAppReady(true);
       }
     };
+
     checkStatus();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Build log listener
@@ -262,6 +275,15 @@ function App() {
 
   return (
     <div className={`app-container ${theme}-theme`}>
+      {!isAppReady && (
+        <div className="app-preloader" aria-live="polite">
+          <div className="preloader-card glass-panel">
+            <div className="preloader-spinner" aria-hidden="true"></div>
+            <p>Loading your release cockpit…</p>
+            <small>Connecting to GitHub and preparing build helpers.</small>
+          </div>
+        </div>
+      )}
       {/* TOAST NOTIFICATIONS */}
       <ToastContainer toasts={toast.toasts} removeToast={toast.removeToast} />
 
