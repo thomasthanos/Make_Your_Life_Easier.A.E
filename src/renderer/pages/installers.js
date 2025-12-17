@@ -230,7 +230,7 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
     if (activateBtn) {
         // Αν υπάρχει ήδη, ενημέρωσε το path
         activateBtn.dataset.activatorPath = activatorPath;
-        activateBtn.style.display = 'inline-block';
+        activateBtn.style.display = 'inline-flex';
         return;
     }
     
@@ -243,53 +243,47 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
     if (!buttonContainer) {
         buttonContainer = document.createElement('div');
         buttonContainer.className = 'app-actions';
-        li.appendChild(buttonContainer);
+        
+        // Βάλε το container μετά το label
+        const labelContainer = li.querySelector('.label-container');
+        if (labelContainer) {
+            labelContainer.appendChild(buttonContainer);
+        } else {
+            li.appendChild(buttonContainer);
+        }
     }
     
     activateBtn = document.createElement('button');
     activateBtn.className = 'activate-btn';
     activateBtn.textContent = 'Activate';
     activateBtn.dataset.activatorPath = activatorPath;
+    activateBtn.dataset.appName = appName;
+    activateBtn.title = `Activate ${appName}`;
     
-    // Μικρότερο κουμπί που ταιριάζει με το design
-    activateBtn.style.cssText = `
-        font-size: 12px;
-        padding: 2px 8px;
-        margin-left: 8px;
-        background-color: #059669;
-        border: 1px solid #059669;
-        color: white;
-        border-radius: 4px;
-        cursor: pointer;
-        display: inline-block;
-    `;
-    
-    activateBtn.addEventListener('mouseenter', () => {
-        if (!activateBtn.disabled) {
-            activateBtn.style.backgroundColor = '#047857';
-            activateBtn.style.borderColor = '#047857';
-        }
-    });
-    
-    activateBtn.addEventListener('mouseleave', () => {
-        if (!activateBtn.disabled) {
-            activateBtn.style.backgroundColor = '#059669';
-            activateBtn.style.borderColor = '#059669';
-        }
-    });
-    
-    activateBtn.addEventListener('click', async () => {
+    activateBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        
         try {
+            // Απλά απενεργοποίησε το κουμπί και άλλαξε το κείμενο
             activateBtn.disabled = true;
             activateBtn.textContent = 'Activating...';
-            activateBtn.style.opacity = '0.7';
             
             const runResult = await window.api.runInstaller(activatorPath);
+            
             if (runResult.success) {
-                activateBtn.textContent = '✅ Activated';
-                activateBtn.style.backgroundColor = '#059669';
+                // Success state
+                activateBtn.classList.add('success');
+                activateBtn.textContent = 'Activated';
                 activateBtn.disabled = true;
-                activateBtn.style.opacity = '1';
+                
+                // Προσπάθεια cleanup μετά από 2 δευτερόλεπτα
+                setTimeout(() => {
+                    try {
+                        window.api.cleanupFile(activatorPath);
+                    } catch (err) {
+                        console.log('Cleanup optional:', err.message);
+                    }
+                }, 2000);
                 
                 toast('Advanced Installer activated successfully!', {
                     type: 'success',
@@ -300,11 +294,10 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
                 throw new Error(runResult.error || 'Activation failed');
             }
         } catch (error) {
-            activateBtn.textContent = '❌ Retry';
-            activateBtn.style.backgroundColor = '#dc2626';
-            activateBtn.style.borderColor = '#dc2626';
+            // Error state
+            activateBtn.classList.add('error');
+            activateBtn.textContent = 'Retry';
             activateBtn.disabled = false;
-            activateBtn.style.opacity = '1';
             
             toast(`Activation failed: ${error.message}`, {
                 type: 'error',
@@ -316,6 +309,44 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
     buttonContainer.appendChild(activateBtn);
 }
 
+
+async function retryCleanup(filePath, maxRetries = 3) {
+    const fs = window.api.fs;
+    const path = window.api.path;
+    
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            // Έλεγξε αν το αρχείο υπάρχει
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                console.log(`File deleted successfully on attempt ${i + 1}`);
+                
+                // Προσπάθησε να διαγράψεις και τον φάκελο αν είναι άδειος
+                const dir = path.dirname(filePath);
+                try {
+                    const files = fs.readdirSync(dir);
+                    if (files.length === 0) {
+                        fs.rmdirSync(dir);
+                        console.log('Empty directory deleted');
+                    }
+                } catch (dirErr) {
+                    // Μην ενοχλείς αν δεν μπορείς να διαγράψεις τον φάκελο
+                    console.log('Could not delete directory:', dirErr.message);
+                }
+            }
+            return; // Επιτυχία
+        } catch (error) {
+            if (error.code === 'EBUSY' && i < maxRetries - 1) {
+                // Περίμενε πριν από το επόμενο retry
+                const delay = (i + 1) * 1000; // 1, 2, 3 δευτερόλεπτα
+                console.log(`File busy, retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                throw error; // Ρίξε το error αν δεν είναι EBUSY ή τελείωσαν τα retries
+            }
+        }
+    }
+}
 // Make processAdvancedInstaller available globally for custom packages
 if (typeof window !== 'undefined') {
     window.processAdvancedInstaller = processAdvancedInstaller;

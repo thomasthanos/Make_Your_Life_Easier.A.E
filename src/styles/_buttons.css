@@ -13,7 +13,7 @@
   --btn-shadow-strong: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
-:where(.button, .button-secondary, .button-danger, .button.success, .button.error, .bios-restart-btn, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, button):not(.no-glass-effect, #menu-list button, .ui-button, .info-close-btn, .theme-toggle, .lang-toggle, .info-toggle, .menu-toggle, .logout-btn, .title-bar-btn, .changelog-btn, .changelog-close, .error-close, .error-copy, .bulk-action-btn, .bulk-install, .bulk-uninstall, .bulk-export, .bulk-import, .login-discord, .login-google) {
+:where(.button, .button-secondary, .button-danger, .button.success, .button.error, .bios-restart-btn, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, button):not(.no-glass-effect, #menu-list button, .ui-button, .info-close-btn, .theme-toggle, .lang-toggle, .info-toggle, .menu-toggle, .logout-btn, .title-bar-btn, .changelog-btn, .changelog-close, .error-close, .error-copy, .bulk-action-btn, .bulk-install, .bulk-uninstall, .bulk-export, .bulk-import, .login-discord, .login-google, .activate-btn) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -665,4 +665,146 @@ body[data-theme="light"] .bulk-import:disabled {
     backdrop-filter: initial !important;
     -webkit-backdrop-filter: initial !important;
     border-radius: initial !important;
+}
+
+/* ============================================
+   ACTIVATE BUTTON - NO LOADING ANIMATION
+   ============================================ */
+
+.activate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.9rem;
+  margin-left: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 28px;
+  border: none;
+  
+  background: #059669;
+  color: white;
+  border-bottom: 3px solid #047857;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.activate-btn:hover:not(:disabled) {
+  background: #10b981;
+  border-bottom-color: #059669;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+.activate-btn:active:not(:disabled) {
+  background: #047857;
+  border-bottom-width: 1px;
+  margin-top: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Success state */
+.activate-btn.success {
+  background: #10b981;
+  border-bottom-color: #059669;
+  cursor: default;
+}
+
+.activate-btn.success::before {
+  content: '✓';
+  margin-right: 4px;
+}
+
+/* Error state */
+.activate-btn.error {
+  background: #dc2626;
+  border-bottom-color: #b91c1c;
+}
+
+.activate-btn.error::before {
+  content: '✕';
+  margin-right: 4px;
+}
+
+.activate-btn.error:hover:not(:disabled) {
+  background: #ef4444;
+  border-bottom-color: #dc2626;
+}
+
+/* Disabled state */
+.activate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #059669 !important;
+  border-bottom-color: #047857 !important;
+}
+
+/* Dark Mode */
+[data-theme="dark"] .activate-btn {
+  background: #059669;
+  border-bottom-color: #047857;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .activate-btn:hover:not(:disabled) {
+  background: #10b981;
+  border-bottom-color: #059669;
+}
+
+[data-theme="dark"] .activate-btn.success {
+  background: #10b981;
+  border-bottom-color: #059669;
+}
+
+[data-theme="dark"] .activate-btn.error {
+  background: #dc2626;
+  border-bottom-color: #b91c1c;
+}
+
+/* Light Mode */
+[data-theme="light"] .activate-btn {
+  background: #059669;
+  border-bottom-color: #047857;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .activate-btn:hover:not(:disabled) {
+  background: #10b981;
+  border-bottom-color: #059669;
+}
+
+[data-theme="light"] .activate-btn:active:not(:disabled) {
+  margin-top: 2px;
+}
+
+[data-theme="light"] .activate-btn.success {
+  background: #10b981;
+  border-bottom-color: #059669;
+}
+
+[data-theme="light"] .activate-btn.error {
+  background: #dc2626;
+  border-bottom-color: #b91c1c;
+}
+
+/* Container */
+.app-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+  padding-left: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .activate-btn {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.8rem;
+    margin-left: 0.5rem;
   }
+}
