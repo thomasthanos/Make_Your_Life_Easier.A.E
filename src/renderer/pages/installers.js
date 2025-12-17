@@ -22,6 +22,23 @@ function getFaviconUrl(pkgId, appName) {
 
 function getDeveloperUrl(pkgId) {
     try {
+        // Custom URLs for specific Package IDs
+        const customUrlMap = {
+            'Proton.ProtonVPN': 'https://protonvpn.com',
+            'Proton.ProtonDrive': 'https://drive.proton.me',
+            'Proton.ProtonMail': 'https://mail.proton.me',
+            'Proton.ProtonAuthenticator': 'https://proton.me/authenticator',
+            'Proton.Proton Authenticator': 'https://proton.me/authenticator',
+            'Google.GoogleDrive': 'https://drive.google.com/drive/my-drive',
+            'Google.Chrome': 'https://www.google.com/chrome/',
+            'Guru3D.Afterburner': 'https://www.msi.com/Landing/afterburner/graphics-cards'
+        };
+        
+        // Check custom URLs first
+        if (customUrlMap[pkgId]) {
+            return customUrlMap[pkgId];
+        }
+        
         const parts = String(pkgId).split('.');
         const publisher = (parts[0] || '').toLowerCase();
         const domainMap = {
@@ -48,7 +65,7 @@ function getDeveloperUrl(pkgId) {
             spotify: 'spotify.com',
             surfshark: 'surfshark.com',
             zwylair: 'github.com',
-            proton: 'protonvpn.com',
+            proton: 'proton.me',
             openjs: 'nodejs.org',
             mozilla: 'mozilla.org',
             '7zip': '7-zip.org',
@@ -82,7 +99,7 @@ function getCategoryForId(pkgId) {
         { key: 'Browsers', keywords: ['firefox', 'chrome', 'brave', 'opera', 'edge', 'vivaldi', 'tor', 'browser'] },
         { key: 'Games', keywords: ['steam', 'epic', 'battlenet', 'ubisoft', 'riot', 'gog', 'game', 'psremoteplay', 'playstation', 'xbox'] },
         { key: 'Music', keywords: ['spotify', 'music', 'tidal', 'mp3', 'audio', 'vlc', 'winamp'] },
-        { key: 'Development', keywords: ['visualstudio', 'python', 'node', 'git', 'java', 'eclipse', 'intellij', 'jetbrains', 'studio', 'code', 'github', 'gitlab', 'docker', 'virtualbox', 'vmware'] },
+        { key: 'Development', keywords: ['visualstudio', 'python', 'node', 'git', 'java', 'eclipse', 'intellij', 'jetbrains', 'studio', 'code', 'github', 'gitlab', 'docker', 'virtualbox', 'vmware', 'claude', 'anthropic'] },
         { key: 'Security', keywords: ['vpn', 'bitdefender', 'antivirus', 'security', 'surfshark', 'nord', 'protonvpn', 'authenticator', 'password', 'mail'] },
         { key: 'Utilities', keywords: ['7zip', 'rar', 'winrar', 'zip', 'freedownload', 'downloadmanager', 'driverbooster', 'softwareupdater', 'sysinfo', 'smartdefrag', 'uninstaller', 'afterburner', 'streamdeck', 'razer', 'synapse', 'iobit', 'manager', 'stream'] }
     ];
