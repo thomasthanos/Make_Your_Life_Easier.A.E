@@ -154,25 +154,34 @@ function Sidebar({
             </div>
           )}
         </div>
-        
-        {/* BUILD BUTTON */}
-        <button 
-          className={`build-btn glass-panel ${isBuilding ? 'building' : ''}`} 
-          onClick={handleBuild}
-          disabled={!projectPath || isBuilding}
-        >
-          <div className="build-btn-content">
-            <div className="build-icon">
-              {isBuilding ? <FaSpinner className="spin" size={14} /> : <FaRocket size={14} />}
-            </div>
-            <div className="build-text">
-              <span className="build-title">
-                {isBuilding ? 'Building...' : 'Build Project'}
-              </span>
-              <span className="build-subtitle">{buildCommand || 'npm run build-all'}</span>
-            </div>
+      </div>
+
+      {/* FOOTER */}
+      <div className="sidebar-footer">
+        <div className="sidebar-footer-stats">
+          <div className="footer-stat-item">
+            <span className="footer-stat-label">Project</span>
+            <span className="footer-stat-value">
+              {formatProjectName(projectPath) || 'None'}
+            </span>
           </div>
-        </button>
+          <div className="footer-stat-item">
+            <span className="footer-stat-label">Releases</span>
+            <span className="footer-stat-value">{releasesCount}</span>
+          </div>
+          <div className="footer-stat-item">
+            <span className="footer-stat-label">Tags</span>
+            <span className="footer-stat-value">{tagsCount}</span>
+          </div>
+          <div className="footer-stat-item">
+            <span className="footer-stat-label">Status</span>
+            <span className="footer-stat-value">
+              <span className={`status-indicator ${isBuilding ? 'building' : 'idle'}`}>
+                {isBuilding ? 'Building' : 'Ready'}
+              </span>
+            </span>
+          </div>
+        </div>
       </div>
     </aside>
   );

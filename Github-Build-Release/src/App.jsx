@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Sidebar,
   Header,
-  Footer,
   EmptyState,
   CreateRelease,
   ReleaseHistory,
@@ -375,13 +374,6 @@ function App() {
             )}
           </div>
 
-          {/* FOOTER */}
-          <Footer
-            projectPath={projectPath}
-            releasesCount={releasesOnly.length}
-            tagsCount={tagsOnly.length}
-            isBuilding={isBuilding}
-          />
         </main>
       </div>
 
