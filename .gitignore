@@ -38,3 +38,4 @@ bin/create.ps1
 /Github-Build-Release/dist
 /Github-Build-Release/node_modules
 /Github-Build-Release/release
+/Pro-Installer
