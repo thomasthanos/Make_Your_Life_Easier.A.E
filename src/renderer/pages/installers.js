@@ -488,31 +488,43 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     const exportText = (translations.actions && translations.actions.export_list) || 'Export List';
     const importText = (translations.actions && translations.actions.import_list) || 'Import List';
     const checkInstalledText = (translations.actions && translations.actions.check_installed) || 'Check Installed';
+    const uncheckAllText = (translations.actions && translations.actions.uncheck_all) || 'Uncheck All';
+
+    const uncheckAllIcon = `<svg class="action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6m0-6l-6 6"/></svg>`;
 
     const installBtn = makeButton(installText, '');
     const uninstallBtn = makeButton(uninstallText, '#dc2626');
     const exportBtn = makeButton(exportText, '');
     const importBtn = makeButton(importText, '');
     const checkInstalledBtn = makeButton(checkInstalledText, '');
+    const uncheckAllBtn = makeButton(uncheckAllText, '');
 
     installBtn.innerHTML = `${installIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(installText)}</span>`;
     uninstallBtn.innerHTML = `${uninstallIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(uninstallText)}</span>`;
     exportBtn.innerHTML = `${exportIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(exportText)}</span>`;
     importBtn.innerHTML = `${importIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(importText)}</span>`;
     checkInstalledBtn.innerHTML = `${checkInstalledIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(checkInstalledText)}</span>`;
+    uncheckAllBtn.innerHTML = `${uncheckAllIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(uncheckAllText)}</span>`;
 
     installBtn.classList.add('btn-install', 'bulk-action-btn', 'bulk-install');
     uninstallBtn.classList.add('btn-uninstall', 'bulk-action-btn', 'bulk-uninstall');
     exportBtn.classList.add('btn-export', 'bulk-action-btn', 'bulk-export');
     importBtn.classList.add('btn-import', 'bulk-action-btn', 'bulk-import');
     checkInstalledBtn.classList.add('btn-check-installed', 'bulk-action-btn', 'bulk-check-installed');
+    uncheckAllBtn.classList.add('btn-uncheck-all', 'bulk-action-btn', 'bulk-uncheck-all');
 
     actionsWrapper.appendChild(installBtn);
     actionsWrapper.appendChild(uninstallBtn);
     actionsWrapper.appendChild(checkInstalledBtn);
-    actionsWrapper.appendChild(exportBtn);
-    actionsWrapper.appendChild(importBtn);
+    actionsWrapper.appendChild(uncheckAllBtn);
     container.appendChild(actionsWrapper);
+
+    // Create second row for export/import
+    const actionsWrapper2 = document.createElement('div');
+    actionsWrapper2.classList.add('actions-wrapper', 'actions-wrapper-secondary');
+    actionsWrapper2.appendChild(exportBtn);
+    actionsWrapper2.appendChild(importBtn);
+    container.appendChild(actionsWrapper2);
 
     function updateActionButtonsState() {
         const anyChecked = container.querySelectorAll('input[type="checkbox"]:checked').length > 0;
@@ -818,6 +830,28 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         } finally {
             buttonStateManager.resetState(checkInstalledBtn);
             [installBtn, uninstallBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = false));
+        }
+    });
+
+    // Uncheck All button handler
+    uncheckAllBtn.addEventListener('click', () => {
+        const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+        let uncheckedCount = 0;
+        
+        checkboxes.forEach((cb) => {
+            if (cb.checked) {
+                cb.checked = false;
+                uncheckedCount++;
+            }
+        });
+
+        updateActionButtonsState();
+
+        if (uncheckedCount > 0) {
+            toast(`Unchecked ${uncheckedCount} application${uncheckedCount !== 1 ? 's' : ''}.`, {
+                type: 'success',
+                title: 'Uncheck All'
+            });
         }
     });
 

@@ -471,6 +471,11 @@
   cursor: not-allowed;
 }
 
+.actions-wrapper-secondary {
+  margin-top: -0.25rem;
+  margin-bottom: 0.75rem;
+}
+
 /* ============================================
    LIST CONTAINER
    ============================================ */

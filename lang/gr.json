@@ -81,6 +81,7 @@
     "install_selected": "Εγκατάσταση Επιλεγμένων",
     "uninstall_selected": "Απεγκατάσταση Επιλεγμένων",
     "check_installed": "Έλεγχος Εγκατεστημένων",
+    "uncheck_all": "Αποεπιλογή Όλων",
     "export_list": "Εξαγωγή Λίστας",
     "import_list": "Εισαγωγή Λίστας"
   },

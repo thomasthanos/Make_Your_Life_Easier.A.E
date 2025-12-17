@@ -81,6 +81,7 @@
     "install_selected": "Install Selected",
     "uninstall_selected": "Uninstall Selected",
     "check_installed": "Check Installed",
+    "uncheck_all": "Uncheck All",
     "export_list": "Export List",
     "import_list": "Import List"
   },
