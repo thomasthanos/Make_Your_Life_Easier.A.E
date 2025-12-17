@@ -81,6 +81,7 @@ contextBridge.exposeInMainWorld('api', {
   runMsiInstaller: (msiPath) => ipcRenderer.invoke('run-msi-installer', msiPath),
   runInstaller: (filePath) => ipcRenderer.invoke('run-installer', filePath),
   runChrisTitus: () => ipcRenderer.invoke('run-christitus'),
+  runElevatedWinget: (command) => ipcRenderer.invoke('run-elevated-winget', command),
   ensureSparkle: () => ipcRenderer.invoke('ensure-sparkle'),
   runRaphiDebloat: () => ipcRenderer.invoke('run-raphi-debloat'),
 

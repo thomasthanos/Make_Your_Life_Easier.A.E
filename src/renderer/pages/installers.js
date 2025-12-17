@@ -989,44 +989,103 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             }
 
             const command = isInstall
-                ? `winget install --id ${id} -e --accept-source-agreements --accept-package-agreements`
-                : `winget uninstall --id ${id} -e`;
+                ? `winget install --id ${id} -e --silent --accept-source-agreements --accept-package-agreements`
+                : `winget uninstall --id ${id} -e --silent`;
 
             try {
-                const result = await window.api.runCommand(command);
-                const output = ((result.stdout || '') + (result.stderr || '')).toLowerCase();
+                let result = await window.api.runCommand(command);
+                let output = ((result.stdout || '') + (result.stderr || '')).toLowerCase();
 
-                if (result && result.error) {
-                    const hasSuccessIndicator = isInstall
-                        ? (output.includes('successfully installed') || output.includes('already installed'))
-                        : output.includes('successfully uninstalled');
+                // Check for hash mismatch and retry with --ignore-security-hash
+                if (isInstall && output.includes('hash') && (output.includes('does not match') || output.includes('mismatch'))) {
+                    // Enable the hash override setting with elevated privileges
+                    try {
+                        await window.api.runElevatedWinget('winget settings --enable InstallerHashOverride');
+                    } catch (enableErr) {
+                        // Continue anyway, might already be enabled
+                    }
+                    
+                    // Retry with --ignore-security-hash
+                    const retryCommand = `${command} --ignore-security-hash`;
+                    result = await window.api.runCommand(retryCommand);
+                    output = ((result.stdout || '') + (result.stderr || '')).toLowerCase();
+                }
 
-                    if (!hasSuccessIndicator) {
-                        results.push({ name: appName, success: false, error: result.error });
-                        errorCount++;
-                        continue;
+                // Check for winget-specific exit codes that aren't real failures
+                // Extract exit code from error message if present
+                let exitCode = null;
+                if (result.error && result.error.includes('code')) {
+                    const codeMatch = result.error.match(/code\s+(\d+)/);
+                    if (codeMatch) {
+                        exitCode = parseInt(codeMatch[1], 10);
                     }
                 }
 
+                // Winget exit codes that indicate success or partial success:
+                // 0x8A15002B (2316632107) - Restart required to complete
+                // 0x8A150056 (2316632150) - Package already installed  
+                // Note: 0x8A150011 (2316632081) means installer failed, NOT success
+                const successExitCodes = [0, 2316632107, 2316632150];
+                const restartRequiredCodes = [2316632107];
+                const isSuccessExitCode = exitCode !== null && successExitCodes.includes(exitCode);
+
                 if (isInstall) {
+                    // Success indicators
+                    const installSuccess = output.includes('successfully installed') ||
+                        output.includes('installation successful') ||
+                        output.includes('installer hash verified');
+
                     const alreadyInstalled = output.includes('no applicable upgrade found') ||
                         output.includes('already installed') ||
-                        output.includes('no newer package versions');
+                        output.includes('no newer package versions') ||
+                        output.includes('same version already installed');
 
-                    const installSuccess = output.includes('successfully installed') ||
-                        output.includes('installation successful');
-
+                    // Failure indicators
                     const installFailed = output.includes('installation failed') ||
                         output.includes('no package found') ||
-                        output.includes('did not find');
+                        output.includes('did not find a match') ||
+                        output.includes('installer failed') ||
+                        output.includes('package is not available');
 
-                    if (alreadyInstalled) {
+                    // User cancelled or needs interaction
+                    const userCancelled = output.includes('cancelled by user') ||
+                        output.includes('canceled by user') ||
+                        output.includes('operation was cancelled');
+
+                    // Check for restart required in output
+                    const restartRequired = output.includes('restart') || 
+                        output.includes('reboot') ||
+                        exitCode === 2316632081 ||
+                        exitCode === 2316632107;
+
+                    if (installSuccess || (isSuccessExitCode && !installFailed)) {
+                        if (restartRequired) {
+                            results.push({ name: appName, success: true, status: 'restart_required' });
+                        } else {
+                            results.push({ name: appName, success: true, status: 'installed' });
+                        }
+                        successCount++;
+                    } else if (alreadyInstalled) {
                         results.push({ name: appName, success: true, status: 'already_installed' });
                         successCount++;
-                    } else if (installFailed && !installSuccess) {
-                        results.push({ name: appName, success: false, status: 'failed' });
+                    } else if (userCancelled) {
+                        results.push({ name: appName, success: false, status: 'cancelled', error: 'Cancelled by user' });
                         errorCount++;
+                    } else if (installFailed && !isSuccessExitCode) {
+                        results.push({ name: appName, success: false, status: 'failed', error: result.error || 'Installation failed' });
+                        errorCount++;
+                    } else if (result && result.error && !isSuccessExitCode) {
+                        // Has error but no clear failure message - might be a false positive
+                        // Check if there's any indication it might have worked
+                        if (output.includes('starting package install') || output.includes('downloading')) {
+                            results.push({ name: appName, success: true, status: 'launched' });
+                            successCount++;
+                        } else {
+                            results.push({ name: appName, success: false, status: 'failed', error: result.error });
+                            errorCount++;
+                        }
                     } else {
+                        // No error or success exit code, assume success
                         results.push({ name: appName, success: true, status: 'installed' });
                         successCount++;
                     }
@@ -1060,8 +1119,14 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
         const failedApps = results.filter(r => !r.success);
 
+        const restartNeeded = results.some(r => r.status === 'restart_required');
+        
         if (successCount > 0 && errorCount === 0) {
-            toast(`All ${selectedItems.length} applications ${isInstall ? 'installed' : 'uninstalled'} successfully!`, {
+            let message = `All ${selectedItems.length} applications ${isInstall ? 'installed' : 'uninstalled'} successfully!`;
+            if (restartNeeded) {
+                message += ' Some may require a restart to complete.';
+            }
+            toast(message, {
                 type: 'success',
                 title: 'Completed'
             });

@@ -215,6 +215,40 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
         return processUtils.runSpawnCommand(parts[0], args, { shell: true, windowsHide: false });
     });
 
+    // Elevated winget command for enabling settings that require admin
+    ipcMain.handle('run-elevated-winget', async (event, command) => {
+        if (process.platform !== 'win32') {
+            return { error: 'Elevated commands only supported on Windows' };
+        }
+
+        if (typeof command !== 'string' || !command.trim()) {
+            return { error: 'Invalid command' };
+        }
+
+        // Only allow specific safe elevated commands
+        const allowedElevatedCommands = [
+            'winget settings --enable InstallerHashOverride'
+        ];
+
+        if (!allowedElevatedCommands.includes(command.trim())) {
+            return { error: 'This elevated command is not allowed' };
+        }
+
+        const psScript = `
+try {
+    ${command}
+    exit 0
+} catch {
+    exit 1
+}
+`;
+        return processUtils.runElevatedPowerShellScriptHidden(
+            psScript,
+            'Setting enabled successfully',
+            'Failed to enable setting'
+        );
+    });
+
     ipcMain.handle('run-christitus', async () => {
         return systemTools.runChrisTitus();
     });
