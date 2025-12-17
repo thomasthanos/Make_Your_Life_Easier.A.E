@@ -300,6 +300,7 @@ function App() {
         activeTab={activeTab}
         theme={theme}
         toggleTheme={toggleTheme}
+        projectVersion={projectVersion}
       />
 
       {/* SECONDARY DRAG REGION */}

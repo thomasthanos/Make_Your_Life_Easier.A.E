@@ -126,21 +126,6 @@ function Sidebar({
                   <FaFolderOpen size={12} /> Change Project
                 </button>
               </div>
-              
-              <div className="project-stats">
-                <div className="stat-item">
-                  <span className="stat-value">{releasesCount}</span>
-                  <span className="stat-label">Releases</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-value">{tagsCount}</span>
-                  <span className="stat-label">Tags</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-value">v{projectVersion || '-'}</span>
-                  <span className="stat-label">Version</span>
-                </div>
-              </div>
             </>
           ) : (
             <div className="empty-project">
@@ -182,6 +167,11 @@ function Sidebar({
             </span>
           </div>
         </div>
+        {projectVersion && (
+          <div className="sidebar-version">
+            v{projectVersion}
+          </div>
+        )}
       </div>
     </aside>
   );

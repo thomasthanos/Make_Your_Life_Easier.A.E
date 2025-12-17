@@ -1,7 +1,7 @@
 import React from 'react';
-import { FaGithub, FaSun, FaMoon, FaPaintBrush } from 'react-icons/fa';
+import { FaGithub, FaSun, FaMoon, FaPaintBrush, FaTag } from 'react-icons/fa';
 
-function Header({ activeTab, theme, toggleTheme }) {
+function Header({ activeTab, theme, toggleTheme, projectVersion }) {
   const getTabTitle = () => {
     switch(activeTab) {
       case 'create': return 'Create New Release';
@@ -36,7 +36,7 @@ function Header({ activeTab, theme, toggleTheme }) {
           {getTabTitle()}
         </div>
 
-        {/* Right - Empty for now */}
+        {/* Right - Empty */}
         <div className="header-actions">
         </div>
       </div>

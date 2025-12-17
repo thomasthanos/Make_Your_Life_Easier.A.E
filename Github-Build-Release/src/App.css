@@ -335,7 +335,44 @@ body {
   align-items: center;
   gap: 10px;
   margin-right: 90px;
+  position: relative;
+  z-index: 10002;
+  -webkit-app-region: no-drag;
   /* Χώρος για τα Electron controls στα δεξιά */
+}
+
+.version-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(108, 99, 255, 0.1);
+  border: 1px solid rgba(108, 99, 255, 0.2);
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #ffffff;
+  user-select: none;
+  position: relative;
+  z-index: 1;
+}
+
+.version-badge-absolute {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(108, 99, 255, 0.1);
+  border: 1px solid rgba(108, 99, 255, 0.2);
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #ffffff;
+  pointer-events: none;
+  user-select: none;
+  position: absolute;
+  left: 190px;
+  z-index: 1;
 }
 
 .connection-status {
@@ -399,13 +436,12 @@ body {
   cursor: pointer;
   transition: var(--transition);
   font-size: 13px;
-  margin-left: 12px;
+  margin-left: 8px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   z-index: 10000;
-  /* υψηλό z-index */
   -webkit-app-region: no-drag;
-  /* επιτρέπει click */
+  pointer-events: auto;
 }
 
 .theme-toggle-with-icon:hover {
@@ -500,6 +536,12 @@ body {
     0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
+.footer-stat-item:first-child {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
 .footer-stat-item:hover {
   background: rgba(108, 99, 255, 0.1);
   border-color: rgba(108, 99, 255, 0.3);
@@ -527,6 +569,26 @@ body {
   white-space: nowrap;
   max-width: 140px;
   text-align: right;
+}
+
+.footer-stat-item:first-child .footer-stat-value {
+  max-width: 100%;
+  text-align: left;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.sidebar-version {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  padding-top: 1px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  opacity: 0.6;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  transform: translateY(7px);
 }
 
 [class="sidebar glass-panel"] {
@@ -3929,6 +3991,13 @@ body {
   color: #5a6270;
 }
 
+[data-theme="light"] .version-badge,
+[data-theme="light"] .version-badge-absolute {
+  background: rgba(91, 76, 255, 0.08);
+  border-color: rgba(91, 76, 255, 0.2);
+  color: #1a1d21;
+}
+
 [data-theme="light"] .connection-status {
   background: rgba(0, 0, 0, 0.04);
   border-color: rgba(0, 0, 0, 0.1);
@@ -4019,6 +4088,11 @@ body {
 
 [data-theme="light"] .footer-stat-value {
   color: #1a1d21;
+}
+
+[data-theme="light"] .sidebar-version {
+  color: #5a6270;
+  border-top-color: rgba(0, 0, 0, 0.08);
 }
 
 /* === Project Card === */
