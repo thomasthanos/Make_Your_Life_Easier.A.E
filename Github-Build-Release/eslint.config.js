@@ -26,4 +26,13 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  // Electron files (main.js, preload.js) use CommonJS
+  {
+    files: ['electron/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.node,
+      sourceType: 'commonjs',
+    },
+  },
 ])

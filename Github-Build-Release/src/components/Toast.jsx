@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaInfoCircle, FaTimes, FaRocket } from 'react-icons/fa';
 
 const ICONS = {
@@ -14,6 +14,11 @@ function Toast({ id, type = 'info', title, message, duration = 5000, onClose }) 
   const [progress, setProgress] = useState(100);
   
   const Icon = ICONS[type] || ICONS.info;
+
+  const handleClose = useCallback(() => {
+    setIsExiting(true);
+    setTimeout(() => onClose(id), 300);
+  }, [id, onClose]);
 
   useEffect(() => {
     if (duration > 0) {
@@ -31,12 +36,8 @@ function Toast({ id, type = 'info', title, message, duration = 5000, onClose }) 
 
       return () => clearInterval(interval);
     }
-  }, [duration]);
+  }, [duration, handleClose]);
 
-  const handleClose = () => {
-    setIsExiting(true);
-    setTimeout(() => onClose(id), 300);
-  };
 
   return (
     <div className={`toast toast-${type} ${isExiting ? 'toast-exit' : 'toast-enter'}`}>
@@ -67,39 +68,6 @@ export function ToastContainer({ toasts, removeToast }) {
       ))}
     </div>
   );
-}
-
-// Hook for managing toasts
-export function useToast() {
-  const [toasts, setToasts] = useState([]);
-
-  const addToast = (options) => {
-    const id = Date.now() + Math.random();
-    const toast = { id, ...options };
-    setToasts(prev => [...prev, toast]);
-    return id;
-  };
-
-  const removeToast = (id) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  };
-
-  const success = (message, title = 'Success') => addToast({ type: 'success', title, message });
-  const error = (message, title = 'Error') => addToast({ type: 'error', title, message });
-  const warning = (message, title = 'Warning') => addToast({ type: 'warning', title, message });
-  const info = (message, title = 'Info') => addToast({ type: 'info', title, message });
-  const release = (message, title = 'Release') => addToast({ type: 'release', title, message, duration: 8000 });
-
-  return {
-    toasts,
-    addToast,
-    removeToast,
-    success,
-    error,
-    warning,
-    info,
-    release
-  };
 }
 
 export default Toast;

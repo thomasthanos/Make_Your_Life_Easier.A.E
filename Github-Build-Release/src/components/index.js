@@ -6,4 +6,5 @@ export { default as CreateRelease } from './CreateRelease';
 export { default as ReleaseHistory } from './ReleaseHistory';
 export { default as BuildLogs } from './BuildLogs';
 export { default as Modal, DeleteModal, ReleaseModal } from './Modal';
-export { default as Toast, ToastContainer, useToast } from './Toast';
+export { default as Toast, ToastContainer } from './Toast';
+export { useToast } from '../hooks/useToast';

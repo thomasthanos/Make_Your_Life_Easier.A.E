@@ -1,6 +1,8 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkAlerts from 'remark-github-alerts';
+import rehypeRaw from 'rehype-raw';
 import { FaRocket, FaPen, FaTag, FaFileAlt, FaEye, FaEdit, FaTrash, FaMagic } from 'react-icons/fa';
 
 function CreateRelease({
@@ -34,18 +36,6 @@ function CreateRelease({
 
   return (
     <div className="tab-content fade-in">
-      <div className="tab-header">
-        <div className="tab-header-content">
-          <h1>
-            <span className="header-icon"><FaRocket /></span>
-            Create New Release
-          </h1>
-          <p className="tab-description">
-            Configure and publish a new release to GitHub
-          </p>
-        </div>
-      </div>
-
       <div className="release-form-container glass-panel">
         {/* Version & Title Row */}
         <div className="form-row">
@@ -62,12 +52,6 @@ function CreateRelease({
                 onFocus={handleVersionFocus}
                 placeholder={suggestedVersion || "v1.0.0"}
               />
-              {suggestedVersion && !version && (
-                <div className="input-suggestion" onClick={() => setVersion(suggestedVersion)}>
-                  <FaMagic size={10} />
-                  <span>Use {suggestedVersion}</span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -118,7 +102,10 @@ function CreateRelease({
             {isPreview ? (
               <div className="markdown-preview custom-scrollbar">
                 {notes ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm, remarkAlerts]}
+                    rehypePlugins={[rehypeRaw]}
+                  >
                     {notes}
                   </ReactMarkdown>
                 ) : (

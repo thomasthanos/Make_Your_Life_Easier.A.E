@@ -26,7 +26,7 @@ function getBuildCommand(projectPath, overrideCommand) {
         } else if (scripts.build) {
             buildCommand = 'npm run build';
         }
-    } catch (err) {
+    } catch {
         buildCommand = null;
     }
 
@@ -155,7 +155,7 @@ ipcMain.handle('get-project-info', async (event, projectPath) => {
         const pkg = JSON.parse(pkgRaw);
         version = pkg.version || null;
         suggestedBuildCommand = getBuildCommand(projectPath, null);
-    } catch (err) {
+    } catch {
         version = null;
         suggestedBuildCommand = null;
     }
@@ -168,7 +168,7 @@ ipcMain.handle('get-project-info', async (event, projectPath) => {
 ipcMain.handle('get-releases', async (event, projectPath) => {
     return new Promise((resolve) => {
         const getRepoCmd = 'gh repo view --json url';
-        exec(getRepoCmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
+        exec(getRepoCmd, { cwd: projectPath, env: baseEnv }, (error, stdout) => {
             if (error) {
                 // Αν αποτύχει το gh repo view, δοκιμάζουμε με git remote
                 exec('git remote get-url origin', { cwd: projectPath }, (gitError, gitStdout) => {
@@ -197,7 +197,7 @@ ipcMain.handle('get-releases', async (event, projectPath) => {
 function fetchReleasesAndTags(projectPath, repoUrl, resolve) {
     // Πάρε releases
     const releasesCmd = 'gh release list --json tagName,publishedAt,name,isDraft --limit 50';
-    exec(releasesCmd, { cwd: projectPath, env: baseEnv }, (releaseError, releaseStdout, releaseStderr) => {
+    exec(releasesCmd, { cwd: projectPath, env: baseEnv }, (releaseError, releaseStdout) => {
         let releases = [];
         let releaseTags = new Set();
 
@@ -221,7 +221,7 @@ function fetchReleasesAndTags(projectPath, repoUrl, resolve) {
 
         // Πάρε όλα τα tags (git tags)
         const tagsCmd = 'git tag --list --sort=-creatordate';
-        exec(tagsCmd, { cwd: projectPath }, (tagsError, tagsStdout, tagsStderr) => {
+        exec(tagsCmd, { cwd: projectPath }, (tagsError, tagsStdout) => {
             let tagsWithoutReleases = [];
 
             if (!tagsError && tagsStdout.trim()) {
@@ -264,7 +264,6 @@ ipcMain.handle('create-release', async (event, { path: projectPath, version, tit
         // Step 1: Build the project
         mainWindow.webContents.send('build-log', `\n🔨 Step 1/3: Building project...\n`);
 
-        const pkgPath = path.join(projectPath, 'package.json');
         const resolvedBuildCommand = getBuildCommand(projectPath, buildCommand);
 
         if (!resolvedBuildCommand) {
@@ -298,12 +297,10 @@ ipcMain.handle('create-release', async (event, { path: projectPath, version, tit
 
             try {
                 fs.writeFileSync(notesFilePath, notes, 'utf-8');
-            } catch (err) {
-                resolve({ success: false, error: `Failed to write release notes: ${err.message}` });
+            } catch (writeErr) {
+                resolve({ success: false, error: `Failed to write release notes: ${writeErr.message}` });
                 return;
             }
-
-            const createReleaseCmd = `gh release create "${version}" --title "${title}" --notes-file "${notesFilePath}"`;
 
             // Use execFile with array args to prevent command injection
             const ghArgs = ['release', 'create', version, '--title', title, '--notes-file', notesFilePath];
@@ -394,7 +391,7 @@ ipcMain.handle('create-release', async (event, { path: projectPath, version, tit
 // DELETE RELEASE + TAGS (remote & local)
 // DELETE RELEASE + TAGS - Robust έκδοση
 ipcMain.handle('delete-release', async (event, { path: projectPath, tagName }) => {
-    const execWithLog = (cmd, description) => {
+    const execWithLog = (cmd) => {
         return new Promise((resolve) => {
             exec(cmd, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
                 if (error) {
@@ -408,52 +405,47 @@ ipcMain.handle('delete-release', async (event, { path: projectPath, tagName }) =
 
     try {
         // STRATEGY 1: Προσπάθεια με GitHub CLI (για releases)
-        const ghResult = await execWithLog(
-            `gh release delete "${tagName}" --yes`,
-            'GitHub release delete'
+        await execWithLog(
+            `gh release delete "${tagName}" --yes`
         );
 
         // STRATEGY 2: Προσπάθεια με Git (για tags)
         // 2a. Διαγραφή remote tag
         const remoteResult = await execWithLog(
-            `git push origin --delete "${tagName}"`,
-            'Delete remote tag (method 1)'
+            `git push origin --delete "${tagName}"`
         );
 
         // 2b. Εναλλακτική μέθοδος διαγραφής remote tag
         if (!remoteResult.success) {
             await execWithLog(
-                `git push origin :refs/tags/${tagName}`,
-                'Delete remote tag (method 2)'
+                `git push origin :refs/tags/${tagName}`
             );
         }
 
         // 2c. Διαγραφή local tag
         const localResult = await execWithLog(
-            `git tag -d "${tagName}"`,
-            'Delete local tag'
+            `git tag -d "${tagName}"`
         );
 
         // STRATEGY 3: Force delete αν τα παραπάνω αποτύχουν
         if (!localResult.success) {
             await execWithLog(
-                `git tag -d "${tagName}" 2>/dev/null || true`,
-                'Force delete local tag'
+                `git tag -d "${tagName}" 2>/dev/null || true`
             );
         }
 
         // STRATEGY 4: Cleanup και sync
-        await execWithLog('git fetch --prune --tags', 'Prune tags');
-        await execWithLog('git fetch --prune origin', 'Prune origin');
-        await execWithLog('git tag | grep -v "${tagName}" | xargs git tag -d 2>/dev/null || true', 'Clean orphaned tags');
+        await execWithLog('git fetch --prune --tags');
+        await execWithLog('git fetch --prune origin');
+        await execWithLog('git tag | grep -v "${tagName}" | xargs git tag -d 2>/dev/null || true');
 
         // ΕΛΕΓΧΟΣ: Επαλήθευση ότι το tag έχει διαγραφεί
-        const verifyLocal = await execWithLog(`git tag -l "${tagName}"`, 'Verify local tag deleted');
-        const verifyRemote = await execWithLog(`git ls-remote --tags origin "${tagName}"`, 'Verify remote tag deleted');
+        const verifyLocal = await execWithLog(`git tag -l "${tagName}"`);
+        const verifyRemote = await execWithLog(`git ls-remote --tags origin "${tagName}"`);
 
         if (verifyLocal.success && verifyLocal.output.includes(tagName)) {
             // Προσπάθεια force delete
-            await execWithLog(`git tag -d "${tagName}"`, 'Final force delete');
+            await execWithLog(`git tag -d "${tagName}"`);
         }
 
         // ΑΠΟΤΕΛΕΣΜΑΤΑ

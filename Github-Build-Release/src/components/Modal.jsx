@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkAlerts from 'remark-github-alerts';
+import rehypeRaw from 'rehype-raw';
 import { FaTimes, FaRocket, FaTrash, FaExclamationTriangle, FaTag, FaCode, FaFileAlt, FaFolder, FaCheck, FaSpinner } from 'react-icons/fa';
 
 function Modal({ 
@@ -22,14 +24,19 @@ function Modal({
 
   useEffect(() => {
     if (isOpen) {
-      setIsVisible(true);
+      // Use requestAnimationFrame to avoid synchronous state update in effect
       requestAnimationFrame(() => {
+        setIsVisible(true);
         requestAnimationFrame(() => {
-          setIsAnimating(true);
+          requestAnimationFrame(() => {
+            setIsAnimating(true);
+          });
         });
       });
     } else {
-      setIsAnimating(false);
+      requestAnimationFrame(() => {
+        setIsAnimating(false);
+      });
       const timer = setTimeout(() => setIsVisible(false), 300);
       return () => clearTimeout(timer);
     }
@@ -235,7 +242,7 @@ export function ReleaseModal({
             ) : (
               <div className="release-notes-preview">
                 {notes ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkAlerts]} rehypePlugins={[rehypeRaw]}>
                     {notes.split('\n').slice(0, 10).join('\n')}
                   </ReactMarkdown>
                 ) : (

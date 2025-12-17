@@ -1,85 +1,95 @@
 import React from 'react';
 import { 
-  FaCloud, FaFolderOpen,
-  FaTerminal, FaCheckCircle, FaCircle
+  FaRocket, FaFolderOpen, FaGithub,
+  FaCheckCircle, FaExclamationCircle, FaInfoCircle
 } from 'react-icons/fa';
 
 function EmptyState({ handleSelectFolder, ghStatus }) {
+  const isReady = ghStatus.installed && ghStatus.loggedIn;
+  
   return (
     <div className="empty-state-wrapper">
-      <div className="empty-state glass-panel">
-        <div className="empty-state-icon">
-          <FaCloud size={80} />
-          <div className="empty-state-glow"></div>
+      <div className="empty-state-modern glass-panel">
+        {/* Hero Section */}
+        <div className="empty-hero">
+          <div className="hero-icon">
+            <FaRocket size={48} />
+          </div>
+          <h1>Welcome to GitHub Release Manager</h1>
+          <p className="hero-subtitle">Streamline your build and release workflow</p>
         </div>
-        <h2>Welcome to ReleaseFlow</h2>
-        <p>Select a Git repository to start managing releases and builds</p>
-        <button className="open-project-btn" onClick={handleSelectFolder}>
-          <FaFolderOpen size={14} /> Open Project
-        </button>
-        
-        {/* SETUP INSTRUCTIONS */}
-        <div className="setup-instructions">
-          <h3><FaTerminal size={16} /> Prerequisites</h3>
-          
-          {/* Status Banner */}
-          {ghStatus.installed !== null && (
-            <div className={`gh-status-banner ${ghStatus.installed && ghStatus.loggedIn ? 'success' : 'warning'}`}>
-              {ghStatus.installed && ghStatus.loggedIn ? (
-                <><FaCheckCircle size={14} /> GitHub CLI is ready! Select a project to begin.</>  
-              ) : !ghStatus.installed ? (
-                <><FaCircle size={10} /> GitHub CLI is not installed. Follow step 1 below.</>  
-              ) : (
-                <><FaCircle size={10} /> GitHub CLI installed but not logged in. Follow step 2 below.</>  
+
+        {/* Status Check */}
+        <div className={`status-check ${isReady ? 'ready' : 'needs-setup'}`}>
+          {isReady ? (
+            <>
+              <FaCheckCircle size={20} />
+              <div>
+                <strong>Ready to Go!</strong>
+                <span>GitHub CLI is configured and ready</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <FaExclamationCircle size={20} />
+              <div>
+                <strong>Setup Required</strong>
+                <span>Complete the steps below to get started</span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Quick Setup Steps */}
+        {!isReady && (
+          <div className="quick-setup">
+            <h3>Quick Setup</h3>
+            <div className="setup-steps-compact">
+              {!ghStatus.installed && (
+                <div className="compact-step">
+                  <span className="step-num">1</span>
+                  <div className="step-info">
+                    <strong>Install GitHub CLI</strong>
+                    <code>winget install GitHub.cli</code>
+                    <a href="https://cli.github.com" target="_blank" rel="noreferrer" className="learn-more">
+                      Download <FaGithub size={12} />
+                    </a>
+                  </div>
+                </div>
+              )}
+              
+              {ghStatus.installed && !ghStatus.loggedIn && (
+                <div className="compact-step">
+                  <span className="step-num">2</span>
+                  <div className="step-info">
+                    <strong>Login to GitHub</strong>
+                    <code>gh auth login</code>
+                  </div>
+                </div>
               )}
             </div>
-          )}
-          
-          <div className={`instruction-step ${ghStatus.installed ? 'completed' : ''}`}>
-            <div className="step-number">
-              {ghStatus.installed ? <FaCheckCircle size={14} /> : '1'}
-            </div>
-            <div className="step-content">
-              <strong>Install GitHub CLI {ghStatus.installed && <span className="step-badge success">✓ Installed</span>}</strong>
-              <p>Download from <a href="https://cli.github.com" target="_blank" rel="noreferrer">cli.github.com</a></p>
-              <code>winget install GitHub.cli</code>
-            </div>
           </div>
-          
-          <div className={`instruction-step ${ghStatus.loggedIn ? 'completed' : ''}`}>
-            <div className="step-number">
-              {ghStatus.loggedIn ? <FaCheckCircle size={14} /> : '2'}
-            </div>
-            <div className="step-content">
-              <strong>Login to GitHub CLI {ghStatus.loggedIn && <span className="step-badge success">✓ Logged In</span>}</strong>
-              <p>Open terminal and run:</p>
-              <code>gh auth login</code>
-              <p className="step-note">Follow prompts to authenticate with your GitHub account</p>
-            </div>
+        )}
+
+        {/* Action Button */}
+        <button 
+          className={`cta-button ${isReady ? 'ready' : 'disabled'}`}
+          onClick={handleSelectFolder}
+          disabled={!isReady}
+        >
+          <FaFolderOpen size={16} />
+          {isReady ? 'Open Project Folder' : 'Complete Setup First'}
+        </button>
+
+        {/* Requirements Info */}
+        {isReady && (
+          <div className="requirements-info">
+            <FaInfoCircle size={14} />
+            <p>
+              Select a folder with a Git repository, remote origin, and package.json
+            </p>
           </div>
-          
-          <div className="instruction-step">
-            <div className="step-number">3</div>
-            <div className="step-content">
-              <strong>Verify Authentication</strong>
-              <p>Check if you're logged in:</p>
-              <code>gh auth status</code>
-            </div>
-          </div>
-          
-          <div className="instruction-step">
-            <div className="step-number">4</div>
-            <div className="step-content">
-              <strong>Select Your Project</strong>
-              <p>Open a folder that contains:</p>
-              <ul>
-                <li>A Git repository (initialized with <code>git init</code>)</li>
-                <li>A remote origin (<code>git remote add origin URL</code>)</li>
-                <li>A <code>package.json</code> with build scripts</li>
-              </ul>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

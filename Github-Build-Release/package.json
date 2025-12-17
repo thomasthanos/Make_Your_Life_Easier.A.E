@@ -18,7 +18,9 @@
     "react-dom": "^19.2.0",
     "react-icons": "^5.5.0",
     "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "remark-github-alerts": "^0.1.1",
     "wait-on": "^9.0.3"
   },
   "devDependencies": {
@@ -26,8 +28,8 @@
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
-    "electron-builder": "^25.1.8",
     "electron": "^39.2.6",
+    "electron-builder": "^25.1.8",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
