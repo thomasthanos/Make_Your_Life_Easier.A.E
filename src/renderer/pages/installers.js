@@ -347,6 +347,89 @@ async function retryCleanup(filePath, maxRetries = 3) {
         }
     }
 }
+// Parse winget list output to extract installed package IDs
+function parseWingetListOutput(output) {
+    const lines = output.split('\n');
+    const installedPackages = [];
+
+    // Find the header line to determine where data starts
+    let headerLineIndex = -1;
+    let idColumnStart = -1;
+    let versionColumnStart = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const lowerLine = line.toLowerCase();
+        
+        if (lowerLine.includes('name') && lowerLine.includes('id') && lowerLine.includes('version')) {
+            headerLineIndex = i;
+            // Find column positions - look for "Id" (capital I) in header
+            idColumnStart = line.indexOf('Id');
+            if (idColumnStart === -1) {
+                idColumnStart = lowerLine.indexOf('id');
+            }
+            versionColumnStart = lowerLine.indexOf('version');
+            break;
+        }
+    }
+
+    if (headerLineIndex === -1) {
+        debug('warn', 'Could not find winget list header');
+        return installedPackages;
+    }
+
+    if (idColumnStart === -1 || versionColumnStart === -1) {
+        debug('warn', 'Could not find ID or Version column positions');
+        return installedPackages;
+    }
+
+    debug('info', 'Header found at line', headerLineIndex, 'ID column:', idColumnStart, 'Version column:', versionColumnStart);
+    debug('info', 'Header line:', lines[headerLineIndex]);
+
+    // Parse package lines starting from 2 lines after header (skip header and separator line)
+    for (let i = headerLineIndex + 2; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmedLine = line.trim();
+        
+        // Skip separator lines (dashes) or empty lines
+        if (trimmedLine.startsWith('-') || trimmedLine.length < 5) {
+            continue;
+        }
+
+        // First, try to extract ID using regex patterns (more reliable)
+        // Priority: Publisher.Package format (most common winget format)
+        let idPart = null;
+        
+        // Try to find Publisher.Package pattern in the line
+        const dotPattern = /([A-Za-z0-9][A-Za-z0-9._-]*\.[A-Za-z0-9][A-Za-z0-9._-]*(?:\.[A-Za-z0-9][A-Za-z0-9._-]*)?)/;
+        const dotMatch = line.match(dotPattern);
+        if (dotMatch && dotMatch[1]) {
+            idPart = dotMatch[1];
+        } else {
+            // Try fixed-width column parsing as fallback
+            if (line.length > idColumnStart) {
+                const endPos = Math.min(versionColumnStart, line.length);
+                idPart = line.substring(idColumnStart, endPos).trim();
+                idPart = idPart.replace(/[.…]+$/, '').trim();
+            }
+        }
+
+        // Skip if empty or invalid
+        if (!idPart || idPart.length < 2 || /^[.…\s]+$/.test(idPart)) {
+            continue;
+        }
+
+        // Additional validation: should contain at least one dot (for Publisher.Package format)
+        // or be an ARP\... format
+        if (idPart.includes('.') || idPart.startsWith('ARP\\')) {
+            installedPackages.push(idPart);
+        }
+    }
+
+    debug('info', `Found ${installedPackages.length} installed packages:`, installedPackages.slice(0, 10));
+    return installedPackages;
+}
+
 // Make processAdvancedInstaller available globally for custom packages
 if (typeof window !== 'undefined') {
     window.processAdvancedInstaller = processAdvancedInstaller;
@@ -408,29 +491,35 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     const uninstallIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><path d="M9 6l1-2h4l1 2" opacity="0.3"/></svg>`;
     const exportIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/><circle cx="12" cy="3" r="1.5" fill="currentColor" opacity="0.3"/><path d="M8 15h8" opacity="0.4"/></svg>`;
     const importIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><path d="M16 7H8" opacity="0.4"/><circle cx="12" cy="15" r="1.5" fill="currentColor" opacity="0.3"/></svg>`;
+    const checkInstalledIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/><circle cx="12" cy="12" r="1.5" fill="currentColor" opacity="0.3"/></svg>`;
 
     const installText = (translations.actions && translations.actions.install_selected) || 'Install Selected';
     const uninstallText = (translations.actions && translations.actions.uninstall_selected) || 'Uninstall Selected';
     const exportText = (translations.actions && translations.actions.export_list) || 'Export List';
     const importText = (translations.actions && translations.actions.import_list) || 'Import List';
+    const checkInstalledText = (translations.actions && translations.actions.check_installed) || 'Check Installed';
 
     const installBtn = makeButton(installText, '');
     const uninstallBtn = makeButton(uninstallText, '#dc2626');
     const exportBtn = makeButton(exportText, '');
     const importBtn = makeButton(importText, '');
+    const checkInstalledBtn = makeButton(checkInstalledText, '');
 
     installBtn.innerHTML = `${installIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(installText)}</span>`;
     uninstallBtn.innerHTML = `${uninstallIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(uninstallText)}</span>`;
     exportBtn.innerHTML = `${exportIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(exportText)}</span>`;
     importBtn.innerHTML = `${importIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(importText)}</span>`;
+    checkInstalledBtn.innerHTML = `${checkInstalledIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(checkInstalledText)}</span>`;
 
     installBtn.classList.add('btn-install', 'bulk-action-btn', 'bulk-install');
     uninstallBtn.classList.add('btn-uninstall', 'bulk-action-btn', 'bulk-uninstall');
     exportBtn.classList.add('btn-export', 'bulk-action-btn', 'bulk-export');
     importBtn.classList.add('btn-import', 'bulk-action-btn', 'bulk-import');
+    checkInstalledBtn.classList.add('btn-check-installed', 'bulk-action-btn', 'bulk-check-installed');
 
     actionsWrapper.appendChild(installBtn);
     actionsWrapper.appendChild(uninstallBtn);
+    actionsWrapper.appendChild(checkInstalledBtn);
     actionsWrapper.appendChild(exportBtn);
     actionsWrapper.appendChild(importBtn);
     container.appendChild(actionsWrapper);
@@ -671,6 +760,75 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             reader.readAsText(file);
         });
         fileInput.click();
+    });
+
+    // Check Installed button handler
+    checkInstalledBtn.addEventListener('click', async () => {
+        if (buttonStateManager.isLoading(checkInstalledBtn)) {
+            return;
+        }
+
+        buttonStateManager.setLoading(checkInstalledBtn, 'Checking...');
+
+        // Disable other buttons during check
+        [installBtn, uninstallBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = true));
+
+        try {
+            // Run winget list command
+            const result = await window.api.runCommand('winget list --accept-source-agreements');
+
+            if (result.error && !result.stdout && !result.stderr) {
+                throw new Error('Winget command failed to execute. Make sure Winget is installed.');
+            }
+
+            const output = (result.stdout || '') + (result.stderr || '');
+            const installedPackages = parseWingetListOutput(output);
+
+            debug('info', 'Parsed installed packages:', installedPackages.slice(0, 20));
+
+            // Update checkboxes for installed packages
+            const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+            let checkedCount = 0;
+            const allAppIds = [];
+
+            checkboxes.forEach((cb) => {
+                const li = cb.closest('li');
+                if (li && li.dataset.appId) {
+                    const appId = li.dataset.appId;
+                    allAppIds.push(appId);
+                    const appIdLower = appId.toLowerCase();
+                    const isInstalled = installedPackages.some(pkgId => {
+                        const pkgIdLower = pkgId.toLowerCase();
+                        return pkgIdLower === appIdLower;
+                    });
+                    if (isInstalled) {
+                        cb.checked = true;
+                        checkedCount++;
+                        debug('info', `Matched installed package: ${appId}`);
+                    }
+                }
+            });
+
+            debug('info', `Total app IDs in list: ${allAppIds.length}, Installed packages found: ${installedPackages.length}, Matched: ${checkedCount}`);
+
+            updateActionButtonsState();
+
+            toast(`Found ${checkedCount} installed applications and marked them as selected.`, {
+                type: 'success',
+                title: 'Check Installed',
+                duration: 4000
+            });
+
+        } catch (error) {
+            debug('error', 'Failed to check installed packages:', error);
+            toast(`Failed to check installed applications: ${error.message}`, {
+                type: 'error',
+                title: 'Check Installed'
+            });
+        } finally {
+            buttonStateManager.resetState(checkInstalledBtn);
+            [installBtn, uninstallBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = false));
+        }
     });
 
     // Export button handler

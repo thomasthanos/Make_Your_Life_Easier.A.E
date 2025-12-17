@@ -80,6 +80,7 @@
     "install": "Εγκατάσταση",
     "install_selected": "Εγκατάσταση Επιλεγμένων",
     "uninstall_selected": "Απεγκατάσταση Επιλεγμένων",
+    "check_installed": "Έλεγχος Εγκατεστημένων",
     "export_list": "Εξαγωγή Λίστας",
     "import_list": "Εισαγωγή Λίστας"
   },

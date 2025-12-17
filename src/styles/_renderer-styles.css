@@ -457,10 +457,11 @@
    ============================================ */
 .actions-wrapper {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
   cursor: not-allowed;
+  overflow-x: auto;
 }
 
 /* ============================================
