@@ -24,14 +24,22 @@ function getDeveloperUrl(pkgId) {
     try {
         // Custom URLs for specific Package IDs
         const customUrlMap = {
-            'Proton.ProtonVPN': 'https://protonvpn.com',
-            'Proton.ProtonDrive': 'https://drive.proton.me',
-            'Proton.ProtonMail': 'https://mail.proton.me',
-            'Proton.ProtonAuthenticator': 'https://proton.me/authenticator',
-            'Proton.Proton Authenticator': 'https://proton.me/authenticator',
+            'Proton.ProtonVPN': 'https://protonvpn.com/download?srsltid=AfmBOorCqPOivQW4nu912shSaLHNK2mrKj95FqK-_apNH6nFGY8aeFiX',
+            'Proton.ProtonDrive': 'https://proton.me/drive/download',
+            'Proton.ProtonMail': 'https://proton.me/mail/download',
+            'Proton.ProtonAuthenticator': 'https://proton.me/authenticator/download',
+            'Proton.Proton Authenticator': 'https://proton.me/authenticator/download',
             'Google.GoogleDrive': 'https://drive.google.com/drive/my-drive',
             'Google.Chrome': 'https://www.google.com/chrome/',
-            'Guru3D.Afterburner': 'https://www.msi.com/Landing/afterburner/graphics-cards'
+            'GitHub.GitHubDesktop': 'https://desktop.github.com/',
+            'Microsoft.VisualStudioCode': 'https://code.visualstudio.com/download',
+            'Guru3D.Afterburner': 'https://www.msi.com/Landing/afterburner/graphics-cards',
+            'IObit.AdvancedSystemCare': 'https://www.iobit.com/en/advancedsystemcarefree.php',
+            'IObit.DriverBooster': 'https://www.iobit.com/en/driver-booster.php',
+            'IObit.SoftwareUpdater': 'https://www.iobit.com/en/iobit-software-updater.php',
+            'IObit.IObitSysInfo': 'https://www.iobit.com/it/system-information.php',
+            'IObit.SmartDefrag': 'https://www.iobit.com/en/iobitsmartdefrag.php',
+            'IObit.Uninstaller': 'https://www.iobit.com/en/advanceduninstaller.php'
         };
         
         // Check custom URLs first
@@ -43,27 +51,28 @@ function getDeveloperUrl(pkgId) {
         const publisher = (parts[0] || '').toLowerCase();
         const domainMap = {
             google: 'google.com',
-            bitdefender: 'bitdefender.com',
+            bitdefender: 'bitdefender.com/en-us/consumer/thank-you',
             brave: 'brave.com',
             discord: 'discord.com',
-            dropbox: 'dropbox.com',
-            electronicarts: 'ea.com',
-            elgato: 'elgato.com',
+            dropbox: 'dropbox.com/install',
+            electronicarts: 'ea.com/ea-app',
+            elgato: 'elgato.com/us/en/s/downloads',
             epicgames: 'epicgames.com',
             git: 'git-scm.com',
             github: 'github.com',
-            nordsecurity: 'nordvpn.com',
-            mojang: 'minecraft.net',
+            nordsecurity: 'nordvpn.com/download/windows/',
+            mojang: 'minecraft.net/en-us/download',
             vivaldi: 'vivaldi.com',
             valve: 'steampowered.com',
-            playstation: 'playstation.com',
-            python: 'python.org',
-            microsoft: 'microsoft.com',
+            playstation: 'remoteplay.dl.playstation.net/remoteplay/lang/en/',
+            python: 'python.org/downloads/',
+            // Note: microsoft is for Visual Studio Professional only. Visual Studio Code uses custom URL above.
+            microsoft: 'visualstudio.microsoft.com/downloads/',
             rarlab: 'win-rar.com',
-            razerinc: 'razer.com',
+            razerinc: 'razer.com/eu-en/synapse-4',
             softdeluxe: 'freedownloadmanager.org',
             spotify: 'spotify.com',
-            surfshark: 'surfshark.com',
+            surfshark: 'surfshark.com/download?srsltid=AfmBOorcPsSBR-wUna4MesO5XGZpsZggzmkT15omy-h-xpnLNQsXqZ8C',
             zwylair: 'github.com',
             proton: 'proton.me',
             openjs: 'nodejs.org',
@@ -81,10 +90,11 @@ function getDeveloperUrl(pkgId) {
             teamviewer: 'teamviewer.com',
             anydesk: 'anydesk.com',
             betterdiscord: 'betterdiscord.app',
-            iobit: 'iobit.com',
+            iobit: 'www.iobit.com/en/advancedsystemcarefree.php',
             blizzard: 'battle.net',
-            ubisoft: 'https://store.ubisoft.com/ie/home?lang=en-ZW',
-            guru3d: 'guru3d.com'
+            ubisoft: 'ubisoft.com/en-gb/ubisoft-connect/download',
+            guru3d: 'guru3d.com',
+            anthropic: 'claude.ai'
         };
         const domain = domainMap[publisher] || `${publisher}.com`;
         return `https://${domain}`;
