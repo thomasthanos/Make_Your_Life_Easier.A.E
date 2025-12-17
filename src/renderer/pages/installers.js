@@ -449,21 +449,11 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     const searchContainer = document.createElement('div');
     searchContainer.classList.add('search-container');
 
-    const searchIcon = document.createElement('span');
-    searchIcon.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="11" cy="11" r="8"></circle>
-      <path d="m21 21-4.3-4.3"></path>
-    </svg>
-  `;
-    searchIcon.classList.add('search-icon');
-
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
     searchInput.placeholder = (translations.messages && translations.messages.search_apps) || 'Search apps...';
     searchInput.className = 'search-input-styled';
 
-    searchContainer.appendChild(searchIcon);
     searchContainer.appendChild(searchInput);
     searchWrapper.appendChild(searchContainer);
     container.appendChild(searchWrapper);
