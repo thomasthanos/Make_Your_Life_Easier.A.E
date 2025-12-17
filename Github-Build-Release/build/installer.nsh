@@ -16,8 +16,8 @@
   ; Set default install directory
   StrCpy $INSTDIR "$PROGRAMFILES64\ThomasThanos\Github Builder"
 
-  ; Close running app instances
-  !insertmacro _KillRunningApp
+  ; NOTE: don't attempt to kill running app instances here — this runs before elevation
+  ; The actual kill happens during install (see customInstall) where we have proper permissions.
 
   ; Ασφαλής καθαρισμός παλιάς εγκατάστασης
   ; Διαγράφουμε ΜΟΝΟ συγκεκριμένα αρχεία της εφαρμογής

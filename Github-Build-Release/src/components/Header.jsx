@@ -1,7 +1,7 @@
 import React from 'react';
 import { FaGithub, FaSun, FaMoon, FaPaintBrush, FaTag } from 'react-icons/fa';
 
-function Header({ activeTab, theme, toggleTheme, projectVersion }) {
+function Header({ activeTab, theme, toggleTheme }) {
   const getTabTitle = () => {
     switch(activeTab) {
       case 'create': return 'Create New Release';

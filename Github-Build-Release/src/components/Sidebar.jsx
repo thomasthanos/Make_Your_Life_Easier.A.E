@@ -13,7 +13,6 @@ function Sidebar({
   buildCommand,
   setBuildCommand,
   handleSelectFolder,
-  handleBuild,
   isBuilding,
   releasesCount,
   tagsCount,
