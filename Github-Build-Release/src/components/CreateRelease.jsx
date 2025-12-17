@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkAlerts from 'remark-github-alerts';
@@ -18,12 +18,33 @@ function CreateRelease({
   handleCreateRelease,
   suggestedVersion
 }) {
+  const textareaRef = useRef(null);
+  const previewRef = useRef(null);
+
   const handleVersionFocus = () => {
     // Auto-fill version if empty and we have a suggestion
     if (!version && suggestedVersion) {
       setVersion(suggestedVersion);
     }
   };
+
+  // Auto-resize textarea and preview
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    const preview = previewRef.current;
+    
+    if (textarea && !isPreview) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(Math.max(textarea.scrollHeight, 120), 375);
+      textarea.style.height = `${newHeight}px`;
+    }
+    
+    if (preview && isPreview) {
+      preview.style.height = 'auto';
+      const newHeight = Math.min(Math.max(preview.scrollHeight, 120), 375);
+      preview.style.height = `${newHeight}px`;
+    }
+  }, [notes, isPreview]);
 
   const generateQuickNotes = () => {
     const templates = [
@@ -117,6 +138,7 @@ function CreateRelease({
               </div>
             ) : (
               <textarea
+                ref={textareaRef}
                 className="notes-textarea custom-scrollbar"
                 value={notes}
                 onChange={e => setNotes(e.target.value)}

@@ -132,6 +132,16 @@
   box-sizing: border-box;
 }
 
+/* Hide scrollbars globally */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg-primary);
@@ -940,10 +950,8 @@ body {
 .content-area {
   flex: 1;
   padding: 24px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  min-height: 0;
 }
 
 /* ============================================
@@ -1353,6 +1361,8 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 @keyframes fadeIn {
@@ -1550,23 +1560,17 @@ body {
    ============================================ */
 
 .markdown-preview {
-  padding: 16px 20px;
-  height: auto;
-  max-height: 400px;
+  padding: 14px;
   overflow-y: auto;
   overflow-x: hidden;
-  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  line-height: 1.6;
-  color: var(--text-primary);
-  font-size: 14px;
-  position: relative;
-  border-radius: 4px 10px 10px 4px;
+  background: rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border);
-  box-shadow: 
-    inset 0 2px 12px rgba(0, 0, 0, 0.5),
-    inset 0 -2px 8px rgba(0, 0, 0, 0.3),
-    inset 2px 2px 6px rgba(0, 0, 0, 0.4),
-    0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.6;
+  font-family: 'Monaco', 'Consolas', 'Fira Code', monospace;
+  transition: height 0.2s ease;
 }
 
 /* Scroll styling - Hidden */
@@ -1634,6 +1638,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
 }
 
 .markdown-preview h3::before {
@@ -1723,6 +1728,27 @@ body {
   font-size: 11px;
   font-weight: 700;
   box-shadow: 2px 2px 4px rgba(37, 99, 235, 0.4), inset -1px -1px 0 rgba(0, 0, 0, 0.2), inset 1px 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Fix vertical flow: force common markdown elements to be block-level so they stack */
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3,
+.markdown-preview h4,
+.markdown-preview p,
+.markdown-preview blockquote,
+.markdown-preview pre,
+.markdown-preview table,
+.markdown-preview ul,
+.markdown-preview ol {
+  display: block;
+  width: 100%;
+}
+
+.markdown-preview ul li,
+.markdown-preview ol li {
+  display: list-item;
+  padding-left: 32px;
 }
 
 /* Nested lists */
@@ -2151,21 +2177,23 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--accent);
-  color: white;
-  border: none;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
   padding: 8px 16px;
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: var(--transition);
+  backdrop-filter: blur(10px);
 }
 
 .refresh-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(108, 99, 255, 0.3);
-  background: linear-gradient(135deg, #7c6fff, #b06aff);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .refresh-btn-primary:active {
@@ -3006,6 +3034,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  margin: auto 0;
 }
 
 .header-icon {
@@ -3158,17 +3187,13 @@ body {
 }
 
 .notes-editor-container {
-  flex: 1;
-  min-height: 200px;
-  max-height: 500px;
   margin: 12px 0;
   overflow: hidden;
 }
 
 .notes-textarea {
   width: 100%;
-  height: 100%;
-  min-height: 200px;
+  height: 120px;
   padding: 14px;
   background: rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border);
@@ -3179,7 +3204,14 @@ body {
   line-height: 1.6;
   resize: none;
   outline: none;
-  transition: var(--transition);
+  transition: height 0.2s ease;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.notes-textarea::-webkit-scrollbar {
+  display: none;
 }
 
 .notes-textarea:focus {
@@ -3197,14 +3229,25 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  min-height: 200px;
+  height: 80px;
   color: var(--text-secondary);
-  gap: 12px;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
 }
 
 .empty-preview svg {
-  opacity: 0.3;
+  opacity: 0.25;
+  color: var(--text-tertiary);
+  font-size: 24px;
+}
+
+.empty-preview p {
+  font-size: 11px;
+  opacity: 0.6;
+  margin: 0;
 }
 
 .notes-footer {
@@ -3838,7 +3881,7 @@ body {
 .release-notes-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .release-notes-tabs {
@@ -3868,9 +3911,9 @@ body {
 }
 
 .release-notes-content {
-  max-height: 160px;
+  max-height: 120px;
   overflow-y: auto;
-  padding: 14px;
+  padding: 12px;
   border-radius: var(--radius-sm);
 }
 
@@ -4204,7 +4247,13 @@ body {
 }
 
 [data-theme="light"] .refresh-btn-primary {
-  background: var(--accent);
+  background: var(--card-bg);
+  border-color: var(--border);
+}
+
+[data-theme="light"] .refresh-btn-primary:hover {
+  background: var(--card-hover);
+  border-color: var(--accent);
 }
 
 [data-theme="light"] .publish-btn {
@@ -5065,20 +5114,24 @@ body {
 
 /* Refresh Button */
 .refresh-btn-primary {
-  background: linear-gradient(135deg, var(--btn-secondary), var(--btn-secondary-hover));
-  border: none;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all var(--transition);
 }
 
 .refresh-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .refresh-btn-primary:active {
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Delete Button */
