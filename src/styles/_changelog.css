@@ -157,14 +157,14 @@
   }
   
   .changelog-content {
-    line-height: 1.7;
+    line-height: 1.5;
     font-size: 1rem;
   }
   
   .changelog-version {
     display: inline-block;
-    padding: 0.5rem 1rem;
-    margin-bottom: 0.75rem;
+    padding: 0.4rem 0.85rem;
+    margin-bottom: 0.5rem;
     background: linear-gradient(135deg, 
       rgba(60, 120, 255, 0.9), 
       rgba(40, 90, 220, 0.9));
@@ -266,9 +266,9 @@
     gap: 1rem;
     background: rgba(20, 40, 80, 0.4);
     border: 1px solid rgba(80, 140, 255, 0.25);
-    padding: 1rem 1.25rem;
+    padding: 0.75rem 1rem;
     border-radius: 12px;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     backdrop-filter: blur(5px);
     position: relative;
     overflow: hidden;
@@ -301,32 +301,33 @@
   .changelog-content h2 {
     color: rgba(230, 240, 255, 0.95);
     font-size: 1.4rem;
-    margin: 2rem 0 1rem;
-    padding-bottom: 0.5rem;
+    margin: 1.25rem 0 0.6rem;
+    padding-bottom: 0.4rem;
     border-bottom: 1px solid rgba(100, 150, 255, 0.15);
   }
   
   .changelog-content h3 {
     color: rgba(210, 225, 255, 0.9);
     font-size: 1.2rem;
-    margin: 1.5rem 0 0.75rem;
+    margin: 1rem 0 0.5rem;
   }
   
   .changelog-content p {
-    margin: 1rem 0;
+    margin: 0.5rem 0;
     color: rgba(220, 230, 255, 0.85);
   }
   
   .changelog-content ul, 
   .changelog-content ol {
-    margin: 1rem 0;
+    margin: 0.4rem 0;
     padding-left: 1.75rem;
   }
   
   .changelog-content li {
-    margin: -1rem 0;
+    margin: 0.25rem 0;
     color: rgba(220, 230, 255, 0.85);
     position: relative;
+    line-height: 1.4;
   }
   
   .changelog-content ul li::before {
@@ -407,11 +408,11 @@
   }
   
   .changelog-alert {
-    padding: 1.25rem 1.5rem;
-    margin: 1.5rem 0;
+    padding: 0.9rem 1.2rem;
+    margin: 1rem 0;
     border-left: 4px solid;
     border-radius: 12px;
-    line-height: 1.6;
+    line-height: 1.5;
     backdrop-filter: blur(5px);
     border: 1px solid;
     position: relative;

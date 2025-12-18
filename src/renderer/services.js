@@ -138,17 +138,25 @@ export function initializeAutoUpdater(_callbacks = {}) {
         window.api.onUpdateStatus((data) => {
             switch (data.status) {
                 case 'available':
-                    showUpdateOverlay(`Downloading update…`);
+                    showUpdateOverlay(`Preparing download...`);
                     break;
                 case 'downloading': {
                     const percent = Math.round(data.percent || 0);
-                    showUpdateOverlay(`Downloading update: ${percent}%`);
-                    updateUpdateOverlay(percent, `Downloading update: ${percent}%`);
+                    showUpdateOverlay();
+                    updateUpdateOverlay(percent, 'Downloading update...', {
+                        bytesPerSecond: data.bytesPerSecond,
+                        transferred: data.transferred,
+                        total: data.totalBytes
+                    });
                     break;
                 }
                 case 'downloaded':
-                    showUpdateOverlay('Installing update…');
-                    updateUpdateOverlay(100, 'Installing update…');
+                    showUpdateOverlay('Update downloaded');
+                    updateUpdateOverlay(100, 'Restarting to install update...', {
+                        bytesPerSecond: 0,
+                        transferred: data.totalBytes || 0,
+                        total: data.totalBytes || 0
+                    });
                     break;
                 case 'error':
                     hideUpdateOverlay();
@@ -189,22 +197,48 @@ export function initializeAutoUpdater(_callbacks = {}) {
                 updateAvailable = true;
                 currentUpdateInfo = data;
                 updateBtn.classList.add('available');
-                updateBtn.setAttribute('data-tooltip', `Downloading update…`);
-                showUpdateOverlay(`Downloading update…`);
+                updateBtn.setAttribute('data-tooltip', `Update available`);
+                showUpdateOverlay(`Preparing download...`);
                 break;
 
             case 'downloading': {
                 updateBtn.classList.add('downloading');
                 const percent = Math.round(data.percent || 0);
-                updateBtn.setAttribute('data-tooltip', `Downloading: ${percent}%`);
+                
+                // Format detailed tooltip for title bar button
+                const transferred = data.transferred || 0;
+                const total = data.totalBytes || 0;
+                const speed = data.bytesPerSecond || 0;
+                
+                const transferredMB = (transferred / (1024 * 1024)).toFixed(2);
+                const totalMB = (total / (1024 * 1024)).toFixed(2);
+                const speedMB = (speed / (1024 * 1024)).toFixed(2);
+                
+                let tooltipText = `Downloading: ${percent}%`;
+                if (total > 0) {
+                    tooltipText += ` (${transferredMB}/${totalMB} MB)`;
+                }
+                if (speed > 0) {
+                    tooltipText += ` • ${speedMB} MB/s`;
+                }
+                
+                updateBtn.setAttribute('data-tooltip', tooltipText);
+                
+                // Update progress ring in title bar
                 const circle = updateBtn.querySelector('.progress-ring circle');
                 if (circle) {
                     const circumference = 2 * Math.PI * 10;
                     const offset = circumference - (percent / 100) * circumference;
                     circle.style.strokeDashoffset = offset;
                 }
-                showUpdateOverlay(`Downloading update: ${percent}%`);
-                updateUpdateOverlay(percent, `Downloading update: ${percent}%`);
+                
+                // Show overlay with detailed information
+                showUpdateOverlay();
+                updateUpdateOverlay(percent, 'Downloading update...', {
+                    bytesPerSecond: data.bytesPerSecond,
+                    transferred: data.transferred,
+                    total: data.totalBytes
+                });
                 break;
             }
 
@@ -212,9 +246,13 @@ export function initializeAutoUpdater(_callbacks = {}) {
                 updateDownloaded = true;
                 updateBtn.classList.remove('downloading');
                 updateBtn.classList.add('ready');
-                updateBtn.setAttribute('data-tooltip', 'Installing update…');
-                showUpdateOverlay('Installing update…');
-                updateUpdateOverlay(100, 'Installing update…');
+                updateBtn.setAttribute('data-tooltip', 'Restarting to install update...');
+                showUpdateOverlay('Update downloaded');
+                updateUpdateOverlay(100, 'Restarting to install update...', {
+                    bytesPerSecond: 0,
+                    transferred: data.totalBytes || 0,
+                    total: data.totalBytes || 0
+                });
                 setTimeout(async () => {
                     try {
                         if (currentUpdateInfo) {

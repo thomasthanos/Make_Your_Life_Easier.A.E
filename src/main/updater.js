@@ -253,7 +253,11 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             speed: speedMB,
             eta: etaFormatted,
             downloaded: receivedMB,
-            total: totalMB
+            total: totalMB,
+            // Raw values for detailed UI
+            bytesPerSecond: speed,
+            transferred: bytesReceived,
+            totalBytes: totalBytes
         };
 
         const updateWindow = getUpdateWindow();

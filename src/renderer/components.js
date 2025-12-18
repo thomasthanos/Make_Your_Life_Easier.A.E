@@ -349,6 +349,41 @@ export function showErrorCard(msg, opts = {}) {
 let updateOverlay = null;
 
 /**
+ * Format bytes to human-readable size
+ * @param {number} bytes - Size in bytes
+ * @returns {string} Formatted size
+ */
+function formatBytes(bytes) {
+    if (!bytes || bytes === 0) return '0 MB';
+    const mb = bytes / (1024 * 1024);
+    return mb.toFixed(2) + ' MB';
+}
+
+/**
+ * Format speed in bytes/sec to MB/s
+ * @param {number} bytesPerSec - Speed in bytes per second
+ * @returns {string} Formatted speed
+ */
+function formatSpeed(bytesPerSec) {
+    if (!bytesPerSec || bytesPerSec === 0) return '0 MB/s';
+    const mbps = bytesPerSec / (1024 * 1024);
+    return mbps.toFixed(2) + ' MB/s';
+}
+
+/**
+ * Format seconds to human-readable time
+ * @param {number} seconds - Time in seconds
+ * @returns {string} Formatted time
+ */
+function formatTime(seconds) {
+    if (!seconds || seconds <= 0 || !isFinite(seconds)) return '0s';
+    if (seconds < 60) return Math.round(seconds) + 's';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${mins}m ${secs}s`;
+}
+
+/**
  * Show the update overlay with progress ring
  * @param {string} initialStatus - Initial status text
  */
@@ -366,7 +401,7 @@ export function showUpdateOverlay(initialStatus) {
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(4px)',
+            backdropFilter: 'blur(8px)',
             zIndex: '100000'
         });
 
@@ -374,42 +409,135 @@ export function showUpdateOverlay(initialStatus) {
         container.className = 'update-overlay-container';
         updateOverlay.appendChild(container);
 
+        // Create download icon
+        const iconWrapper = document.createElement('div');
+        iconWrapper.className = 'update-icon-wrapper';
+        iconWrapper.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+        `;
+        container.appendChild(iconWrapper);
+
+        // Main title
+        const title = document.createElement('h2');
+        title.className = 'update-title';
+        title.textContent = 'Downloading Update';
+        container.appendChild(title);
+
+        // Progress ring container
+        const ringContainer = document.createElement('div');
+        ringContainer.className = 'update-ring-container';
+
         // Create SVG progress ring
         const svgNS = 'http://www.w3.org/2000/svg';
         const svg = document.createElementNS(svgNS, 'svg');
-        svg.setAttribute('viewBox', '0 0 100 100');
+        svg.setAttribute('viewBox', '0 0 120 120');
         svg.classList.add('update-overlay-svg');
 
         const bg = document.createElementNS(svgNS, 'circle');
-        bg.setAttribute('cx', '50');
-        bg.setAttribute('cy', '50');
-        bg.setAttribute('r', '45');
+        bg.setAttribute('cx', '60');
+        bg.setAttribute('cy', '60');
+        bg.setAttribute('r', '54');
         bg.setAttribute('stroke', 'rgba(255,255,255,0.1)');
-        bg.setAttribute('stroke-width', '10');
+        bg.setAttribute('stroke-width', '8');
         bg.setAttribute('fill', 'none');
 
         const progress = document.createElementNS(svgNS, 'circle');
-        progress.setAttribute('cx', '50');
-        progress.setAttribute('cy', '50');
-        progress.setAttribute('r', '45');
-        progress.setAttribute('stroke', '#5865F2');
-        progress.setAttribute('stroke-width', '10');
+        progress.setAttribute('cx', '60');
+        progress.setAttribute('cy', '60');
+        progress.setAttribute('r', '54');
+        progress.setAttribute('stroke', 'url(#progressGradient)');
+        progress.setAttribute('stroke-width', '8');
         progress.setAttribute('fill', 'none');
         progress.setAttribute('stroke-linecap', 'round');
-        const circumference = 2 * Math.PI * 45;
+        const circumference = 2 * Math.PI * 54;
         progress.style.strokeDasharray = `${circumference}`;
         progress.style.strokeDashoffset = `${circumference}`;
+        progress.style.transform = 'rotate(-90deg)';
+        progress.style.transformOrigin = '60px 60px';
+
+        // Add gradient definition
+        const defs = document.createElementNS(svgNS, 'defs');
+        const gradient = document.createElementNS(svgNS, 'linearGradient');
+        gradient.setAttribute('id', 'progressGradient');
+        gradient.setAttribute('x1', '0%');
+        gradient.setAttribute('y1', '0%');
+        gradient.setAttribute('x2', '100%');
+        gradient.setAttribute('y2', '100%');
+        
+        const stop1 = document.createElementNS(svgNS, 'stop');
+        stop1.setAttribute('offset', '0%');
+        stop1.setAttribute('style', 'stop-color:#5865F2;stop-opacity:1');
+        
+        const stop2 = document.createElementNS(svgNS, 'stop');
+        stop2.setAttribute('offset', '100%');
+        stop2.setAttribute('style', 'stop-color:#7289DA;stop-opacity:1');
+        
+        gradient.appendChild(stop1);
+        gradient.appendChild(stop2);
+        defs.appendChild(gradient);
+        svg.appendChild(defs);
 
         svg.appendChild(bg);
         svg.appendChild(progress);
-        container.appendChild(svg);
 
-        const text = document.createElement('p');
-        text.className = 'update-status';
-        container.appendChild(text);
+        // Percentage text in center
+        const percentText = document.createElement('div');
+        percentText.className = 'update-percent';
+        percentText.textContent = '0%';
+
+        ringContainer.appendChild(svg);
+        ringContainer.appendChild(percentText);
+        container.appendChild(ringContainer);
+
+        // Info grid for details
+        const infoGrid = document.createElement('div');
+        infoGrid.className = 'update-info-grid';
+
+        // Download info
+        const downloadInfo = document.createElement('div');
+        downloadInfo.className = 'update-info-item';
+        downloadInfo.innerHTML = `
+            <div class="update-info-label">Downloaded</div>
+            <div class="update-info-value" id="update-downloaded">0 MB / 0 MB</div>
+        `;
+
+        // Speed info
+        const speedInfo = document.createElement('div');
+        speedInfo.className = 'update-info-item';
+        speedInfo.innerHTML = `
+            <div class="update-info-label">Speed</div>
+            <div class="update-info-value" id="update-speed">0 MB/s</div>
+        `;
+
+        // ETA info
+        const etaInfo = document.createElement('div');
+        etaInfo.className = 'update-info-item';
+        etaInfo.innerHTML = `
+            <div class="update-info-label">Time Remaining</div>
+            <div class="update-info-value" id="update-eta">Calculating...</div>
+        `;
+
+        infoGrid.appendChild(downloadInfo);
+        infoGrid.appendChild(speedInfo);
+        infoGrid.appendChild(etaInfo);
+        container.appendChild(infoGrid);
+
+        // Status text
+        const statusText = document.createElement('p');
+        statusText.className = 'update-status-text';
+        statusText.textContent = initialStatus || 'Preparing download...';
+        container.appendChild(statusText);
 
         updateOverlay._progressCircle = progress;
-        updateOverlay._statusEl = text;
+        updateOverlay._percentEl = percentText;
+        updateOverlay._downloadedEl = document.getElementById('update-downloaded');
+        updateOverlay._speedEl = document.getElementById('update-speed');
+        updateOverlay._etaEl = document.getElementById('update-eta');
+        updateOverlay._statusEl = statusText;
         document.body.appendChild(updateOverlay);
     }
 
@@ -425,16 +553,36 @@ export function showUpdateOverlay(initialStatus) {
  * Update the update overlay progress
  * @param {number} percent - Progress percentage (0-100)
  * @param {string} statusText - Status text
+ * @param {Object} details - Additional details (bytesPerSecond, transferred, total)
  */
-export function updateUpdateOverlay(percent, statusText) {
+export function updateUpdateOverlay(percent, statusText, details = {}) {
     if (!updateOverlay) return;
-    const circumference = 2 * Math.PI * 45;
+    
+    const circumference = 2 * Math.PI * 54;
     if (typeof percent === 'number') {
         const offset = circumference - (percent / 100) * circumference;
         updateOverlay._progressCircle.style.strokeDashoffset = offset;
+        updateOverlay._percentEl.textContent = Math.round(percent) + '%';
     }
+    
     if (statusText) {
         updateOverlay._statusEl.textContent = statusText;
+    }
+
+    // Update detailed information
+    if (details.transferred !== undefined && details.total !== undefined) {
+        updateOverlay._downloadedEl.textContent = `${formatBytes(details.transferred)} / ${formatBytes(details.total)}`;
+    }
+
+    if (details.bytesPerSecond !== undefined) {
+        updateOverlay._speedEl.textContent = formatSpeed(details.bytesPerSecond);
+        
+        // Calculate ETA
+        if (details.transferred && details.total && details.bytesPerSecond > 0) {
+            const remaining = details.total - details.transferred;
+            const eta = remaining / details.bytesPerSecond;
+            updateOverlay._etaEl.textContent = formatTime(eta);
+        }
     }
 }
 
