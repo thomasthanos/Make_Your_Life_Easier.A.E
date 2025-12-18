@@ -23,6 +23,10 @@
      * Initialize and start preloading
      */
     init() {
+      // ===== PRELOAD VERSION IMMEDIATELY =====
+      // Load version before anything else to avoid "v0.0.0" placeholder
+      this.preloadVersion();
+      
       // Get URLs from FaviconConfig
       this.urls = FaviconConfig.getPreloadUrls();
       
@@ -35,6 +39,27 @@
       setTimeout(() => {
         this.preloadWithDelay();
       }, 500);
+    },
+
+    /**
+     * Preload app version immediately
+     * Sets the version in the sidebar as soon as possible
+     */
+    async preloadVersion() {
+      try {
+        const versionEl = document.getElementById('appVersion');
+        if (!versionEl) return;
+        
+        // Check if window.api is available
+        if (window.api && typeof window.api.getAppVersion === 'function') {
+          const version = await window.api.getAppVersion();
+          if (version) {
+            versionEl.textContent = `v${version}`;
+          }
+        }
+      } catch (err) {
+        console.warn('[AppPreloader] Failed to preload version:', err);
+      }
     },
 
     /**

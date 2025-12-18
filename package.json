@@ -1,6 +1,6 @@
 {
   "name": "make-your-life-easier",
-  "version": "3.6.6",
+  "version": "3.6.7",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "homepage": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E",
@@ -114,8 +114,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "perMachine": true,
-      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Make Your Life Easier",
@@ -136,7 +136,7 @@
       "differentialPackage": true,
       "runAfterFinish": true,
       "menuCategory": true,
-      "allowElevation": true
+      "allowElevation": false
     },
     "portable": {
       "artifactName": "MakeYourLifeEasier-Portable.exe"
