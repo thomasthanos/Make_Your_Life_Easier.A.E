@@ -113,16 +113,13 @@
       }
     },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Make Your Life Easier",
       "installerIcon": "src/assets/icons/hacker.ico",
       "uninstallerIcon": "src/assets/icons/hacker.ico",
-      "installerHeader": "src/assets/images/installer_header.bmp",
-      "installerSidebar": "src/assets/images/installer_banner.bmp",
       "warningsAsErrors": false,
       "artifactName": "MakeYourLifeEasier-installer.exe",
       "deleteAppDataOnUninstall": true,
@@ -135,7 +132,6 @@
       "uninstallUrlUpdateInfo": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/changelog.html",
       "differentialPackage": true,
       "runAfterFinish": true,
-      "menuCategory": true,
       "allowElevation": false
     },
     "portable": {

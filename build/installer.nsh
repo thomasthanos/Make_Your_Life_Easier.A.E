@@ -11,36 +11,6 @@ SetCompressorDictSize 32
 SetDatablockOptimize on
 AutoCloseWindow true
 
-; ============================================================================
-; PRIVILEGE DROP FOR APP LAUNCH (customHeader macro runs BEFORE MUI includes)
-; ============================================================================
-
-!macro customHeader
-  ; Override the run function to drop admin privileges
-  ; electron-builder sets runAfterFinish:true which adds the checkbox
-  ; but runs the app with inherited admin rights causing freeze/hang
-  ; We override to use explorer.exe which drops privileges
-  !define MUI_FINISHPAGE_RUN_FUNCTION "LaunchAppWithoutAdmin"
-!macroend
-
-; Function to launch app without admin privileges
-; This is called when user checks "Run MakeYourLifeEasier" and clicks Finish  
-Function LaunchAppWithoutAdmin
-  ; Create a VBS script to launch the app with delay - completely async
-  ; This eliminates any freeze/hang from the installer
-  FileOpen $0 "$TEMP\launch_myle.vbs" w
-  FileWrite $0 'WScript.Sleep 800$\r$\n'
-  FileWrite $0 'Set objShell = CreateObject("WScript.Shell")$\r$\n'
-  FileWrite $0 'objShell.Run "$INSTDIR\MakeYourLifeEasier.exe", 1, False$\r$\n'
-  FileClose $0
-  
-  ; Execute the VBS script silently and asynchronously
-  Exec 'wscript.exe "$TEMP\launch_myle.vbs"'
-FunctionEnd
-
-!macro customFinish
-  ; Empty - launch is handled by StartApp function above
-!macroend
 
 ; ============================================================================
 ; SECURITY HELPERS
