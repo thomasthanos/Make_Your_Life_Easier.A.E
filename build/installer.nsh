@@ -69,7 +69,7 @@ FunctionEnd
 ; ============================================================================
 !macro customInit
   ; Set default install directory to user's local folder (no admin required)
-  StrCpy $INSTDIR "$LOCALAPPDATA\Programs\MakeYourLifeEasier"
+  StrCpy $INSTDIR "$LOCALAPPDATA\ThomasThanos\MakeYourLifeEasier"
   
   ; Quick process check - use faster method with shorter timeout
   ; Use wmic which is faster than tasklist for single process check
