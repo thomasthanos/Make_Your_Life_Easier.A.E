@@ -25,6 +25,53 @@ const updateInfoSecondaryPath = process.platform === 'win32'
     : null;
 
 /**
+ * Helper function to safely send update status to a window
+ * @param {BrowserWindow} window - The window to send to
+ * @param {Object} payload - The status payload
+ */
+function sendUpdateStatus(window, payload) {
+    if (window && !window.isDestroyed() && window.webContents) {
+        try {
+            window.webContents.send('update-status', payload);
+        } catch (err) {
+            // Ignore send errors (window might be closing)
+        }
+    }
+}
+
+/**
+ * Helper function to launch the app after an error
+ * @param {Function} getUpdateWindow - Function to get update window
+ * @param {Function} getMainWindow - Function to get main window
+ * @param {Function} createMainWindow - Function to create main window
+ */
+async function launchAppAfterError(getUpdateWindow, getMainWindow, createMainWindow) {
+    const updateWin = getUpdateWindow();
+    const mainWin = getMainWindow();
+
+    if (updateWin && !mainWin) {
+        sendUpdateStatus(updateWin, {
+            status: 'downloading',
+            message: 'Launching application...',
+            percent: 100
+        });
+
+        // Give the update window time to render the 100% progress
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // Create main window and show it
+        const newMainWindow = createMainWindow(true);
+        newMainWindow.webContents.once('did-finish-load', () => {
+            setTimeout(() => {
+                if (updateWin && !updateWin.isDestroyed()) {
+                    updateWin.destroy();
+                }
+            }, 100);
+        });
+    }
+}
+
+/**
  * Configure auto-updater settings
  */
 function configureAutoUpdater() {
@@ -126,12 +173,10 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
     autoUpdater.on('checking-for-update', () => {
         debug('info', 'Checking for updates...');
         const updateWindow = getUpdateWindow();
-        if (updateWindow) {
-            updateWindow.webContents.send('update-status', {
-                status: 'checking',
-                message: 'Checking for updates...'
-            });
-        }
+        sendUpdateStatus(updateWindow, {
+            status: 'checking',
+            message: 'Checking for updates...'
+        });
     });
 
     autoUpdater.on('update-available', async (info) => {
@@ -172,20 +217,23 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
         const updateWindow = getUpdateWindow();
         const mainWindow = getMainWindow();
 
-        if (updateWindow) updateWindow.webContents.send('update-status', payload);
-        if (mainWindow) mainWindow.webContents.send('update-status', payload);
+        sendUpdateStatus(updateWindow, payload);
+        sendUpdateStatus(mainWindow, payload);
     });
 
-    autoUpdater.on('update-not-available', (info) => {
+    autoUpdater.on('update-not-available', async (info) => {
         debug('info', 'Update not available:', info);
 
         const updateWindow = getUpdateWindow();
         if (updateWindow) {
-            updateWindow.webContents.send('update-status', {
+            sendUpdateStatus(updateWindow, {
                 status: 'downloading',
                 message: 'Launching application...',
                 percent: 100
             });
+
+            // Give the update window time to render the 100% progress
+            await new Promise(resolve => setTimeout(resolve, 200));
 
             // Create main window and show it after a brief delay
             const mainWindow = getMainWindow();
@@ -263,8 +311,8 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
         const updateWindow = getUpdateWindow();
         const mainWindow = getMainWindow();
 
-        if (updateWindow) updateWindow.webContents.send('update-status', statusPayload);
-        if (mainWindow) mainWindow.webContents.send('update-status', statusPayload);
+        sendUpdateStatus(updateWindow, statusPayload);
+        sendUpdateStatus(mainWindow, statusPayload);
         
         lastBytesReceived = bytesReceived;
     });
@@ -281,8 +329,8 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
         const updateWindow = getUpdateWindow();
         const mainWindow = getMainWindow();
 
-        if (updateWindow) updateWindow.webContents.send('update-status', payload);
-        if (mainWindow) mainWindow.webContents.send('update-status', payload);
+        sendUpdateStatus(updateWindow, payload);
+        sendUpdateStatus(mainWindow, payload);
 
         // Persist update metadata
         try {
@@ -317,11 +365,14 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 
                 // Send final status
                 if (updateWin) {
-                    updateWin.webContents.send('update-status', {
+                    sendUpdateStatus(updateWin, {
                         status: 'downloaded',
                         message: 'Installing update...',
                         percent: 100
                     });
+
+                    // Give the update window time to render the 100% progress
+                    await new Promise(resolve => setTimeout(resolve, 200));
                 }
 
                 // Create promise to wait for windows to close
@@ -380,28 +431,26 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             debug('warn', `Network error detected. Retry ${retryCount}/${MAX_RETRIES} in ${retryDelay}ms...`);
             
             const retryMessage = `Connection lost. Retrying (${retryCount}/${MAX_RETRIES})...`;
-            if (updateWindow) {
-                updateWindow.webContents.send('update-status', {
-                    status: 'downloading',
-                    message: retryMessage,
-                    percent: 0
-                });
-            }
-            if (mainWindow) {
-                mainWindow.webContents.send('update-status', {
-                    status: 'error',
-                    message: retryMessage
-                });
-            }
+            sendUpdateStatus(updateWindow, {
+                status: 'downloading',
+                message: retryMessage,
+                percent: 0
+            });
+            sendUpdateStatus(mainWindow, {
+                status: 'error',
+                message: retryMessage
+            });
             
             // Use promise-based delay for cleaner async handling
             (async () => {
-                await new Promise(resolve => setTimeout(resolve, retryDelay));
-                debug('info', `Retrying update check (attempt ${retryCount})...`);
                 try {
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                    debug('info', `Retrying update check (attempt ${retryCount})...`);
                     await autoUpdater.checkForUpdates();
                 } catch (retryErr) {
                     debug('error', 'Retry failed:', retryErr);
+                    // After all retries fail, launch the app anyway
+                    await launchAppAfterError(getUpdateWindow, getMainWindow, createMainWindow);
                 }
             })();
             return;
@@ -413,32 +462,21 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             retryCount = 0;
         }
 
-        if (updateWindow && !mainWindow) {
-            updateWindow.webContents.send('update-status', {
-                status: 'downloading',
-                message: 'Launching application...',
-                percent: 100
-            });
-
-            // Create main window and show it
-            const newMainWindow = createMainWindow(true);  // show: true
-            newMainWindow.webContents.once('did-finish-load', () => {
-                setTimeout(() => {
-                    if (updateWindow && !updateWindow.isDestroyed()) {
-                        updateWindow.destroy();
-                    }
-                }, 100);
-            });
-            return;
+        // Only launch app if this is NOT a network error (network errors are handled by retry logic above)
+        if (!isNetworkError) {
+            // Launch app after error (non-retry scenario)
+            (async () => {
+                await launchAppAfterError(getUpdateWindow, getMainWindow, createMainWindow);
+            })();
         }
 
-        const payload = { 
-            status: 'error', 
+        const payload = {
+            status: 'error',
             message: `Update error: ${err.message}`,
             canRetry: isNetworkError && retryCount < MAX_RETRIES
         };
-        if (updateWindow) updateWindow.webContents.send('update-status', payload);
-        if (mainWindow) mainWindow.webContents.send('update-status', payload);
+        sendUpdateStatus(updateWindow, payload);
+        sendUpdateStatus(mainWindow, payload);
     });
 }
 
@@ -485,13 +523,11 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
             debug('info', 'Manual install triggered');
 
             // Send preparing message
-            if (updateWindow) {
-                updateWindow.webContents.send('update-status', {
-                    status: 'downloaded',
-                    message: 'Preparing installation...',
-                    percent: 100
-                });
-            }
+            sendUpdateStatus(updateWindow, {
+                status: 'downloaded',
+                message: 'Preparing installation...',
+                percent: 100
+            });
 
             // Use promises to ensure windows are closed before installing
             (async () => {
@@ -535,9 +571,19 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
                 }
             }
 
-            // Close the update window if present (smooth transition)
+            // Send final 100% progress to update window before closing
             const updateWin = getUpdateWindow();
             if (updateWin && !updateWin.isDestroyed()) {
+                sendUpdateStatus(updateWin, {
+                    status: 'downloading',
+                    message: 'Application ready!',
+                    percent: 100
+                });
+
+                // Give the update window a moment to render the 100% progress
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+                // Now close the update window
                 updateWin.close();
             }
 
@@ -554,13 +600,11 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
 
     ipcMain.handle('update-loading-progress', async (event, { progress, message }) => {
         const updateWindow = getUpdateWindow();
-        if (updateWindow) {
-            updateWindow.webContents.send('update-status', {
-                status: 'downloading',
-                message: message || `Loading application: ${Math.round(progress)}%`,
-                percent: progress
-            });
-        }
+        sendUpdateStatus(updateWindow, {
+            status: 'downloading',
+            message: message || `Loading application: ${Math.round(progress)}%`,
+            percent: progress
+        });
         return { success: true };
     });
 

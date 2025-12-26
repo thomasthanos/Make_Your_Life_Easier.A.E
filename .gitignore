@@ -39,3 +39,4 @@ bin/create.ps1
 /Github-Build-Release/node_modules
 /Github-Build-Release/release
 /Pro-Installer
+.claude/settings.local.json

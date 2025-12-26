@@ -71,6 +71,11 @@ function createMainWindow(showWindow = true, preloadPath, setupWindowStateEvents
 
     mainWindow.loadFile(path.join(__dirname, '..', '..', 'index.html'));
 
+    // Cleanup reference when window is closed
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });
+
     if (setupWindowStateEvents) {
         setupWindowStateEvents();
     }

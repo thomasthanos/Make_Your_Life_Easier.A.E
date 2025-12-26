@@ -440,6 +440,9 @@ export async function init() {
         // Report progress: Almost ready
         if (window.api?.updateLoadingProgress) {
             await window.api.updateLoadingProgress(95, 'Almost ready...').catch(() => {});
+
+            // Small delay to allow 95% to render before jumping to 100%
+            await new Promise(resolve => setTimeout(resolve, 150));
         }
 
         // Signal to main process that app is ready FIRST (for updater window transition)
