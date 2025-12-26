@@ -4,7 +4,7 @@
 
 ### *Simplify Your Digital World*
 
-[![Version](https://img.shields.io/badge/version-3.2.8-blue.svg?style=for-the-badge)](https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases)
+[![Version](https://img.shields.io/badge/version-3.7.1-blue.svg?style=for-the-badge)](https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases)
 [![Electron](https://img.shields.io/badge/electron-38.7.2-47848f.svg?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078d4.svg?style=for-the-badge&logo=windows)](https://www.microsoft.com/windows)
@@ -112,6 +112,9 @@
 - Safe rollback mechanism
 - Works in portable mode
 - Optional manual update checks
+- **New in v3.7.1:** Smooth progress bar animations
+- **New in v3.7.1:** Enhanced error handling & retry logic
+- **New in v3.7.1:** Fixed window lifecycle management
 
 </details>
 
@@ -385,6 +388,9 @@ Modify the `CUSTOM_APPS` array in `renderer.js`. Add name, URL, extension, and c
 - [x] Multi-language support
 - [x] Dark/light themes
 - [x] System maintenance tools
+- [x] Fixed progress bar rendering (v3.7.1)
+- [x] Enhanced updater reliability (v3.7.1)
+- [x] Improved error handling (v3.7.1)
 
 </details>
 
