@@ -112,7 +112,7 @@ function getCategoryForId(pkgId) {
         // Then browsers
         { key: 'Browsers', keywords: ['firefox', 'google.chrome', 'brave.brave', 'opera', 'edge', 'vivaldi', 'tor', 'browser'] },
         // Games
-        { key: 'Games', keywords: ['steam', 'epicgames', 'battlenet', 'ubisoft', 'riot', 'gog', 'game', 'psremoteplay', 'playstation', 'xbox', 'minecraft', 'mojang', 'eadesktop', 'electronicarts'] },
+        { key: 'Games', keywords: ['steam', 'epicgames', 'battlenet', 'ubisoft', 'riot', 'gog', 'game', 'psremoteplay', 'playstation', 'xbox', 'minecraft', 'mojang', 'eadesktop', 'electronicarts', 'betterdiscord'] },
         // Media
         { key: 'Media', keywords: ['spotify', 'music', 'tidal', 'mp3tag', 'audio', 'vlc', 'winamp', 'itunes', 'obsstudio', 'obsproject', 'stremio', 'blender', 'video'] },
         // Development
