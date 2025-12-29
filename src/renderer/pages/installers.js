@@ -81,11 +81,12 @@ function getDeveloperUrl(pkgId) {
             vencord: 'vencord.dev/download/',
             obsproject: 'obsproject.com',
             videolan: 'videolan.org',
-            oracle: 'oracle.com',
+            oracle: 'virtualbox.org/wiki/Downloads',
             logitech: 'logitech.com',
             notepadplusplus: 'notepad-plus-plus.org',
             cpuid: 'cpuid.com',
             crystaldew: 'crystalmark.info',
+            crystaldewworld: 'crystalmark.info',
             malwarebytes: 'malwarebytes.com',
             teamviewer: 'teamviewer.com',
             anydesk: 'anydesk.com',
@@ -93,8 +94,18 @@ function getDeveloperUrl(pkgId) {
             iobit: 'www.iobit.com/en/advancedsystemcarefree.php',
             blizzard: 'battle.net',
             ubisoft: 'ubisoft.com/en-gb/ubisoft-connect/download',
-            guru3d: 'guru3d.com',
-            anthropic: 'claude.ai'
+            guru3d: 'guru3d.com/download/rtss-rivatuner-statistics-server-download/',
+            anthropic: 'claude.ai',
+            techpowerup: 'techpowerup.com/gpuz/',
+            realix: 'hwinfo.com',
+            blenderfoundation: 'blender.org/download/',
+            'notepad++': 'notepad-plus-plus.org/downloads/',
+            florianheidenreich: 'mp3tag.de/en/download.html',
+            rufus: 'rufus.ie',
+            ventoy: 'ventoy.net/en/download.html',
+            revouninstaller: 'revouninstaller.com/products/revo-uninstaller-free/',
+            stremio: 'stremio.com/downloads',
+            apple: 'apple.com/itunes/'
         };
         const domain = domainMap[publisher] || `${publisher}.com`;
         return `https://${domain}`;
@@ -109,10 +120,12 @@ function getCategoryForId(pkgId) {
     const mappings = [
         // Hardware FIRST - to catch CPU-Z, HWMonitor etc before anything else
         { key: 'Hardware', keywords: ['cpu-z', 'gpu-z', 'hwinfo', 'hwmonitor', 'cpuid.', 'techpowerup', 'realix', 'afterburner', 'rtss', 'guru3d', 'crystaldisk', 'razer', 'synapse', 'streamdeck', 'elgato.'] },
+        // Communication - Discord, Vesktop, etc
+        { key: 'Communication', keywords: ['discord', 'vesktop', 'vencord', 'betterdiscord', 'slack', 'teams', 'zoom', 'telegram', 'signal', 'skype'] },
         // Then browsers
         { key: 'Browsers', keywords: ['firefox', 'google.chrome', 'brave.brave', 'opera', 'edge', 'vivaldi', 'tor', 'browser'] },
         // Games
-        { key: 'Games', keywords: ['steam', 'epicgames', 'battlenet', 'ubisoft', 'riot', 'gog', 'game', 'psremoteplay', 'playstation', 'xbox', 'minecraft', 'mojang', 'eadesktop', 'electronicarts', 'betterdiscord'] },
+        { key: 'Games', keywords: ['steam', 'epicgames', 'battlenet', 'ubisoft', 'riot', 'gog', 'psremoteplay', 'playstation', 'xbox', 'minecraft', 'mojang', 'eadesktop', 'electronicarts'] },
         // Media
         { key: 'Media', keywords: ['spotify', 'music', 'tidal', 'mp3tag', 'audio', 'vlc', 'winamp', 'itunes', 'obsstudio', 'obsproject', 'stremio', 'blender', 'video'] },
         // Development
@@ -120,7 +133,7 @@ function getCategoryForId(pkgId) {
         // Security
         { key: 'Security', keywords: ['vpn', 'bitdefender', 'antivirus', 'security', 'surfshark', 'nordsecurity', 'protonvpn', 'authenticator', 'password', 'malwarebytes', 'protonmail', 'protondrive', 'proton.proton'] },
         // Utilities last
-        { key: 'Utilities', keywords: ['7zip', 'rarlab', 'winrar', 'freedownload', 'downloadmanager', 'driverbooster', 'softwareupdater', 'sysinfo', 'smartdefrag', 'uninstaller', 'iobit', 'rufus', 'ventoy', 'anydesk', 'dropbox', 'googledrive', 'revo'] }
+        { key: 'Utilities', keywords: ['7zip', 'rarlab', 'winrar', 'freedownload', 'downloadmanager', 'driverbooster', 'softwareupdater', 'sysinfo', 'smartdefrag', 'uninstaller', 'iobit', 'rufus', 'ventoy', 'anydesk', 'dropbox.dropbox', 'googledrive', 'revo'] }
     ];
     for (const { key, keywords } of mappings) {
         if (keywords.some((kw) => lower.includes(kw))) {
@@ -629,7 +642,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             .replace('{plural}', plural);
 
         listContainer.innerHTML = '';
-        const orderedCats = ['Browsers', 'Games', 'Media', 'Development', 'Security', 'Hardware', 'Utilities', 'Others'];
+        const orderedCats = ['Browsers', 'Communication', 'Games', 'Media', 'Development', 'Security', 'Hardware', 'Utilities', 'Others'];
 
         orderedCats.forEach((cat) => {
             const items = categories[cat];

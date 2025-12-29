@@ -747,7 +747,7 @@ export const CUSTOM_APPS = [
         name: 'BetterDiscord',
         url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&dl=1',
         ext: 'exe',
-        category: 'Utilities'
+        category: 'Communication'
     },
     {
         id: 'LeagueOfLegends.Dropbox',
