@@ -46,8 +46,25 @@ const FaviconConfig = {
     'Microsoft.VisualStudio.Professional': 'https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VisualStudio-Dark.svg',
     'Microsoft.VisualStudioCode': 'https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VSCode-Dark.svg',
     
-    // Utilities
+    // Utilities - Using Google favicons (most reliable)
     'Guru3D.Afterburner': 'https://www.google.com/s2/favicons?domain=msi.com&sz=128',
+    'Guru3D.RTSS': 'https://i.postimg.cc/gjqsBrHH/RTS-Radio-Television-Suisse.png',
+    'CPUID.CPU-Z': 'https://www.google.com/s2/favicons?domain=cpuid.com&sz=128',
+    'CPUID.HWMonitor': 'https://www.google.com/s2/favicons?domain=cpuid.com&sz=128',
+    'TechPowerUp.GPU-Z': 'https://www.google.com/s2/favicons?domain=techpowerup.com&sz=128',
+    'REALiX.HWiNFO': 'https://www.google.com/s2/favicons?domain=hwinfo.com&sz=128',
+    'CrystalDewWorld.CrystalDiskInfo': 'https://i.postimg.cc/wBCkqDWL/Crystal-Disk-Info.png',
+    'Oracle.VirtualBox': 'https://www.google.com/s2/favicons?domain=virtualbox.org&sz=128',
+    'BlenderFoundation.Blender': 'https://www.google.com/s2/favicons?domain=blender.org&sz=128',
+    'Notepad++.Notepad++': 'https://www.google.com/s2/favicons?domain=notepad-plus-plus.org&sz=128',
+    'FlorianHeidenreich.Mp3tag': 'https://www.google.com/s2/favicons?domain=mp3tag.de&sz=128',
+    'Rufus.Rufus': 'https://www.google.com/s2/favicons?domain=rufus.ie&sz=128',
+    'Ventoy.Ventoy': 'https://www.google.com/s2/favicons?domain=ventoy.net&sz=128',
+    'RevoUninstaller.RevoUninstaller': 'https://www.google.com/s2/favicons?domain=revouninstaller.com&sz=128',
+    'AnyDesk.AnyDesk': 'https://www.google.com/s2/favicons?domain=anydesk.com&sz=128',
+    'Stremio.Stremio': 'https://www.google.com/s2/favicons?domain=stremio.com&sz=128',
+    'Apple.iTunes': 'https://www.google.com/s2/favicons?domain=apple.com&sz=128',
+    'Malwarebytes.Malwarebytes': 'https://www.google.com/s2/favicons?domain=malwarebytes.com&sz=128',
     
     // Google
     'Google.GoogleDrive': 'https://www.google.com/s2/favicons?domain=https://drive.google.com/drive/my-drive&sz=128',

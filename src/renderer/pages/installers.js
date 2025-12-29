@@ -105,13 +105,22 @@ function getDeveloperUrl(pkgId) {
 
 function getCategoryForId(pkgId) {
     const lower = String(pkgId).toLowerCase();
+    // Order matters! More specific categories first
     const mappings = [
-        { key: 'Browsers', keywords: ['firefox', 'chrome', 'brave', 'opera', 'edge', 'vivaldi', 'tor', 'browser'] },
-        { key: 'Games', keywords: ['steam', 'epic', 'battlenet', 'ubisoft', 'riot', 'gog', 'game', 'psremoteplay', 'playstation', 'xbox'] },
-        { key: 'Music', keywords: ['spotify', 'music', 'tidal', 'mp3', 'audio', 'vlc', 'winamp'] },
-        { key: 'Development', keywords: ['visualstudio', 'python', 'node', 'git', 'java', 'eclipse', 'intellij', 'jetbrains', 'studio', 'code', 'github', 'gitlab', 'docker', 'virtualbox', 'vmware', 'claude', 'anthropic'] },
-        { key: 'Security', keywords: ['vpn', 'bitdefender', 'antivirus', 'security', 'surfshark', 'nord', 'protonvpn', 'authenticator', 'password', 'mail'] },
-        { key: 'Utilities', keywords: ['7zip', 'rar', 'winrar', 'zip', 'freedownload', 'downloadmanager', 'driverbooster', 'softwareupdater', 'sysinfo', 'smartdefrag', 'uninstaller', 'afterburner', 'streamdeck', 'razer', 'synapse', 'iobit', 'manager', 'stream'] }
+        // Hardware FIRST - to catch CPU-Z, HWMonitor etc before anything else
+        { key: 'Hardware', keywords: ['cpu-z', 'gpu-z', 'hwinfo', 'hwmonitor', 'cpuid.', 'techpowerup', 'realix', 'afterburner', 'rtss', 'guru3d', 'crystaldisk', 'razer', 'synapse', 'streamdeck', 'elgato.'] },
+        // Then browsers
+        { key: 'Browsers', keywords: ['firefox', 'google.chrome', 'brave.brave', 'opera', 'edge', 'vivaldi', 'tor', 'browser'] },
+        // Games
+        { key: 'Games', keywords: ['steam', 'epicgames', 'battlenet', 'ubisoft', 'riot', 'gog', 'game', 'psremoteplay', 'playstation', 'xbox', 'minecraft', 'mojang', 'eadesktop', 'electronicarts'] },
+        // Media
+        { key: 'Media', keywords: ['spotify', 'music', 'tidal', 'mp3tag', 'audio', 'vlc', 'winamp', 'itunes', 'obsstudio', 'obsproject', 'stremio', 'blender', 'video'] },
+        // Development
+        { key: 'Development', keywords: ['visualstudio', 'python', 'nodejs', 'openjs', 'git.git', 'github', 'gitlab', 'java', 'eclipse', 'intellij', 'jetbrains', 'vscode', 'docker', 'virtualbox', 'vmware', 'claude', 'anthropic', 'notepad'] },
+        // Security
+        { key: 'Security', keywords: ['vpn', 'bitdefender', 'antivirus', 'security', 'surfshark', 'nordsecurity', 'protonvpn', 'authenticator', 'password', 'malwarebytes', 'protonmail', 'protondrive', 'proton.proton'] },
+        // Utilities last
+        { key: 'Utilities', keywords: ['7zip', 'rarlab', 'winrar', 'freedownload', 'downloadmanager', 'driverbooster', 'softwareupdater', 'sysinfo', 'smartdefrag', 'uninstaller', 'iobit', 'rufus', 'ventoy', 'anydesk', 'dropbox', 'googledrive', 'revo'] }
     ];
     for (const { key, keywords } of mappings) {
         if (keywords.some((kw) => lower.includes(kw))) {
@@ -558,6 +567,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         installBtn.disabled = !anyChecked;
         uninstallBtn.disabled = !anyChecked;
         exportBtn.disabled = !anyChecked;
+        uncheckAllBtn.disabled = !anyChecked;
     }
 
     updateActionButtonsState();
@@ -619,7 +629,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             .replace('{plural}', plural);
 
         listContainer.innerHTML = '';
-        const orderedCats = ['Browsers', 'Games', 'Music', 'Development', 'Security', 'Utilities', 'Others'];
+        const orderedCats = ['Browsers', 'Games', 'Media', 'Development', 'Security', 'Hardware', 'Utilities', 'Others'];
 
         orderedCats.forEach((cat) => {
             const items = categories[cat];
@@ -826,9 +836,24 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     const appId = li.dataset.appId;
                     allAppIds.push(appId);
                     const appIdLower = appId.toLowerCase();
+
+                    // Check for exact match first, then partial matches
                     const isInstalled = installedPackages.some(pkgId => {
                         const pkgIdLower = pkgId.toLowerCase();
-                        return pkgIdLower === appIdLower;
+                        // Exact match
+                        if (pkgIdLower === appIdLower) return true;
+                        // Check if package ID starts with our app ID (for versioned packages like Python.Python.3.13)
+                        if (pkgIdLower.startsWith(appIdLower)) return true;
+                        // Check if our app ID starts with package ID
+                        if (appIdLower.startsWith(pkgIdLower)) return true;
+                        // Check if the product part matches (after the publisher)
+                        const appParts = appIdLower.split('.');
+                        const pkgParts = pkgIdLower.split('.');
+                        if (appParts.length >= 2 && pkgParts.length >= 2) {
+                            // Compare publisher.product
+                            if (appParts[0] === pkgParts[0] && appParts[1] === pkgParts[1]) return true;
+                        }
+                        return false;
                     });
                     if (isInstalled) {
                         cb.checked = true;

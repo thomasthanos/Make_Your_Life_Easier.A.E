@@ -40,3 +40,4 @@ bin/create.ps1
 /Github-Build-Release/release
 /Pro-Installer
 .claude/settings.local.json
+check_apps.bat
