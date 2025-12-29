@@ -913,6 +913,16 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         }
     });
 
+    // Apps that need to be launched after installation to complete setup
+    const APPS_REQUIRING_LAUNCH = [
+        'Valve.Steam',
+        'EpicGames.EpicGamesLauncher',
+        'ElectronicArts.EADesktop',
+        'Ubisoft.Connect',
+        'Blizzard.BattleNet',
+        'Mojang.MinecraftLauncher'
+    ];
+
     // Install/uninstall handlers
     async function runWingetForSelected(action) {
         const isInstall = action === 'install';
@@ -947,6 +957,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         let errorCount = 0;
         const totalItems = selectedItems.length;
         const results = [];
+        const appsToLaunch = [];
 
         const yieldToUI = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -1065,6 +1076,11 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                             results.push({ name: appName, success: true, status: 'installed' });
                         }
                         successCount++;
+
+                        // Track apps that need to be launched
+                        if (APPS_REQUIRING_LAUNCH.includes(id)) {
+                            appsToLaunch.push({ id, name: appName });
+                        }
                     } else if (alreadyInstalled) {
                         results.push({ name: appName, success: true, status: 'already_installed' });
                         successCount++;
@@ -1120,7 +1136,56 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         const failedApps = results.filter(r => !r.success);
 
         const restartNeeded = results.some(r => r.status === 'restart_required');
-        
+
+        // Launch apps that require it for setup completion
+        if (isInstall && appsToLaunch.length > 0) {
+            // Wait a bit to ensure installation is fully complete
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            const launchMap = {
+                'Valve.Steam': 'steam://open/main',
+                'EpicGames.EpicGamesLauncher': 'com.epicgames.launcher://apps',
+                'ElectronicArts.EADesktop': 'origin://',
+                'Ubisoft.Connect': 'uplay://',
+                'Blizzard.BattleNet': 'battlenet://',
+                'Mojang.MinecraftLauncher': 'minecraft://'
+            };
+
+            for (const app of appsToLaunch) {
+                try {
+                    const uri = launchMap[app.id];
+                    if (uri) {
+                        // Try using the protocol URL first
+                        try {
+                            await window.api.openExternal(uri);
+                            debug('info', `Launched ${app.name} via protocol for setup completion`);
+                        } catch (protocolErr) {
+                            // Fallback to start command
+                            debug('warn', `Protocol launch failed for ${app.name}, trying start command`);
+                            await window.api.runCommand(`start "" "${app.id.split('.').pop()}"`);
+                        }
+                    } else {
+                        // Generic start command based on package name
+                        const appExe = app.id.split('.').pop();
+                        await window.api.runCommand(`start "" "${appExe}"`);
+                        debug('info', `Launched ${app.name} for setup completion`);
+                    }
+                } catch (err) {
+                    debug('warn', `Could not auto-launch ${app.name}:`, err);
+                    // Don't fail the whole process, just log and continue
+                }
+            }
+
+            if (appsToLaunch.length > 0) {
+                const appNames = appsToLaunch.map(a => a.name).join(', ');
+                toast(`Launched ${appNames} to complete setup. Please complete the first-time setup in the application.`, {
+                    type: 'info',
+                    title: 'Setup Required',
+                    duration: 6000
+                });
+            }
+        }
+
         if (successCount > 0 && errorCount === 0) {
             let message = `All ${selectedItems.length} applications ${isInstall ? 'installed' : 'uninstalled'} successfully!`;
             if (restartNeeded) {
