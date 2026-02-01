@@ -1,6 +1,6 @@
 {
   "name": "make-your-life-easier",
-  "version": "3.7.2",
+  "version": "3.7.3",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "homepage": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E",
@@ -15,6 +15,7 @@
     "release": "npm run build-all && npm run publish"
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "electron-log": "^5.2.2",
     "electron-store": "^11.0.2",
     "electron-sudo": "^4.0.12",

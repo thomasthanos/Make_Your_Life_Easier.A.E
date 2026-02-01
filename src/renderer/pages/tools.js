@@ -367,15 +367,14 @@ export async function buildDebloatPage(translations, _settings) {
     const description = document.createElement('p');
     description.classList.add('script-description');
     description.textContent = (translations.pages && translations.pages.debloat_raphi_desc) ||
-        'This will download and run an external debloat script (Raphi) via PowerShell. ' +
-        'Administrator privileges and an active internet connection are required. ' +
-        'The script may make significant changes to your system. Use at your own risk.';
+        'Launch Sparkle debloat utility to remove bloatware and optimize your Windows system. ' +
+        'The utility will be downloaded if not already available.';
     container.appendChild(description);
 
     const isWindows = await window.api.isWindows();
     if (!isWindows) {
         const warn = document.createElement('p');
-        warn.textContent = 'The debloat script is only supported on Windows.';
+        warn.textContent = 'Sparkle Debloat is only supported on Windows.';
         warn.classList.add('script-warning');
         container.appendChild(warn);
         return container;
@@ -384,166 +383,84 @@ export async function buildDebloatPage(translations, _settings) {
     const runBtn = document.createElement('button');
     runBtn.className = 'button';
     runBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.runRaphiScript) ||
-        'Run Debloat Script';
+        'Launch Sparkle Debloat';
     runBtn.classList.add('btn-run');
 
     runBtn.addEventListener('click', async () => {
         if (runBtn.disabled) return;
+        
         const original = runBtn.textContent;
         runBtn.disabled = true;
-        runBtn.textContent = 'Processing...';
+        runBtn.textContent = 'Checking Sparkle...';
 
         try {
-            const info = await window.api.ensureSparkle();
-            if (!info) {
-                throw new Error('Unable to check for Sparkle release');
+            const result = await window.api.runSparkleDebloat();
+            
+            if (!result) {
+                throw new Error('No response from Sparkle handler');
             }
 
-            const { needsDownload, id, url, dest } = info;
-
-            const extractAndRun = async () => {
-                try {
-                    const lastSep = Math.max(dest.lastIndexOf('\\'), dest.lastIndexOf('/'));
-                    const parentDir = lastSep >= 0 ? dest.substring(0, lastSep) : '';
-                    const uniqueExtractDir = `${parentDir}\\debloat-temp-${Date.now()}`;
-                    const targetDir = `${parentDir}\\debloat-sparkle`;
-
-                    const extractRes = await window.api.extractArchive(dest, '', uniqueExtractDir);
-                    if (!extractRes || !extractRes.success) {
-                        throw new Error((extractRes && extractRes.error) || 'Extraction failed');
-                    }
-
-                    let runDir = uniqueExtractDir;
-                    try {
-                        const renameRes = await window.api.renameDirectory(uniqueExtractDir, targetDir);
-                        if (renameRes && renameRes.success) {
-                            runDir = targetDir;
-                        }
-                    } catch {
-                        runDir = uniqueExtractDir;
-                    }
-
-                    const sparkleExePath = `${runDir}\\sparkle.exe`;
-                    let exeToRun = null;
-
-                    try {
-                        const exists = await window.api.fileExists(sparkleExePath);
-                        if (exists) {
-                            exeToRun = sparkleExePath;
-                        }
-                    } catch {
-                        exeToRun = null;
-                    }
-
-                    if (!exeToRun) {
-                        let exeFiles;
-                        try {
-                            exeFiles = await window.api.findExeFiles(runDir);
-                        } catch {
-                            exeFiles = [];
-                        }
-                        if (exeFiles && exeFiles.length > 0) {
-                            const sparkleIndex = exeFiles.findIndex((p) => p.toLowerCase().endsWith('sparkle.exe'));
-                            if (sparkleIndex >= 0) {
-                                exeToRun = exeFiles[sparkleIndex];
-                            } else {
-                                exeToRun = exeFiles[0];
-                            }
-                        }
-                    }
-
-                    if (!exeToRun) {
-                        throw new Error('No executable found in extracted Sparkle archive');
-                    }
-
-                    const runRes = await window.api.runInstaller(exeToRun);
-
-                    try {
-                        await window.api.deleteFile(dest);
-                    } catch {
-                        // ignore deletion errors
-                    }
-
-                    if (!runRes || !runRes.success) {
-                        throw new Error((runRes && runRes.error) || 'Failed to launch Sparkle');
-                    }
-
-                    toast('Sparkle executed successfully.', { type: 'success', title: 'Debloat', duration: 7000 });
-                    runBtn.disabled = false;
-                    runBtn.textContent = original;
-                } catch (err) {
-                    toast(err.message || 'An error occurred while extracting or running Sparkle.', { type: 'error', title: 'Debloat Error', duration: 8000 });
-                    runBtn.disabled = false;
-                    runBtn.textContent = original;
-                }
-            };
-
-            const runExistingSparkle = async () => {
-                try {
-                    const lastSepIdx = Math.max(dest.lastIndexOf('\\'), dest.lastIndexOf('/'));
-                    const parent = lastSepIdx >= 0 ? dest.substring(0, lastSepIdx) : '';
-                    const targetDir = `${parent}\\debloat-sparkle`;
-                    let exePath = null;
-
-                    const sparkleExe = `${targetDir}\\sparkle.exe`;
-                    try {
-                        if (await window.api.fileExists(sparkleExe)) {
-                            exePath = sparkleExe;
-                        }
-                    } catch {
-                        // ignore
-                    }
-
-                    if (!exePath) {
-                        let exes = [];
-                        try {
-                            exes = await window.api.findExeFiles(targetDir);
-                        } catch {
-                            exes = [];
-                        }
-                        if (exes && exes.length > 0) {
-                            const idx = exes.findIndex((p) => p.toLowerCase().endsWith('sparkle.exe'));
-                            exePath = idx >= 0 ? exes[idx] : exes[0];
-                        }
-                    }
-
-                    if (!exePath) {
-                        throw new Error('No Sparkle executable found');
-                    }
-
-                    const runRes = await window.api.runInstaller(exePath);
-                    if (!runRes || !runRes.success) {
-                        throw new Error((runRes && runRes.error) || 'Failed to launch Sparkle');
-                    }
-
-                    toast('Sparkle launched successfully.', { type: 'success', title: 'Debloat' });
-                    runBtn.disabled = false;
-                    runBtn.textContent = original;
-                } catch (err) {
-                    toast(err.message || 'Failed to run existing Sparkle', { type: 'error', title: 'Debloat Error' });
-                    runBtn.disabled = false;
-                    runBtn.textContent = original;
-                }
-            };
-
-            if (needsDownload) {
+            // Case 1: Sparkle needs to be downloaded
+            if (result.needsDownload) {
                 runBtn.textContent = 'Downloading Sparkle...';
-                const downloadId = id || `sparkle-${Date.now()}`;
+                
+                const downloadId = result.downloadId || `sparkle-${Date.now()}`;
+                const downloadDest = result.downloadDest;
 
                 const unsubscribe = window.api.onDownloadEvent((data) => {
                     if (data.id !== downloadId) return;
 
                     switch (data.status) {
                         case 'progress':
-                            runBtn.textContent = `Downloading... ${data.percent}%`;
+                            runBtn.textContent = `Downloading Sparkle... ${data.percent}%`;
                             break;
                         case 'complete':
-                            runBtn.textContent = 'Extracting...';
+                            runBtn.textContent = 'Extracting Sparkle...';
                             unsubscribe();
-                            extractAndRun();
+                            
+                            // Extract the downloaded zip
+                            window.api.processDownloadedSparkle(downloadDest)
+                                .then(extractResult => {
+                                    if (extractResult && extractResult.success) {
+                                        runBtn.textContent = 'Launching Sparkle...';
+                                        // Now run it
+                                        return window.api.runSparkleDebloat();
+                                    } else {
+                                        throw new Error(extractResult?.error || 'Extraction failed');
+                                    }
+                                })
+                                .then(launchResult => {
+                                    if (launchResult && launchResult.success && !launchResult.needsDownload) {
+                                        toast('Sparkle Debloat launched successfully!', { 
+                                            type: 'success', 
+                                            title: 'Debloat', 
+                                            duration: 5000 
+                                        });
+                                        runBtn.textContent = '✅ Launched!';
+                                        setTimeout(() => {
+                                            runBtn.textContent = original;
+                                            runBtn.disabled = false;
+                                        }, 2000);
+                                    } else {
+                                        throw new Error(launchResult?.error || 'Launch failed');
+                                    }
+                                })
+                                .catch(err => {
+                                    toast(err.message || 'Failed to extract or launch Sparkle', { 
+                                        type: 'error', 
+                                        title: 'Debloat Error',
+                                        duration: 8000
+                                    });
+                                    runBtn.disabled = false;
+                                    runBtn.textContent = original;
+                                });
                             break;
                         case 'error':
-                            toast(data.error || 'Download failed', { type: 'error', title: 'Debloat' });
+                            toast(data.error || 'Download failed', { 
+                                type: 'error', 
+                                title: 'Debloat Error',
+                                duration: 8000
+                            });
                             runBtn.disabled = false;
                             runBtn.textContent = original;
                             unsubscribe();
@@ -551,12 +468,32 @@ export async function buildDebloatPage(translations, _settings) {
                     }
                 });
 
-                window.api.downloadStart(downloadId, url, dest.split(/[/\\]/).pop());
+                // Start the download
+                window.api.downloadStart(downloadId, result.downloadUrl, downloadDest);
+                return;
+            }
+
+            // Case 2: Sparkle is already available and launched
+            if (result.success) {
+                toast(result.message || 'Sparkle Debloat launched successfully!', { 
+                    type: 'success', 
+                    title: 'Debloat', 
+                    duration: 5000 
+                });
+                runBtn.textContent = '✅ Launched!';
+                setTimeout(() => {
+                    runBtn.textContent = original;
+                    runBtn.disabled = false;
+                }, 2000);
             } else {
-                await runExistingSparkle();
+                throw new Error(result.error || 'Failed to launch Sparkle Debloat');
             }
         } catch (err) {
-            toast(err.message || 'Failed to start debloat', { type: 'error', title: 'Debloat Error' });
+            toast(err.message || 'Failed to launch Sparkle Debloat', { 
+                type: 'error', 
+                title: 'Debloat Error',
+                duration: 8000
+            });
             runBtn.disabled = false;
             runBtn.textContent = original;
         }

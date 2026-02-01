@@ -39,7 +39,13 @@ function startDownload(id, url, dest, mainWindow) {
   const downloadsDir = path.join(os.homedir(), 'Downloads');
 
   const start = (downloadUrl) => {
+    // Add timeout for slow connections (5 minutes)
+    const DOWNLOAD_TIMEOUT = 5 * 60 * 1000;
+    let downloadTimeout;
+    
     const req = clientFor(downloadUrl).get(downloadUrl, (res) => {
+      // Clear connection timeout once response starts
+      if (downloadTimeout) clearTimeout(downloadTimeout);
       // Handle HTTP redirects (3xx)
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
@@ -83,12 +89,14 @@ function startDownload(id, url, dest, mainWindow) {
 
       const total = parseInt(res.headers['content-length'] || '0', 10);
       const file = fs.createWriteStream(tempPath);
-      const d = { response: res, file, total, received: 0, paused: false, filePath: tempPath, finalPath };
+      const d = { response: res, file, total, received: 0, paused: false, filePath: tempPath, finalPath, lastProgress: Date.now() };
       activeDownloads.set(id, d);
 
       mainWindow.webContents.send('download-event', { id, status: 'started', total });
 
       const cleanup = (errMsg) => {
+        // Clear stall detection interval
+        if (d.stallInterval) clearInterval(d.stallInterval);
         // Stop piping first to prevent further writes
         try { res.unpipe(file); } catch { }
         // Remove listeners before destroying
@@ -105,13 +113,22 @@ function startDownload(id, url, dest, mainWindow) {
           mainWindow.webContents.send('download-event', { id, status: 'error', error: errMsg });
         }
       };
+      
+      // Set up stall detection (no data for 30 seconds = stalled)
+      d.stallInterval = setInterval(() => {
+        const now = Date.now();
+        if (d.lastProgress && now - d.lastProgress > 30000) {
+          cleanup('Download stalled - no data received for 30 seconds');
+        }
+      }, 5000);
 
       res.on('data', (chunk) => {
         if (d.paused) return;
         d.received += chunk.length;
+        d.lastProgress = Date.now(); // Update last progress timestamp
         if (total) {
           const percent = Math.round((d.received / total) * 100);
-          mainWindow.webContents.send('download-event', { id, status: 'progress', percent });
+          mainWindow.webContents.send('download-event', { id, status: 'progress', percent, received: d.received, total });
         }
       });
 

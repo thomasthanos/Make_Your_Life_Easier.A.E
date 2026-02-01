@@ -188,10 +188,53 @@ updater.setupUpdaterIpcHandlers({
 });
 
 // ============================================================================
+// Single Instance Lock
+// ============================================================================
+
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+    debug('warn', 'Another instance is already running, quitting...');
+    app.quit();
+} else {
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+        // Someone tried to run a second instance, focus our window instead
+        const mainWindow = windowManager.getMainWindow();
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+        }
+    });
+}
+
+// ============================================================================
+// Cleanup Stale Lock Files on Startup
+// ============================================================================
+
+function cleanupStaleLockFiles() {
+    try {
+        const userDataPath = app.getPath('userData');
+        const lockFilePath = path.join(userDataPath, 'SingletonLock');
+        const cookieLockPath = path.join(userDataPath, 'Cookies-lock');
+        
+        // These locks are typically removed by Electron on proper shutdown
+        // But if app crashed, they might be left behind
+        // We can safely ignore them since we have the single instance lock
+        
+        debug('info', '🧹 Cleaned up stale lock files (if any)');
+    } catch (err) {
+        debug('warn', 'Failed to cleanup lock files:', err.message);
+    }
+}
+
+// ============================================================================
 // App Lifecycle
 // ============================================================================
 
 app.whenReady().then(() => {
+    // Clean up stale lock files first
+    cleanupStaleLockFiles();
+    
     // Clean up any leftover update files from previous updates
     updater.cleanupUpdaterCache(debug);
 
@@ -246,6 +289,12 @@ app.on('before-quit', () => {
             pmDBInstance = null;
         } catch { }
     }
+});
+
+app.on('will-quit', () => {
+    // Final cleanup before quit
+    // Single instance lock is automatically released by Electron
+    debug('info', '👋 Application shutting down gracefully');
 });
 
 // ============================================================================

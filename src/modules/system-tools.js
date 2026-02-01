@@ -7,7 +7,7 @@ const { spawn, exec } = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { runElevatedPowerShellScript, runElevatedPowerShellScriptHidden, getPowerShellExe, runSpawnCommand, attachChildProcessHandlers, stripAnsiCodes } = require('./process-utils');
+const { runElevatedPowerShellScript, runElevatedPowerShellScriptHidden, getPowerShellExe, runSpawnCommand } = require('./process-utils');
 const { debug } = require('./debug');
 
 /**
@@ -163,9 +163,6 @@ $log += "Finished at: $(Get-Date)"
 
 # Write log to file
 $log | Out-File -FilePath $logFile -Encoding UTF8
-
-# NOTE: Do NOT use 'exit' here! The wrapper script needs to write SUCCESS marker.
-# The wrapper will handle the exit code.
 `;
 
   const result = await runElevatedPowerShellScriptHidden(
@@ -178,10 +175,9 @@ $log | Out-File -FilePath $logFile -Encoding UTF8
   try {
     if (fs.existsSync(logFile)) {
       const logContent = fs.readFileSync(logFile, 'utf8');
-      fs.unlinkSync(logFile); // Clean up log file
+      fs.unlinkSync(logFile);
       result.details = logContent;
 
-      // If there were errors, mark as warning but keep success = true
       const match = logContent.match(/Total errors:\s+(\d+)/i);
       const errorCount = match ? parseInt(match[1], 10) : 0;
       if (!Number.isNaN(errorCount) && errorCount > 0) {
@@ -200,7 +196,6 @@ $log | Out-File -FilePath $logFile -Encoding UTF8
 
 /**
  * Restart computer to BIOS/UEFI
- * Requests admin permissions first, then restarts to BIOS
  * @returns {Promise<Object>}
  */
 async function restartToBios() {
@@ -210,7 +205,6 @@ async function restartToBios() {
     const vbsPath = path.join(tempDir, `bios_elevate_${Date.now()}.vbs`);
     const resultPath = path.join(tempDir, `bios_result_${Date.now()}.txt`);
 
-    // PowerShell script that checks admin rights and performs restart
     const psScript = `
 # Check if running as Administrator
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -220,10 +214,8 @@ if (-not $isAdmin) {
     exit 1
 }
 
-# Write success marker
 "ADMIN_OK" | Out-File -FilePath "${resultPath.replace(/\\/g, '\\\\')}" -Encoding UTF8
 
-# Perform BIOS restart
 try {
     shutdown /r /fw /t 3
     "RESTART_OK" | Out-File -FilePath "${resultPath.replace(/\\/g, '\\\\')}" -Encoding UTF8 -Append
@@ -234,114 +226,174 @@ try {
 }
 `;
 
-    // VBS script to request elevation via UAC
     const vbsScript = `
 Set objShell = CreateObject("Shell.Application")
 objShell.ShellExecute "powershell.exe", "-NoProfile -ExecutionPolicy Bypass -File ""${psPath.replace(/\\/g, '\\\\')}""", "", "runas", 0
 `;
 
     try {
-      // Write PowerShell script
       fs.writeFileSync(psPath, psScript, 'utf8');
-      // Write VBS script
       fs.writeFileSync(vbsPath, vbsScript, 'utf8');
 
-      // Execute VBS which will show UAC prompt
       exec(`cscript //nologo "${vbsPath}"`, () => {
-        // Wait a bit for the elevated PowerShell to complete
         setTimeout(() => {
-          // Cleanup temp files
-          try { fs.unlinkSync(vbsPath); } catch (e) { debug('warn', 'Failed to cleanup vbs file:', e.message); }
-          try { fs.unlinkSync(psPath); } catch (e) { debug('warn', 'Failed to cleanup ps file:', e.message); }
+          try { fs.unlinkSync(vbsPath); } catch (e) { }
+          try { fs.unlinkSync(psPath); } catch (e) { }
 
           try {
             if (fs.existsSync(resultPath)) {
               const result = fs.readFileSync(resultPath, 'utf8').trim();
-              try { fs.unlinkSync(resultPath); } catch (e) { debug('warn', 'Failed to cleanup result file:', e.message); }
+              try { fs.unlinkSync(resultPath); } catch (e) { }
 
               if (result.includes('ADMIN_OK') && result.includes('RESTART_OK')) {
-                resolve({
-                  success: true,
-                  message: 'Restarting to BIOS in 3 seconds...'
-                });
+                resolve({ success: true, message: 'Restarting to BIOS in 3 seconds...' });
               } else if (result.includes('ADMIN_FAILED')) {
-                resolve({
-                  success: false,
-                  error: 'Administrator privileges denied. Please accept the UAC prompt.',
-                  code: 'UAC_DENIED'
-                });
+                resolve({ success: false, error: 'Administrator privileges denied.', code: 'UAC_DENIED' });
               } else {
-                resolve({
-                  success: false,
-                  error: 'Restart command failed. Your system may not support UEFI firmware access.',
-                  code: 'RESTART_FAILED'
-                });
+                resolve({ success: false, error: 'Restart command failed.', code: 'RESTART_FAILED' });
               }
             } else {
-              // No result file means UAC was cancelled or error occurred
-              resolve({
-                success: false,
-                error: 'Administrator privileges required. Please accept the UAC prompt to restart to BIOS.',
-                code: 'UAC_CANCELLED'
-              });
+              resolve({ success: false, error: 'UAC cancelled.', code: 'UAC_CANCELLED' });
             }
           } catch (readError) {
-            resolve({
-              success: false,
-              error: 'Could not verify restart status: ' + readError.message
-            });
+            resolve({ success: false, error: 'Could not verify restart status: ' + readError.message });
           }
-        }, 2000); // Wait 2 seconds for elevated script to complete
+        }, 2000);
       });
     } catch (fileError) {
-      // Cleanup on error
-      try { fs.unlinkSync(vbsPath); } catch (e) { /* Cleanup failed, ignore */ }
-      try { fs.unlinkSync(psPath); } catch (e) { /* Cleanup failed, ignore */ }
-      try { fs.unlinkSync(resultPath); } catch (e) { /* Cleanup failed, ignore */ }
-
-      resolve({
-        success: false,
-        error: 'Failed to create elevation script: ' + fileError.message
-      });
+      try { fs.unlinkSync(vbsPath); } catch (e) { }
+      try { fs.unlinkSync(psPath); } catch (e) { }
+      try { fs.unlinkSync(resultPath); } catch (e) { }
+      resolve({ success: false, error: 'Failed to create elevation script: ' + fileError.message });
     }
   });
 }
 
 /**
- * Run Raphi debloat script
+ * Run Sparkle Debloat utility
+ * Downloads, extracts and runs Sparkle from Dropbox
  * @returns {Promise<Object>}
  */
-async function runRaphiDebloat() {
+async function runSparkleDebloat() {
   if (process.platform !== 'win32') {
-    return { success: false, error: 'Debloat is only supported on Windows.' };
+    return { success: false, error: 'Sparkle Debloat is only supported on Windows.' };
   }
 
-  const psExe = getPowerShellExe() || 'powershell.exe';
-  const scriptCmd = '& ([scriptblock]::Create((irm "https://debloat.raphi.re/")))';
-
-  return new Promise((resolve) => {
-    const escapedCmd = scriptCmd.replace(/"/g, '\\"');
-    const argList = `-NoProfile -ExecutionPolicy Bypass -Command \"${escapedCmd}\"`;
-    const psCommand = `Start-Process -FilePath \"${psExe}\" -ArgumentList '${argList}' -Verb RunAs -WindowStyle Normal -Wait`;
-
-    const child = spawn(psExe, ['-Command', psCommand], { windowsHide: false });
-    let stderrData = '';
-
-    child.stderr.on('data', (buf) => { stderrData += buf.toString(); });
-
-    child.on('error', (err) => {
-      resolve({ success: false, error: 'Failed to launch PowerShell: ' + err.message });
-    });
-
-    child.on('exit', (code) => {
-      if (code === 0) {
-        resolve({ success: true, message: 'Debloat script executed successfully. A restart may be required.' });
+  try {
+    const sparkleModule = require('./sparkle');
+    
+    debug('info', '🔍 Checking for Sparkle...');
+    
+    // First ensure Sparkle is available
+    const ensureResult = await sparkleModule.ensureSparkle();
+    if (!ensureResult.success) {
+      debug('error', '❌ Failed to ensure Sparkle:', ensureResult.error);
+      return {
+        success: false,
+        error: ensureResult.error || 'Failed to ensure Sparkle is available'
+      };
+    }
+    
+    debug('info', '✅ Sparkle check completed:', ensureResult.message);
+    
+    // If download is needed, return download info to renderer
+    if (ensureResult.needsDownload) {
+      debug('info', '📥 Sparkle needs to be downloaded, returning download info');
+      return {
+        success: true,
+        needsDownload: true,
+        downloadId: ensureResult.id,
+        downloadUrl: ensureResult.url,
+        downloadDest: ensureResult.dest,
+        message: 'Sparkle needs to be downloaded'
+      };
+    }
+    
+    // Get the final executable path
+    let exeToRun = ensureResult.sparkleExePath || sparkleModule.getSparkleExePath();
+    
+    // Verify the executable exists
+    if (!exeToRun || !fs.existsSync(exeToRun)) {
+      debug('error', '❌ Sparkle executable not found at:', exeToRun);
+      
+      // Try to find it in any location
+      const existing = sparkleModule.findExistingSparkle();
+      if (existing) {
+        exeToRun = existing.path;
+        debug('info', '🔍 Found Sparkle at alternative location:', exeToRun);
       } else {
-        const msg = stderrData.trim() || 'Debloat script failed or was cancelled.';
-        resolve({ success: false, error: msg });
+        return {
+          success: false,
+          error: 'Sparkle executable not found after download/verification.',
+          code: 'EXE_NOT_FOUND'
+        };
       }
-    });
-  });
+    }
+    
+    // Verify file size is reasonable
+    try {
+      const stats = fs.statSync(exeToRun);
+      const minSize = 5 * 1024 * 1024; // 5MB minimum
+      if (stats.size < minSize) {
+        debug('warn', `⚠️ Sparkle file seems too small: ${stats.size} bytes`);
+        return {
+          success: false,
+          error: 'Sparkle executable appears to be corrupted or incomplete.',
+          code: 'FILE_CORRUPTED'
+        };
+      }
+      debug('info', `📏 Sparkle file size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+    } catch (err) {
+      debug('error', '❌ Error checking Sparkle file:', err.message);
+      return {
+        success: false,
+        error: 'Cannot access Sparkle executable: ' + err.message,
+        code: 'FILE_ACCESS_ERROR'
+      };
+    }
+
+    debug('info', '🚀 Launching Sparkle Debloat from:', exeToRun);
+
+    // Use shell.openPath for better compatibility on Windows
+    const { shell } = require('electron');
+    
+    try {
+      // Wait for shell.openPath to complete
+      const error = await shell.openPath(exeToRun);
+      
+      if (error) {
+        debug('error', '❌ Failed to launch Sparkle:', error);
+        return {
+          success: false,
+          error: 'Failed to launch Sparkle: ' + error,
+          code: 'LAUNCH_FAILED'
+        };
+      }
+      
+      debug('success', '✅ Sparkle Debloat launched successfully');
+      return {
+        success: true,
+        message: 'Sparkle Debloat launched successfully',
+        exePath: exeToRun
+      };
+    } catch (err) {
+      debug('error', '❌ Error launching Sparkle:', err.message);
+      return {
+        success: false,
+        error: 'Error launching Sparkle: ' + err.message,
+        code: 'LAUNCH_ERROR'
+      };
+    }
+    
+  } catch (err) {
+    debug('error', '❌ Error in runSparkleDebloat:', err);
+    debug('error', err.stack);
+    return { 
+      success: false, 
+      error: err.message,
+      code: 'UNEXPECTED_ERROR' 
+    };
+  }
 }
 
 /**
@@ -365,6 +417,6 @@ module.exports = {
   runDismRepair,
   runTempCleanup,
   restartToBios,
-  runRaphiDebloat,
+  runSparkleDebloat,
   runChrisTitus
 };

@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('api', {
   runSfcScan: () => ipcRenderer.invoke('run-sfc-scan'),
   runDismRepair: () => ipcRenderer.invoke('run-dism-repair'),
   runTempCleanup: () => ipcRenderer.invoke('run-temp-cleanup'),
+  runSparkleDebloat: () => ipcRenderer.invoke('run-sparkle-debloat'),
 
   runActivateScript: () => ipcRenderer.invoke('run-activate-script'),
   runAutologinScript: () => ipcRenderer.invoke('run-autologin-script'),
@@ -83,6 +84,7 @@ contextBridge.exposeInMainWorld('api', {
   runChrisTitus: () => ipcRenderer.invoke('run-christitus'),
   runElevatedWinget: (command) => ipcRenderer.invoke('run-elevated-winget', command),
   ensureSparkle: () => ipcRenderer.invoke('ensure-sparkle'),
+  processDownloadedSparkle: (zipPath) => ipcRenderer.invoke('process-downloaded-sparkle', zipPath),
   runRaphiDebloat: () => ipcRenderer.invoke('run-raphi-debloat'),
 
   loginGoogle: () => ipcRenderer.invoke('login-google'),

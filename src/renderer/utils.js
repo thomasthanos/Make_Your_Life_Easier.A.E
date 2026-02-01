@@ -112,6 +112,9 @@ export function debounce(func, wait = 300, immediate = false) {
  * @returns {string} The directory name
  */
 export function getDirectoryName(filePath) {
+    if (!filePath || typeof filePath !== 'string') {
+        return '';
+    }
     if (filePath.includes('\\')) {
         return filePath.substring(0, filePath.lastIndexOf('\\'));
     }
@@ -125,6 +128,9 @@ export function getDirectoryName(filePath) {
  * @returns {string} The base name
  */
 export function getBaseName(filePath, ext = '') {
+    if (!filePath || typeof filePath !== 'string') {
+        return '';
+    }
     let fileName;
     if (filePath.includes('\\')) {
         fileName = filePath.substring(filePath.lastIndexOf('\\') + 1);

@@ -697,6 +697,10 @@ function setupSparkleHandlers(sparkleModule) {
     ipcMain.handle('ensure-sparkle', async () => {
         return sparkleModule.ensureSparkle();
     });
+    
+    ipcMain.handle('process-downloaded-sparkle', async (event, zipPath) => {
+        return sparkleModule.processDownloadedSparkle(zipPath);
+    });
 }
 
 /**
@@ -704,8 +708,8 @@ function setupSparkleHandlers(sparkleModule) {
  * @param {Object} systemTools - System tools module
  */
 function setupSystemToolsHandlers(systemTools) {
-    ipcMain.handle('run-raphi-debloat', async () => {
-        return systemTools.runRaphiDebloat();
+    ipcMain.handle('run-sparkle-debloat', async () => {
+        return systemTools.runSparkleDebloat();
     });
 
     ipcMain.handle('run-sfc-scan', async () => {
