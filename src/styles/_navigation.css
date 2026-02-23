@@ -147,9 +147,10 @@
   box-shadow: 0 10px 28px rgba(0, 0, 0, .35);
 }
 
+/* NOTE: button.active is intentionally excluded here so its own distinct style (solid bg, dark text)
+   is not overridden by the glass hover effect. */
 #menu-list button:hover,
-#menu-list button:focus-visible,
-#menu-list button.active {
+#menu-list button:focus-visible {
   background: var(--glass-bg-hover) !important;
   border-top: 1px solid var(--glass-border-top-hover) !important;
   border-left: 1px solid var(--glass-border-left-hover) !important;

@@ -534,11 +534,12 @@ export function showUpdateOverlay(initialStatus) {
 
         updateOverlay._progressCircle = progress;
         updateOverlay._percentEl = percentText;
+        updateOverlay._statusEl = statusText;
+        document.body.appendChild(updateOverlay);
+        // BUGFIX: getElementById calls MUST happen after appendChild so elements exist in DOM
         updateOverlay._downloadedEl = document.getElementById('update-downloaded');
         updateOverlay._speedEl = document.getElementById('update-speed');
         updateOverlay._etaEl = document.getElementById('update-eta');
-        updateOverlay._statusEl = statusText;
-        document.body.appendChild(updateOverlay);
     }
 
     updateOverlay.classList.add('visible');
