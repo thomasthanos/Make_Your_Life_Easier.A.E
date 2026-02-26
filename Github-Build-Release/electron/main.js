@@ -21,8 +21,11 @@ function getBuildCommand(projectPath, overrideCommand) {
         const pkg = JSON.parse(pkgRaw);
         const scripts = pkg.scripts || {};
 
+        // Priority: build-all > release > build
         if (scripts['build-all']) {
             buildCommand = 'npm run build-all';
+        } else if (scripts['release']) {
+            buildCommand = 'npm run release';
         } else if (scripts.build) {
             buildCommand = 'npm run build';
         }
@@ -319,16 +322,23 @@ ipcMain.handle('create-release', async (event, { path: projectPath, version, tit
                 // Step 3: Upload artifacts
                 mainWindow.webContents.send('build-log', `\n📦 Step 3/3: Uploading build artifacts...\n`);
 
+                // Check both dist/ and release/ folders (electron-builder may use either)
                 const distPath = path.join(projectPath, 'dist');
+                const releasePath = path.join(projectPath, 'release');
+                const artifactPath = fs.existsSync(releasePath) ? releasePath
+                    : fs.existsSync(distPath) ? distPath
+                    : null;
 
-                if (!fs.existsSync(distPath)) {
-                    mainWindow.webContents.send('build-log', `\n⚠️ No dist folder found. Skipping artifact upload.\n`);
+                if (!artifactPath) {
+                    mainWindow.webContents.send('build-log', `\n⚠️ No dist or release folder found. Skipping artifact upload.\n`);
                     resolve({ success: true, output: stdout });
                     return;
                 }
 
+                mainWindow.webContents.send('build-log', `\n📁 Artifacts folder: ${path.basename(artifactPath)}\n`);
+
                 // Find all relevant files to upload
-                const files = fs.readdirSync(distPath);
+                const files = fs.readdirSync(artifactPath);
                 const artifactFiles = files.filter(f => {
                     const lower = f.toLowerCase();
                     if (lower === 'builder-debug.yml') return false;
@@ -353,7 +363,7 @@ ipcMain.handle('create-release', async (event, { path: projectPath, version, tit
                 // Upload files with proper Promise handling to avoid race conditions
                 const uploadPromises = artifactFiles.map((file) => {
                     return new Promise((uploadResolve) => {
-                        const filePath = path.join(distPath, file);
+                        const filePath = path.join(artifactPath, file);
                         // Use execFile to prevent command injection
                         execFile('gh', ['release', 'upload', version, filePath], { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
                             if (error) {

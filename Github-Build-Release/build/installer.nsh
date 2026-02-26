@@ -14,7 +14,7 @@
 
 !macro customInit
   ; Set default install directory
-  StrCpy $INSTDIR "$PROGRAMFILES64\ThomasThanos\Github Builder"
+  StrCpy $INSTDIR "$LOCALAPPDATA\ThomasThanos\Github Builder"
 
   ; NOTE: don't attempt to kill running app instances here — this runs before elevation
   ; The actual kill happens during install (see customInstall) where we have proper permissions.

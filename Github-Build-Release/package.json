@@ -53,12 +53,12 @@
       "target": "nsis",
       "artifactName": "${productName}.${ext}",
       "icon": "src/public/build.ico",
-      "requestedExecutionLevel": "requireAdministrator"
+      "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "perMachine": true,
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
+      "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "GitHub Release Manager",
