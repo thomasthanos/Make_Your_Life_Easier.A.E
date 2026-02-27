@@ -264,133 +264,132 @@ function fetchReleasesAndTags(projectPath, repoUrl, resolve) {
 // CREATE RELEASE WITH BUILD & UPLOAD
 ipcMain.handle('create-release', async (event, { path: projectPath, version, title, notes, buildCommand }) => {
     return new Promise((resolve) => {
-        // Step 1: Build the project
-        mainWindow.webContents.send('build-log', `\n🔨 Step 1/3: Building project...\n`);
 
+        // Step 1: Resolve build command
         const resolvedBuildCommand = getBuildCommand(projectPath, buildCommand);
-
         if (!resolvedBuildCommand) {
             resolve({ success: false, error: 'No build script found in package.json and no custom command provided.' });
             return;
         }
 
-        const buildProcess = exec(resolvedBuildCommand, { cwd: projectPath });
+        mainWindow.webContents.send('build-log', `\n🔨 Step 1/3: Building project...\n`);
 
-        buildProcess.stdout.on('data', (data) => {
-            mainWindow.webContents.send('build-log', data);
-        });
+        // Get GH_TOKEN from gh CLI so electron-builder can auto-publish
+        exec('gh auth token', { env: baseEnv }, (tokenErr, tokenStdout) => {
+            const ghToken = tokenErr ? null : tokenStdout.trim();
+            const buildEnv = ghToken ? { ...baseEnv, GH_TOKEN: ghToken } : baseEnv;
 
-        buildProcess.stderr.on('data', (data) => {
-            mainWindow.webContents.send('build-log', `[BUILD] ${data}`);
-        });
-
-        buildProcess.on('close', (buildCode) => {
-            if (buildCode !== 0) {
-                mainWindow.webContents.send('build-log', `\n❌ Build failed with code ${buildCode}\n`);
-                resolve({ success: false, error: `Build failed with exit code ${buildCode}` });
-                return;
+            if (ghToken) {
+                mainWindow.webContents.send('build-log', `\n🔑 GH_TOKEN injected from gh CLI\n`);
+            } else {
+                mainWindow.webContents.send('build-log', `\n⚠️ Could not get GH_TOKEN — publish may fail\n`);
             }
 
-            mainWindow.webContents.send('build-log', `\n✅ Build completed successfully!\n`);
+            const buildProcess = exec(resolvedBuildCommand, { cwd: projectPath, env: buildEnv });
+            buildProcess.stdout.on('data', (data) => mainWindow.webContents.send('build-log', data));
+            buildProcess.stderr.on('data', (data) => mainWindow.webContents.send('build-log', `[BUILD] ${data}`));
 
-            // Step 2: Create GitHub release
-            mainWindow.webContents.send('build-log', `\n🚀 Step 2/3: Creating GitHub release ${version}...\n`);
-
-            const notesFilePath = path.join(os.tmpdir(), `release-notes-${Date.now()}.md`);
-
-            try {
-                fs.writeFileSync(notesFilePath, notes, 'utf-8');
-            } catch (writeErr) {
-                resolve({ success: false, error: `Failed to write release notes: ${writeErr.message}` });
-                return;
-            }
-
-            // Use execFile with array args to prevent command injection
-            const ghArgs = ['release', 'create', version, '--title', title, '--notes-file', notesFilePath];
-
-            execFile('gh', ghArgs, { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
-                fs.unlink(notesFilePath, () => { });
-
-                if (error) {
-                    mainWindow.webContents.send('build-log', `\n❌ Failed to create release: ${stderr}\n`);
-                    resolve({ success: false, error: stderr });
+            buildProcess.on('close', (buildCode) => {
+                if (buildCode !== 0) {
+                    mainWindow.webContents.send('build-log', `\n❌ Build failed with code ${buildCode}\n`);
+                    resolve({ success: false, error: `Build failed with exit code ${buildCode}` });
                     return;
                 }
 
-                mainWindow.webContents.send('build-log', `\n✅ Release created successfully!\n`);
+                mainWindow.webContents.send('build-log', `\n✅ Build completed successfully!\n`);
 
-                // Step 3: Upload artifacts
-                mainWindow.webContents.send('build-log', `\n📦 Step 3/3: Uploading build artifacts...\n`);
+                // Step 2: Create GitHub release
+                mainWindow.webContents.send('build-log', `\n🚀 Step 2/3: Creating GitHub release ${version}...\n`);
 
-                // Check both dist/ and release/ folders (electron-builder may use either)
-                const distPath = path.join(projectPath, 'dist');
-                const releasePath = path.join(projectPath, 'release');
-                const artifactPath = fs.existsSync(releasePath) ? releasePath
-                    : fs.existsSync(distPath) ? distPath
-                    : null;
-
-                if (!artifactPath) {
-                    mainWindow.webContents.send('build-log', `\n⚠️ No dist or release folder found. Skipping artifact upload.\n`);
-                    resolve({ success: true, output: stdout });
+                const notesFilePath = path.join(os.tmpdir(), `release-notes-${Date.now()}.md`);
+                try {
+                    fs.writeFileSync(notesFilePath, notes, 'utf-8');
+                } catch (writeErr) {
+                    resolve({ success: false, error: `Failed to write release notes: ${writeErr.message}` });
                     return;
                 }
 
-                mainWindow.webContents.send('build-log', `\n📁 Artifacts folder: ${path.basename(artifactPath)}\n`);
+                const ghArgs = ['release', 'create', version, '--title', title, '--notes-file', notesFilePath];
+                execFile('gh', ghArgs, { cwd: projectPath, env: buildEnv }, (error, stdout, stderr) => {
+                    fs.unlink(notesFilePath, () => {});
 
-                // Find all relevant files to upload
-                const files = fs.readdirSync(artifactPath);
-                const artifactFiles = files.filter(f => {
-                    const lower = f.toLowerCase();
-                    if (lower === 'builder-debug.yml') return false;
+                    if (error) {
+                        mainWindow.webContents.send('build-log', `\n❌ Failed to create release: ${stderr}\n`);
+                        resolve({ success: false, error: stderr });
+                        return;
+                    }
 
-                    return (
-                        lower.endsWith('.exe') ||
-                        lower.endsWith('.yml') ||
-                        lower.endsWith('.blockmap') ||
-                        lower.endsWith('.dmg') ||
-                        lower.endsWith('.appimage')
-                    );
-                });
+                    mainWindow.webContents.send('build-log', `\n✅ Release created successfully!\n`);
 
-                if (artifactFiles.length === 0) {
-                    mainWindow.webContents.send('build-log', `\n⚠️ No artifacts found to upload.\n`);
-                    resolve({ success: true, output: stdout });
-                    return;
-                }
+                    // Step 3: Upload artifacts
+                    mainWindow.webContents.send('build-log', `\n📦 Step 3/3: Uploading build artifacts...\n`);
 
-                mainWindow.webContents.send('build-log', `\nFound ${artifactFiles.length} files to upload:\n${artifactFiles.map(f => `  - ${f}`).join('\n')}\n`);
+                    const distPath = path.join(projectPath, 'dist');
+                    const releasePath = path.join(projectPath, 'release');
+                    const artifactPath = fs.existsSync(releasePath) ? releasePath
+                        : fs.existsSync(distPath) ? distPath
+                        : null;
 
-                // Upload files with proper Promise handling to avoid race conditions
-                const uploadPromises = artifactFiles.map((file) => {
-                    return new Promise((uploadResolve) => {
-                        const filePath = path.join(artifactPath, file);
-                        // Use execFile to prevent command injection
-                        execFile('gh', ['release', 'upload', version, filePath], { cwd: projectPath, env: baseEnv }, (error, stdout, stderr) => {
-                            if (error) {
-                                mainWindow.webContents.send('build-log', `\n❌ Failed to upload ${file}\n`);
-                                uploadResolve({ success: false, file, error: stderr });
-                            } else {
-                                mainWindow.webContents.send('build-log', `\n✅ Uploaded ${file}\n`);
-                                uploadResolve({ success: true, file });
-                            }
+                    if (!artifactPath) {
+                        mainWindow.webContents.send('build-log', `\n⚠️ No dist or release folder found. Skipping artifact upload.\n`);
+                        resolve({ success: true, output: stdout });
+                        return;
+                    }
+
+                    mainWindow.webContents.send('build-log', `\n📁 Artifacts folder: ${path.basename(artifactPath)}\n`);
+
+                    const files = fs.readdirSync(artifactPath);
+                    const artifactFiles = files.filter(f => {
+                        const lower = f.toLowerCase();
+                        if (lower === 'builder-debug.yml') return false;
+                        return (
+                            lower.endsWith('.exe') ||
+                            lower.endsWith('.yml') ||
+                            lower.endsWith('.blockmap') ||
+                            lower.endsWith('.dmg') ||
+                            lower.endsWith('.appimage')
+                        );
+                    });
+
+                    if (artifactFiles.length === 0) {
+                        mainWindow.webContents.send('build-log', `\n⚠️ No artifacts found to upload.\n`);
+                        resolve({ success: true, output: stdout });
+                        return;
+                    }
+
+                    mainWindow.webContents.send('build-log', `\nFound ${artifactFiles.length} files to upload:\n${artifactFiles.map(f => `  - ${f}`).join('\n')}\n`);
+
+                    const uploadPromises = artifactFiles.map((file) => {
+                        return new Promise((uploadResolve) => {
+                            const filePath = path.join(artifactPath, file);
+                            execFile('gh', ['release', 'upload', version, filePath], { cwd: projectPath, env: buildEnv }, (err, _stdout, stderr) => {
+                                if (err) {
+                                    mainWindow.webContents.send('build-log', `\n❌ Failed to upload ${file}\n`);
+                                    uploadResolve({ success: false, file, error: stderr });
+                                } else {
+                                    mainWindow.webContents.send('build-log', `\n✅ Uploaded ${file}\n`);
+                                    uploadResolve({ success: true, file });
+                                }
+                            });
                         });
                     });
-                });
 
-                Promise.allSettled(uploadPromises).then((results) => {
-                    const uploadErrors = results
-                        .filter(r => r.status === 'fulfilled' && !r.value.success)
-                        .map(r => `${r.value.file}: ${r.value.error}`);
+                    Promise.allSettled(uploadPromises).then((results) => {
+                        const uploadErrors = results
+                            .filter(r => r.status === 'fulfilled' && !r.value.success)
+                            .map(r => `${r.value.file}: ${r.value.error}`);
 
-                    if (uploadErrors.length > 0) {
-                        mainWindow.webContents.send('build-log', `\n⚠️ Some uploads failed:\n${uploadErrors.join('\n')}\n`);
-                    } else {
-                        mainWindow.webContents.send('build-log', `\n🎉 All artifacts uploaded successfully!\n`);
-                    }
-                    resolve({
-                        success: uploadErrors.length === 0,
-                        output: stdout,
-                        partialSuccess: uploadErrors.length < artifactFiles.length
+                        if (uploadErrors.length > 0) {
+                            mainWindow.webContents.send('build-log', `\n⚠️ Some uploads failed:\n${uploadErrors.join('\n')}\n`);
+                        } else {
+                            mainWindow.webContents.send('build-log', `\n🎉 All artifacts uploaded successfully!\n`);
+                        }
+
+                        resolve({
+                            success: uploadErrors.length === 0,
+                            output: stdout,
+                            partialSuccess: uploadErrors.length < artifactFiles.length
+                        });
                     });
                 });
             });
