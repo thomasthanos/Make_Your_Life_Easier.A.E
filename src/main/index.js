@@ -8,6 +8,11 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
+// Set userData path to AppData\Roaming\ThomasThanos\MakeYourLifeEasier
+// Must be done before any module imports that call app.getPath('userData')
+const _roamingBase = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+app.setPath('userData', path.join(_roamingBase, 'ThomasThanos', 'MakeYourLifeEasier'));
+
 // ============================================================================
 // Module Imports
 // ============================================================================

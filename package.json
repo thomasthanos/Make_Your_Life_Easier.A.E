@@ -1,18 +1,15 @@
 {
   "name": "make-your-life-easier",
-  "version": "3.7.3",
+  "version": "3.7.4",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "homepage": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E",
   "main": "src/main/index.js",
   "scripts": {
-    "start": "electron . --no-updater",
-    "build-portable": "electron-builder --win portable",
-    "build-installer": "electron-builder --win nsis",
-    "build-all": "npm run build-portable && npm run build-installer",
-    "postinstall": "electron-builder install-app-deps",
-    "publish": "electron-builder --publish=always",
-    "release": "npm run build-all && npm run publish"
+    "dev": "cls && electron . --no-updater",
+    "build-all": "cls && electron-builder --win portable && electron-builder --win nsis",
+    "release": "cls && electron-builder --win portable && electron-builder --win nsis && electron-builder --publish=always",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",

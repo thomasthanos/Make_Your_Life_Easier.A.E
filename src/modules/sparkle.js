@@ -18,7 +18,7 @@ const SPARKLE_DOWNLOAD_URL = 'https://www.dropbox.com/scl/fi/fopw6fk8ke087ux9uwi
  */
 function getSparkleDir() {
   const userRoaming = path.join(os.homedir(), 'AppData', 'Roaming');
-  return path.join(userRoaming, 'make-your-life-easier', 'sparkle');
+  return path.join(userRoaming, 'ThomasThanos', 'MakeYourLifeEasier', 'sparkle');
 }
 
 /**
@@ -35,7 +35,7 @@ function getSparkleExePath() {
  */
 function getSparkleZipPath() {
   const userRoaming = path.join(os.homedir(), 'AppData', 'Roaming');
-  const baseDir = path.join(userRoaming, 'make-your-life-easier');
+  const baseDir = path.join(userRoaming, 'ThomasThanos', 'MakeYourLifeEasier');
   return path.join(baseDir, 'sparkle.zip');
 }
 
