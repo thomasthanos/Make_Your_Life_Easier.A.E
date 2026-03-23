@@ -6,12 +6,15 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { clientFor, http, https } = require('./http-utils');
+const { clientFor } = require('./http-utils');
 const { sanitizeFilename, extFromUrl, removeFileIfExistsSync, cleanupExtractDirs } = require('./file-utils');
 
 const activeDownloads = new Map();
 const downloadedFiles = [];
 const extractedDirs = [];
+
+const STALL_TIMEOUT_MS = 30000;
+const STALL_CHECK_INTERVAL_MS = 5000;
 
 // Maximum items to track (prevent unbounded growth)
 const MAX_TRACKED_ITEMS = 50;
@@ -114,13 +117,13 @@ function startDownload(id, url, dest, mainWindow) {
         }
       };
       
-      // Set up stall detection (no data for 30 seconds = stalled)
+      // Set up stall detection
       d.stallInterval = setInterval(() => {
         const now = Date.now();
-        if (d.lastProgress && now - d.lastProgress > 30000) {
-          cleanup('Download stalled - no data received for 30 seconds');
+        if (d.lastProgress && now - d.lastProgress > STALL_TIMEOUT_MS) {
+          cleanup(`Download stalled - no data received for ${STALL_TIMEOUT_MS / 1000} seconds`);
         }
-      }, 5000);
+      }, STALL_CHECK_INTERVAL_MS);
 
       res.on('data', (chunk) => {
         if (d.paused) return;
@@ -287,39 +290,6 @@ function cleanupOnQuit(debug) {
   extractedDirs.length = 0;
 }
 
-/**
- * Remove entries for files that no longer exist
- * Call this periodically or before adding new entries
- */
-function pruneNonExistentPaths() {
-  // Clean downloadedFiles
-  for (let i = downloadedFiles.length - 1; i >= 0; i--) {
-    if (!fs.existsSync(downloadedFiles[i])) {
-      downloadedFiles.splice(i, 1);
-    }
-  }
-
-  // Clean extractedDirs
-  for (let i = extractedDirs.length - 1; i >= 0; i--) {
-    if (!fs.existsSync(extractedDirs[i])) {
-      extractedDirs.splice(i, 1);
-    }
-  }
-}
-
-/**
- * Get list of downloaded files
- */
-function getDownloadedFiles() {
-  return downloadedFiles;
-}
-
-/**
- * Get list of extracted directories
- */
-function getExtractedDirs() {
-  return extractedDirs;
-}
 
 module.exports = {
   startDownload,
@@ -328,8 +298,5 @@ module.exports = {
   cancelDownload,
   cleanupOnQuit,
   trackExtractedDir,
-  trackDownloadedFile,      // ✅ Export new function
-  pruneNonExistentPaths,    // ✅ Export new function
-  getDownloadedFiles,
-  getExtractedDirs
+  trackDownloadedFile
 };

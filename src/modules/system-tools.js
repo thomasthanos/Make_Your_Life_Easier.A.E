@@ -317,9 +317,9 @@ async function runSparkleDebloat() {
       debug('error', '❌ Sparkle executable not found at:', exeToRun);
       
       // Try to find it in any location
-      const existing = sparkleModule.findExistingSparkle();
-      if (existing) {
-        exeToRun = existing.path;
+      const available = sparkleModule.isSparkleAvailable();
+      if (available) {
+        exeToRun = sparkleModule.getSparkleExePath();
         debug('info', '🔍 Found Sparkle at alternative location:', exeToRun);
       } else {
         return {

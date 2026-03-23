@@ -16,8 +16,7 @@ import {
     getAppVersionWithFallback,
     svgDataUrl,
     autoFadeStatus,
-    createModernButton,
-    createCard
+    createModernButton
 } from './utils.js';
 
 // Managers
@@ -77,10 +76,6 @@ import {
 
 // Core
 import {
-    getCurrentPage,
-    getSettings,
-    getButtonStateManager,
-    getPageEventManager,
     renderMenu,
     loadPage,
     init,
@@ -166,23 +161,8 @@ async function initializeApp() {
     try {
         debug('info', 'Starting modular renderer initialization...');
 
-        // Initialize the core application
+        // Initialize the core application (handles auto-updater, changelog, sidebar version internally)
         await init();
-
-        // Initialize auto-updater if available
-        if (typeof initializeAutoUpdater === 'function') {
-            initializeAutoUpdater();
-        }
-
-        // Check for changelog to show
-        if (typeof checkForChangelog === 'function') {
-            await checkForChangelog();
-        }
-
-        // Ensure sidebar version is displayed
-        if (typeof ensureSidebarVersion === 'function') {
-            ensureSidebarVersion();
-        }
 
         debug('info', 'Modular renderer initialization complete');
 
@@ -223,7 +203,6 @@ export {
     svgDataUrl,
     autoFadeStatus,
     createModernButton,
-    createCard,
 
     // Managers
     ButtonStateManager,
@@ -274,10 +253,6 @@ export {
     CUSTOM_APPS,
 
     // Core
-    getCurrentPage,
-    getSettings,
-    getButtonStateManager,
-    getPageEventManager,
     renderMenu,
     loadPage,
     init,

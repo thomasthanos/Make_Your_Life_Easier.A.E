@@ -52,20 +52,6 @@
   background: rgba(245, 158, 11, 0.1);
 }
 
-.spc-status {
-  margin-top: .75rem;
-}
-
-.progress-container {
-  margin-top: 0.25rem;
-  transition: margin-top 0.3s ease;
-}
-
-.controls {
-  margin-top: 0.125rem;
-  gap: 0.125rem;
-}
-
 .status-success {
   color: var(--success-color);
 }

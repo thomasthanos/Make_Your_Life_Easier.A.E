@@ -16,7 +16,6 @@ let updateDownloaded = false;
 let retryCount = 0;
 const MAX_RETRIES = 3;
 let downloadStartTime = null;
-let lastBytesReceived = 0;
 
 // Update info paths
 const updateInfoPrimaryPath = path.join(app.getPath('userData'), 'update-info.json');
@@ -314,7 +313,6 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
         sendUpdateStatus(updateWindow, statusPayload);
         sendUpdateStatus(mainWindow, statusPayload);
         
-        lastBytesReceived = bytesReceived;
     });
 
     autoUpdater.on('update-downloaded', (info) => {
@@ -410,7 +408,6 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
         
         // Reset download tracking
         downloadStartTime = null;
-        lastBytesReceived = 0;
 
         const updateWindow = getUpdateWindow();
         const mainWindow = getMainWindow();
@@ -720,7 +717,6 @@ function getUpdateState() {
 function cancelUpdate() {
     try {
         downloadStartTime = null;
-        lastBytesReceived = 0;
         retryCount = 0;
         return true;
     } catch (err) {
@@ -737,7 +733,6 @@ function resetUpdateState() {
     updateDownloaded = false;
     retryCount = 0;
     downloadStartTime = null;
-    lastBytesReceived = 0;
 }
 
 /**

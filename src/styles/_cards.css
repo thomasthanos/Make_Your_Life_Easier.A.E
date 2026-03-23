@@ -20,19 +20,7 @@
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
 }
 
-.card h2 {
-  margin-top: 0;
-  margin-bottom: 1.25rem;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-color);
-  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.card > h2, .settings-title {
+.card > h2 {
   display: none !important;
 }
 
@@ -214,16 +202,6 @@
   line-height: 1.5;
 }
 
-.app-card.spc {
-  padding: 1.25rem;
-}
-
-.app-card .spc-desc {
-  opacity: .85;
-  line-height: 1.5;
-  margin: .25rem 0 .75rem;
-}
-
 .app-header {
   display: flex;
   align-items: center;
@@ -370,10 +348,3 @@ table tr:hover td {
   background: var(--sidebar-hover);
 }
 
-#pwTable {
-  margin-top: 2rem;
-}
-
-#pwTable th {
-  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-color-light) 100%);
-}

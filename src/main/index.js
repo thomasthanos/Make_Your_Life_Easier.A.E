@@ -219,14 +219,15 @@ if (!gotTheLock) {
 function cleanupStaleLockFiles() {
     try {
         const userDataPath = app.getPath('userData');
-        const lockFilePath = path.join(userDataPath, 'SingletonLock');
-        const cookieLockPath = path.join(userDataPath, 'Cookies-lock');
-        
-        // These locks are typically removed by Electron on proper shutdown
-        // But if app crashed, they might be left behind
-        // We can safely ignore them since we have the single instance lock
-        
-        debug('info', '🧹 Cleaned up stale lock files (if any)');
+        const lockFiles = ['SingletonLock', 'Cookies-lock'];
+
+        for (const lockFile of lockFiles) {
+            const lockPath = path.join(userDataPath, lockFile);
+            if (fs.existsSync(lockPath)) {
+                fs.unlinkSync(lockPath);
+                debug('info', `🧹 Removed stale lock file: ${lockFile}`);
+            }
+        }
     } catch (err) {
         debug('warn', 'Failed to cleanup lock files:', err.message);
     }

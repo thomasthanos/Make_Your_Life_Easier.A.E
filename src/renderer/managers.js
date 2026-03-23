@@ -233,20 +233,6 @@ export const tooltipManager = (() => {
             if (!tooltipEl) {
                 tooltipEl = document.createElement('div');
                 tooltipEl.className = 'custom-tooltip';
-                const style = tooltipEl.style;
-                style.position = 'fixed';
-                style.zIndex = '10000';
-                style.pointerEvents = 'none';
-                style.background = 'rgba(30, 30, 30, 0.94)';
-                style.color = '#fff';
-                style.padding = '6px 10px';
-                style.borderRadius = '8px';
-                style.fontSize = '12px';
-                style.lineHeight = '1.2';
-                style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
-                style.opacity = '0';
-                style.transform = 'translateZ(0)';
-                style.transition = 'opacity 0.15s ease-in-out';
                 document.body.appendChild(tooltipEl);
             }
         }

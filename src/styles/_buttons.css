@@ -323,130 +323,19 @@
   color: #364256;
 }
 
-/* Extra specificity to ensure light theme colors apply (html/body data-theme) */
-html[data-theme="light"] .bulk-action-btn,
-body[data-theme="light"] .bulk-action-btn {
-  color: #4b5563;
-  background: linear-gradient(180deg, #f8fafc 0%, #edf1f7 100%);
-  border: 1px solid #d6dde8;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-html[data-theme="light"] .bulk-action-btn:hover,
-body[data-theme="light"] .bulk-action-btn:hover {
-  background: linear-gradient(180deg, #f1f5f9 0%, #e6ebf3 100%);
-  border-color: #c8d2e2;
-  color: #3b4452;
-}
-
-html[data-theme="light"] .bulk-install,
-body[data-theme="light"] .bulk-install {
-  color: #1f7a46;
-  background: linear-gradient(180deg, #e8f7ef 0%, #d7efdf 100%);
-  border: 1px solid #b6e3c8;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 2px 6px rgba(0, 0, 0, 0.07);
-}
-html[data-theme="light"] .bulk-install:hover,
-body[data-theme="light"] .bulk-install:hover {
-  background: linear-gradient(180deg, #e0f2e7 0%, #cde6d8 100%);
-  border-color: #a6d9bc;
-  color: #165c35;
-}
-
-html[data-theme="light"] .bulk-uninstall,
-body[data-theme="light"] .bulk-uninstall {
-  color: #a13c3c;
-  background: linear-gradient(180deg, #fceaea 0%, #f6dede 100%);
-  border: 1px solid #eec7c7;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 2px 6px rgba(0, 0, 0, 0.07);
-}
-html[data-theme="light"] .bulk-uninstall:hover,
-body[data-theme="light"] .bulk-uninstall:hover {
-  background: linear-gradient(180deg, #f7dede 0%, #f1d0d0 100%);
-  border-color: #e3b3b3;
-  color: #8a2f2f;
-}
-
-html[data-theme="light"] .bulk-check-installed,
-body[data-theme="light"] .bulk-check-installed {
-  color: #4b5563;
-  background: linear-gradient(180deg, #f4f6fa 0%, #e9edf4 100%);
-  border: 1px solid #d4dbe8;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-html[data-theme="light"] .bulk-check-installed:hover,
-body[data-theme="light"] .bulk-check-installed:hover {
-  background: linear-gradient(180deg, #edf1f8 0%, #e1e7f2 100%);
-  border-color: #c5cee0;
-  color: #3c4554;
-}
-
-html[data-theme="light"] .bulk-uncheck-all,
-body[data-theme="light"] .bulk-uncheck-all {
-  color: #c2410c;
-  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
-  border: 1px solid #fed7aa;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-html[data-theme="light"] .bulk-uncheck-all:hover,
-body[data-theme="light"] .bulk-uncheck-all:hover {
-  background: linear-gradient(180deg, #ffedd5 0%, #fed7aa 100%);
-  border-color: #fdba74;
-  color: #9a3412;
-}
-
-html[data-theme="light"] .bulk-export,
-body[data-theme="light"] .bulk-export {
-  color: #4b5563;
-  background: linear-gradient(180deg, #f4f6fa 0%, #e9edf4 100%);
-  border: 1px solid #d4dbe8;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-html[data-theme="light"] .bulk-export:hover,
-body[data-theme="light"] .bulk-export:hover {
-  background: linear-gradient(180deg, #edf1f8 0%, #e1e7f2 100%);
-  border-color: #c5cee0;
-  color: #3c4554;
-}
-
-html[data-theme="light"] .bulk-import,
-body[data-theme="light"] .bulk-import {
-  color: #42526a;
-  background: linear-gradient(180deg, #e8eef6 0%, #dde4ef 100%);
-  border: 1px solid #c2cee0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-html[data-theme="light"] .bulk-import:hover,
-body[data-theme="light"] .bulk-import:hover {
-  background: linear-gradient(180deg, #e2e9f3 0%, #d7dfec 100%);
-  border-color: #b3c0d4;
-  color: #364256;
-}
-
 /* Light theme disabled for regular (non-bulk) buttons */
-html[data-theme="light"] .button:disabled,
-html[data-theme="light"] .button-secondary:disabled,
-html[data-theme="light"] .button-danger:disabled,
-html[data-theme="light"] .button.success:disabled,
-html[data-theme="light"] .button.error:disabled,
-html[data-theme="light"] .bios-restart-btn:disabled,
-html[data-theme="light"] .action-btn:disabled,
-html[data-theme="light"] .btn-install:disabled,
-html[data-theme="light"] .btn-uninstall:disabled,
-html[data-theme="light"] .btn-export:disabled,
-html[data-theme="light"] .btn-import:disabled,
-html[data-theme="light"] .activator-button-fixed:disabled,
-body[data-theme="light"] .button:disabled,
-body[data-theme="light"] .button-secondary:disabled,
-body[data-theme="light"] .button-danger:disabled,
-body[data-theme="light"] .button.success:disabled,
-body[data-theme="light"] .button.error:disabled,
-body[data-theme="light"] .bios-restart-btn:disabled,
-body[data-theme="light"] .action-btn:disabled,
-body[data-theme="light"] .btn-install:disabled,
-body[data-theme="light"] .btn-uninstall:disabled,
-body[data-theme="light"] .btn-export:disabled,
-body[data-theme="light"] .btn-import:disabled,
-body[data-theme="light"] .activator-button-fixed:disabled {
+[data-theme="light"] .button:disabled,
+[data-theme="light"] .button-secondary:disabled,
+[data-theme="light"] .button-danger:disabled,
+[data-theme="light"] .button.success:disabled,
+[data-theme="light"] .button.error:disabled,
+[data-theme="light"] .bios-restart-btn:disabled,
+[data-theme="light"] .action-btn:disabled,
+[data-theme="light"] .btn-install:disabled,
+[data-theme="light"] .btn-uninstall:disabled,
+[data-theme="light"] .btn-export:disabled,
+[data-theme="light"] .btn-import:disabled,
+[data-theme="light"] .activator-button-fixed:disabled {
   opacity: 0.9;
   color: #6b7280;
   background: linear-gradient(180deg, #f7f9fc 0%, #eef2f7 100%);
@@ -455,61 +344,9 @@ body[data-theme="light"] .activator-button-fixed:disabled {
   filter: grayscale(0%);
 }
 
-html[data-theme="light"] .bulk-action-btn:disabled,
-body[data-theme="light"] .bulk-action-btn:disabled,
-html[data-theme="light"] .bulk-install:disabled,
-body[data-theme="light"] .bulk-install:disabled,
-html[data-theme="light"] .bulk-uninstall:disabled,
-body[data-theme="light"] .bulk-uninstall:disabled,
-html[data-theme="light"] .bulk-export:disabled,
-body[data-theme="light"] .bulk-export:disabled,
-html[data-theme="light"] .bulk-import:disabled,
-body[data-theme="light"] .bulk-import:disabled {
-  opacity: 0.92;
-  filter: grayscale(0%);
-}
+/* Light theme disabled states are defined below after dark theme states */
 
-html[data-theme="light"] .bulk-action-btn:disabled,
-body[data-theme="light"] .bulk-action-btn:disabled {
-  color: #637086;
-  background: linear-gradient(180deg, #f8fafc 0%, #edf1f7 100%);
-  border: 1px solid #d6dde8;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-html[data-theme="light"] .bulk-install:disabled,
-body[data-theme="light"] .bulk-install:disabled {
-  color: #2b6e47;
-  background: linear-gradient(180deg, #e8f7ef 0%, #d7efdf 100%);
-  border: 1px solid #b6e3c8;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-html[data-theme="light"] .bulk-uninstall:disabled,
-body[data-theme="light"] .bulk-uninstall:disabled {
-  color: #a13c3c;
-  background: linear-gradient(180deg, #fceaea 0%, #f6dede 100%);
-  border: 1px solid #eec7c7;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-html[data-theme="light"] .bulk-export:disabled,
-body[data-theme="light"] .bulk-export:disabled {
-  color: #4b5563;
-  background: linear-gradient(180deg, #f4f6fa 0%, #e9edf4 100%);
-  border: 1px solid #d4dbe8;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-html[data-theme="light"] .bulk-import:disabled,
-body[data-theme="light"] .bulk-import:disabled {
-  color: #42526a;
-  background: linear-gradient(180deg, #e8eef6 0%, #dde4ef 100%);
-  border: 1px solid #c2cee0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-/* Disabled state for bulk actions */
+/* Disabled state for bulk actions (shared structural props) */
 .bulk-action-btn:disabled,
 .bulk-install:disabled,
 .bulk-uninstall:disabled,
@@ -520,9 +357,6 @@ body[data-theme="light"] .bulk-import:disabled {
   pointer-events: none;
   filter: grayscale(25%);
   box-shadow: none;
-  color: #b7c2d3;
-  background: rgba(148, 163, 184, 0.1);
-  border-color: rgba(148, 163, 184, 0.35);
 }
 
 .bulk-action-btn:disabled {
@@ -633,10 +467,7 @@ body[data-theme="light"] .bulk-import:disabled {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
-.download-replace-btn {
-  white-space: nowrap;
-  font-size: 0.9rem;
-}
+/* .download-replace-btn styles consolidated in _renderer-styles.css */
   
   .action-btn svg {
     width: 16px;
@@ -842,52 +673,14 @@ body[data-theme="light"] .bulk-import:disabled {
   border-bottom-color: #047857 !important;
 }
 
-/* Dark Mode */
+/* Dark mode - only override shadow depth */
 [data-theme="dark"] .activate-btn {
-  background: #059669;
-  border-bottom-color: #047857;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-[data-theme="dark"] .activate-btn:hover:not(:disabled) {
-  background: #10b981;
-  border-bottom-color: #059669;
-}
-
-[data-theme="dark"] .activate-btn.success {
-  background: #10b981;
-  border-bottom-color: #059669;
-}
-
-[data-theme="dark"] .activate-btn.error {
-  background: #dc2626;
-  border-bottom-color: #b91c1c;
-}
-
-/* Light Mode */
+/* Light mode - only override shadow depth */
 [data-theme="light"] .activate-btn {
-  background: #059669;
-  border-bottom-color: #047857;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="light"] .activate-btn:hover:not(:disabled) {
-  background: #10b981;
-  border-bottom-color: #059669;
-}
-
-[data-theme="light"] .activate-btn:active:not(:disabled) {
-  margin-top: 2px;
-}
-
-[data-theme="light"] .activate-btn.success {
-  background: #10b981;
-  border-bottom-color: #059669;
-}
-
-[data-theme="light"] .activate-btn.error {
-  background: #dc2626;
-  border-bottom-color: #b91c1c;
 }
 
 /* Container */

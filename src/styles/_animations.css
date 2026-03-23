@@ -90,39 +90,7 @@
   }
 }
 
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 
-      0 8px 20px rgba(59, 130, 246, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  }
-  50% {
-    box-shadow: 
-      0 8px 25px rgba(59, 130, 246, 0.6),
-      inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  }
-}
-
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes clipboard-check {
-  0% {
-    d: path("M4 12.5L8.5 17L20 5.5");
-  }
-  50% {
-    d: path("M4 12.5L8.5 17L20 5.5");
-  }
-  100% {
-    d: path("M4 12.5L8.5 17L20 5.5");
-  }
-}
+/* rotate is an alias for spin - use spin instead */
 
 /* ============================================
    ACCESSIBILITY & REDUCED MOTION

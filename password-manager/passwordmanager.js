@@ -34,7 +34,6 @@ class PasswordManager {
 
         this.eventsInitialized = false;
         this.isDataLoaded = false;
-        this.svgCopy = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
         this.svgEye = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon"><path fill="currentColor" d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`;
         this.svgEyeOff = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" class="svg-icon"><path fill="currentColor" d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7 7 0 0 0-2.79.588l.77.771A6 6 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755q-.247.248-.517.486z"/><path fill="currentColor" d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829"/><path fill="currentColor" d="M3.35 5.47q-.27.24-.518.487A13 13 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7 7 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12z"/></svg>`;
 
@@ -226,15 +225,6 @@ class PasswordManager {
                 this.closeCategoriesModal();
             }
         });
-    }
-
-    createCompactToggle() {
-        const toggle = document.createElement('button');
-        toggle.className = 'compact-toggle';
-        toggle.addEventListener('click', () => this.toggleCompactMode());
-        document.body.appendChild(toggle);
-        const manager = document.querySelector('.password-manager');
-        this.updateCompactToggleUI(toggle, manager);
     }
 
     toggleCompactMode() {
@@ -1527,20 +1517,9 @@ class PasswordManager {
         }
     }
 
-    isValidUrl(string) {
-        try {
-            new URL(string);
-            return true;
-        } catch (_) {
-            return false;
-        }
-    }
-
     editPassword(passwordId) {
         this.openPasswordModal(passwordId);
     }
-
-    isAscii(str) { return /^[\x00-\x7F]*$/.test(str); }
 
     isValidEmailUnicode(value) {
         if (!value) return true;
@@ -1870,20 +1849,6 @@ class PasswordManager {
             }
         } catch (error) {
             this.showError(this.t('delete_category_error') + error.message);
-        }
-    }
-
-    promptAddCategoryInline() {
-        const plusBtn = document.getElementById('addCategoryInline');
-        const wrapper = document.getElementById('inlineCategoryInputWrapper');
-        const nameInput = document.getElementById('inlineCategoryName');
-        if (plusBtn && wrapper) {
-            plusBtn.classList.add('hidden');
-            wrapper.classList.remove('hidden');
-            if (nameInput) {
-                nameInput.value = '';
-                nameInput.focus();
-            }
         }
     }
 

@@ -3,8 +3,7 @@
  * Contains Windows Activation and Auto Login functionality
  */
 
-import { debug } from '../utils.js';
-import { buttonStateManager, trackProcess, completeProcess } from '../managers.js';
+import { buttonStateManager } from '../managers.js';
 import { toast } from '../components.js';
 
 // ============================================
@@ -312,4 +311,3 @@ export async function buildActivateAutologinPage(translations, settings) {
     return container;
 }
 
-export { downloadAndRunActivate, downloadAndRunAutologin };

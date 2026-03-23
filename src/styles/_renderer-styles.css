@@ -40,47 +40,6 @@
 }
 
 /* ============================================
-   UPDATE OVERLAY
-   ============================================ */
-.update-overlay-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.update-overlay-svg {
-  width: 120px;
-  height: 120px;
-  transform: rotate(-90deg);
-}
-
-.update-status {
-  margin-top: 20px;
-  color: #ffffff;
-  font-size: 18px;
-  text-align: center;
-}
-
-.update-overlay.visible {
-  display: flex;
-}
-
-.update-overlay.hidden {
-  display: none;
-}
-
-/* ============================================
-   LOADER
-   ============================================ */
-.loader.visible {
-  display: flex;
-}
-
-.loader.hidden {
-  display: none;
-}
-
-/* ============================================
    IFRAME
    ============================================ */
 .content-iframe {
@@ -113,10 +72,6 @@
   overflow: hidden;
 }
 
-.btn-hidden {
-  display: none;
-}
-
 .btn-full-width {
   margin-top: auto;
   width: 100%;
@@ -139,10 +94,6 @@
 
 .btn-opacity-low {
   opacity: 0.7;
-}
-
-.btn-opacity-full {
-  opacity: 1;
 }
 
 /* ============================================
@@ -351,6 +302,8 @@
   width: auto;
   padding: 0.5rem 0.75rem;
   display: none;
+  white-space: nowrap;
+  font-size: 0.9rem;
 }
 
 .download-replace-btn.visible {
@@ -500,25 +453,10 @@
   margin: 0;
 }
 
-/* ============================================
-   APP LIST ITEM
-   ============================================ */
-.app-list-item {
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
-  border-radius: 8px;
-  padding: 0.6rem;
-  background: var(--card-bg);
-  box-shadow: 0 -2px -4px rgba(0, 0, 0, 0.781);
-}
+/* APP LIST ITEM - styles defined in _cards.css */
 
 .app-list-item.hidden {
   display: none;
-}
-
-.app-checkbox {
-  margin-right: 1rem;
 }
 
 .app-favicon {
@@ -578,18 +516,6 @@
    CATEGORY GROUP VISIBILITY
    ============================================ */
 .category-group.hidden {
-  display: none;
-}
-
-/* ============================================
-   ACTIVATOR BUTTON FADE
-   ============================================ */
-.activator-btn-fade {
-  transition: opacity 0.5s ease;
-  opacity: 0;
-}
-
-.activator-btn-hidden {
   display: none;
 }
 

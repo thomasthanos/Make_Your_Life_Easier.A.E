@@ -9,6 +9,8 @@ const os = require('os');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
+const DB_TIMEOUT_MS = 10000;
+
 /**
  * Setup window control IPC handlers
  * @param {Function} getMainWindow - Function to get main window
@@ -99,9 +101,6 @@ function setupWindowHandlers(getMainWindow) {
                 if (Number.isNaN(wTarget) || Number.isNaN(hTarget)) {
                     return resolve(false);
                 }
-                
-                // Instant resize with content update
-                const bounds = mainWindow.getBounds();
                 
                 // Set new size immediately without animation
                 mainWindow.setSize(wTarget, hTarget, false);
@@ -959,7 +958,7 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
                 if (finished) return;
                 finished = true;
                 resolve({ success: false, error: 'Database timeout' });
-            }, 10000);
+            }, DB_TIMEOUT_MS);
 
             db.getCategories((err, rows) => {
                 if (finished) return;
@@ -1022,7 +1021,7 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
                 if (finished) return;
                 finished = true;
                 resolve({ success: false, error: 'Database timeout' });
-            }, 10000);
+            }, DB_TIMEOUT_MS);
 
             db.getPasswordsByCategory(categoryId, (err, rows) => {
                 if (finished) return;
@@ -1059,7 +1058,7 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
                 if (finished) return;
                 finished = true;
                 resolve({ success: false, error: 'Database timeout' });
-            }, 10000);
+            }, DB_TIMEOUT_MS);
 
             db.addPassword(passwordData, function (err) {
                 if (finished) return;

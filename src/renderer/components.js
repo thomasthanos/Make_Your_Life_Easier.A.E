@@ -4,8 +4,11 @@
  */
 
 import { escapeHtml } from './utils.js';
-import { attachTooltipHandlers, tooltipManager } from './managers.js';
+import { attachTooltipHandlers } from './managers.js';
 import { resizeWindowSmooth } from './services.js';
+
+// Default window dimensions (must match window-manager.js MAIN_WINDOW)
+const DEFAULT_WINDOW_SIZE = { width: 1100, height: 750 };
 
 // ============================================
 // ICON DEFINITIONS
@@ -664,19 +667,19 @@ export async function openInfoModal() {
             if (Array.isArray(size) && size.length >= 2) {
                 previousWindowSize = { width: size[0], height: size[1] };
             } else {
-                previousWindowSize = { width: 1100, height: 750 };
+                previousWindowSize = { ...DEFAULT_WINDOW_SIZE };
             }
         } else {
             // Fallback: assume current size based on window dimensions
             previousWindowSize = { width: window.outerWidth, height: window.outerHeight };
         }
     } catch {
-        previousWindowSize = { width: 1100, height: 750 };
+        previousWindowSize = { ...DEFAULT_WINDOW_SIZE };
     }
     
     // Resize window to 1400px width for better info modal display
     const targetWidth = 1400;
-    const targetHeight = 750;
+    const targetHeight = DEFAULT_WINDOW_SIZE.height;
     
     try {
         if (typeof resizeWindowSmooth === 'function') {

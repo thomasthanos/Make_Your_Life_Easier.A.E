@@ -1,6 +1,5 @@
 const translations = {
   en: {
-    menuHint: 'Title bar menu: theme toggle, language toggle, info panel.',
     nav: {
       menu: 'Menu',
       install: 'Install',
@@ -254,7 +253,6 @@ const translations = {
     }
   },
   gr: {
-    menuHint: 'Μενού στη γραμμή τίτλου: αλλαγή θέματος, γλώσσας, info panel.',
     nav: {
       menu: 'Μενού',
       install: 'Εγκατάσταση',

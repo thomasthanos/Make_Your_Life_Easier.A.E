@@ -70,10 +70,6 @@
   background-clip: text;
 }
 
-.app-title .title-rest {
-  color: var(--text-color);
-}
-
 .sidebar-header .app-subtitle {
   font-size: 0.8rem;
   text-transform: none;
@@ -83,22 +79,7 @@
   font-weight: 400;
 }
 
-.app-title {
-  font-size: 1.4rem;
-  font-weight: 700;
-  letter-spacing: normal;
-  text-transform: none;
-  line-height: 1.2;
-  margin: 0;
-  color: var(--text-color);
-  background: none;
-  -webkit-background-clip: initial;
-  -webkit-text-fill-color: initial;
-  background-clip: initial;
-  text-shadow: none;
-  text-align: left;
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-}
+/* .app-title is only used inside .sidebar-header, which has its own styles above */
 
 .app-subtitle {
   font-size: 0.9rem;
@@ -185,7 +166,7 @@
 .version-badge:hover .badge-lines:after,
 .version-badge:hover .badge-lines:before {
   display: block;
-  animation: rotate 3s ease-in-out;
+  animation: spin 3s ease-in-out;
 }
 
 .sidebar-header .version-wrap {

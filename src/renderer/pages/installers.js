@@ -5,7 +5,7 @@
 
 import { debug, escapeHtml, debounce, getDirectoryName, getBaseName, getExtractedFolderPath, autoFadeStatus, createModernButton } from '../utils.js';
 import { buttonStateManager, trackProcess, completeProcess } from '../managers.js';
-import { toast, showErrorCard } from '../components.js';
+import { toast } from '../components.js';
 import { CUSTOM_APPS } from '../services.js';
 
 // ============================================
@@ -359,43 +359,6 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
 }
 
 
-async function retryCleanup(filePath, maxRetries = 3) {
-    const fs = window.api.fs;
-    const path = window.api.path;
-    
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            // Έλεγξε αν το αρχείο υπάρχει
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-                console.log(`File deleted successfully on attempt ${i + 1}`);
-                
-                // Προσπάθησε να διαγράψεις και τον φάκελο αν είναι άδειος
-                const dir = path.dirname(filePath);
-                try {
-                    const files = fs.readdirSync(dir);
-                    if (files.length === 0) {
-                        fs.rmdirSync(dir);
-                        console.log('Empty directory deleted');
-                    }
-                } catch (dirErr) {
-                    // Μην ενοχλείς αν δεν μπορείς να διαγράψεις τον φάκελο
-                    console.log('Could not delete directory:', dirErr.message);
-                }
-            }
-            return; // Επιτυχία
-        } catch (error) {
-            if (error.code === 'EBUSY' && i < maxRetries - 1) {
-                // Περίμενε πριν από το επόμενο retry
-                const delay = (i + 1) * 1000; // 1, 2, 3 δευτερόλεπτα
-                console.log(`File busy, retrying in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            } else {
-                throw error; // Ρίξε το error αν δεν είναι EBUSY ή τελείωσαν τα retries
-            }
-        }
-    }
-}
 // Parse winget list output to extract installed package IDs
 function parseWingetListOutput(output) {
     const lines = output.split('\n');
@@ -510,18 +473,12 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     const actionsWrapper = document.createElement('div');
     actionsWrapper.classList.add('actions-wrapper');
 
-    function makeButton(text, color) {
+    function makeButton(text, { danger = false } = {}) {
         const btn = document.createElement('button');
         btn.className = 'action-btn';
         btn.textContent = text;
-        if (color) {
-            const c = String(color).toLowerCase();
-            if (c === '#dc2626' || c === 'dc2626') {
-                btn.classList.add('danger');
-            } else {
-                btn.style.backgroundColor = color;
-                btn.style.borderColor = color;
-            }
+        if (danger) {
+            btn.classList.add('danger');
         }
         return btn;
     }
@@ -541,12 +498,12 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     const uncheckAllIcon = `<svg class="action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6m0-6l-6 6"/></svg>`;
 
-    const installBtn = makeButton(installText, '');
-    const uninstallBtn = makeButton(uninstallText, '#dc2626');
-    const exportBtn = makeButton(exportText, '');
-    const importBtn = makeButton(importText, '');
-    const checkInstalledBtn = makeButton(checkInstalledText, '');
-    const uncheckAllBtn = makeButton(uncheckAllText, '');
+    const installBtn = makeButton(installText);
+    const uninstallBtn = makeButton(uninstallText, { danger: true });
+    const exportBtn = makeButton(exportText);
+    const importBtn = makeButton(importText);
+    const checkInstalledBtn = makeButton(checkInstalledText);
+    const uncheckAllBtn = makeButton(uncheckAllText);
 
     installBtn.innerHTML = `${installIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(installText)}</span>`;
     uninstallBtn.innerHTML = `${uninstallIcon}<span class="btn-label" style="margin-left: 0.5rem;">${escapeHtml(uninstallText)}</span>`;

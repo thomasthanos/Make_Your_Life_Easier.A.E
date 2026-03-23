@@ -5,11 +5,11 @@
  */
 (function () {
     try {
-        const storedTheme = localStorage.getItem('myle-theme');
-        if (storedTheme) {
-            document.documentElement.setAttribute('data-theme', storedTheme);
+        const saved = JSON.parse(localStorage.getItem('myAppSettings'));
+        if (saved && saved.theme) {
+            document.documentElement.setAttribute('data-theme', saved.theme);
         }
     } catch (_) {
-        // localStorage may not be available, use default theme
+        // localStorage may not be available or parse error, use default theme
     }
 })();

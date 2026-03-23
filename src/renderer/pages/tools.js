@@ -4,7 +4,7 @@
  * CSS classes match original renderer.js structure
  */
 
-import { debug, escapeHtml, autoFadeStatus } from '../utils.js';
+import { escapeHtml, autoFadeStatus } from '../utils.js';
 import { buttonStateManager } from '../managers.js';
 import { toast } from '../components.js';
 

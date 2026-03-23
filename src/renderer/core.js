@@ -8,8 +8,13 @@ import { ButtonStateManager, EventListenerManager, attachTooltipHandlers, button
 import { SUN_ICON, MOON_ICON, INFO_ICON, MENU_ICON, MENU_ICONS, toast, openInfoModal, createMenuButton } from './components.js';
 import {
     loadSettings, saveSettings, applyTheme, loadTranslations, getTranslations, setTranslations,
-    resizeWindowSmooth, initializeAutoUpdater, ensureSidebarVersion, checkForChangelog
+    initializeAutoUpdater, ensureSidebarVersion, checkForChangelog
 } from './services.js';
+
+// Default window dimensions (must match window-manager.js MAIN_WINDOW)
+const DEFAULT_WINDOW_WIDTH = 1100;
+const INSTALL_PAGE_WIDTH = 1400;
+const DEFAULT_WINDOW_HEIGHT = 750;
 
 // ============================================
 // APPLICATION STATE
@@ -37,26 +42,6 @@ const menuKeys = [
     'debloat',
     'dlc_unlocker'
 ];
-
-// ============================================
-// GETTERS
-// ============================================
-
-export function getCurrentPage() {
-    return currentPage;
-}
-
-export function getSettings() {
-    return settings;
-}
-
-export function getButtonStateManager() {
-    return buttonStateManager;
-}
-
-export function getPageEventManager() {
-    return pageEventManager;
-}
 
 // ============================================
 // HEADER UPDATE
@@ -451,8 +436,8 @@ export async function init() {
                 // Determine target size for the default page so main can size the window before showing it
                 const defaultKey = defaultButton?.dataset?.key;
                 const isInstallDefault = defaultKey === 'install_apps';
-                const targetWidthDefault = isInstallDefault ? 1400 : 1100;
-                const targetHeightDefault = 750;
+                const targetWidthDefault = isInstallDefault ? INSTALL_PAGE_WIDTH : DEFAULT_WINDOW_WIDTH;
+                const targetHeightDefault = DEFAULT_WINDOW_HEIGHT;
                 await window.api.signalAppReady(targetWidthDefault, targetHeightDefault);
                 debug('info', 'Signaled app ready to main process');
             } catch (err) {

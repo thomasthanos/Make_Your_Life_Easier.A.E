@@ -4,7 +4,7 @@
  * CSS classes match original renderer.js structure
  */
 
-import { debug, escapeHtml, createModernButton } from '../utils.js';
+import { escapeHtml, createModernButton } from '../utils.js';
 import { buttonStateManager } from '../managers.js';
 import { toast, showNotification } from '../components.js';
 
