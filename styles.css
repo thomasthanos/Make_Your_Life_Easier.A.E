@@ -493,7 +493,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem 1.25rem;
+  padding: 1.25rem;
   border-bottom: none;
   position: relative;
   overflow: visible;
@@ -4382,7 +4382,7 @@ select:focus-visible {
 .feature-item::before {
   content: '';
   position: absolute;
-  inset: 0 0 auto 0;
+  inset: 0 0 auto;
   height: 2px;
   opacity: 0.6;
   background: linear-gradient(90deg,
