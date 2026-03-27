@@ -10,17 +10,16 @@ const translations = {
       spicetify: 'Spicetify',
       passwords: 'Passwords',
       titus: 'Titus',
-      debloat: 'Debloat',
-      dlc: 'DLC'
+      debloat: 'Debloat'
     },
     sections: {
       'section-menu': {
         title: 'Title Bar Menu',
         whatTitle: 'What does it do?',
-        whatDesc: 'Quick access to theme toggle, language switch, and this info panel.',
+        whatDesc: 'Quick access to language switch and this info panel.',
         features: `
           <ul>
-            <li>🎨 Toggle Light/Dark theme</li>
+            <li>🎨 Dark mode interface</li>
             <li>🌍 Switch language (EN/GR)</li>
             <li>ℹ️ Open the info/help panel</li>
           </ul>
@@ -28,7 +27,7 @@ const translations = {
         howTitle: 'How to use it?',
         steps: [
           'Open the title bar menu',
-          'Choose theme or language',
+          'Choose language',
           'Click ℹ️ to reopen this panel anytime'
         ],
         warning: ''
@@ -232,24 +231,6 @@ const translations = {
         ],
         warning: '⚠️ Create/keep a restore point before heavy changes.'
       },
-      'section-dlc': {
-        title: 'DLC Unlocker / Patch',
-        whatTitle: 'What does it do?',
-        whatDesc: 'Compact DLC helper; patch flow for unlockers.',
-        features: `
-          <ul>
-            <li>🎮 Sims / EA unlocker patch flow</li>
-            <li>📦 Compact steps, fewer prompts</li>
-          </ul>
-        `,
-        howTitle: 'How to use it?',
-        steps: [
-          'Pick unlocker/patch',
-          'Run it and follow prompts',
-          'Restart the game to load DLC'
-        ],
-        warning: '⚠️ Base game required; AV may flag unlockers.'
-      },
     }
   },
   gr: {
@@ -263,8 +244,7 @@ const translations = {
       spicetify: 'Spicetify',
       passwords: 'Κωδικοί',
       titus: 'Titus',
-      debloat: 'Αφαίρεση',
-      dlc: 'DLC'
+      debloat: 'Αφαίρεση'
     },
     sections: {
       'section-menu': {
@@ -273,7 +253,7 @@ const translations = {
         whatDesc: 'Γρήγορη πρόσβαση σε αλλαγή θέματος, γλώσσας και το info panel.',
         features: `
           <ul>
-            <li>🎨 Εναλλαγή Light/Dark</li>
+            <li>🎨 Εναλλαγή Dark mode</li>
             <li>🌍 Αλλαγή γλώσσας (EN/GR)</li>
             <li>ℹ️ Άνοιγμα του info/help panel</li>
           </ul>
@@ -484,24 +464,6 @@ const translations = {
           'Κάνε restart αν ζητηθεί'
         ],
         warning: '⚠️ Κράτα restore point πριν από βαριές αλλαγές.'
-      },
-      'section-dlc': {
-        title: 'DLC Unlocker / Patch',
-        whatTitle: 'Τι κάνει;',
-        whatDesc: 'Συμπαγής ροή για unlocker/patch.',
-        features: `
-          <ul>
-            <li>🎮 Sims / EA unlocker με patch flow</li>
-            <li>📦 Λιγότερα βήματα, καθαρό UI</li>
-          </ul>
-        `,
-        howTitle: 'Οδηγίες Χρήσης',
-        steps: [
-          'Διάλεξε unlocker/patch',
-          'Τρέξε το και ακολούθησε τις οδηγίες',
-          'Κάνε restart το παιχνίδι'
-        ],
-        warning: '⚠️ Απαιτείται το βασικό παιχνίδι, πιθανό AV flag.'
       },
     }
   }

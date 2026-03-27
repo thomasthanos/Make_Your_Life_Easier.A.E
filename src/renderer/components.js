@@ -14,8 +14,6 @@ const DEFAULT_WINDOW_SIZE = { width: 1100, height: 750 };
 // ICON DEFINITIONS
 // ============================================
 
-export const SUN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
-export const MOON_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path></svg>`;
 export const INFO_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="11" y="10" width="2" height="10"/><rect x="11" y="6" width="2" height="2"/></svg>`;
 export const MENU_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="6" width="16" height="2"/><rect x="4" y="11" width="16" height="2"/><rect x="4" y="16" width="16" height="2"/></svg>`;
 
@@ -32,7 +30,6 @@ export const MENU_ICONS = {
     spicetify: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-music"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`,
     password_manager: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-lock"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
     christitus: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-terminal"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" x2="20" y1="19" y2="19"></line></svg>`,
-    dlc_unlocker: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-gamepad2"><line x1="6" x2="10" y1="11" y2="11"></line><line x1="8" x2="8" y1="9" y2="13"></line><line x1="15" x2="15.01" y1="12" y2="12"></line><line x1="18" x2="18.01" y1="10" y2="10"></line><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"></path></svg>`,
     bios: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-computer"><rect width="14" height="8" x="5" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><path d="M6 18h2"></path><path d="M12 18h6"></path></svg>`,
     debloat: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-broom"><path d="m13 11 9-9"></path><path d="M14.6 12.6c.8.8.9 2.1.2 3L10 22l-8-8 6.4-4.8c.9-.7 2.2-.6 3 .2z"></path><path d="m6.8 10.4 6.8 6.8"></path><path d="m5 17 1.4-1.4"></path></svg>`
 };
@@ -217,8 +214,9 @@ export function showErrorCard(msg, opts = {}) {
         currentErrorCard.copyBtn.onclick = () => {
             try {
                 const text = currentErrorCard.bodyEl.innerText.replace(/\n+$/g, '');
-                navigator.clipboard.writeText(text);
-                toast('All error messages copied to clipboard!', { type: 'success', title: 'Clipboard' });
+                navigator.clipboard.writeText(text)
+                    .then(() => toast('All error messages copied to clipboard!', { type: 'success', title: 'Clipboard' }))
+                    .catch(() => toast('Failed to copy', { type: 'error', title: 'Clipboard' }));
             } catch (e) {
                 toast('Failed to copy', { type: 'error', title: 'Clipboard' });
             }
@@ -330,8 +328,9 @@ export function showErrorCard(msg, opts = {}) {
     copyBtn.onclick = () => {
         try {
             const text = card.bodyEl.innerText.replace(/\n+$/g, '');
-            navigator.clipboard.writeText(text);
-            toast('Error message copied to clipboard!', { type: 'success', title: 'Clipboard' });
+            navigator.clipboard.writeText(text)
+                .then(() => toast('Error message copied to clipboard!', { type: 'success', title: 'Clipboard' }))
+                .catch(() => toast('Failed to copy', { type: 'error', title: 'Clipboard' }));
         } catch (e) {
             toast('Failed to copy', { type: 'error', title: 'Clipboard' });
         }
@@ -394,19 +393,7 @@ export function showUpdateOverlay(initialStatus) {
     if (!updateOverlay) {
         updateOverlay = document.createElement('div');
         updateOverlay.id = 'update-overlay';
-        Object.assign(updateOverlay.style, {
-            position: 'fixed',
-            top: '0',
-            left: '0',
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(8px)',
-            zIndex: '100000'
-        });
+        updateOverlay.classList.add('visible');
 
         const container = document.createElement('div');
         container.className = 'update-overlay-container';
@@ -623,6 +610,12 @@ export function showAppLoader(statusText) {
         statusEl.textContent = statusText;
     }
 
+    // Clear any existing interval to prevent leaks from double-show
+    if (appLoaderInterval) {
+        clearInterval(appLoaderInterval);
+        appLoaderInterval = null;
+    }
+
     let progress = 0;
     appLoaderInterval = setInterval(() => {
         progress = (progress + 1) % 101;
@@ -683,9 +676,9 @@ export async function openInfoModal() {
     
     try {
         if (typeof resizeWindowSmooth === 'function') {
-            await resizeWindowSmooth(targetWidth, targetHeight, 220);
+            await resizeWindowSmooth(targetWidth, targetHeight);
         } else if (window.api && typeof window.api.setWindowSize === 'function') {
-            window.api.setWindowSize(targetWidth, targetHeight);
+            await window.api.setWindowSize(targetWidth, targetHeight);
             await new Promise(resolve => setTimeout(resolve, 150));
         }
     } catch {
@@ -713,17 +706,23 @@ export async function openInfoModal() {
     
     // Watch for overlay removal to restore window size
     const observer = new MutationObserver((mutations) => {
+        // Fallback: check if overlay was removed from DOM by any means
+        if (!document.contains(overlay)) {
+            observer.disconnect();
+            restoreWindowSize().catch(() => {});
+            return;
+        }
         for (const mutation of mutations) {
             for (const removedNode of mutation.removedNodes) {
                 if (removedNode === overlay || removedNode.id === 'info-modal-overlay') {
                     observer.disconnect();
-                    restoreWindowSize();
+                    restoreWindowSize().catch(() => {});
                     return;
                 }
             }
         }
     });
-    
+
     observer.observe(document.body, { childList: true });
 }
 

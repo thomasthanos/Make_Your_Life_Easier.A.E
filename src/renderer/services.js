@@ -3,7 +3,7 @@
  * Contains business logic for downloads, updates, and settings
  */
 
-import { debug, getAppVersionWithFallback, normalizeVersion, normalizeVersionTag, escapeHtml } from './utils.js';
+import { debug, getAppVersionWithFallback, normalizeVersion, normalizeVersionTag } from './utils.js';
 import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay } from './components.js';
 import { attachTooltipHandlers } from './managers.js';
 
@@ -12,8 +12,7 @@ import { attachTooltipHandlers } from './managers.js';
 // ============================================
 
 const defaultSettings = {
-    lang: 'en',
-    theme: 'dark'
+    lang: 'en'
 };
 
 /**
@@ -23,7 +22,9 @@ const defaultSettings = {
 export function loadSettings() {
     try {
         const saved = JSON.parse(localStorage.getItem('myAppSettings'));
-        return { ...defaultSettings, ...(saved || {}) };
+        const normalized = { ...defaultSettings, ...(saved || {}) };
+        delete normalized.theme;
+        return normalized;
     } catch (e) {
         return { ...defaultSettings };
     }
@@ -34,15 +35,16 @@ export function loadSettings() {
  * @param {Object} settings - Settings object to save
  */
 export function saveSettings(settings) {
-    localStorage.setItem('myAppSettings', JSON.stringify(settings));
+    const normalized = { ...(settings || {}) };
+    delete normalized.theme;
+    localStorage.setItem('myAppSettings', JSON.stringify(normalized));
 }
 
 /**
  * Apply theme to document
- * @param {string} theme - Theme name
  */
-export function applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
+export function applyTheme() {
+    document.documentElement.setAttribute('data-theme', 'dark');
 }
 
 // ============================================
@@ -100,9 +102,8 @@ export function setTranslations(trans) {
  * Smoothly resize the Electron window
  * @param {number} targetWidth - Desired final width in pixels
  * @param {number} targetHeight - Desired final height in pixels
- * @param {number} duration - Animation duration (ignored, uses native animation)
  */
-export async function resizeWindowSmooth(targetWidth, targetHeight, duration = 200) {
+export async function resizeWindowSmooth(targetWidth, targetHeight) {
     try {
         // Simple, direct resize - no animation tricks
         if (window.api && typeof window.api.setWindowSize === 'function') {
@@ -121,7 +122,7 @@ export async function resizeWindowSmooth(targetWidth, targetHeight, duration = 2
  * Initialize the auto-updater functionality
  * @param {Object} callbacks - Optional callbacks for update events
  */
-export function initializeAutoUpdater(_callbacks = {}) {
+export function initializeAutoUpdater() {
     const updateBtn = document.getElementById('title-bar-update');
 
     if (typeof window === 'undefined' || typeof window.api === 'undefined') {
@@ -435,7 +436,7 @@ export function formatReleaseNotes(notes) {
         .replace(/^---$/gm, '<hr>')
         .replace(/^___$/gm, '<hr>')
         .replace(/^\*\*\*$/gm, '<hr>')
-        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%; height:auto;">')
+        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="changelog-img">')
         .replace(/^- \[x\] (.+)$/gm, '<li><input type="checkbox" disabled checked> $1</li>')
         .replace(/^- \[ \] (.+)$/gm, '<li><input type="checkbox" disabled> $1</li>')
         .replace(/\n\n+/g, '</p><p>')
@@ -474,8 +475,6 @@ export async function showChangelog(updateInfo) {
     const closeBtn = document.createElement('button');
     closeBtn.className = 'changelog-close';
     closeBtn.innerHTML = '×';
-    closeBtn.addEventListener('click', () => overlay.remove());
-
     header.appendChild(title);
     header.appendChild(closeBtn);
 
@@ -523,7 +522,6 @@ export async function showChangelog(updateInfo) {
     const okBtn = document.createElement('button');
     okBtn.className = 'changelog-btn';
     okBtn.textContent = 'Got it!';
-    okBtn.addEventListener('click', () => overlay.remove());
 
     footer.appendChild(okBtn);
 
@@ -534,25 +532,30 @@ export async function showChangelog(updateInfo) {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
+    const closeOverlay = () => {
+        overlay.remove();
+        document.removeEventListener('keydown', escHandler);
+    };
+
     const escHandler = (e) => {
-        if (e.key === 'Escape') {
-            overlay.remove();
-            document.removeEventListener('keydown', escHandler);
-        }
+        if (e.key === 'Escape') closeOverlay();
     };
     document.addEventListener('keydown', escHandler);
 
+    closeBtn.addEventListener('click', closeOverlay);
+    okBtn.addEventListener('click', closeOverlay);
     overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
-            overlay.remove();
-        }
+        if (e.target === overlay) closeOverlay();
     });
 }
 
 /**
  * Check for changelog after app update
  */
+let changelogShown = false;
 export async function checkForChangelog() {
+    if (changelogShown) return;
+    changelogShown = true; // Set immediately to prevent re-entry
     try {
         let result;
         if (window.api && typeof window.api.getUpdateInfo === 'function') {
@@ -569,7 +572,14 @@ export async function checkForChangelog() {
 
         const updateInfo = localStorage.getItem('pendingUpdateInfo');
         if (updateInfo) {
-            const info = JSON.parse(updateInfo);
+            let info;
+            try {
+                info = JSON.parse(updateInfo);
+            } catch (parseErr) {
+                console.error('Invalid pendingUpdateInfo in localStorage:', parseErr);
+                localStorage.removeItem('pendingUpdateInfo');
+                return;
+            }
             localStorage.removeItem('pendingUpdateInfo');
             setTimeout(() => showChangelog(info), 1000);
             return;
@@ -578,8 +588,11 @@ export async function checkForChangelog() {
         const fetched = await fetchReleaseNotesFromGithub();
         if (fetched) {
             setTimeout(() => showChangelog(fetched), 1000);
+        } else {
+            changelogShown = false; // No changelog found — allow retry
         }
     } catch (error) {
+        changelogShown = false; // Allow retry on error
         console.error('Error checking changelog:', error);
     }
 }
@@ -613,13 +626,22 @@ export async function ensureSidebarVersion(_state = {}) {
     }
 
     const versionEl = document.getElementById('appVersion');
-    const setSafe = (txt) => { if (versionEl) versionEl.textContent = txt; };
+    const setSafe = (txt) => {
+        // Re-query to avoid stale reference after DOM changes
+        const el = document.getElementById('appVersion');
+        if (el) el.textContent = txt;
+    };
 
     setSafe(await getAppVersionWithFallback());
     setTimeout(async () => {
-        const raw = (versionEl?.textContent || '').trim().replace(/^v/i, '');
-        if (!raw || /^0+(?:\.0+){0,3}$/.test(raw)) {
-            setSafe(await getAppVersionWithFallback());
+        try {
+            const el = document.getElementById('appVersion');
+            const raw = (el?.textContent || '').trim().replace(/^v/i, '');
+            if (!raw || /^0+(?:\.0+){0,3}$/.test(raw)) {
+                setSafe(await getAppVersionWithFallback());
+            }
+        } catch (err) {
+            console.error('Failed to refresh app version:', err);
         }
     }, 800);
 
@@ -633,6 +655,7 @@ export async function ensureSidebarVersion(_state = {}) {
                 userInfoEl._toggleHandler = null;
             }
             const profile = await (window.api?.getUserProfile?.());
+            if (!userInfoEl.isConnected) return;
             userInfoEl.innerHTML = '';
             if (profile && profile.name) {
                 if (profile.avatar) {
@@ -736,11 +759,25 @@ export const CUSTOM_APPS = [
         category: 'Utilities'
     },
     {
-        id: 'Spotify.Dropbox',
+        id: 'Spotify.Official',
         name: 'Spotify',
-        url: 'https://www.dropbox.com/scl/fi/tgfdprtihmfmg0vmje5mw/SpotifySetup.exe?rlkey=55vfvccgpndwys4wvl1gg4u1v&dl=1',
+        url: 'https://download.scdn.co/SpotifySetup.exe',
         ext: 'exe',
-        category: 'Music'
+        category: 'Media'
+    },
+    {
+        id: 'Nvidia.GeForceExperience',
+        name: 'NVIDIA GeForce Experience',
+        url: 'https://us.download.nvidia.com/GFE/GFEClient/3.28.0.417/GeForce_Experience_v3.28.0.417.exe',
+        ext: 'exe',
+        category: 'Hardware'
+    },
+    {
+        id: 'AMD.AdrenalinSoftware',
+        name: 'AMD Graphics Driver',
+        url: 'https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-24.12.1-win10-win11-dec2024-rdna.exe',
+        ext: 'exe',
+        category: 'Hardware'
     },
     {
         id: 'BetterDiscord.Dropbox',

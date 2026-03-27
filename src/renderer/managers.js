@@ -361,7 +361,7 @@ export const processStates = new Map();
 /**
  * Track a process for a card
  * @param {string} cardId - The card identifier
- * @param {string} processType - Type of process (download, replace, dlc)
+ * @param {string} processType - Type of process (download, replace)
  * @param {HTMLButtonElement} button - The button element
  * @param {HTMLElement} statusElement - The status element
  */
@@ -397,6 +397,97 @@ export function completeProcess(cardId, processType, success = true, resetFuncti
 
         processStates.delete(processId);
     }
+}
+
+// ============================================
+// GLOBAL DOWNLOAD STATE STORE
+// ============================================
+
+/**
+ * Persists download state across page switches so progress survives tab changes.
+ * Key: logical identifier (e.g., 'crack-clip_studio_paint', 'custom-appName')
+ * Value: { downloadId, status, percent, path, error, meta, onUpdate }
+ */
+export const downloadStore = new Map();
+
+/**
+ * Register a download in the global store
+ * @param {string} key - Logical key for the download
+ * @param {string} downloadId - The IPC download ID
+ * @param {Object} meta - Extra metadata (appName, url, etc.)
+ */
+export function registerDownload(key, downloadId, meta = {}) {
+    downloadStore.set(key, {
+        downloadId,
+        status: 'pending',
+        percent: 0,
+        path: null,
+        error: null,
+        meta,
+        onUpdate: null // UI callback, attached by page builder
+    });
+}
+
+/**
+ * Attach a UI update callback to an active download (called from page builder)
+ * @param {string} key - Logical key
+ * @param {Function} callback - Called with download event data
+ */
+export function attachDownloadUI(key, callback) {
+    const dl = downloadStore.get(key);
+    if (dl) dl.onUpdate = callback;
+}
+
+/**
+ * Detach all UI callbacks (called before page switch destroys DOM)
+ */
+export function detachAllDownloadUI() {
+    for (const dl of downloadStore.values()) {
+        dl.onUpdate = null;
+    }
+}
+
+/**
+ * Get active download state for a key
+ * @param {string} key - Logical key
+ * @returns {Object|null}
+ */
+export function getActiveDownload(key) {
+    const dl = downloadStore.get(key);
+    if (dl && !['error', 'cancelled'].includes(dl.status)) return dl;
+    return null;
+}
+
+/**
+ * Initialize the persistent download event listener (call once during app init)
+ */
+let downloadListenerInitialized = false;
+export function initDownloadListener() {
+    if (downloadListenerInitialized || !window.api?.onDownloadEvent) return;
+    downloadListenerInitialized = true;
+
+    window.api.onDownloadEvent((data) => {
+        for (const [key, dl] of downloadStore) {
+            if (dl.downloadId === data.id) {
+                dl.status = data.status;
+                if (data.percent != null) dl.percent = data.percent;
+                if (data.path) dl.path = data.path;
+                if (data.error) dl.error = data.error;
+                if (data.total) dl.total = data.total;
+
+                // Forward to UI callback if attached
+                if (dl.onUpdate) {
+                    try { dl.onUpdate(data); } catch { /* DOM may be stale, ignore */ }
+                }
+
+                // Clean up finished downloads from store after a delay
+                if (['error', 'cancelled'].includes(data.status)) {
+                    setTimeout(() => downloadStore.delete(key), 2000);
+                }
+                break;
+            }
+        }
+    });
 }
 
 // Global singleton instances

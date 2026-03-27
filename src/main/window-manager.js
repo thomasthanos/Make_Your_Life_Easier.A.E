@@ -10,7 +10,7 @@ const path = require('path');
 const MAIN_WINDOW = { width: 1100, height: 750, minWidth: 800, minHeight: 600 };
 const UPDATE_WINDOW = { width: 500, height: 350 };
 const PASSWORD_WINDOW = { width: 1600, height: 900 };
-const WINDOW_BG_COLOR = '#0f1117';
+const WINDOW_BG_COLOR = '#171717';
 
 // Window references
 let mainWindow = null;
@@ -107,9 +107,11 @@ function createUpdateWindow(preloadPath, onReady) {
     });
 
     updateWindow.webContents.once('did-finish-load', () => {
-        updateWindow.show();
-        if (onReady) {
-            onReady();
+        if (updateWindow && !updateWindow.isDestroyed()) {
+            updateWindow.show();
+            if (onReady) {
+                onReady();
+            }
         }
     });
 
@@ -127,7 +129,7 @@ function createPasswordManagerWindow(preloadPath, lang = 'en') {
         width: PASSWORD_WINDOW.width,
         height: PASSWORD_WINDOW.height,
         icon: path.join(__dirname, '..', 'assets', 'icons', 'hacker.ico'),
-        parent: mainWindow,
+        parent: mainWindow || undefined,
         frame: false,
         titleBarStyle: 'hidden',
         autoHideMenuBar: true,
@@ -153,10 +155,14 @@ function createPasswordManagerWindow(preloadPath, lang = 'en') {
 function setupWindowStateEvents() {
     if (mainWindow) {
         mainWindow.on('maximize', () => {
-            mainWindow.webContents.send('window-state-changed', { isMaximized: true });
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('window-state-changed', { isMaximized: true });
+            }
         });
         mainWindow.on('unmaximize', () => {
-            mainWindow.webContents.send('window-state-changed', { isMaximized: false });
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('window-state-changed', { isMaximized: false });
+            }
         });
     }
 }

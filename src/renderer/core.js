@@ -4,8 +4,8 @@
  */
 
 import { debug } from './utils.js';
-import { ButtonStateManager, EventListenerManager, attachTooltipHandlers, buttonStateManager } from './managers.js';
-import { SUN_ICON, MOON_ICON, INFO_ICON, MENU_ICON, MENU_ICONS, toast, openInfoModal, createMenuButton } from './components.js';
+import { EventListenerManager, attachTooltipHandlers, buttonStateManager, detachAllDownloadUI, initDownloadListener } from './managers.js';
+import { INFO_ICON, MENU_ICON, MENU_ICONS, toast, openInfoModal, createMenuButton, hideAppLoader } from './components.js';
 import {
     loadSettings, saveSettings, applyTheme, loadTranslations, getTranslations, setTranslations,
     initializeAutoUpdater, ensureSidebarVersion, checkForChangelog
@@ -39,8 +39,7 @@ const menuKeys = [
     'spicetify',
     'password_manager',
     'christitus',
-    'debloat',
-    'dlc_unlocker'
+    'debloat'
 ];
 
 // ============================================
@@ -67,30 +66,6 @@ function updateHeader() {
         subtitleEl.textContent = (translations.app && translations.app.subtitle) || 'System Management Tools';
     }
 
-    const toggleButton = document.getElementById('theme-toggle');
-    if (toggleButton) {
-        const refreshIcon = () => {
-            toggleButton.innerHTML = settings.theme === 'dark' ? MOON_ICON : SUN_ICON;
-        };
-        refreshIcon();
-
-        if (toggleButton._toggleListener) {
-            toggleButton.removeEventListener('click', toggleButton._toggleListener);
-        }
-        const listener = () => {
-            const newTheme = settings.theme === 'dark' ? 'light' : 'dark';
-            settings.theme = newTheme;
-            document.documentElement.setAttribute('data-theme', newTheme);
-            saveSettings(settings);
-            refreshIcon();
-
-            const dropdown = document.getElementById('titlebar-menu-dropdown');
-            if (dropdown) dropdown.classList.add('hidden');
-        };
-        toggleButton._toggleListener = listener;
-        toggleButton.addEventListener('click', listener);
-    }
-
     const langToggle = document.getElementById('lang-toggle');
     if (langToggle) {
         const currentLangCode = (settings.lang === 'gr' || settings.lang === 'en') ? settings.lang.toUpperCase() : 'EN';
@@ -107,7 +82,7 @@ function updateHeader() {
             if (dropdown) dropdown.classList.add('hidden');
             translations = await loadTranslations(newLang);
             setTranslations(translations);
-            applyTheme(settings.theme);
+            applyTheme();
             renderMenu();
             if (typeof currentPage === 'string' && currentPage) {
                 loadPage(currentPage);
@@ -232,10 +207,12 @@ function setHeader(text) {
 }
 
 export async function loadPage(key) {
+    // Detach download UI callbacks before destroying DOM (downloads continue in background)
+    detachAllDownloadUI();
+
     // Cleanup previous page's event listeners and button states
     if (pageEventManager) {
         pageEventManager.cleanup();
-        pageEventManager = new EventListenerManager();
     }
     buttonStateManager.resetAll();
 
@@ -270,7 +247,7 @@ export async function loadPage(key) {
     const { buildInstallPageWingetWithCategories, buildCrackInstallerPage } = await import('./pages/installers.js');
     const { buildActivateAutologinPage } = await import('./pages/activation.js');
     const { buildMaintenancePage, buildDebloatPage, showRestartDialog } = await import('./pages/tools.js');
-    const { buildSpicetifyPage, buildDlcUnlockerPage } = await import('./pages/media.js');
+    const { buildSpicetifyPage } = await import('./pages/media.js');
     const { buildPasswordManagerPage, buildChrisTitusPage } = await import('./pages/utilities.js');
 
     switch (key) {
@@ -346,15 +323,6 @@ export async function loadPage(key) {
             break;
         }
 
-        case 'dlc_unlocker': {
-            const headerText = (translations.pages && (translations.pages.dlc_title || translations.pages.dlc_unlocker_title)) ||
-                (translations.menu && translations.menu.dlc_unlocker) ||
-                'dlc_unlocker';
-            setHeader(headerText);
-            content.appendChild(await buildDlcUnlockerPage(translations, settings, buttonStateManager));
-            break;
-        }
-
         case 'bios': {
             const headerText = (translations.pages && (translations.pages.bios_title)) ||
                 (translations.menu && translations.menu.bios) ||
@@ -384,8 +352,11 @@ export async function init() {
         // Load settings
         settings = loadSettings();
 
+        // Initialize persistent download event listener (survives page switches)
+        initDownloadListener();
+
         // Apply theme
-        applyTheme(settings.theme);
+        applyTheme();
         
         // Report progress: Loading translations
         if (window.api?.updateLoadingProgress) {

@@ -13,8 +13,17 @@ const activeDownloads = new Map();
 const downloadedFiles = [];
 const extractedDirs = [];
 
-const STALL_TIMEOUT_MS = 30000;
+const STALL_TIMEOUT_MS = 120000;
 const STALL_CHECK_INTERVAL_MS = 5000;
+
+/** Safely send event to renderer — no-op if window is destroyed */
+function safeSend(mainWindow, channel, data) {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      mainWindow.webContents.send(channel, data);
+    }
+  } catch { /* window gone, ignore */ }
+}
 
 // Maximum items to track (prevent unbounded growth)
 const MAX_TRACKED_ITEMS = 50;
@@ -31,11 +40,11 @@ function startDownload(id, url, dest, mainWindow) {
   try {
     const parsed = new URL(url);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
-      mainWindow.webContents.send('download-event', { id, status: 'error', error: 'Only http/https URLs are allowed' });
+      safeSend(mainWindow, 'download-event', { id, status: 'error', error: 'Only http/https URLs are allowed' });
       return;
     }
   } catch (err) {
-    mainWindow.webContents.send('download-event', { id, status: 'error', error: 'Invalid URL format' });
+    safeSend(mainWindow, 'download-event', { id, status: 'error', error: 'Invalid URL format' });
     return;
   }
 
@@ -58,7 +67,9 @@ function startDownload(id, url, dest, mainWindow) {
       }
 
       if (res.statusCode !== 200) {
-        mainWindow.webContents.send('download-event', { id, status: 'error', error: `HTTP ${res.statusCode}` });
+        res.resume(); // Drain response to free resources
+        activeDownloads.delete(id);
+        safeSend(mainWindow, 'download-event', { id, status: 'error', error: `HTTP ${res.statusCode}` });
         return;
       }
 
@@ -92,12 +103,14 @@ function startDownload(id, url, dest, mainWindow) {
 
       const total = parseInt(res.headers['content-length'] || '0', 10);
       const file = fs.createWriteStream(tempPath);
-      const d = { response: res, file, total, received: 0, paused: false, filePath: tempPath, finalPath, lastProgress: Date.now() };
+      const d = { response: res, file, total, received: 0, paused: false, filePath: tempPath, finalPath, lastProgress: Date.now(), cleaned: false };
       activeDownloads.set(id, d);
 
-      mainWindow.webContents.send('download-event', { id, status: 'started', total });
+      safeSend(mainWindow, 'download-event', { id, status: 'started', total });
 
       const cleanup = (errMsg) => {
+        if (d.cleaned) return; // prevent double-cleanup / race with finish
+        d.cleaned = true;
         // Clear stall detection interval
         if (d.stallInterval) clearInterval(d.stallInterval);
         // Stop piping first to prevent further writes
@@ -113,7 +126,7 @@ function startDownload(id, url, dest, mainWindow) {
         try { fs.unlink(tempPath, () => { }); } catch { }
         activeDownloads.delete(id);
         if (errMsg) {
-          mainWindow.webContents.send('download-event', { id, status: 'error', error: errMsg });
+          safeSend(mainWindow, 'download-event', { id, status: 'error', error: errMsg });
         }
       };
       
@@ -129,10 +142,8 @@ function startDownload(id, url, dest, mainWindow) {
         if (d.paused) return;
         d.received += chunk.length;
         d.lastProgress = Date.now(); // Update last progress timestamp
-        if (total) {
-          const percent = Math.round((d.received / total) * 100);
-          mainWindow.webContents.send('download-event', { id, status: 'progress', percent, received: d.received, total });
-        }
+        const percent = total > 0 ? Math.round((d.received / total) * 100) : null;
+        safeSend(mainWindow, 'download-event', { id, status: 'progress', percent, received: d.received, total });
       });
 
       res.on('error', (err) => cleanup(err.message));
@@ -140,30 +151,44 @@ function startDownload(id, url, dest, mainWindow) {
       res.pipe(file);
 
       file.once('finish', () => {
+        if (d.cleaned) return; // cleanup() already ran (stall/cancel), don't rename
         file.close(() => {
-          fs.rename(tempPath, finalPath, (err) => {
-            if (err) { cleanup(err.message); return; }
-            activeDownloads.delete(id);
+          if (d.cleaned) return;
+          // Clear stall detection since download is done
+          if (d.stallInterval) clearInterval(d.stallInterval);
 
-            // ✅ Track with limit
-            trackDownloadedFile(finalPath);
+          // Retry rename with delay to handle transient file locks
+          const tryRename = (attempts) => {
+            if (d.cleaned) return;
+            fs.rename(tempPath, finalPath, (err) => {
+              if (err && attempts > 0 && (err.code === 'EBUSY' || err.code === 'EPERM' || err.code === 'ENOENT')) {
+                setTimeout(() => tryRename(attempts - 1), 500);
+                return;
+              }
+              if (err) { cleanup(err.message); return; }
+              activeDownloads.delete(id);
 
-            mainWindow.webContents.send('download-event', { id, status: 'complete', path: finalPath });
-          });
+              // ✅ Track with limit
+              trackDownloadedFile(finalPath);
+
+              safeSend(mainWindow, 'download-event', { id, status: 'complete', path: finalPath });
+            });
+          };
+          tryRename(3);
         });
       });
     });
 
     req.on('error', (err) => {
       activeDownloads.delete(id);
-      mainWindow.webContents.send('download-event', { id, status: 'error', error: err.message });
+      safeSend(mainWindow, 'download-event', { id, status: 'error', error: err.message });
     });
   };
 
   try {
     start(url);
   } catch (e) {
-    mainWindow.webContents.send('download-event', { id, status: 'error', error: e.message });
+    safeSend(mainWindow, 'download-event', { id, status: 'error', error: e.message });
   }
 }
 
@@ -177,7 +202,7 @@ function pauseDownload(id, mainWindow) {
   if (d && d.response) {
     d.paused = true;
     try { d.response.pause(); } catch { }
-    mainWindow.webContents.send('download-event', { id, status: 'paused' });
+    safeSend(mainWindow, 'download-event', { id, status: 'paused' });
   }
 }
 
@@ -191,7 +216,7 @@ function resumeDownload(id, mainWindow) {
   if (d && d.response) {
     d.paused = false;
     try { d.response.resume(); } catch { }
-    mainWindow.webContents.send('download-event', { id, status: 'resumed' });
+    safeSend(mainWindow, 'download-event', { id, status: 'resumed' });
   }
 }
 
@@ -203,6 +228,10 @@ function resumeDownload(id, mainWindow) {
 function cancelDownload(id, mainWindow) {
   const d = activeDownloads.get(id);
   if (d) {
+    // Mark as cleaned first to prevent finish handler from racing
+    d.cleaned = true;
+    // Clear stall detection interval
+    if (d.stallInterval) clearInterval(d.stallInterval);
     try {
       if (d.response) {
         d.response.removeAllListeners();
@@ -219,7 +248,7 @@ function cancelDownload(id, mainWindow) {
     } catch { }
     try { if (d.filePath) fs.unlink(d.filePath, () => { }); } catch { }
     activeDownloads.delete(id);
-    mainWindow.webContents.send('download-event', { id, status: 'cancelled' });
+    safeSend(mainWindow, 'download-event', { id, status: 'cancelled' });
   }
 }
 

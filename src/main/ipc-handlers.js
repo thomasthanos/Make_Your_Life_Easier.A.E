@@ -11,10 +11,6 @@ const { spawn } = require('child_process');
 
 const DB_TIMEOUT_MS = 10000;
 
-/**
- * Setup window control IPC handlers
- * @param {Function} getMainWindow - Function to get main window
- */
 function setupWindowHandlers(getMainWindow) {
     ipcMain.handle('window-minimize', () => {
         const mainWindow = getMainWindow();
@@ -89,7 +85,7 @@ function setupWindowHandlers(getMainWindow) {
         return false;
     });
 
-    ipcMain.handle('window-animate-resize', (event, { width, height, duration = 200 }) => {
+    ipcMain.handle('window-animate-resize', (event, { width, height }) => {
         const mainWindow = getMainWindow();
         return new Promise((resolve) => {
             try {
@@ -101,10 +97,7 @@ function setupWindowHandlers(getMainWindow) {
                 if (Number.isNaN(wTarget) || Number.isNaN(hTarget)) {
                     return resolve(false);
                 }
-                
-                // Set new size immediately without animation
                 mainWindow.setSize(wTarget, hTarget, false);
-                
                 resolve(true);
             } catch {
                 resolve(false);
@@ -113,9 +106,6 @@ function setupWindowHandlers(getMainWindow) {
     });
 }
 
-/**
- * Setup system info IPC handlers
- */
 function setupSystemInfoHandlers() {
     ipcMain.handle('get-system-info', async () => {
         return {
@@ -137,28 +127,18 @@ function setupSystemInfoHandlers() {
     });
 }
 
-/**
- * Setup OAuth and user profile IPC handlers
- * @param {Object} oauth - OAuth module
- * @param {Object} userProfile - User profile module
- * @param {Function} getMainWindow - Function to get main window
- */
 function setupOAuthHandlers(oauth, userProfile, getMainWindow) {
     ipcMain.handle('login-google', async () => {
         const mainWindow = getMainWindow();
         const result = await oauth.loginGoogle(mainWindow);
-        if (result) {
-            userProfile.set(result);
-        }
+        if (result) userProfile.set(result);
         return result;
     });
 
     ipcMain.handle('login-discord', async () => {
         const mainWindow = getMainWindow();
         const result = await oauth.loginDiscord(mainWindow);
-        if (result) {
-            userProfile.set(result);
-        }
+        if (result) userProfile.set(result);
         return result;
     });
 
@@ -172,13 +152,6 @@ function setupOAuthHandlers(oauth, userProfile, getMainWindow) {
     });
 }
 
-/**
- * Setup command and external process IPC handlers
- * @param {Object} security - Security module
- * @param {Object} processUtils - Process utilities module
- * @param {Object} fileUtils - File utilities module
- * @param {Object} systemTools - System tools module
- */
 function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
     ipcMain.handle('run-command', async (event, command) => {
         if (typeof command !== 'string' || !command.trim()) {
@@ -199,7 +172,7 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
             return { error: argsValidation.error };
         }
 
-        const allowedWingetSubcommands = ['install', 'upgrade', 'search', 'list', 'show', 'source', 'settings', 'uninstall'];
+        const allowedWingetSubcommands = ['install', 'upgrade', 'search', 'list', 'show', 'source', 'settings', 'uninstall', '--version'];
         const subcommand = args[0]?.toLowerCase();
         if (!subcommand || !allowedWingetSubcommands.includes(subcommand)) {
             return { error: `Winget subcommand '${subcommand || ''}' is not allowed. Allowed: ${allowedWingetSubcommands.join(', ')}` };
@@ -214,7 +187,6 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
         return processUtils.runSpawnCommand(parts[0], args, { shell: true, windowsHide: false });
     });
 
-    // Elevated winget command for enabling settings that require admin
     ipcMain.handle('run-elevated-winget', async (event, command) => {
         if (process.platform !== 'win32') {
             return { error: 'Elevated commands only supported on Windows' };
@@ -224,7 +196,6 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
             return { error: 'Invalid command' };
         }
 
-        // Only allow specific safe elevated commands
         const allowedElevatedCommands = [
             'winget settings --enable InstallerHashOverride'
         ];
@@ -233,14 +204,7 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
             return { error: 'This elevated command is not allowed' };
         }
 
-        const psScript = `
-try {
-    ${command}
-    exit 0
-} catch {
-    exit 1
-}
-`;
+        const psScript = '\ntry {\n    ' + command + '\n    exit 0\n} catch {\n    exit 1\n}\n';
         return processUtils.runElevatedPowerShellScriptHidden(
             psScript,
             'Setting enabled successfully',
@@ -259,8 +223,9 @@ try {
 
         try {
             const parsed = new URL(url);
-            if (!['http:', 'https:'].includes(parsed.protocol)) {
-                return { success: false, error: 'Only http/https URLs are allowed' };
+            const allowedProtocols = ['http:', 'https:', 'ms-windows-store:'];
+            if (!allowedProtocols.includes(parsed.protocol)) {
+                return { success: false, error: 'URL protocol not allowed' };
             }
             await shell.openExternal(url);
             return { success: true };
@@ -270,7 +235,7 @@ try {
     });
 
     ipcMain.handle('open-file', async (event, filePath) => {
-        return new Promise(async (resolve) => {
+        return new Promise((resolve) => {
             try {
                 if (typeof filePath !== 'string' || !filePath.trim()) {
                     return resolve({ success: false, error: 'Invalid file path' });
@@ -333,7 +298,10 @@ try {
             return { success: false, error: 'Installers can only be run from Downloads or temp folder' };
         }
 
-        await shell.openPath(validation.normalized);
+        const errStr = await shell.openPath(validation.normalized);
+        if (errStr) {
+            return { success: false, error: errStr };
+        }
         return { success: true };
     });
 
@@ -346,39 +314,33 @@ try {
     });
 }
 
-/**
- * Setup download IPC handlers
- * @param {Object} downloadManager - Download manager module
- * @param {Function} getMainWindow - Function to get main window
- */
 function setupDownloadHandlers(downloadManager, getMainWindow) {
     ipcMain.on('download-start', (event, { id, url, dest }) => {
-        downloadManager.startDownload(id, url, dest, getMainWindow());
+        const win = getMainWindow();
+        if (!win) return;
+        downloadManager.startDownload(id, url, dest, win);
     });
 
     ipcMain.on('download-pause', (event, id) => {
-        downloadManager.pauseDownload(id, getMainWindow());
+        const win = getMainWindow();
+        if (!win) return;
+        downloadManager.pauseDownload(id, win);
     });
 
     ipcMain.on('download-resume', (event, id) => {
-        downloadManager.resumeDownload(id, getMainWindow());
+        const win = getMainWindow();
+        if (!win) return;
+        downloadManager.resumeDownload(id, win);
     });
 
     ipcMain.on('download-cancel', (event, id) => {
-        downloadManager.cancelDownload(id, getMainWindow());
+        const win = getMainWindow();
+        if (!win) return;
+        downloadManager.cancelDownload(id, win);
     });
 }
 
-/**
- * Setup file operation IPC handlers
- * @param {Object} security - Security module
- * @param {Object} fileUtils - File utilities module
- * @param {Object} debug - Debug function
- * @param {Set} pendingCleanupFiles - Set to track pending cleanup files
- */
 function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
-    const { exec } = require('child_process');
-
     ipcMain.handle('get-asset-path', async (event, relativePath) => {
         const isDev = !app.isPackaged;
         let assetPath;
@@ -389,9 +351,9 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
         }
         const normalizedPath = assetPath.replace(/\\/g, '/');
         if (process.platform === 'win32' && normalizedPath.match(/^[A-Za-z]:/)) {
-            return `file:///${normalizedPath}`;
+            return 'file:///' + normalizedPath;
         }
-        return `file://${normalizedPath}`;
+        return 'file://' + normalizedPath;
     });
 
     ipcMain.handle('file-exists', async (event, filePath) => {
@@ -399,13 +361,11 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
             if (typeof filePath !== 'string' || !filePath.trim()) {
                 return false;
             }
-
             const expanded = fileUtils.expandEnvVars(filePath);
             const validation = security.validatePath(expanded);
             if (!validation.valid) {
                 return false;
             }
-
             return fs.existsSync(validation.normalized);
         } catch {
             return false;
@@ -413,7 +373,7 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
     });
 
     ipcMain.handle('delete-file', async (event, filePath) => {
-        return new Promise(async (resolve) => {
+        return new Promise((resolve) => {
             try {
                 if (typeof filePath !== 'string' || filePath.trim() === '') {
                     return resolve({ success: false, error: 'Invalid file path' });
@@ -442,7 +402,7 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
                     if (statErr.code === 'ENOENT') {
                         return resolve({ success: false, error: 'File does not exist', code: 'FILE_NOT_FOUND' });
                     }
-                    return resolve({ success: false, error: `Cannot access file: ${statErr.message}`, code: 'ACCESS_ERROR' });
+                    return resolve({ success: false, error: 'Cannot access file: ' + statErr.message, code: 'ACCESS_ERROR' });
                 }
 
                 fs.unlink(normalizedPath, (err) => {
@@ -458,7 +418,7 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
     });
 
     ipcMain.handle('rename-directory', async (event, { src, dest }) => {
-        return new Promise(async (resolve) => {
+        return new Promise((resolve) => {
             try {
                 if (typeof src !== 'string' || typeof dest !== 'string' || !src || !dest) {
                     return resolve({ success: false, error: 'Invalid source or destination' });
@@ -469,12 +429,12 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
 
                 const srcValidation = security.validatePath(srcExpanded);
                 if (!srcValidation.valid) {
-                    return resolve({ success: false, error: `Invalid source path: ${srcValidation.error}`, code: 'INVALID_SOURCE' });
+                    return resolve({ success: false, error: 'Invalid source path: ' + srcValidation.error, code: 'INVALID_SOURCE' });
                 }
 
                 const destValidation = security.validatePath(destExpanded);
                 if (!destValidation.valid) {
-                    return resolve({ success: false, error: `Invalid destination path: ${destValidation.error}`, code: 'INVALID_DEST' });
+                    return resolve({ success: false, error: 'Invalid destination path: ' + destValidation.error, code: 'INVALID_DEST' });
                 }
 
                 const srcNormalized = srcValidation.normalized;
@@ -489,7 +449,7 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
                     if (statErr.code === 'ENOENT') {
                         return resolve({ success: false, error: 'Source directory does not exist', code: 'SRC_NOT_FOUND' });
                     }
-                    return resolve({ success: false, error: `Cannot access source: ${statErr.message}`, code: 'SRC_ACCESS_ERROR' });
+                    return resolve({ success: false, error: 'Cannot access source: ' + statErr.message, code: 'SRC_ACCESS_ERROR' });
                 }
 
                 try {
@@ -517,240 +477,207 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
         });
     });
 
-    ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
-        return new Promise(async (resolve) => {
+    // ─── replace-exe ────────────────────────────────────────────────────────────
+    // Strategy:
+    //   1. Write src/dst to a JSON config file  → no path quoting in PS scripts
+    //   2. Write elevated.ps1                   → does the actual file replacement
+    //   3. Write launcher.ps1                   → calls elevated.ps1 via Start-Process -Verb RunAs -Wait
+    //   4. spawn('powershell', ['-File', launcher.ps1])  → no shell string quoting at all
+    //   5. Resolve when proc closes (code 0 = success)
+    //
+    // Fixes vs old approach:
+    //   • No exec() string with nested quotes
+    //   • No JS template literal substitution inside PS variable names (${username} bug)
+    //   • No VBScript (.vbs disabled on Win11 24H2+)
+    //   • No broken polling (dst already existed before replacement)
+    // ────────────────────────────────────────────────────────────────────────────
+ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
+    return new Promise(async (resolve) => {
             try {
                 const srcExpanded = fileUtils.expandEnvVars(sourcePath);
                 const dstExpanded = fileUtils.expandEnvVars(destPath);
 
                 const srcValidation = security.validatePath(srcExpanded);
                 if (!srcValidation.valid) {
-                    resolve({ success: false, error: srcValidation.error, code: 'INVALID_SOURCE_PATH' });
-                    return;
+                    return resolve({ success: false, error: srcValidation.error, code: 'INVALID_SOURCE_PATH' });
                 }
-
                 const dstValidation = security.validatePath(dstExpanded);
                 if (!dstValidation.valid) {
-                    resolve({ success: false, error: dstValidation.error, code: 'INVALID_DEST_PATH' });
-                    return;
+                    return resolve({ success: false, error: dstValidation.error, code: 'INVALID_DEST_PATH' });
                 }
 
                 const src = srcValidation.normalized;
                 const dst = dstValidation.normalized;
 
-                debug('info', 'Replacing executable with elevated privileges:');
-                debug('info', 'Source:', src);
-                debug('info', 'Destination:', dst);
+                debug('info', 'replace-exe src:', src);
+                debug('info', 'replace-exe dst:', dst);
 
                 const srcExists = await security.validateFileExists(src);
                 if (!srcExists.valid || !srcExists.exists) {
-                    resolve({ success: false, error: `Source file not found: ${src}`, code: 'SRC_MISSING' });
-                    return;
+                    return resolve({ success: false, error: 'Source file not found: ' + src, code: 'SRC_MISSING' });
                 }
-
                 const dstExists = await security.validateFileExists(dst);
                 if (!dstExists.valid || !dstExists.exists) {
-                    resolve({ success: false, error: `Destination file not found: ${dst}`, code: 'DEST_MISSING' });
-                    return;
+                    return resolve({ success: false, error: 'Destination file not found: ' + dst, code: 'DEST_MISSING' });
                 }
 
-                const srcSanitized = security.sanitizePathForPowerShell(src);
-                const dstSanitized = security.sanitizePathForPowerShell(dst);
+                const stamp = Date.now();
+                const tmpDir = os.tmpdir();
 
-                if (!srcSanitized.valid || !dstSanitized.valid) {
-                    resolve({ success: false, error: 'Failed to sanitize paths for PowerShell', code: 'SANITIZATION_FAILED' });
-                    return;
-                }
+                // 1. JSON config — paths go in here, not in PS script strings
+                const configFile = path.join(tmpDir, 'replace_cfg_' + stamp + '.json');
+                fs.writeFileSync(configFile, JSON.stringify({ src, dst }), 'utf8');
 
-                const configFile = path.join(os.tmpdir(), `replace_exe_config_${Date.now()}.json`);
-                const config = {
-                    sourcePath: src,
-                    destPath: dst
-                };
-                fs.writeFileSync(configFile, JSON.stringify(config), 'utf8');
+                // PS single-quote-safe version of configFile path
+                const cfgPS = configFile.replace(/'/g, "''");
 
-                const psScript = `
-$configPath = '${configFile.replace(/\\/g, '\\\\')}'
-$config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
-$sourcePath = $config.sourcePath
-$destPath = $config.destPath
+                // 2. Elevated PS1 — reads from JSON, no JS-interpolated PS variables
+                //    Use $($env:USERNAME) for the current user — avoids ${...} entirely
+                const psLines = [
+                    "$cfg = Get-Content -LiteralPath '" + cfgPS + "' -Raw | ConvertFrom-Json",
+                    '$src = $cfg.src',
+                    '$dst = $cfg.dst',
+                    'try {',
+                    '    if (-not (Test-Path -LiteralPath $src)) { throw "Source not found: $src" }',
+                    '    if (-not (Test-Path -LiteralPath $dst)) { throw "Destination not found: $dst" }',
+                    '    takeown /f "$dst" /d y 2>&1 | Out-Null',
+                    '    icacls "$dst" /grant "$($env:USERNAME):F" /T /C 2>&1 | Out-Null',
+                    '    Remove-Item -LiteralPath $dst -Force -ErrorAction Stop',
+                    '    Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction Stop',
+                    "    Remove-Item -LiteralPath '" + cfgPS + "' -Force -ErrorAction SilentlyContinue",
+                    '    exit 0',
+                    '} catch {',
+                    '    Write-Output "ERROR: $($_.Exception.Message)"',
+                    "    Remove-Item -LiteralPath '" + cfgPS + "' -Force -ErrorAction SilentlyContinue",
+                    '    exit 1',
+                    '}'
+                ];
+                const psFile = path.join(tmpDir, 'replace_ps_' + stamp + '.ps1');
+                fs.writeFileSync(psFile, psLines.join('\r\n'), 'utf8');
 
-try {
-    Write-Output "Starting file replacement..."
-    Write-Output "Source: $sourcePath"
-    Write-Output "Destination: $destPath"
-   
-    if (-not (Test-Path -LiteralPath $sourcePath)) {
-        throw "Source file does not exist: $sourcePath"
-    }
-    
-    if (-not (Test-Path -LiteralPath $destPath)) {
-        throw "Destination file does not exist: $destPath"
-    }
-   
-    Write-Output "Taking ownership..."
-    & takeown /f $destPath /r /d y 2>&1 | Out-Null
-   
-    $username = $env:USERNAME
-    & icacls $destPath /grant "\${username}:F" /T /C 2>&1 | Out-Null
-   
-    if (Test-Path -LiteralPath $destPath) {
-        Write-Output "Removing existing file..."
-        Remove-Item -LiteralPath $destPath -Force -ErrorAction Stop
-    }
-   
-    Write-Output "Copying new file..."
-    Copy-Item -LiteralPath $sourcePath -Destination $destPath -Force -ErrorAction Stop
-   
-    if (Test-Path -LiteralPath $destPath) {
-        Write-Output "SUCCESS: File replacement completed"
-        Remove-Item -LiteralPath $configPath -Force -ErrorAction SilentlyContinue
-        exit 0
-    } else {
-        throw "File replacement failed - destination file not found"
-    }
-}
-catch {
-    Write-Output "ERROR: $($_.Exception.Message)"
-    Remove-Item -LiteralPath $configPath -Force -ErrorAction SilentlyContinue
-    exit 1
-}
-`;
+                // 3. Launcher PS1 — calls elevated PS1 via Start-Process -Verb RunAs -Wait
+                //    Uses -ArgumentList with array syntax to avoid quoting issues with spaces in path
+                const psFilePS = psFile.replace(/'/g, "''");
+                const launcherLines = [
+                    // Use $proc to capture the elevated process, then forward its exit code
+                    "$proc = Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '" + psFilePS + "') -Verb RunAs -Wait -PassThru",
+                    "exit $proc.ExitCode"
+                ];
+                const launcherFile = path.join(tmpDir, 'replace_launcher_' + stamp + '.ps1');
+                fs.writeFileSync(launcherFile, launcherLines.join('\r\n'), 'utf8');
 
-                const psFile = path.join(os.tmpdir(), `elevated_ps_${Date.now()}.ps1`);
-                fs.writeFileSync(psFile, psScript, 'utf8');
-
-                const escapedPsFile = psFile.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-                const vbsScript = `
-Set UAC = CreateObject("Shell.Application")
-UAC.ShellExecute "powershell.exe", "-ExecutionPolicy Bypass -File ""${escapedPsFile}""", "", "runas", 1
-WScript.Sleep(3000)
-`;
-                const vbsFile = path.join(os.tmpdir(), `elevate_${Date.now()}.vbs`);
-                fs.writeFileSync(vbsFile, vbsScript);
-
-                pendingCleanupFiles.add(vbsFile);
                 pendingCleanupFiles.add(psFile);
+                pendingCleanupFiles.add(launcherFile);
                 pendingCleanupFiles.add(configFile);
 
-                debug('info', 'Requesting UAC elevation for file replacement...');
+                const cleanup = () => {
+                    [psFile, launcherFile, configFile].forEach(f => {
+                        try {
+                            if (fs.existsSync(f)) fs.unlinkSync(f);
+                            pendingCleanupFiles.delete(f);
+                        } catch { }
+                    });
+                };
 
-                exec(`wscript "${vbsFile}"`, (error) => {
-                    const cleanupTempFiles = () => {
-                        [vbsFile, psFile, configFile].forEach(f => {
-                            try {
-                                if (fs.existsSync(f)) fs.unlinkSync(f);
-                                pendingCleanupFiles.delete(f);
-                            } catch { }
-                        });
-                    };
+                debug('info', 'Spawning launcher PS1 for UAC elevation...');
 
-                    setTimeout(cleanupTempFiles, 10000);
+                // 4. spawn with arg array — zero shell quoting needed
+                const proc = spawn('powershell.exe', [
+                    '-NoProfile',
+                    '-ExecutionPolicy', 'Bypass',
+                    '-File', launcherFile
+                ], { windowsHide: false });
 
-                    if (error) {
-                        debug('warn', 'User denied UAC or elevation failed:', error);
+                proc.on('error', (err) => {
+                    cleanup();
+                    debug('error', 'Spawn error:', err.message);
+                    resolve({ success: false, error: 'Failed to start PowerShell: ' + err.message });
+                });
+
+                // 5. Resolve when proc closes — no polling, no race conditions
+                proc.on('close', (code) => {
+                    cleanup();
+                    debug('info', 'Launcher exited with code:', code);
+                    if (code === 0) {
+                        if (fs.existsSync(dst)) {
+                            resolve({ success: true });
+                        } else {
+                            resolve({ success: false, error: 'PowerShell exited OK but destination file not found.' });
+                        }
+                    } else {
                         resolve({
                             success: false,
-                            error: 'Administrator privileges required. Please accept the UAC prompt.',
+                            error: code === null
+                                ? 'UAC was cancelled or the process was killed.'
+                                : 'UAC was denied or replacement failed (exit code ' + code + ').',
                             code: 'UAC_DENIED'
                         });
-                    } else {
-                        debug('success', 'UAC accepted, replacement in progress...');
-                        let waited = 0;
-                        const interval = setInterval(() => {
-                            waited += 1000;
-                            if (fs.existsSync(dst)) {
-                                clearInterval(interval);
-                                resolve({ success: true, message: '✅ File replacement completed successfully!' });
-                            } else if (waited >= 15000) {
-                                clearInterval(interval);
-                                resolve({ success: false, error: 'Replacement may have failed. The destination file was not found.' });
-                            }
-                        }, 1000);
                     }
                 });
+
             } catch (err) {
-                debug('error', 'Replace exception:', err);
-                resolve({ success: false, error: `Exception: ${err.message}` });
+                debug('error', 'replace-exe exception:', err);
+                resolve({ success: false, error: 'Exception: ' + err.message });
             }
         });
     });
 }
 
-/**
- * Setup archive extraction IPC handlers
- * @param {Object} archiveUtils - Archive utilities module
- * @param {Object} downloadManager - Download manager module
- */
 function setupArchiveHandlers(archiveUtils, downloadManager) {
     ipcMain.handle('extract-archive', async (event, { filePath, password, destDir }) => {
-        return archiveUtils.extractArchive(filePath, password, destDir, downloadManager.trackExtractedDir);
+        try {
+            return await archiveUtils.extractArchive(filePath, password, destDir, downloadManager.trackExtractedDir);
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     });
 }
 
-/**
- * Setup Sparkle IPC handlers
- * @param {Object} sparkleModule - Sparkle module
- */
 function setupSparkleHandlers(sparkleModule) {
     ipcMain.handle('ensure-sparkle', async () => {
-        return sparkleModule.ensureSparkle();
+        try {
+            return await sparkleModule.ensureSparkle();
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     });
-    
+
     ipcMain.handle('process-downloaded-sparkle', async (event, zipPath) => {
-        return sparkleModule.processDownloadedSparkle(zipPath);
+        try {
+            return await sparkleModule.processDownloadedSparkle(zipPath);
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     });
 }
 
-/**
- * Setup system tools IPC handlers
- * @param {Object} systemTools - System tools module
- */
 function setupSystemToolsHandlers(systemTools) {
-    ipcMain.handle('run-sparkle-debloat', async () => {
-        return systemTools.runSparkleDebloat();
-    });
+    const safeWrap = (fn) => async () => {
+        try { return await fn(); } catch (error) { return { success: false, error: error.message }; }
+    };
 
-    ipcMain.handle('run-sfc-scan', async () => {
-        return systemTools.runSfcScan();
-    });
-
-    ipcMain.handle('run-dism-repair', async () => {
-        return systemTools.runDismRepair();
-    });
-
-    ipcMain.handle('run-temp-cleanup', async () => {
-        return systemTools.runTempCleanup();
-    });
-
-    ipcMain.handle('restart-to-bios', async () => {
-        return systemTools.restartToBios();
-    });
+    ipcMain.handle('run-sparkle-debloat', safeWrap(() => systemTools.runSparkleDebloat()));
+    ipcMain.handle('run-sfc-scan', safeWrap(() => systemTools.runSfcScan()));
+    ipcMain.handle('run-dism-repair', safeWrap(() => systemTools.runDismRepair()));
+    ipcMain.handle('run-temp-cleanup', safeWrap(() => systemTools.runTempCleanup()));
+    ipcMain.handle('restart-to-bios', safeWrap(() => systemTools.restartToBios()));
 }
 
-/**
- * Setup Spicetify IPC handlers
- * @param {Object} spicetifyModule - Spicetify module
- */
 function setupSpicetifyHandlers(spicetifyModule) {
     ipcMain.handle('install-spicetify', async () => {
-        return spicetifyModule.installSpicetify();
+        try { return await spicetifyModule.installSpicetify(); } catch (error) { return { success: false, error: error.message }; }
     });
 
     ipcMain.handle('uninstall-spicetify', async () => {
-        return spicetifyModule.uninstallSpicetify();
+        try { return await spicetifyModule.uninstallSpicetify(); } catch (error) { return { success: false, error: error.message }; }
     });
 
     ipcMain.handle('full-uninstall-spotify', async () => {
-        return spicetifyModule.fullUninstallSpotify();
+        try { return await spicetifyModule.fullUninstallSpotify(); } catch (error) { return { success: false, error: error.message }; }
     });
 }
 
-/**
- * Setup installer IPC handlers
- * @param {Object} debug - Debug function
- */
-function setupInstallerHandlers(debug) {
+function setupInstallerHandlers(debug, security) {
     ipcMain.handle('find-exe-files', async (event, directoryPath) => {
         return new Promise((resolve) => {
             try {
@@ -761,15 +688,22 @@ function setupInstallerHandlers(debug) {
 
                 const executableFiles = [];
 
-                function searchDirectory(dir) {
+                const MAX_DEPTH = 10;
+                const MAX_FILES = 500;
+
+                function searchDirectory(dir, depth = 0) {
+                    if (depth > MAX_DEPTH || executableFiles.length >= MAX_FILES) return;
                     try {
                         const items = fs.readdirSync(dir);
                         for (const item of items) {
+                            if (executableFiles.length >= MAX_FILES) break;
                             const fullPath = path.join(dir, item);
                             try {
-                                const stat = fs.statSync(fullPath);
+                                const stat = fs.lstatSync(fullPath);
+                                // Skip symlinks to avoid circular references
+                                if (stat.isSymbolicLink()) continue;
                                 if (stat.isDirectory()) {
-                                    searchDirectory(fullPath);
+                                    searchDirectory(fullPath, depth + 1);
                                 } else if (stat.isFile()) {
                                     const ext = path.extname(item).toLowerCase();
                                     if (ext === '.exe' || ext === '.bat') {
@@ -777,12 +711,12 @@ function setupInstallerHandlers(debug) {
                                     }
                                 }
                             } catch (statErr) {
-                                debug('warn', `Cannot access ${fullPath}: ${statErr.code || statErr.message}`);
+                                debug('warn', 'Cannot access ' + fullPath + ': ' + (statErr.code || statErr.message));
                                 continue;
                             }
                         }
                     } catch (readErr) {
-                        debug('warn', `Cannot read directory ${dir}: ${readErr.code || readErr.message}`);
+                        debug('warn', 'Cannot read directory ' + dir + ': ' + (readErr.code || readErr.message));
                     }
                 }
 
@@ -801,7 +735,12 @@ function setupInstallerHandlers(debug) {
                 return;
             }
 
-            const normalized = path.normalize(msiPath);
+            const validation = security.validatePath(msiPath);
+            if (!validation.valid) {
+                resolve({ success: false, error: validation.error });
+                return;
+            }
+            const normalized = validation.normalized;
 
             try {
                 const child = spawn('msiexec', ['/i', normalized], { detached: true, stdio: 'ignore' });
@@ -819,12 +758,16 @@ function setupInstallerHandlers(debug) {
     ipcMain.handle('run-installer', async (event, filePath) => {
         return new Promise((resolve) => {
             debug('info', 'Running installer:', filePath);
-            const normalized = path.normalize(filePath);
+            const validation = security.validatePath(filePath);
+            if (!validation.valid) {
+                return resolve({ success: false, error: validation.error });
+            }
+            const normalized = validation.normalized;
             const ext = path.extname(normalized).toLowerCase();
 
             try {
                 if (!fs.existsSync(normalized)) {
-                    return resolve({ success: false, error: `File does not exist: ${normalized}` });
+                    return resolve({ success: false, error: 'File does not exist: ' + normalized });
                 }
             } catch (fsErr) {
                 return resolve({ success: false, error: fsErr.message });
@@ -873,14 +816,6 @@ function setupInstallerHandlers(debug) {
     });
 }
 
-/**
- * Setup password manager IPC handlers
- * @param {Function} createPasswordManagerWindow - Function to create password manager window
- * @param {Object} pmAuth - Password manager auth module
- * @param {Function} getPasswordDB - Function to get password DB instance
- * @param {string} pmDirectory - Password manager directory
- * @param {Object} debug - Debug function
- */
 function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPasswordDB, pmDirectory, debug) {
     ipcMain.handle('open-password-manager', async (_event, lang = 'en') => {
         createPasswordManagerWindow(lang);
@@ -953,6 +888,7 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
     ipcMain.handle('password-manager-get-categories', async () => {
         return new Promise((resolve) => {
             const db = getPasswordDB();
+            if (!db) return resolve({ success: false, error: 'Database unavailable' });
             let finished = false;
             const timeout = setTimeout(() => {
                 if (finished) return;
@@ -977,7 +913,17 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
     ipcMain.handle('password-manager-add-category', async (event, name) => {
         return new Promise((resolve) => {
             const db = getPasswordDB();
+            if (!db) return resolve({ success: false, error: 'Database unavailable' });
+            let finished = false;
+            const timeout = setTimeout(() => {
+                if (finished) return;
+                finished = true;
+                resolve({ success: false, error: 'Database timeout' });
+            }, DB_TIMEOUT_MS);
             db.addCategory(name, function (err) {
+                if (finished) return;
+                finished = true;
+                clearTimeout(timeout);
                 if (err) {
                     resolve({ success: false, error: err.message });
                 } else {
@@ -990,7 +936,17 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
     ipcMain.handle('password-manager-update-category', async (event, id, name) => {
         return new Promise((resolve) => {
             const db = getPasswordDB();
+            if (!db) return resolve({ success: false, error: 'Database unavailable' });
+            let finished = false;
+            const timeout = setTimeout(() => {
+                if (finished) return;
+                finished = true;
+                resolve({ success: false, error: 'Database timeout' });
+            }, DB_TIMEOUT_MS);
             db.updateCategory(id, name, function (err) {
+                if (finished) return;
+                finished = true;
+                clearTimeout(timeout);
                 if (err) {
                     resolve({ success: false, error: err.message });
                 } else {
@@ -1003,7 +959,17 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
     ipcMain.handle('password-manager-delete-category', async (event, id) => {
         return new Promise((resolve) => {
             const db = getPasswordDB();
+            if (!db) return resolve({ success: false, error: 'Database unavailable' });
+            let finished = false;
+            const timeout = setTimeout(() => {
+                if (finished) return;
+                finished = true;
+                resolve({ success: false, error: 'Database timeout' });
+            }, DB_TIMEOUT_MS);
             db.deleteCategory(id, function (err) {
+                if (finished) return;
+                finished = true;
+                clearTimeout(timeout);
                 if (err) {
                     resolve({ success: false, error: err.message });
                 } else {
@@ -1016,6 +982,7 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
     ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all') => {
         return new Promise((resolve) => {
             const db = getPasswordDB();
+            if (!db) return resolve({ success: false, error: 'Database unavailable' });
             let finished = false;
             const timeout = setTimeout(() => {
                 if (finished) return;
@@ -1040,7 +1007,17 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
     ipcMain.handle('password-manager-get-password', async (event, id) => {
         return new Promise((resolve) => {
             const db = getPasswordDB();
+            if (!db) return resolve({ success: false, error: 'Database unavailable' });
+            let finished = false;
+            const timeout = setTimeout(() => {
+                if (finished) return;
+                finished = true;
+                resolve({ success: false, error: 'Database timeout' });
+            }, DB_TIMEOUT_MS);
             db.getPasswordById(id, (err, row) => {
+                if (finished) return;
+                finished = true;
+                clearTimeout(timeout);
                 if (err) {
                     resolve({ success: false, error: err.message });
                 } else {
@@ -1053,6 +1030,7 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
     ipcMain.handle('password-manager-add-password', async (event, passwordData) => {
         return new Promise((resolve) => {
             const db = getPasswordDB();
+            if (!db) return resolve({ success: false, error: 'Database unavailable' });
             let finished = false;
             const timeout = setTimeout(() => {
                 if (finished) return;
@@ -1078,7 +1056,17 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
     ipcMain.handle('password-manager-update-password', async (event, id, passwordData) => {
         return new Promise((resolve) => {
             const db = getPasswordDB();
+            if (!db) return resolve({ success: false, error: 'Database unavailable' });
+            let finished = false;
+            const timeout = setTimeout(() => {
+                if (finished) return;
+                finished = true;
+                resolve({ success: false, error: 'Database timeout' });
+            }, DB_TIMEOUT_MS);
             db.updatePassword(id, passwordData, function (err) {
+                if (finished) return;
+                finished = true;
+                clearTimeout(timeout);
                 if (err) {
                     resolve({ success: false, error: err.message });
                 } else {
@@ -1091,7 +1079,17 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
     ipcMain.handle('password-manager-delete-password', async (event, id) => {
         return new Promise((resolve) => {
             const db = getPasswordDB();
+            if (!db) return resolve({ success: false, error: 'Database unavailable' });
+            let finished = false;
+            const timeout = setTimeout(() => {
+                if (finished) return;
+                finished = true;
+                resolve({ success: false, error: 'Database timeout' });
+            }, DB_TIMEOUT_MS);
             db.deletePassword(id, function (err) {
+                if (finished) return;
+                finished = true;
+                clearTimeout(timeout);
                 if (err) {
                     resolve({ success: false, error: err.message });
                 } else {
@@ -1104,7 +1102,17 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
     ipcMain.handle('password-manager-search-passwords', async (event, query) => {
         return new Promise((resolve) => {
             const db = getPasswordDB();
+            if (!db) return resolve({ success: false, error: 'Database unavailable' });
+            let finished = false;
+            const timeout = setTimeout(() => {
+                if (finished) return;
+                finished = true;
+                resolve({ success: false, error: 'Database timeout' });
+            }, DB_TIMEOUT_MS);
             db.searchPasswords(query, (err, rows) => {
+                if (finished) return;
+                finished = true;
+                clearTimeout(timeout);
                 if (err) {
                     resolve({ success: false, error: err.message });
                 } else {
@@ -1116,18 +1124,19 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
 
     ipcMain.handle('password-manager-reset', async () => {
         try {
-            // Close and reset singleton DB
             const db = getPasswordDB();
             if (db) {
                 try { db.close(); } catch { }
             }
 
-            if (fs.existsSync(pmAuth.configPath)) {
+            if (pmAuth.configPath && fs.existsSync(pmAuth.configPath)) {
                 fs.unlinkSync(pmAuth.configPath);
             }
-            const dbPath = path.join(pmAuth.dbDirectory, 'password_manager.db');
-            if (fs.existsSync(dbPath)) {
-                fs.unlinkSync(dbPath);
+            if (pmAuth.dbDirectory) {
+                const dbPath = path.join(pmAuth.dbDirectory, 'password_manager.db');
+                if (fs.existsSync(dbPath)) {
+                    fs.unlinkSync(dbPath);
+                }
             }
             pmAuth.logout();
             pmAuth.initialize(pmDirectory);
@@ -1139,9 +1148,6 @@ function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPa
     });
 }
 
-/**
- * Setup misc IPC handlers
- */
 function setupMiscHandlers() {
     ipcMain.handle('run-activate-script', async () => {
         return { success: true, message: 'Activation script completed' };

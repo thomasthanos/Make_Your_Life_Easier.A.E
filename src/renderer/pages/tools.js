@@ -4,8 +4,8 @@
  * CSS classes match original renderer.js structure
  */
 
-import { escapeHtml, autoFadeStatus } from '../utils.js';
-import { buttonStateManager } from '../managers.js';
+import { autoFadeStatus } from '../utils.js';
+import { buttonStateManager, registerDownload, attachDownloadUI, downloadStore } from '../managers.js';
 import { toast } from '../components.js';
 
 // ============================================
@@ -180,10 +180,11 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     button.disabled = true;
     button.textContent = 'Preparing Patch My PC...';
 
-    return new Promise((resolve) => {
-        const unsubscribe = window.api.onDownloadEvent((data) => {
-            if (data.id !== downloadId) return;
+    const storeKey = 'patchmypc';
+    registerDownload(storeKey, downloadId, { name: 'Patch My PC' });
 
+    return new Promise((resolve) => {
+        attachDownloadUI(storeKey, (data) => {
             switch (data.status) {
                 case 'started':
                     button.textContent = 'Downloading Patch My PC... 0%';
@@ -193,9 +194,10 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
                     break;
                 case 'complete': {
                     button.textContent = 'Opening Patch My PC...';
+                    downloadStore.delete(storeKey);
                     window.api.openFile(data.path)
                         .then((result) => {
-                            if (result.success) {
+                            if (result && result.success) {
                                 button.textContent = 'Patch My PC Started';
                             } else {
                                 button.textContent = originalText;
@@ -208,7 +210,6 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
                         })
                         .finally(() => {
                             button.disabled = false;
-                            unsubscribe();
                             resolve();
                         });
                     break;
@@ -216,8 +217,8 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
                 case 'error':
                     button.textContent = originalText;
                     button.disabled = false;
+                    downloadStore.delete(storeKey);
                     toast('Download failed', { type: 'error', title: 'Maintenance' });
-                    unsubscribe();
                     resolve();
                     break;
             }
@@ -228,8 +229,8 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
         } catch (e) {
             button.textContent = originalText;
             button.disabled = false;
+            downloadStore.delete(storeKey);
             toast('Download failed', { type: 'error', title: 'Maintenance' });
-            unsubscribe();
             resolve();
         }
     });
@@ -407,17 +408,18 @@ export async function buildDebloatPage(translations, _settings) {
                 const downloadId = result.downloadId || `sparkle-${Date.now()}`;
                 const downloadDest = result.downloadDest;
 
-                const unsubscribe = window.api.onDownloadEvent((data) => {
-                    if (data.id !== downloadId) return;
+                const sparkleStoreKey = 'sparkle-debloat';
+                registerDownload(sparkleStoreKey, downloadId, { name: 'Sparkle' });
 
+                attachDownloadUI(sparkleStoreKey, (data) => {
                     switch (data.status) {
                         case 'progress':
                             runBtn.textContent = `Downloading Sparkle... ${data.percent}%`;
                             break;
                         case 'complete':
                             runBtn.textContent = 'Extracting Sparkle...';
-                            unsubscribe();
-                            
+                            downloadStore.delete(sparkleStoreKey);
+
                             // Extract the downloaded zip
                             window.api.processDownloadedSparkle(downloadDest)
                                 .then(extractResult => {
@@ -431,12 +433,13 @@ export async function buildDebloatPage(translations, _settings) {
                                 })
                                 .then(launchResult => {
                                     if (launchResult && launchResult.success && !launchResult.needsDownload) {
-                                        toast('Sparkle Debloat launched successfully!', { 
-                                            type: 'success', 
-                                            title: 'Debloat', 
-                                            duration: 5000 
+                                        toast('Sparkle Debloat launched successfully!', {
+                                            type: 'success',
+                                            title: 'Debloat',
+                                            duration: 5000
                                         });
                                         runBtn.textContent = '✅ Launched!';
+                                        runBtn.disabled = true;
                                         setTimeout(() => {
                                             runBtn.textContent = original;
                                             runBtn.disabled = false;
@@ -446,8 +449,8 @@ export async function buildDebloatPage(translations, _settings) {
                                     }
                                 })
                                 .catch(err => {
-                                    toast(err.message || 'Failed to extract or launch Sparkle', { 
-                                        type: 'error', 
+                                    toast(err.message || 'Failed to extract or launch Sparkle', {
+                                        type: 'error',
                                         title: 'Debloat Error',
                                         duration: 8000
                                     });
@@ -456,14 +459,14 @@ export async function buildDebloatPage(translations, _settings) {
                                 });
                             break;
                         case 'error':
-                            toast(data.error || 'Download failed', { 
-                                type: 'error', 
+                            toast(data.error || 'Download failed', {
+                                type: 'error',
                                 title: 'Debloat Error',
                                 duration: 8000
                             });
                             runBtn.disabled = false;
                             runBtn.textContent = original;
-                            unsubscribe();
+                            downloadStore.delete(sparkleStoreKey);
                             break;
                     }
                 });
@@ -516,7 +519,7 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     const title = document.createElement('h2');
     title.className = 'bios-title';
-    title.innerHTML = '⚙️ ' + (translations.menu?.bios || 'BIOS Settings');
+    title.textContent = '⚙️ ' + (translations.menu?.bios || 'BIOS Settings');
     dialog.appendChild(title);
 
     const desc = document.createElement('p');
@@ -526,17 +529,19 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     const whatTitle = document.createElement('h3');
     whatTitle.className = 'bios-section-title';
-    whatTitle.textContent = '📋 What will happen:';
+    whatTitle.textContent = '📋 ' + ((translations.messages && translations.messages.bios_what_happens) || 'What will happen:');
     dialog.appendChild(whatTitle);
 
     const steps = document.createElement('ol');
     steps.className = 'bios-steps';
-    [
+    const defaultSteps = [
         'Save all your work and close applications',
         'System will restart automatically',
         'BIOS/UEFI setup will open on boot',
         'Configure your settings as needed'
-    ].forEach((stepText) => {
+    ];
+    const steps_i18n = (translations.messages && translations.messages.bios_steps) || defaultSteps;
+    (Array.isArray(steps_i18n) ? steps_i18n : defaultSteps).forEach((stepText) => {
         const li = document.createElement('li');
         li.textContent = stepText;
         steps.appendChild(li);
@@ -545,10 +550,13 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     const warning = document.createElement('div');
     warning.className = 'bios-warning';
-    warning.innerHTML = `
-    <strong>⚠️ Important Notice</strong><br>
-    ${escapeHtml(translations.messages?.admin_warning || 'This operation requires administrator privileges and will restart your computer immediately.')}
-  `;
+    const warningStrong = document.createElement('strong');
+    warningStrong.textContent = '⚠️ Important Notice';
+    warning.appendChild(warningStrong);
+    warning.appendChild(document.createElement('br'));
+    warning.appendChild(document.createTextNode(
+        translations.messages?.admin_warning || 'This operation requires administrator privileges and will restart your computer immediately.'
+    ));
     dialog.appendChild(warning);
 
     const buttonContainer = document.createElement('div');
@@ -560,9 +568,17 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     const restartBtn = document.createElement('button');
     restartBtn.className = 'bios-restart-btn';
-    restartBtn.innerHTML = '🔄 ' + (translations.messages?.restart_to_bios || 'Restart to BIOS');
+    restartBtn.textContent = '🔄 ' + (translations.messages?.restart_to_bios || 'Restart to BIOS');
+
+    // Escape key handler — cleaned up when dialog closes via cancel or success
+    const escapeHandler = (e) => {
+        if (e.key === 'Escape') {
+            cancelBtn.click();
+        }
+    };
 
     cancelBtn.addEventListener('click', () => {
+        document.removeEventListener('keydown', escapeHandler);
         dialog.classList.add('slide-down');
         overlay.classList.add('fade-out');
         setTimeout(() => {
@@ -576,18 +592,20 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     restartBtn.addEventListener('click', async () => {
         restartBtn.disabled = true;
-        restartBtn.innerHTML = '⏳ Processing...';
+        restartBtn.textContent = '⏳ Processing...';
         restartBtn.classList.add('btn-opacity-low');
 
         try {
             const result = await window.api.restartToBios();
 
-            if (result.success) {
-                restartBtn.innerHTML = '✅ Success!';
+            if (result && result.success) {
+                restartBtn.classList.remove('btn-opacity-low');
+                restartBtn.textContent = '✅ Success!';
                 restartBtn.classList.add('btn-success-gradient');
 
                 toast('BIOS restart initiated! Computer will restart shortly.', { type: 'success', duration: 5000 });
 
+                document.removeEventListener('keydown', escapeHandler);
                 setTimeout(() => {
                     dialog.classList.add('slide-down');
                     overlay.classList.add('fade-out');
@@ -598,17 +616,17 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
                     }, 300);
                 }, 2000);
             } else {
-                throw new Error(result.error);
+                throw new Error((result && result.error) || 'Failed to restart to BIOS');
             }
         } catch (error) {
-            restartBtn.innerHTML = '❌ Failed';
+            restartBtn.classList.remove('btn-opacity-low');
+            restartBtn.textContent = '❌ Failed';
             restartBtn.classList.add('btn-error-gradient');
 
             setTimeout(() => {
                 restartBtn.disabled = false;
-                restartBtn.innerHTML = '🔄 ' + (translations.messages?.restart_to_bios || 'Restart to BIOS');
-                restartBtn.classList.remove('btn-opacity-low');
-                restartBtn.classList.add('btn-warning-gradient');
+                restartBtn.textContent = '🔄 ' + (translations.messages?.restart_to_bios || 'Restart to BIOS');
+                restartBtn.classList.remove('btn-error-gradient');
             }, 2000);
 
             if (error.message && error.message.includes('Administrator')) {
@@ -626,13 +644,6 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
-    const escapeHandler = (e) => {
-        if (e.key === 'Escape') {
-            cancelBtn.click();
-            document.removeEventListener('keydown', escapeHandler);
-        }
-    };
     document.addEventListener('keydown', escapeHandler);
-
     cancelBtn.focus();
 }

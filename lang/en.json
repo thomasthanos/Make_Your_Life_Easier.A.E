@@ -8,15 +8,11 @@
     "spicetify": "Spicetify Spotify",
     "password_manager": "Password Manager",
     "christitus": "Christitus",
-    "dlc_unlocker": "DLC Unlocker",
     "bios": "BIOS Settings",
     "debloat": "Debloat"
   },
   "general": {
     "language": "Language",
-    "theme": "Theme",
-    "dark": "Dark",
-    "light": "Light",
     "not_implemented": "This will completely remove Spicetify and restore Spotify to its original state.",
     "open": "Open",
     "install": "Install",
@@ -52,8 +48,6 @@
     "debloat_raphi_desc": "Downloads and runs the Sparkle debloat and optimization tool. This powerful open‑source utility removes built‑in bloatware and tunes your Windows PC for better performance and privacy. Administrator rights and an internet connection are required. Proceed with caution.",
     "crack_title": "Professional Software Installation",
     "crack_desc": "Complete installation of popular software like Photoshop, Office, and more - ready to use right away. May require administrator privileges.",
-    "dlc_title": "Unlock Game Content",
-    "dlc_desc": "Access all additional content (DLC) for your favorite games. The program automatically downloads and installs everything needed!",
     "activate_title": "Windows Activation & Auto Login",
     "activate_desc": "Activate Windows and set up password-free auto login - quick and simple",
     "debloat_desc": "Remove unwanted programs and optimize Windows settings for better performance and enhanced privacy"
@@ -122,16 +116,6 @@
     "system_file_desc": "Scan and repair system files",
     "patch_my_pc": "Update Applications",
     "patch_my_pc_desc": "Automatically update all installed applications with one click"
-  },
-  "dlc": {
-    "sims_installer": "Install DLC Sims",
-    "sims_desc": "Downloads and installs all DLC automatically",
-    "ea_unlocker": "EA Unlocker",
-    "ea_desc": "Patches DLC",
-    "download_sims": "DOWNLOAD & INSTALL SIMS",
-    "download_ea": "DOWNLOAD & INSTALL EA UNLOCKER",
-    "tutorial_title": "EA DLC Unlocker & Sims 4 Installer Guide",
-    "tutorial_desc": "🎮 <strong>EA DLC Unlocker:</strong> General tool for unlocking content in EA games<br>🏠 <strong>Sims 4 Installer:</strong> Specialized for The Sims 4 with all DLCs and expansions"
   },
   "activation": {
     "activate_windows": "Activate Windows",

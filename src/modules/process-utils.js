@@ -4,6 +4,7 @@
  */
 
 const { spawn } = require('child_process');
+const crypto = require('crypto');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -27,26 +28,53 @@ function stripAnsiCodes(str) {
 function runSpawnCommand(cmd, args = [], options = {}) {
   return new Promise((resolve) => {
     try {
+      // Timeout: winget commands should finish within 10 minutes.
+      // This prevents indefinite hangs caused by slow msstore source lookups.
+      const TIMEOUT_MS = options._timeout || 10 * 60 * 1000;
       const child = spawn(cmd, args, options);
       let stdout = '';
       let stderr = '';
-      
+      let settled = false;
+      const MAX_OUTPUT_SIZE = 10 * 1024 * 1024; // 10 MB cap per stream
+
+      const settle = (result) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutHandle);
+        resolve(result);
+      };
+
+      const timeoutHandle = setTimeout(() => {
+        try { child.kill(); } catch { }
+        settle({ error: `Command timed out after ${TIMEOUT_MS / 1000}s`, stdout, stderr });
+      }, TIMEOUT_MS);
+
       if (child.stdout) {
-        child.stdout.on('data', (data) => { stdout += data.toString(); });
+        child.stdout.on('data', (data) => {
+          if (stdout.length < MAX_OUTPUT_SIZE) {
+            stdout += data.toString();
+            if (stdout.length > MAX_OUTPUT_SIZE) stdout = stdout.slice(0, MAX_OUTPUT_SIZE);
+          }
+        });
       }
       if (child.stderr) {
-        child.stderr.on('data', (data) => { stderr += data.toString(); });
+        child.stderr.on('data', (data) => {
+          if (stderr.length < MAX_OUTPUT_SIZE) {
+            stderr += data.toString();
+            if (stderr.length > MAX_OUTPUT_SIZE) stderr = stderr.slice(0, MAX_OUTPUT_SIZE);
+          }
+        });
       }
-      
+
       child.on('error', (err) => {
-        resolve({ error: err.message, stdout, stderr });
+        settle({ error: err.message, stdout, stderr });
       });
-      
+
       child.on('close', (code) => {
         if (code === 0) {
-          resolve({ stdout, stderr });
+          settle({ stdout, stderr });
         } else {
-          resolve({ error: `Command exited with code ${code}`, stdout, stderr });
+          settle({ error: `Command exited with code ${code}`, stdout, stderr });
         }
       });
     } catch (err) {
@@ -124,9 +152,9 @@ function runElevatedPowerShellScript(psScript, successMessage, failureMessage) {
     
     let psFile;
     try {
-      psFile = path.join(os.tmpdir(), `${Date.now()}_elevated.ps1`);
+      psFile = path.join(os.tmpdir(), `${Date.now()}_${crypto.randomBytes(4).toString('hex')}_elevated.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
-      
+
       const escapedPsFile = psFile.replace(/"/g, '\\"');
       const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
       
@@ -174,7 +202,7 @@ function runElevatedPowerShellScriptHidden(psScript, successMessage, failureMess
     let resultFile;
     let startedFile;
     try {
-      const timestamp = Date.now();
+      const timestamp = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
       psFile = path.join(os.tmpdir(), `${timestamp}_elevated.ps1`);
       // Write result next to the script to avoid temp-profile differences when elevated
       resultFile = `${psFile}.result`;
@@ -214,7 +242,7 @@ ${psScript}
       child.on('exit', () => {
         // Poll for result file instead of fixed delay
         const maxWait = 60000; // 60 seconds max for long operations
-        const uacTimeout = 1500; // 1.5 seconds to detect UAC rejection
+        const uacTimeout = 15000; // 15 seconds to detect UAC rejection (UAC can be slow on some systems)
         const pollInterval = 150; // Check every 150ms
         let waited = 0;
         let scriptStarted = false;

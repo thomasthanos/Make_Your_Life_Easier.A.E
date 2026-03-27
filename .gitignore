@@ -41,3 +41,4 @@ bin/create.ps1
 /Pro-Installer
 .claude/settings.local.json
 check_apps.bat
+.backup-info.json

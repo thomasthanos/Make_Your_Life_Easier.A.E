@@ -1,6 +1,6 @@
 {
   "name": "make-your-life-easier",
-  "version": "3.7.4",
+  "version": "3.7.5",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "homepage": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E",
@@ -36,7 +36,6 @@
       "!Github-Build-Release/**/*",
       "!build/**/*",
       "!python/**/*",
-      "!build-css.js",
       "!**/node_modules/*/{README.md,README,readme.md,readme}",
       "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
       "!**/node_modules/*.d.ts",

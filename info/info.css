@@ -13,7 +13,6 @@
   --color-activate: #2eb85c;
   --color-maintain: #636e8c;
   --color-crack: #7144bf;
-  --color-dlc: #d78b20;
   --color-passwords: #c49a2e;
   --color-spicetify: #a15eea;
   --color-titus: #db6e8b;
@@ -148,6 +147,7 @@ html, body {
   /* Increase padding and font size to make navigation buttons more legible */
   padding: 0.5rem 0.8rem 0.5rem 0.4rem;
   font-size: 0.85rem;
+  font-family: inherit;
   font-weight: 600;
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -307,11 +307,11 @@ html, body {
 }
 
 /* Navigation color classes */
+.nav-menu { --nav-color: var(--accent-color); --nav-color-rgb: 0, 191, 255; }
 .nav-install { --nav-color: var(--color-install); --nav-color-rgb: 59, 97, 209; }
 .nav-activate { --nav-color: var(--color-activate); --nav-color-rgb: 46, 184, 92; }
 .nav-maintain { --nav-color: var(--color-maintain); --nav-color-rgb: 99, 110, 140; }
 .nav-crack { --nav-color: var(--color-crack); --nav-color-rgb: 113, 68, 191; }
-.nav-dlc { --nav-color: var(--color-dlc); --nav-color-rgb: 215, 139, 32; }
 .nav-passwords { --nav-color: var(--color-passwords); --nav-color-rgb: 196, 154, 46; }
 .nav-spicetify { --nav-color: var(--color-spicetify); --nav-color-rgb: 161, 94, 234; }
 .nav-titus { --nav-color: var(--color-titus); --nav-color-rgb: 219, 110, 139; }

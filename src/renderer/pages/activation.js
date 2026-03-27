@@ -3,35 +3,29 @@
  * Contains Windows Activation and Auto Login functionality
  */
 
-import { buttonStateManager } from '../managers.js';
+import { buttonStateManager, registerDownload, attachDownloadUI, downloadStore } from '../managers.js';
 import { toast } from '../components.js';
 
 // ============================================
 // DOWNLOAD AND RUN HELPERS
 // ============================================
 
-async function downloadAndRunActivate(button, statusElement) {
-    // Race condition protection
+async function downloadAndRunActivate(button) {
     if (buttonStateManager && buttonStateManager.isLoading && buttonStateManager.isLoading(button)) return;
 
     button.disabled = true;
     const originalText = button.textContent;
-    button.dataset.originalTextActivate = originalText;
-
-    statusElement.classList.remove('visible');
-    statusElement.classList.add('status-element');
-    statusElement.textContent = '';
-    statusElement.classList.remove('status-success', 'status-error', 'status-warning');
 
     button.textContent = 'Preparing activation...';
 
     const downloadId = `activate-${Date.now()}`;
     const activateUrl = 'https://www.dropbox.com/scl/fi/oqgye14tmcg97mxbphorp/activate.bat?rlkey=307wz4bzkzejip3os7iztt54l&st=oz6nh4pf&dl=1';
 
-    return new Promise((resolve) => {
-        const unsubscribe = window.api.onDownloadEvent((data) => {
-            if (data.id !== downloadId) return;
+    const storeKey = 'activate-script';
+    registerDownload(storeKey, downloadId, { name: 'Activation' });
 
+    return new Promise((resolve) => {
+        attachDownloadUI(storeKey, (data) => {
             switch (data.status) {
                 case 'started':
                     button.textContent = 'Downloading activation script... 0%';
@@ -41,32 +35,24 @@ async function downloadAndRunActivate(button, statusElement) {
                     break;
                 case 'complete': {
                     button.textContent = 'Running activation script...';
+                    downloadStore.delete(storeKey);
 
                     window.api.openFile(data.path)
                         .then((result) => {
-                            if (result.success) {
+                            if (result && result.success) {
                                 button.textContent = 'Activation Started';
-                                statusElement.textContent = '';
-                                statusElement.classList.remove('visible');
-                                statusElement.classList.add('status-element');
+                                setTimeout(() => { button.textContent = originalText; }, 3000);
                             } else {
                                 button.textContent = originalText;
-                                statusElement.textContent = '';
-                                statusElement.classList.remove('visible');
-                                statusElement.classList.add('status-element');
                                 toast('Failed to run activation script', { type: 'error', title: 'Activation' });
                             }
                         })
                         .catch(() => {
                             button.textContent = originalText;
-                            statusElement.textContent = '';
-                            statusElement.classList.remove('visible');
-                            statusElement.classList.add('status-element');
                             toast('Error running activation script', { type: 'error', title: 'Activation' });
                         })
                         .finally(() => {
                             button.disabled = false;
-                            unsubscribe();
                             resolve();
                         });
                     break;
@@ -74,11 +60,8 @@ async function downloadAndRunActivate(button, statusElement) {
                 case 'error':
                     button.textContent = originalText;
                     button.disabled = false;
-                    statusElement.textContent = '';
-                    statusElement.classList.remove('visible');
-                    statusElement.classList.add('status-element');
+                    downloadStore.delete(storeKey);
                     toast('Download failed', { type: 'error', title: 'Activation' });
-                    unsubscribe();
                     resolve();
                     break;
             }
@@ -89,38 +72,29 @@ async function downloadAndRunActivate(button, statusElement) {
         } catch (e) {
             button.textContent = originalText;
             button.disabled = false;
-            statusElement.textContent = '';
-            statusElement.classList.remove('visible');
-            statusElement.classList.add('status-element');
+            downloadStore.delete(storeKey);
             toast('Download failed', { type: 'error', title: 'Activation' });
-            unsubscribe();
             resolve();
         }
     });
 }
 
-async function downloadAndRunAutologin(button, statusElement) {
-    // Race condition protection
+async function downloadAndRunAutologin(button) {
     if (buttonStateManager && buttonStateManager.isLoading && buttonStateManager.isLoading(button)) return;
 
     button.disabled = true;
     const originalText = button.textContent;
-    button.dataset.originalTextAutologin = originalText;
-
-    statusElement.classList.remove('visible');
-    statusElement.classList.add('status-element');
-    statusElement.textContent = '';
-    statusElement.classList.remove('status-success', 'status-error', 'status-warning');
 
     button.textContent = 'Preparing auto login...';
 
     const downloadId = `autologin-${Date.now()}`;
     const autologinUrl = 'https://www.dropbox.com/scl/fi/a0bphjru0qfnbsokk751h/auto-login.exe?rlkey=b3ogyjelioq49jyty1odi58x9&st=4o2oq4sc&dl=1';
 
-    return new Promise((resolve) => {
-        const unsubscribe = window.api.onDownloadEvent((data) => {
-            if (data.id !== downloadId) return;
+    const storeKey = 'autologin-tool';
+    registerDownload(storeKey, downloadId, { name: 'Auto Login' });
 
+    return new Promise((resolve) => {
+        attachDownloadUI(storeKey, (data) => {
             switch (data.status) {
                 case 'started':
                     button.textContent = 'Downloading auto login tool... 0%';
@@ -130,32 +104,24 @@ async function downloadAndRunAutologin(button, statusElement) {
                     break;
                 case 'complete': {
                     button.textContent = 'Running auto login setup...';
+                    downloadStore.delete(storeKey);
 
                     window.api.openFile(data.path)
                         .then((result) => {
-                            if (result.success) {
+                            if (result && result.success) {
                                 button.textContent = 'Auto Login Started';
-                                statusElement.textContent = '';
-                                statusElement.classList.remove('visible');
-                                statusElement.classList.add('status-element');
+                                setTimeout(() => { button.textContent = originalText; }, 3000);
                             } else {
                                 button.textContent = originalText;
-                                statusElement.textContent = '';
-                                statusElement.classList.remove('visible');
-                                statusElement.classList.add('status-element');
                                 toast('Failed to run auto login tool', { type: 'error', title: 'Auto Login' });
                             }
                         })
                         .catch(() => {
                             button.textContent = originalText;
-                            statusElement.textContent = '';
-                            statusElement.classList.remove('visible');
-                            statusElement.classList.add('status-element');
                             toast('Error running auto login tool', { type: 'error', title: 'Auto Login' });
                         })
                         .finally(() => {
                             button.disabled = false;
-                            unsubscribe();
                             resolve();
                         });
                     break;
@@ -163,11 +129,8 @@ async function downloadAndRunAutologin(button, statusElement) {
                 case 'error':
                     button.textContent = originalText;
                     button.disabled = false;
-                    statusElement.textContent = '';
-                    statusElement.classList.remove('visible');
-                    statusElement.classList.add('status-element');
+                    downloadStore.delete(storeKey);
                     toast('Download failed', { type: 'error', title: 'Auto Login' });
-                    unsubscribe();
                     resolve();
                     break;
             }
@@ -178,11 +141,8 @@ async function downloadAndRunAutologin(button, statusElement) {
         } catch (e) {
             button.textContent = originalText;
             button.disabled = false;
-            statusElement.textContent = '';
-            statusElement.classList.remove('visible');
-            statusElement.classList.add('status-element');
+            downloadStore.delete(storeKey);
             toast('Download failed', { type: 'error', title: 'Auto Login' });
-            unsubscribe();
             resolve();
         }
     });
@@ -241,16 +201,11 @@ export async function buildActivateAutologinPage(translations, settings) {
     activateButton.textContent = (translations.actions && translations.actions.activate_windows) || 'Download & Activate Windows';
     activateButton.classList.add('btn-full-width');
 
-    const activateStatus = document.createElement('pre');
-    activateStatus.className = 'status-pre';
-    activateStatus.classList.add('status-element');
-
     activateButton.addEventListener('click', async () => {
-        await downloadAndRunActivate(activateButton, activateStatus);
+        await downloadAndRunActivate(activateButton);
     });
 
     activateActions.appendChild(activateButton);
-    activateActions.appendChild(activateStatus);
     activateCard.appendChild(activateActions);
 
     // Auto Login Card
@@ -286,16 +241,11 @@ export async function buildActivateAutologinPage(translations, settings) {
     autologinButton.textContent = (translations.actions && translations.actions.setup_autologin) || 'Download & Setup Auto Login';
     autologinButton.classList.add('btn-full-width');
 
-    const autologinStatus = document.createElement('pre');
-    autologinStatus.className = 'status-pre';
-    autologinStatus.classList.add('status-element');
-
     autologinButton.addEventListener('click', async () => {
-        await downloadAndRunAutologin(autologinButton, autologinStatus);
+        await downloadAndRunAutologin(autologinButton);
     });
 
     autologinActions.appendChild(autologinButton);
-    autologinActions.appendChild(autologinStatus);
     autologinCard.appendChild(autologinActions);
 
     // Grid layout
@@ -310,4 +260,3 @@ export async function buildActivateAutologinPage(translations, settings) {
 
     return container;
 }
-

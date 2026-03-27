@@ -74,14 +74,42 @@ async function extractArchive(filePath, password, destDir, trackExtractedDir) {
     outDir = path.join(parent, base);
   }
 
-  // Directory setup
+  // Directory setup — kill any locked exes inside before removing
+  const killLockedExes = (dir) => {
+    return new Promise((resolve) => {
+      if (!fs.existsSync(dir)) return resolve();
+      // Safety timeout — don't hang if taskkill never returns
+      const timeout = setTimeout(() => resolve(), 5000);
+      try {
+        const items = fs.readdirSync(dir);
+        const exes = items.filter(f => f.toLowerCase().endsWith('.exe'));
+        if (exes.length === 0) { clearTimeout(timeout); return resolve(); }
+        const { spawn: sp } = require('child_process');
+        let pending = exes.length;
+        const done = () => { if (--pending === 0) { clearTimeout(timeout); resolve(); } };
+        exes.forEach(exe => {
+          const kill = sp('taskkill', ['/F', '/IM', `"${exe}"`], { windowsHide: true, stdio: 'ignore' });
+          kill.on('close', done);
+          kill.on('error', done);
+        });
+      } catch { clearTimeout(timeout); resolve(); }
+    });
+  };
+
   try {
     if (fs.existsSync(outDir)) {
-      fs.rmSync(outDir, { recursive: true, force: true });
+      await killLockedExes(outDir);
+      // Small delay to let Windows release file handles
+      await new Promise(r => setTimeout(r, 500));
+      try { fs.rmSync(outDir, { recursive: true, force: true }); } catch (e) {
+        debug('warn', 'Could not fully remove outDir:', e.message);
+      }
     }
     const altDir = outDir.replace(/_/g, ' ');
     if (altDir !== outDir && fs.existsSync(altDir)) {
-      fs.rmSync(altDir, { recursive: true, force: true });
+      await killLockedExes(altDir);
+      await new Promise(r => setTimeout(r, 500));
+      try { fs.rmSync(altDir, { recursive: true, force: true }); } catch { }
     }
     fs.mkdirSync(outDir, { recursive: true });
 
@@ -89,7 +117,7 @@ async function extractArchive(filePath, password, destDir, trackExtractedDir) {
       trackExtractedDir(outDir);
     }
   } catch (e) {
-    // Ignore directory creation errors
+    debug('warn', 'Directory setup error:', e.message);
   }
 
   // Find 7za executable

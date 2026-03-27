@@ -67,8 +67,7 @@
      */
     addLocalAssets() {
       const localAssets = [
-        'src/assets/icons/hacker.ico',
-        'src/assets/images/sims.png'
+        'src/assets/icons/hacker.ico'
       ];
       
       localAssets.forEach(path => {

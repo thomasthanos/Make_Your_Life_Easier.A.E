@@ -115,10 +115,8 @@ export function getDirectoryName(filePath) {
     if (!filePath || typeof filePath !== 'string') {
         return '';
     }
-    if (filePath.includes('\\')) {
-        return filePath.substring(0, filePath.lastIndexOf('\\'));
-    }
-    return filePath.substring(0, filePath.lastIndexOf('/'));
+    const idx = filePath.includes('\\') ? filePath.lastIndexOf('\\') : filePath.lastIndexOf('/');
+    return idx === -1 ? '' : filePath.substring(0, idx);
 }
 
 /**
@@ -152,7 +150,8 @@ export function getBaseName(filePath, ext = '') {
 export function getExtractedFolderPath(zipPath) {
     const parentDir = getDirectoryName(zipPath);
     const baseName = getBaseName(zipPath, '.zip');
-    return `${parentDir}\\${baseName}`;
+    const sep = zipPath.includes('\\') ? '\\' : '/';
+    return `${parentDir}${sep}${baseName}`;
 }
 
 // ============================================
@@ -237,11 +236,16 @@ export function autoFadeStatus(statusElement, delay = 5000) {
     if (statusElement._autoFadeTimeout) {
         clearTimeout(statusElement._autoFadeTimeout);
     }
+    if (statusElement._fadeOutTimeout) {
+        clearTimeout(statusElement._fadeOutTimeout);
+    }
 
     statusElement._autoFadeTimeout = setTimeout(() => {
+        if (!statusElement.isConnected) return;
         statusElement.classList.add('status-element', 'fade-out');
 
-        setTimeout(() => {
+        statusElement._fadeOutTimeout = setTimeout(() => {
+            if (!statusElement.isConnected) return;
             statusElement.classList.remove('visible');
             statusElement.classList.add('status-element');
             statusElement.classList.remove('fade-out');
@@ -265,7 +269,11 @@ export function createModernButton(text, onClick, options = {}) {
     button.textContent = text;
 
     if (options.icon) {
-        button.innerHTML = `${options.icon} ${escapeHtml(text)}`;
+        const iconSpan = document.createElement('span');
+        iconSpan.textContent = options.icon;
+        button.textContent = '';
+        button.appendChild(iconSpan);
+        button.appendChild(document.createTextNode(' ' + text));
     }
 
     if (onClick) {
@@ -279,31 +287,3 @@ export function createModernButton(text, onClick, options = {}) {
     return button;
 }
 
-/**
- * Create a card element with title and body content
- * @param {string} titleKey - Translation key for title
- * @param {string|Node|Array} bodyContent - Card body content
- * @param {Object} translations - Translations object
- * @returns {HTMLDivElement} The card element
- */
-export function createCard(titleKey, bodyContent, translations = {}) {
-    const card = document.createElement('div');
-    card.className = 'card';
-
-    const h2 = document.createElement('h2');
-    h2.textContent = translations.pages?.[titleKey] || titleKey;
-    card.appendChild(h2);
-
-    if (typeof bodyContent === 'string') {
-        const p = document.createElement('p');
-        p.textContent = bodyContent;
-        p.classList.add('description-text');
-        card.appendChild(p);
-    } else if (bodyContent instanceof Node) {
-        card.appendChild(bodyContent);
-    } else if (Array.isArray(bodyContent)) {
-        bodyContent.forEach((node) => card.appendChild(node));
-    }
-
-    return card;
-}

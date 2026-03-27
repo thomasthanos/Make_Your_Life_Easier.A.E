@@ -33,8 +33,6 @@ import {
 
 // Components
 import {
-    SUN_ICON,
-    MOON_ICON,
     INFO_ICON,
     MENU_ICON,
     MENU_ICONS,
@@ -92,7 +90,7 @@ import {
 // import { buildActivateAutologinPage } from './pages/activation.js';
 // import { buildInstallPageWingetWithCategories, buildCrackInstallerPage } from './pages/installers.js';
 // import { buildMaintenancePage, buildDebloatPage, buildBiosPage } from './pages/tools.js';
-// import { buildSpicetifyPage, buildDlcUnlockerPage } from './pages/media.js';
+// import { buildSpicetifyPage } from './pages/media.js';
 // import { buildPasswordManagerPage, buildChrisTitusPage } from './pages/utilities.js';
 
 // ============================================
@@ -215,8 +213,6 @@ export {
     MENU_ICONS,
 
     // Components
-    SUN_ICON,
-    MOON_ICON,
     INFO_ICON,
     MENU_ICON,
     toast,
