@@ -16,7 +16,7 @@ const FaviconConfig = {
   customIcons: {
     // IObit apps
     'IObit.Uninstaller': 'https://www.google.com/s2/favicons?domain=iobit-uninstaller.en.softonic.com&sz=64',
-    'IObit.AdvancedSystemCare': 'https://www.google.com/s2/favicons?domain=iobit-advanced-systemcare.en.softonic.com&sz=64',
+    'IObit.AdvancedSystemCare': 'https://www.google.com/s2/favicons?domain=https://advanced-systemcare.en.softonic.com/&sz=64',
     'IObit.SmartDefrag': 'https://www.google.com/s2/favicons?domain=smart-defrag.en.softonic.com&sz=64',
     'IObit.IObitSysInfo': 'https://i.postimg.cc/tC6TkWFV/isf-icon-big.png',
     'IObit.IObitSoftwareUpdater': 'https://www.google.com/s2/favicons?domain=iobit-software-updater.en.softonic.com&sz=64',
@@ -28,13 +28,47 @@ const FaviconConfig = {
     'Blizzard.BattleNet': 'https://www.google.com/s2/favicons?domain=battle.net&sz=64',
     'Mobalytics.Dropbox': 'https://www.google.com/s2/favicons?domain=mobalytics.gg&sz=64',
     'ProjectLightning.Dropbox': 'https://i.postimg.cc/Xvj1xKB3/d929685ba0bcef6866fe68a7fe44b237.png',
+    'Ubisoft.Connect': 'https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.ubisoft.com/en-us/game/assassins-creed/syndicate&size=64',
+    'PlayStation.PSRemotePlay': 'https://raw.githubusercontent.com/walkxcode/dashboard-icons/master/png/playstation.png',
+    'PlayStation.PSPlus': 'https://raw.githubusercontent.com/walkxcode/dashboard-icons/master/png/playstation.png',
+    
+    // Proton
+    'Proton.ProtonVPN': 'https://pmecdn.protonweb.com/image-transformation/?s=c&image=image%2Fupload%2Fstatic%2Flogos%2Ficons%2Fp-white-no-shadow_iwycfj.svg',
+    'Proton.ProtonDrive': 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/proton-drive.png',
+    'Proton.ProtonMail': 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/proton-mail.png',
+    'Proton.ProtonAuthenticator': 'https://pmecdn.protonweb.com/image-transformation/?s=c&image=image%2Fupload%2Fstatic%2Flogos%2Ficons%2Fauthenticator.svg',
+    'Proton.Proton Authenticator': 'https://pmecdn.protonweb.com/image-transformation/?s=c&image=image%2Fupload%2Fstatic%2Flogos%2Ficons%2Fauthenticator.svg',
+    
+    // AI Tools
+    'Anthropic.Claude': 'https://www.google.com/s2/favicons?domain=claude.ai&sz=128',
     
     // Development
     'Microsoft.VisualStudio.Professional': 'https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VisualStudio-Dark.svg',
     'Microsoft.VisualStudioCode': 'https://cdn.jsdelivr.net/gh/tandpfun/skill-icons@main/icons/VSCode-Dark.svg',
     
-    // Utilities
-    'Guru3D.Afterburner': 'https://www.google.com/s2/favicons?domain=guru3d.com&sz=64'
+    // Utilities - Using Google favicons (most reliable)
+    'Guru3D.Afterburner': 'https://www.google.com/s2/favicons?domain=msi.com&sz=128',
+    'Guru3D.RTSS': 'https://i.postimg.cc/gjqsBrHH/RTS-Radio-Television-Suisse.png',
+    'CPUID.CPU-Z': 'https://www.google.com/s2/favicons?domain=cpuid.com&sz=128',
+    'CPUID.HWMonitor': 'https://www.google.com/s2/favicons?domain=cpuid.com&sz=128',
+    'TechPowerUp.GPU-Z': 'https://www.google.com/s2/favicons?domain=techpowerup.com&sz=128',
+    'REALiX.HWiNFO': 'https://www.google.com/s2/favicons?domain=hwinfo.com&sz=128',
+    'CrystalDewWorld.CrystalDiskInfo': 'https://i.postimg.cc/wBCkqDWL/Crystal-Disk-Info.png',
+    'Oracle.VirtualBox': 'https://www.google.com/s2/favicons?domain=virtualbox.org&sz=128',
+    'BlenderFoundation.Blender': 'https://www.google.com/s2/favicons?domain=blender.org&sz=128',
+    'Notepad++.Notepad++': 'https://www.google.com/s2/favicons?domain=notepad-plus-plus.org&sz=128',
+    'FlorianHeidenreich.Mp3tag': 'https://www.google.com/s2/favicons?domain=mp3tag.de&sz=128',
+    'Rufus.Rufus': 'https://www.google.com/s2/favicons?domain=rufus.ie&sz=128',
+    'Ventoy.Ventoy': 'https://www.google.com/s2/favicons?domain=ventoy.net&sz=128',
+    'RevoUninstaller.RevoUninstaller': 'https://www.google.com/s2/favicons?domain=revouninstaller.com&sz=128',
+    'AnyDesk.AnyDesk': 'https://www.google.com/s2/favicons?domain=anydesk.com&sz=128',
+    'Stremio.Stremio': 'https://www.google.com/s2/favicons?domain=stremio.com&sz=128',
+    'Apple.iTunes': 'https://www.google.com/s2/favicons?domain=apple.com&sz=128',
+    'Malwarebytes.Malwarebytes': 'https://www.google.com/s2/favicons?domain=malwarebytes.com&sz=128',
+    
+    // Google
+    'Google.GoogleDrive': 'https://www.google.com/s2/favicons?domain=https://drive.google.com/drive/my-drive&sz=128',
+    'Google.Chrome': 'https://www.google.com/s2/favicons?domain=google.com/chrome&sz=128'
   },
 
   // Publisher to domain mapping
@@ -53,7 +87,7 @@ const FaviconConfig = {
     'mojang': 'minecraft.net',
     'vivaldi': 'vivaldi.com',
     'valve': 'steampowered.com',
-    'playstation': 'playstation.com',
+    'playstation': 'blog.playstation.com',
     'python': 'python.org',
     'microsoft': 'microsoft.com',
     'rarlab': 'win-rar.com',
@@ -62,7 +96,7 @@ const FaviconConfig = {
     'spotify': 'spotify.com',
     'surfshark': 'surfshark.com',
     'zwylair': 'github.com',
-    'proton': 'protonvpn.com',
+    'proton': 'proton.me',
     'openjs': 'nodejs.org',
     'mozilla': 'mozilla.org',
     '7zip': '7-zip.org',

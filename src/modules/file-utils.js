@@ -8,24 +8,6 @@ const fsPromises = fs.promises;
 const path = require('path');
 
 /**
- * Safely remove a file if it exists
- * @param {string} filePath - The absolute path of the file to delete
- * @returns {Promise<void>}
- */
-async function removeFileIfExists(filePath) {
-  try {
-    if (filePath) {
-      await fsPromises.unlink(filePath);
-    }
-  } catch (err) {
-    // File doesn't exist or can't be deleted - ignore
-    if (err.code !== 'ENOENT') {
-      // Log non-ENOENT errors but don't throw
-    }
-  }
-}
-
-/**
  * Safely remove a file if it exists (sync version for backward compatibility)
  * @param {string} filePath - The absolute path of the file to delete
  */
@@ -36,24 +18,6 @@ function removeFileIfExistsSync(filePath) {
     }
   } catch {
     // Ignore errors
-  }
-}
-
-/**
- * Safely remove a directory if it exists
- * @param {string} dirPath - The absolute path of the directory to remove
- * @returns {Promise<void>}
- */
-async function removeDirIfExists(dirPath) {
-  try {
-    if (dirPath) {
-      await fsPromises.rm(dirPath, { recursive: true, force: true });
-    }
-  } catch (err) {
-    // Directory doesn't exist or can't be deleted - ignore
-    if (err.code !== 'ENOENT') {
-      // Log non-ENOENT errors but don't throw
-    }
   }
 }
 
@@ -83,68 +47,6 @@ function cleanupExtractDirs(finalName, downloadsDir) {
   const altExtractDir = extractDir.replace(/_/g, ' ');
   if (altExtractDir !== extractDir) {
     removeDirIfExistsSync(altExtractDir);
-  }
-}
-
-/**
- * Ensure a directory exists, creating it if necessary
- * @param {string} dirPath - The directory path to create
- * @returns {Promise<void>}
- */
-async function ensureDir(dirPath) {
-  try {
-    await fsPromises.mkdir(dirPath, { recursive: true });
-  } catch (err) {
-    if (err.code !== 'EEXIST') {
-      throw err;
-    }
-  }
-}
-
-/**
- * Ensure a directory exists (sync version)
- * @param {string} dirPath - The directory path to create
- */
-function ensureDirSync(dirPath) {
-  try {
-    fs.mkdirSync(dirPath, { recursive: true });
-  } catch (err) {
-    if (err.code !== 'EEXIST') {
-      // Ignore mkdir errors
-    }
-  }
-}
-
-/**
- * Read file contents as UTF-8 string
- * @param {string} filePath - The file path to read
- * @returns {Promise<string>}
- */
-async function readFileText(filePath) {
-  return fsPromises.readFile(filePath, 'utf-8');
-}
-
-/**
- * Write text content to a file
- * @param {string} filePath - The file path to write
- * @param {string} content - The content to write
- * @returns {Promise<void>}
- */
-async function writeFileText(filePath, content) {
-  return fsPromises.writeFile(filePath, content, 'utf8');
-}
-
-/**
- * Check if a file or directory exists
- * @param {string} targetPath - The path to check
- * @returns {Promise<boolean>}
- */
-async function exists(targetPath) {
-  try {
-    await fsPromises.access(targetPath);
-    return true;
-  } catch {
-    return false;
   }
 }
 
@@ -193,16 +95,9 @@ function expandEnvVars(input) {
 }
 
 module.exports = {
-  removeFileIfExists,
   removeFileIfExistsSync,
-  removeDirIfExists,
   removeDirIfExistsSync,
   cleanupExtractDirs,
-  ensureDir,
-  ensureDirSync,
-  readFileText,
-  writeFileText,
-  exists,
   sanitizeFilename,
   extFromUrl,
   expandEnvVars,

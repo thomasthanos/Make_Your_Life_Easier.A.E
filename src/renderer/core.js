@@ -4,12 +4,17 @@
  */
 
 import { debug } from './utils.js';
-import { ButtonStateManager, EventListenerManager, attachTooltipHandlers, buttonStateManager } from './managers.js';
-import { SUN_ICON, MOON_ICON, INFO_ICON, MENU_ICON, MENU_ICONS, toast, showAppLoader, hideAppLoader, openInfoModal, createMenuButton } from './components.js';
+import { EventListenerManager, attachTooltipHandlers, buttonStateManager, detachAllDownloadUI, initDownloadListener } from './managers.js';
+import { INFO_ICON, MENU_ICON, MENU_ICONS, toast, openInfoModal, createMenuButton, hideAppLoader } from './components.js';
 import {
     loadSettings, saveSettings, applyTheme, loadTranslations, getTranslations, setTranslations,
-    resizeWindowSmooth, initializeAutoUpdater, ensureSidebarVersion, checkForChangelog
+    initializeAutoUpdater, ensureSidebarVersion, checkForChangelog
 } from './services.js';
+
+// Default window dimensions (must match window-manager.js MAIN_WINDOW)
+const DEFAULT_WINDOW_WIDTH = 1100;
+const INSTALL_PAGE_WIDTH = 1400;
+const DEFAULT_WINDOW_HEIGHT = 750;
 
 // ============================================
 // APPLICATION STATE
@@ -34,29 +39,8 @@ const menuKeys = [
     'spicetify',
     'password_manager',
     'christitus',
-    'debloat',
-    'dlc_unlocker'
+    'debloat'
 ];
-
-// ============================================
-// GETTERS
-// ============================================
-
-export function getCurrentPage() {
-    return currentPage;
-}
-
-export function getSettings() {
-    return settings;
-}
-
-export function getButtonStateManager() {
-    return buttonStateManager;
-}
-
-export function getPageEventManager() {
-    return pageEventManager;
-}
 
 // ============================================
 // HEADER UPDATE
@@ -82,30 +66,6 @@ function updateHeader() {
         subtitleEl.textContent = (translations.app && translations.app.subtitle) || 'System Management Tools';
     }
 
-    const toggleButton = document.getElementById('theme-toggle');
-    if (toggleButton) {
-        const refreshIcon = () => {
-            toggleButton.innerHTML = settings.theme === 'dark' ? MOON_ICON : SUN_ICON;
-        };
-        refreshIcon();
-
-        if (toggleButton._toggleListener) {
-            toggleButton.removeEventListener('click', toggleButton._toggleListener);
-        }
-        const listener = () => {
-            const newTheme = settings.theme === 'dark' ? 'light' : 'dark';
-            settings.theme = newTheme;
-            document.documentElement.setAttribute('data-theme', newTheme);
-            saveSettings(settings);
-            refreshIcon();
-
-            const dropdown = document.getElementById('titlebar-menu-dropdown');
-            if (dropdown) dropdown.classList.add('hidden');
-        };
-        toggleButton._toggleListener = listener;
-        toggleButton.addEventListener('click', listener);
-    }
-
     const langToggle = document.getElementById('lang-toggle');
     if (langToggle) {
         const currentLangCode = (settings.lang === 'gr' || settings.lang === 'en') ? settings.lang.toUpperCase() : 'EN';
@@ -122,7 +82,7 @@ function updateHeader() {
             if (dropdown) dropdown.classList.add('hidden');
             translations = await loadTranslations(newLang);
             setTranslations(translations);
-            applyTheme(settings.theme);
+            applyTheme();
             renderMenu();
             if (typeof currentPage === 'string' && currentPage) {
                 loadPage(currentPage);
@@ -247,10 +207,12 @@ function setHeader(text) {
 }
 
 export async function loadPage(key) {
+    // Detach download UI callbacks before destroying DOM (downloads continue in background)
+    detachAllDownloadUI();
+
     // Cleanup previous page's event listeners and button states
     if (pageEventManager) {
         pageEventManager.cleanup();
-        pageEventManager = new EventListenerManager();
     }
     buttonStateManager.resetAll();
 
@@ -262,33 +224,30 @@ export async function loadPage(key) {
 
     currentPage = key;
 
-    // Handle window resize based on page
-    {
-        const isInstall = key === 'install_apps';
-        const targetWidth = isInstall ? 1400 : 1100;
-        const targetHeight = 750;
-        try {
-            if (window.api && typeof window.api.animateResize === 'function') {
-                window.api.animateResize(targetWidth, targetHeight, 120).catch(() => { });
-            } else if (typeof resizeWindowSmooth === 'function') {
-                resizeWindowSmooth(targetWidth, targetHeight, 250);
-            } else if (window.api && typeof window.api.setWindowSize === 'function') {
-                window.api.setWindowSize(targetWidth, targetHeight);
-            }
-        } catch {
-            // ignore
-        }
-    }
-
     const content = document.getElementById('content');
     if (!content) return;
-    content.innerHTML = '';
+    
+    // Determine target window size
+    const isInstall = key === 'install_apps';
+    const targetWidth = isInstall ? 1400 : 1100;
+    const targetHeight = 750;
+    
+    // Resize BEFORE changing content so old content fills the new size
+    try {
+        if (window.api && typeof window.api.setWindowSize === 'function') {
+            await window.api.setWindowSize(targetWidth, targetHeight);
+            // Small delay to let window resize complete
+            await new Promise(resolve => setTimeout(resolve, 16));
+        }
+    } catch { }
 
+    // Now clear and load new content
+    content.innerHTML = '';
     // Import page builders dynamically to avoid circular dependencies
     const { buildInstallPageWingetWithCategories, buildCrackInstallerPage } = await import('./pages/installers.js');
     const { buildActivateAutologinPage } = await import('./pages/activation.js');
     const { buildMaintenancePage, buildDebloatPage, showRestartDialog } = await import('./pages/tools.js');
-    const { buildSpicetifyPage, buildDlcUnlockerPage } = await import('./pages/media.js');
+    const { buildSpicetifyPage } = await import('./pages/media.js');
     const { buildPasswordManagerPage, buildChrisTitusPage } = await import('./pages/utilities.js');
 
     switch (key) {
@@ -364,15 +323,6 @@ export async function loadPage(key) {
             break;
         }
 
-        case 'dlc_unlocker': {
-            const headerText = (translations.pages && (translations.pages.dlc_title || translations.pages.dlc_unlocker_title)) ||
-                (translations.menu && translations.menu.dlc_unlocker) ||
-                'dlc_unlocker';
-            setHeader(headerText);
-            content.appendChild(await buildDlcUnlockerPage(translations, settings, buttonStateManager));
-            break;
-        }
-
         case 'bios': {
             const headerText = (translations.pages && (translations.pages.bios_title)) ||
                 (translations.menu && translations.menu.bios) ||
@@ -394,23 +344,44 @@ export async function loadPage(key) {
 
 export async function init() {
     try {
-        showAppLoader('Loading application...');
+        // Report progress: Loading settings
+        if (window.api?.updateLoadingProgress) {
+            await window.api.updateLoadingProgress(20, 'Loading settings...').catch(() => {});
+        }
 
         // Load settings
         settings = loadSettings();
 
+        // Initialize persistent download event listener (survives page switches)
+        initDownloadListener();
+
         // Apply theme
-        applyTheme(settings.theme);
+        applyTheme();
+        
+        // Report progress: Loading translations
+        if (window.api?.updateLoadingProgress) {
+            await window.api.updateLoadingProgress(40, 'Loading translations...').catch(() => {});
+        }
 
         // Load translations
         translations = await loadTranslations(settings.lang);
         setTranslations(translations);
+        
+        // Report progress: Building UI
+        if (window.api?.updateLoadingProgress) {
+            await window.api.updateLoadingProgress(60, 'Building interface...').catch(() => {});
+        }
 
         // Render menu
         renderMenu();
 
         // Ensure sidebar version is displayed
         await ensureSidebarVersion({ settings });
+        
+        // Report progress: Initializing
+        if (window.api?.updateLoadingProgress) {
+            await window.api.updateLoadingProgress(80, 'Initializing...').catch(() => {});
+        }
 
         // Initialize auto-updater
         initializeAutoUpdater();
@@ -421,15 +392,44 @@ export async function init() {
         if (defaultButton) {
             await loadPage(defaultButton.dataset.key);
         }
+        
+        // Report progress: Almost ready
+        if (window.api?.updateLoadingProgress) {
+            await window.api.updateLoadingProgress(95, 'Almost ready...').catch(() => {});
 
-        // Check for changelog after update
+            // Small delay to allow 95% to render before jumping to 100%
+            await new Promise(resolve => setTimeout(resolve, 150));
+        }
+
+        // Signal to main process that app is ready FIRST (for updater window transition)
+        if (window.api && typeof window.api.signalAppReady === 'function') {
+            try {
+                // Determine target size for the default page so main can size the window before showing it
+                const defaultKey = defaultButton?.dataset?.key;
+                const isInstallDefault = defaultKey === 'install_apps';
+                const targetWidthDefault = isInstallDefault ? INSTALL_PAGE_WIDTH : DEFAULT_WINDOW_WIDTH;
+                const targetHeightDefault = DEFAULT_WINDOW_HEIGHT;
+                await window.api.signalAppReady(targetWidthDefault, targetHeightDefault);
+                debug('info', 'Signaled app ready to main process');
+            } catch (err) {
+                debug('warn', 'Failed to signal app ready:', err);
+            }
+        }
+        
+        // Check for changelog after everything is ready
         setTimeout(() => {
             checkForChangelog();
         }, 1500);
-
-        hideAppLoader();
     } catch (error) {
         debug('error', 'Initialization error:', error);
+        
+        // Signal app ready even on error, to close update window
+        if (window.api && typeof window.api.signalAppReady === 'function') {
+            try {
+                await window.api.signalAppReady();
+            } catch { }
+        }
+        
         hideAppLoader();
         toast('Failed to initialize application', { type: 'error', title: 'Error' });
     }

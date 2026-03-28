@@ -4,53 +4,8 @@
  * CSS classes match original renderer.js structure
  */
 
-import { debug, escapeHtml } from '../utils.js';
-import { buttonStateManager } from '../managers.js';
-import { toast } from '../components.js';
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-/**
- * Creates a modern styled button (original structure)
- */
-function createModernButton(text, onClick, options = {}) {
-    const button = document.createElement('button');
-    button.className = options.secondary ? 'button button-secondary' : 'button';
-    button.textContent = text;
-
-    if (options.icon) {
-        button.innerHTML = `${options.icon} ${escapeHtml(text)}`;
-    }
-
-    if (onClick) {
-        button.addEventListener('click', onClick);
-    }
-
-    if (options.style) {
-        Object.assign(button.style, options.style);
-    }
-
-    return button;
-}
-
-/**
- * Shows notification message
- */
-function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `toast status-${type}`;
-    notification.textContent = message;
-    notification.classList.add('notification');
-
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-        notification.classList.add('slide-out');
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
+import { escapeHtml, createModernButton } from '../utils.js';
+import { toast, showNotification } from '../components.js';
 
 // ============================================
 // PASSWORD MANAGER PAGE (Original Structure)
@@ -59,6 +14,49 @@ function showNotification(message, type = 'info') {
 export function buildPasswordManagerPage(translations, settings) {
     const container = document.createElement('div');
     container.className = 'card password-manager-card';
+
+    // Card Header
+    const header = document.createElement('div');
+    header.className = 'password-card-header';
+
+    const headerIcon = document.createElement('div');
+    headerIcon.className = 'password-card-icon-wrapper';
+    headerIcon.innerHTML = `
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      <rect x="9" y="11" width="6" height="5" rx="1.2"/>
+      <path d="M10 11V9.7a2 2 0 0 1 4 0V11"/>
+    </svg>
+  `;
+
+    const headerTextWrap = document.createElement('div');
+    headerTextWrap.className = 'password-card-copy';
+
+    const headerTitle = document.createElement('h3');
+    headerTitle.className = 'password-card-title';
+    headerTitle.textContent =
+        translations.pages?.password_title ||
+        translations.menu?.password_manager ||
+        'Password Manager';
+
+    const headerSubtitle = document.createElement('p');
+    headerSubtitle.className = 'password-card-subtitle';
+    headerSubtitle.textContent =
+        translations.messages?.local_storage ||
+        'Local device storage only';
+
+    const headerBadge = document.createElement('span');
+    headerBadge.className = 'password-card-badge';
+    headerBadge.textContent =
+        translations.messages?.encrypted_storage ||
+        'Encrypted storage';
+
+    headerTextWrap.appendChild(headerTitle);
+    headerTextWrap.appendChild(headerSubtitle);
+    header.appendChild(headerIcon);
+    header.appendChild(headerTextWrap);
+    header.appendChild(headerBadge);
+    container.appendChild(header);
 
     // Warning Banner
     const warning = document.createElement('div');
@@ -157,7 +155,7 @@ export function buildPasswordManagerPage(translations, settings) {
 
 const svgDataUrl = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
-export function buildChrisTitusPage(translations, settings) {
+export function buildChrisTitusPage(translations, _settings) {
     const el = (t, cls, html) => {
         const n = document.createElement(t);
         if (cls) n.className = cls;
@@ -269,8 +267,10 @@ export function buildChrisTitusPage(translations, settings) {
     });
 
     ghBtn.addEventListener('click', async () => {
-        if (window.api?.openExternal) await window.api.openExternal('https://github.com/ChrisTitusTech/winutil');
-        else window.open('https://github.com/ChrisTitusTech/winutil', '_blank');
+        try {
+            if (window.api?.openExternal) await window.api.openExternal('https://github.com/ChrisTitusTech/winutil');
+            else window.open('https://github.com/ChrisTitusTech/winutil', '_blank');
+        } catch { /* ignore – best-effort external link */ }
     });
 
     return card;

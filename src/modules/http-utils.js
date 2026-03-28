@@ -21,12 +21,15 @@ function clientFor(url) {
  * @param {Object} params - Form parameters
  * @returns {Promise<Object>} - JSON response
  */
+const REQUEST_TIMEOUT_MS = 30000;
+const MAX_RESPONSE_SIZE = 10 * 1024 * 1024; // 10 MB
+
 function postForm(url, params) {
   return new Promise((resolve, reject) => {
     const data = new URLSearchParams(params).toString();
     const parsed = new URL(url);
     const client = parsed.protocol === 'https:' ? https : http;
-    
+
     const options = {
       hostname: parsed.hostname,
       port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
@@ -35,14 +38,25 @@ function postForm(url, params) {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Content-Length': Buffer.byteLength(data)
-      }
+      },
+      timeout: REQUEST_TIMEOUT_MS
     };
-    
+
     const req = client.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
+      const chunks = [];
+      let totalSize = 0;
+      res.on('data', (chunk) => {
+        totalSize += chunk.length;
+        if (totalSize > MAX_RESPONSE_SIZE) {
+          req.destroy();
+          reject(new Error('Response too large'));
+          return;
+        }
+        chunks.push(chunk);
+      });
       res.on('end', () => {
         try {
+          const body = Buffer.concat(chunks).toString();
           const json = JSON.parse(body);
           if (res.statusCode >= 200 && res.statusCode < 300) {
             resolve(json);
@@ -54,7 +68,11 @@ function postForm(url, params) {
         }
       });
     });
-    
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Request timed out'));
+    });
     req.on('error', (err) => reject(err));
     req.write(data);
     req.end();
@@ -71,20 +89,31 @@ function getJson(url, headers = {}) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
     const client = parsed.protocol === 'https:' ? https : http;
-    
+
     const options = {
       hostname: parsed.hostname,
       port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
       path: parsed.pathname + (parsed.search || ''),
       method: 'GET',
-      headers
+      headers,
+      timeout: REQUEST_TIMEOUT_MS
     };
-    
+
     const req = client.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
+      const chunks = [];
+      let totalSize = 0;
+      res.on('data', (chunk) => {
+        totalSize += chunk.length;
+        if (totalSize > MAX_RESPONSE_SIZE) {
+          req.destroy();
+          reject(new Error('Response too large'));
+          return;
+        }
+        chunks.push(chunk);
+      });
       res.on('end', () => {
         try {
+          const body = Buffer.concat(chunks).toString();
           const json = JSON.parse(body);
           if (res.statusCode >= 200 && res.statusCode < 300) {
             resolve(json);
@@ -96,73 +125,19 @@ function getJson(url, headers = {}) {
         }
       });
     });
-    
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Request timed out'));
+    });
     req.on('error', (err) => reject(err));
     req.end();
   });
 }
 
-/**
- * Fetch details about the latest Sparkle release from GitHub
- * @returns {Promise<{version: string, assetUrl: string, fileName: string}>}
- */
-function fetchLatestSparkle() {
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: 'api.github.com',
-      path: '/repos/parcoil/sparkle/releases/latest',
-      method: 'GET',
-      headers: {
-        'User-Agent': 'make-your-life-easier-app',
-        'Accept': 'application/vnd.github+json'
-      }
-    };
-    
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk.toString(); });
-      res.on('end', () => {
-        try {
-          if (res.statusCode !== 200) {
-            return reject(new Error(`GitHub API responded with status ${res.statusCode}`));
-          }
-          const json = JSON.parse(data);
-          let tag = json.tag_name || '';
-          if (typeof tag === 'string' && tag.startsWith('v')) tag = tag.substring(1);
-          const version = tag || '0.0.0';
-          let assetUrl = null;
-          let fileName = null;
-          
-          if (Array.isArray(json.assets)) {
-            for (const asset of json.assets) {
-              if (asset && asset.name && /sparkle-.*-win\.zip$/i.test(asset.name) && asset.browser_download_url) {
-                assetUrl = asset.browser_download_url;
-                fileName = asset.name;
-                break;
-              }
-            }
-          }
-          
-          if (!assetUrl) {
-            return reject(new Error('Unable to locate Windows zip asset for Sparkle'));
-          }
-          resolve({ version, assetUrl, fileName });
-        } catch (err) {
-          reject(err);
-        }
-      });
-    });
-    
-    req.on('error', (err) => reject(err));
-    req.end();
-  });
-}
 
 module.exports = {
   clientFor,
   postForm,
-  getJson,
-  fetchLatestSparkle,
-  http,
-  https
+  getJson
 };

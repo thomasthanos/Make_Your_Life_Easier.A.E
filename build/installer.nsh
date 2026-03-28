@@ -3,6 +3,16 @@ ${StrRep}
 ${StrStr}
 
 ; ============================================================================
+; NSIS OPTIMIZATIONS
+; ============================================================================
+; Speed up installer by reducing UI updates and using faster compression
+SetCompressor /SOLID lzma
+SetCompressorDictSize 32
+SetDatablockOptimize on
+AutoCloseWindow true
+
+
+; ============================================================================
 ; SECURITY HELPERS
 ; ============================================================================
 
@@ -58,16 +68,44 @@ FunctionEnd
 ; customInit - Runs BEFORE installation to clean up previous versions
 ; ============================================================================
 !macro customInit
-  ; Set default install directory first
-  StrCpy $INSTDIR "$PROGRAMFILES64\ThomasThanos\MakeYourLifeEasier"
+  ; Set default install directory to user's local folder (no admin required)
+  StrCpy $INSTDIR "$LOCALAPPDATA\ThomasThanos\MakeYourLifeEasier"
   
-  ; First, check for our known registry key (legacy name)
-  ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" "UninstallString"
+  ; Quick process check - use faster method with shorter timeout
+  ; Use wmic which is faster than tasklist for single process check
+  nsExec::ExecToStack 'wmic process where "name='\''MakeYourLifeEasier.exe'\''" get ProcessId /FORMAT:LIST'
+  Pop $0  ; Exit code
+  Pop $1  ; Output
+  
+  ; If process is running, wait briefly for graceful shutdown
+  ${If} $0 == 0
+    ; Check if we got a ProcessId (means process exists)
+    ${StrStr} $2 $1 "ProcessId="
+    ${If} $2 != ""
+      ; Process found - wait for it to exit (max 1.5 seconds)
+      StrCpy $0 0
+      wait_for_exit:
+        ; Use FindWindow which is much faster than tasklist/wmic
+        FindWindow $3 "" "Make Your Life Easier"
+        ${If} $3 == 0
+          Goto process_exited
+        ${EndIf}
+        IntOp $0 $0 + 1
+        IntCmp $0 5 process_exited  ; 5 * 250ms = 1.25 seconds
+        Sleep 250
+        Goto wait_for_exit
+    ${EndIf}
+  ${EndIf}
+  
+  process_exited:
+  
+  ; First, check for our known registry key (legacy name) - HKCU for user installation
+  ReadRegStr $R0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" "UninstallString"
   StrCmp $R0 "" check_guid found_known_key
 
   check_guid:
   ; Check for the electron-builder generated GUID key
-  ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}" "UninstallString"
+  ReadRegStr $R0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}" "UninstallString"
   StrCmp $R0 "" scan_registry found_known_key
 
   found_known_key:
@@ -81,8 +119,8 @@ FunctionEnd
     ExecWait '"$R0" /S _?=$INSTDIR'
   ${Else}
     ; Μη έγκυρο path - διαγραφή μόνο του registry key
-    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier"
-    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}"
+    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier"
+    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}"
   ${EndIf}
   Goto done_scanning
 
@@ -91,11 +129,11 @@ FunctionEnd
   StrCpy $0 0
 
   loop_registry:
-  EnumRegKey $1 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall" $0
+  EnumRegKey $1 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall" $0
   StrCmp $1 "" done_scanning
 
   ; Read the DisplayName of this entry
-  ReadRegStr $2 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1" "DisplayName"
+  ReadRegStr $2 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1" "DisplayName"
   
   ; Skip entries with empty DisplayName
   StrCmp $2 "" next_key
@@ -108,7 +146,7 @@ FunctionEnd
 
   found_orphan:
   ; Found an orphaned entry for our app
-  ReadRegStr $4 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1" "UninstallString"
+  ReadRegStr $4 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1" "UninstallString"
   ${StrRep} $4 $4 '"' ''
   
   ; ✅ SECURITY: Validate path before executing
@@ -120,7 +158,7 @@ FunctionEnd
   ${EndIf}
 
   ; Clean up the orphaned registry key
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1"
   ; Re-check same index because registry shifted
   IntOp $0 $0 - 1
 
@@ -135,57 +173,45 @@ FunctionEnd
 ; customInstall - Runs AFTER files are installed
 ; ============================================================================
 !macro customInstall
-  ; Install certificate to Trusted Root (for code signing verification)
-  ; Το code-signed installer προστατεύει ήδη από tampering
-  ${If} ${FileExists} "$INSTDIR\resources\bin\certificate.cer"
-    nsExec::ExecToLog 'certutil -addstore "Root" "$INSTDIR\resources\bin\certificate.cer"'
-  ${EndIf}
+  ; Certificate installation removed - no admin rights required
+  ; Note: Certificate installation requires admin privileges
+  ; If you need to install certificates, users must run installer as admin manually
   
   ; Use the electron-builder generated key for all registry entries
   StrCpy $R0 "${UNINSTALL_APP_KEY}"
   
-  ; Write application information to registry
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "DisplayName" "Make Your Life Easier ${VERSION}"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "DisplayVersion" "${VERSION}"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "Publisher" "ThomasThanos"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "DisplayIcon" "$INSTDIR\MakeYourLifeEasier.exe"
+  ; Write application information to registry (HKCU - no admin required)
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "DisplayName" "Make Your Life Easier ${VERSION}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "DisplayVersion" "${VERSION}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "Publisher" "ThomasThanos"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "DisplayIcon" "$INSTDIR\MakeYourLifeEasier.exe"
   
   ; Write URLs for support and information
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "HelpLink" "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/copyright.html"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "URLInfoAbout" "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/info/info.html"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "Readme" "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/readme.html"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "URLUpdateInfo" "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/changelog.html"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "Comments" "A modern, user-friendly desktop application with auto-updater"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "HelpLink" "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/copyright.html"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "URLInfoAbout" "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/info/info.html"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "Readme" "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/readme.html"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "URLUpdateInfo" "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/changelog.html"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "Comments" "A modern, user-friendly desktop application with auto-updater"
   
-  ; Calculate and write installed size
-  ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
-  IntFmt $0 "0x%08X" $0
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "EstimatedSize" $0
+  ; Use approximate size instead of scanning entire directory (much faster)
+  ; Typical Electron app is around 200-300 MB
+  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "EstimatedSize" 0x0000C800
   
   ; Create legacy key that points to the same uninstaller
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" "DisplayName" "Make Your Life Easier ${VERSION}"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" "UninstallString" '"$INSTDIR\Uninstall MakeYourLifeEasier.exe"'
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" "DisplayVersion" "${VERSION}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" "DisplayName" "Make Your Life Easier ${VERSION}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" "UninstallString" '"$INSTDIR\Uninstall MakeYourLifeEasier.exe"'
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" "DisplayVersion" "${VERSION}"
 !macroend
 
 ; ============================================================================
 ; customUnInstall - Runs during uninstallation
 ; ============================================================================
 !macro customUnInstall
-  ; ✅ SECURITY: Remove only our specific certificate by serial number
-  ; Αντί να διαγράψουμε όλα τα certificates με subject "ThomasThanos",
-  ; διαγράφουμε μόνο το certificate που εγκαταστήσαμε
-  ${If} ${FileExists} "$INSTDIR\resources\bin\certificate.cer"
-    ; Αφαίρεση με βάση το serial number (πιο ασφαλές)
-    nsExec::ExecToLog 'certutil -delstore "Root" -serial "6d692f965ad8b7ae4fc7c599530b0837"'
-  ${Else}
-    ; Fallback: Αφαίρεση με subject αλλά με επιβεβαίωση
-    nsExec::ExecToLog 'certutil -delstore "Root" "ThomasThanos"'
-  ${EndIf}
+  ; Certificate removal skipped - was not installed (no admin rights during install)
   
-  ; Clean up all registry keys
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier"
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}"
+  ; Clean up all registry keys (HKCU - user specific)
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}"
   
   ; Only remove app data on full uninstall, not during update
   ${ifNot} ${isUpdated}

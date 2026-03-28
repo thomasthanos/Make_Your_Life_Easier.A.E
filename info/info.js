@@ -49,13 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Update menu hint
-    const menuHintEl = document.querySelector('.info-menu-hint');
-    if (menuHintEl) {
-      const hintText = translations[lang]?.menuHint || 'Title bar menu: theme, language, info panel.';
-      menuHintEl.textContent = hintText;
-    }
-
     // Update section content
     document.querySelectorAll('.info-section').forEach(section => {
       const id = section.id;

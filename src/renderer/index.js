@@ -16,8 +16,7 @@ import {
     getAppVersionWithFallback,
     svgDataUrl,
     autoFadeStatus,
-    createModernButton,
-    createCard
+    createModernButton
 } from './utils.js';
 
 // Managers
@@ -34,8 +33,6 @@ import {
 
 // Components
 import {
-    SUN_ICON,
-    MOON_ICON,
     INFO_ICON,
     MENU_ICON,
     MENU_ICONS,
@@ -77,10 +74,6 @@ import {
 
 // Core
 import {
-    getCurrentPage,
-    getSettings,
-    getButtonStateManager,
-    getPageEventManager,
     renderMenu,
     loadPage,
     init,
@@ -97,7 +90,7 @@ import {
 // import { buildActivateAutologinPage } from './pages/activation.js';
 // import { buildInstallPageWingetWithCategories, buildCrackInstallerPage } from './pages/installers.js';
 // import { buildMaintenancePage, buildDebloatPage, buildBiosPage } from './pages/tools.js';
-// import { buildSpicetifyPage, buildDlcUnlockerPage } from './pages/media.js';
+// import { buildSpicetifyPage } from './pages/media.js';
 // import { buildPasswordManagerPage, buildChrisTitusPage } from './pages/utilities.js';
 
 // ============================================
@@ -166,34 +159,13 @@ async function initializeApp() {
     try {
         debug('info', 'Starting modular renderer initialization...');
 
-        // Show app loader during initialization
-        showAppLoader();
-
-        // Initialize the core application
+        // Initialize the core application (handles auto-updater, changelog, sidebar version internally)
         await init();
 
-        // Initialize auto-updater if available
-        if (typeof initializeAutoUpdater === 'function') {
-            initializeAutoUpdater();
-        }
-
-        // Check for changelog to show
-        if (typeof checkForChangelog === 'function') {
-            await checkForChangelog();
-        }
-
-        // Ensure sidebar version is displayed
-        if (typeof ensureSidebarVersion === 'function') {
-            ensureSidebarVersion();
-        }
-
-        // Hide app loader
-        hideAppLoader();
-
         debug('info', 'Modular renderer initialization complete');
+
     } catch (err) {
         debug('error', 'Failed to initialize application:', err);
-        hideAppLoader();
 
         showErrorCard({
             title: 'Initialization Error',
@@ -229,7 +201,6 @@ export {
     svgDataUrl,
     autoFadeStatus,
     createModernButton,
-    createCard,
 
     // Managers
     ButtonStateManager,
@@ -242,8 +213,6 @@ export {
     MENU_ICONS,
 
     // Components
-    SUN_ICON,
-    MOON_ICON,
     INFO_ICON,
     MENU_ICON,
     toast,
@@ -280,10 +249,6 @@ export {
     CUSTOM_APPS,
 
     // Core
-    getCurrentPage,
-    getSettings,
-    getButtonStateManager,
-    getPageEventManager,
     renderMenu,
     loadPage,
     init,

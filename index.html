@@ -15,6 +15,15 @@
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https:; font-src 'self'; connect-src 'self' https:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';" />
   <title>Make Your Life Easier</title>
+  
+  <style>
+    html, body {
+      background-color: #171717 !important; /* Match window background to prevent gray flash */
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+  </style>
 
   <!-- Theme initialization moved to external script for CSP compliance -->
   <script src="src/config/theme-init.js"></script>
@@ -124,6 +133,8 @@
       align-items: center;
       justify-content: center;
     }
+
+
   </style>
 </head>
 
@@ -136,7 +147,6 @@
     <div class="title-bar-menu">
       <button id="menu-toggle" class="menu-toggle" aria-label="Menu" data-tooltip="Menu"></button>
       <div id="titlebar-menu-dropdown" class="menu-dropdown hidden">
-        <button id="theme-toggle" class="theme-toggle"></button>
         <button id="lang-toggle" class="lang-toggle">EN</button>
         <button id="info-toggle" class="info-toggle"></button>
       </div>
@@ -173,7 +183,7 @@
       <div class="sidebar-footer">
         <div class="user-info" id="userInfo"></div>
         <div class="version-wrap" data-tooltip="App version">
-          <span id="appVersion" class="version-text">v0.0.0</span>
+          <span id="appVersion" class="version-text">v...</span>
         </div>
       </div>
     </nav>
@@ -184,6 +194,7 @@
   </div>
 
   <script src="src/config/favicon-config.js"></script>
+  <script src="src/config/app-preloader.js"></script>
   <script src="src/config/titlebar-init.js"></script>
   <script type="module" src="src/renderer/index.js"></script>
 

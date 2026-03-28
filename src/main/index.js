@@ -7,6 +7,12 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const { execFile } = require('child_process');
+
+// Set userData path to AppData\Roaming\ThomasThanos\MakeYourLifeEasier
+// Must be done before any module imports that call app.getPath('userData')
+const _roamingBase = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+app.setPath('userData', path.join(_roamingBase, 'ThomasThanos', 'MakeYourLifeEasier'));
 
 // ============================================================================
 // Module Imports
@@ -49,6 +55,59 @@ const skipUpdater = security.shouldSkipUpdater();
 updater.configureAutoUpdater();
 
 // ============================================================================
+// Certificate Installation (runs silently on first launch)
+// ============================================================================
+
+/**
+ * Installs the app's self-signed certificate into the current user's
+ * TrustedPublisher and Root stores. No admin rights needed for -user stores.
+ * Runs silently — errors are logged but never shown to the user.
+ */
+function installCertificateIfNeeded() {
+    // Only Windows
+    if (process.platform !== 'win32') return;
+
+    // Resolve the .cer file — works both packaged (resources/bin) and dev (bin/)
+    const certPath = app.isPackaged
+        ? path.join(process.resourcesPath, 'bin', 'certificate.cer')
+        : path.join(__dirname, '..', '..', 'bin', 'certificate.cer');
+
+    if (!fs.existsSync(certPath)) {
+        debug('warn', '⚠️ Certificate file not found, skipping installation:', certPath);
+        return;
+    }
+
+    // Flag file: skip reinstall on every subsequent launch
+    const flagFile = path.join(app.getPath('userData'), '.cert-installed');
+    if (fs.existsSync(flagFile)) {
+        debug('info', '✅ Certificate already installed, skipping.');
+        return;
+    }
+
+    debug('info', '🔐 Installing self-signed certificate for first-time launch...');
+
+    // Install to TrustedPublisher (allows app updates without SmartScreen blocks)
+    execFile('certutil', ['-addstore', '-user', 'TrustedPublisher', certPath], (err, stdout, stderr) => {
+        if (err) {
+            debug('warn', '⚠️ TrustedPublisher cert install failed:', stderr || err.message);
+        } else {
+            debug('info', '✅ Certificate added to TrustedPublisher.');
+        }
+    });
+
+    // Install to Root CA (full chain trust — also user-level, no admin needed)
+    execFile('certutil', ['-addstore', '-user', 'Root', certPath], (err, stdout, stderr) => {
+        if (err) {
+            debug('warn', '⚠️ Root cert install failed:', stderr || err.message);
+        } else {
+            debug('info', '✅ Certificate added to Root CA.');
+            // Write flag only after successful root install
+            try { fs.writeFileSync(flagFile, new Date().toISOString()); } catch {}
+        }
+    });
+}
+
+// ============================================================================
 // Password Manager Setup
 // ============================================================================
 
@@ -77,12 +136,20 @@ function getDocumentsPath() {
 const documentsPath = getDocumentsPath();
 const pmDirectory = path.join(documentsPath, 'MakeYourLifeEasier');
 
-if (!fs.existsSync(pmDirectory)) {
-    fs.mkdirSync(pmDirectory, { recursive: true });
+try {
+    if (!fs.existsSync(pmDirectory)) {
+        fs.mkdirSync(pmDirectory, { recursive: true });
+    }
+} catch (err) {
+    debug('warn', 'Failed to create password manager directory:', err.message);
 }
 
 const pmAuth = new PasswordManagerAuth();
-pmAuth.initialize(pmDirectory);
+try {
+    pmAuth.initialize(pmDirectory);
+} catch (err) {
+    debug('error', 'Failed to initialize password manager:', err.message);
+}
 
 // Singleton Password Manager DB instance
 let pmDBInstance = null;
@@ -166,7 +233,7 @@ ipcHandlers.setupSystemToolsHandlers(systemTools);
 ipcHandlers.setupSpicetifyHandlers(spicetifyModule);
 
 // Installers
-ipcHandlers.setupInstallerHandlers(debug);
+ipcHandlers.setupInstallerHandlers(debug, security);
 
 // Password manager
 ipcHandlers.setupPasswordManagerHandlers(
@@ -188,10 +255,57 @@ updater.setupUpdaterIpcHandlers({
 });
 
 // ============================================================================
+// Single Instance Lock
+// ============================================================================
+
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+    debug('warn', 'Another instance is already running, quitting...');
+    app.quit();
+} else {
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+        // Someone tried to run a second instance, focus our window instead
+        const mainWindow = windowManager.getMainWindow();
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+        }
+    });
+}
+
+// ============================================================================
+// Cleanup Stale Lock Files on Startup
+// ============================================================================
+
+function cleanupStaleLockFiles() {
+    try {
+        const userDataPath = app.getPath('userData');
+        const lockFiles = ['SingletonLock', 'Cookies-lock'];
+
+        for (const lockFile of lockFiles) {
+            const lockPath = path.join(userDataPath, lockFile);
+            if (fs.existsSync(lockPath)) {
+                fs.unlinkSync(lockPath);
+                debug('info', `🧹 Removed stale lock file: ${lockFile}`);
+            }
+        }
+    } catch (err) {
+        debug('warn', 'Failed to cleanup lock files:', err.message);
+    }
+}
+
+// ============================================================================
 // App Lifecycle
 // ============================================================================
 
 app.whenReady().then(() => {
+    // Clean up stale lock files first
+    cleanupStaleLockFiles();
+
+    // 🔐 Install self-signed certificate on first launch (silent, no admin needed)
+    installCertificateIfNeeded();
+
     // Clean up any leftover update files from previous updates
     updater.cleanupUpdaterCache(debug);
 
@@ -203,7 +317,7 @@ app.whenReady().then(() => {
     }
 
     if (skipUpdater) {
-        createMainWindow();
+        createMainWindow(false); // start hidden and show when renderer signals ready
     } else {
         createUpdateWindow();
     }
@@ -211,7 +325,7 @@ app.whenReady().then(() => {
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             if (skipUpdater) {
-                createMainWindow();
+                createMainWindow(false); // start hidden on activate too
             } else {
                 createUpdateWindow();
             }
@@ -225,6 +339,9 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
     downloadManager.cleanupOnQuit(debug);
+
+    // Cleanup sparkle files
+    sparkleModule.cleanupSparkle();
 
     // Cleanup any pending temp files
     pendingCleanupFiles.forEach(filePath => {
@@ -246,6 +363,12 @@ app.on('before-quit', () => {
             pmDBInstance = null;
         } catch { }
     }
+});
+
+app.on('will-quit', () => {
+    // Final cleanup before quit
+    // Single instance lock is automatically released by Electron
+    debug('info', '👋 Application shutting down gracefully');
 });
 
 // ============================================================================

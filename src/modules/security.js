@@ -180,34 +180,6 @@ function validateCommandArgs(args) {
 }
 
 /**
- * Validate command arguments and throw on failure
- * Use this when you want to ensure execution stops on invalid arguments
- * @param {string[]} args - Command arguments to validate
- * @throws {Error} If validation fails
- */
-function validateCommandArgsOrThrow(args) {
-  const result = validateCommandArgs(args);
-  if (!result.valid) {
-    throw new Error(`Command argument validation failed: ${result.error}`);
-  }
-}
-
-/**
- * Validate path and throw on failure
- * Use this when you want to ensure execution stops on invalid path
- * @param {string} filePath - The path to validate
- * @returns {string} The normalized path
- * @throws {Error} If validation fails
- */
-function validatePathOrThrow(filePath) {
-  const result = validatePath(filePath);
-  if (!result.valid) {
-    throw new Error(`Path validation failed: ${result.error}`);
-  }
-  return result.normalized;
-}
-
-/**
  * Validate that a file exists and is accessible
  * @param {string} filePath - The path to check
  * @returns {Promise<{valid: boolean, error?: string, exists?: boolean}>}
@@ -226,42 +198,11 @@ async function validateFileExists(filePath) {
   }
 }
 
-/**
- * Check if a path is within allowed boundaries
- * @param {string} filePath - The path to check
- * @param {string[]} allowedDirs - Array of allowed directory prefixes
- * @returns {boolean}
- */
-function isPathInAllowedDirs(filePath, allowedDirs) {
-  if (!allowedDirs || allowedDirs.length === 0) {
-    return true; // No restrictions
-  }
-
-  const validation = validatePath(filePath);
-  if (!validation.valid) {
-    return false;
-  }
-
-  const resolved = validation.normalized.toLowerCase();
-
-  return allowedDirs.some(dir => {
-    try {
-      const resolvedDir = path.resolve(dir).toLowerCase();
-      return resolved.startsWith(resolvedDir);
-    } catch {
-      return false;
-    }
-  });
-}
-
 module.exports = {
   validatePath,
-  validatePathOrThrow,
   validateDeletePath,
   sanitizePathForPowerShell,
   validateCommandArgs,
-  validateCommandArgsOrThrow,
-  validateFileExists,
-  isPathInAllowedDirs
+  validateFileExists
 };
 

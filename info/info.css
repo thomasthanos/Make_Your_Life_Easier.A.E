@@ -13,12 +13,10 @@
   --color-activate: #2eb85c;
   --color-maintain: #636e8c;
   --color-crack: #7144bf;
-  --color-dlc: #d78b20;
   --color-passwords: #c49a2e;
   --color-spicetify: #a15eea;
   --color-titus: #db6e8b;
   --color-bios: #e26a12;
-  --color-settings: #5f647a;
   --color-debloat: #9b59b6;
 }
 
@@ -88,16 +86,6 @@ html, body {
   gap: 0.75rem;
 }
 
-.info-menu-hint {
-  margin: 0.25rem 0 0.75rem;
-  padding: 0.6rem 0.9rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-}
-
 .info-logo {
   font-size: 2rem;
   line-height: 1;
@@ -159,6 +147,7 @@ html, body {
   /* Increase padding and font size to make navigation buttons more legible */
   padding: 0.5rem 0.8rem 0.5rem 0.4rem;
   font-size: 0.85rem;
+  font-family: inherit;
   font-weight: 600;
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -318,14 +307,13 @@ html, body {
 }
 
 /* Navigation color classes */
+.nav-menu { --nav-color: var(--accent-color); --nav-color-rgb: 0, 191, 255; }
 .nav-install { --nav-color: var(--color-install); --nav-color-rgb: 59, 97, 209; }
 .nav-activate { --nav-color: var(--color-activate); --nav-color-rgb: 46, 184, 92; }
 .nav-maintain { --nav-color: var(--color-maintain); --nav-color-rgb: 99, 110, 140; }
 .nav-crack { --nav-color: var(--color-crack); --nav-color-rgb: 113, 68, 191; }
-.nav-dlc { --nav-color: var(--color-dlc); --nav-color-rgb: 215, 139, 32; }
 .nav-passwords { --nav-color: var(--color-passwords); --nav-color-rgb: 196, 154, 46; }
 .nav-spicetify { --nav-color: var(--color-spicetify); --nav-color-rgb: 161, 94, 234; }
 .nav-titus { --nav-color: var(--color-titus); --nav-color-rgb: 219, 110, 139; }
 .nav-bios { --nav-color: var(--color-bios); --nav-color-rgb: 226, 106, 18; }
-.nav-settings { --nav-color: var(--color-settings); --nav-color-rgb: 95, 100, 122; }
 .nav-debloat { --nav-color: var(--color-debloat); --nav-color-rgb: 155, 89, 182; }

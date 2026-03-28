@@ -4,8 +4,8 @@
  * CSS classes match original renderer.js structure
  */
 
-import { debug, escapeHtml, autoFadeStatus } from '../utils.js';
-import { buttonStateManager } from '../managers.js';
+import { autoFadeStatus } from '../utils.js';
+import { buttonStateManager, registerDownload, attachDownloadUI, downloadStore } from '../managers.js';
 import { toast } from '../components.js';
 
 // ============================================
@@ -118,7 +118,7 @@ async function runMaintenanceTask(button, statusElement, taskFunction, taskName,
 // MAINTENANCE TASK FUNCTIONS
 // ============================================
 
-async function runSfcScan(statusElement) {
+async function runSfcScan(_statusElement) {
     try {
         const result = await window.api.runSfcScan();
         if (result && result.success) {
@@ -132,7 +132,7 @@ async function runSfcScan(statusElement) {
     }
 }
 
-async function runDismRepair(statusElement) {
+async function runDismRepair(_statusElement) {
     try {
         const result = await window.api.runDismRepair();
         if (result && result.success) {
@@ -146,7 +146,7 @@ async function runDismRepair(statusElement) {
     }
 }
 
-async function cleanTempFiles(statusElement) {
+async function cleanTempFiles(_statusElement) {
     try {
         const result = await window.api.runTempCleanup();
         if (result && result.success) {
@@ -180,10 +180,11 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
     button.disabled = true;
     button.textContent = 'Preparing Patch My PC...';
 
-    return new Promise((resolve) => {
-        const unsubscribe = window.api.onDownloadEvent((data) => {
-            if (data.id !== downloadId) return;
+    const storeKey = 'patchmypc';
+    registerDownload(storeKey, downloadId, { name: 'Patch My PC' });
 
+    return new Promise((resolve) => {
+        attachDownloadUI(storeKey, (data) => {
             switch (data.status) {
                 case 'started':
                     button.textContent = 'Downloading Patch My PC... 0%';
@@ -193,22 +194,22 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
                     break;
                 case 'complete': {
                     button.textContent = 'Opening Patch My PC...';
+                    downloadStore.delete(storeKey);
                     window.api.openFile(data.path)
                         .then((result) => {
-                            if (result.success) {
+                            if (result && result.success) {
                                 button.textContent = 'Patch My PC Started';
                             } else {
                                 button.textContent = originalText;
                                 toast('Failed to open Patch My PC', { type: 'error', title: 'Maintenance' });
                             }
                         })
-                        .catch((error) => {
+                        .catch(() => {
                             button.textContent = originalText;
                             toast('Error opening Patch My PC', { type: 'error', title: 'Maintenance' });
                         })
                         .finally(() => {
                             button.disabled = false;
-                            unsubscribe();
                             resolve();
                         });
                     break;
@@ -216,8 +217,8 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
                 case 'error':
                     button.textContent = originalText;
                     button.disabled = false;
+                    downloadStore.delete(storeKey);
                     toast('Download failed', { type: 'error', title: 'Maintenance' });
-                    unsubscribe();
                     resolve();
                     break;
             }
@@ -228,8 +229,8 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
         } catch (e) {
             button.textContent = originalText;
             button.disabled = false;
+            downloadStore.delete(storeKey);
             toast('Download failed', { type: 'error', title: 'Maintenance' });
-            unsubscribe();
             resolve();
         }
     });
@@ -239,7 +240,7 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 // SYSTEM MAINTENANCE PAGE
 // ============================================
 
-export async function buildMaintenancePage(translations, settings) {
+export async function buildMaintenancePage(translations, _settings) {
     const container = document.createElement('div');
     container.className = 'card';
 
@@ -355,7 +356,7 @@ export async function buildMaintenancePage(translations, settings) {
 // DEBLOAT PAGE
 // ============================================
 
-export async function buildDebloatPage(translations, settings) {
+export async function buildDebloatPage(translations, _settings) {
     const container = document.createElement('div');
     container.className = 'card';
 
@@ -367,15 +368,14 @@ export async function buildDebloatPage(translations, settings) {
     const description = document.createElement('p');
     description.classList.add('script-description');
     description.textContent = (translations.pages && translations.pages.debloat_raphi_desc) ||
-        'This will download and run an external debloat script (Raphi) via PowerShell. ' +
-        'Administrator privileges and an active internet connection are required. ' +
-        'The script may make significant changes to your system. Use at your own risk.';
+        'Launch Sparkle debloat utility to remove bloatware and optimize your Windows system. ' +
+        'The utility will be downloaded if not already available.';
     container.appendChild(description);
 
     const isWindows = await window.api.isWindows();
     if (!isWindows) {
         const warn = document.createElement('p');
-        warn.textContent = 'The debloat script is only supported on Windows.';
+        warn.textContent = 'Sparkle Debloat is only supported on Windows.';
         warn.classList.add('script-warning');
         container.appendChild(warn);
         return container;
@@ -384,179 +384,119 @@ export async function buildDebloatPage(translations, settings) {
     const runBtn = document.createElement('button');
     runBtn.className = 'button';
     runBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.runRaphiScript) ||
-        'Run Debloat Script';
+        'Launch Sparkle Debloat';
     runBtn.classList.add('btn-run');
 
     runBtn.addEventListener('click', async () => {
         if (runBtn.disabled) return;
+        
         const original = runBtn.textContent;
         runBtn.disabled = true;
-        runBtn.textContent = 'Processing...';
+        runBtn.textContent = 'Checking Sparkle...';
 
         try {
-            const info = await window.api.ensureSparkle();
-            if (!info) {
-                throw new Error('Unable to check for Sparkle release');
+            const result = await window.api.runSparkleDebloat();
+            
+            if (!result) {
+                throw new Error('No response from Sparkle handler');
             }
 
-            const { needsDownload, id, url, dest } = info;
-
-            const extractAndRun = async () => {
-                try {
-                    const lastSep = Math.max(dest.lastIndexOf('\\'), dest.lastIndexOf('/'));
-                    const parentDir = lastSep >= 0 ? dest.substring(0, lastSep) : '';
-                    const uniqueExtractDir = `${parentDir}\\debloat-temp-${Date.now()}`;
-                    const targetDir = `${parentDir}\\debloat-sparkle`;
-
-                    const extractRes = await window.api.extractArchive(dest, '', uniqueExtractDir);
-                    if (!extractRes || !extractRes.success) {
-                        throw new Error((extractRes && extractRes.error) || 'Extraction failed');
-                    }
-
-                    let runDir = uniqueExtractDir;
-                    try {
-                        const renameRes = await window.api.renameDirectory(uniqueExtractDir, targetDir);
-                        if (renameRes && renameRes.success) {
-                            runDir = targetDir;
-                        }
-                    } catch {
-                        runDir = uniqueExtractDir;
-                    }
-
-                    const sparkleExePath = `${runDir}\\sparkle.exe`;
-                    let exeToRun = null;
-
-                    try {
-                        const exists = await window.api.fileExists(sparkleExePath);
-                        if (exists) {
-                            exeToRun = sparkleExePath;
-                        }
-                    } catch {
-                        exeToRun = null;
-                    }
-
-                    if (!exeToRun) {
-                        let exeFiles;
-                        try {
-                            exeFiles = await window.api.findExeFiles(runDir);
-                        } catch {
-                            exeFiles = [];
-                        }
-                        if (exeFiles && exeFiles.length > 0) {
-                            const sparkleIndex = exeFiles.findIndex((p) => p.toLowerCase().endsWith('sparkle.exe'));
-                            if (sparkleIndex >= 0) {
-                                exeToRun = exeFiles[sparkleIndex];
-                            } else {
-                                exeToRun = exeFiles[0];
-                            }
-                        }
-                    }
-
-                    if (!exeToRun) {
-                        throw new Error('No executable found in extracted Sparkle archive');
-                    }
-
-                    const runRes = await window.api.runInstaller(exeToRun);
-
-                    try {
-                        await window.api.deleteFile(dest);
-                    } catch {
-                        // ignore deletion errors
-                    }
-
-                    if (!runRes || !runRes.success) {
-                        throw new Error((runRes && runRes.error) || 'Failed to launch Sparkle');
-                    }
-
-                    toast('Sparkle executed successfully.', { type: 'success', title: 'Debloat', duration: 7000 });
-                    runBtn.disabled = false;
-                    runBtn.textContent = original;
-                } catch (err) {
-                    toast(err.message || 'An error occurred while extracting or running Sparkle.', { type: 'error', title: 'Debloat Error', duration: 8000 });
-                    runBtn.disabled = false;
-                    runBtn.textContent = original;
-                }
-            };
-
-            const runExistingSparkle = async () => {
-                try {
-                    const lastSepIdx = Math.max(dest.lastIndexOf('\\'), dest.lastIndexOf('/'));
-                    const parent = lastSepIdx >= 0 ? dest.substring(0, lastSepIdx) : '';
-                    const targetDir = `${parent}\\debloat-sparkle`;
-                    let exePath = null;
-
-                    const sparkleExe = `${targetDir}\\sparkle.exe`;
-                    try {
-                        if (await window.api.fileExists(sparkleExe)) {
-                            exePath = sparkleExe;
-                        }
-                    } catch {
-                        // ignore
-                    }
-
-                    if (!exePath) {
-                        let exes = [];
-                        try {
-                            exes = await window.api.findExeFiles(targetDir);
-                        } catch {
-                            exes = [];
-                        }
-                        if (exes && exes.length > 0) {
-                            const idx = exes.findIndex((p) => p.toLowerCase().endsWith('sparkle.exe'));
-                            exePath = idx >= 0 ? exes[idx] : exes[0];
-                        }
-                    }
-
-                    if (!exePath) {
-                        throw new Error('No Sparkle executable found');
-                    }
-
-                    const runRes = await window.api.runInstaller(exePath);
-                    if (!runRes || !runRes.success) {
-                        throw new Error((runRes && runRes.error) || 'Failed to launch Sparkle');
-                    }
-
-                    toast('Sparkle launched successfully.', { type: 'success', title: 'Debloat' });
-                    runBtn.disabled = false;
-                    runBtn.textContent = original;
-                } catch (err) {
-                    toast(err.message || 'Failed to run existing Sparkle', { type: 'error', title: 'Debloat Error' });
-                    runBtn.disabled = false;
-                    runBtn.textContent = original;
-                }
-            };
-
-            if (needsDownload) {
+            // Case 1: Sparkle needs to be downloaded
+            if (result.needsDownload) {
                 runBtn.textContent = 'Downloading Sparkle...';
-                const downloadId = id || `sparkle-${Date.now()}`;
+                
+                const downloadId = result.downloadId || `sparkle-${Date.now()}`;
+                const downloadDest = result.downloadDest;
 
-                const unsubscribe = window.api.onDownloadEvent((data) => {
-                    if (data.id !== downloadId) return;
+                const sparkleStoreKey = 'sparkle-debloat';
+                registerDownload(sparkleStoreKey, downloadId, { name: 'Sparkle' });
 
+                attachDownloadUI(sparkleStoreKey, (data) => {
                     switch (data.status) {
                         case 'progress':
-                            runBtn.textContent = `Downloading... ${data.percent}%`;
+                            runBtn.textContent = `Downloading Sparkle... ${data.percent}%`;
                             break;
                         case 'complete':
-                            runBtn.textContent = 'Extracting...';
-                            unsubscribe();
-                            extractAndRun();
+                            runBtn.textContent = 'Extracting Sparkle...';
+                            downloadStore.delete(sparkleStoreKey);
+
+                            // Extract the downloaded zip
+                            window.api.processDownloadedSparkle(downloadDest)
+                                .then(extractResult => {
+                                    if (extractResult && extractResult.success) {
+                                        runBtn.textContent = 'Launching Sparkle...';
+                                        // Now run it
+                                        return window.api.runSparkleDebloat();
+                                    } else {
+                                        throw new Error(extractResult?.error || 'Extraction failed');
+                                    }
+                                })
+                                .then(launchResult => {
+                                    if (launchResult && launchResult.success && !launchResult.needsDownload) {
+                                        toast('Sparkle Debloat launched successfully!', {
+                                            type: 'success',
+                                            title: 'Debloat',
+                                            duration: 5000
+                                        });
+                                        runBtn.textContent = '✅ Launched!';
+                                        runBtn.disabled = true;
+                                        setTimeout(() => {
+                                            runBtn.textContent = original;
+                                            runBtn.disabled = false;
+                                        }, 2000);
+                                    } else {
+                                        throw new Error(launchResult?.error || 'Launch failed');
+                                    }
+                                })
+                                .catch(err => {
+                                    toast(err.message || 'Failed to extract or launch Sparkle', {
+                                        type: 'error',
+                                        title: 'Debloat Error',
+                                        duration: 8000
+                                    });
+                                    runBtn.disabled = false;
+                                    runBtn.textContent = original;
+                                });
                             break;
                         case 'error':
-                            toast(data.error || 'Download failed', { type: 'error', title: 'Debloat' });
+                            toast(data.error || 'Download failed', {
+                                type: 'error',
+                                title: 'Debloat Error',
+                                duration: 8000
+                            });
                             runBtn.disabled = false;
                             runBtn.textContent = original;
-                            unsubscribe();
+                            downloadStore.delete(sparkleStoreKey);
                             break;
                     }
                 });
 
-                window.api.downloadStart(downloadId, url, dest.split(/[/\\]/).pop());
+                // Start the download
+                window.api.downloadStart(downloadId, result.downloadUrl, downloadDest);
+                return;
+            }
+
+            // Case 2: Sparkle is already available and launched
+            if (result.success) {
+                toast(result.message || 'Sparkle Debloat launched successfully!', { 
+                    type: 'success', 
+                    title: 'Debloat', 
+                    duration: 5000 
+                });
+                runBtn.textContent = '✅ Launched!';
+                setTimeout(() => {
+                    runBtn.textContent = original;
+                    runBtn.disabled = false;
+                }, 2000);
             } else {
-                await runExistingSparkle();
+                throw new Error(result.error || 'Failed to launch Sparkle Debloat');
             }
         } catch (err) {
-            toast(err.message || 'Failed to start debloat', { type: 'error', title: 'Debloat Error' });
+            toast(err.message || 'Failed to launch Sparkle Debloat', { 
+                type: 'error', 
+                title: 'Debloat Error',
+                duration: 8000
+            });
             runBtn.disabled = false;
             runBtn.textContent = original;
         }
@@ -579,7 +519,7 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     const title = document.createElement('h2');
     title.className = 'bios-title';
-    title.innerHTML = '⚙️ ' + (translations.menu?.bios || 'BIOS Settings');
+    title.textContent = '⚙️ ' + (translations.menu?.bios || 'BIOS Settings');
     dialog.appendChild(title);
 
     const desc = document.createElement('p');
@@ -589,17 +529,19 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     const whatTitle = document.createElement('h3');
     whatTitle.className = 'bios-section-title';
-    whatTitle.textContent = '📋 What will happen:';
+    whatTitle.textContent = '📋 ' + ((translations.messages && translations.messages.bios_what_happens) || 'What will happen:');
     dialog.appendChild(whatTitle);
 
     const steps = document.createElement('ol');
     steps.className = 'bios-steps';
-    [
+    const defaultSteps = [
         'Save all your work and close applications',
         'System will restart automatically',
         'BIOS/UEFI setup will open on boot',
         'Configure your settings as needed'
-    ].forEach((stepText) => {
+    ];
+    const steps_i18n = (translations.messages && translations.messages.bios_steps) || defaultSteps;
+    (Array.isArray(steps_i18n) ? steps_i18n : defaultSteps).forEach((stepText) => {
         const li = document.createElement('li');
         li.textContent = stepText;
         steps.appendChild(li);
@@ -608,10 +550,13 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     const warning = document.createElement('div');
     warning.className = 'bios-warning';
-    warning.innerHTML = `
-    <strong>⚠️ Important Notice</strong><br>
-    ${escapeHtml(translations.messages?.admin_warning || 'This operation requires administrator privileges and will restart your computer immediately.')}
-  `;
+    const warningStrong = document.createElement('strong');
+    warningStrong.textContent = '⚠️ Important Notice';
+    warning.appendChild(warningStrong);
+    warning.appendChild(document.createElement('br'));
+    warning.appendChild(document.createTextNode(
+        translations.messages?.admin_warning || 'This operation requires administrator privileges and will restart your computer immediately.'
+    ));
     dialog.appendChild(warning);
 
     const buttonContainer = document.createElement('div');
@@ -623,9 +568,17 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     const restartBtn = document.createElement('button');
     restartBtn.className = 'bios-restart-btn';
-    restartBtn.innerHTML = '🔄 ' + (translations.messages?.restart_to_bios || 'Restart to BIOS');
+    restartBtn.textContent = '🔄 ' + (translations.messages?.restart_to_bios || 'Restart to BIOS');
+
+    // Escape key handler — cleaned up when dialog closes via cancel or success
+    const escapeHandler = (e) => {
+        if (e.key === 'Escape') {
+            cancelBtn.click();
+        }
+    };
 
     cancelBtn.addEventListener('click', () => {
+        document.removeEventListener('keydown', escapeHandler);
         dialog.classList.add('slide-down');
         overlay.classList.add('fade-out');
         setTimeout(() => {
@@ -639,18 +592,20 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     restartBtn.addEventListener('click', async () => {
         restartBtn.disabled = true;
-        restartBtn.innerHTML = '⏳ Processing...';
+        restartBtn.textContent = '⏳ Processing...';
         restartBtn.classList.add('btn-opacity-low');
 
         try {
             const result = await window.api.restartToBios();
 
-            if (result.success) {
-                restartBtn.innerHTML = '✅ Success!';
+            if (result && result.success) {
+                restartBtn.classList.remove('btn-opacity-low');
+                restartBtn.textContent = '✅ Success!';
                 restartBtn.classList.add('btn-success-gradient');
 
                 toast('BIOS restart initiated! Computer will restart shortly.', { type: 'success', duration: 5000 });
 
+                document.removeEventListener('keydown', escapeHandler);
                 setTimeout(() => {
                     dialog.classList.add('slide-down');
                     overlay.classList.add('fade-out');
@@ -661,17 +616,17 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
                     }, 300);
                 }, 2000);
             } else {
-                throw new Error(result.error);
+                throw new Error((result && result.error) || 'Failed to restart to BIOS');
             }
         } catch (error) {
-            restartBtn.innerHTML = '❌ Failed';
+            restartBtn.classList.remove('btn-opacity-low');
+            restartBtn.textContent = '❌ Failed';
             restartBtn.classList.add('btn-error-gradient');
 
             setTimeout(() => {
                 restartBtn.disabled = false;
-                restartBtn.innerHTML = '🔄 ' + (translations.messages?.restart_to_bios || 'Restart to BIOS');
-                restartBtn.classList.remove('btn-opacity-low');
-                restartBtn.classList.add('btn-warning-gradient');
+                restartBtn.textContent = '🔄 ' + (translations.messages?.restart_to_bios || 'Restart to BIOS');
+                restartBtn.classList.remove('btn-error-gradient');
             }, 2000);
 
             if (error.message && error.message.includes('Administrator')) {
@@ -689,13 +644,6 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
-    const escapeHandler = (e) => {
-        if (e.key === 'Escape') {
-            cancelBtn.click();
-            document.removeEventListener('keydown', escapeHandler);
-        }
-    };
     document.addEventListener('keydown', escapeHandler);
-
     cancelBtn.focus();
 }

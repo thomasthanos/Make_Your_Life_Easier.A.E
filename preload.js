@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('api', {
   runSfcScan: () => ipcRenderer.invoke('run-sfc-scan'),
   runDismRepair: () => ipcRenderer.invoke('run-dism-repair'),
   runTempCleanup: () => ipcRenderer.invoke('run-temp-cleanup'),
+  runSparkleDebloat: () => ipcRenderer.invoke('run-sparkle-debloat'),
 
   runActivateScript: () => ipcRenderer.invoke('run-activate-script'),
   runAutologinScript: () => ipcRenderer.invoke('run-autologin-script'),
@@ -66,6 +67,10 @@ contextBridge.exposeInMainWorld('api', {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   saveUpdateInfo: (info) => ipcRenderer.invoke('save-update-info', info),
   getUpdateInfo: () => ipcRenderer.invoke('get-update-info'),
+  getUpdateState: () => ipcRenderer.invoke('get-update-state'),
+  cancelUpdate: () => ipcRenderer.invoke('cancel-update'),
+  forceCheckUpdates: () => ipcRenderer.invoke('force-check-updates'),
+  retryUpdate: () => ipcRenderer.invoke('retry-update'),
 
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
 
@@ -77,7 +82,9 @@ contextBridge.exposeInMainWorld('api', {
   runMsiInstaller: (msiPath) => ipcRenderer.invoke('run-msi-installer', msiPath),
   runInstaller: (filePath) => ipcRenderer.invoke('run-installer', filePath),
   runChrisTitus: () => ipcRenderer.invoke('run-christitus'),
+  runElevatedWinget: (command) => ipcRenderer.invoke('run-elevated-winget', command),
   ensureSparkle: () => ipcRenderer.invoke('ensure-sparkle'),
+  processDownloadedSparkle: (zipPath) => ipcRenderer.invoke('process-downloaded-sparkle', zipPath),
   runRaphiDebloat: () => ipcRenderer.invoke('run-raphi-debloat'),
 
   loginGoogle: () => ipcRenderer.invoke('login-google'),
@@ -102,7 +109,7 @@ contextBridge.exposeInMainWorld('api', {
   getAssetPath: (relativePath) => ipcRenderer.invoke('get-asset-path', relativePath),
 
   // App ready signal - notify main process that the app is fully loaded
-  signalAppReady: () => ipcRenderer.invoke('app-ready'),
+  signalAppReady: (width, height) => ipcRenderer.invoke('app-ready', { width, height }),
   
   // Loading progress update
   updateLoadingProgress: (progress, message) => ipcRenderer.invoke('update-loading-progress', { progress, message })

@@ -4,12 +4,5 @@
  * Moved to external file for CSP compliance (no 'unsafe-inline')
  */
 (function () {
-    try {
-        const storedTheme = localStorage.getItem('myle-theme');
-        if (storedTheme) {
-            document.documentElement.setAttribute('data-theme', storedTheme);
-        }
-    } catch (_) {
-        // localStorage may not be available, use default theme
-    }
+    document.documentElement.setAttribute('data-theme', 'dark');
 })();

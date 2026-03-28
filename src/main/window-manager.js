@@ -6,6 +6,12 @@
 const { BrowserWindow } = require('electron');
 const path = require('path');
 
+// Window dimension constants
+const MAIN_WINDOW = { width: 1100, height: 750, minWidth: 800, minHeight: 600 };
+const UPDATE_WINDOW = { width: 500, height: 350 };
+const PASSWORD_WINDOW = { width: 1600, height: 900 };
+const WINDOW_BG_COLOR = '#171717';
+
 // Window references
 let mainWindow = null;
 let updateWindow = null;
@@ -19,14 +25,6 @@ function getMainWindow() {
 }
 
 /**
- * Set the main window instance
- * @param {BrowserWindow|null} window
- */
-function setMainWindow(window) {
-    mainWindow = window;
-}
-
-/**
  * Get the update window instance
  * @returns {BrowserWindow|null}
  */
@@ -35,40 +33,38 @@ function getUpdateWindow() {
 }
 
 /**
- * Set the update window instance
- * @param {BrowserWindow|null} window
- */
-function setUpdateWindow(window) {
-    updateWindow = window;
-}
-
-/**
  * Create the main application window
- * @param {boolean} showWindow - Whether to show the window immediately
+ * @param {boolean} showWindow - Whether to show the window when ready
  * @param {string} preloadPath - Path to preload script
  * @param {Function} setupWindowStateEvents - Callback for setting up window state events
  * @returns {BrowserWindow}
  */
 function createMainWindow(showWindow = true, preloadPath, setupWindowStateEvents) {
     mainWindow = new BrowserWindow({
-        width: 1100,
-        height: 750,
+        width: MAIN_WINDOW.width,
+        height: MAIN_WINDOW.height,
         icon: path.join(__dirname, '..', 'assets', 'icons', 'hacker.ico'),
-        minWidth: 800,
-        minHeight: 600,
+        minWidth: MAIN_WINDOW.minWidth,
+        minHeight: MAIN_WINDOW.minHeight,
         autoHideMenuBar: true,
         titleBarStyle: 'hidden',
         frame: false,
         show: showWindow,
-        backgroundColor: '#0f1117',
+        backgroundColor: WINDOW_BG_COLOR,
         webPreferences: {
             preload: preloadPath,
             nodeIntegration: false,
-            contextIsolation: true
+            contextIsolation: true,
+            backgroundThrottling: false
         }
     });
 
     mainWindow.loadFile(path.join(__dirname, '..', '..', 'index.html'));
+
+    // Cleanup reference when window is closed
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });
 
     if (setupWindowStateEvents) {
         setupWindowStateEvents();
@@ -85,8 +81,8 @@ function createMainWindow(showWindow = true, preloadPath, setupWindowStateEvents
  */
 function createUpdateWindow(preloadPath, onReady) {
     updateWindow = new BrowserWindow({
-        width: 500,
-        height: 350,
+        width: UPDATE_WINDOW.width,
+        height: UPDATE_WINDOW.height,
         resizable: false,
         movable: true,
         minimizable: false,
@@ -111,9 +107,11 @@ function createUpdateWindow(preloadPath, onReady) {
     });
 
     updateWindow.webContents.once('did-finish-load', () => {
-        updateWindow.show();
-        if (onReady) {
-            onReady();
+        if (updateWindow && !updateWindow.isDestroyed()) {
+            updateWindow.show();
+            if (onReady) {
+                onReady();
+            }
         }
     });
 
@@ -128,14 +126,14 @@ function createUpdateWindow(preloadPath, onReady) {
  */
 function createPasswordManagerWindow(preloadPath, lang = 'en') {
     const passwordWindow = new BrowserWindow({
-        width: 1600,
-        height: 900,
+        width: PASSWORD_WINDOW.width,
+        height: PASSWORD_WINDOW.height,
         icon: path.join(__dirname, '..', 'assets', 'icons', 'hacker.ico'),
-        parent: mainWindow,
+        parent: mainWindow || undefined,
         frame: false,
         titleBarStyle: 'hidden',
         autoHideMenuBar: true,
-        backgroundColor: '#0f1117',
+        backgroundColor: WINDOW_BG_COLOR,
         webPreferences: {
             preload: preloadPath,
             nodeIntegration: false,
@@ -157,36 +155,25 @@ function createPasswordManagerWindow(preloadPath, lang = 'en') {
 function setupWindowStateEvents() {
     if (mainWindow) {
         mainWindow.on('maximize', () => {
-            mainWindow.webContents.send('window-state-changed', { isMaximized: true });
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('window-state-changed', { isMaximized: true });
+            }
         });
         mainWindow.on('unmaximize', () => {
-            mainWindow.webContents.send('window-state-changed', { isMaximized: false });
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('window-state-changed', { isMaximized: false });
+            }
         });
-    }
-}
-
-/**
- * Close all windows safely
- */
-function closeAllWindows() {
-    if (updateWindow) {
-        updateWindow.close();
-        updateWindow = null;
-    }
-    if (mainWindow) {
-        mainWindow.close();
-        mainWindow = null;
     }
 }
 
 module.exports = {
     getMainWindow,
-    setMainWindow,
     getUpdateWindow,
-    setUpdateWindow,
     createMainWindow,
     createUpdateWindow,
     createPasswordManagerWindow,
     setupWindowStateEvents,
-    closeAllWindows
+    MAIN_WINDOW,
+    WINDOW_BG_COLOR
 };

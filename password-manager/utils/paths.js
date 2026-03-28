@@ -35,20 +35,7 @@ function getAppDataPath() {
     return path.join(getDocumentsPath(), 'MakeYourLifeEasier');
 }
 
-/**
- * Ensure the app data directory exists, creating it if necessary
- * @returns {string} Path to the created/existing app data folder
- */
-function ensureAppDataPath() {
-    const appDataPath = getAppDataPath();
-    if (!fs.existsSync(appDataPath)) {
-        fs.mkdirSync(appDataPath, { recursive: true });
-    }
-    return appDataPath;
-}
-
 module.exports = {
     getDocumentsPath,
-    getAppDataPath,
-    ensureAppDataPath
+    getAppDataPath
 };

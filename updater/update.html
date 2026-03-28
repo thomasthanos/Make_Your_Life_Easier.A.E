@@ -3,6 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" 
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https:; object-src 'none'; base-uri 'self';" />
     <title>Make Your Life Easier - Loading</title>
     
     <!-- DNS Prefetch & Preconnect (static - added dynamically would be too late) -->
@@ -15,8 +17,6 @@
     
     <!-- Preload local critical assets -->
     <link rel="preload" href="../src/assets/icons/hacker.ico" as="image" type="image/x-icon">
-    <link rel="preload" href="../src/assets/images/sims.png" as="image" type="image/png">
-    <link rel="preload" href="../styles.css" as="style">
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="../src/assets/icons/hacker.ico" />
