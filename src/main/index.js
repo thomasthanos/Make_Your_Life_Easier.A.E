@@ -340,6 +340,9 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
     downloadManager.cleanupOnQuit(debug);
 
+    // Cleanup sparkle files
+    sparkleModule.cleanupSparkle();
+
     // Cleanup any pending temp files
     pendingCleanupFiles.forEach(filePath => {
         try {

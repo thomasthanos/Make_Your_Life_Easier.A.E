@@ -1040,7 +1040,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 const upgradeEntry = upgradablePackages.find(e => matchWingetId(appId, e.id));
 
                 if (installedEntry) {
-                    cb.checked = true;
                     checkedCount++;
                     if (upgradeEntry && upgradeEntry.available) {
                         updateCount++;
@@ -1345,73 +1344,51 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             const command = buildInstallCommand(id, pythonOverride, { silent: true });
 
             try {
+                const parseResult = (res) => {
+                    const raw = `${res.stdout || ''}\n${res.stderr || ''}`;
+                    const text = raw.toLowerCase();
+                    return {
+                        raw,
+                        text,
+                        hasError: Boolean(res.error),
+                        exitCode: parseExitCode(res.error),
+                        succeeded: text.includes('successfully installed') ||
+                            text.includes('installed successfully') ||
+                            text.includes('successfully upgraded'),
+                        hardFail: isHardInstallFailure(text),
+                        cancelled: text.includes('cancelled') || text.includes('canceled'),
+                        alreadyInstalled: text.includes('already installed') ||
+                            text.includes('no applicable upgrade found') ||
+                            text.includes('same version already installed')
+                    };
+                };
+
+                const shouldRetry = (r) => r.hasError && !r.alreadyInstalled && !r.cancelled;
+
                 let result = await runInstallAttempt(command, itemProgressFill, itemProgressLabel, 'Installing');
-                let rawOutput = `${result.stdout || ''}\n${result.stderr || ''}`;
-                let output = rawOutput.toLowerCase();
-                let hasCommandError = Boolean(result.error);
-                let exitCode = parseExitCode(result.error);
-                let installSucceededText = output.includes('successfully installed') ||
-                    output.includes('installed successfully') ||
-                    output.includes('successfully upgraded');
-                let installFailed = isHardInstallFailure(output);
-                let userCancelled = output.includes('cancelled') || output.includes('canceled');
-                let alreadyInstalled = output.includes('already installed') ||
-                    output.includes('no applicable upgrade found') ||
-                    output.includes('same version already installed');
-                if (hasCommandError && !alreadyInstalled && !userCancelled && isLikelyHashFailure(output, exitCode)) {
-                    const retryCommand = buildInstallCommand(id, pythonOverride, { silent: true, ignoreHash: true });
-                    result = await runInstallAttempt(retryCommand, itemProgressFill, itemProgressLabel, 'Retrying');
-                    rawOutput = `${result.stdout || ''}\n${result.stderr || ''}`;
-                    output = rawOutput.toLowerCase();
-                    hasCommandError = Boolean(result.error);
-                    exitCode = parseExitCode(result.error);
-                    installSucceededText = output.includes('successfully installed') ||
-                        output.includes('installed successfully') ||
-                        output.includes('successfully upgraded');
-                    installFailed = isHardInstallFailure(output);
-                    userCancelled = output.includes('cancelled') || output.includes('canceled');
-                    alreadyInstalled = output.includes('already installed') ||
-                        output.includes('no applicable upgrade found') ||
-                        output.includes('same version already installed');
+                let r = parseResult(result);
+
+                // Retry chain: hash failure → no-silent → user-scope
+                if (shouldRetry(r) && isLikelyHashFailure(r.text, r.exitCode)) {
+                    const cmd = buildInstallCommand(id, pythonOverride, { silent: true, ignoreHash: true });
+                    result = await runInstallAttempt(cmd, itemProgressFill, itemProgressLabel, 'Retrying');
+                    r = parseResult(result);
+                }
+                if (shouldRetry(r)) {
+                    const cmd = buildInstallCommand(id, pythonOverride, { silent: false });
+                    result = await runInstallAttempt(cmd, itemProgressFill, itemProgressLabel, 'Retrying');
+                    r = parseResult(result);
+                }
+                if (shouldRetry(r) && isPermissionFailure(r.text)) {
+                    const cmd = buildInstallCommand(id, pythonOverride, { silent: false, userScope: true });
+                    result = await runInstallAttempt(cmd, itemProgressFill, itemProgressLabel, 'Retrying');
+                    r = parseResult(result);
                 }
 
-                if (hasCommandError && !alreadyInstalled && !userCancelled) {
-                    const retryNoSilentCommand = buildInstallCommand(id, pythonOverride, { silent: false });
-                    result = await runInstallAttempt(retryNoSilentCommand, itemProgressFill, itemProgressLabel, 'Retrying');
-                    rawOutput = `${result.stdout || ''}\n${result.stderr || ''}`;
-                    output = rawOutput.toLowerCase();
-                    hasCommandError = Boolean(result.error);
-                    exitCode = parseExitCode(result.error);
-                    installSucceededText = output.includes('successfully installed') ||
-                        output.includes('installed successfully') ||
-                        output.includes('successfully upgraded');
-                    installFailed = isHardInstallFailure(output);
-                    userCancelled = output.includes('cancelled') || output.includes('canceled');
-                    alreadyInstalled = output.includes('already installed') ||
-                        output.includes('no applicable upgrade found') ||
-                        output.includes('same version already installed');
-                }
-
-                if (hasCommandError && !alreadyInstalled && !userCancelled && isPermissionFailure(output)) {
-                    const retryPermsCommand = buildInstallCommand(id, pythonOverride, { silent: false, userScope: true });
-                    result = await runInstallAttempt(retryPermsCommand, itemProgressFill, itemProgressLabel, 'Retrying');
-                    rawOutput = `${result.stdout || ''}\n${result.stderr || ''}`;
-                    output = rawOutput.toLowerCase();
-                    hasCommandError = Boolean(result.error);
-                    exitCode = parseExitCode(result.error);
-                    installSucceededText = output.includes('successfully installed') ||
-                        output.includes('installed successfully') ||
-                        output.includes('successfully upgraded');
-                    installFailed = isHardInstallFailure(output);
-                    userCancelled = output.includes('cancelled') || output.includes('canceled');
-                    alreadyInstalled = output.includes('already installed') ||
-                        output.includes('no applicable upgrade found') ||
-                        output.includes('same version already installed');
-                }
-                if (isEpicLauncher && (hasCommandError || installFailed) && !alreadyInstalled && !userCancelled) {
+                // Epic Games special case: bootstrapper may exit with error but install anyway
+                if (isEpicLauncher && (r.hasError || r.hardFail) && !r.alreadyInstalled && !r.cancelled) {
                     if (itemProgressLabel) itemProgressLabel.textContent = 'Verifying Epic install...';
-                    const epicInstalledNow = await waitForInstalled(id, 18, 10000);
-                    if (epicInstalledNow) {
+                    if (await waitForInstalled(id, 18, 10000)) {
                         successCount++;
                         setBadge(li, 'installed');
                         setItemProgress(itemProgressFill, itemProgressLabel, 100, '100%');
@@ -1419,19 +1396,19 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     }
                 }
 
-                if (installFailed || userCancelled) {
+                // Determine final outcome
+                if (r.hardFail || r.cancelled) {
                     errorCount++;
                     failedApps.push(appName);
                     setBadge(li, 'failed');
                     setItemProgress(itemProgressFill, itemProgressLabel, 100, 'Failed');
-                } else if (installSucceededText || alreadyInstalled || !hasCommandError) {
+                } else if (r.succeeded || r.alreadyInstalled || !r.hasError) {
                     successCount++;
                     setBadge(li, 'installed');
                     setItemProgress(itemProgressFill, itemProgressLabel, 100, '100%');
                 } else {
                     if (itemProgressLabel) itemProgressLabel.textContent = 'Verifying...';
-                    const installedNow = await waitForInstalled(id);
-                    if (installedNow) {
+                    if (await waitForInstalled(id)) {
                         successCount++;
                         setBadge(li, 'installed');
                         setItemProgress(itemProgressFill, itemProgressLabel, 100, '100%');
@@ -1513,23 +1490,15 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     if (data.status === 'progress') {
                         const hasPercent = typeof data.percent === 'number' && Number.isFinite(data.percent);
                         if (itemProgressFill) {
-                            if (hasPercent) {
-                                itemProgressFill.classList.add('determinate');
-                                itemProgressFill.style.setProperty('--progress', `${data.percent}%`);
-                            } else {
-                                // Keep indeterminate animation when server doesn't provide total size
-                                itemProgressFill.classList.remove('determinate');
-                            }
+                            itemProgressFill.classList.toggle('determinate', hasPercent);
+                            if (hasPercent) itemProgressFill.style.setProperty('--progress', `${data.percent}%`);
                         }
                         if (itemProgressLabel) {
-                            if (hasPercent) {
-                                itemProgressLabel.textContent = `${data.percent}%`;
-                            } else if (typeof data.received === 'number' && Number.isFinite(data.received)) {
-                                const mb = (data.received / (1024 * 1024)).toFixed(1);
-                                itemProgressLabel.textContent = `${mb} MB`;
-                            } else {
-                                itemProgressLabel.textContent = '';
-                            }
+                            itemProgressLabel.textContent = hasPercent
+                                ? `${data.percent}%`
+                                : (typeof data.received === 'number' && Number.isFinite(data.received))
+                                    ? `${(data.received / (1024 * 1024)).toFixed(1)} MB`
+                                    : '';
                         }
                         return;
                     }
@@ -1562,11 +1531,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
                                 // Καλεί την processAdvancedInstaller που θα δημιουργήσει το activate button
                                 await processAdvancedInstaller(data.path, statusEl, appName, li);
-                            } else if (downloadedExt === 'exe') {
-                                const runRes = await window.api.runInstaller(data.path);
-                                if (!runRes || !runRes.success) {
-                                    throw new Error((runRes && runRes.error) || 'Failed to run installer');
-                                }
                             } else {
                                 const runRes = await window.api.runInstaller(data.path);
                                 if (!runRes || !runRes.success) {
