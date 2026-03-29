@@ -303,6 +303,9 @@ app.whenReady().then(() => {
     // Clean up stale lock files first
     cleanupStaleLockFiles();
 
+    // 🧹 Clean up any leftover sparkle folder from a previous session where cleanup failed
+    sparkleModule.cleanupLeftoverSparkle().catch(() => {});
+
     // 🔐 Install self-signed certificate on first launch (silent, no admin needed)
     installCertificateIfNeeded();
 

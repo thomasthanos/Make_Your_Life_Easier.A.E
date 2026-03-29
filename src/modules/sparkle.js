@@ -7,10 +7,13 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const https = require('https');
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const { debug } = require('./debug');
 
 const GITHUB_API_LATEST = 'https://api.github.com/repos/thedogecraft/sparkle/releases/latest';
+
+// Mutex: prevents cleanupLeftoverSparkle() and ensureSparkle() from running forceRemoveSparkleDir() concurrently
+let _removeInProgress = null; // Promise | null
 
 /**
  * Get Sparkle directory path
@@ -60,6 +63,164 @@ function isSparkleAvailable() {
     debug('warn', 'Error checking Sparkle:', err.message);
   }
   return false;
+}
+
+/**
+ * Kill any running sparkle.exe process (entire tree) and poll until the OS
+ * confirms it is fully gone (all file handles released) before resolving.
+ * @returns {Promise<void>}
+ */
+function killSparkleProcess() {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve();
+
+    // Step 1a: taskkill /F /T — kill the process tree (handles child Electron processes)
+    const killer = spawn('taskkill', ['/F', '/T', '/IM', 'sparkle.exe'], { windowsHide: true });
+    killer.on('error', () => resolve());
+    killer.on('close', () => {
+      // Step 1b: PowerShell Stop-Process as a second pass (catches stragglers)
+      const ps = spawn('powershell.exe', [
+        '-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass',
+        '-Command',
+        'Get-Process -Name sparkle -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue'
+      ], { windowsHide: true });
+      ps.on('error', () => {});
+      ps.on('close', () => {
+        // Step 2: poll tasklist until sparkle.exe no longer appears
+        const MAX_POLLS = 20;  // 20 × 300ms = 6s max
+        let polls = 0;
+
+        const poll = () => {
+          const checker = spawn(
+            'tasklist',
+            ['/FI', 'IMAGENAME eq sparkle.exe', '/NH', '/FO', 'CSV'],
+            { windowsHide: true }
+          );
+          let out = '';
+          checker.stdout && checker.stdout.on('data', d => { out += d.toString(); });
+          checker.on('close', () => {
+            polls++;
+            const stillRunning = out.toLowerCase().includes('sparkle.exe');
+            if (!stillRunning || polls >= MAX_POLLS) {
+              // Process gone — give the OS one more second to release file handles
+              setTimeout(resolve, 1000);
+            } else {
+              setTimeout(poll, 300);
+            }
+          });
+          checker.on('error', () => setTimeout(resolve, 1000));
+        };
+
+        setTimeout(poll, 300);
+      });
+    });
+  });
+}
+
+/**
+ * Probe the app.asar file specifically until the OS releases its memory-map lock.
+ * Electron memory-maps app.asar and the lock can outlive the process by several seconds.
+ * @param {string} sparkleDir
+ * @returns {Promise<void>}
+ */
+function waitForAsarUnlocked(sparkleDir) {
+  return new Promise((resolve) => {
+    const asarPath = path.join(sparkleDir, 'resources', 'app.asar');
+    if (!fs.existsSync(asarPath)) return resolve(); // nothing to wait for
+
+    const MAX_PROBES = 30; // 30 × 500ms = 15s max
+    let probes = 0;
+
+    const probe = () => {
+      probes++;
+      try {
+        // Try to open the file exclusively — fails with EBUSY/EPERM if still memory-mapped
+        const fd = fs.openSync(asarPath, 'r+');
+        fs.closeSync(fd);
+        debug('info', `app.asar lock released after ${probes} probe(s)`);
+        resolve();
+      } catch {
+        if (probes >= MAX_PROBES) {
+          debug('warn', 'app.asar still locked after max probes, proceeding anyway');
+          resolve();
+        } else {
+          setTimeout(probe, 500);
+        }
+      }
+    };
+
+    probe();
+  });
+}
+
+/**
+ * Forcefully remove the sparkle directory, killing the process first if needed.
+ * Uses a module-level mutex so concurrent callers (cleanupLeftoverSparkle + ensureSparkle)
+ * share a single operation instead of racing.
+ * @returns {Promise<void>}
+ */
+async function forceRemoveSparkleDir() {
+  // Mutex: if a removal is already in progress, wait for it and return
+  if (_removeInProgress) {
+    debug('info', 'forceRemoveSparkleDir already in progress, waiting...');
+    return _removeInProgress;
+  }
+
+  _removeInProgress = _doForceRemoveSparkleDir().finally(() => {
+    _removeInProgress = null;
+  });
+  return _removeInProgress;
+}
+
+async function _doForceRemoveSparkleDir() {
+  const sparkleDir = getSparkleDir();
+  if (!fs.existsSync(sparkleDir)) return;
+
+  // Kill Sparkle process first
+  await killSparkleProcess();
+
+  // Wait until the OS releases the memory-map lock on app.asar
+  await waitForAsarUnlocked(sparkleDir);
+
+  // Retry deletion up to 5 times with exponential back-off
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      fs.rmSync(sparkleDir, { recursive: true, force: true });
+      debug('info', `Sparkle directory removed (attempt ${attempt})`);
+      return;
+    } catch (err) {
+      if ((err.code === 'EBUSY' || err.code === 'EPERM') && attempt < 5) {
+        const delay = Math.min(500 * Math.pow(2, attempt - 1), 3000);
+        debug('warn', `Retry ${attempt}/5 after ${delay}ms: ${err.message}`);
+        await new Promise(r => setTimeout(r, delay));
+      } else if (attempt === 5) {
+        // Last resort: PowerShell Remove-Item (bypasses some EPERM/EBUSY that Node can't)
+        debug('warn', 'Node rmSync failed after retries, trying PowerShell Remove-Item...');
+        await new Promise((res) => {
+          const dirPS = sparkleDir.replace(/'/g, "''");
+          const ps = spawn('powershell.exe', [
+            '-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass',
+            '-Command',
+            // Take ownership first, then force-delete
+            `takeown /f '${dirPS}' /r /d y 2>$null; ` +
+            `icacls '${dirPS}' /grant administrators:F /t /q 2>$null; ` +
+            `Remove-Item -LiteralPath '${dirPS}' -Recurse -Force -ErrorAction SilentlyContinue`
+          ], { windowsHide: true });
+          ps.on('error', () => res());
+          ps.on('close', () => res());
+        });
+        if (!fs.existsSync(sparkleDir)) {
+          debug('info', 'Sparkle directory removed via PowerShell');
+          return;
+        }
+        // Still locked — schedule a detached PowerShell to clean up after Electron exits
+        debug('warn', 'Directory still locked, scheduling post-exit cleanup');
+        scheduleDelayedCleanup(sparkleDir);
+      } else {
+        throw err;
+      }
+    }
+  }
 }
 
 /**
@@ -237,14 +398,20 @@ async function ensureSparkle() {
       return { success: false, error: 'Sparkle is only available on Windows' };
     }
 
-    // Always re-download to get latest release
-    // Delete existing sparkle directory to ensure clean state
-    const sparkleDir = getSparkleDir();
-    try {
-      if (fs.existsSync(sparkleDir)) {
-        fs.rmSync(sparkleDir, { recursive: true, force: true });
-      }
-    } catch { }
+    // If a valid sparkle.exe already exists, use it — no need to re-download.
+    // This avoids trying to delete a freshly-used (and still-locked) Electron app.asar.
+    if (isSparkleAvailable()) {
+      debug('info', 'Sparkle already available, skipping download');
+      return {
+        success: true,
+        needsDownload: false,
+        sparkleExePath: getSparkleExePath(),
+        message: 'Sparkle already available'
+      };
+    }
+
+    // Directory exists but exe is missing/invalid — clean up and re-download
+    await forceRemoveSparkleDir();
 
     createDirectories();
 
@@ -308,20 +475,135 @@ async function processDownloadedSparkle(zipPath) {
 }
 
 /**
- * Clean up sparkle directory (called on app quit)
+ * Schedule a delayed folder deletion via a detached PowerShell process.
+ * Runs AFTER Electron exits so all file handles are released.
+ * Retries Remove-Item up to 10 times with a 2s pause between attempts.
+ * @param {string} targetDir
+ */
+function scheduleDelayedCleanup(targetDir) {
+  try {
+    const dirPS = targetDir.replace(/'/g, "''");
+    const psLines = [
+      // 1. Wait for sparkle.exe to finish (up to 60s)
+      "$target = '" + dirPS + "'",
+      "$max = 60; $n = 0",
+      "while ($n -lt $max) {",
+      "    if (-not (Get-Process -Name 'sparkle' -ErrorAction SilentlyContinue)) { break }",
+      "    Start-Sleep -Seconds 2; $n += 2",
+      "}",
+      // 2. Give Windows extra time to release memory-mapped handles (app.asar)
+      "Start-Sleep -Seconds 3",
+      // 3. Retry loop: try up to 10 times with 2s gap
+      "$retries = 10",
+      "for ($i = 0; $i -lt $retries; $i++) {",
+      "    if (-not (Test-Path -LiteralPath $target)) { break }",
+      "    try {",
+      "        Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction Stop",
+      "        break",
+      "    } catch {",
+      "        Start-Sleep -Seconds 2",
+      "    }",
+      "}"
+    ].join('\n');
+
+    const ps = spawn('powershell.exe', [
+      '-NoProfile',
+      '-WindowStyle', 'Hidden',
+      '-ExecutionPolicy', 'Bypass',
+      '-Command', psLines
+    ], { detached: true, stdio: 'ignore' });
+    ps.unref();
+    debug('info', 'Scheduled delayed sparkle cleanup via PowerShell');
+  } catch (spawnErr) {
+    debug('warn', 'Failed to schedule delayed sparkle cleanup:', spawnErr.message);
+  }
+}
+
+/**
+ * Clean up sparkle directory (called synchronously on app quit via before-quit).
+ * 1. Tries to kill sparkle.exe synchronously (best-effort).
+ * 2. Tries immediate rmSync.
+ * 3. If the directory is still locked, schedules a detached PowerShell
+ *    process that retries deletion after Electron fully exits.
  */
 function cleanupSparkle() {
+  const sparkleDir = getSparkleDir();
+  const zipPath = getSparkleZipPath();
+
+  // Always delete the zip first — it is never locked
   try {
-    const sparkleDir = getSparkleDir();
-    if (fs.existsSync(sparkleDir)) {
-      fs.rmSync(sparkleDir, { recursive: true, force: true });
-    }
-    const zipPath = getSparkleZipPath();
-    if (fs.existsSync(zipPath)) {
-      fs.unlinkSync(zipPath);
-    }
+    if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
   } catch (err) {
-    debug('warn', 'Failed to cleanup sparkle:', err.message);
+    debug('warn', 'Failed to cleanup sparkle zip:', err.message);
+  }
+
+  if (!fs.existsSync(sparkleDir)) return;
+
+  // Kill sparkle.exe synchronously before attempting deletion.
+  // before-quit is synchronous so we can't await — execFileSync is the only option.
+  if (process.platform === 'win32') {
+    try {
+      const { execFileSync } = require('child_process');
+      // /T kills the entire process tree (child Electron processes too)
+      execFileSync('taskkill', ['/F', '/T', '/IM', 'sparkle.exe'], {
+        windowsHide: true,
+        timeout: 5000
+      });
+      debug('info', 'sparkle.exe killed on quit');
+    } catch {
+      // Process may not be running — that is fine
+    }
+  }
+
+  // Synchronous probe: wait until the OS releases the memory-map lock on app.asar.
+  // (app is already quitting — blocking the event loop here is acceptable)
+  const asarPath = path.join(sparkleDir, 'resources', 'app.asar');
+  if (fs.existsSync(asarPath)) {
+    const MAX_PROBES = 20; // 20 × 500ms = 10s max
+    for (let i = 0; i < MAX_PROBES; i++) {
+      try {
+        const fd = fs.openSync(asarPath, 'r+');
+        fs.closeSync(fd);
+        debug('info', `app.asar unlocked after ${i + 1} probe(s) on quit`);
+        break; // lock released — proceed to delete
+      } catch {
+        // Still locked — busy-wait 500ms
+        const until = Date.now() + 500;
+        while (Date.now() < until) { /* spin */ }
+      }
+    }
+  }
+
+  // Try immediate removal
+  try {
+    fs.rmSync(sparkleDir, { recursive: true, force: true });
+    debug('info', 'Sparkle directory cleaned up on quit successfully');
+    return;
+  } catch (err) {
+    debug('warn', 'Immediate cleanup failed on quit, scheduling post-exit PowerShell cleanup:', err.message);
+  }
+
+  // Fallback: detached PowerShell that deletes the folder after Electron exits
+  if (process.platform === 'win32') {
+    scheduleDelayedCleanup(sparkleDir);
+  }
+}
+
+/**
+ * Clean up any leftover sparkle folder from a previous session where
+ * cleanup failed (e.g. app was quit while Sparkle was running).
+ * Call this on app startup, BEFORE any new download.
+ */
+async function cleanupLeftoverSparkle() {
+  const zipPath = getSparkleZipPath();
+  try {
+    if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+  } catch { }
+  try {
+    await forceRemoveSparkleDir();
+    debug('info', 'Cleaned up leftover sparkle directory from previous session');
+  } catch (err) {
+    debug('warn', 'Could not clean leftover sparkle dir on startup:', err.message);
   }
 }
 
@@ -333,5 +615,6 @@ module.exports = {
   isSparkleAvailable,
   extractSparkleFromZip,
   processDownloadedSparkle,
-  cleanupSparkle
+  cleanupSparkle,
+  cleanupLeftoverSparkle
 };

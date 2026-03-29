@@ -26,17 +26,26 @@
   --primitive-blue-600: #1e90ff;
   --primitive-blue-700: #0066cc;
 
-  --primitive-neutral-950: #121214;
-  --primitive-neutral-900: #171717;
-  --primitive-neutral-880: #1A191E;
-  --primitive-neutral-850: #1B1B1B;
-  --primitive-neutral-830: #1C1B20;
-  --primitive-neutral-800: #212025;
-  --primitive-neutral-780: #26252A;
-  --primitive-neutral-760: #29282D;
-  --primitive-neutral-740: #2A2A2C;
-  --primitive-neutral-720: #37383C;
-  --primitive-neutral-700: #3A3B3F;
+  /* Simplified neutral scale: keep 5-7 core shades max */
+  --neutral-1000: #121214;
+  --neutral-900: #1a1a1a;
+  --neutral-800: #2a2a2c;
+  --neutral-700: #3a3b3f;
+  --neutral-600: #46474c;
+  --neutral-500: #56575d;
+
+  /* Legacy aliases for existing usages */
+  --primitive-neutral-950: var(--neutral-1000);
+  --primitive-neutral-900: var(--neutral-900);
+  --primitive-neutral-880: var(--neutral-900);
+  --primitive-neutral-850: var(--neutral-800);
+  --primitive-neutral-830: var(--neutral-800);
+  --primitive-neutral-800: var(--neutral-800);
+  --primitive-neutral-780: var(--neutral-700);
+  --primitive-neutral-760: var(--neutral-700);
+  --primitive-neutral-740: var(--neutral-700);
+  --primitive-neutral-720: var(--neutral-600);
+  --primitive-neutral-700: var(--neutral-700);
 
   --primitive-green-500: #10b981;
   --primitive-green-400: #34d399;
@@ -50,13 +59,13 @@
      These are what components reference.
      Dark-mode tokens are defined once.
   ───────────────────────────────────────── */
-  --surface-app: var(--primitive-neutral-900);
-  --surface-sidebar: var(--primitive-neutral-900);
-  --surface-card: var(--primitive-neutral-850);
-  --surface-item: var(--primitive-neutral-800);
-  --surface-header: var(--primitive-neutral-760);
-  --surface-hover: var(--primitive-neutral-740);
-  --surface-content: var(--primitive-neutral-950);
+  --surface-app: var(--neutral-900);
+  --surface-sidebar: var(--neutral-900);
+  --surface-card: var(--neutral-800);
+  --surface-item: var(--neutral-800);
+  --surface-header: var(--neutral-700);
+  --surface-hover: var(--neutral-700);
+  --surface-content: var(--neutral-1000);
 
   /* ─────────────────────────────────────────
      SEMANTIC TEXT TOKENS
@@ -113,9 +122,11 @@
   --error-color: var(--primitive-red-500);
 
   /* Gradients */
-  --gradient-card: linear-gradient(90deg, #1C1B20 0%, #37383C 50%, #1C1B20 100%);
+  --gradient-soft: linear-gradient(90deg, #1c1b20 0%, #37383c 50%, #1c1b20 100%);
+  --gradient-strong: linear-gradient(90deg, #121214 0%, #292a2e 50%, #100f14 100%);
+  --gradient-card: var(--gradient-soft);
   --gradient-header: linear-gradient(90deg, #1E1D22 0%, #3A3B3F 50%, #1A191E 100%);
-  --gradient-content: linear-gradient(90deg, #121214 0%, #292A2E 50%, #100F14 100%);
+  --gradient-content: var(--gradient-strong);
   --gradient-list-item: linear-gradient(90deg, #17161B 0%, #26252A 50%, #1F1F21 100%);
 
   /* Blue glow system */
@@ -223,6 +234,23 @@ body {
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* Performance Utilities */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.blur {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+@supports not (backdrop-filter: blur(10px)) {
+  .glass {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
 
 /* === _layout.css === */
 /* ============================================
@@ -231,7 +259,8 @@ body {
 
 /* Main App Structure */
 #app {
-  display: flex;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
   height: calc(100% - var(--title-bar-height));
   margin-top: var(--title-bar-height);
   padding: 0;
@@ -751,7 +780,7 @@ body {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .user-info .login-btn+.login-btn {
@@ -776,11 +805,9 @@ body {
     radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%),
     radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 60%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
-  backdrop-filter: blur(25px) saturate(130%) brightness(1.3);
-  -webkit-backdrop-filter: blur(25px) saturate(130%) brightness(1.3);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-  transition: all 0.5s ease-in-out;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
   position: relative;
   overflow: visible;
   z-index: 2;
@@ -791,10 +818,8 @@ body {
     radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 60%),
     radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
-  backdrop-filter: blur(28px) saturate(140%) brightness(1.35);
-  -webkit-backdrop-filter: blur(28px) saturate(140%) brightness(1.35);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
 }
 
 .sidebar-footer .user-info .login-card button {
@@ -821,8 +846,9 @@ body {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
-.sidebar-footer .user-info .login-card button:focus {
-  outline: none;
+.sidebar-footer .user-info .login-card button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
   background-color: rgb(255, 255, 255);
 }
 
@@ -989,9 +1015,7 @@ body {
   padding: 1.5rem;
   margin-bottom: 0;
   box-shadow: var(--shadow-card);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: box-shadow 0.3s ease;
+  transition: all 0.2s ease;
   position: relative;
   overflow-y: auto;
   overflow-x: hidden;
@@ -1005,7 +1029,7 @@ body {
 }
 
 .card:hover {
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 .card > h2 {
@@ -1024,7 +1048,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
   position: relative;
-  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .card>p:hover {
@@ -1088,15 +1112,13 @@ body {
   border-radius: 16px;
   padding: 1rem 1rem 0.85rem;
   box-shadow: var(--shadow-card);
-  transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
   flex-shrink: 0;
   overflow: hidden;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   position: relative;
 }
 
@@ -1111,11 +1133,11 @@ body {
 
 .app-card:hover {
   border-color: var(--glow-border);
-  transform: translateY(-2px);
+  transform: translateY(-4px) scale(1.01);
   box-shadow:
     inset 0 0 0 1px rgba(80, 140, 255, 0.2),
-    inset 0 0 18px var(--glow-inset),
-    0 12px 28px rgba(0, 0, 0, 0.45);
+    inset 0 0 10px var(--glow-inset),
+    0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
 .app-card h3 {
@@ -1321,8 +1343,18 @@ table tr:hover td {
    ============================================ */
 
 /* Glass button base — opt-in classes + generic button fallback */
+.btn,
 .glass-btn,
-:where(.button, .button-secondary, .button-danger, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, .bios-restart-btn):not(.no-glass-effect) {
+.button,
+.button-secondary,
+.button-danger,
+.action-btn,
+.btn-install,
+.btn-uninstall,
+.btn-export,
+.btn-import,
+.activator-button-fixed,
+.bios-restart-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1337,26 +1369,44 @@ table tr:hover td {
   cursor: pointer;
   text-shadow: none;
   overflow: hidden;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: all 0.2s ease;
   will-change: auto;
   position: relative;
   touch-action: manipulation;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 7px 20px rgba(0, 0, 0, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 12px rgba(0, 0, 0, 0.16);
 }
 
 .button {
   margin: 0.25rem 0.5rem 0.25rem 0;
 }
 
+.btn:active,
 .glass-btn:active,
-:where(.button, .button-secondary, .button-danger, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, .bios-restart-btn):not(.no-glass-effect):active {
+.button:active,
+.button-secondary:active,
+.button-danger:active,
+.action-btn:active,
+.btn-install:active,
+.btn-uninstall:active,
+.btn-export:active,
+.btn-import:active,
+.activator-button-fixed:active,
+.bios-restart-btn:active {
   box-shadow: var(--btn-shadow);
 }
 
+.btn:disabled,
 .glass-btn:disabled,
-:where(.button, .button-secondary, .button-danger, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, .bios-restart-btn):not(.no-glass-effect):disabled {
+.button:disabled,
+.button-secondary:disabled,
+.button-danger:disabled,
+.action-btn:disabled,
+.btn-install:disabled,
+.btn-uninstall:disabled,
+.btn-export:disabled,
+.btn-import:disabled,
+.activator-button-fixed:disabled,
+.bios-restart-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   pointer-events: none;
@@ -1364,15 +1414,29 @@ table tr:hover td {
 
 /* Fixed: was rgba(60,120,255,0.2) — too transparent for a clear focus indicator.
    Increased to 0.5 for WCAG compliance. */
+.btn:focus-visible,
 .glass-btn:focus-visible,
-:where(.button, .button-secondary, .button-danger, .action-btn, .btn-install, .btn-uninstall, .btn-export, .btn-import, .activator-button-fixed, .bios-restart-btn):not(.no-glass-effect):focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(60, 120, 255, 0.5);
+.button:focus-visible,
+.button-secondary:focus-visible,
+.button-danger:focus-visible,
+.action-btn:focus-visible,
+.btn-install:focus-visible,
+.btn-uninstall:focus-visible,
+.btn-export:focus-visible,
+.btn-import:focus-visible,
+.activator-button-fixed:focus-visible,
+.bios-restart-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(60, 120, 255, 0.35);
 }
 
 /* Button Variants */
+.btn--secondary,
 .button-secondary,
+.btn--danger,
 .button-danger,
+.btn--success,
 .button.success,
 .button.error {
   background: var(--btn-bg);
@@ -1381,17 +1445,20 @@ table tr:hover td {
   box-shadow: var(--btn-shadow);
 }
 
+.btn--secondary,
 .button-secondary {
   color: var(--color-accent);
   border-color: var(--color-accent);
 }
 
+.btn--danger,
 .button-danger,
 .button.error {
   color: var(--error-color);
   border-color: rgba(239, 68, 68, 0.6);
 }
 
+.btn--success,
 .button.success {
   color: var(--success-color);
   border-color: rgba(52, 211, 153, 0.6);
@@ -1411,9 +1478,13 @@ table tr:hover td {
 }
 
 /* Button Types */
+.btn--install,
 .btn-install,
+.btn--uninstall,
 .btn-uninstall,
+.btn--export,
 .btn-export,
+.btn--import,
 .btn-import {
   background: var(--btn-bg);
   border: 1px solid var(--btn-border);
@@ -1421,26 +1492,31 @@ table tr:hover td {
   box-shadow: var(--btn-shadow);
 }
 
+.btn--install,
 .btn-install {
   color: #2563eb;
   border-color: rgba(59, 130, 246, 0.6);
 }
 
+.btn--uninstall,
 .btn-uninstall {
   color: #dc2626;
   border-color: rgba(239, 68, 68, 0.6);
 }
 
+.btn--export,
 .btn-export {
   color: #7c3aed;
   border-color: rgba(139, 92, 246, 0.6);
 }
 
+.btn--import,
 .btn-import {
   color: var(--text-primary);
   border-color: rgba(255, 255, 255, 0.25);
 }
 
+.btn--import:disabled,
 .btn-import:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -1666,6 +1742,7 @@ table tr:hover td {
 
 @media (prefers-reduced-motion: reduce) {
 
+  .btn,
   .button,
   .action-btn {
     transition: none;
@@ -2012,7 +2089,7 @@ input:checked+.slider:before {
   font-weight: 500;
   cursor: pointer;
   user-select: none;
-  transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+  transition: all 0.25s ease;
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05), inset 0 -1px 1px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
@@ -2095,12 +2172,14 @@ input:checked+.slider:before {
 }
 
 /* Focus styles for accessibility — increased opacity from 0.2 to 0.5 */
+.btn:focus-visible,
 .action-btn:focus-visible,
 .button:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(60, 120, 255, 0.5);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(60, 120, 255, 0.35);
 }
 
 
@@ -2798,7 +2877,7 @@ select:focus-visible {
   padding: 0.875rem 1.75rem;
   border-radius: 12px;
   font-weight: 600;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: all 0.25s ease;
   cursor: pointer;
 }
 
@@ -2818,7 +2897,7 @@ select:focus-visible {
   border-radius: 12px;
   font-weight: 600;
   box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: all 0.25s ease;
   position: relative;
   overflow: hidden;
   cursor: pointer;
@@ -3451,7 +3530,7 @@ select:focus-visible {
   border-radius: 8px;
   cursor: pointer;
   border: none;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 #update-card .btn-primary {
@@ -3549,7 +3628,7 @@ select:focus-visible {
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   background: var(--surface-card);
-  transition: background 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 #update-btn:hover .inner {
@@ -3692,7 +3771,7 @@ select:focus-visible {
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 #update-btn .extra .btn-primary {
@@ -4103,7 +4182,7 @@ select:focus-visible {
   font-weight: 600;
   border: 1px solid rgba(56, 139, 190, .55);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
-  transition: box-shadow .15s ease, border-color .15s ease, color .15s ease;
+  transition: all .15s ease;
 }
 
 .ctt-outline:hover {
@@ -4615,6 +4694,11 @@ select:focus-visible {
    ACCESSIBILITY & REDUCED MOTION
    ============================================ */
 
+:where(a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
 
   *,
@@ -4642,7 +4726,8 @@ select:focus-visible {
 
 @media (max-width: 768px) {
   #app {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
   }
 
   #sidebar {
@@ -4958,7 +5043,7 @@ select:focus-visible {
   background: transparent;
   color: rgba(255, 255, 255, 0.4);
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  transition: all 0.18s ease;
 }
 
 .view-toggle-btn:hover {
@@ -4997,7 +5082,7 @@ select:focus-visible {
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  transition: all 0.18s ease;
 }
 
 .sort-btn svg {

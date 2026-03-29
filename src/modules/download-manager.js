@@ -99,7 +99,13 @@ function startDownload(id, url, dest, mainWindow) {
 
       // Cleanup existing files
       removeFileIfExistsSync(finalPath);
-      cleanupExtractDirs(finalName, destDirForCleanup);
+      // Only cleanup extracted dirs for Downloads-folder downloads.
+      // For absolute-path destinations (e.g. sparkle.zip in AppData) we skip
+      // cleanupExtractDirs because it would delete the install directory that
+      // shares the same base name (sparkle/ alongside sparkle.zip).
+      if (!isAbsolute) {
+        cleanupExtractDirs(finalName, destDirForCleanup);
+      }
 
       const total = parseInt(res.headers['content-length'] || '0', 10);
       const file = fs.createWriteStream(tempPath);
