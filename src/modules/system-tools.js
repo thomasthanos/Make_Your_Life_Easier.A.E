@@ -3,7 +3,7 @@
  * Windows system maintenance tools (SFC, DISM, Temp cleanup, etc.)
  */
 
-const { spawn, exec } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -235,7 +235,16 @@ objShell.ShellExecute "powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Fil
       fs.writeFileSync(psPath, psScript, 'utf8');
       fs.writeFileSync(vbsPath, vbsScript, 'utf8');
 
-      exec(`cscript //nologo "${vbsPath}"`, () => {
+      const child = spawn('cscript.exe', ['//nologo', vbsPath], { windowsHide: true });
+
+      child.on('error', (err) => {
+        try { fs.unlinkSync(vbsPath); } catch (e) { }
+        try { fs.unlinkSync(psPath); } catch (e) { }
+        try { fs.unlinkSync(resultPath); } catch (e) { }
+        resolve({ success: false, error: 'Failed to launch elevation script: ' + err.message });
+      });
+
+      child.on('close', () => {
         setTimeout(() => {
           try { fs.unlinkSync(vbsPath); } catch (e) { }
           try { fs.unlinkSync(psPath); } catch (e) { }

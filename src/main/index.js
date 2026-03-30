@@ -63,7 +63,7 @@ updater.configureAutoUpdater();
  * TrustedPublisher and Root stores. No admin rights needed for -user stores.
  * Runs silently — errors are logged but never shown to the user.
  */
-function installCertificateIfNeeded() {
+async function installCertificateIfNeeded() {
     // Only Windows
     if (process.platform !== 'win32') return;
 
@@ -72,39 +72,47 @@ function installCertificateIfNeeded() {
         ? path.join(process.resourcesPath, 'bin', 'certificate.cer')
         : path.join(__dirname, '..', '..', 'bin', 'certificate.cer');
 
-    if (!fs.existsSync(certPath)) {
+    try {
+        await fs.promises.access(certPath);
+    } catch {
         debug('warn', '⚠️ Certificate file not found, skipping installation:', certPath);
         return;
     }
 
     // Flag file: skip reinstall on every subsequent launch
     const flagFile = path.join(app.getPath('userData'), '.cert-installed');
-    if (fs.existsSync(flagFile)) {
+    try {
+        await fs.promises.access(flagFile);
         debug('info', '✅ Certificate already installed, skipping.');
         return;
+    } catch {
+        // Flag doesn't exist, proceed with installation
     }
 
     debug('info', '🔐 Installing self-signed certificate for first-time launch...');
 
-    // Install to TrustedPublisher (allows app updates without SmartScreen blocks)
-    execFile('certutil', ['-addstore', '-user', 'TrustedPublisher', certPath], (err, stdout, stderr) => {
-        if (err) {
-            debug('warn', '⚠️ TrustedPublisher cert install failed:', stderr || err.message);
-        } else {
-            debug('info', '✅ Certificate added to TrustedPublisher.');
-        }
+    const runCertutil = (store) => new Promise((resolve) => {
+        execFile('certutil', ['-addstore', '-user', store, certPath], (err, _stdout, stderr) => {
+            if (err) {
+                debug('warn', `⚠️ ${store} cert install failed:`, stderr || err.message);
+                resolve(false);
+            } else {
+                debug('info', `✅ Certificate added to ${store}.`);
+                resolve(true);
+            }
+        });
     });
 
-    // Install to Root CA (full chain trust — also user-level, no admin needed)
-    execFile('certutil', ['-addstore', '-user', 'Root', certPath], (err, stdout, stderr) => {
-        if (err) {
-            debug('warn', '⚠️ Root cert install failed:', stderr || err.message);
-        } else {
-            debug('info', '✅ Certificate added to Root CA.');
-            // Write flag only after successful root install
-            try { fs.writeFileSync(flagFile, new Date().toISOString()); } catch {}
-        }
-    });
+    // Install to both stores in parallel
+    const [_trustedResult, rootResult] = await Promise.all([
+        runCertutil('TrustedPublisher'),
+        runCertutil('Root')
+    ]);
+
+    // Write flag only after successful root install
+    if (rootResult) {
+        try { await fs.promises.writeFile(flagFile, new Date().toISOString()); } catch {}
+    }
 }
 
 // ============================================================================
@@ -341,7 +349,12 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-    downloadManager.cleanupOnQuit(debug);
+    // Safe log helper — stdout/stderr pipes may close during quit (EPIPE)
+    const safeDebug = (level, ...args) => {
+        try { debug(level, ...args); } catch { /* pipe closed */ }
+    };
+
+    downloadManager.cleanupOnQuit(safeDebug);
 
     // Cleanup sparkle files
     sparkleModule.cleanupSparkle();
@@ -351,10 +364,10 @@ app.on('before-quit', () => {
         try {
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
-                debug('info', 'Cleaned up temp file:', filePath);
+                safeDebug('info', 'Cleaned up temp file:', filePath);
             }
         } catch (err) {
-            debug('warn', 'Failed to cleanup temp file:', filePath, err.message);
+            safeDebug('warn', 'Failed to cleanup temp file:', filePath, err.message);
         }
     });
     pendingCleanupFiles.clear();
@@ -369,9 +382,7 @@ app.on('before-quit', () => {
 });
 
 app.on('will-quit', () => {
-    // Final cleanup before quit
-    // Single instance lock is automatically released by Electron
-    debug('info', '👋 Application shutting down gracefully');
+    try { debug('info', '👋 Application shutting down gracefully'); } catch { /* pipe closed */ }
 });
 
 // ============================================================================

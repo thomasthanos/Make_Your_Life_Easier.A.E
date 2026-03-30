@@ -513,9 +513,9 @@ function scheduleDelayedCleanup(targetDir) {
       '-Command', psLines
     ], { detached: true, stdio: 'ignore' });
     ps.unref();
-    debug('info', 'Scheduled delayed sparkle cleanup via PowerShell');
+    try { debug('info', 'Scheduled delayed sparkle cleanup via PowerShell'); } catch { /* pipe closed */ }
   } catch (spawnErr) {
-    debug('warn', 'Failed to schedule delayed sparkle cleanup:', spawnErr.message);
+    try { debug('warn', 'Failed to schedule delayed sparkle cleanup:', spawnErr.message); } catch { /* pipe closed */ }
   }
 }
 
@@ -527,6 +527,12 @@ function scheduleDelayedCleanup(targetDir) {
  *    process that retries deletion after Electron fully exits.
  */
 function cleanupSparkle() {
+  // Safe log helper — during quit, stdout/stderr pipes may already be closed (EPIPE).
+  // Swallow write errors so the app exits cleanly.
+  const safeDebug = (level, ...args) => {
+    try { debug(level, ...args); } catch { /* pipe closed */ }
+  };
+
   const sparkleDir = getSparkleDir();
   const zipPath = getSparkleZipPath();
 
@@ -534,7 +540,7 @@ function cleanupSparkle() {
   try {
     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
   } catch (err) {
-    debug('warn', 'Failed to cleanup sparkle zip:', err.message);
+    safeDebug('warn', 'Failed to cleanup sparkle zip:', err.message);
   }
 
   if (!fs.existsSync(sparkleDir)) return;
@@ -547,9 +553,10 @@ function cleanupSparkle() {
       // /T kills the entire process tree (child Electron processes too)
       execFileSync('taskkill', ['/F', '/T', '/IM', 'sparkle.exe'], {
         windowsHide: true,
+        stdio: 'ignore',
         timeout: 5000
       });
-      debug('info', 'sparkle.exe killed on quit');
+      safeDebug('info', 'sparkle.exe killed on quit');
     } catch {
       // Process may not be running — that is fine
     }
@@ -564,7 +571,7 @@ function cleanupSparkle() {
       try {
         const fd = fs.openSync(asarPath, 'r+');
         fs.closeSync(fd);
-        debug('info', `app.asar unlocked after ${i + 1} probe(s) on quit`);
+        safeDebug('info', `app.asar unlocked after ${i + 1} probe(s) on quit`);
         break; // lock released — proceed to delete
       } catch {
         // Still locked — busy-wait 500ms
@@ -577,15 +584,19 @@ function cleanupSparkle() {
   // Try immediate removal
   try {
     fs.rmSync(sparkleDir, { recursive: true, force: true });
-    debug('info', 'Sparkle directory cleaned up on quit successfully');
+    safeDebug('info', 'Sparkle directory cleaned up on quit successfully');
     return;
   } catch (err) {
-    debug('warn', 'Immediate cleanup failed on quit, scheduling post-exit PowerShell cleanup:', err.message);
+    safeDebug('warn', 'Immediate cleanup failed on quit, scheduling post-exit PowerShell cleanup:', err.message);
   }
 
   // Fallback: detached PowerShell that deletes the folder after Electron exits
   if (process.platform === 'win32') {
-    scheduleDelayedCleanup(sparkleDir);
+    try {
+      scheduleDelayedCleanup(sparkleDir);
+    } catch {
+      // Pipe may be closed — ignore
+    }
   }
 }
 

@@ -98,7 +98,6 @@ contextBridge.exposeInMainWorld('api', {
   runSparkleDebloat: () => ipcRenderer.invoke('run-sparkle-debloat'),
   ensureSparkle: () => ipcRenderer.invoke('ensure-sparkle'),
   processDownloadedSparkle: (zipPath) => ipcRenderer.invoke('process-downloaded-sparkle', zipPath),
-  runRaphiDebloat: () => ipcRenderer.invoke('run-raphi-debloat'),
   runChrisTitus: () => ipcRenderer.invoke('run-christitus'),
   runActivateScript: () => ipcRenderer.invoke('run-activate-script'),
   runAutologinScript: () => ipcRenderer.invoke('run-autologin-script'),

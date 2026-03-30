@@ -155,7 +155,7 @@ function setupOAuthHandlers(oauth, userProfile, getMainWindow) {
 function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
     ipcMain.handle('run-command', async (event, command) => {
         if (typeof command !== 'string' || !command.trim()) {
-            return { error: 'Invalid command' };
+            return { success: false, error: 'Invalid command' };
         }
 
         const allowedCommands = ['winget'];
@@ -163,24 +163,24 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
         const cmd = parts[0].toLowerCase();
 
         if (!allowedCommands.includes(cmd)) {
-            return { error: `Command '${cmd}' is not allowed. Only winget is permitted.` };
+            return { success: false, error: `Command '${cmd}' is not allowed. Only winget is permitted.` };
         }
 
         const args = parts.slice(1);
         const argsValidation = security.validateCommandArgs(args);
         if (!argsValidation.valid) {
-            return { error: argsValidation.error };
+            return { success: false, error: argsValidation.error };
         }
 
         const allowedWingetSubcommands = ['install', 'upgrade', 'search', 'list', 'show', 'source', 'settings', 'uninstall', '--version'];
         const subcommand = args[0]?.toLowerCase();
         if (!subcommand || !allowedWingetSubcommands.includes(subcommand)) {
-            return { error: `Winget subcommand '${subcommand || ''}' is not allowed. Allowed: ${allowedWingetSubcommands.join(', ')}` };
+            return { success: false, error: `Winget subcommand '${subcommand || ''}' is not allowed. Allowed: ${allowedWingetSubcommands.join(', ')}` };
         }
 
         for (const arg of args) {
             if (arg.includes('..')) {
-                return { error: 'Path traversal detected in command arguments' };
+                return { success: false, error: 'Path traversal detected in command arguments' };
             }
         }
 
@@ -306,11 +306,14 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
     });
 
     ipcMain.handle('show-file-dialog', async () => {
-        const result = await dialog.showOpenDialog({
-            properties: ['openFile'],
-            filters: [{ name: 'Executables', extensions: ['exe'] }]
-        });
-        return result;
+        try {
+            return await dialog.showOpenDialog({
+                properties: ['openFile'],
+                filters: [{ name: 'Executables', extensions: ['exe'] }]
+            });
+        } catch (err) {
+            return { canceled: true, filePaths: [], error: err.message };
+        }
     });
 }
 

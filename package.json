@@ -111,7 +111,7 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Make Your Life Easier",
       "installerIcon": "src/assets/icons/hacker.ico",
