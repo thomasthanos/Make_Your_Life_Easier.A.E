@@ -5535,6 +5535,14 @@ select:focus-visible {
   grid-column: 1 / -1;
 }
 
+.maintenance-section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.9;
+}
+
 /* GRID LAYOUTS */
 .grid-2-col {
   display: grid;

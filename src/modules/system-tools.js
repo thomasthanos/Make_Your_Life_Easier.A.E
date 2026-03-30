@@ -412,11 +412,355 @@ async function runChrisTitus() {
   return runSpawnCommand(psExe, args, { shell: false, windowsHide: false });
 }
 
+/**
+ * Clean the Recycle Bin
+ * @returns {Promise<Object>}
+ */
+async function cleanRecycleBin() {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const psScript = `
+Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+`;
+
+  return runElevatedPowerShellScriptHidden(
+    psScript,
+    '✅ Recycle Bin emptied successfully!',
+    'Failed to empty Recycle Bin.'
+  );
+}
+
+/**
+ * Clean Windows Update cache
+ * @returns {Promise<Object>}
+ */
+async function cleanWindowsCache() {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const timestamp = Date.now();
+  const logFile = path.join(os.tmpdir(), `wincache_log_${timestamp}.txt`);
+  const logFileEscaped = logFile.replace(/\\/g, '\\\\');
+
+  const psScript = `
+$logFile = "${logFileEscaped}"
+$log = @()
+$log += "=== WINDOWS CACHE CLEANUP ==="
+$totalCleaned = 0
+
+# Stop Windows Update service
+Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+
+# Clean Windows Update cache
+$wuPath = "C:\\Windows\\SoftwareDistribution\\Download"
+if (Test-Path $wuPath) {
+    $items = Get-ChildItem $wuPath -Force -ErrorAction SilentlyContinue
+    $count = ($items | Measure-Object).Count
+    $items | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+    $totalCleaned += $count
+    $log += "Windows Update cache: $count items cleaned"
+}
+
+# Restart Windows Update service
+Start-Service -Name wuauserv -ErrorAction SilentlyContinue
+
+$log += "Total items cleaned: $totalCleaned"
+$log | Out-File -FilePath $logFile -Encoding UTF8
+`;
+
+  const result = await runElevatedPowerShellScriptHidden(
+    psScript,
+    '✅ Windows cache cleaned successfully!',
+    'Failed to clean Windows cache. Please accept the UAC prompt.'
+  );
+
+  try {
+    if (fs.existsSync(logFile)) {
+      result.details = fs.readFileSync(logFile, 'utf8');
+      fs.unlinkSync(logFile);
+    }
+  } catch (e) { }
+
+  return result;
+}
+
+/**
+ * Clear thumbnail cache
+ * @returns {Promise<Object>}
+ */
+async function clearThumbnailCache() {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const psScript = `
+# Kill Explorer to release thumbnail DB locks
+Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+
+$thumbPath = Join-Path $env:LOCALAPPDATA "Microsoft\\Windows\\Explorer"
+if (Test-Path $thumbPath) {
+    Get-ChildItem $thumbPath -Filter "thumbcache_*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem $thumbPath -Filter "iconcache_*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+}
+
+# Restart Explorer
+Start-Process explorer.exe
+`;
+
+  return runElevatedPowerShellScriptHidden(
+    psScript,
+    '✅ Thumbnail cache cleared successfully!',
+    'Failed to clear thumbnail cache.'
+  );
+}
+
+/**
+ * Clear error reports (CrashDumps)
+ * @returns {Promise<Object>}
+ */
+async function clearErrorReports() {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const psScript = `
+$totalCleaned = 0
+
+# Clean CrashDumps
+$crashPath = Join-Path $env:LOCALAPPDATA "CrashDumps"
+if (Test-Path $crashPath) {
+    $items = Get-ChildItem $crashPath -Force -ErrorAction SilentlyContinue
+    $totalCleaned += ($items | Measure-Object).Count
+    $items | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+}
+
+# Clean Windows Error Reporting
+$werPath = Join-Path $env:LOCALAPPDATA "Microsoft\\Windows\\WER"
+if (Test-Path $werPath) {
+    $items = Get-ChildItem $werPath -Force -Recurse -ErrorAction SilentlyContinue
+    $totalCleaned += ($items | Measure-Object).Count
+    Get-ChildItem $werPath -Directory -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
+    }
+}
+`;
+
+  return runElevatedPowerShellScriptHidden(
+    psScript,
+    '✅ Error reports cleared successfully!',
+    'Failed to clear error reports.'
+  );
+}
+
+/**
+ * Flush DNS cache
+ * @returns {Promise<Object>}
+ */
+async function flushDnsCache() {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const psScript = `
+Write-Host "=== FLUSH DNS CACHE ===" -ForegroundColor Cyan
+ipconfig /flushdns
+exit $LASTEXITCODE
+`;
+
+  return runElevatedPowerShellScript(
+    psScript,
+    '✅ DNS cache flushed successfully!',
+    'Failed to flush DNS cache.'
+  );
+}
+
+/**
+ * Release and renew IP address
+ * @returns {Promise<Object>}
+ */
+async function releaseRenewIp() {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const psScript = `
+Write-Host "=== IP RELEASE & RENEW ===" -ForegroundColor Cyan
+Write-Host "Releasing IP address..." -ForegroundColor Yellow
+ipconfig /release
+Start-Sleep -Seconds 2
+Write-Host "Renewing IP address..." -ForegroundColor Yellow
+ipconfig /renew
+Write-Host "Done!" -ForegroundColor Green
+exit $LASTEXITCODE
+`;
+
+  return runElevatedPowerShellScript(
+    psScript,
+    '✅ IP address released and renewed successfully!',
+    'Failed to release/renew IP address.'
+  );
+}
+
+/**
+ * Fix Bluetooth by restarting the Bluetooth service
+ * @returns {Promise<Object>}
+ */
+async function fixBluetooth() {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const psScript = `
+Write-Host "=== FIX BLUETOOTH ===" -ForegroundColor Cyan
+Write-Host "Stopping Bluetooth services..." -ForegroundColor Yellow
+Stop-Service -Name bthserv -Force -ErrorAction SilentlyContinue
+Stop-Service -Name BluetoothUserService_* -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 3
+Write-Host "Starting Bluetooth services..." -ForegroundColor Yellow
+Start-Service -Name bthserv -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+
+# Reset Bluetooth adapter
+$btAdapter = Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'OK' -or $_.Status -eq 'Error' }
+if ($btAdapter) {
+    foreach ($adapter in $btAdapter) {
+        Write-Host "Restarting: $($adapter.FriendlyName)" -ForegroundColor Yellow
+        Disable-PnpDevice -InstanceId $adapter.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+        Enable-PnpDevice -InstanceId $adapter.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+    }
+}
+Write-Host "Bluetooth fix completed!" -ForegroundColor Green
+`;
+
+  return runElevatedPowerShellScript(
+    psScript,
+    '✅ Bluetooth services restarted successfully!',
+    'Failed to fix Bluetooth. Please accept the UAC prompt.'
+  );
+}
+
+/**
+ * Check disk for errors
+ * @returns {Promise<Object>}
+ */
+async function checkDisk() {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const psScript = `
+Write-Host "=== CHECK DISK ===" -ForegroundColor Cyan
+Write-Host "Running chkdsk on C: drive (read-only scan)..." -ForegroundColor Yellow
+chkdsk C:
+Write-Host ""
+Write-Host "Scan complete. If errors were found, run 'chkdsk C: /F' from an elevated command prompt." -ForegroundColor Yellow
+`;
+
+  return runElevatedPowerShellScript(
+    psScript,
+    '✅ Disk check completed!',
+    'Failed to run disk check. Please accept the UAC prompt.'
+  );
+}
+
+/**
+ * Network reset (Winsock + IP stack)
+ * @returns {Promise<Object>}
+ */
+async function networkReset() {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const psScript = `
+Write-Host "=== NETWORK RESET ===" -ForegroundColor Cyan
+Write-Host "Resetting Winsock..." -ForegroundColor Yellow
+netsh winsock reset
+Write-Host "Resetting IP stack..." -ForegroundColor Yellow
+netsh int ip reset
+Write-Host "Flushing DNS..." -ForegroundColor Yellow
+ipconfig /flushdns
+Write-Host ""
+Write-Host "Network reset complete! A restart may be required for full effect." -ForegroundColor Green
+`;
+
+  return runElevatedPowerShellScript(
+    psScript,
+    '✅ Network reset completed! A restart may be required.',
+    'Failed to reset network. Please accept the UAC prompt.'
+  );
+}
+
+/**
+ * Restart the Windows Audio system
+ * @returns {Promise<Object>}
+ */
+async function restartAudioSystem() {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const psScript = `
+Write-Host "=== RESTART AUDIO SYSTEM ===" -ForegroundColor Cyan
+Write-Host "Stopping audio services..." -ForegroundColor Yellow
+Stop-Service -Name Audiosrv -Force -ErrorAction SilentlyContinue
+Stop-Service -Name AudioEndpointBuilder -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+Write-Host "Starting audio services..." -ForegroundColor Yellow
+Start-Service -Name AudioEndpointBuilder -ErrorAction SilentlyContinue
+Start-Service -Name Audiosrv -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 1
+Write-Host "Audio system restarted!" -ForegroundColor Green
+`;
+
+  return runElevatedPowerShellScript(
+    psScript,
+    '✅ Audio system restarted successfully!',
+    'Failed to restart audio system. Please accept the UAC prompt.'
+  );
+}
+
+/**
+ * Launch Windows Disk Cleanup utility (cleanmgr)
+ * @returns {Promise<Object>}
+ */
+async function runDiskCleaner() {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const psScript = `
+Start-Process "cleanmgr.exe" -Verb RunAs
+`;
+
+  return runElevatedPowerShellScriptHidden(
+    psScript,
+    '✅ Disk Cleanup utility launched!',
+    'Failed to launch Disk Cleanup. Please accept the UAC prompt.'
+  );
+}
+
 module.exports = {
   runSfcScan,
   runDismRepair,
   runTempCleanup,
   restartToBios,
   runSparkleDebloat,
-  runChrisTitus
+  runChrisTitus,
+  cleanRecycleBin,
+  cleanWindowsCache,
+  clearThumbnailCache,
+  clearErrorReports,
+  flushDnsCache,
+  releaseRenewIp,
+  fixBluetooth,
+  checkDisk,
+  networkReset,
+  restartAudioSystem,
+  runDiskCleaner
 };

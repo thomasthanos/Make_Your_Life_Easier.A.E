@@ -118,48 +118,35 @@ async function runMaintenanceTask(button, statusElement, taskFunction, taskName,
 // MAINTENANCE TASK FUNCTIONS
 // ============================================
 
-async function runSfcScan(_statusElement) {
-    try {
-        const result = await window.api.runSfcScan();
-        if (result && result.success) {
-            toast(result.message || 'SFC scan completed successfully!', { type: 'success', title: 'Maintenance' });
-        } else {
-            toast((result && result.error) || 'SFC scan failed.', { type: 'error', title: 'Maintenance' });
+function createSimpleTask(apiFn, successMsg, errorMsg) {
+    return async function (_statusElement) {
+        try {
+            const result = await apiFn();
+            if (result && result.success) {
+                toast(result.message || successMsg, { type: 'success', title: 'Maintenance' });
+            } else {
+                toast((result && result.error) || errorMsg, { type: 'error', title: 'Maintenance' });
+            }
+        } catch (error) {
+            toast((error && error.message) || errorMsg, { type: 'error', title: 'Maintenance' });
         }
-    } catch (error) {
-        const msg = (error && error.message) || 'Error running SFC scan';
-        toast(msg, { type: 'error', title: 'Maintenance' });
-    }
+    };
 }
 
-async function runDismRepair(_statusElement) {
-    try {
-        const result = await window.api.runDismRepair();
-        if (result && result.success) {
-            toast(result.message || 'DISM repair completed successfully!', { type: 'success', title: 'Maintenance' });
-        } else {
-            toast((result && result.error) || 'DISM repair failed.', { type: 'error', title: 'Maintenance' });
-        }
-    } catch (error) {
-        const msg = (error && error.message) || 'Error running DISM repair';
-        toast(msg, { type: 'error', title: 'Maintenance' });
-    }
-}
-
-async function cleanTempFiles(_statusElement) {
-    try {
-        const result = await window.api.runTempCleanup();
-        if (result && result.success) {
-            toast(result.message || 'Temporary files cleanup completed successfully!', { type: 'success', title: 'Maintenance' });
-        } else {
-            const errorMsg = (result && result.error) || 'Temporary files cleanup failed.';
-            toast(errorMsg, { type: 'error', title: 'Maintenance' });
-        }
-    } catch (error) {
-        const msg = (error && error.message) || 'Error running temp cleanup';
-        toast(msg, { type: 'error', title: 'Maintenance' });
-    }
-}
+const runSfcScan = createSimpleTask(() => window.api.runSfcScan(), 'SFC scan completed!', 'SFC scan failed.');
+const runDismRepair = createSimpleTask(() => window.api.runDismRepair(), 'DISM repair completed!', 'DISM repair failed.');
+const cleanTempFiles = createSimpleTask(() => window.api.runTempCleanup(), 'Temp files cleaned!', 'Temp cleanup failed.');
+const cleanRecycleBin = createSimpleTask(() => window.api.cleanRecycleBin(), 'Recycle Bin emptied!', 'Failed to empty Recycle Bin.');
+const cleanWindowsCache = createSimpleTask(() => window.api.cleanWindowsCache(), 'Windows cache cleaned!', 'Failed to clean Windows cache.');
+const clearThumbnailCache = createSimpleTask(() => window.api.clearThumbnailCache(), 'Thumbnail cache cleared!', 'Failed to clear thumbnail cache.');
+const clearErrorReports = createSimpleTask(() => window.api.clearErrorReports(), 'Error reports cleared!', 'Failed to clear error reports.');
+const flushDnsCache = createSimpleTask(() => window.api.flushDnsCache(), 'DNS cache flushed!', 'Failed to flush DNS cache.');
+const releaseRenewIp = createSimpleTask(() => window.api.releaseRenewIp(), 'IP released & renewed!', 'Failed to release/renew IP.');
+const fixBluetooth = createSimpleTask(() => window.api.fixBluetooth(), 'Bluetooth fixed!', 'Failed to fix Bluetooth.');
+const checkDisk = createSimpleTask(() => window.api.checkDisk(), 'Disk check completed!', 'Failed to check disk.');
+const networkReset = createSimpleTask(() => window.api.networkReset(), 'Network reset completed!', 'Failed to reset network.');
+const restartAudioSystem = createSimpleTask(() => window.api.restartAudioSystem(), 'Audio system restarted!', 'Failed to restart audio.');
+const runDiskCleaner = createSimpleTask(() => window.api.runDiskCleaner(), 'Disk Cleanup launched!', 'Failed to launch Disk Cleanup.');
 
 async function downloadAndRunPatchMyPC(statusElement, button) {
     if (buttonStateManager.isLoading(button)) return;
@@ -240,6 +227,16 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 // SYSTEM MAINTENANCE PAGE
 // ============================================
 
+/**
+ * Creates a section title element
+ */
+function createSectionTitle(text) {
+    const title = document.createElement('h3');
+    title.textContent = text;
+    title.classList.add('maintenance-section-title');
+    return title;
+}
+
 export async function buildMaintenancePage(translations, _settings) {
     const container = document.createElement('div');
     container.className = 'card';
@@ -253,23 +250,130 @@ export async function buildMaintenancePage(translations, _settings) {
     desc.classList.add('desc-margin-large');
     container.appendChild(desc);
 
-    // First Row - Temp Files + SFC/DISM
-    const firstRow = document.createElement('div');
-    firstRow.className = 'maintenance-row';
-    firstRow.classList.add('grid-2-col-margin');
+    // ── SECTION 1: Cleanup ──
+    container.appendChild(createSectionTitle('🧹 ' + (translations.maintenance?.cleanup_section || 'Cleanup')));
 
-    // Temp Files Card
+    const cleanupRow = document.createElement('div');
+    cleanupRow.className = 'maintenance-row';
+    cleanupRow.classList.add('grid-2-col-margin');
+
     const tempCard = createMaintenanceCard(
-        translations.maintenance?.delete_temp_files || 'Delete Temp Files',
+        translations.maintenance?.delete_temp_files || 'Clean Temp Files',
         translations.maintenance?.temp_files_desc || 'Clean TEMP, %TEMP%, and Prefetch folders',
         '🧹',
-        translations.actions?.clean_temp_files || 'Clean Temp Files',
-        cleanTempFiles,
-        false,
-        true
+        translations.actions?.clean_temp_files || 'Clean',
+        cleanTempFiles, false, true
     );
-    const tempButton = tempCard.querySelector('button');
-    tempButton.classList.add('btn-standard-height');
+    tempCard.querySelector('button').classList.add('btn-standard-height');
+
+    const recycleBinCard = createMaintenanceCard(
+        translations.maintenance?.recycle_bin || 'Clean Recycle Bin',
+        translations.maintenance?.recycle_bin_desc || 'Empty the Windows Recycle Bin',
+        '🗑️',
+        translations.actions?.clean || 'Clean',
+        cleanRecycleBin, false, true
+    );
+    recycleBinCard.querySelector('button').classList.add('btn-standard-height');
+
+    const winCacheCard = createMaintenanceCard(
+        translations.maintenance?.windows_cache || 'Clean Windows Cache',
+        translations.maintenance?.windows_cache_desc || 'Clean Windows Update download cache',
+        '💾',
+        translations.actions?.clean || 'Clean',
+        cleanWindowsCache, true, true
+    );
+    winCacheCard.querySelector('button').classList.add('btn-standard-height');
+
+    const thumbCard = createMaintenanceCard(
+        translations.maintenance?.thumbnail_cache || 'Clear Thumbnail Cache',
+        translations.maintenance?.thumbnail_cache_desc || 'Clear icon and thumbnail cache files',
+        '🖼️',
+        translations.actions?.clear || 'Clear',
+        clearThumbnailCache, false, true
+    );
+    thumbCard.querySelector('button').classList.add('btn-standard-height');
+
+    const errorReportsCard = createMaintenanceCard(
+        translations.maintenance?.error_reports || 'Clear Error Reports',
+        translations.maintenance?.error_reports_desc || 'Clean crash dumps and error reports',
+        '📋',
+        translations.actions?.clear || 'Clear',
+        clearErrorReports, false, true
+    );
+    errorReportsCard.querySelector('button').classList.add('btn-standard-height');
+
+    const diskCleanerCard = createMaintenanceCard(
+        translations.maintenance?.disk_cleaner || 'Disk Cleanup',
+        translations.maintenance?.disk_cleaner_desc || 'Launch Windows Disk Cleanup utility (cleanmgr)',
+        '🧽',
+        translations.actions?.launch || 'Launch',
+        runDiskCleaner, true, true
+    );
+    diskCleanerCard.querySelector('button').classList.add('btn-standard-height');
+
+    cleanupRow.appendChild(tempCard);
+    cleanupRow.appendChild(recycleBinCard);
+    cleanupRow.appendChild(winCacheCard);
+    cleanupRow.appendChild(thumbCard);
+    cleanupRow.appendChild(errorReportsCard);
+    cleanupRow.appendChild(diskCleanerCard);
+    container.appendChild(cleanupRow);
+
+    // ── SECTION 2: Network & Connectivity ──
+    container.appendChild(createSectionTitle('🌐 ' + (translations.maintenance?.network_section || 'Network & Connectivity')));
+
+    const networkRow = document.createElement('div');
+    networkRow.className = 'maintenance-row';
+    networkRow.classList.add('grid-2-col-margin');
+
+    const dnsCard = createMaintenanceCard(
+        translations.maintenance?.flush_dns || 'Flush DNS Cache',
+        translations.maintenance?.flush_dns_desc || 'Clear the DNS resolver cache',
+        '🔄',
+        translations.actions?.flush || 'Flush',
+        flushDnsCache, false, true
+    );
+    dnsCard.querySelector('button').classList.add('btn-standard-height');
+
+    const ipCard = createMaintenanceCard(
+        translations.maintenance?.release_renew_ip || 'Release & Renew IP',
+        translations.maintenance?.release_renew_ip_desc || 'Release and renew IP address',
+        '📡',
+        translations.actions?.run || 'Run',
+        releaseRenewIp, false, true
+    );
+    ipCard.querySelector('button').classList.add('btn-standard-height');
+
+    const btCard = createMaintenanceCard(
+        translations.maintenance?.fix_bluetooth || 'Fix Bluetooth',
+        translations.maintenance?.fix_bluetooth_desc || 'Restart Bluetooth services and adapter',
+        '📶',
+        translations.actions?.fix || 'Fix',
+        fixBluetooth, true, true
+    );
+    btCard.querySelector('button').classList.add('btn-standard-height');
+
+    const netResetCard = createMaintenanceCard(
+        translations.maintenance?.network_reset || 'Network Reset',
+        translations.maintenance?.network_reset_desc || 'Reset Winsock, IP stack, and flush DNS',
+        '🔌',
+        translations.actions?.reset || 'Reset',
+        networkReset, true, true
+    );
+    netResetCard.querySelector('button').classList.add('btn-standard-height');
+
+    networkRow.appendChild(dnsCard);
+    networkRow.appendChild(ipCard);
+    networkRow.appendChild(btCard);
+    networkRow.appendChild(netResetCard);
+    container.appendChild(networkRow);
+
+    // ── SECTION 3: System Repair & Diagnostics ──
+    container.appendChild(createSectionTitle('🛠️ ' + (translations.maintenance?.repair_section || 'System Repair & Diagnostics')));
+
+    const repairRow = document.createElement('div');
+    repairRow.className = 'maintenance-row';
+    repairRow.classList.add('grid-2-col-margin');
 
     // SFC/DISM Card (special dual-button card)
     const sfcDismCard = document.createElement('div');
@@ -327,12 +431,33 @@ export async function buildMaintenancePage(translations, _settings) {
     sfcDismCard.appendChild(sfcDismButtons);
     sfcDismCard.appendChild(sfcDismStatus);
 
-    firstRow.appendChild(tempCard);
-    firstRow.appendChild(sfcDismCard);
-    container.appendChild(firstRow);
+    const checkDiskCard = createMaintenanceCard(
+        translations.maintenance?.check_disk || 'Check Disk',
+        translations.maintenance?.check_disk_desc || 'Scan C: drive for errors (read-only)',
+        '💿',
+        translations.actions?.check || 'Check',
+        checkDisk, true, true
+    );
+    checkDiskCard.querySelector('button').classList.add('btn-standard-height');
 
-    // Second Row - Patch My PC
-    const secondRow = document.createElement('div');
+    const audioCard = createMaintenanceCard(
+        translations.maintenance?.restart_audio || 'Restart Audio System',
+        translations.maintenance?.restart_audio_desc || 'Restart Windows Audio services',
+        '🔊',
+        translations.actions?.restart || 'Restart',
+        restartAudioSystem, true, true
+    );
+    audioCard.querySelector('button').classList.add('btn-standard-height');
+
+    repairRow.appendChild(sfcDismCard);
+    repairRow.appendChild(checkDiskCard);
+    repairRow.appendChild(audioCard);
+    container.appendChild(repairRow);
+
+    // ── SECTION 4: Tools ──
+    container.appendChild(createSectionTitle('📦 ' + (translations.maintenance?.tools_section || 'Tools')));
+
+    const toolsRow = document.createElement('div');
 
     const patchCard = createMaintenanceCard(
         translations.maintenance?.patch_my_pc || 'Patch My PC',
@@ -342,12 +467,11 @@ export async function buildMaintenancePage(translations, _settings) {
         downloadAndRunPatchMyPC,
         false
     );
-    const patchButton = patchCard.querySelector('button');
-    patchButton.classList.add('btn-standard-height');
+    patchCard.querySelector('button').classList.add('btn-standard-height');
     patchCard.classList.add('patch-card-full');
 
-    secondRow.appendChild(patchCard);
-    container.appendChild(secondRow);
+    toolsRow.appendChild(patchCard);
+    container.appendChild(toolsRow);
 
     return container;
 }

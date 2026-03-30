@@ -127,34 +127,61 @@ async function cleanupUpdaterCache(debug) {
             return;
         }
 
-        const files = await fs.promises.readdir(updaterCachePath).catch(() => []);
-        let cleanedSize = 0;
+        // Try cleanup immediately, then retry after delay if files are still locked
+        const attemptCleanup = async () => {
+            const files = await fs.promises.readdir(updaterCachePath).catch(() => []);
+            let cleanedSize = 0;
+            let failedFiles = [];
 
-        for (const file of files) {
-            const filePath = path.join(updaterCachePath, file);
-            try {
-                const stat = await fs.promises.stat(filePath).catch(() => null);
-                if (!stat) continue;
+            for (const file of files) {
+                const filePath = path.join(updaterCachePath, file);
+                try {
+                    const stat = await fs.promises.stat(filePath).catch(() => null);
+                    if (!stat) continue;
 
-                if (stat.isDirectory()) {
-                    await fs.promises.rm(filePath, { recursive: true, force: true, maxRetries: 2 });
-                    debug('info', `Cleaned updater cache directory: ${file}`);
-                } else {
-                    cleanedSize += stat.size;
-                    await fs.promises.unlink(filePath).catch(() => { });
-                    debug('info', `Cleaned updater cache file: ${file}`);
+                    if (stat.isDirectory()) {
+                        await fs.promises.rm(filePath, { recursive: true, force: true, maxRetries: 3, retryDelay: 1000 });
+                        debug('info', `Cleaned updater cache directory: ${file}`);
+                    } else {
+                        cleanedSize += stat.size;
+                        await fs.promises.unlink(filePath);
+                        debug('info', `Cleaned updater cache file: ${file}`);
+                    }
+                } catch (err) {
+                    failedFiles.push(file);
+                    debug('warn', `Could not clean ${file}: ${err.code || err.message}`);
                 }
-            } catch (err) {
-                debug('warn', `Could not clean ${file}: ${err.code || err.message}`);
             }
-        }
 
-        if (cleanedSize > 0) {
-            const sizeMB = (cleanedSize / (1024 * 1024)).toFixed(2);
-            debug('success', `Updater cache cleaned: ${sizeMB} MB freed`);
-        }
+            if (cleanedSize > 0) {
+                const sizeMB = (cleanedSize / (1024 * 1024)).toFixed(2);
+                debug('success', `Updater cache cleaned: ${sizeMB} MB freed`);
+            }
 
-        await fs.promises.rmdir(updaterCachePath).catch(() => { });
+            // Try to remove the directory itself
+            await fs.promises.rmdir(updaterCachePath).catch(() => { });
+            return failedFiles;
+        };
+
+        // First attempt
+        const failedFiles = await attemptCleanup();
+
+        // If files remain (possibly locked), retry after 5 seconds
+        if (failedFiles.length > 0) {
+            debug('info', `Retrying cleanup for ${failedFiles.length} locked files in 5s...`);
+            setTimeout(async () => {
+                try {
+                    const remainingFiles = await attemptCleanup();
+                    if (remainingFiles.length === 0) {
+                        debug('success', 'Updater cache fully cleaned on retry');
+                    } else {
+                        debug('warn', `${remainingFiles.length} updater cache files still locked, will clean on next launch`);
+                    }
+                } catch (err) {
+                    debug('warn', 'Retry cleanup failed:', err.message);
+                }
+            }, 5000);
+        }
     } catch (err) {
         debug('warn', 'Failed to clean updater cache:', err.message);
     }
