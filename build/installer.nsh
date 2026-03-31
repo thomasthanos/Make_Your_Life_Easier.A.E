@@ -176,7 +176,15 @@ FunctionEnd
   ; Certificate installation removed - no admin rights required
   ; Note: Certificate installation requires admin privileges
   ; If you need to install certificates, users must run installer as admin manually
-  
+
+  ; Δημιουργία Desktop shortcut (αναγκαίο γιατί κατά το update ο uninstaller το σβήνει)
+  SetShellVarContext current
+  CreateShortCut "$DESKTOP\Make Your Life Easier.lnk" "$INSTDIR\MakeYourLifeEasier.exe" "" "$INSTDIR\MakeYourLifeEasier.exe" 0
+
+  ; Δημιουργία Start Menu shortcut
+  CreateDirectory "$SMPROGRAMS\Make Your Life Easier"
+  CreateShortCut "$SMPROGRAMS\Make Your Life Easier\Make Your Life Easier.lnk" "$INSTDIR\MakeYourLifeEasier.exe" "" "$INSTDIR\MakeYourLifeEasier.exe" 0
+
   ; Use the electron-builder generated key for all registry entries
   StrCpy $R0 "${UNINSTALL_APP_KEY}"
   
