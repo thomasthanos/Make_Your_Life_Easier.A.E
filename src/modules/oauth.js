@@ -3,17 +3,53 @@
  * Handles OAuth authentication flows for Google and Discord
  */
 
-const { BrowserWindow, BrowserView } = require('electron');
+const fs = require('fs');
+const path = require('path');
+const { app, BrowserWindow, BrowserView } = require('electron');
 const { postForm, getJson } = require('./http-utils');
 
-// OAuth credentials
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '389774067739-qnshev3gbck4firdc787iqhd44omiajs.apps.googleusercontent.com';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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';
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5252';
+function loadOAuthConfig() {
+  const candidates = [];
+  try { candidates.push(path.join(app.getAppPath(), 'oauth_config.json')); } catch {}
+  if (process.resourcesPath) candidates.push(path.join(process.resourcesPath, 'oauth_config.json'));
+  try { candidates.push(path.join(app.getPath('userData'), 'oauth_config.json')); } catch {}
 
-const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1329887230482845797';
-const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || 'ZPK2i6WmbGnBhv7LmyzLwTOoKbaH8nDV';
-const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localhost:5252';
+  let fileCfg = {};
+  for (const candidate of candidates) {
+    try {
+      if (candidate && fs.existsSync(candidate)) {
+        fileCfg = JSON.parse(fs.readFileSync(candidate, 'utf8')) || {};
+        break;
+      }
+    } catch {}
+  }
+
+  const g = fileCfg.google || {};
+  const d = fileCfg.discord || {};
+
+  return {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID || g.clientId || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || g.clientSecret || '',
+      redirectUri: process.env.GOOGLE_REDIRECT_URI || g.redirectUri || 'http://localhost:5252'
+    },
+    discord: {
+      clientId: process.env.DISCORD_CLIENT_ID || d.clientId || '',
+      clientSecret: process.env.DISCORD_CLIENT_SECRET || d.clientSecret || '',
+      redirectUri: process.env.DISCORD_REDIRECT_URI || d.redirectUri || 'http://localhost:5252'
+    }
+  };
+}
+
+const oauthConfig = loadOAuthConfig();
+
+const GOOGLE_CLIENT_ID = oauthConfig.google.clientId;
+const GOOGLE_CLIENT_SECRET = oauthConfig.google.clientSecret;
+const GOOGLE_REDIRECT_URI = oauthConfig.google.redirectUri;
+
+const DISCORD_CLIENT_ID = oauthConfig.discord.clientId;
+const DISCORD_CLIENT_SECRET = oauthConfig.discord.clientSecret;
+const DISCORD_REDIRECT_URI = oauthConfig.discord.redirectUri;
 
 /**
  * Open an OAuth authentication window

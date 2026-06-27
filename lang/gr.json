@@ -6,7 +6,6 @@
     "system_maintenance": "Συντήρηση Συστήματος",
     "crack_installer": "Crack Apps",
     "spicetify": "Spicetify Spotify",
-    "password_manager": "Διαχειριστής Κωδικών",
     "christitus": "Christitus",
     "bios": "Ρυθμίσεις BIOS",
     "debloat": "Debloat"
@@ -40,7 +39,6 @@
     "maintenance_title": "Συντήρηση",
     "spicetify_title": "Spotify",
     "spicetify_desc": "Προσαρμόστε το Spotify με θέματα και ρυθμίσεις",
-    "password_title": "Κωδικοί",
     "info_title": "Σύστημα",
     "bios_title": "BIOS",
     "install_desc": "Αυτόματη εγκατάσταση δημοφιλών εφαρμογών εύκολα και γρήγορα",
@@ -57,7 +55,6 @@
     "create_restore_point": "Δημιουργία Σημείου Επαναφοράς",
     "clean_temp": "Καθαρισμός Προσωρινών Αρχείων",
     "open_spicetify": "Άνοιγμα Ιστοσελίδας Spicetify",
-    "open_password_manager": "Άνοιγμα Διαχειριστή Κωδικών",
     "scan_repair": "Έλεγχος & Επιδιόρθωση",
     "download_patch": "Λήψη Patch My PC",
     "download": "Λήψη",
@@ -81,7 +78,6 @@
   },
   "messages": {
     "bios_instructions": "Επανεκκίνηση στο BIOS για προχωρημένες ρυθμίσεις υλικού. Αποθηκεύστε όλη σας την εργασία πριν προχωρήσετε!",
-    "password_warning": "Αυτός ο απλός διαχειριστής κωδικών αποθηκεύει τα διαπιστευτήρια τοπικά. Μην τον χρησιμοποιείτε για ευαίσθητα δεδομένα.",
     "install_spicetify_success": "Το Spicetify εγκαταστάθηκε επιτυχώς! Επανεκκινήστε το Spotify για να δείτε τις αλλαγές.",
     "install_spicetify_error": "Σφάλμα κατά την εγκατάσταση του Spicetify",
     "uninstall_spicetify_success": "Το Spicetify απεγκαταστάθηκε επιτυχώς!",
@@ -109,7 +105,8 @@
     "admin_required": "Απαιτούνται δικαιώματα διαχειριστή",
     "debloat_changes": "βελτιστοποιήσεις και αφαιρέσεις συστήματος",
     "winget_not_installed": "Το Winget δεν είναι εγκατεστημένο",
-    "open_store": "Άνοιγμα Microsoft Store"
+    "open_store": "Άνοιγμα Microsoft Store",
+    "oauth_not_configured": "Η σύνδεση δεν είναι διαθέσιμη: τα OAuth credentials δεν έχουν ρυθμιστεί."
   },
   "maintenance": {
     "delete_temp_files": "Καθαρισμός Cache",

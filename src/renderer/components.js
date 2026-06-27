@@ -4,11 +4,6 @@
  */
 
 import { escapeHtml } from './utils.js';
-import { attachTooltipHandlers } from './managers.js';
-import { resizeWindowSmooth } from './services.js';
-
-// Default window dimensions (must match window-manager.js MAIN_WINDOW)
-const DEFAULT_WINDOW_SIZE = { width: 1100, height: 750 };
 
 // ============================================
 // ICON DEFINITIONS
@@ -28,7 +23,6 @@ export const MENU_ICONS = {
     system_maintenance: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wrench"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>`,
     crack_installer: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path><path d="M12 22V12"></path><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"></path><path d="m7.5 4.27 9 5.15"></path></svg>`,
     spicetify: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-music"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`,
-    password_manager: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-lock"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
     christitus: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-terminal"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" x2="20" y1="19" y2="19"></line></svg>`,
     bios: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-computer"><rect width="14" height="8" x="5" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><path d="M6 18h2"></path><path d="M12 18h6"></path></svg>`,
     debloat: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-broom"><path d="m13 11 9-9"></path><path d="M14.6 12.6c.8.8.9 2.1.2 3L10 22l-8-8 6.4-4.8c.9-.7 2.2-.6 3 .2z"></path><path d="m6.8 10.4 6.8 6.8"></path><path d="m5 17 1.4-1.4"></path></svg>`
@@ -157,7 +151,7 @@ export function toast(msg, opts = {}) {
 
 let currentErrorCard = null;
 let errorPaletteIndex = 0;
-const errorBulletColours = ['#575757', '#e34ba9', '#80b1ff', '#f59e0b', '#10b981'];
+const errorBulletColours = ['#8a8e99', '#0a84ff', '#aeb4be', '#ffd60a', '#30d158'];
 
 /**
  * Ensure error container exists
@@ -179,8 +173,6 @@ export function ensureErrorContainer() {
  * @param {Object} opts - Options (title, duration)
  */
 export function showErrorCard(msg, opts = {}) {
-    const { title = 'Error', duration = 6000 } = opts;
-
     msg = String(msg);
     if (msg.includes('\n')) {
         const parts = msg.split(/\n+/).filter(p => p.trim() !== '');
@@ -460,11 +452,11 @@ export function showUpdateOverlay(initialStatus) {
         
         const stop1 = document.createElementNS(svgNS, 'stop');
         stop1.setAttribute('offset', '0%');
-        stop1.setAttribute('style', 'stop-color:#5865F2;stop-opacity:1');
+        stop1.setAttribute('style', 'stop-color:#0a84ff;stop-opacity:1');
         
         const stop2 = document.createElementNS(svgNS, 'stop');
         stop2.setAttribute('offset', '100%');
-        stop2.setAttribute('style', 'stop-color:#7289DA;stop-opacity:1');
+        stop2.setAttribute('style', 'stop-color:#3a9bff;stop-opacity:1');
         
         gradient.appendChild(stop1);
         gradient.appendChild(stop2);
@@ -643,54 +635,18 @@ export function hideAppLoader() {
 // INFO MODAL
 // ============================================
 
-// Store previous window size for restoration
-let previousWindowSize = null;
-
 /**
- * Open the info modal with window resize
+ * Open the info modal
  */
 export async function openInfoModal() {
     if (document.getElementById('info-modal-overlay')) return;
-    
-    // Get current window size before resizing
-    try {
-        if (window.api && typeof window.api.getWindowSize === 'function') {
-            const size = await window.api.getWindowSize();
-            // getWindowSize returns [width, height] array
-            if (Array.isArray(size) && size.length >= 2) {
-                previousWindowSize = { width: size[0], height: size[1] };
-            } else {
-                previousWindowSize = { ...DEFAULT_WINDOW_SIZE };
-            }
-        } else {
-            // Fallback: assume current size based on window dimensions
-            previousWindowSize = { width: window.outerWidth, height: window.outerHeight };
-        }
-    } catch {
-        previousWindowSize = { ...DEFAULT_WINDOW_SIZE };
-    }
-    
-    // Resize window to 1400px width for better info modal display
-    const targetWidth = 1400;
-    const targetHeight = DEFAULT_WINDOW_SIZE.height;
-    
-    try {
-        if (typeof resizeWindowSmooth === 'function') {
-            await resizeWindowSmooth(targetWidth, targetHeight);
-        } else if (window.api && typeof window.api.setWindowSize === 'function') {
-            await window.api.setWindowSize(targetWidth, targetHeight);
-            await new Promise(resolve => setTimeout(resolve, 150));
-        }
-    } catch {
-        // ignore resize errors
-    }
-    
+
     const overlay = document.createElement('div');
     overlay.id = 'info-modal-overlay';
     overlay.className = 'modal-overlay';
 
     const container = document.createElement('div');
-    container.className = 'modal-container';
+    container.className = 'modal-container info-modal-container';
 
     const iframe = document.createElement('iframe');
     iframe.src = 'info/info.html';
@@ -700,51 +656,57 @@ export async function openInfoModal() {
         iframe.src = 'info-final.html';
     });
 
+    let isClosing = false;
+    const closeInfoModal = () => {
+        if (isClosing) return;
+        isClosing = true;
+        window.removeEventListener('message', handleInfoFrameResize);
+        overlay.classList.add('is-closing');
+
+        const removeOverlay = () => {
+            if (overlay.parentNode) {
+                overlay.remove();
+            }
+        };
+
+        overlay.addEventListener('animationend', removeOverlay, { once: true });
+        window.setTimeout(removeOverlay, 220);
+    };
+
+    const handleInfoFrameResize = (event) => {
+        if (!document.contains(overlay)) {
+            window.removeEventListener('message', handleInfoFrameResize);
+            return;
+        }
+        if (event.source !== iframe.contentWindow) return;
+        if (event.data?.type === 'infoCloseRequest') {
+            closeInfoModal();
+            return;
+        }
+        if (event.data?.type !== 'infoFrameResize' || isClosing) return;
+
+        const requestedHeight = Number(event.data.height);
+        if (!Number.isFinite(requestedHeight) || requestedHeight <= 0) return;
+
+        const rootStyles = getComputedStyle(document.documentElement);
+        const titleBarHeight = parseFloat(rootStyles.getPropertyValue('--title-bar-height')) || 40;
+        const overlayStyles = getComputedStyle(overlay);
+        const overlayPaddingY = (parseFloat(overlayStyles.paddingTop) || 0) + (parseFloat(overlayStyles.paddingBottom) || 0);
+        const maxHeight = Math.max(260, window.innerHeight - titleBarHeight - overlayPaddingY);
+        const nextHeight = Math.min(Math.ceil(requestedHeight), maxHeight);
+        const heightValue = `${nextHeight}px`;
+        if (iframe.style.height === heightValue) return;
+
+        container.style.height = heightValue;
+        iframe.style.height = heightValue;
+        iframe.contentWindow?.postMessage({ type: 'infoParentResized' }, '*');
+    };
+
+    window.addEventListener('message', handleInfoFrameResize);
+
     container.appendChild(iframe);
     overlay.appendChild(container);
     document.body.appendChild(overlay);
-    
-    // Watch for overlay removal to restore window size
-    const observer = new MutationObserver((mutations) => {
-        // Fallback: check if overlay was removed from DOM by any means
-        if (!document.contains(overlay)) {
-            observer.disconnect();
-            restoreWindowSize().catch(() => {});
-            return;
-        }
-        for (const mutation of mutations) {
-            for (const removedNode of mutation.removedNodes) {
-                if (removedNode === overlay || removedNode.id === 'info-modal-overlay') {
-                    observer.disconnect();
-                    restoreWindowSize().catch(() => {});
-                    return;
-                }
-            }
-        }
-    });
-
-    observer.observe(document.body, { childList: true });
-}
-
-/**
- * Restore window to previous size after info modal closes
- */
-async function restoreWindowSize() {
-    if (!previousWindowSize) return;
-    
-    const { width, height } = previousWindowSize;
-    
-    try {
-        if (typeof resizeWindowSmooth === 'function') {
-            await resizeWindowSmooth(width, height, 220);
-        } else if (window.api && typeof window.api.setWindowSize === 'function') {
-            window.api.setWindowSize(width, height);
-        }
-    } catch {
-        // ignore resize errors
-    }
-    
-    previousWindowSize = null;
 }
 
 // ============================================

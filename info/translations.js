@@ -3,468 +3,434 @@ const translations = {
     nav: {
       menu: 'Menu',
       install: 'Install',
-      crack: 'Crack',
+      crack: 'Apps',
       maintain: 'Maintain',
       activate: 'Activate',
       bios: 'BIOS',
       spicetify: 'Spicetify',
-      passwords: 'Passwords',
       titus: 'Titus',
       debloat: 'Debloat'
     },
     sections: {
       'section-menu': {
-        title: 'Title Bar Menu',
+        title: 'Menu, Language & Help',
         whatTitle: 'What does it do?',
-        whatDesc: 'Quick access to language switch and this info panel.',
+        whatDesc: 'The top menu gives quick access to the app language, the help/info panel, and the compact sidebar layout.',
         features: `
           <ul>
-            <li>🎨 Dark mode interface</li>
-            <li>🌍 Switch language (EN/GR)</li>
-            <li>ℹ️ Open the info/help panel</li>
+            <li>Switch the app between English and Greek with the EN/GR button.</li>
+            <li>Open this help panel again from the info button.</li>
+            <li>Collapse or expand the sidebar from the title-bar arrow.</li>
+            <li>Close the dropdown automatically by clicking outside it.</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Open the title bar menu',
-          'Choose language',
-          'Click ℹ️ to reopen this panel anytime'
+          'Click the menu button in the title bar.',
+          'Use EN/GR to change the app language instantly.',
+          'Use the info button to reopen this guide.',
+          'Use the sidebar arrow when you want more space for the main page.'
         ],
-        warning: ''
+        warning: 'Language changes are saved locally and applied when the app refreshes its pages.'
       },
       'section-install': {
-        title: 'Install Apps (winget)',
+        title: 'Install Apps',
         whatTitle: 'What does it do?',
-        whatDesc: 'Uses winget to search and install apps. Multi-select, search, and import/export lists via JSON.',
+        whatDesc: 'Search, select, install, uninstall, and manage common apps from one categorized installer page.',
         features: `
           <ul>
-            <li>🪟 Uses winget (official feeds) with silent installs</li>
-            <li>🎯 Multi-select + queue with progress and retries</li>
-            <li>🔍 Search and filter packages before installing</li>
-            <li>📦 Import/Export selections as JSON</li>
-            <li>📜 Per-app logs and status toasts</li>
+            <li>Categorized app list for browsers, games, media, development, security, hardware, and utilities.</li>
+            <li>Search box with fast filtering across all available apps.</li>
+            <li>Multi-select install and uninstall actions.</li>
+            <li>Check Installed marks apps that already exist on the PC.</li>
+            <li>Import and export selected app lists as JSON.</li>
+            <li>Custom download entries are mixed with winget packages where needed.</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Search or select the apps you want',
-          'Optionally import a JSON list',
-          'Click "Install Selected"',
-          'Watch progress/logs in the app',
-          'Launch apps if needed after completion'
+          'Search for an app or browse the categories.',
+          'Select one or more apps.',
+          'Use Check Installed if you want the app to detect what is already installed.',
+          'Click Install Selected or Uninstall Selected.',
+          'Optionally export your selected list and import it again later.'
         ],
-        warning: '⚠️ Internet + winget required (the app will prompt/install winget if missing).'
+        warning: 'Internet access is required. Some installers may request administrator permissions.'
       },
       'section-activate': {
-        title: 'Activate + Auto Login',
+        title: 'Activation & Auto Login',
         whatTitle: 'What does it do?',
-        whatDesc: 'Runs activation and sets automatic login for your account.',
+        whatDesc: 'Provides quick launch cards for the configured Windows activation script and the Auto Login setup tool.',
         features: `
           <ul>
-            <li>✅ Windows activation script</li>
-            <li>🔓 Enables auto login</li>
-            <li>🚀 Faster boot experience</li>
-            <li>🛠️ Restores full Windows features</li>
+            <li>Downloads and runs the activation script from the configured source.</li>
+            <li>Downloads and runs the Auto Login helper.</li>
+            <li>Shows download progress directly on the button.</li>
+            <li>Restores the button state after the tool starts.</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Click "Activate Windows"',
-          'Allow admin rights when prompted',
-          'Wait for the script to finish',
-          'Restart the PC',
-          'Enable/confirm Auto Login'
+          'Open the Activate page.',
+          'Choose Activate Windows or Auto Login.',
+          'Wait for the download to finish.',
+          'Approve administrator prompts if Windows asks.',
+          'Follow the external tool or script window.'
         ],
-        warning: '⚠️ Administrator rights required.'
+        warning: 'These actions can change Windows settings. Use them only when you understand the result.'
       },
       'section-maintain': {
         title: 'System Maintenance',
         whatTitle: 'What does it do?',
-        whatDesc: 'Optimizes and cleans your system for better performance.',
+        whatDesc: 'Groups cleanup, network, repair, diagnostic, and updater tools into one maintenance dashboard.',
         features: `
-          <strong>Available tools:</strong>
           <ul>
-            <li>🗑️ <strong>Clean temporary files</strong> (TEMP, %TEMP%, Prefetch)</li>
-            <li>🔧 <strong>SFC Scan</strong> - Repair system files</li>
-            <li>🔄 <strong>DISM Repair</strong> - Repair Windows image</li>
-            <li>📦 <strong>Patch My PC</strong> - Automatic application updates</li>
+            <li>Cleanup: temp files, Recycle Bin, Windows cache, thumbnails, error reports, and Disk Cleanup.</li>
+            <li>Network: flush DNS, release/renew IP, Bluetooth repair, and network reset.</li>
+            <li>Repair: SFC, DISM, check disk, and restart Windows audio services.</li>
+            <li>Tools: download and run Patch My PC for third-party app updates.</li>
+            <li>Toasts and short status feedback show success or failure.</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Select the tool you want to run',
-          'Click the corresponding button',
-          'Grant administrator permissions if requested',
-          'Wait for the process to finish',
-          'Restart to apply the changes'
+          'Pick the maintenance section you need.',
+          'Click the card action for the specific task.',
+          'Approve administrator permissions when required.',
+          'Wait for the toast or status message.',
+          'Restart Windows after repair or reset tasks if needed.'
         ],
-        warning: '⚠️ <strong>Make backup before important changes</strong>'
+        warning: 'Repair, network reset, cache cleanup, and disk tools can affect active apps. Save your work first.'
       },
       'section-crack': {
-        title: 'Crack Installer',
+        title: 'Configured App Downloads',
         whatTitle: 'What does it do?',
-        whatDesc: 'Installs professional software with full functionality.',
+        whatDesc: 'Manages your configured direct-download app packages with progress tracking, extraction, and launch helpers.',
         features: `
-          <strong>Available programs:</strong>
           <ul>
-            <li>🎨 <strong>Adobe Photoshop</strong> - image editing</li>
-            <li>🎬 <strong>Adobe Premiere</strong> - video editing</li>
-            <li>✏️ <strong>Adobe Illustrator</strong> - vector graphics</li>
-            <li>🖼️ <strong>Clip Studio Paint</strong> - digital painting</li>
-            <li>📊 <strong>Microsoft Office</strong> - office work</li>
-            <li>🎵 <strong>Adobe Media Encoder</strong> - encoding</li>
+            <li>Shows configured software cards with download buttons.</li>
+            <li>Tracks download progress even if you switch pages.</li>
+            <li>Extracts archives when needed.</li>
+            <li>Finds and opens installer files after extraction.</li>
+            <li>Includes special handling for packages that need a follow-up executable.</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Select the program you want',
-          'Click "Download [Program]"',
-          'Wait for download and extraction',
-          'Follow the installation instructions',
-          'For Clip Studio: Use "Replace EXE" after installation'
+          'Choose the configured package you want.',
+          'Start the download from its card.',
+          'Wait for download and extraction.',
+          'Follow any installer that opens.',
+          'Use only packages you are allowed to install.'
         ],
-        warning: '⚠️ <strong>For educational purposes only</strong>'
-      },
-      'section-passwords': {
-        title: 'Password Manager',
-        whatTitle: 'What does it do?',
-        whatDesc: 'Secure local vault with categories, search, and optional import/export.',
-        features: `
-          <ul>
-            <li>🔐 Encrypted local storage (no cloud)</li>
-            <li>🗂️ Categories and search</li>
-            <li>📥 Import/Export vault</li>
-            <li>⚡ Quick access to credentials</li>
-          </ul>
-        `,
-        howTitle: 'How to use it?',
-        steps: [
-          'Open the Password Manager',
-          'Create a master password',
-          'Add categories and passwords',
-          'Use search/quick copy to fill logins',
-          'Export a backup regularly'
-        ],
-        warning: '💡 Keep the master password safe — it cannot be recovered.'
+        warning: 'Only download and install software you have the right to use.'
       },
       'section-spicetify': {
-        title: 'Spicetify',
+        title: 'Spicetify Spotify',
         whatTitle: 'What does it do?',
-        whatDesc: 'Customizes Spotify with themes and extensions.',
+        whatDesc: 'Installs, removes, or fully cleans Spotify customization tools from the Spicetify page.',
         features: `
-          <strong>Features:</strong>
           <ul>
-            <li>🎭 <strong>Themes</strong> - Change appearance</li>
-            <li>🔧 <strong>Extensions</strong> - New functions</li>
-            <li>⚡ <strong>Custom apps</strong> - Additional features</li>
-            <li>🎛️ <strong>UI modifications</strong> - Interface customization</li>
+            <li>Install Spicetify for Spotify themes and customizations.</li>
+            <li>Uninstall Spicetify and restore Spotify behavior.</li>
+            <li>Full uninstall option for removing Spotify more aggressively.</li>
+            <li>Shows command output and toast feedback for each action.</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Click "Install Spicetify"',
-          'Wait for the installation',
-          'Restart Spotify',
-          'Select themes from the marketplace',
-          'Enjoy your personalized Spotify!'
+          'Close Spotify before making changes.',
+          'Choose Install Spicetify, Uninstall Spicetify, or Full Uninstall Spotify.',
+          'Wait for the action to finish.',
+          'Restart Spotify after installation or removal.',
+          'Check the output area if something fails.'
         ],
-        warning: '⚠️ <strong>Close Spotify before installation</strong>'
+        warning: 'Close Spotify first to avoid locked files or incomplete changes.'
       },
       'section-titus': {
         title: 'Chris Titus Toolbox',
         whatTitle: 'What does it do?',
-        whatDesc: 'Complete Windows optimization tool by Chris Titus.',
+        whatDesc: 'Launches the Chris Titus Windows Utility in PowerShell and links to the project page.',
         features: `
-          <strong>Functions:</strong>
           <ul>
-            <li>🧹 <strong>Debloat Windows</strong> - Remove bloatware</li>
-            <li>🔒 <strong>Privacy settings</strong> - Improve privacy</li>
-            <li>⚡ <strong>Performance tweaks</strong> - Optimize performance</li>
-            <li>📦 <strong>Software installation</strong> - Install essential programs</li>
-            <li>🛡️ <strong>Security enhancements</strong> - Improve security</li>
+            <li>Runs the Chris Titus Windows utility command.</li>
+            <li>Opens a new PowerShell window when the Electron bridge is available.</li>
+            <li>Provides a GitHub button for the original project.</li>
+            <li>Useful for advanced debloat, privacy, update, and software tasks.</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Click "Launch Tool"',
-          'PowerShell opens with the script',
-          'Select the functions you want',
-          'Monitor the execution',
-          'Restart to apply the changes'
+          'Open the Titus page.',
+          'Click Launch Tool.',
+          'Follow the PowerShell window instructions.',
+          'Use the GitHub button if you want to inspect the source.',
+          'Restart Windows after major changes.'
         ],
-        warning: '⚠️ <strong>Administrator rights required</strong>'
+        warning: 'This is an advanced external toolbox. Review choices before applying them.'
       },
       'section-bios': {
-        title: 'BIOS',
+        title: 'BIOS / UEFI',
         whatTitle: 'What does it do?',
-        whatDesc: 'Restarts directly into BIOS/UEFI settings.',
+        whatDesc: 'Shows a confirmation dialog and restarts the PC directly into BIOS/UEFI settings.',
         features: `
           <ul>
-            <li>⚡ One-click restart to BIOS/UEFI</li>
+            <li>Explains what will happen before restarting.</li>
+            <li>Uses a confirmation dialog to prevent accidental restart.</li>
+            <li>Runs the restart-to-firmware command through the app API.</li>
+            <li>Returns to the first page if you cancel.</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Save your work',
-          'Click "Restart to BIOS"',
-          'Configure settings in BIOS/UEFI'
+          'Save your work and close active programs.',
+          'Open the BIOS page.',
+          'Read the confirmation dialog.',
+          'Click Restart to BIOS only when you are ready.',
+          'Change only BIOS/UEFI settings you understand.'
         ],
-        warning: '⚠️ Only change BIOS settings you understand.'
+        warning: 'Your PC will restart immediately after confirmation.'
       },
       'section-debloat': {
-        title: 'Debloat App',
+        title: 'Debloat',
         whatTitle: 'What does it do?',
-        whatDesc: 'GUI debloat experience with toggles and safer defaults.',
+        whatDesc: 'Downloads or launches the Sparkle debloat utility for Windows cleanup, optimization, and privacy tweaks.',
         features: `
           <ul>
-            <li>🧹 App-based debloat (no raw script prompts)</li>
-            <li>🎚️ Toggle modules and presets</li>
-            <li>💾 Restore point recommendation</li>
+            <li>Checks whether the Sparkle utility is already available.</li>
+            <li>Downloads Sparkle when needed and tracks progress.</li>
+            <li>Processes the downloaded package before launch.</li>
+            <li>Runs the utility for Windows debloat and optimization tasks.</li>
+            <li>Shows warnings because the tool can remove apps and change system settings.</li>
           </ul>
         `,
         howTitle: 'How to use it?',
         steps: [
-          'Open the Debloat app',
-          'Pick profile or toggle modules',
-          'Run the cleanup',
-          'Restart if prompted'
+          'Open the Debloat page.',
+          'Read the warning text carefully.',
+          'Click the run button.',
+          'Wait for download or launch.',
+          'Choose debloat options carefully inside the external utility.'
         ],
-        warning: '⚠️ Create/keep a restore point before heavy changes.'
-      },
+        warning: 'Create a restore point before heavy debloat or privacy changes.'
+      }
     }
   },
   gr: {
     nav: {
       menu: 'Μενού',
       install: 'Εγκατάσταση',
-      crack: 'Crack',
+      crack: 'Apps',
       maintain: 'Συντήρηση',
       activate: 'Ενεργοποίηση',
       bios: 'BIOS',
       spicetify: 'Spicetify',
-      passwords: 'Κωδικοί',
       titus: 'Titus',
-      debloat: 'Αφαίρεση'
+      debloat: 'Debloat'
     },
     sections: {
       'section-menu': {
-        title: 'Μενού Γραμμής Τίτλου',
+        title: 'Μενού, Γλώσσα & Βοήθεια',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Γρήγορη πρόσβαση σε αλλαγή θέματος, γλώσσας και το info panel.',
+        whatDesc: 'Το επάνω μενού δίνει γρήγορη πρόσβαση στη γλώσσα της εφαρμογής, στο info panel και στη συμπτυγμένη πλαϊνή μπάρα.',
         features: `
           <ul>
-            <li>🎨 Εναλλαγή Dark mode</li>
-            <li>🌍 Αλλαγή γλώσσας (EN/GR)</li>
-            <li>ℹ️ Άνοιγμα του info/help panel</li>
+            <li>Αλλάζει την εφαρμογή ανάμεσα σε English και Ελληνικά με το EN/GR.</li>
+            <li>Ανοίγει ξανά αυτό το help/info panel από το κουμπί info.</li>
+            <li>Κάνει collapse ή expand το sidebar από το βελάκι στη title bar.</li>
+            <li>Κλείνει αυτόματα το dropdown όταν κάνεις κλικ έξω από αυτό.</li>
           </ul>
         `,
-        howTitle: 'Οδηγίες Χρήσης',
+        howTitle: 'Πώς το χρησιμοποιείς;',
         steps: [
-          'Άνοιξε το μενού στη γραμμή τίτλου',
-          'Επίλεξε θέμα ή γλώσσα',
-          'Πάτα ℹ️ για να ξαναδείς το panel'
+          'Πάτα το κουμπί μενού στη title bar.',
+          'Πάτα EN/GR για να αλλάξεις γλώσσα άμεσα.',
+          'Πάτα το info για να ανοίξεις ξανά αυτόν τον οδηγό.',
+          'Πάτα το βελάκι του sidebar όταν θέλεις περισσότερο χώρο στο κεντρικό panel.'
         ],
-        warning: ''
+        warning: 'Η επιλογή γλώσσας αποθηκεύεται τοπικά και εφαρμόζεται όταν ανανεώνονται οι σελίδες της εφαρμογής.'
       },
       'section-install': {
-        title: 'Εγκατάσταση (winget)',
+        title: 'Εγκατάσταση Εφαρμογών',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Χρησιμοποιεί winget για αναζήτηση/εγκατάσταση εφαρμογών. Multi-select, search, import/export JSON.',
+        whatDesc: 'Αναζήτηση, επιλογή, εγκατάσταση, απεγκατάσταση και διαχείριση εφαρμογών από μία κατηγοριοποιημένη σελίδα.',
         features: `
           <ul>
-            <li>🪟 Winget (επίσημα feeds) με silent installs</li>
-            <li>🎯 Multi-select + ουρά με progress/retries</li>
-            <li>🔍 Αναζήτηση/φίλτρα πριν την εγκατάσταση</li>
-            <li>📦 Import/Export λίστας σε JSON</li>
-            <li>📜 Logs ανά εφαρμογή και ειδοποιήσεις</li>
+            <li>Κατηγορίες για browsers, games, media, development, security, hardware και utilities.</li>
+            <li>Γρήγορη αναζήτηση και φιλτράρισμα σε όλες τις διαθέσιμες εφαρμογές.</li>
+            <li>Multi-select για εγκατάσταση ή απεγκατάσταση πολλών εφαρμογών.</li>
+            <li>Check Installed για να σημειώνει τι υπάρχει ήδη στον υπολογιστή.</li>
+            <li>Import και export λιστών επιλογής σε JSON.</li>
+            <li>Υποστηρίζει winget packages και custom download entries όπου χρειάζεται.</li>
           </ul>
         `,
-        howTitle: 'Οδηγίες Χρήσης',
+        howTitle: 'Πώς το χρησιμοποιείς;',
         steps: [
-          'Ψάξε ή επίλεξε τις εφαρμογές',
-          'Προαιρετικά κάνε import JSON λίστας',
-          'Πάτα "Install Selected"',
-          'Παρακολούθησε progress/logs',
-          'Άνοιξε τις εφαρμογές αν χρειάζεται'
+          'Ψάξε εφαρμογή ή άνοιξε την κατηγορία που θέλεις.',
+          'Επίλεξε μία ή περισσότερες εφαρμογές.',
+          'Πάτα Check Installed αν θέλεις έλεγχο για ήδη εγκατεστημένες εφαρμογές.',
+          'Πάτα Install Selected ή Uninstall Selected.',
+          'Προαιρετικά κάνε export τη λίστα σου και import αργότερα.'
         ],
-        warning: '⚠️ Απαιτείται internet + winget (θα γίνει prompt/εγκατάσταση αν λείπει).'
+        warning: 'Χρειάζεται internet. Μερικοί installers μπορεί να ζητήσουν δικαιώματα διαχειριστή.'
       },
       'section-activate': {
-        title: 'Ενεργοποίηση + Auto Login',
+        title: 'Ενεργοποίηση & Auto Login',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Τρέχει ενεργοποίηση και ρυθμίζει αυτόματη σύνδεση στον λογαριασμό σου.',
+        whatDesc: 'Δίνει γρήγορες κάρτες για το Windows activation script και το Auto Login setup tool που έχεις ρυθμίσει.',
         features: `
           <ul>
-            <li>✅ Script ενεργοποίησης Windows</li>
-            <li>🔓 Ενεργοποίηση αυτόματης εισόδου</li>
-            <li>🚀 Πιο γρήγορη εκκίνηση</li>
-            <li>🛠️ Πλήρη features Windows</li>
+            <li>Κατεβάζει και τρέχει το activation script από την καθορισμένη πηγή.</li>
+            <li>Κατεβάζει και τρέχει το Auto Login helper.</li>
+            <li>Δείχνει progress κατεβάσματος πάνω στο κουμπί.</li>
+            <li>Επαναφέρει την κατάσταση του κουμπιού όταν ξεκινήσει το εργαλείο.</li>
           </ul>
         `,
-        howTitle: 'Οδηγίες Χρήσης',
+        howTitle: 'Πώς το χρησιμοποιείς;',
         steps: [
-          'Πάτα "Activate Windows"',
-          'Δώσε δικαιώματα διαχειριστή',
-          'Περίμενε να τελειώσει το script',
-          'Κάνε επανεκκίνηση',
-          'Επιβεβαίωσε/άνοιξε Auto Login'
+          'Άνοιξε τη σελίδα Activate.',
+          'Διάλεξε Activate Windows ή Auto Login.',
+          'Περίμενε να ολοκληρωθεί το download.',
+          'Δώσε δικαιώματα διαχειριστή αν τα ζητήσει το Windows.',
+          'Ακολούθησε το εξωτερικό tool ή script window.'
         ],
-        warning: '⚠️ Απαιτούνται δικαιώματα διαχειριστή.'
+        warning: 'Αυτές οι ενέργειες αλλάζουν ρυθμίσεις Windows. Χρησιμοποίησέ τες μόνο όταν ξέρεις τι κάνουν.'
       },
       'section-maintain': {
         title: 'Συντήρηση Συστήματος',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Βελτιστοποιεί και καθαρίζει το σύστημά σου για καλύτερη απόδοση.',
+        whatDesc: 'Μαζεύει εργαλεία cleanup, network, repair, diagnostics και updates σε ένα maintenance dashboard.',
         features: `
-          <strong>Διαθέσιμα εργαλεία:</strong>
           <ul>
-            <li>🗑️ <strong>Καθαρισμός προσωρινών αρχείων</strong> (TEMP, %TEMP%, Prefetch)</li>
-            <li>🔧 <strong>SFC Scan</strong> - Επισκευή συστηματικών αρχείων</li>
-            <li>🔄 <strong>DISM Repair</strong> - Επισκευή εικόνας Windows</li>
-            <li>📦 <strong>Patch My PC</strong> - Αυτόματες ενημερώσεις εφαρμογών</li>
+            <li>Cleanup: temp files, Recycle Bin, Windows cache, thumbnails, error reports και Disk Cleanup.</li>
+            <li>Network: flush DNS, release/renew IP, Bluetooth repair και network reset.</li>
+            <li>Repair: SFC, DISM, check disk και επανεκκίνηση Windows audio services.</li>
+            <li>Tools: download και run του Patch My PC για ενημέρωση third-party εφαρμογών.</li>
+            <li>Toasts και μικρά status messages δείχνουν επιτυχία ή αποτυχία.</li>
           </ul>
         `,
-        howTitle: 'Οδηγίες Χρήσης',
+        howTitle: 'Πώς το χρησιμοποιείς;',
         steps: [
-          'Επίλεξε το εργαλείο που θέλεις να εκτελέσεις',
-          'Κάνε κλικ στο αντίστοιχο κουμπί',
-          'Δώσε δικαιώματα διαχειριστή αν ζητηθεί',
-          'Περίμενε να ολοκληρωθεί η διαδικασία',
-          'Επανεκκίνησε για να εφαρμοστούν οι αλλαγές'
+          'Διάλεξε το maintenance section που χρειάζεσαι.',
+          'Πάτα την ενέργεια στην αντίστοιχη κάρτα.',
+          'Δώσε δικαιώματα διαχειριστή όπου ζητηθούν.',
+          'Περίμενε το toast ή status message.',
+          'Κάνε restart μετά από repair ή reset εργασίες αν χρειάζεται.'
         ],
-        warning: '⚠️ <strong>Κάνε backup πριν από σημαντικές αλλαγές</strong>'
+        warning: 'Repair, network reset, cache cleanup και disk tools μπορούν να επηρεάσουν ανοιχτές εφαρμογές. Αποθήκευσε τη δουλειά σου πρώτα.'
       },
       'section-crack': {
-        title: 'Crack Installer',
+        title: 'Configured App Downloads',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Εγκαθιστά επαγγελματικό λογισμικό με πλήρη λειτουργικότητα.',
-        features: `
-          <strong>Διαθέσιμα προγράμματα:</strong>
-          <ul>
-            <li>🎨 <strong>Adobe Photoshop</strong> - επεξεργασία εικόνας</li>
-            <li>🎬 <strong>Adobe Premiere</strong> - επεξεργασία βίντεο</li>
-            <li>✏️ <strong>Adobe Illustrator</strong> - διανυσματική γραφική</li>
-            <li>🖼️ <strong>Clip Studio Paint</strong> - ψηφιακή ζωγραφική</li>
-            <li>📊 <strong>Microsoft Office</strong> - γραφεία εργασίας</li>
-            <li>🎵 <strong>Adobe Media Encoder</strong> - κωδικοποίηση</li>
-          </ul>
-        `,
-        howTitle: 'Οδηγίες Χρήσης',
-        steps: [
-          'Επίλεξε το πρόγραμμα που θέλεις',
-          'Κάνε κλικ "Download [Πρόγραμμα]"',
-          'Περίμενε λήψη και εξαγωγή',
-          'Ακολούθησε τις οδηγίες εγκατάστασης',
-          'Για Clip Studio: Χρησιμοποίησε το "Replace EXE" μετά την εγκατάσταση'
-        ],
-        warning: '⚠️ <strong>Χρήση για εκπαιδευτικούς σκοπούς</strong>'
-      },
-      'section-passwords': {
-        title: 'Διαχειριστής Κωδικών',
-        whatTitle: 'Τι κάνει;',
-        whatDesc: 'Ασφαλές τοπικό vault με κατηγορίες, αναζήτηση και import/export.',
+        whatDesc: 'Διαχειρίζεται τα direct-download app packages που έχεις ρυθμίσει, με progress tracking, extraction και launch helpers.',
         features: `
           <ul>
-            <li>🔐 Κρυπτογράφηση, τοπική αποθήκευση</li>
-            <li>🗂️ Κατηγορίες και αναζήτηση</li>
-            <li>📥 Import/Export του vault</li>
-            <li>⚡ Γρήγορη αντιγραφή/χρήση κωδικών</li>
+            <li>Δείχνει configured software cards με download buttons.</li>
+            <li>Κρατάει download progress ακόμα και αν αλλάξεις σελίδα.</li>
+            <li>Κάνει extraction σε archives όπου χρειάζεται.</li>
+            <li>Βρίσκει και ανοίγει installers μετά το extraction.</li>
+            <li>Υποστηρίζει ειδικά follow-up executables για packages που τα χρειάζονται.</li>
           </ul>
         `,
-        howTitle: 'Οδηγίες Χρήσης',
+        howTitle: 'Πώς το χρησιμοποιείς;',
         steps: [
-          'Άνοιξε το Password Manager',
-          'Φτιάξε master password',
-          'Πρόσθεσε κατηγορίες και κωδικούς',
-          'Χρησιμοποίησε αναζήτηση/quick copy',
-          'Κάνε export για backup'
+          'Διάλεξε το configured package που θέλεις.',
+          'Ξεκίνα το download από την κάρτα του.',
+          'Περίμενε το download και το extraction.',
+          'Ακολούθησε τον installer που θα ανοίξει.',
+          'Χρησιμοποίησε μόνο packages που έχεις δικαίωμα να εγκαταστήσεις.'
         ],
-        warning: '💡 Κράτα ασφαλές το master password — δεν ανακτάται.'
+        warning: 'Κατέβαζε και εγκαθιστούσε μόνο λογισμικό που έχεις δικαίωμα να χρησιμοποιείς.'
       },
       'section-spicetify': {
-        title: 'Spicetify',
+        title: 'Spicetify Spotify',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Προσαρμογή του Spotify με themes και extensions.',
+        whatDesc: 'Εγκαθιστά, αφαιρεί ή καθαρίζει πλήρως Spotify customization tools από τη σελίδα Spicetify.',
         features: `
-          <strong>Δυνατότητες:</strong>
           <ul>
-            <li>🎭 <strong>Themes</strong> - Αλλαγή εμφάνισης</li>
-            <li>🔧 <strong>Extensions</strong> - Νέες λειτουργίες</li>
-            <li>⚡ <strong>Custom apps</strong> - Επιπλέον features</li>
-            <li>🎛️ <strong>UI modifications</strong> - Προσαρμογή διεπαφής</li>
+            <li>Install Spicetify για themes και customizations στο Spotify.</li>
+            <li>Uninstall Spicetify για επαναφορά της συμπεριφοράς του Spotify.</li>
+            <li>Full uninstall option για πιο επιθετική αφαίρεση Spotify.</li>
+            <li>Δείχνει command output και toast feedback για κάθε ενέργεια.</li>
           </ul>
         `,
-        howTitle: 'Οδηγίες Χρήσης',
+        howTitle: 'Πώς το χρησιμοποιείς;',
         steps: [
-          'Κάνε κλικ "Install Spicetify"',
-          'Περίμενε την εγκατάσταση',
-          'Επανεκκίνησε το Spotify',
-          'Επίλεξε themes από το marketplace',
-          'Απόλαυσε το προσωποποιημένο σου Spotify!'
+          'Κλείσε το Spotify πριν κάνεις αλλαγές.',
+          'Διάλεξε Install Spicetify, Uninstall Spicetify ή Full Uninstall Spotify.',
+          'Περίμενε να τελειώσει η ενέργεια.',
+          'Άνοιξε ξανά το Spotify μετά την εγκατάσταση ή αφαίρεση.',
+          'Δες το output area αν κάτι αποτύχει.'
         ],
-        warning: '⚠️ <strong>Κλείσε το Spotify πριν την εγκατάσταση</strong>'
+        warning: 'Κλείσε πρώτα το Spotify για να μη μείνουν locked files ή μισές αλλαγές.'
       },
       'section-titus': {
         title: 'Chris Titus Toolbox',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Ολοκληρωμένο εργαλείο βελτιστοποίησης Windows από τον Chris Titus.',
+        whatDesc: 'Τρέχει το Chris Titus Windows Utility σε PowerShell και δίνει σύνδεσμο για το project page.',
         features: `
-          <strong>Λειτουργίες:</strong>
           <ul>
-            <li>🧹 <strong>Debloat Windows</strong> - Αφαίρεση bloatware</li>
-            <li>🔒 <strong>Privacy settings</strong> - Βελτίωση απορρήτου</li>
-            <li>⚡ <strong>Performance tweaks</strong> - Βελτιστοποίηση απόδοσης</li>
-            <li>📦 <strong>Software installation</strong> - Εγκατάσταση απαραίτητων προγραμμάτων</li>
-            <li>🛡️ <strong>Security enhancements</strong> - Βελτίωση ασφαλείας</li>
+            <li>Τρέχει το command του Chris Titus Windows utility.</li>
+            <li>Ανοίγει νέο PowerShell window όταν υπάρχει διαθέσιμο Electron bridge.</li>
+            <li>Έχει GitHub button για το original project.</li>
+            <li>Χρήσιμο για advanced debloat, privacy, update και software tasks.</li>
           </ul>
         `,
-        howTitle: 'Οδηγίες Χρήσης',
+        howTitle: 'Πώς το χρησιμοποιείς;',
         steps: [
-          'Κάνε κλικ "Launch Tool"',
-          'Ανοίγει PowerShell με το script',
-          'Επίλεξε τις λειτουργίες που θέλεις',
-          'Παρακολούθησε την εκτέλεση',
-          'Επανεκκίνησε για να εφαρμοστούν οι αλλαγές'
+          'Άνοιξε τη σελίδα Titus.',
+          'Πάτα Launch Tool.',
+          'Ακολούθησε τις οδηγίες στο PowerShell window.',
+          'Πάτα GitHub αν θέλεις να δεις την πηγή.',
+          'Κάνε restart μετά από μεγάλες αλλαγές.'
         ],
-        warning: '⚠️ <strong>Απαιτούνται δικαιώματα διαχειριστή</strong>'
+        warning: 'Είναι advanced εξωτερικό toolbox. Έλεγξε τις επιλογές πριν τις εφαρμόσεις.'
       },
       'section-bios': {
-        title: 'BIOS',
+        title: 'BIOS / UEFI',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Επανεκκινεί απευθείας σε BIOS/UEFI.',
+        whatDesc: 'Δείχνει confirmation dialog και κάνει restart τον υπολογιστή απευθείας σε BIOS/UEFI settings.',
         features: `
           <ul>
-            <li>⚡ Επανεκκίνηση με ένα κλικ σε BIOS/UEFI</li>
+            <li>Εξηγεί τι θα συμβεί πριν γίνει restart.</li>
+            <li>Χρησιμοποιεί confirmation dialog για να μη γίνει κατά λάθος restart.</li>
+            <li>Τρέχει το restart-to-firmware command μέσω του app API.</li>
+            <li>Επιστρέφει στην πρώτη σελίδα αν κάνεις cancel.</li>
           </ul>
         `,
-        howTitle: 'Οδηγίες Χρήσης',
+        howTitle: 'Πώς το χρησιμοποιείς;',
         steps: [
-          'Αποθήκευσε την εργασία σου',
-          'Κάνε κλικ "Restart to BIOS"',
-          'Ρύθμισε ό,τι χρειάζεσαι στο BIOS/UEFI'
+          'Αποθήκευσε τη δουλειά σου και κλείσε ανοιχτά προγράμματα.',
+          'Άνοιξε τη σελίδα BIOS.',
+          'Διάβασε το confirmation dialog.',
+          'Πάτα Restart to BIOS μόνο όταν είσαι έτοιμος.',
+          'Άλλαξε μόνο BIOS/UEFI ρυθμίσεις που καταλαβαίνεις.'
         ],
-        warning: '⚠️ Άλλαξε μόνο ρυθμίσεις που γνωρίζεις.'
+        warning: 'Ο υπολογιστής θα κάνει restart αμέσως μετά την επιβεβαίωση.'
       },
       'section-debloat': {
-        title: 'Debloat App',
+        title: 'Debloat',
         whatTitle: 'Τι κάνει;',
-        whatDesc: 'Debloat μέσω εφαρμογής με toggles και ασφαλέστερα προφίλ.',
+        whatDesc: 'Κατεβάζει ή ανοίγει το Sparkle debloat utility για Windows cleanup, optimization και privacy tweaks.',
         features: `
           <ul>
-            <li>🧹 Debloat μέσα από GUI (όχι ωμές εντολές)</li>
-            <li>🎚️ Toggles/προφίλ για modules</li>
-            <li>💾 Σύσταση για restore point</li>
+            <li>Ελέγχει αν το Sparkle utility υπάρχει ήδη.</li>
+            <li>Κατεβάζει το Sparkle όταν χρειάζεται και δείχνει progress.</li>
+            <li>Επεξεργάζεται το downloaded package πριν το launch.</li>
+            <li>Τρέχει το utility για Windows debloat και optimization tasks.</li>
+            <li>Δείχνει warning γιατί το εργαλείο μπορεί να αφαιρέσει apps και να αλλάξει system settings.</li>
           </ul>
         `,
-        howTitle: 'Οδηγίες Χρήσης',
+        howTitle: 'Πώς το χρησιμοποιείς;',
         steps: [
-          'Άνοιξε την Debloat εφαρμογή',
-          'Επίλεξε προφίλ ή toggles',
-          'Τρέξε το cleanup',
-          'Κάνε restart αν ζητηθεί'
+          'Άνοιξε τη σελίδα Debloat.',
+          'Διάβασε προσεκτικά το warning text.',
+          'Πάτα το run button.',
+          'Περίμενε το download ή το launch.',
+          'Διάλεξε προσεκτικά options μέσα στο εξωτερικό utility.'
         ],
-        warning: '⚠️ Κράτα restore point πριν από βαριές αλλαγές.'
-      },
+        warning: 'Φτιάξε restore point πριν από βαριές debloat ή privacy αλλαγές.'
+      }
     }
   }
 };

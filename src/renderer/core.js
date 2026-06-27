@@ -7,13 +7,12 @@ import { debug } from './utils.js';
 import { EventListenerManager, attachTooltipHandlers, buttonStateManager, detachAllDownloadUI, initDownloadListener } from './managers.js';
 import { INFO_ICON, MENU_ICON, MENU_ICONS, toast, openInfoModal, createMenuButton, hideAppLoader } from './components.js';
 import {
-    loadSettings, saveSettings, applyTheme, loadTranslations, getTranslations, setTranslations,
+    loadSettings, saveSettings, applyTheme, loadTranslations, setTranslations,
     initializeAutoUpdater, ensureSidebarVersion, checkForChangelog
 } from './services.js';
 
 // Default window dimensions (must match window-manager.js MAIN_WINDOW)
 const DEFAULT_WINDOW_WIDTH = 1100;
-const INSTALL_PAGE_WIDTH = 1400;
 const DEFAULT_WINDOW_HEIGHT = 750;
 
 // ============================================
@@ -37,7 +36,6 @@ const menuKeys = [
     'activate_autologin',
     'bios',
     'spicetify',
-    'password_manager',
     'christitus',
     'debloat'
 ];
@@ -227,10 +225,9 @@ export async function loadPage(key) {
     const content = document.getElementById('content');
     if (!content) return;
     
-    // Determine target window size
-    const isInstall = key === 'install_apps';
-    const targetWidth = isInstall ? 1400 : 1100;
-    const targetHeight = 750;
+    // Single consistent window width (no per-page resize)
+    const targetWidth = DEFAULT_WINDOW_WIDTH;
+    const targetHeight = DEFAULT_WINDOW_HEIGHT;
     
     // Resize BEFORE changing content so old content fills the new size
     try {
@@ -248,7 +245,7 @@ export async function loadPage(key) {
     const { buildActivateAutologinPage } = await import('./pages/activation.js');
     const { buildMaintenancePage, buildDebloatPage, showRestartDialog } = await import('./pages/tools.js');
     const { buildSpicetifyPage } = await import('./pages/media.js');
-    const { buildPasswordManagerPage, buildChrisTitusPage } = await import('./pages/utilities.js');
+    const { buildChrisTitusPage } = await import('./pages/utilities.js');
 
     switch (key) {
         case 'install_apps': {
@@ -302,15 +299,6 @@ export async function loadPage(key) {
                 'Debloat & Windows Tweaks';
             setHeader(headerText);
             content.appendChild(await buildDebloatPage(translations, settings, buttonStateManager));
-            break;
-        }
-
-        case 'password_manager': {
-            const headerText = (translations.pages && (translations.pages.password_manager_title)) ||
-                (translations.menu && translations.menu.password_manager) ||
-                'password_manager';
-            setHeader(headerText);
-            content.appendChild(await buildPasswordManagerPage(translations, settings, buttonStateManager));
             break;
         }
 
@@ -405,9 +393,7 @@ export async function init() {
         if (window.api && typeof window.api.signalAppReady === 'function') {
             try {
                 // Determine target size for the default page so main can size the window before showing it
-                const defaultKey = defaultButton?.dataset?.key;
-                const isInstallDefault = defaultKey === 'install_apps';
-                const targetWidthDefault = isInstallDefault ? INSTALL_PAGE_WIDTH : DEFAULT_WINDOW_WIDTH;
+                const targetWidthDefault = DEFAULT_WINDOW_WIDTH;
                 const targetHeightDefault = DEFAULT_WINDOW_HEIGHT;
                 await window.api.signalAppReady(targetWidthDefault, targetHeightDefault);
                 debug('info', 'Signaled app ready to main process');

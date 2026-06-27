@@ -9,7 +9,6 @@ const path = require('path');
 // Window dimension constants
 const MAIN_WINDOW = { width: 1100, height: 750, minWidth: 800, minHeight: 600 };
 const UPDATE_WINDOW = { width: 500, height: 350 };
-const PASSWORD_WINDOW = { width: 1600, height: 900 };
 const WINDOW_BG_COLOR = '#171717';
 
 // Window references
@@ -119,37 +118,6 @@ function createUpdateWindow(preloadPath, onReady) {
 }
 
 /**
- * Create the password manager window
- * @param {string} preloadPath - Path to preload script
- * @param {string} lang - Language code
- * @returns {BrowserWindow}
- */
-function createPasswordManagerWindow(preloadPath, lang = 'en') {
-    const passwordWindow = new BrowserWindow({
-        width: PASSWORD_WINDOW.width,
-        height: PASSWORD_WINDOW.height,
-        icon: path.join(__dirname, '..', 'assets', 'icons', 'hacker.ico'),
-        parent: mainWindow || undefined,
-        frame: false,
-        titleBarStyle: 'hidden',
-        autoHideMenuBar: true,
-        backgroundColor: WINDOW_BG_COLOR,
-        webPreferences: {
-            preload: preloadPath,
-            nodeIntegration: false,
-            contextIsolation: true
-        }
-    });
-
-    passwordWindow.loadFile(path.join(__dirname, '..', '..', 'password-manager', 'index.html'), {
-        query: { lang }
-    });
-    passwordWindow.setMenuBarVisibility(false);
-
-    return passwordWindow;
-}
-
-/**
  * Setup window state change events for the main window
  */
 function setupWindowStateEvents() {
@@ -172,7 +140,6 @@ module.exports = {
     getUpdateWindow,
     createMainWindow,
     createUpdateWindow,
-    createPasswordManagerWindow,
     setupWindowStateEvents,
     MAIN_WINDOW,
     WINDOW_BG_COLOR

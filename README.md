@@ -146,9 +146,6 @@ Make_Your_Life_Easier.A.E/
 │   │   └── security.js
 │   ├── styles/            # Modular CSS
 │   └── assets/            # Icons & images
-├── password-manager/      # Encrypted storage
-│   ├── auth.js           # AES-256-GCM
-│   └── database.js       # SQLite
 ├── updater/              # Update window
 │   ├── update.html
 │   └── updateRenderer.js

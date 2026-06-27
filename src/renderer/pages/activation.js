@@ -10,46 +10,44 @@ import { toast } from '../components.js';
 // DOWNLOAD AND RUN HELPERS
 // ============================================
 
-async function downloadAndRunActivate(button) {
+async function downloadAndRun(button, config) {
     if (buttonStateManager && buttonStateManager.isLoading && buttonStateManager.isLoading(button)) return;
 
     button.disabled = true;
     const originalText = button.textContent;
 
-    button.textContent = 'Preparing activation...';
+    button.textContent = config.preparingText;
 
-    const downloadId = `activate-${Date.now()}`;
-    const activateUrl = 'https://www.dropbox.com/scl/fi/oqgye14tmcg97mxbphorp/activate.bat?rlkey=307wz4bzkzejip3os7iztt54l&st=oz6nh4pf&dl=1';
-
-    const storeKey = 'activate-script';
-    registerDownload(storeKey, downloadId, { name: 'Activation' });
+    const downloadId = `${config.idPrefix}-${Date.now()}`;
+    const storeKey = config.storeKey;
+    registerDownload(storeKey, downloadId, { name: config.name });
 
     return new Promise((resolve) => {
         attachDownloadUI(storeKey, (data) => {
             switch (data.status) {
                 case 'started':
-                    button.textContent = 'Downloading activation script... 0%';
+                    button.textContent = `${config.downloadingText} 0%`;
                     break;
                 case 'progress':
-                    button.textContent = `Downloading activation script... ${data.percent}%`;
+                    button.textContent = `${config.downloadingText} ${data.percent}%`;
                     break;
                 case 'complete': {
-                    button.textContent = 'Running activation script...';
+                    button.textContent = config.runningText;
                     downloadStore.delete(storeKey);
 
                     window.api.openFile(data.path)
                         .then((result) => {
                             if (result && result.success) {
-                                button.textContent = 'Activation Started';
+                                button.textContent = config.startedText;
                                 setTimeout(() => { button.textContent = originalText; }, 3000);
                             } else {
                                 button.textContent = originalText;
-                                toast('Failed to run activation script', { type: 'error', title: 'Activation' });
+                                toast(config.runFailMsg, { type: 'error', title: config.name });
                             }
                         })
                         .catch(() => {
                             button.textContent = originalText;
-                            toast('Error running activation script', { type: 'error', title: 'Activation' });
+                            toast(config.runErrorMsg, { type: 'error', title: config.name });
                         })
                         .finally(() => {
                             button.disabled = false;
@@ -61,90 +59,53 @@ async function downloadAndRunActivate(button) {
                     button.textContent = originalText;
                     button.disabled = false;
                     downloadStore.delete(storeKey);
-                    toast('Download failed', { type: 'error', title: 'Activation' });
+                    toast('Download failed', { type: 'error', title: config.name });
                     resolve();
                     break;
             }
         });
 
         try {
-            window.api.downloadStart(downloadId, activateUrl, 'activate.bat');
+            window.api.downloadStart(downloadId, config.url, config.fileName);
         } catch (e) {
             button.textContent = originalText;
             button.disabled = false;
             downloadStore.delete(storeKey);
-            toast('Download failed', { type: 'error', title: 'Activation' });
+            toast('Download failed', { type: 'error', title: config.name });
             resolve();
         }
     });
 }
 
-async function downloadAndRunAutologin(button) {
-    if (buttonStateManager && buttonStateManager.isLoading && buttonStateManager.isLoading(button)) return;
+function downloadAndRunActivate(button) {
+    return downloadAndRun(button, {
+        idPrefix: 'activate',
+        url: 'https://www.dropbox.com/scl/fi/oqgye14tmcg97mxbphorp/activate.bat?rlkey=307wz4bzkzejip3os7iztt54l&st=oz6nh4pf&dl=1',
+        fileName: 'activate.bat',
+        storeKey: 'activate-script',
+        name: 'Activation',
+        preparingText: 'Preparing activation...',
+        downloadingText: 'Downloading activation script...',
+        runningText: 'Running activation script...',
+        startedText: 'Activation Started',
+        runFailMsg: 'Failed to run activation script',
+        runErrorMsg: 'Error running activation script'
+    });
+}
 
-    button.disabled = true;
-    const originalText = button.textContent;
-
-    button.textContent = 'Preparing auto login...';
-
-    const downloadId = `autologin-${Date.now()}`;
-    const autologinUrl = 'https://www.dropbox.com/scl/fi/a0bphjru0qfnbsokk751h/auto-login.exe?rlkey=b3ogyjelioq49jyty1odi58x9&st=4o2oq4sc&dl=1';
-
-    const storeKey = 'autologin-tool';
-    registerDownload(storeKey, downloadId, { name: 'Auto Login' });
-
-    return new Promise((resolve) => {
-        attachDownloadUI(storeKey, (data) => {
-            switch (data.status) {
-                case 'started':
-                    button.textContent = 'Downloading auto login tool... 0%';
-                    break;
-                case 'progress':
-                    button.textContent = `Downloading auto login tool... ${data.percent}%`;
-                    break;
-                case 'complete': {
-                    button.textContent = 'Running auto login setup...';
-                    downloadStore.delete(storeKey);
-
-                    window.api.openFile(data.path)
-                        .then((result) => {
-                            if (result && result.success) {
-                                button.textContent = 'Auto Login Started';
-                                setTimeout(() => { button.textContent = originalText; }, 3000);
-                            } else {
-                                button.textContent = originalText;
-                                toast('Failed to run auto login tool', { type: 'error', title: 'Auto Login' });
-                            }
-                        })
-                        .catch(() => {
-                            button.textContent = originalText;
-                            toast('Error running auto login tool', { type: 'error', title: 'Auto Login' });
-                        })
-                        .finally(() => {
-                            button.disabled = false;
-                            resolve();
-                        });
-                    break;
-                }
-                case 'error':
-                    button.textContent = originalText;
-                    button.disabled = false;
-                    downloadStore.delete(storeKey);
-                    toast('Download failed', { type: 'error', title: 'Auto Login' });
-                    resolve();
-                    break;
-            }
-        });
-
-        try {
-            window.api.downloadStart(downloadId, autologinUrl, 'auto_login.exe');
-        } catch (e) {
-            button.textContent = originalText;
-            button.disabled = false;
-            downloadStore.delete(storeKey);
-            toast('Download failed', { type: 'error', title: 'Auto Login' });
-            resolve();
-        }
+function downloadAndRunAutologin(button) {
+    return downloadAndRun(button, {
+        idPrefix: 'autologin',
+        url: 'https://www.dropbox.com/scl/fi/a0bphjru0qfnbsokk751h/auto-login.exe?rlkey=b3ogyjelioq49jyty1odi58x9&st=4o2oq4sc&dl=1',
+        fileName: 'auto_login.exe',
+        storeKey: 'autologin-tool',
+        name: 'Auto Login',
+        preparingText: 'Preparing auto login...',
+        downloadingText: 'Downloading auto login tool...',
+        runningText: 'Running auto login setup...',
+        startedText: 'Auto Login Started',
+        runFailMsg: 'Failed to run auto login tool',
+        runErrorMsg: 'Error running auto login tool'
     });
 }
 

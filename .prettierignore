@@ -1,0 +1,9 @@
+node_modules
+dist
+Github-Build-Release
+Pro-Installer
+bin
+lang
+package-lock.json
+*.min.js
+*.min.css

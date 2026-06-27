@@ -509,10 +509,10 @@ function showWingetMissingUI(container, translations) {
 
     const banner = document.createElement('div');
     banner.className = 'winget-missing-banner';
-    banner.style.cssText = 'padding:16px 20px;margin:12px 0;border-radius:10px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);color:var(--text-primary,#fff);display:flex;align-items:center;gap:14px;';
+    banner.style.cssText = 'padding:16px 20px;margin:12px 0;border-radius:10px;background:rgba(255,69,58,0.12);border:1px solid rgba(255,69,58,0.35);color:var(--text-primary,#fff);display:flex;align-items:center;gap:14px;';
 
     const icon = document.createElement('span');
-    icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff453a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
     icon.style.flexShrink = '0';
 
     const textWrap = document.createElement('div');

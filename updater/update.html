@@ -20,6 +20,7 @@
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="../src/assets/icons/hacker.ico" />
+    <link rel="stylesheet" href="../src/styles/tokens.css" />
     
     <style>
       html, body {
@@ -37,7 +38,7 @@
         margin: 0;
         padding: 0;
         background-color: transparent;
-        color: #ffffff;
+        color: var(--text-primary);
         font-family: sans-serif;
         -webkit-user-select: none;
         -moz-user-select: none;
@@ -46,17 +47,16 @@
       }
       .update-card {
         background:
-          radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.08) 60%),
-          linear-gradient(135deg, rgba(0, 80, 160, 0.4), rgba(0, 40, 100, 0.25) 100%),
-          rgba(20, 22, 28, 0.95);
+          radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05) 60%),
+          var(--panel-strong);
         border-radius: 16px;
         padding: 40px;
         width: 380px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        box-shadow: 0 0px 20px rgb(0 0 0);
+        border: 1px solid var(--gloss-border-top);
+        box-shadow: var(--gloss-inner);
         backdrop-filter: blur(20px) saturate(1.6);
         -webkit-backdrop-filter: blur(20px) saturate(1.6);
       }
@@ -72,13 +72,13 @@
         margin-bottom: 12px;
         font-size: 24px;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--text-primary);
       }
       .status {
         margin: 0;
         margin-bottom: 24px;
         font-size: 15px;
-        color: #b8bbc2;
+        color: var(--text-secondary);
         text-align: center;
       }
       .progress-wrapper {
@@ -95,10 +95,10 @@
       .progress-bar {
         width: 0%;
         height: 100%;
-        background: linear-gradient(90deg, #0088ff 0%, #0055cc 50%, #0088ff 100%);
+        background: linear-gradient(90deg, var(--accent) 0%, var(--accent-dk) 50%, var(--accent) 100%);
         background-size: 200% 100%;
         border-radius: 4px;
-        box-shadow: 0 0 8px #0055cc;
+        box-shadow: 0 0 8px var(--accent-glow);
         transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         animation: shimmer 2s infinite linear;
       }

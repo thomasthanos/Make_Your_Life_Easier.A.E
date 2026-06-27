@@ -6,7 +6,6 @@
     "system_maintenance": "System Maintenance",
     "crack_installer": "Crack Apps",
     "spicetify": "Spicetify Spotify",
-    "password_manager": "Password Manager",
     "christitus": "Christitus",
     "bios": "BIOS Settings",
     "debloat": "Debloat"
@@ -40,7 +39,6 @@
     "maintenance_title": "Maintenance & Optimization",
     "spicetify_title": "Customize Spotify",
     "spicetify_desc": "Add themes and customizations to Spotify for a more personalized listening experience",
-    "password_title": "Password Manager",
     "info_title": "System Details",
     "bios_title": "BIOS Information",
     "install_desc": "Download and install your favorite apps automatically. Just select what you need and let the program do the rest!",
@@ -57,7 +55,6 @@
     "create_restore_point": "Create restore point",
     "clean_temp": "Clean temporary files",
     "open_spicetify": "Open Spicetify website",
-    "open_password_manager": "Launch Password Manager",
     "scan_repair": "Scan & repair",
     "download_patch": "Download Patch My PC",
     "download": "Download",
@@ -81,7 +78,6 @@
   },
   "messages": {
     "bios_instructions": "Restart into BIOS for advanced hardware settings. Make sure to save all your work before proceeding!",
-    "password_warning": "This simple password manager stores credentials locally. Do not use it for sensitive data.",
     "encrypted_storage": "Military-grade encryption",
     "local_storage": "Local device storage only",
     "quick_access": "One-click auto-fill",
@@ -107,7 +103,10 @@
     "could_not_open": "Could not open automatically",
     "download_timed_out": "Download timed out",
     "search_apps": "Search apps...",
-    "search_for_total": "Search for {total} app{plural}..."
+    "search_for_total": "Search for {total} app{plural}...",
+    "winget_not_installed": "Winget is not installed",
+    "open_store": "Open Microsoft Store",
+    "oauth_not_configured": "Login unavailable: OAuth credentials are not configured."
   },
   "maintenance": {
     "delete_temp_files": "Clean Cache",

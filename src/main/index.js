@@ -37,10 +37,6 @@ const archiveUtils = require('../modules/archive-utils');
 const sparkleModule = require('../modules/sparkle');
 const sharedSecurity = require('../modules/security');
 
-// Password Manager
-const PasswordManagerAuth = require('../../password-manager/auth');
-const PasswordManagerDB = require('../../password-manager/database');
-
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -115,59 +111,6 @@ async function installCertificateIfNeeded() {
     }
 }
 
-// ============================================================================
-// Password Manager Setup
-// ============================================================================
-
-/**
- * Get the correct Documents path, checking for OneDrive first
- */
-function getDocumentsPath() {
-    const homedir = os.homedir();
-
-    const oneDrivePaths = [
-        path.join(homedir, 'OneDrive', 'Documents'),
-        path.join(homedir, 'OneDrive - Personal', 'Documents')
-    ];
-
-    for (const oneDrivePath of oneDrivePaths) {
-        if (fs.existsSync(oneDrivePath)) {
-            debug('info', 'Using OneDrive Documents path:', oneDrivePath);
-            return oneDrivePath;
-        }
-    }
-
-    debug('info', 'Using local Documents path');
-    return path.join(homedir, 'Documents');
-}
-
-const documentsPath = getDocumentsPath();
-const pmDirectory = path.join(documentsPath, 'MakeYourLifeEasier');
-
-try {
-    if (!fs.existsSync(pmDirectory)) {
-        fs.mkdirSync(pmDirectory, { recursive: true });
-    }
-} catch (err) {
-    debug('warn', 'Failed to create password manager directory:', err.message);
-}
-
-const pmAuth = new PasswordManagerAuth();
-try {
-    pmAuth.initialize(pmDirectory);
-} catch (err) {
-    debug('error', 'Failed to initialize password manager:', err.message);
-}
-
-// Singleton Password Manager DB instance
-let pmDBInstance = null;
-function getPasswordDB() {
-    if (!pmDBInstance) {
-        pmDBInstance = new PasswordManagerDB(pmAuth);
-    }
-    return pmDBInstance;
-}
-
 // Track temp files for cleanup on app quit
 const pendingCleanupFiles = new Set();
 
@@ -191,9 +134,6 @@ function createUpdateWindow() {
     });
 }
 
-function createPasswordManagerWindow(lang = 'en') {
-    return windowManager.createPasswordManagerWindow(preloadPath, lang);
-}
 
 // ============================================================================
 // Setup Updater Events
@@ -229,7 +169,7 @@ ipcHandlers.setupDownloadHandlers(downloadManager, windowManager.getMainWindow);
 ipcHandlers.setupFileHandlers(sharedSecurity, fileUtils, debug, pendingCleanupFiles);
 
 // Archive extraction
-ipcHandlers.setupArchiveHandlers(archiveUtils, downloadManager);
+ipcHandlers.setupArchiveHandlers(sharedSecurity, archiveUtils, downloadManager);
 
 // Sparkle
 ipcHandlers.setupSparkleHandlers(sparkleModule);
@@ -243,17 +183,6 @@ ipcHandlers.setupSpicetifyHandlers(spicetifyModule);
 // Installers
 ipcHandlers.setupInstallerHandlers(debug, security);
 
-// Password manager
-ipcHandlers.setupPasswordManagerHandlers(
-    createPasswordManagerWindow,
-    pmAuth,
-    getPasswordDB,
-    pmDirectory,
-    debug
-);
-
-// Misc handlers
-ipcHandlers.setupMiscHandlers();
 
 // Updater IPC handlers
 updater.setupUpdaterIpcHandlers({
@@ -371,14 +300,6 @@ app.on('before-quit', () => {
         }
     });
     pendingCleanupFiles.clear();
-
-    // Close singleton DB connection if open
-    if (pmDBInstance) {
-        try {
-            pmDBInstance.close();
-            pmDBInstance = null;
-        } catch { }
-    }
 });
 
 app.on('will-quit', () => {
@@ -392,7 +313,6 @@ app.on('will-quit', () => {
 module.exports = {
     createMainWindow,
     createUpdateWindow,
-    createPasswordManagerWindow,
     windowManager,
     updater
 };

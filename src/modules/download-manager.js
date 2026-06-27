@@ -53,8 +53,7 @@ function startDownload(id, url, dest, mainWindow) {
   const start = (downloadUrl) => {
     // Add timeout for slow connections (5 minutes)
     const DOWNLOAD_TIMEOUT = 5 * 60 * 1000;
-    let downloadTimeout;
-    
+
     const req = clientFor(downloadUrl).get(downloadUrl, (res) => {
       // Clear connection timeout once response starts
       if (downloadTimeout) clearTimeout(downloadTimeout);
@@ -185,7 +184,12 @@ function startDownload(id, url, dest, mainWindow) {
       });
     });
 
+    const downloadTimeout = setTimeout(() => {
+      req.destroy(new Error('Connection timed out'));
+    }, DOWNLOAD_TIMEOUT);
+
     req.on('error', (err) => {
+      if (downloadTimeout) clearTimeout(downloadTimeout);
       activeDownloads.delete(id);
       safeSend(mainWindow, 'download-event', { id, status: 'error', error: err.message });
     });

@@ -27,7 +27,7 @@ function validatePath(filePath) {
 
   // Check for dangerous patterns that could be used for injection
   const dangerousPatterns = [
-    /[;&|`$<>]/,           // Command separators and redirection
+    /[;|`$<>]/,            // Command separators and redirection
     /\$\(/,                // Command substitution
     /\$\{/,                // Variable expansion with braces
     /\.\./,                // Path traversal (we'll handle this separately)
@@ -51,7 +51,6 @@ function validatePath(filePath) {
 
   // Additional validation: ensure path doesn't escape expected boundaries
   // This is a basic check - you may want to add whitelist/blacklist logic
-  const homedir = os.homedir();
   const systemRoot = process.platform === 'win32' 
     ? (process.env.SystemRoot || 'C:\\Windows')
     : '/';

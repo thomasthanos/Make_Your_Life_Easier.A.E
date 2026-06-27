@@ -8,6 +8,7 @@ const { ipcMain, app } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { debug } = require('../modules/debug');
 
 // Update state
 let updateAvailable = false;

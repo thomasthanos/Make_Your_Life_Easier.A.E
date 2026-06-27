@@ -35,6 +35,7 @@ Make_Your_Life_Easier.A.E.rar
 !/bin/7za.dll
 !/bin/7zxa.dll
 bin/create.ps1
+bin/*.pfx
 /Github-Build-Release/dist
 /Github-Build-Release/node_modules
 /Github-Build-Release/release

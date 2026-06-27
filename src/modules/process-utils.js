@@ -151,35 +151,40 @@ function runElevatedPowerShellScript(psScript, successMessage, failureMessage) {
     }
     
     let psFile;
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+      resolve(result);
+    };
+
     try {
       psFile = path.join(os.tmpdir(), `${Date.now()}_${crypto.randomBytes(4).toString('hex')}_elevated.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
 
       const escapedPsFile = psFile.replace(/"/g, '\\"');
       const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
-      
+
       const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
-      
+
       child.on('error', () => {
-        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-        resolve({ 
-          success: false, 
-          error: 'Administrator privileges required. Please accept the UAC prompt.', 
-          code: 'UAC_DENIED' 
+        finish({
+          success: false,
+          error: 'Administrator privileges required. Please accept the UAC prompt.',
+          code: 'UAC_DENIED'
         });
       });
-      
+
       child.on('exit', (code) => {
-        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
         if (code === 0) {
-          resolve({ success: true, message: successMessage });
+          finish({ success: true, message: successMessage });
         } else {
-          resolve({ success: false, error: failureMessage, code: 'PROCESS_FAILED' });
+          finish({ success: false, error: failureMessage, code: 'PROCESS_FAILED' });
         }
       });
     } catch (error) {
-      try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-      resolve({ success: false, error: 'Failed to start process: ' + error.message });
+      finish({ success: false, error: 'Failed to start process: ' + error.message });
     }
   });
 }

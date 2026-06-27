@@ -3,7 +3,7 @@
  * Contains business logic for downloads, updates, and settings
  */
 
-import { debug, getAppVersionWithFallback, normalizeVersion, normalizeVersionTag } from './utils.js';
+import { debug, escapeHtml, getAppVersionWithFallback, normalizeVersion, normalizeVersionTag } from './utils.js';
 import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay } from './components.js';
 import { attachTooltipHandlers } from './managers.js';
 
@@ -171,7 +171,6 @@ export function initializeAutoUpdater() {
     updateBtn.classList.add('update-btn-hidden');
 
     let updateAvailable = false;
-    let updateDownloaded = false;
     let currentUpdateInfo = null;
 
     attachTooltipHandlers(updateBtn);
@@ -244,7 +243,6 @@ export function initializeAutoUpdater() {
             }
 
             case 'downloaded':
-                updateDownloaded = true;
                 updateBtn.classList.remove('downloading');
                 updateBtn.classList.add('ready');
                 updateBtn.setAttribute('data-tooltip', 'Restarting to install update...');
@@ -366,7 +364,7 @@ export async function parseMarkdown(notes) {
 
     if (typeof window !== 'undefined' && window.marked && typeof window.marked.parse === 'function') {
         try {
-            return window.marked.parse(text);
+            return window.marked.parse(escapeHtml(text));
         } catch (err) {
             console.warn('Failed to parse markdown with marked, falling back', err);
         }
@@ -386,7 +384,7 @@ export function formatReleaseNotes(notes) {
     let text = typeof notes === 'string' ? notes : String(notes);
 
     // XSS Protection
-    text = text
+    text = escapeHtml(text)
         .replace(/javascript:/gi, '')
         .replace(/data:/gi, '')
         .replace(/vbscript:/gi, '')
@@ -625,7 +623,6 @@ export async function ensureSidebarVersion(_state = {}) {
         if (versionWrapper) attachTooltipHandlers(versionWrapper);
     }
 
-    const versionEl = document.getElementById('appVersion');
     const setSafe = (txt) => {
         // Re-query to avoid stale reference after DOM changes
         const el = document.getElementById('appVersion');
@@ -719,7 +716,7 @@ export async function ensureSidebarVersion(_state = {}) {
                         debug('error', 'Google login failed:', err);
                         const msg = String(err?.message || err);
                         if (msg && /not configured/i.test(msg)) {
-                            window.alert('Google login is not available because OAuth credentials are not configured.');
+                            toast(translations.messages?.oauth_not_configured || 'Login unavailable: OAuth credentials are not configured.', { type: 'error' });
                         }
                     }
                     updateUserInfo();
@@ -732,7 +729,7 @@ export async function ensureSidebarVersion(_state = {}) {
                         debug('error', 'Discord login failed:', err);
                         const msg = String(err?.message || err);
                         if (msg && /not configured/i.test(msg)) {
-                            window.alert('Discord login is not available because OAuth credentials are not configured.');
+                            toast(translations.messages?.oauth_not_configured || 'Login unavailable: OAuth credentials are not configured.', { type: 'error' });
                         }
                     }
                     updateUserInfo();

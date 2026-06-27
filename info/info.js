@@ -2,6 +2,47 @@ document.addEventListener('DOMContentLoaded', () => {
   const navItems = document.querySelectorAll('.nav-item');
   const sections = document.querySelectorAll('.info-section');
 
+  function requestFrameResize() {
+    const card = document.querySelector('.info-card');
+    if (!card || window.parent === window) return;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const content = card.querySelector('.info-content');
+        const previousCardMaxHeight = card.style.maxHeight;
+        const previousCardOverflow = card.style.overflow;
+        const previousContentOverflow = content?.style.overflowY || '';
+        const previousContentMaxHeight = content?.style.maxHeight || '';
+
+        let height = 0;
+        try {
+          card.style.maxHeight = 'none';
+          card.style.overflow = 'visible';
+          if (content) {
+            content.style.overflowY = 'visible';
+            content.style.maxHeight = 'none';
+          }
+
+          height = Math.ceil(Math.max(
+            card.getBoundingClientRect().height,
+            card.scrollHeight
+          )) + 2;
+        } finally {
+          card.style.maxHeight = previousCardMaxHeight;
+          card.style.overflow = previousCardOverflow;
+          if (content) {
+            content.style.overflowY = previousContentOverflow;
+            content.style.maxHeight = previousContentMaxHeight;
+          }
+        }
+
+        if (height > 0) {
+          window.parent.postMessage({ type: 'infoFrameResize', height }, '*');
+        }
+      });
+    });
+  }
+
   // Navigation functionality
   navItems.forEach(item => {
     item.addEventListener('click', () => {
@@ -12,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sections.forEach(sec => {
         sec.classList.toggle('active', sec.id === targetId);
       });
+      requestFrameResize();
     });
   });
 
@@ -19,8 +61,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeBtn = document.querySelector('.info-close-btn');
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {
-      const overlay = window.parent.document.getElementById('info-modal-overlay');
-      if (overlay) overlay.remove();
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'infoCloseRequest' }, '*');
+      }
     });
   }
 
@@ -105,21 +148,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update page title
     document.title = lang === 'en' ? 'Help - Make Your Life Easier' : 'Βοήθεια - Make Your Life Easier';
+    requestFrameResize();
   }
 
   applyLanguage();
+  requestFrameResize();
+  window.addEventListener('resize', requestFrameResize);
+  if ('ResizeObserver' in window) {
+    const resizeObserver = new ResizeObserver(requestFrameResize);
+    document.querySelectorAll('.info-card, .info-section, .info-content').forEach(el => {
+      resizeObserver.observe(el);
+    });
+  }
 
   // Listen for language changes from parent window
   window.addEventListener('storage', (e) => {
     if (e.key === 'myAppSettings') {
       applyLanguage();
+      requestFrameResize();
     }
   });
 
   // Also listen for message events in case the parent window communicates via postMessage
   window.addEventListener('message', (event) => {
-    if (event.data.type === 'languageChange') {
+    if (event.data?.type === 'infoParentResized') {
+      requestFrameResize();
+      return;
+    }
+    if (event.data?.type === 'languageChange') {
       applyLanguage();
+      requestFrameResize();
     }
   });
 });

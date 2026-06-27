@@ -99,8 +99,6 @@ contextBridge.exposeInMainWorld('api', {
   ensureSparkle: () => ipcRenderer.invoke('ensure-sparkle'),
   processDownloadedSparkle: (zipPath) => ipcRenderer.invoke('process-downloaded-sparkle', zipPath),
   runChrisTitus: () => ipcRenderer.invoke('run-christitus'),
-  runActivateScript: () => ipcRenderer.invoke('run-activate-script'),
-  runAutologinScript: () => ipcRenderer.invoke('run-autologin-script'),
 
   // ── Spicetify / Spotify ──
   installSpicetify: () => ipcRenderer.invoke('install-spicetify'),
@@ -112,25 +110,4 @@ contextBridge.exposeInMainWorld('api', {
   loginDiscord: () => ipcRenderer.invoke('login-discord'),
   getUserProfile: () => ipcRenderer.invoke('get-user-profile'),
   logout: () => ipcRenderer.invoke('logout'),
-
-  // ── Password Manager ──
-  openPasswordManager: (lang) => ipcRenderer.invoke('open-password-manager', lang),
-  passwordManagerCloseWindow: () => ipcRenderer.invoke('password-window-close'),
-  passwordManagerReset: () => ipcRenderer.invoke('password-manager-reset'),
-  passwordManagerHasMasterPassword: () => ipcRenderer.invoke('password-manager-has-master-password'),
-  passwordManagerCreateMasterPassword: (password) => ipcRenderer.invoke('password-manager-create-master-password', password),
-  passwordManagerAuthenticate: (password) => ipcRenderer.invoke('password-manager-authenticate', password),
-  passwordManagerLogout: () => ipcRenderer.invoke('password-manager-logout'),
-  passwordManagerChangePassword: (currentPassword, newPassword) => ipcRenderer.invoke('password-manager-change-password', currentPassword, newPassword),
-  passwordManagerValidatePassword: (password) => ipcRenderer.invoke('password-manager-validate-password', password),
-  passwordManagerGetCategories: () => ipcRenderer.invoke('password-manager-get-categories'),
-  passwordManagerAddCategory: (name) => ipcRenderer.invoke('password-manager-add-category', name),
-  passwordManagerUpdateCategory: (id, name) => ipcRenderer.invoke('password-manager-update-category', id, name),
-  passwordManagerDeleteCategory: (id) => ipcRenderer.invoke('password-manager-delete-category', id),
-  passwordManagerGetPasswords: (categoryId) => ipcRenderer.invoke('password-manager-get-passwords', categoryId),
-  passwordManagerGetPassword: (id) => ipcRenderer.invoke('password-manager-get-password', id),
-  passwordManagerAddPassword: (passwordData) => ipcRenderer.invoke('password-manager-add-password', passwordData),
-  passwordManagerUpdatePassword: (id, passwordData) => ipcRenderer.invoke('password-manager-update-password', id, passwordData),
-  passwordManagerDeletePassword: (id) => ipcRenderer.invoke('password-manager-delete-password', id),
-  passwordManagerSearchPasswords: (query) => ipcRenderer.invoke('password-manager-search-passwords', query),
 });

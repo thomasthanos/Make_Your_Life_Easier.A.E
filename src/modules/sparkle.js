@@ -7,7 +7,7 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const https = require('https');
-const { spawn, execFile } = require('child_process');
+const { spawn } = require('child_process');
 const { debug } = require('./debug');
 
 const GITHUB_API_LATEST = 'https://api.github.com/repos/thedogecraft/sparkle/releases/latest';

@@ -91,7 +91,7 @@ import {
 // import { buildInstallPageWingetWithCategories, buildCrackInstallerPage } from './pages/installers.js';
 // import { buildMaintenancePage, buildDebloatPage, buildBiosPage } from './pages/tools.js';
 // import { buildSpicetifyPage } from './pages/media.js';
-// import { buildPasswordManagerPage, buildChrisTitusPage } from './pages/utilities.js';
+// import { buildChrisTitusPage } from './pages/utilities.js';
 
 // ============================================
 // GLOBAL EXPORTS (for backward compatibility)

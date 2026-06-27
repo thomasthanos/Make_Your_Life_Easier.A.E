@@ -33,6 +33,7 @@
   <link rel="modulepreload" href="src/renderer/index.js" />
   <link rel="preload" href="src/assets/icons/hacker.ico" as="image" type="image/x-icon" />
 
+  <link rel="stylesheet" href="src/styles/tokens.css" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" type="image/x-icon" href="src/assets/icons/hacker.ico" />
 
@@ -140,6 +141,9 @@
 
 <body>
   <div class="custom-title-bar">
+    <button class="sidebar-collapse-toggle" id="sidebar-collapse-toggle" aria-label="Toggle menu" data-tooltip="Toggle menu">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
     <div class="title-group">
       <img class="title-bar-app-icon" src="src/assets/icons/hacker.ico" alt="App icon" />
       <div class="title-bar-title">Make Your Life Easier</div>
@@ -173,6 +177,7 @@
   <div id="app">
     <nav id="sidebar" role="navigation" aria-label="Sidebar">
       <div class="sidebar-header">
+        <img class="sidebar-logo" src="src/assets/icons/hacker.ico" alt="" aria-hidden="true" />
         <div class="title-group">
           <div class="app-title"></div>
           <div class="app-subtitle"></div>

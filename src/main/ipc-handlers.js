@@ -3,13 +3,11 @@
  * Handles all Inter-Process Communication between main and renderer
  */
 
-const { ipcMain, shell, dialog, BrowserWindow, app } = require('electron');
+const { ipcMain, shell, dialog, app } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const { spawn } = require('child_process');
-
-const DB_TIMEOUT_MS = 10000;
 
 function setupWindowHandlers(getMainWindow) {
     ipcMain.handle('window-minimize', () => {
@@ -33,13 +31,6 @@ function setupWindowHandlers(getMainWindow) {
         if (mainWindow) mainWindow.close();
     });
 
-    ipcMain.handle('password-window-close', (event) => {
-        const mainWindow = getMainWindow();
-        const senderWin = BrowserWindow.fromWebContents(event.sender);
-        if (senderWin && senderWin !== mainWindow) {
-            senderWin.close();
-        }
-    });
 
     ipcMain.handle('window-is-maximized', () => {
         const mainWindow = getMainWindow();
@@ -495,7 +486,8 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
     //   • No broken polling (dst already existed before replacement)
     // ────────────────────────────────────────────────────────────────────────────
 ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
-    return new Promise(async (resolve) => {
+    return new Promise((resolve) => {
+        (async () => {
             try {
                 const srcExpanded = fileUtils.expandEnvVars(sourcePath);
                 const dstExpanded = fileUtils.expandEnvVars(destPath);
@@ -622,14 +614,29 @@ ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
                 debug('error', 'replace-exe exception:', err);
                 resolve({ success: false, error: 'Exception: ' + err.message });
             }
-        });
+        })();
+    });
     });
 }
 
-function setupArchiveHandlers(archiveUtils, downloadManager) {
+function setupArchiveHandlers(security, archiveUtils, downloadManager) {
     ipcMain.handle('extract-archive', async (event, { filePath, password, destDir }) => {
         try {
-            return await archiveUtils.extractArchive(filePath, password, destDir, downloadManager.trackExtractedDir);
+            const fileCheck = security.validatePath(filePath);
+            if (!fileCheck.valid) {
+                return { success: false, error: `Invalid archive path: ${fileCheck.error}` };
+            }
+
+            let safeDestDir = destDir;
+            if (destDir) {
+                const destCheck = security.validatePath(destDir);
+                if (!destCheck.valid) {
+                    return { success: false, error: `Invalid destination: ${destCheck.error}` };
+                }
+                safeDestDir = destCheck.normalized;
+            }
+
+            return await archiveUtils.extractArchive(fileCheck.normalized, password, safeDestDir, downloadManager.trackExtractedDir);
         } catch (error) {
             return { success: false, error: error.message };
         }
@@ -830,348 +837,6 @@ function setupInstallerHandlers(debug, security) {
     });
 }
 
-function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPasswordDB, pmDirectory, debug) {
-    ipcMain.handle('open-password-manager', async (_event, lang = 'en') => {
-        createPasswordManagerWindow(lang);
-        return { success: true };
-    });
-
-    ipcMain.handle('password-manager-has-master-password', async () => {
-        try {
-            debug('info', 'Checking for master password...');
-            if (!pmAuth.configPath) {
-                debug('info', 'Auth manager not initialized, initializing now...');
-                pmAuth.initialize(pmDirectory);
-            }
-            const result = pmAuth.hasMasterPassword();
-            debug('info', 'Master password exists:', result);
-            return result;
-        } catch (error) {
-            debug('error', 'Error checking master password:', error);
-            return false;
-        }
-    });
-
-    ipcMain.handle('password-manager-create-master-password', async (event, password) => {
-        try {
-            debug('info', 'Creating master password...');
-            if (!pmAuth.configPath) {
-                pmAuth.initialize(pmDirectory);
-            }
-            await pmAuth.createMasterPassword(password);
-            return { success: true };
-        } catch (error) {
-            debug('error', 'Error creating master password:', error);
-            return { success: false, error: error.message };
-        }
-    });
-
-    ipcMain.handle('password-manager-authenticate', async (event, password) => {
-        try {
-            debug('info', 'Authenticating...');
-            if (!pmAuth.configPath) {
-                pmAuth.initialize(pmDirectory);
-            }
-            await pmAuth.authenticate(password);
-            return { success: true };
-        } catch (error) {
-            debug('error', 'Error authenticating:', error);
-            return { success: false, error: error.message };
-        }
-    });
-
-    ipcMain.handle('password-manager-logout', async () => {
-        pmAuth.logout();
-        return { success: true };
-    });
-
-    ipcMain.handle('password-manager-change-password', async (event, currentPassword, newPassword) => {
-        try {
-            await pmAuth.changeMasterPassword(currentPassword, newPassword);
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
-
-    ipcMain.handle('password-manager-validate-password', async (event, password) => {
-        const result = pmAuth.validatePasswordStrength(password);
-        return result;
-    });
-
-    ipcMain.handle('password-manager-get-categories', async () => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-
-            db.getCategories((err, rows) => {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    debug('error', 'Error getting categories:', err);
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, categories: rows || [] });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-add-category', async (event, name) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.addCategory(name, function (err) {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, id: this.lastID });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-update-category', async (event, id, name) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.updateCategory(id, name, function (err) {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, changes: this.changes });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-delete-category', async (event, id) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.deleteCategory(id, function (err) {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, changes: this.changes });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all') => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-
-            db.getPasswordsByCategory(categoryId, (err, rows) => {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    debug('error', 'Error getting passwords:', err);
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, passwords: rows || [] });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-get-password', async (event, id) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.getPasswordById(id, (err, row) => {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, password: row });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-add-password', async (event, passwordData) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-
-            db.addPassword(passwordData, function (err) {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    debug('error', 'Error adding password:', err);
-                    resolve({ success: false, error: err.message });
-                } else {
-                    debug('success', 'Password added successfully, ID:', this.lastID);
-                    resolve({ success: true, id: this.lastID });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-update-password', async (event, id, passwordData) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.updatePassword(id, passwordData, function (err) {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, changes: this.changes });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-delete-password', async (event, id) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.deletePassword(id, function (err) {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, changes: this.changes });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-search-passwords', async (event, query) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.searchPasswords(query, (err, rows) => {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, passwords: rows });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-reset', async () => {
-        try {
-            const db = getPasswordDB();
-            if (db) {
-                try { db.close(); } catch { }
-            }
-
-            if (pmAuth.configPath && fs.existsSync(pmAuth.configPath)) {
-                fs.unlinkSync(pmAuth.configPath);
-            }
-            if (pmAuth.dbDirectory) {
-                const dbPath = path.join(pmAuth.dbDirectory, 'password_manager.db');
-                if (fs.existsSync(dbPath)) {
-                    fs.unlinkSync(dbPath);
-                }
-            }
-            pmAuth.logout();
-            pmAuth.initialize(pmDirectory);
-            return { success: true };
-        } catch (error) {
-            debug('error', 'Error resetting password manager:', error);
-            return { success: false, error: error.message };
-        }
-    });
-}
-
-function setupMiscHandlers() {
-    ipcMain.handle('run-activate-script', async () => {
-        return { success: true, message: 'Activation script completed' };
-    });
-
-    ipcMain.handle('run-autologin-script', async () => {
-        return { success: true, message: 'Autologin script completed' };
-    });
-}
-
 module.exports = {
     setupWindowHandlers,
     setupSystemInfoHandlers,
@@ -1183,7 +848,5 @@ module.exports = {
     setupSparkleHandlers,
     setupSystemToolsHandlers,
     setupSpicetifyHandlers,
-    setupInstallerHandlers,
-    setupPasswordManagerHandlers,
-    setupMiscHandlers
+    setupInstallerHandlers
 };
