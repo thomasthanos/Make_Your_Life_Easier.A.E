@@ -34,7 +34,7 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
         WIN_CSC_LINK: config/signing/certificate.pfx
-        WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        WIN_CSC_KEY_PASSWORD: '12123123'
       run: npm run build-all
 
     - name: Create Release
