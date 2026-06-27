@@ -147,7 +147,8 @@
     "publish": {
       "provider": "github",
       "owner": "thomasthanos",
-      "repo": "Make_Your_Life_Easier.A.E"
+      "repo": "Make_Your_Life_Easier.A.E",
+      "private": true
     }
   },
   "repository": {
