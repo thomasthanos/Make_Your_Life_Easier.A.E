@@ -423,7 +423,7 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 
                 // Install immediately after windows are closed
                 debug('info', 'Launching installer...');
-                autoUpdater.quitAndInstall(false, true);
+                autoUpdater.quitAndInstall(true, true);
             } catch (e) {
                 debug('error', 'Failed to install update automatically:', e);
                 app.quit();
@@ -575,7 +575,7 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
                 await Promise.all(closePromises);
                 
                 debug('info', 'Launching installer...');
-                autoUpdater.quitAndInstall(false, true);
+                autoUpdater.quitAndInstall(true, true);
             })();
 
             return { success: true };
