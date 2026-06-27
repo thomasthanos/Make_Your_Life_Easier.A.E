@@ -5981,6 +5981,26 @@ body:not(.sidebar-expanded) #sidebar .user-info .logout-btn {
   line-height: 1.2;
   white-space: nowrap;
 }
+body:not(.sidebar-expanded) #sidebar .user-info .login-card {
+  width: 36px;
+  height: 58px;
+  min-width: 36px;
+  padding: 0;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+body:not(.sidebar-expanded) #sidebar .user-info .login-card button {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0;
+  flex: 0 0 20px;
+}
 #sidebar .login-card {
   flex-wrap: wrap;
   justify-content: center;
