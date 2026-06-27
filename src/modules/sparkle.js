@@ -250,8 +250,8 @@ function get7ZipPath() {
   if (process.resourcesPath) {
     candidates.push(path.join(process.resourcesPath, 'bin', '7za.exe'));
   }
-  // Dev mode: bin/ is at project root, __dirname is src/modules
-  candidates.push(path.join(__dirname, '..', '..', 'bin', '7za.exe'));
+  // Dev mode: helper binaries live in src/resources/bin
+  candidates.push(path.join(__dirname, '..', 'resources', 'bin', '7za.exe'));
 
   for (const p of candidates) {
     if (fs.existsSync(p)) return p;

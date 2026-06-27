@@ -341,7 +341,7 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
         if (isDev) {
             assetPath = path.join(__dirname, '..', 'assets', relativePath);
         } else {
-            assetPath = path.join(process.resourcesPath, 'src', 'assets', relativePath);
+            assetPath = path.join(app.getAppPath(), 'src', 'assets', relativePath);
         }
         const normalizedPath = assetPath.replace(/\\/g, '/');
         if (process.platform === 'win32' && normalizedPath.match(/^[A-Za-z]:/)) {

@@ -14,10 +14,10 @@ module.exports = [
     ignores: [
       'node_modules/**',
       'dist/**',
+      'artifacts/**',
       'Github-Build-Release/**',
       'Pro-Installer/**',
-      'bin/**',
-      'lang/**',
+      'src/resources/bin/**',
       '**/*.min.js'
     ]
   },

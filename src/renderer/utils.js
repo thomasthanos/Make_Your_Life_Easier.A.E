@@ -195,14 +195,19 @@ export async function getAppVersionWithFallback() {
             if (v) return `v${v}`;
         }
     } catch { }
-    try {
-        const res = await fetch('./package.json');
-        if (res.ok) {
-            const pkg = await res.json();
-            const v = normalizeVersion(pkg?.version);
-            if (v) return `v${v}`;
+    const packageCandidates = ['../../package.json', './package.json'];
+    for (const url of packageCandidates) {
+        try {
+            const res = await fetch(url);
+            if (res.ok) {
+                const pkg = await res.json();
+                const v = normalizeVersion(pkg?.version);
+                if (v) return `v${v}`;
+            }
+        } catch {
+            // Try next candidate
         }
-    } catch { }
+    }
     const envV = normalizeVersion(typeof process !== 'undefined' ? process?.env?.npm_package_version : null);
     if (envV) return `v${envV}`;
     return 'v1.0.0';

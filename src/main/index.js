@@ -63,10 +63,10 @@ async function installCertificateIfNeeded() {
     // Only Windows
     if (process.platform !== 'win32') return;
 
-    // Resolve the .cer file — works both packaged (resources/bin) and dev (bin/)
+    // Resolve the .cer file — works both packaged (resources/bin) and dev (src/resources/bin)
     const certPath = app.isPackaged
         ? path.join(process.resourcesPath, 'bin', 'certificate.cer')
-        : path.join(__dirname, '..', '..', 'bin', 'certificate.cer');
+        : path.join(__dirname, '..', 'resources', 'bin', 'certificate.cer');
 
     try {
         await fs.promises.access(certPath);
@@ -118,7 +118,7 @@ const pendingCleanupFiles = new Set();
 // Preload Path
 // ============================================================================
 
-const preloadPath = path.join(__dirname, '..', '..', 'preload.js');
+const preloadPath = path.join(__dirname, '..', 'preload', 'index.js');
 
 // ============================================================================
 // Window Creation Wrappers

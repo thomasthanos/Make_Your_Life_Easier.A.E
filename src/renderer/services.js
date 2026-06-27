@@ -59,7 +59,7 @@ let translations = {};
  * @returns {Promise<Object>} Translations object
  */
 export async function loadTranslations(lang) {
-    const candidates = [`lang/${lang}.json`, `${lang}.json`];
+    const candidates = [`../i18n/${lang}.json`, `i18n/${lang}.json`, `${lang}.json`];
     for (const url of candidates) {
         try {
             const res = await fetch(url);

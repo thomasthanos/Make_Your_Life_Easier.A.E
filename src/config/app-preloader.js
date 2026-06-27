@@ -67,7 +67,7 @@
      */
     addLocalAssets() {
       const localAssets = [
-        'src/assets/icons/hacker.ico'
+        '../assets/icons/hacker.ico'
       ];
       
       localAssets.forEach(path => {

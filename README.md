@@ -135,23 +135,31 @@ Make_Your_Life_Easier.A.E/
 │   │   ├── updater.js     # Auto-update logic
 │   │   ├── window-manager.js
 │   │   └── ipc-handlers.js
-│   ├── renderer/          # Frontend modules
+│   ├── preload/           # IPC bridge
+│   │   └── index.js
+│   ├── renderer/          # Frontend UI
+│   │   ├── index.html     # Main window
 │   │   ├── core.js
 │   │   ├── components.js
+│   │   ├── styles/        # Main CSS
+│   │   ├── info/          # Help/info window
+│   │   ├── data/          # Renderer data files
 │   │   └── services.js
 │   ├── modules/           # Shared utilities
 │   │   ├── file-utils.js
 │   │   ├── download-manager.js
 │   │   ├── system-tools.js
 │   │   └── security.js
-│   ├── styles/            # Modular CSS
+│   ├── updater/           # Update window
+│   │   ├── update.html
+│   │   └── updateRenderer.js
+│   ├── i18n/              # Translations (en, gr)
+│   ├── resources/         # Packaged helper binaries
 │   └── assets/            # Icons & images
-├── updater/              # Update window
-│   ├── update.html
-│   └── updateRenderer.js
-├── lang/                 # i18n (en, gr)
-├── preload.js            # IPC bridge
-└── index.html            # Main window
+├── config/                # Tooling, installer, hooks, signing config
+│   ├── hooks/
+│   └── signing/           # Local certificate files (ignored)
+└── package.json
 ```
 
 </details>

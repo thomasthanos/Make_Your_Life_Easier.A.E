@@ -8,6 +8,7 @@
   --surface-2: #0e141d;
   --surface-3: #151c2a;
   --surface-content: #070a11;
+  --panel-strong: rgba(15, 21, 33, 0.94);
   --divider: #1a2430;
 
   /* ---- Text ---- */
@@ -25,6 +26,14 @@
   --success: #30d158;
   --warning: #ffd60a;
   --error: #ff453a;
+  --color-install: #3b61d1;
+  --color-activate: #2eb85c;
+  --color-maintain: #636e8c;
+  --color-crack: #7144bf;
+  --color-spicetify: #a15eea;
+  --color-titus: #db6e8b;
+  --color-bios: #e26a12;
+  --color-debloat: #9b59b6;
 
   /* ---- Glass material ---- */
   --glass-fill: transparent;

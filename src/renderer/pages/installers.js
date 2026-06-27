@@ -757,7 +757,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     async function buildList() {
         let appsData;
         try {
-            const response = await fetch('installer.json');
+            const response = await fetch('data/installer.json');
             appsData = await response.json();
         } catch (err) {
             debug('error', 'Failed to load installer.json:', err);
@@ -844,7 +844,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                             const iconPath = await window.api.getAssetPath('icons/hacker.ico');
                             fav.src = iconPath;
                         } catch (err) {
-                            fav.src = 'src/assets/icons/hacker.ico';
+                            fav.src = '../assets/icons/hacker.ico';
                         }
                     }
                 };

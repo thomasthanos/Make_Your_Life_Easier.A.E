@@ -10,13 +10,13 @@ if [ -n "$blocked_files" ]; then
 fi
 
 patterns='GOCSPX-|"cscKeyPassword"|-----BEGIN [A-Z ]*PRIVATE KEY-----'
-if git diff --cached -U0 -- . ':(exclude).githooks/pre-commit' | grep -E '^\+[^+]' | grep -Eq "$patterns"; then
+if git diff --cached -U0 -- . ':(exclude)config/hooks/pre-commit' | grep -E '^\+[^+]' | grep -Eq "$patterns"; then
   echo "[secret-guard] Staged changes contain a secret-like pattern."
   fail=1
 fi
 
 if [ "$fail" -ne 0 ]; then
-  echo "Commit aborted by .githooks/pre-commit (bypass: git commit --no-verify)."
+  echo "Commit aborted by config/hooks/pre-commit (bypass: git commit --no-verify)."
   exit 1
 fi
 

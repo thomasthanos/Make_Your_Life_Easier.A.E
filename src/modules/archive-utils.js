@@ -21,8 +21,8 @@ async function ensure7za() {
   if (process.resourcesPath) {
     candidates.push(path.join(process.resourcesPath, 'bin', '7za.exe'));
     candidates.push(path.join(process.resourcesPath, 'bin', '7z.exe'));
-    candidates.push(path.join(__dirname, '..', 'bin', '7za.exe'));
-    candidates.push(path.join(__dirname, '..', 'bin', '7z.exe'));
+    candidates.push(path.join(__dirname, '..', 'resources', 'bin', '7za.exe'));
+    candidates.push(path.join(__dirname, '..', 'resources', 'bin', '7z.exe'));
 
     const parentDir = path.dirname(process.resourcesPath);
     candidates.push(path.join(parentDir, 'bin', '7za.exe'));

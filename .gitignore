@@ -3,6 +3,7 @@
 
 # Build output
 /dist/
+/artifacts/
 
 # Executables and archives
 *.exe
@@ -20,6 +21,10 @@ release_notes_2.0.4.md
 
 # Config files with secrets
 oauth_config.json
+/src/config/oauth_config.json
+*.pfx
+*.p12
+*.key
 
 # IDE
 /.vscode
@@ -29,13 +34,12 @@ adobe_blockfirewall.bat
 55README.md
 Make_Your_Life_Easier.A.E.rar
 
-# Exceptions - keep these
-!/bin/
-!/bin/7za.exe
-!/bin/7za.dll
-!/bin/7zxa.dll
-bin/create.ps1
-bin/*.pfx
+# Exceptions - keep packaged helper binaries
+!/src/resources/bin/
+!/src/resources/bin/7za.exe
+!/src/resources/bin/7za.dll
+!/src/resources/bin/7zxa.dll
+!/src/resources/bin/certificate.cer
 /Github-Build-Release/dist
 /Github-Build-Release/node_modules
 /Github-Build-Release/release

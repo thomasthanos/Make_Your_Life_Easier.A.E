@@ -10,7 +10,9 @@ const { postForm, getJson } = require('./http-utils');
 
 function loadOAuthConfig() {
   const candidates = [];
+  try { candidates.push(path.join(app.getAppPath(), 'src', 'config', 'oauth_config.json')); } catch {}
   try { candidates.push(path.join(app.getAppPath(), 'oauth_config.json')); } catch {}
+  if (process.resourcesPath) candidates.push(path.join(process.resourcesPath, 'src', 'config', 'oauth_config.json'));
   if (process.resourcesPath) candidates.push(path.join(process.resourcesPath, 'oauth_config.json'));
   try { candidates.push(path.join(app.getPath('userData'), 'oauth_config.json')); } catch {}
 

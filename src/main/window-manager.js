@@ -58,7 +58,7 @@ function createMainWindow(showWindow = true, preloadPath, setupWindowStateEvents
         }
     });
 
-    mainWindow.loadFile(path.join(__dirname, '..', '..', 'index.html'));
+    mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
     // Cleanup reference when window is closed
     mainWindow.on('closed', () => {
@@ -99,7 +99,7 @@ function createUpdateWindow(preloadPath, onReady) {
     });
 
     updateWindow.setMenuBarVisibility(false);
-    updateWindow.loadFile(path.join(__dirname, '..', '..', 'updater', 'update.html'));
+    updateWindow.loadFile(path.join(__dirname, '..', 'updater', 'update.html'));
 
     updateWindow.on('closed', () => {
         updateWindow = null;

@@ -26,16 +26,15 @@
   </style>
 
   <!-- Theme initialization moved to external script for CSP compliance -->
-  <script src="src/config/theme-init.js"></script>
+  <script src="../config/theme-init.js"></script>
 
   <!-- Preload critical assets for faster loading -->
-  <link rel="preload" href="styles.css" as="style" />
-  <link rel="modulepreload" href="src/renderer/index.js" />
-  <link rel="preload" href="src/assets/icons/hacker.ico" as="image" type="image/x-icon" />
+  <link rel="preload" href="styles/main.css" as="style" />
+  <link rel="modulepreload" href="index.js" />
+  <link rel="preload" href="../assets/icons/hacker.ico" as="image" type="image/x-icon" />
 
-  <link rel="stylesheet" href="src/styles/tokens.css" />
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="icon" type="image/x-icon" href="src/assets/icons/hacker.ico" />
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="icon" type="image/x-icon" href="../assets/icons/hacker.ico" />
 
 
   <style>
@@ -145,7 +144,7 @@
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
     </button>
     <div class="title-group">
-      <img class="title-bar-app-icon" src="src/assets/icons/hacker.ico" alt="App icon" />
+      <img class="title-bar-app-icon" src="../assets/icons/hacker.ico" alt="App icon" />
       <div class="title-bar-title">Make Your Life Easier</div>
     </div>
     <div class="title-bar-menu">
@@ -177,7 +176,7 @@
   <div id="app">
     <nav id="sidebar" role="navigation" aria-label="Sidebar">
       <div class="sidebar-header">
-        <img class="sidebar-logo" src="src/assets/icons/hacker.ico" alt="" aria-hidden="true" />
+        <img class="sidebar-logo" src="../assets/icons/hacker.ico" alt="" aria-hidden="true" />
         <div class="title-group">
           <div class="app-title"></div>
           <div class="app-subtitle"></div>
@@ -198,10 +197,10 @@
     </main>
   </div>
 
-  <script src="src/config/favicon-config.js"></script>
-  <script src="src/config/app-preloader.js"></script>
-  <script src="src/config/titlebar-init.js"></script>
-  <script type="module" src="src/renderer/index.js"></script>
+  <script src="../config/favicon-config.js"></script>
+  <script src="../config/app-preloader.js"></script>
+  <script src="../config/titlebar-init.js"></script>
+  <script type="module" src="index.js"></script>
 
 </body>
 
