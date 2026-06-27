@@ -132,7 +132,7 @@ async function cleanupUpdaterCache(debug) {
         const attemptCleanup = async () => {
             const files = await fs.promises.readdir(updaterCachePath).catch(() => []);
             let cleanedSize = 0;
-            let failedFiles = [];
+            const failedFiles = [];
 
             for (const file of files) {
                 const filePath = path.join(updaterCachePath, file);

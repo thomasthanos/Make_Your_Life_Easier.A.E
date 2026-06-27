@@ -24,7 +24,7 @@ let translations = {};
 let settings = {};
 
 // Page-specific event listener manager (cleaned up on page change)
-let pageEventManager = new EventListenerManager();
+const pageEventManager = new EventListenerManager();
 
 // Use singleton buttonStateManager from managers.js (imported above)
 
