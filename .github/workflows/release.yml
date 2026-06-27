@@ -33,6 +33,8 @@ jobs:
     - name: Build application
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        WIN_CSC_LINK: config/signing/certificate.pfx
+        WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
       run: npm run build-all
 
     - name: Create Release
