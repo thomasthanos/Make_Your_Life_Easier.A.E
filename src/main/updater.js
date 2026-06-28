@@ -433,28 +433,54 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 
     autoUpdater.on('error', (err) => {
         debug('error', 'Update error:', err);
-        
+
         // Reset download tracking
         downloadStartTime = null;
 
         const updateWindow = getUpdateWindow();
         const mainWindow = getMainWindow();
+        const msg = (err && err.message) ? err.message : String(err);
 
-        // Retry logic for network errors
-        const isNetworkError = err.message && (
-            err.message.includes('ECONNRESET') ||
-            err.message.includes('ETIMEDOUT') ||
-            err.message.includes('ENOTFOUND') ||
-            err.message.includes('socket hang up') ||
-            err.message.includes('net::')
-        );
+        const isFirewallBlock = msg.includes('ERR_NETWORK_ACCESS_DENIED');
 
-        if (isNetworkError && retryCount < MAX_RETRIES) {
+        const isRateLimit = msg.includes('429') || msg.includes('Too Many Requests');
+
+        const isTransientNetwork =
+            msg.includes('ECONNRESET') ||
+            msg.includes('ETIMEDOUT') ||
+            msg.includes('ENOTFOUND') ||
+            msg.includes('socket hang up') ||
+            msg.includes('ERR_CONNECTION_TIMED_OUT') ||
+            msg.includes('ERR_NETWORK_CHANGED') ||
+            msg.includes('ERR_INTERNET_DISCONNECTED');
+
+        const finish = (message) => {
+            retryCount = 0;
+            sendUpdateStatus(updateWindow, { status: 'error', message });
+            sendUpdateStatus(mainWindow, { status: 'error', message, canRetry: false });
+            (async () => {
+                await launchAppAfterError(getUpdateWindow, getMainWindow, createMainWindow);
+            })();
+        };
+
+        if (isFirewallBlock) {
+            debug('error', 'Update blocked by firewall/antivirus (ERR_NETWORK_ACCESS_DENIED) — not retrying.');
+            finish('Connection blocked by firewall/antivirus. Allow MakeYourLifeEasier.exe through your security software, then try again.');
+            return;
+        }
+
+        if (isRateLimit) {
+            debug('warn', 'Update server rate limit (HTTP 429) — backing off, not retrying.');
+            finish('Update server is rate-limiting (too many checks). Please wait a few minutes, then try again.');
+            return;
+        }
+
+        if (isTransientNetwork && retryCount < MAX_RETRIES) {
             retryCount++;
-            const retryDelay = Math.min(1000 * Math.pow(2, retryCount - 1), 5000); // Exponential backoff, max 5s
-            
-            debug('warn', `Network error detected. Retry ${retryCount}/${MAX_RETRIES} in ${retryDelay}ms...`);
-            
+            const retryDelay = Math.min(2000 * Math.pow(2, retryCount - 1), 30000);
+
+            debug('warn', `Transient network error. Retry ${retryCount}/${MAX_RETRIES} in ${retryDelay}ms...`);
+
             const retryMessage = `Connection lost. Retrying (${retryCount}/${MAX_RETRIES})...`;
             sendUpdateStatus(updateWindow, {
                 status: 'downloading',
@@ -465,8 +491,7 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
                 status: 'error',
                 message: retryMessage
             });
-            
-            // Use promise-based delay for cleaner async handling
+
             (async () => {
                 try {
                     await new Promise(resolve => setTimeout(resolve, retryDelay));
@@ -474,34 +499,16 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
                     await autoUpdater.checkForUpdates();
                 } catch (retryErr) {
                     debug('error', 'Retry failed:', retryErr);
-                    // After all retries fail, launch the app anyway
                     await launchAppAfterError(getUpdateWindow, getMainWindow, createMainWindow);
                 }
             })();
             return;
         }
 
-        // Reset retry count after max retries
         if (retryCount >= MAX_RETRIES) {
             debug('error', `Max retries (${MAX_RETRIES}) reached. Giving up.`);
-            retryCount = 0;
         }
-
-        // Only launch app if this is NOT a network error (network errors are handled by retry logic above)
-        if (!isNetworkError) {
-            // Launch app after error (non-retry scenario)
-            (async () => {
-                await launchAppAfterError(getUpdateWindow, getMainWindow, createMainWindow);
-            })();
-        }
-
-        const payload = {
-            status: 'error',
-            message: `Update error: ${err.message}`,
-            canRetry: isNetworkError && retryCount < MAX_RETRIES
-        };
-        sendUpdateStatus(updateWindow, payload);
-        sendUpdateStatus(mainWindow, payload);
+        finish(`Update error: ${msg}`);
     });
 }
 
