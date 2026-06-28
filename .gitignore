@@ -47,3 +47,6 @@ Make_Your_Life_Easier.A.E.rar
 .claude/settings.local.json
 check_apps.bat
 .backup-info.json
+
+# Environment variables
+.env
