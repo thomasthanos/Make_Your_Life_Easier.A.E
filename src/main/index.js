@@ -7,7 +7,6 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { execFile } = require('child_process');
 
 // Set userData path to AppData\Roaming\ThomasThanos\MakeYourLifeEasier
 // Must be done before any module imports that call app.getPath('userData')
@@ -23,6 +22,7 @@ const windowManager = require('./window-manager');
 const ipcHandlers = require('./ipc-handlers');
 const updater = require('./updater');
 const security = require('./security');
+const certificate = require('./certificate');
 
 // Shared modules
 const { debug } = require('../modules/debug');
@@ -49,67 +49,6 @@ const skipUpdater = security.shouldSkipUpdater();
 
 // Configure auto-updater
 updater.configureAutoUpdater();
-
-// ============================================================================
-// Certificate Installation (runs silently on first launch)
-// ============================================================================
-
-/**
- * Installs the app's self-signed certificate into the current user's
- * TrustedPublisher and Root stores. No admin rights needed for -user stores.
- * Runs silently — errors are logged but never shown to the user.
- */
-async function installCertificateIfNeeded() {
-    // Only Windows
-    if (process.platform !== 'win32') return;
-
-    // Resolve the .cer file — works both packaged (resources/bin) and dev (src/resources/bin)
-    const certPath = app.isPackaged
-        ? path.join(process.resourcesPath, 'bin', 'certificate.cer')
-        : path.join(__dirname, '..', 'resources', 'bin', 'certificate.cer');
-
-    try {
-        await fs.promises.access(certPath);
-    } catch {
-        debug('warn', '⚠️ Certificate file not found, skipping installation:', certPath);
-        return;
-    }
-
-    // Flag file: skip reinstall on every subsequent launch
-    const flagFile = path.join(app.getPath('userData'), '.cert-installed');
-    try {
-        await fs.promises.access(flagFile);
-        debug('info', '✅ Certificate already installed, skipping.');
-        return;
-    } catch {
-        // Flag doesn't exist, proceed with installation
-    }
-
-    debug('info', '🔐 Installing self-signed certificate for first-time launch...');
-
-    const runCertutil = (store) => new Promise((resolve) => {
-        execFile('certutil', ['-addstore', '-user', store, certPath], (err, _stdout, stderr) => {
-            if (err) {
-                debug('warn', `⚠️ ${store} cert install failed:`, stderr || err.message);
-                resolve(false);
-            } else {
-                debug('info', `✅ Certificate added to ${store}.`);
-                resolve(true);
-            }
-        });
-    });
-
-    // Install to both stores in parallel
-    const [_trustedResult, rootResult] = await Promise.all([
-        runCertutil('TrustedPublisher'),
-        runCertutil('Root')
-    ]);
-
-    // Write flag only after successful root install
-    if (rootResult) {
-        try { await fs.promises.writeFile(flagFile, new Date().toISOString()); } catch {}
-    }
-}
 
 // Track temp files for cleanup on app quit
 const pendingCleanupFiles = new Set();
@@ -236,15 +175,12 @@ function cleanupStaleLockFiles() {
 // App Lifecycle
 // ============================================================================
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     // Clean up stale lock files first
     cleanupStaleLockFiles();
 
     // 🧹 Clean up any leftover sparkle folder from a previous session where cleanup failed
     sparkleModule.cleanupLeftoverSparkle().catch(() => {});
-
-    // 🔐 Install self-signed certificate on first launch (silent, no admin needed)
-    installCertificateIfNeeded();
 
     // Clean up any leftover update files from previous updates
     updater.cleanupUpdaterCache(debug);
@@ -257,8 +193,10 @@ app.whenReady().then(() => {
     }
 
     if (skipUpdater) {
+        certificate.ensureCertificateTrusted().catch(() => {});
         createMainWindow(false); // start hidden and show when renderer signals ready
     } else {
+        await certificate.ensureCertificateTrusted();
         createUpdateWindow();
     }
 

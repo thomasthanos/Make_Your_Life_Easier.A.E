@@ -171,7 +171,6 @@ export function initializeAutoUpdater() {
     updateBtn.classList.add('update-btn-hidden');
 
     let updateAvailable = false;
-    let currentUpdateInfo = null;
 
     attachTooltipHandlers(updateBtn);
 
@@ -195,7 +194,6 @@ export function initializeAutoUpdater() {
         switch (data.status) {
             case 'available':
                 updateAvailable = true;
-                currentUpdateInfo = data;
                 updateBtn.classList.add('available');
                 updateBtn.setAttribute('data-tooltip', `Update available`);
                 showUpdateOverlay(`Preparing download...`);
@@ -252,29 +250,6 @@ export function initializeAutoUpdater() {
                     transferred: data.totalBytes || 0,
                     total: data.totalBytes || 0
                 });
-                setTimeout(async () => {
-                    try {
-                        if (currentUpdateInfo) {
-                            const info = {
-                                version: currentUpdateInfo.version,
-                                releaseName: currentUpdateInfo.releaseName,
-                                releaseNotes: currentUpdateInfo.releaseNotes,
-                                timestamp: Date.now()
-                            };
-                            try {
-                                await window.api.saveUpdateInfo(info);
-                            } catch (e) {
-                                try {
-                                    localStorage.setItem('pendingUpdateInfo', JSON.stringify(info));
-                                } catch (storageErr) {
-                                    console.error('Failed to store update info', storageErr);
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Error persisting update info:', error);
-                    }
-                }, 0);
                 break;
 
             case 'error':

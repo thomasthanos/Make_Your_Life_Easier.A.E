@@ -1,50 +1,28 @@
-/**
- * Auto-Updater Module
- * Handles application updates and update UI communication
- */
-
 const { autoUpdater } = require('electron-updater');
 const { ipcMain, app } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { debug } = require('../modules/debug');
+const { saveUpdateInfo, readAndClearUpdateInfo } = require('./update-info');
 
-// Update state
 let updateAvailable = false;
 let pendingUpdateInfo = null;
 let updateDownloaded = false;
+let isChecking = false;
 let retryCount = 0;
-const MAX_RETRIES = 3;
 let downloadStartTime = null;
+const MAX_RETRIES = 3;
 
-// Update info paths
-const updateInfoPrimaryPath = path.join(app.getPath('userData'), 'update-info.json');
-const updateInfoSecondaryPath = process.platform === 'win32'
-    ? path.join(process.env.PROGRAMDATA || path.join('C:\\', 'ProgramData'), 'MakeYourLifeEasier', 'update-info.json')
-    : null;
-
-/**
- * Helper function to safely send update status to a window
- * @param {BrowserWindow} window - The window to send to
- * @param {Object} payload - The status payload
- */
 function sendUpdateStatus(window, payload) {
     if (window && !window.isDestroyed() && window.webContents) {
         try {
             window.webContents.send('update-status', payload);
-        } catch (err) {
-            // Ignore send errors (window might be closing)
+        } catch {
+            // window is closing
         }
     }
 }
 
-/**
- * Helper function to launch the app after an error
- * @param {Function} getUpdateWindow - Function to get update window
- * @param {Function} getMainWindow - Function to get main window
- * @param {Function} createMainWindow - Function to create main window
- */
 async function launchAppAfterError(getUpdateWindow, getMainWindow, createMainWindow) {
     const updateWin = getUpdateWindow();
     const mainWin = getMainWindow();
@@ -56,10 +34,8 @@ async function launchAppAfterError(getUpdateWindow, getMainWindow, createMainWin
             percent: 100
         });
 
-        // Give the update window time to render the 100% progress
         await new Promise(resolve => setTimeout(resolve, 200));
 
-        // Create main window and show it
         const newMainWindow = createMainWindow(true);
         newMainWindow.webContents.once('did-finish-load', () => {
             setTimeout(() => {
@@ -71,52 +47,27 @@ async function launchAppAfterError(getUpdateWindow, getMainWindow, createMainWin
     }
 }
 
-/**
- * Configure auto-updater settings
- */
 function configureAutoUpdater() {
-    // Enable differential downloads for faster updates (80% smaller)
-    // GitHub Actions workflow automatically uploads .blockmap files
-    autoUpdater.disableDifferentialDownload = false;
-    
-    // Automatic download and installation
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
-    
-    // Request headers for cache busting
+    autoUpdater.allowPrerelease = false;
+    autoUpdater.allowDowngrade = false;
+    autoUpdater.disableDifferentialDownload = true;
+    autoUpdater.disableWebInstaller = true;
+
     autoUpdater.requestHeaders = {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
     };
-    
-    // Enable checksum verification for security
-    autoUpdater.disableWebInstaller = false;
-    
-    // Allow prerelease versions if needed (set to false for production)
-    autoUpdater.allowPrerelease = false;
-    
-    // Set update check interval (4 hours)
-    autoUpdater.allowDowngrade = false;
-    
-    // Configure logger for better debugging
+
     try {
         const log = require('electron-log');
         autoUpdater.logger = log;
         autoUpdater.logger.transports.file.level = 'info';
-        
-        // Log file location for troubleshooting
-        if (process.env.NODE_ENV === 'development') {
-            debug('info', `Update logs: ${log.transports.file.getFile().path}`);
-        }
-    } catch (err) {
-        // electron-log not available, continue without logging
+    } catch {
+        // electron-log not available
     }
 }
 
-/**
- * Clean up the updater cache directory
- * Removes downloaded installers and temp files after successful update
- * @param {Function} debug - Debug logging function
- */
 async function cleanupUpdaterCache(debug) {
     try {
         const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
@@ -128,7 +79,6 @@ async function cleanupUpdaterCache(debug) {
             return;
         }
 
-        // Try cleanup immediately, then retry after delay if files are still locked
         const attemptCleanup = async () => {
             const files = await fs.promises.readdir(updaterCachePath).catch(() => []);
             let cleanedSize = 0;
@@ -142,15 +92,12 @@ async function cleanupUpdaterCache(debug) {
 
                     if (stat.isDirectory()) {
                         await fs.promises.rm(filePath, { recursive: true, force: true, maxRetries: 3, retryDelay: 1000 });
-                        debug('info', `Cleaned updater cache directory: ${file}`);
                     } else {
                         cleanedSize += stat.size;
                         await fs.promises.unlink(filePath);
-                        debug('info', `Cleaned updater cache file: ${file}`);
                     }
-                } catch (err) {
+                } catch {
                     failedFiles.push(file);
-                    debug('warn', `Could not clean ${file}: ${err.code || err.message}`);
                 }
             }
 
@@ -159,59 +106,35 @@ async function cleanupUpdaterCache(debug) {
                 debug('success', `Updater cache cleaned: ${sizeMB} MB freed`);
             }
 
-            // Try to remove the directory itself
-            await fs.promises.rmdir(updaterCachePath).catch(() => { });
+            await fs.promises.rmdir(updaterCachePath).catch(() => {});
             return failedFiles;
         };
 
-        // First attempt
         const failedFiles = await attemptCleanup();
 
-        // If files remain (possibly locked), retry after 5 seconds
         if (failedFiles.length > 0) {
-            debug('info', `Retrying cleanup for ${failedFiles.length} locked files in 5s...`);
-            setTimeout(async () => {
-                try {
-                    const remainingFiles = await attemptCleanup();
-                    if (remainingFiles.length === 0) {
-                        debug('success', 'Updater cache fully cleaned on retry');
-                    } else {
-                        debug('warn', `${remainingFiles.length} updater cache files still locked, will clean on next launch`);
-                    }
-                } catch (err) {
-                    debug('warn', 'Retry cleanup failed:', err.message);
-                }
-            }, 5000);
+            setTimeout(() => { attemptCleanup().catch(() => {}); }, 5000);
         }
     } catch (err) {
         debug('warn', 'Failed to clean updater cache:', err.message);
     }
 }
 
-/**
- * Setup auto-updater event handlers
- * @param {Object} options - Configuration options
- * @param {Function} options.getUpdateWindow - Function to get update window
- * @param {Function} options.getMainWindow - Function to get main window
- * @param {Function} options.createMainWindow - Function to create main window
- * @param {Function} options.debug - Debug logging function
- */
 function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, debug }) {
     autoUpdater.on('checking-for-update', () => {
         debug('info', 'Checking for updates...');
-        const updateWindow = getUpdateWindow();
-        sendUpdateStatus(updateWindow, {
+        sendUpdateStatus(getUpdateWindow(), {
             status: 'checking',
             message: 'Checking for updates...'
         });
     });
 
-    autoUpdater.on('update-available', async (info) => {
-        debug('info', 'Update available:', info);
+    autoUpdater.on('update-available', (info) => {
+        debug('info', `Update available: v${info.version}`);
         updateAvailable = true;
-        retryCount = 0; // Reset retry count on successful update check
-        downloadStartTime = Date.now(); // Start tracking download time
-        
+        retryCount = 0;
+        downloadStartTime = Date.now();
+
         pendingUpdateInfo = {
             version: info.version,
             releaseName: info.releaseName,
@@ -223,105 +146,85 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
         const title = info.releaseName || '';
         const version = info.version || '';
         const message = title ? `${title} (v${version})` : `New version available: v${version}`;
-        const releaseNotes = info.releaseNotes || '';
-        
-        // Calculate update size if available
+
         let totalSize = 0;
-        if (info.files && Array.isArray(info.files)) {
+        if (Array.isArray(info.files)) {
             totalSize = info.files.reduce((sum, file) => sum + (file.size || 0), 0);
         }
         const sizeMB = (totalSize / (1024 * 1024)).toFixed(2);
 
-        const payload = { 
-            status: 'available', 
-            message, 
-            version, 
-            releaseName: title, 
-            releaseNotes,
-            size: sizeMB > 0 ? `${sizeMB} MB` : 'Unknown'
+        const payload = {
+            status: 'available',
+            message,
+            version,
+            releaseName: title,
+            releaseNotes: info.releaseNotes || '',
+            size: totalSize > 0 ? `${sizeMB} MB` : 'Unknown'
         };
 
-        const updateWindow = getUpdateWindow();
-        const mainWindow = getMainWindow();
-
-        sendUpdateStatus(updateWindow, payload);
-        sendUpdateStatus(mainWindow, payload);
+        sendUpdateStatus(getUpdateWindow(), payload);
+        sendUpdateStatus(getMainWindow(), payload);
     });
 
-    autoUpdater.on('update-not-available', async (info) => {
-        debug('info', 'Update not available:', info);
+    autoUpdater.on('update-not-available', async () => {
+        debug('info', 'No update available');
 
         const updateWindow = getUpdateWindow();
-        if (updateWindow) {
-            sendUpdateStatus(updateWindow, {
-                status: 'downloading',
-                message: 'Launching application...',
-                percent: 100
-            });
+        if (!updateWindow) return;
 
-            // Give the update window time to render the 100% progress
-            await new Promise(resolve => setTimeout(resolve, 200));
+        sendUpdateStatus(updateWindow, {
+            status: 'downloading',
+            message: 'Launching application...',
+            percent: 100
+        });
 
-            // Create main window and show it after a brief delay
-            const mainWindow = getMainWindow();
-            if (!mainWindow) {
-                const newMainWindow = createMainWindow(true);  // show: true
-                // Close update window after main window loads
-                newMainWindow.webContents.once('did-finish-load', () => {
-                    setTimeout(() => {
-                        if (updateWindow && !updateWindow.isDestroyed()) {
-                            updateWindow.destroy();
-                        }
-                    }, 100);
-                });
-            } else {
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        const mainWindow = getMainWindow();
+        if (!mainWindow) {
+            const newMainWindow = createMainWindow(true);
+            newMainWindow.webContents.once('did-finish-load', () => {
                 setTimeout(() => {
                     if (updateWindow && !updateWindow.isDestroyed()) {
                         updateWindow.destroy();
                     }
                 }, 100);
-            }
+            });
+        } else {
+            setTimeout(() => {
+                if (updateWindow && !updateWindow.isDestroyed()) {
+                    updateWindow.destroy();
+                }
+            }, 100);
         }
     });
 
     autoUpdater.on('download-progress', (progressObj) => {
-        // Calculate download speed and ETA
         const now = Date.now();
-        if (!downloadStartTime) {
-            downloadStartTime = now;
-        }
-        
+        if (!downloadStartTime) downloadStartTime = now;
+
         const bytesReceived = progressObj.transferred || 0;
         const totalBytes = progressObj.total || 0;
         const percent = Math.round(progressObj.percent || 0);
-        
-        // Calculate speed (bytes per second)
+
         const elapsedSeconds = (now - downloadStartTime) / 1000;
         const speed = elapsedSeconds > 0 ? bytesReceived / elapsedSeconds : 0;
-        
-        // Calculate ETA
         const remainingBytes = totalBytes - bytesReceived;
         const etaSeconds = speed > 0 ? remainingBytes / speed : 0;
-        
-        // Format speed
+
         const speedMB = (speed / (1024 * 1024)).toFixed(2);
         const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
         const receivedMB = (bytesReceived / (1024 * 1024)).toFixed(2);
-        
-        // Format ETA
+
         const etaMinutes = Math.floor(etaSeconds / 60);
-        const etaSecondsRemainder = Math.floor(etaSeconds % 60);
-        const etaFormatted = etaMinutes > 0 
-            ? `${etaMinutes}m ${etaSecondsRemainder}s` 
-            : `${etaSecondsRemainder}s`;
-        
-        const message = speed > 0 
+        const etaRemainder = Math.floor(etaSeconds % 60);
+        const etaFormatted = etaMinutes > 0 ? `${etaMinutes}m ${etaRemainder}s` : `${etaRemainder}s`;
+
+        const message = speed > 0
             ? `Downloading: ${percent}% (${receivedMB}/${totalMB} MB) • ${speedMB} MB/s • ETA: ${etaFormatted}`
             : `Downloading update: ${percent}%`;
-        
-        debug('info', message);
-        
-        const statusPayload = {
+
+        const payload = {
             status: 'downloading',
             message,
             percent,
@@ -329,88 +232,57 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             eta: etaFormatted,
             downloaded: receivedMB,
             total: totalMB,
-            // Raw values for detailed UI
             bytesPerSecond: speed,
             transferred: bytesReceived,
-            totalBytes: totalBytes
+            totalBytes
         };
 
-        const updateWindow = getUpdateWindow();
-        const mainWindow = getMainWindow();
-
-        sendUpdateStatus(updateWindow, statusPayload);
-        sendUpdateStatus(mainWindow, statusPayload);
-        
+        sendUpdateStatus(getUpdateWindow(), payload);
+        sendUpdateStatus(getMainWindow(), payload);
     });
 
     autoUpdater.on('update-downloaded', (info) => {
-        debug('success', 'Update downloaded:', info);
+        debug('success', `Update downloaded: v${info.version}`);
         updateDownloaded = true;
 
         const title = info.releaseName || '';
         const version = info.version || '';
         const message = title ? `${title} (v${version}) downloaded.` : `v${version} downloaded.`;
+
         const payload = { status: 'downloaded', message, version, releaseName: title };
+        sendUpdateStatus(getUpdateWindow(), payload);
+        sendUpdateStatus(getMainWindow(), payload);
 
-        const updateWindow = getUpdateWindow();
-        const mainWindow = getMainWindow();
+        const infoToSave = pendingUpdateInfo || {
+            version: info.version,
+            releaseName: info.releaseName,
+            releaseNotes: info.releaseNotes
+        };
+        saveUpdateInfo(infoToSave).catch((err) => {
+            debug('warn', 'Failed to persist update info:', err.message);
+        });
 
-        sendUpdateStatus(updateWindow, payload);
-        sendUpdateStatus(mainWindow, payload);
-
-        // Persist update metadata
-        try {
-            const updateInfoToSave = pendingUpdateInfo || {
-                version: info.version,
-                releaseName: info.releaseName,
-                releaseNotes: info.releaseNotes
-            };
-            updateInfoToSave.timestamp = Date.now();
-            fs.writeFileSync(updateInfoPrimaryPath, JSON.stringify(updateInfoToSave));
-
-            if (updateInfoSecondaryPath) {
-                try {
-                    const secondaryDir = path.dirname(updateInfoSecondaryPath);
-                    if (!fs.existsSync(secondaryDir)) {
-                        fs.mkdirSync(secondaryDir, { recursive: true });
-                    }
-                    fs.writeFileSync(updateInfoSecondaryPath, JSON.stringify(updateInfoToSave));
-                } catch (secErr) {
-                    debug('warn', 'Failed to write secondary update info:', secErr);
-                }
-            }
-        } catch (err) {
-            debug('warn', 'Failed to persist update info:', err);
-        }
-
-        // Use async approach to handle window closure properly
         (async () => {
             try {
                 const updateWin = getUpdateWindow();
                 const mainWin = getMainWindow();
 
-                // Send final status
                 if (updateWin) {
                     sendUpdateStatus(updateWin, {
                         status: 'downloaded',
                         message: 'Installing update...',
                         percent: 100
                     });
-
-                    // Give the update window time to render the 100% progress
                     await new Promise(resolve => setTimeout(resolve, 200));
                 }
 
-                // Create promise to wait for windows to close
                 const closePromises = [];
-                
                 if (updateWin && !updateWin.isDestroyed()) {
                     closePromises.push(new Promise(resolve => {
                         updateWin.once('closed', resolve);
                         updateWin.destroy();
                     }));
                 }
-                
                 if (mainWin && !mainWin.isDestroyed()) {
                     closePromises.push(new Promise(resolve => {
                         mainWin.once('closed', resolve);
@@ -418,33 +290,29 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
                     }));
                 }
 
-                // Wait for all windows to close
                 await Promise.all(closePromises);
 
-                // Install immediately after windows are closed
                 debug('info', 'Launching installer...');
                 autoUpdater.quitAndInstall(true, true);
-            } catch (e) {
-                debug('error', 'Failed to install update automatically:', e);
+            } catch (err) {
+                debug('error', 'Failed to install update automatically:', err.message);
                 app.quit();
             }
         })();
     });
 
     autoUpdater.on('error', (err) => {
-        debug('error', 'Update error:', err);
-
-        // Reset download tracking
+        isChecking = false;
         downloadStartTime = null;
+
+        const msg = (err && err.message) ? err.message : String(err);
+        debug('error', 'Update error:', msg);
 
         const updateWindow = getUpdateWindow();
         const mainWindow = getMainWindow();
-        const msg = (err && err.message) ? err.message : String(err);
 
         const isFirewallBlock = msg.includes('ERR_NETWORK_ACCESS_DENIED');
-
         const isRateLimit = msg.includes('429') || msg.includes('Too Many Requests');
-
         const isTransientNetwork =
             msg.includes('ECONNRESET') ||
             msg.includes('ETIMEDOUT') ||
@@ -458,74 +326,44 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             retryCount = 0;
             sendUpdateStatus(updateWindow, { status: 'error', message });
             sendUpdateStatus(mainWindow, { status: 'error', message, canRetry: false });
-            (async () => {
-                await launchAppAfterError(getUpdateWindow, getMainWindow, createMainWindow);
-            })();
+            launchAppAfterError(getUpdateWindow, getMainWindow, createMainWindow);
         };
 
         if (isFirewallBlock) {
-            debug('error', 'Update blocked by firewall/antivirus (ERR_NETWORK_ACCESS_DENIED) — not retrying.');
             finish('Connection blocked by firewall/antivirus. Allow MakeYourLifeEasier.exe through your security software, then try again.');
             return;
         }
 
         if (isRateLimit) {
-            debug('warn', 'Update server rate limit (HTTP 429) — backing off, not retrying.');
-            finish('Update server is rate-limiting (too many checks). Please wait a few minutes, then try again.');
+            finish('Update server is busy (rate limited). Please try again in a few minutes.');
             return;
         }
 
         if (isTransientNetwork && retryCount < MAX_RETRIES) {
             retryCount++;
             const retryDelay = Math.min(2000 * Math.pow(2, retryCount - 1), 30000);
-
-            debug('warn', `Transient network error. Retry ${retryCount}/${MAX_RETRIES} in ${retryDelay}ms...`);
-
             const retryMessage = `Connection lost. Retrying (${retryCount}/${MAX_RETRIES})...`;
-            sendUpdateStatus(updateWindow, {
-                status: 'downloading',
-                message: retryMessage,
-                percent: 0
-            });
-            sendUpdateStatus(mainWindow, {
-                status: 'error',
-                message: retryMessage
-            });
 
-            (async () => {
-                try {
-                    await new Promise(resolve => setTimeout(resolve, retryDelay));
-                    debug('info', `Retrying update check (attempt ${retryCount})...`);
-                    await autoUpdater.checkForUpdates();
-                } catch (retryErr) {
-                    debug('error', 'Retry failed:', retryErr);
-                    await launchAppAfterError(getUpdateWindow, getMainWindow, createMainWindow);
-                }
-            })();
+            sendUpdateStatus(updateWindow, { status: 'downloading', message: retryMessage, percent: 0 });
+            sendUpdateStatus(mainWindow, { status: 'error', message: retryMessage });
+
+            setTimeout(() => {
+                checkForUpdates(debug);
+            }, retryDelay);
             return;
         }
 
-        if (retryCount >= MAX_RETRIES) {
-            debug('error', `Max retries (${MAX_RETRIES}) reached. Giving up.`);
-        }
         finish(`Update error: ${msg}`);
     });
 }
 
-/**
- * Setup updater IPC handlers
- * @param {Object} options - Configuration options
- * @param {Function} options.getUpdateWindow - Function to get update window
- * @param {Function} options.getMainWindow - Function to get main window
- * @param {Function} options.debug - Debug logging function
- */
 function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
     ipcMain.handle('check-for-updates', async () => {
         try {
-            retryCount = 0; // Reset retry count on manual check
-            const result = await autoUpdater.checkForUpdates();
-            return { 
-                success: true, 
+            retryCount = 0;
+            const result = await runUpdateCheck();
+            return {
+                success: true,
                 updateInfo: result ? {
                     version: result.updateInfo?.version,
                     releaseDate: result.updateInfo?.releaseDate,
@@ -533,7 +371,6 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
                 } : null
             };
         } catch (error) {
-            debug('error', 'Manual update check failed:', error);
             return { success: false, error: error.message };
         }
     });
@@ -548,53 +385,44 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
     });
 
     ipcMain.handle('install-update', async () => {
-        if (updateDownloaded) {
-            const updateWindow = getUpdateWindow();
-            const mainWindow = getMainWindow();
-
-            debug('info', 'Manual install triggered');
-
-            // Send preparing message
-            sendUpdateStatus(updateWindow, {
-                status: 'downloaded',
-                message: 'Preparing installation...',
-                percent: 100
-            });
-
-            // Use promises to ensure windows are closed before installing
-            (async () => {
-                const closePromises = [];
-                
-                if (updateWindow && !updateWindow.isDestroyed()) {
-                    closePromises.push(new Promise(resolve => {
-                        updateWindow.once('closed', resolve);
-                        updateWindow.destroy();
-                    }));
-                }
-                
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    closePromises.push(new Promise(resolve => {
-                        mainWindow.once('closed', resolve);
-                        mainWindow.destroy();
-                    }));
-                }
-
-                await Promise.all(closePromises);
-                
-                debug('info', 'Launching installer...');
-                autoUpdater.quitAndInstall(true, true);
-            })();
-
-            return { success: true };
+        if (!updateDownloaded) {
+            return { success: false, error: 'No update downloaded' };
         }
-        return { success: false, error: 'No update downloaded' };
+
+        const updateWindow = getUpdateWindow();
+        const mainWindow = getMainWindow();
+
+        sendUpdateStatus(updateWindow, {
+            status: 'downloaded',
+            message: 'Preparing installation...',
+            percent: 100
+        });
+
+        (async () => {
+            const closePromises = [];
+            if (updateWindow && !updateWindow.isDestroyed()) {
+                closePromises.push(new Promise(resolve => {
+                    updateWindow.once('closed', resolve);
+                    updateWindow.destroy();
+                }));
+            }
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                closePromises.push(new Promise(resolve => {
+                    mainWindow.once('closed', resolve);
+                    mainWindow.destroy();
+                }));
+            }
+            await Promise.all(closePromises);
+            debug('info', 'Launching installer...');
+            autoUpdater.quitAndInstall(true, true);
+        })();
+
+        return { success: true };
     });
 
     ipcMain.handle('app-ready', async (event, size) => {
-        debug('info', 'Application ready signal received from renderer');
         const mainWindow = getMainWindow();
         try {
-            // If renderer sent a target size, apply it
             if (mainWindow && size && typeof size.width !== 'undefined' && typeof size.height !== 'undefined') {
                 const w = parseInt(size.width, 10);
                 const h = parseInt(size.height, 10);
@@ -603,7 +431,6 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
                 }
             }
 
-            // Send final 100% progress to update window before closing
             const updateWin = getUpdateWindow();
             if (updateWin && !updateWin.isDestroyed()) {
                 sendUpdateStatus(updateWin, {
@@ -611,28 +438,21 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
                     message: 'Application ready!',
                     percent: 100
                 });
-
-                // Give the update window a moment to render the 100% progress
                 await new Promise(resolve => setTimeout(resolve, 200));
-
-                // Now close the update window
                 updateWin.close();
             }
 
-            // Finally show the main window (it may have been created hidden)
             if (mainWindow && !mainWindow.isVisible()) {
                 mainWindow.show();
             }
         } catch (err) {
-            debug('warn', 'Error handling app-ready:', err && err.message);
+            debug('warn', 'Error handling app-ready:', err.message);
         }
-
         return { success: true };
     });
 
     ipcMain.handle('update-loading-progress', async (event, { progress, message }) => {
-        const updateWindow = getUpdateWindow();
-        sendUpdateStatus(updateWindow, {
+        sendUpdateStatus(getUpdateWindow(), {
             status: 'downloading',
             message: message || `Loading application: ${Math.round(progress)}%`,
             percent: progress
@@ -642,16 +462,7 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
 
     ipcMain.handle('save-update-info', async (event, info) => {
         try {
-            const payload = JSON.stringify(info);
-            await fs.promises.writeFile(updateInfoPrimaryPath, payload);
-            if (updateInfoSecondaryPath) {
-                try {
-                    fs.mkdirSync(path.dirname(updateInfoSecondaryPath), { recursive: true });
-                    await fs.promises.writeFile(updateInfoSecondaryPath, payload);
-                } catch (secondaryErr) {
-                    debug('warn', 'Failed to persist update info to ProgramData (secondary):', secondaryErr.message);
-                }
-            }
+            await saveUpdateInfo(info);
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
@@ -660,24 +471,8 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
 
     ipcMain.handle('get-update-info', async () => {
         try {
-            const pathToRead = fs.existsSync(updateInfoPrimaryPath)
-                ? updateInfoPrimaryPath
-                : (updateInfoSecondaryPath && fs.existsSync(updateInfoSecondaryPath)
-                    ? updateInfoSecondaryPath
-                    : null);
-
-            if (pathToRead) {
-                const content = await fs.promises.readFile(pathToRead, 'utf-8');
-                try {
-                    await fs.promises.unlink(pathToRead);
-                } catch { }
-
-                try { if (fs.existsSync(updateInfoPrimaryPath)) await fs.promises.unlink(updateInfoPrimaryPath); } catch { }
-                try { if (fs.existsSync(updateInfoSecondaryPath)) await fs.promises.unlink(updateInfoSecondaryPath); } catch { }
-
-                return { success: true, info: JSON.parse(content) };
-            }
-
+            const info = await readAndClearUpdateInfo();
+            if (info) return { success: true, info };
             return { success: false, error: 'No update info' };
         } catch (error) {
             return { success: false, error: error.message };
@@ -689,15 +484,14 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
     });
 
     ipcMain.handle('cancel-update', async () => {
-        const result = cancelUpdate();
-        return { success: result };
+        return { success: cancelUpdate() };
     });
 
     ipcMain.handle('force-check-updates', async () => {
         try {
             const result = await forceCheckForUpdates(debug);
-            return { 
-                success: true, 
+            return {
+                success: true,
                 updateInfo: result ? {
                     version: result.updateInfo?.version,
                     releaseDate: result.updateInfo?.releaseDate,
@@ -712,7 +506,7 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
     ipcMain.handle('retry-update', async () => {
         try {
             resetUpdateState();
-            await autoUpdater.checkForUpdates();
+            await runUpdateCheck();
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
@@ -720,20 +514,22 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
     });
 }
 
-/**
- * Check for updates
- * @param {Function} debug - Debug logging function
- */
+async function runUpdateCheck() {
+    if (isChecking) return null;
+    isChecking = true;
+    try {
+        return await autoUpdater.checkForUpdates();
+    } finally {
+        isChecking = false;
+    }
+}
+
 function checkForUpdates(debug) {
-    autoUpdater.checkForUpdates().catch((err) => {
-        debug('error', 'Check for updates failed:', err);
+    runUpdateCheck().catch((err) => {
+        debug('error', 'Check for updates failed:', err.message);
     });
 }
 
-/**
- * Get update state
- * @returns {Object} Update state
- */
 function getUpdateState() {
     return {
         updateAvailable,
@@ -745,45 +541,25 @@ function getUpdateState() {
     };
 }
 
-/**
- * Cancel ongoing update download
- * @returns {boolean} Success status
- */
 function cancelUpdate() {
-    try {
-        downloadStartTime = null;
-        retryCount = 0;
-        return true;
-    } catch (err) {
-        return false;
-    }
+    downloadStartTime = null;
+    retryCount = 0;
+    return true;
 }
 
-/**
- * Reset update state
- */
 function resetUpdateState() {
     updateAvailable = false;
     pendingUpdateInfo = null;
     updateDownloaded = false;
+    isChecking = false;
     retryCount = 0;
     downloadStartTime = null;
 }
 
-/**
- * Force check for updates (bypasses cache)
- * @param {Function} debug - Debug logging function
- * @returns {Promise} Update check promise
- */
 async function forceCheckForUpdates(debug) {
-    try {
-        retryCount = 0;
-        debug('info', 'Force checking for updates...');
-        return await autoUpdater.checkForUpdates();
-    } catch (err) {
-        debug('error', 'Force check failed:', err);
-        throw err;
-    }
+    retryCount = 0;
+    debug('info', 'Force checking for updates...');
+    return runUpdateCheck();
 }
 
 module.exports = {
