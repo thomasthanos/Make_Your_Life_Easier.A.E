@@ -50,3 +50,4 @@ check_apps.bat
 
 # Environment variables
 .env
+electron-builder.env
