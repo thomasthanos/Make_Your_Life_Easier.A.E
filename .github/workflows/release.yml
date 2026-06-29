@@ -29,13 +29,17 @@ jobs:
         npm install
         npm run postinstall
 
-    - name: Restore signing certificate
+    - name: Import signing certificate
       shell: pwsh
       env:
         CERT_B64: ${{ secrets.WIN_CSC_LINK }}
+        CERT_PASS: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
       run: |
+        $pfx = "$PWD/config/signing/certificate.pfx"
         New-Item -ItemType Directory -Force config/signing | Out-Null
-        [IO.File]::WriteAllBytes("$PWD/config/signing/certificate.pfx", [Convert]::FromBase64String($env:CERT_B64))
+        [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT_B64))
+        $pass = ConvertTo-SecureString $env:CERT_PASS -AsPlainText -Force
+        Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pass | Out-Null
 
     - name: Build application
       env:
