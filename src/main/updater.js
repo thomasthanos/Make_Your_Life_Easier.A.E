@@ -13,6 +13,15 @@ let retryCount = 0;
 let downloadStartTime = null;
 const MAX_RETRIES = 3;
 
+function isDebugMode() {
+    try {
+        return process.argv.includes('--updater-debug') ||
+            fs.existsSync(path.join(app.getPath('userData'), 'updater-debug.flag'));
+    } catch {
+        return false;
+    }
+}
+
 function sendUpdateStatus(window, payload) {
     if (window && !window.isDestroyed() && window.webContents) {
         try {
@@ -48,6 +57,10 @@ async function launchAppAfterError(getUpdateWindow, getMainWindow, createMainWin
 }
 
 function configureAutoUpdater() {
+    if (!app.isPackaged && isDebugMode()) {
+        autoUpdater.forceDevUpdateConfig = true;
+    }
+
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.allowPrerelease = false;
@@ -121,8 +134,33 @@ async function cleanupUpdaterCache(debug) {
 }
 
 function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, debug }) {
+    const debugMode = isDebugMode();
+    let debugResized = false;
+    let lastDbgPercent = -1;
+
+    const dbg = (line) => {
+        if (!debugMode) return;
+        const win = getUpdateWindow();
+        if (win && !win.isDestroyed() && !debugResized) {
+            debugResized = true;
+            try { win.setResizable(true); win.setSize(680, 620); win.center(); } catch { /* ignore */ }
+        }
+        const ts = new Date().toISOString().slice(11, 23);
+        sendUpdateStatus(win, { status: 'debug', line: `[${ts}] ${line}` });
+    };
+
+    if (debugMode) {
+        dbg(`DEBUG MODE ON — current version v${app.getVersion()} (packaged=${app.isPackaged})`);
+        try {
+            dbg(`feedURL=${autoUpdater.getFeedURL() || '(github provider; resolved at check time)'}`);
+        } catch (e) {
+            dbg(`feedURL error: ${e.message}`);
+        }
+    }
+
     autoUpdater.on('checking-for-update', () => {
         debug('info', 'Checking for updates...');
+        dbg('event: checking-for-update');
         sendUpdateStatus(getUpdateWindow(), {
             status: 'checking',
             message: 'Checking for updates...'
@@ -131,6 +169,7 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 
     autoUpdater.on('update-available', (info) => {
         debug('info', `Update available: v${info.version}`);
+        dbg(`event: update-available v${info.version} — files: ${Array.isArray(info.files) ? info.files.map(f => f.url).join(', ') : 'n/a'}`);
         updateAvailable = true;
         retryCount = 0;
         downloadStartTime = Date.now();
@@ -169,6 +208,12 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
     autoUpdater.on('update-not-available', async () => {
         debug('info', 'No update available');
 
+        if (debugMode) {
+            dbg(`event: update-not-available — server says v${app.getVersion()} is the latest. Check reached GitHub OK.`);
+            dbg('HOLDING (debug). Press "Continue to app" to proceed.');
+            return;
+        }
+
         const updateWindow = getUpdateWindow();
         if (!updateWindow) return;
 
@@ -206,6 +251,11 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
         const bytesReceived = progressObj.transferred || 0;
         const totalBytes = progressObj.total || 0;
         const percent = Math.round(progressObj.percent || 0);
+
+        if (percent >= lastDbgPercent + 10) {
+            lastDbgPercent = percent;
+            dbg(`event: download-progress ${percent}%`);
+        }
 
         const elapsedSeconds = (now - downloadStartTime) / 1000;
         const speed = elapsedSeconds > 0 ? bytesReceived / elapsedSeconds : 0;
@@ -262,6 +312,12 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             debug('warn', 'Failed to persist update info:', err.message);
         });
 
+        if (debugMode) {
+            dbg(`event: update-downloaded v${info.version} — download + signature verification OK.`);
+            dbg('HOLDING (debug). Press "Continue to app" to install now.');
+            return;
+        }
+
         (async () => {
             try {
                 const updateWin = getUpdateWindow();
@@ -307,6 +363,16 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 
         const msg = (err && err.message) ? err.message : String(err);
         debug('error', 'Update error:', msg);
+
+        if (debugMode) {
+            dbg(`event: ERROR — ${msg}`);
+            if (err && err.code) dbg(`error code: ${err.code}`);
+            if (err && err.stack) {
+                err.stack.split('\n').slice(0, 6).forEach(l => dbg(`  ${l.trim()}`));
+            }
+            dbg('HOLDING (debug). Press "Continue to app" to proceed.');
+            return;
+        }
 
         const updateWindow = getUpdateWindow();
         const mainWindow = getMainWindow();
@@ -357,7 +423,30 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
     });
 }
 
-function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
+function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, createMainWindow, debug }) {
+    ipcMain.handle('updater-debug-continue', async () => {
+        const updateWin = getUpdateWindow();
+
+        if (updateDownloaded) {
+            if (updateWin && !updateWin.isDestroyed()) updateWin.destroy();
+            const mainWin = getMainWindow();
+            if (mainWin && !mainWin.isDestroyed()) mainWin.destroy();
+            debug('info', 'Debug continue: installing update...');
+            autoUpdater.quitAndInstall(true, true);
+            return { success: true };
+        }
+
+        if (!getMainWindow() && typeof createMainWindow === 'function') {
+            const newMain = createMainWindow(true);
+            newMain.webContents.once('did-finish-load', () => {
+                setTimeout(() => {
+                    if (updateWin && !updateWin.isDestroyed()) updateWin.destroy();
+                }, 100);
+            });
+        }
+        return { success: true };
+    });
+
     ipcMain.handle('check-for-updates', async () => {
         try {
             retryCount = 0;

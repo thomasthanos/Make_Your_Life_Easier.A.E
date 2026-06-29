@@ -45,8 +45,30 @@ window.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
+  const debugLog = document.getElementById('debug-log');
+  const debugContinue = document.getElementById('debug-continue');
+  const card = document.querySelector('.update-card');
+
+  if (debugContinue && window.api && typeof window.api.updaterDebugContinue === 'function') {
+    debugContinue.addEventListener('click', () => {
+      debugContinue.disabled = true;
+      window.api.updaterDebugContinue().catch(() => {});
+    });
+  }
+
   // Listen for update status messages from the main process.
   window.api.onUpdateStatus((data) => {
+    if (data.status === 'debug') {
+      if (card) card.classList.add('debug');
+      if (debugLog) {
+        debugLog.style.display = 'block';
+        debugLog.textContent += `${data.line}\n`;
+        debugLog.scrollTop = debugLog.scrollHeight;
+      }
+      if (debugContinue) debugContinue.style.display = 'inline-block';
+      return;
+    }
+
     switch (data.status) {
       case 'checking':
         updateProgress(5, 'Checking for updates…', 'update-check');
