@@ -42,6 +42,22 @@ jobs:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
       run: npm run build-all
 
+    - name: Publish update feed to R2
+      shell: pwsh
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: auto
+        AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+        AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      run: |
+        $endpoint = "https://$env:R2_ACCOUNT_ID.r2.cloudflarestorage.com"
+        aws s3 cp artifacts/dist/latest.yml "s3://$env:R2_BUCKET/latest.yml" --endpoint-url $endpoint --content-type "text/yaml" --cache-control "no-cache"
+        aws s3 cp artifacts/dist/MakeYourLifeEasier-installer.exe "s3://$env:R2_BUCKET/MakeYourLifeEasier-installer.exe" --endpoint-url $endpoint
+        aws s3 cp artifacts/dist/MakeYourLifeEasier-installer.exe.blockmap "s3://$env:R2_BUCKET/MakeYourLifeEasier-installer.exe.blockmap" --endpoint-url $endpoint
+
     - name: Create Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')

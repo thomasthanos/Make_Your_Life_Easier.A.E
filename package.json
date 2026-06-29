@@ -1,6 +1,6 @@
 {
   "name": "make-your-life-easier",
-  "version": "4.0.6",
+  "version": "4.0.7",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "homepage": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E",
@@ -111,10 +111,8 @@
     },
     "generateUpdatesFilesForAllChannels": true,
     "publish": {
-      "provider": "github",
-      "owner": "thomasthanos",
-      "repo": "Make_Your_Life_Easier.A.E",
-      "releaseType": "release"
+      "provider": "generic",
+      "url": "https://pub-55b723f83c32414ea5c259c71e94b605.r2.dev"
     }
   },
   "repository": {
