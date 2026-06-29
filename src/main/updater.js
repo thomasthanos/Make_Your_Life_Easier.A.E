@@ -61,6 +61,12 @@ function performInstall(getUpdateWindow, getMainWindow, debug) {
     if (quittingForInstall) return;
     quittingForInstall = true;
 
+    try {
+        fs.writeFileSync(path.join(app.getPath('userData'), '.just-updated'), Date.now().toString());
+    } catch {
+        // non-fatal: post-install launch will just do a normal update check
+    }
+
     const updateWin = getUpdateWindow();
     const mainWin = getMainWindow();
 

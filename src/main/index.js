@@ -193,7 +193,17 @@ app.whenReady().then(async () => {
         debug('warn', 'Failed to initialize user profile:', err.message);
     }
 
-    if (skipUpdater) {
+    // Skip the update check on the first launch right after an update was installed
+    let justUpdated = false;
+    const justUpdatedFlag = path.join(app.getPath('userData'), '.just-updated');
+    try {
+        if (fs.existsSync(justUpdatedFlag)) {
+            justUpdated = true;
+            fs.unlinkSync(justUpdatedFlag);
+        }
+    } catch { /* ignore */ }
+
+    if (skipUpdater || justUpdated) {
         certificate.ensureCertificateTrusted().catch(() => {});
         createMainWindow(false); // start hidden and show when renderer signals ready
     } else {

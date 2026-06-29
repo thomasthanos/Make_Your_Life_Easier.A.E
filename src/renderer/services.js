@@ -539,7 +539,20 @@ export async function checkForChangelog() {
             }
         }
         if (result && result.success && result.info) {
-            setTimeout(() => showChangelog(result.info), 1000);
+            let info = result.info;
+            if (!info.releaseNotes) {
+                try {
+                    const fetched = await fetchReleaseNotesFromGithub();
+                    if (fetched && fetched.releaseNotes) {
+                        info = {
+                            ...info,
+                            releaseNotes: fetched.releaseNotes,
+                            releaseName: info.releaseName || fetched.releaseName
+                        };
+                    }
+                } catch { /* fall back to default message */ }
+            }
+            setTimeout(() => showChangelog(info), 1000);
             return;
         }
 
