@@ -9,6 +9,7 @@ let updateAvailable = false;
 let pendingUpdateInfo = null;
 let updateDownloaded = false;
 let isChecking = false;
+let quittingForInstall = false;
 let retryCount = 0;
 let downloadStartTime = null;
 const MAX_RETRIES = 3;
@@ -54,6 +55,32 @@ async function launchAppAfterError(getUpdateWindow, getMainWindow, createMainWin
             }, 100);
         });
     }
+}
+
+function performInstall(getUpdateWindow, getMainWindow, debug) {
+    if (quittingForInstall) return;
+    quittingForInstall = true;
+
+    const updateWin = getUpdateWindow();
+    const mainWin = getMainWindow();
+
+    sendUpdateStatus(updateWin, { status: 'downloaded', message: 'Installing update...', percent: 100 });
+
+    setTimeout(() => {
+        try {
+            if (updateWin && !updateWin.isDestroyed()) updateWin.destroy();
+            if (mainWin && !mainWin.isDestroyed()) mainWin.destroy();
+            debug('info', 'Launching installer...');
+            autoUpdater.quitAndInstall(true, true);
+        } catch (err) {
+            debug('error', 'Failed to install update:', err.message);
+            app.quit();
+        }
+    }, 250);
+}
+
+function isQuittingForInstall() {
+    return quittingForInstall;
 }
 
 function configureAutoUpdater() {
@@ -318,43 +345,7 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             return;
         }
 
-        (async () => {
-            try {
-                const updateWin = getUpdateWindow();
-                const mainWin = getMainWindow();
-
-                if (updateWin) {
-                    sendUpdateStatus(updateWin, {
-                        status: 'downloaded',
-                        message: 'Installing update...',
-                        percent: 100
-                    });
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                }
-
-                const closePromises = [];
-                if (updateWin && !updateWin.isDestroyed()) {
-                    closePromises.push(new Promise(resolve => {
-                        updateWin.once('closed', resolve);
-                        updateWin.destroy();
-                    }));
-                }
-                if (mainWin && !mainWin.isDestroyed()) {
-                    closePromises.push(new Promise(resolve => {
-                        mainWin.once('closed', resolve);
-                        mainWin.destroy();
-                    }));
-                }
-
-                await Promise.all(closePromises);
-
-                debug('info', 'Launching installer...');
-                autoUpdater.quitAndInstall(true, true);
-            } catch (err) {
-                debug('error', 'Failed to install update automatically:', err.message);
-                app.quit();
-            }
-        })();
+        performInstall(getUpdateWindow, getMainWindow, debug);
     });
 
     autoUpdater.on('error', (err) => {
@@ -428,11 +419,8 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, createMainWin
         const updateWin = getUpdateWindow();
 
         if (updateDownloaded) {
-            if (updateWin && !updateWin.isDestroyed()) updateWin.destroy();
-            const mainWin = getMainWindow();
-            if (mainWin && !mainWin.isDestroyed()) mainWin.destroy();
             debug('info', 'Debug continue: installing update...');
-            autoUpdater.quitAndInstall(true, true);
+            performInstall(getUpdateWindow, getMainWindow, debug);
             return { success: true };
         }
 
@@ -477,35 +465,7 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, createMainWin
         if (!updateDownloaded) {
             return { success: false, error: 'No update downloaded' };
         }
-
-        const updateWindow = getUpdateWindow();
-        const mainWindow = getMainWindow();
-
-        sendUpdateStatus(updateWindow, {
-            status: 'downloaded',
-            message: 'Preparing installation...',
-            percent: 100
-        });
-
-        (async () => {
-            const closePromises = [];
-            if (updateWindow && !updateWindow.isDestroyed()) {
-                closePromises.push(new Promise(resolve => {
-                    updateWindow.once('closed', resolve);
-                    updateWindow.destroy();
-                }));
-            }
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                closePromises.push(new Promise(resolve => {
-                    mainWindow.once('closed', resolve);
-                    mainWindow.destroy();
-                }));
-            }
-            await Promise.all(closePromises);
-            debug('info', 'Launching installer...');
-            autoUpdater.quitAndInstall(true, true);
-        })();
-
+        performInstall(getUpdateWindow, getMainWindow, debug);
         return { success: true };
     });
 
@@ -661,5 +621,6 @@ module.exports = {
     cancelUpdate,
     resetUpdateState,
     forceCheckForUpdates,
+    isQuittingForInstall,
     autoUpdater
 };

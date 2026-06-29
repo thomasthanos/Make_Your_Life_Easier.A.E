@@ -213,6 +213,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+    if (updater.isQuittingForInstall()) return;
     if (process.platform !== 'darwin') app.quit();
 });
 
