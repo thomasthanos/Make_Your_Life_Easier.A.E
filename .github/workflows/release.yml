@@ -30,11 +30,17 @@ jobs:
         npm install
         npm run postinstall
 
+    - name: Restore signing certificate
+      shell: pwsh
+      env:
+        CERT_B64: ${{ secrets.WIN_CSC_LINK }}
+      run: |
+        New-Item -ItemType Directory -Force config/signing | Out-Null
+        [IO.File]::WriteAllBytes("$PWD/config/signing/certificate.pfx", [Convert]::FromBase64String($env:CERT_B64))
+
     - name: Build application
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-        WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
       run: npm run build-all
 
     - name: Create Release
