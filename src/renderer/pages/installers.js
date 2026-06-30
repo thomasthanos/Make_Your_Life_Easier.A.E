@@ -326,7 +326,7 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
                 // Προσπάθεια cleanup μετά από 2 δευτερόλεπτα
                 setTimeout(() => {
                     try {
-                        window.api.cleanupFile(activatorPath);
+                        window.api.deleteFile(activatorPath);
                     } catch {
                         // optional cleanup; ignore failures
                     }

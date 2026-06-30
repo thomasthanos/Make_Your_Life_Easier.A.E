@@ -429,15 +429,6 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
         return { success: true };
     });
 
-    ipcMain.handle('save-update-info', async (event, info) => {
-        try {
-            await saveUpdateInfo(info);
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
-
     ipcMain.handle('get-update-info', async () => {
         try {
             const info = await readAndClearUpdateInfo();
