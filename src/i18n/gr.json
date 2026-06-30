@@ -74,7 +74,23 @@
     "check_installed": "Έλεγχος Εγκατεστημένων",
     "uncheck_all": "Αποεπιλογή Όλων",
     "export_list": "Εξαγωγή Λίστας",
-    "import_list": "Εισαγωγή Λίστας"
+    "import_list": "Εισαγωγή Λίστας",
+    "sort_default": "Κατηγορία",
+    "sort_az": "Α έως Ω",
+    "sort_za": "Ω έως Α",
+    "sort_status": "Κατάσταση",
+    "list_view": "Προβολή λίστας",
+    "grid_view": "Προβολή πλέγματος",
+    "clean": "Καθαρισμός",
+    "clear": "Εκκαθάριση",
+    "launch": "Άνοιγμα",
+    "flush": "Εκκαθάριση",
+    "fix": "Επιδιόρθωση",
+    "reset": "Επαναφορά",
+    "restart": "Επανεκκίνηση",
+    "check": "Έλεγχος",
+    "open_developer_site": "Άνοιγμα σελίδας προγραμματιστή",
+    "running": "Εκτέλεση..."
   },
   "messages": {
     "bios_instructions": "Επανεκκίνηση στο BIOS για προχωρημένες ρυθμίσεις υλικού. Αποθηκεύστε όλη σας την εργασία πριν προχωρήσετε!",
@@ -106,7 +122,15 @@
     "debloat_changes": "βελτιστοποιήσεις και αφαιρέσεις συστήματος",
     "winget_not_installed": "Το Winget δεν είναι εγκατεστημένο",
     "open_store": "Άνοιγμα Microsoft Store",
-    "oauth_not_configured": "Η σύνδεση δεν είναι διαθέσιμη: τα OAuth credentials δεν έχουν ρυθμιστεί."
+    "oauth_not_configured": "Η σύνδεση δεν είναι διαθέσιμη: τα OAuth credentials δεν έχουν ρυθμιστεί.",
+    "bios_what_happens": "Τι θα συμβεί:",
+    "bios_steps": [
+      "Αποθηκεύστε την εργασία σας και κλείστε τις εφαρμογές",
+      "Το σύστημα θα επανεκκινηθεί αυτόματα",
+      "Το BIOS/UEFI θα ανοίξει κατά την εκκίνηση",
+      "Ρυθμίστε τις επιλογές που χρειάζεστε"
+    ],
+    "bios_important_notice": "Σημαντική ειδοποίηση"
   },
   "maintenance": {
     "delete_temp_files": "Καθαρισμός Cache",
@@ -114,7 +138,33 @@
     "system_file_repair": "SFC Scan",
     "system_file_desc": "Έλεγχος και επιδιόρθωση αρχείων συστήματος",
     "patch_my_pc": "Ενημέρωση Εφαρμογών",
-    "patch_my_pc_desc": "Αυτόματη ενημέρωση όλων των εγκατεστημένων εφαρμογών με ένα κλικ"
+    "patch_my_pc_desc": "Αυτόματη ενημέρωση όλων των εγκατεστημένων εφαρμογών με ένα κλικ",
+    "cleanup_section": "Καθαρισμός",
+    "network_section": "Δίκτυο & Συνδεσιμότητα",
+    "repair_section": "Επιδιόρθωση & Διαγνωστικά",
+    "tools_section": "Εργαλεία",
+    "recycle_bin": "Καθαρισμός Κάδου Ανακύκλωσης",
+    "recycle_bin_desc": "Αδειάζει τον Κάδο Ανακύκλωσης των Windows",
+    "windows_cache": "Καθαρισμός Windows Cache",
+    "windows_cache_desc": "Καθαρίζει την cache λήψεων του Windows Update",
+    "thumbnail_cache": "Εκκαθάριση Thumbnail Cache",
+    "thumbnail_cache_desc": "Καθαρίζει αρχεία εικονιδίων και μικρογραφιών",
+    "error_reports": "Εκκαθάριση Αναφορών Σφαλμάτων",
+    "error_reports_desc": "Καθαρίζει crash dumps και αναφορές σφαλμάτων",
+    "disk_cleaner": "Εκκαθάριση Δίσκου",
+    "disk_cleaner_desc": "Ανοίγει το εργαλείο Εκκαθάρισης Δίσκου των Windows",
+    "flush_dns": "Εκκαθάριση DNS Cache",
+    "flush_dns_desc": "Καθαρίζει την cache επίλυσης DNS",
+    "release_renew_ip": "Ανανέωση IP",
+    "release_renew_ip_desc": "Απελευθερώνει και ανανεώνει τη διεύθυνση IP",
+    "fix_bluetooth": "Επιδιόρθωση Bluetooth",
+    "fix_bluetooth_desc": "Επανεκκινεί υπηρεσίες και adapter Bluetooth",
+    "network_reset": "Επαναφορά Δικτύου",
+    "network_reset_desc": "Επαναφέρει Winsock, IP stack και καθαρίζει DNS",
+    "check_disk": "Έλεγχος Δίσκου",
+    "check_disk_desc": "Σαρώνει τον δίσκο C: για σφάλματα (μόνο ανάγνωση)",
+    "restart_audio": "Επανεκκίνηση Ήχου",
+    "restart_audio_desc": "Επανεκκινεί τις υπηρεσίες ήχου των Windows"
   },
   "activation": {
     "activate_windows": "Ενεργοποίηση Windows",
@@ -194,5 +244,23 @@
     "title_high": "Κάνε τη ζωή",
     "title_rest": "πιο εύκολη",
     "subtitle": "Έξυπνα Εργαλεία Διαχείρισης Συστήματος"
+  },
+  "categories": {
+    "Browsers": "Περιηγητές",
+    "Communication": "Επικοινωνία",
+    "Games": "Παιχνίδια",
+    "Media": "Πολυμέσα",
+    "Development": "Ανάπτυξη",
+    "Security": "Ασφάλεια",
+    "Hardware": "Υλικό",
+    "Utilities": "Εργαλεία",
+    "Others": "Άλλα"
+  },
+  "statuses": {
+    "installed": "Εγκατεστημένο",
+    "not_installed": "Μη εγκατεστημένο",
+    "update_available": "Διαθέσιμη ενημέρωση",
+    "failed": "Απέτυχε",
+    "unknown": "Άγνωστο"
   }
 }

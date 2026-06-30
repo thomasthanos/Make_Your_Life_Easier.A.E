@@ -8,7 +8,7 @@ const path = require('path');
 
 // Window dimension constants
 const MAIN_WINDOW = { width: 1100, height: 750, minWidth: 800, minHeight: 600 };
-const UPDATE_WINDOW = { width: 500, height: 350 };
+const UPDATE_WINDOW = { width: 650, height: 440 };
 const WINDOW_BG_COLOR = '#171717';
 
 // Window references

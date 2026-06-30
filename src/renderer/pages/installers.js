@@ -145,6 +145,14 @@ function getCategoryForId(pkgId) {
     return 'Others';
 }
 
+function getCategoryLabel(categoryKey, translations) {
+    return (translations.categories && translations.categories[categoryKey]) || categoryKey;
+}
+
+function getStatusLabel(statusKey, translations) {
+    return (translations.statuses && translations.statuses[statusKey]) || statusKey;
+}
+
 // ============================================
 // CRACK INSTALLER HELPERS
 // ============================================
@@ -563,11 +571,18 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     const searchContainer = document.createElement('div');
     searchContainer.classList.add('search-container');
 
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'search-icon';
+    searchIcon.setAttribute('aria-hidden', 'true');
+    searchIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>';
+
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
     searchInput.placeholder = (translations.messages && translations.messages.search_apps) || 'Search apps...';
+    searchInput.setAttribute('aria-label', searchInput.placeholder);
     searchInput.className = 'search-input-styled';
 
+    searchContainer.appendChild(searchIcon);
     searchContainer.appendChild(searchInput);
     searchWrapper.appendChild(searchContainer);
     container.appendChild(searchWrapper);
@@ -638,13 +653,13 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     const listViewBtn = document.createElement('button');
     listViewBtn.className = 'view-toggle-btn active';
-    listViewBtn.title = 'List view';
+    listViewBtn.title = (translations.actions && translations.actions.list_view) || 'List view';
     listViewBtn.dataset.view = 'list';
     listViewBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
 
     const gridViewBtn = document.createElement('button');
     gridViewBtn.className = 'view-toggle-btn';
-    gridViewBtn.title = 'Grid view';
+    gridViewBtn.title = (translations.actions && translations.actions.grid_view) || 'Grid view';
     gridViewBtn.dataset.view = 'grid';
     gridViewBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`;
 
@@ -793,10 +808,15 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
         const total = ids.length + (CUSTOM_APPS ? CUSTOM_APPS.length : 0);
         const plural = total !== 1 ? 's' : '';
+        const suffix = settings?.lang === 'gr'
+            ? (total !== 1 ? 'ές' : 'ή')
+            : plural;
         const template = (translations.messages && translations.messages.search_for_total) || 'Search for {total} app{plural}...';
         searchInput.placeholder = template
             .replace('{total}', total)
-            .replace('{plural}', plural);
+            .replace('{plural}', plural)
+            .replace('{suffix}', suffix);
+        searchInput.setAttribute('aria-label', searchInput.placeholder);
 
         listContainer.innerHTML = '';
         const orderedCats = ['Browsers', 'Communication', 'Games', 'Media', 'Development', 'Security', 'Hardware', 'Utilities', 'Others'];
@@ -807,7 +827,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
             const group = document.createElement('div');
             const heading = document.createElement('h3');
-            heading.textContent = cat;
+            heading.textContent = getCategoryLabel(cat, translations);
             heading.classList.add('category-heading');
             group.appendChild(heading);
 
@@ -895,7 +915,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     linkEl.target = '_blank';
                     linkEl.rel = 'noopener noreferrer';
                     linkEl.classList.add('app-link');
-                    linkEl.setAttribute('aria-label', 'Open developer site');
+                    linkEl.setAttribute('aria-label', (translations.actions && translations.actions.open_developer_site) || 'Open developer site');
                     linkEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></svg>';
                     linkEl.addEventListener('click', (event) => {
                         event.preventDefault();
@@ -1043,18 +1063,18 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                         updateCount++;
                         if (badge) {
                             badge.dataset.status = 'update-available';
-                            badge.textContent = 'Update available';
+                            badge.textContent = getStatusLabel('update_available', translations);
                         }
                     } else {
                         if (badge) {
                             badge.dataset.status = 'installed';
-                            badge.textContent = 'Installed';
+                            badge.textContent = getStatusLabel('installed', translations);
                         }
                     }
                 } else {
                     if (badge) {
                         badge.dataset.status = 'not-installed';
-                        badge.textContent = 'Not installed';
+                        badge.textContent = getStatusLabel('not_installed', translations);
                     }
                 }
             });
@@ -1194,10 +1214,10 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             if (!badge) return;
             if (state === 'installed') {
                 badge.dataset.status = 'installed';
-                badge.textContent = 'Installed';
+                badge.textContent = getStatusLabel('installed', translations);
             } else {
                 badge.dataset.status = 'failed';
-                badge.textContent = 'Failed';
+                badge.textContent = getStatusLabel('failed', translations);
             }
         };
 

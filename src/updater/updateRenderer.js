@@ -1,67 +1,104 @@
-// Renderer script for the update window.  This script listens for
-// update status messages from the main process and updates the UI
-// accordingly.  It does not itself trigger update checks — the main
-// process starts the check when the update window is created.
+// Renderer script for the update window. It listens for update status
+// messages from the main process and keeps the splash UI in sync.
 
 window.addEventListener('DOMContentLoaded', () => {
-  // Select the progress bar element and the status element.
+  const cardEl = document.querySelector('.update-card');
   const progressBar = document.querySelector('.progress-bar');
   const statusEl = document.getElementById('status');
+  const progressPercentEl = document.getElementById('progress-percent');
+  const progressSizeEl = document.getElementById('progress-size');
+  const progressSpeedEl = document.getElementById('progress-speed');
+  const progressEtaEl = document.getElementById('progress-eta');
 
-  // Track last progress for smooth animation
   let lastProgress = 0;
-  let currentPhase = 'init'; // Track phase to allow progress reset
+  let currentPhase = 'init';
+  let lastDownloadDetails = {};
 
-  /**
-   * Update the progress bar width and optional status message.
-   * @param {number} percent Progress percentage (0–100)
-   * @param {string} [text] Optional status text to display
-   * @param {string} [phase] Optional phase identifier to allow progress reset
-   */
+  function setMode(mode) {
+    if (!cardEl) return;
+    const isDownloading = mode === 'downloading';
+    cardEl.classList.toggle('is-downloading', isDownloading);
+    cardEl.classList.toggle('is-message', !isDownloading);
+  }
+
+  function formatDecimal(value, fallback = '0.00') {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric.toFixed(2) : fallback;
+  }
+
+  function updateDownloadMetrics(percent, data = {}) {
+    if (progressPercentEl) {
+      progressPercentEl.textContent = `${Math.round(percent || 0)}%`;
+    }
+
+    if (progressSizeEl) {
+      const downloaded = data.downloaded !== undefined
+        ? formatDecimal(data.downloaded)
+        : formatDecimal((data.transferred || 0) / (1024 * 1024));
+      const total = data.total !== undefined
+        ? formatDecimal(data.total)
+        : formatDecimal((data.totalBytes || 0) / (1024 * 1024));
+      progressSizeEl.textContent = `${downloaded}/${total} MB`;
+    }
+
+    if (progressSpeedEl) {
+      const speed = data.speed !== undefined
+        ? formatDecimal(data.speed)
+        : formatDecimal((data.bytesPerSecond || 0) / (1024 * 1024));
+      progressSpeedEl.textContent = `${speed} MB/s`;
+    }
+
+    if (progressEtaEl) {
+      const eta = data.eta || 'Calculating';
+      progressEtaEl.textContent = percent >= 100 ? 'Done' : `${eta} left`;
+    }
+  }
+
   function updateProgress(percent, text, phase = null) {
-    // If phase changed, allow progress to reset
     if (phase && phase !== currentPhase) {
       currentPhase = phase;
       lastProgress = 0;
     }
 
     if (typeof percent === 'number') {
-      // Only animate forward within same phase
       const clamped = Math.max(lastProgress, Math.min(100, percent));
       lastProgress = clamped;
       if (progressBar) {
         progressBar.style.width = `${clamped}%`;
       }
     }
+
     if (text && statusEl) {
       statusEl.textContent = text;
     }
   }
 
-  // Check if API is available
   if (!window.api || typeof window.api.onUpdateStatus !== 'function') {
     console.warn('UpdateRenderer: window.api.onUpdateStatus not available');
+    setMode('message');
     updateProgress(0, 'Loading...');
     return;
   }
 
-  // Listen for update status messages from the main process.
   window.api.onUpdateStatus((data) => {
     switch (data.status) {
       case 'checking':
-        updateProgress(5, 'Checking for updates…', 'update-check');
+        setMode('message');
+        updateProgress(5, 'Checking for updates', 'update-check');
         break;
+
       case 'available': {
+        setMode('message');
         const sizeInfo = data.size ? ` (${data.size})` : '';
-        const message = data.releaseName 
-          ? `${data.releaseName} available${sizeInfo}! Downloading…`
-          : `Update available${sizeInfo}! Downloading…`;
+        const message = data.releaseName
+          ? `${data.releaseName} available${sizeInfo}! Downloading...`
+          : `Update available${sizeInfo}! Downloading...`;
         updateProgress(10, message, 'update-download');
         break;
       }
+
       case 'downloading': {
         const percent = Math.round(data.percent || 0);
-        // If message contains "Loading" or "Initializing", it's app loading phase
         const isAppLoading = data.message &&
           (data.message.includes('Loading') ||
             data.message.includes('Initializing') ||
@@ -71,33 +108,40 @@ window.addEventListener('DOMContentLoaded', () => {
             data.message.includes('Launching'));
 
         const phase = isAppLoading ? 'app-loading' : 'update-download';
-        
-        // Enhanced message with speed and ETA if available
-        let text = typeof data.message === 'string'
+        setMode(isAppLoading ? 'message' : 'downloading');
+
+        const text = typeof data.message === 'string'
           ? data.message
           : `Downloading update: ${percent}%`;
-        
-        // Add retry indicator if retrying
-        if (data.message && data.message.includes('Retrying')) {
-          text = `⟳ ${text}`;
-        }
-        
+
         updateProgress(percent, text, phase);
+        if (!isAppLoading) {
+          lastDownloadDetails = { ...lastDownloadDetails, ...data };
+          updateDownloadMetrics(percent, data);
+        }
         break;
       }
+
       case 'downloaded':
-        updateProgress(100, 'Update downloaded! Installing…', 'update-install');
+        setMode('downloading');
+        updateDownloadMetrics(100, { ...lastDownloadDetails, ...data });
+        updateProgress(100, 'Update downloaded! Installing...', 'update-install');
         break;
+
       case 'not-available':
-        updateProgress(100, 'Launching application…', 'app-loading');
+        setMode('message');
+        updateProgress(100, 'Launching application...', 'app-loading');
         break;
+
       case 'error': {
-        const errorMsg = data.canRetry 
-          ? 'Connection error. Retrying…' 
-          : 'Update failed. Launching app…';
+        setMode('message');
+        const errorMsg = data.canRetry
+          ? 'Connection error. Retrying...'
+          : 'Update failed. Launching app...';
         updateProgress(10, errorMsg, 'app-loading');
         break;
       }
+
       default:
         break;
     }

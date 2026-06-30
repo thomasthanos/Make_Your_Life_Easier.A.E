@@ -3,40 +3,33 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" 
+    <meta http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https:; object-src 'none'; base-uri 'self';" />
     <title>Make Your Life Easier - Loading</title>
-    
-    <!-- DNS Prefetch & Preconnect (static - added dynamically would be too late) -->
+
     <link rel="dns-prefetch" href="https://www.google.com">
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="dns-prefetch" href="https://i.postimg.cc">
     <link rel="preconnect" href="https://www.google.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://i.postimg.cc" crossorigin>
-    
-    <!-- Preload local critical assets -->
     <link rel="preload" href="../assets/icons/hacker.ico" as="image" type="image/x-icon">
-    
-    <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="../assets/icons/hacker.ico" />
     <link rel="stylesheet" href="../renderer/styles/main.css" />
-    
+
     <style>
-      html, body {
+      html,
+      body {
         margin: 0;
         padding: 0;
         width: 100%;
         height: 100%;
       }
+
       body {
         display: flex;
         justify-content: center;
         align-items: center;
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        padding: 0;
         background-color: transparent;
         color: var(--text-primary);
         font-family: sans-serif;
@@ -45,82 +38,247 @@
         -ms-user-select: none;
         user-select: none;
       }
+
       .update-card {
-        background:
-          radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05) 60%),
-          var(--panel-strong);
-        border-radius: 16px;
-        padding: 40px;
-        width: 380px;
+        position: relative;
+        box-sizing: border-box;
+        width: min(610px, calc(100vw - 28px));
+        min-height: 380px;
+        padding: 44px 48px 48px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        border: 1px solid var(--gloss-border-top);
-        box-shadow: var(--gloss-inner);
-        backdrop-filter: blur(20px) saturate(1.6);
-        -webkit-backdrop-filter: blur(20px) saturate(1.6);
+        justify-content: center;
+        overflow: hidden;
+        border-radius: 30px;
+        border: 3px solid transparent;
+        background:
+          linear-gradient(180deg, rgba(43, 54, 74, 0.9), rgba(22, 30, 45, 0.92)) padding-box,
+          linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0.24) 38%, rgba(0, 0, 0, 0.22) 70%, rgba(255, 255, 255, 0.34)) border-box,
+          linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06) 42%, rgba(255, 255, 255, 0.03)),
+          var(--panel-strong);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.24),
+          inset 1px 0 0 rgba(255, 255, 255, 0.1),
+          inset 0 -1px 0 rgba(0, 0, 0, 0.24);
+        backdrop-filter: blur(22px) saturate(1.55);
+        -webkit-backdrop-filter: blur(22px) saturate(1.55);
       }
+
+      .icon,
+      .title,
+      .status,
+      .progress-wrapper {
+        position: relative;
+        z-index: 1;
+      }
+
       .icon {
-        width: 74px;
-        height: 74px;
-        margin-bottom: 20px;
-        filter: brightness(0.9);
+        width: 94px;
+        height: 94px;
+        margin-bottom: 22px;
         border-radius: 16px;
+        filter: drop-shadow(0 14px 20px rgba(0, 0, 0, 0.24)) brightness(0.96);
       }
+
       .title {
-        margin: 0;
-        margin-bottom: 12px;
-        font-size: 24px;
-        font-weight: 600;
-        color: var(--text-primary);
-      }
-      .status {
-        margin: 0;
-        margin-bottom: 24px;
-        font-size: 15px;
-        color: var(--text-secondary);
+        margin: 0 0 28px;
+        color: #f4f8ff;
+        font-family: "Segoe Print", "Ink Free", "Segoe UI", sans-serif;
+        font-size: 38px;
+        font-weight: 700;
+        line-height: 1.05;
         text-align: center;
+        letter-spacing: 0;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
       }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        min-height: 28px;
+        margin: 0;
+        padding: 12px 18px;
+        color: rgba(245, 248, 255, 0.78);
+        font-size: 15px;
+        font-weight: 600;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.12),
+          0 12px 24px rgba(0, 0, 0, 0.16);
+        backdrop-filter: blur(18px) saturate(1.4);
+        -webkit-backdrop-filter: blur(18px) saturate(1.4);
+      }
+
+      .status::before {
+        content: "";
+        width: 15px;
+        height: 15px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        border: 2px solid rgba(245, 248, 255, 0.2);
+        border-top-color: rgba(245, 248, 255, 0.8);
+        animation: spin 0.9s linear infinite;
+      }
+
       .progress-wrapper {
         width: 100%;
       }
+
       .progress-bar-bg {
+        position: relative;
         width: 100%;
-        height: 8px;
-        border-radius: 4px;
-        background: rgba(255, 255, 255, 0.1);
+        height: 58px;
         overflow: hidden;
-        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background:
+          linear-gradient(180deg, rgba(20, 27, 46, 0.9), rgba(10, 17, 34, 0.94));
+        box-shadow:
+          0 16px 34px rgba(0, 0, 0, 0.24),
+          inset 0 1px 0 rgba(255, 255, 255, 0.12),
+          inset 0 -12px 30px rgba(0, 0, 0, 0.28);
       }
+
       .progress-bar {
         width: 0%;
         height: 100%;
-        background: linear-gradient(90deg, var(--accent) 0%, var(--accent-dk) 50%, var(--accent) 100%);
+        border-radius: inherit;
+        background:
+          linear-gradient(90deg, rgba(73, 112, 219, 0.78), rgba(83, 166, 238, 0.62), rgba(73, 112, 219, 0.3));
         background-size: 200% 100%;
-        border-radius: 4px;
-        box-shadow: 0 0 8px var(--accent-glow);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
         transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         animation: shimmer 2s infinite linear;
       }
+
+      .progress-content {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 18px 0 10px;
+        color: rgba(243, 248, 255, 0.9);
+        font-size: 18px;
+        font-weight: 500;
+        line-height: 1;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+      }
+
+      .spinner-chip {
+        width: 46px;
+        height: 46px;
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        border-radius: 999px;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
+        box-shadow:
+          inset 0 1px 1px rgba(255, 255, 255, 0.18),
+          0 8px 18px rgba(0, 0, 0, 0.18);
+      }
+
+      .spinner {
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        border: 4px solid rgba(235, 244, 255, 0.22);
+        border-top-color: rgba(235, 244, 255, 0.92);
+        animation: spin 0.85s linear infinite;
+      }
+
+      .metric-primary {
+        color: #ffffff;
+        font-weight: 700;
+      }
+
+      .metric-dot {
+        width: 5px;
+        height: 5px;
+        flex: 0 0 auto;
+        border-radius: 999px;
+        background: rgba(222, 235, 255, 0.62);
+      }
+
+      .is-message .progress-wrapper {
+        display: none;
+      }
+
+      .is-downloading .status {
+        display: none;
+      }
+
       @keyframes shimmer {
         0% { background-position: 200% 0; }
         100% { background-position: -200% 0; }
       }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      @media (max-width: 560px) {
+        .update-card {
+          min-height: 360px;
+          padding: 34px 28px 38px;
+        }
+
+        .icon {
+          width: 82px;
+          height: 82px;
+        }
+
+        .title {
+          margin-bottom: 28px;
+          font-size: 32px;
+        }
+
+        .progress-content {
+          gap: 10px;
+          padding-right: 16px;
+          font-size: 15px;
+        }
+
+        .spinner-chip {
+          width: 44px;
+          height: 44px;
+        }
+      }
     </style>
   </head>
   <body>
-    <div class="update-card">
+    <div class="update-card is-message">
       <img class="icon" src="../assets/icons/hacker.ico" alt="App logo">
       <h1 class="title">Make Your Life Easier</h1>
-      <p id="status" class="status">Checking for updates…</p>
+      <p id="status" class="status">Checking for updates</p>
       <div class="progress-wrapper">
         <div class="progress-bar-bg">
           <div class="progress-bar"></div>
+          <div class="progress-content" aria-live="polite">
+            <span class="spinner-chip" aria-hidden="true">
+              <span class="spinner"></span>
+            </span>
+            <span id="progress-percent" class="metric-primary">0%</span>
+            <span class="metric-dot"></span>
+            <span id="progress-size">0/0 MB</span>
+            <span class="metric-dot"></span>
+            <span id="progress-speed">0 MB/s</span>
+            <span class="metric-dot"></span>
+            <span id="progress-eta">Calculating</span>
+          </div>
         </div>
       </div>
     </div>
-    
-    <!-- Load favicon config and preloader -->
+
     <script src="../config/favicon-config.js"></script>
     <script src="updateRenderer.js"></script>
     <script src="preloader.js"></script>

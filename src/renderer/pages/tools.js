@@ -45,7 +45,7 @@ function createMaintenanceCard(name, description, icon, buttonText, taskFunction
 
     if (requiresAdmin) {
         const adminWarning = document.createElement('small');
-        adminWarning.textContent = ' (Admin required)';
+        adminWarning.textContent = ` (${createMaintenanceCard.adminRequiredText || 'Admin required'})`;
         adminWarning.classList.add('admin-warning');
         descEl.appendChild(adminWarning);
     }
@@ -57,6 +57,7 @@ function createMaintenanceCard(name, description, icon, buttonText, taskFunction
     const button = document.createElement('button');
     button.className = 'button';
     button.textContent = buttonText;
+    button.dataset.loadingText = createMaintenanceCard.runningText || 'Running...';
     button.classList.add('btn-full-width');
 
     const status = document.createElement('pre');
@@ -84,7 +85,7 @@ function createMaintenanceCard(name, description, icon, buttonText, taskFunction
 async function runMaintenanceTask(button, statusElement, taskFunction, taskName, requiresAdmin = false) {
     button.disabled = true;
     const originalText = button.textContent;
-    button.textContent = 'Running...';
+    button.textContent = button.dataset.loadingText || 'Running...';
     const hideStatus = statusElement && statusElement.dataset && statusElement.dataset.hideStatus === 'true';
 
     if (!hideStatus) {
@@ -238,6 +239,9 @@ function createSectionTitle(text) {
 }
 
 export async function buildMaintenancePage(translations, _settings) {
+    createMaintenanceCard.adminRequiredText = translations.messages?.admin_required || 'Admin required';
+    createMaintenanceCard.runningText = translations.actions?.running || 'Running...';
+
     const container = document.createElement('div');
     container.className = 'card';
 
@@ -643,7 +647,7 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     const title = document.createElement('h2');
     title.className = 'bios-title';
-    title.textContent = '⚙️ ' + (translations.menu?.bios || 'BIOS Settings');
+    title.textContent = translations.menu?.bios || 'BIOS Settings';
     dialog.appendChild(title);
 
     const desc = document.createElement('p');
@@ -653,7 +657,7 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     const whatTitle = document.createElement('h3');
     whatTitle.className = 'bios-section-title';
-    whatTitle.textContent = '📋 ' + ((translations.messages && translations.messages.bios_what_happens) || 'What will happen:');
+    whatTitle.textContent = (translations.messages && translations.messages.bios_what_happens) || 'What will happen:';
     dialog.appendChild(whatTitle);
 
     const steps = document.createElement('ol');
@@ -675,7 +679,7 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
     const warning = document.createElement('div');
     warning.className = 'bios-warning';
     const warningStrong = document.createElement('strong');
-    warningStrong.textContent = '⚠️ Important Notice';
+    warningStrong.textContent = translations.messages?.bios_important_notice || 'Important Notice';
     warning.appendChild(warningStrong);
     warning.appendChild(document.createElement('br'));
     warning.appendChild(document.createTextNode(
