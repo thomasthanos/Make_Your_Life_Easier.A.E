@@ -127,7 +127,6 @@ ipcHandlers.setupInstallerHandlers(debug, security);
 updater.setupUpdaterIpcHandlers({
     getUpdateWindow: windowManager.getUpdateWindow,
     getMainWindow: windowManager.getMainWindow,
-    createMainWindow,
     debug
 });
 

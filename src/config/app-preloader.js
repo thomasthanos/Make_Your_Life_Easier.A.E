@@ -133,8 +133,6 @@
     checkComplete() {
       const completed = this.loaded + this.failed;
       if (completed === this.total) {
-        console.log(`[AppPreloader] Complete: ${this.loaded}/${this.total} loaded, ${this.failed} failed`);
-        
         // Notify that preloading is done
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('app-preload-complete', {

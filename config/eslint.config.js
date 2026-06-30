@@ -39,7 +39,7 @@ module.exports = [
       'no-unused-vars': ['warn', { args: 'none', ignoreRestSiblings: true, caughtErrors: 'none' }],
       'no-empty': ['warn', { allowEmptyCatch: true }],
       'no-constant-condition': ['warn', { checkLoops: false }],
-      'no-control-regex': 'warn',
+      'no-control-regex': 'off',
       'no-useless-escape': 'warn',
       'no-async-promise-executor': 'warn',
       eqeqeq: ['warn', 'smart'],

@@ -15,7 +15,7 @@ const fs = require('fs');
  * @returns {string} - The cleaned string
  */
 function stripAnsiCodes(str) {
-  return str.replace(/\u001b\[[0-?]*[ -\/]*[@-~]/g, '');
+  return str.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
 }
 
 /**

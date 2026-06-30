@@ -4,7 +4,7 @@
  */
 
 import { debug, escapeHtml, debounce, getBaseName, getExtractedFolderPath } from '../utils.js';
-import { buttonStateManager, trackProcess, completeProcess, registerDownload, getActiveDownload, attachDownloadUI, downloadStore } from '../managers.js';
+import { trackProcess, completeProcess, registerDownload, getActiveDownload, attachDownloadUI, downloadStore } from '../managers.js';
 import { toast } from '../components.js';
 import { CUSTOM_APPS } from '../services.js';
 
@@ -327,8 +327,8 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
                 setTimeout(() => {
                     try {
                         window.api.cleanupFile(activatorPath);
-                    } catch (err) {
-                        console.log('Cleanup optional:', err.message);
+                    } catch {
+                        // optional cleanup; ignore failures
                     }
                 }, 2000);
                 
@@ -437,7 +437,7 @@ function parseWingetColumns(rawOutput) {
         };
         const extract = (start, ...nexts) => {
             if (start < 0 || line.length <= start) return '';
-            return line.substring(start, colEnd(start, ...nexts)).trim().replace(/[…\.]+$/, '').trim();
+            return line.substring(start, colEnd(start, ...nexts)).trim().replace(/[….]+$/, '').trim();
         };
 
         const endPoints = [cols.version, cols.available, cols.source].filter(n => n >= 0);
@@ -697,11 +697,9 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     container.appendChild(controlsBar);
 
     // View + sort helpers
-    let currentView = 'list';
     let currentSort = 'default';
 
     function applyView(view) {
-        currentView = view;
         listContainer.dataset.view = view;
         listViewBtn.classList.toggle('active', view === 'list');
         gridViewBtn.classList.toggle('active', view === 'grid');
@@ -1461,7 +1459,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             throw new Error('Download URL missing for custom package');
         }
 
-        const safeName = String(appName).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '');
+        const safeName = String(appName).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
         const dest = `${safeName}.${ext}`;
         const downloadId = `custom-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
         const storeKey = `custom-${safeName}`;

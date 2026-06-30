@@ -47,7 +47,6 @@ contextBridge.exposeInMainWorld('api', {
   saveUpdateInfo: (info) => ipcRenderer.invoke('save-update-info', info),
   getUpdateInfo: () => ipcRenderer.invoke('get-update-info'),
   onUpdateStatus: (callback) => onEvent('update-status', callback),
-  updaterDebugContinue: () => ipcRenderer.invoke('updater-debug-continue'),
 
   // ── Download Manager ──
   downloadStart: (id, url, dest) => ipcRenderer.send('download-start', { id, url, dest }),

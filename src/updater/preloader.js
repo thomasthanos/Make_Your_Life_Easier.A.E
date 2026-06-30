@@ -66,12 +66,10 @@
       
       img.onload = () => {
         this.loaded++;
-        this.logProgress();
       };
-      
+
       img.onerror = () => {
         this.failed++;
-        this.logProgress();
       };
 
       // Set crossOrigin for CORS-enabled resources
@@ -80,16 +78,6 @@
       }
 
       img.src = url;
-    },
-
-    /**
-     * Log preload progress (debug only)
-     */
-    logProgress() {
-      const completed = this.loaded + this.failed;
-      if (completed === this.total) {
-        console.log(`[Preloader] Complete: ${this.loaded}/${this.total} loaded, ${this.failed} failed`);
-      }
     }
   };
 

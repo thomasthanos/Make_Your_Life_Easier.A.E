@@ -106,44 +106,6 @@
         0% { background-position: 200% 0; }
         100% { background-position: -200% 0; }
       }
-      .update-card.debug {
-        width: 600px;
-      }
-      .debug-log {
-        display: none;
-        width: 100%;
-        max-height: 320px;
-        overflow: auto;
-        margin: 16px 0 0;
-        padding: 12px;
-        border-radius: 8px;
-        background: rgba(0, 0, 0, 0.45);
-        border: 1px solid var(--gloss-border-top);
-        font-family: Consolas, "Courier New", monospace;
-        font-size: 12px;
-        line-height: 1.5;
-        color: var(--text-primary);
-        white-space: pre-wrap;
-        word-break: break-word;
-        text-align: left;
-        -webkit-user-select: text;
-        user-select: text;
-      }
-      .debug-continue {
-        display: none;
-        margin-top: 14px;
-        padding: 10px 20px;
-        border-radius: 8px;
-        border: 1px solid var(--gloss-border-top);
-        background: linear-gradient(90deg, var(--accent) 0%, var(--accent-dk) 100%);
-        color: #fff;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-      }
-      .debug-continue:hover {
-        filter: brightness(1.1);
-      }
     </style>
   </head>
   <body>
@@ -156,8 +118,6 @@
           <div class="progress-bar"></div>
         </div>
       </div>
-      <pre id="debug-log" class="debug-log"></pre>
-      <button id="debug-continue" class="debug-continue" type="button">Continue to app →</button>
     </div>
     
     <!-- Load favicon config and preloader -->

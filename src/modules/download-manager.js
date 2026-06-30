@@ -85,7 +85,7 @@ function startDownload(id, url, dest, mainWindow) {
       } else {
         const sanitizedDest = sanitizeFilename(dest || '');
         const cd = res.headers['content-disposition'] || '';
-        const cdMatch = cd.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i);
+        const cdMatch = cd.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i);
         const cdFile = cdMatch ? path.basename(cdMatch[1]) : '';
         const chosenExt = path.extname(sanitizedDest) || (cdFile ? path.extname(cdFile) : '') || extFromUrl(downloadUrl) || '.bin';
         const base = sanitizedDest ? path.basename(sanitizedDest, path.extname(sanitizedDest)) : (cdFile ? path.basename(cdFile, path.extname(cdFile)) : 'download');
