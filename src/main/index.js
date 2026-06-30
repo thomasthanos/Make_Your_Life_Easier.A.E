@@ -64,7 +64,7 @@ const preloadPath = path.join(__dirname, '..', 'preload', 'index.js');
 // ============================================================================
 
 function createMainWindow(showWindow = true) {
-    return windowManager.createMainWindow(showWindow, preloadPath, windowManager.setupWindowStateEvents);
+    return windowManager.createMainWindow(showWindow, preloadPath);
 }
 
 function createUpdateWindow() {

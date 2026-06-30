@@ -22,13 +22,7 @@ contextBridge.exposeInMainWorld('api', {
   minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
   maximizeWindow: () => ipcRenderer.invoke('window-maximize'),
   closeWindow: () => ipcRenderer.invoke('window-close'),
-  isWindowMaximized: () => ipcRenderer.invoke('window-is-maximized'),
-  onWindowStateChange: (callback) => ipcRenderer.on('window-state-changed', callback),
   setWindowSize: (width, height) => ipcRenderer.invoke('window-set-size', { width, height }),
-  getWindowSize: () => ipcRenderer.invoke('window-get-size'),
-  animateWindowSize: (width, height) => ipcRenderer.invoke('window-set-bounds-animate', { width, height }),
-  animateResize: (width, height, duration) =>
-    ipcRenderer.invoke('window-animate-resize', { width, height, duration }),
 
   // ── App Lifecycle ──
   signalAppReady: (width, height) => ipcRenderer.invoke('app-ready', { width, height }),
@@ -37,21 +31,13 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── Auto-Updater ──
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
-  forceCheckUpdates: () => ipcRenderer.invoke('force-check-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
-  installUpdate: () => ipcRenderer.invoke('install-update'),
-  cancelUpdate: () => ipcRenderer.invoke('cancel-update'),
-  retryUpdate: () => ipcRenderer.invoke('retry-update'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-  getUpdateState: () => ipcRenderer.invoke('get-update-state'),
   getUpdateInfo: () => ipcRenderer.invoke('get-update-info'),
   onUpdateStatus: (callback) => onEvent('update-status', callback),
 
   // ── Download Manager ──
   downloadStart: (id, url, dest) => ipcRenderer.send('download-start', { id, url, dest }),
-  downloadPause: (id) => ipcRenderer.send('download-pause', id),
-  downloadResume: (id) => ipcRenderer.send('download-resume', id),
-  downloadCancel: (id) => ipcRenderer.send('download-cancel', id),
   onDownloadEvent: (callback) => onEvent('download-event', callback),
 
   // ── File Operations ──

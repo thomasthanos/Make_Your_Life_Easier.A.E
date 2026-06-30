@@ -5,9 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const { saveUpdateInfo, readAndClearUpdateInfo } = require('./update-info');
 
-let updateAvailable = false;
 let pendingUpdateInfo = null;
-let updateDownloaded = false;
 let isChecking = false;
 let quittingForInstall = false;
 let retryCount = 0;
@@ -164,7 +162,6 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 
     autoUpdater.on('update-available', (info) => {
         debug('info', `Update available: v${info.version}`);
-        updateAvailable = true;
         retryCount = 0;
         downloadStartTime = Date.now();
 
@@ -276,7 +273,6 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 
     autoUpdater.on('update-downloaded', (info) => {
         debug('success', `Update downloaded: v${info.version}`);
-        updateDownloaded = true;
 
         const title = info.releaseName || '';
         const version = info.version || '';
@@ -381,14 +377,6 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
         }
     });
 
-    ipcMain.handle('install-update', async () => {
-        if (!updateDownloaded) {
-            return { success: false, error: 'No update downloaded' };
-        }
-        performInstall(getUpdateWindow, getMainWindow, debug);
-        return { success: true };
-    });
-
     ipcMain.handle('app-ready', async (event, size) => {
         const mainWindow = getMainWindow();
         try {
@@ -438,40 +426,6 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
             return { success: false, error: error.message };
         }
     });
-
-    ipcMain.handle('get-update-state', async () => {
-        return { success: true, state: getUpdateState() };
-    });
-
-    ipcMain.handle('cancel-update', async () => {
-        return { success: cancelUpdate() };
-    });
-
-    ipcMain.handle('force-check-updates', async () => {
-        try {
-            const result = await forceCheckForUpdates(debug);
-            return {
-                success: true,
-                updateInfo: result ? {
-                    version: result.updateInfo?.version,
-                    releaseDate: result.updateInfo?.releaseDate,
-                    currentVersion: app.getVersion()
-                } : null
-            };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
-
-    ipcMain.handle('retry-update', async () => {
-        try {
-            resetUpdateState();
-            await runUpdateCheck();
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
 }
 
 async function runUpdateCheck() {
@@ -490,48 +444,12 @@ function checkForUpdates(debug) {
     });
 }
 
-function getUpdateState() {
-    return {
-        updateAvailable,
-        updateDownloaded,
-        pendingUpdateInfo,
-        retryCount,
-        maxRetries: MAX_RETRIES,
-        isDownloading: downloadStartTime !== null && !updateDownloaded
-    };
-}
-
-function cancelUpdate() {
-    downloadStartTime = null;
-    retryCount = 0;
-    return true;
-}
-
-function resetUpdateState() {
-    updateAvailable = false;
-    pendingUpdateInfo = null;
-    updateDownloaded = false;
-    isChecking = false;
-    retryCount = 0;
-    downloadStartTime = null;
-}
-
-async function forceCheckForUpdates(debug) {
-    retryCount = 0;
-    debug('info', 'Force checking for updates...');
-    return runUpdateCheck();
-}
-
 module.exports = {
     configureAutoUpdater,
     cleanupUpdaterCache,
     setupUpdaterEvents,
     setupUpdaterIpcHandlers,
     checkForUpdates,
-    getUpdateState,
-    cancelUpdate,
-    resetUpdateState,
-    forceCheckForUpdates,
     isQuittingForInstall,
     autoUpdater
 };

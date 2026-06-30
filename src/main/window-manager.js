@@ -35,10 +35,9 @@ function getUpdateWindow() {
  * Create the main application window
  * @param {boolean} showWindow - Whether to show the window when ready
  * @param {string} preloadPath - Path to preload script
- * @param {Function} setupWindowStateEvents - Callback for setting up window state events
  * @returns {BrowserWindow}
  */
-function createMainWindow(showWindow = true, preloadPath, setupWindowStateEvents) {
+function createMainWindow(showWindow = true, preloadPath) {
     mainWindow = new BrowserWindow({
         width: MAIN_WINDOW.width,
         height: MAIN_WINDOW.height,
@@ -64,10 +63,6 @@ function createMainWindow(showWindow = true, preloadPath, setupWindowStateEvents
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
-
-    if (setupWindowStateEvents) {
-        setupWindowStateEvents();
-    }
 
     return mainWindow;
 }
@@ -117,30 +112,11 @@ function createUpdateWindow(preloadPath, onReady) {
     return updateWindow;
 }
 
-/**
- * Setup window state change events for the main window
- */
-function setupWindowStateEvents() {
-    if (mainWindow) {
-        mainWindow.on('maximize', () => {
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('window-state-changed', { isMaximized: true });
-            }
-        });
-        mainWindow.on('unmaximize', () => {
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('window-state-changed', { isMaximized: false });
-            }
-        });
-    }
-}
-
 module.exports = {
     getMainWindow,
     getUpdateWindow,
     createMainWindow,
     createUpdateWindow,
-    setupWindowStateEvents,
     MAIN_WINDOW,
     WINDOW_BG_COLOR
 };

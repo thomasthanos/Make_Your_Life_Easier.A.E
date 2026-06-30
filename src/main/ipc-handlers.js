@@ -31,12 +31,6 @@ function setupWindowHandlers(getMainWindow) {
         if (mainWindow) mainWindow.close();
     });
 
-
-    ipcMain.handle('window-is-maximized', () => {
-        const mainWindow = getMainWindow();
-        return mainWindow ? mainWindow.isMaximized() : false;
-    });
-
     ipcMain.handle('window-set-size', (event, size) => {
         const mainWindow = getMainWindow();
         try {
@@ -50,50 +44,6 @@ function setupWindowHandlers(getMainWindow) {
             }
         } catch { }
         return false;
-    });
-
-    ipcMain.handle('window-get-size', () => {
-        const mainWindow = getMainWindow();
-        try {
-            if (mainWindow) return mainWindow.getSize();
-        } catch { }
-        return [0, 0];
-    });
-
-    ipcMain.handle('window-set-bounds-animate', (event, size) => {
-        const mainWindow = getMainWindow();
-        try {
-            if (mainWindow && size && typeof size.width !== 'undefined') {
-                const bounds = mainWindow.getBounds();
-                const newWidth = parseInt(size.width, 10);
-                const newHeight = typeof size.height !== 'undefined' ? parseInt(size.height, 10) : bounds.height;
-                if (!Number.isNaN(newWidth) && (typeof size.height === 'undefined' || !Number.isNaN(newHeight))) {
-                    mainWindow.setBounds({ x: bounds.x, y: bounds.y, width: newWidth, height: newHeight }, true);
-                    return true;
-                }
-            }
-        } catch { }
-        return false;
-    });
-
-    ipcMain.handle('window-animate-resize', (event, { width, height }) => {
-        const mainWindow = getMainWindow();
-        return new Promise((resolve) => {
-            try {
-                if (!mainWindow || typeof width === 'undefined' || typeof height === 'undefined') {
-                    return resolve(false);
-                }
-                const wTarget = parseInt(width, 10);
-                const hTarget = parseInt(height, 10);
-                if (Number.isNaN(wTarget) || Number.isNaN(hTarget)) {
-                    return resolve(false);
-                }
-                mainWindow.setSize(wTarget, hTarget, false);
-                resolve(true);
-            } catch {
-                resolve(false);
-            }
-        });
     });
 }
 
@@ -313,24 +263,6 @@ function setupDownloadHandlers(downloadManager, getMainWindow) {
         const win = getMainWindow();
         if (!win) return;
         downloadManager.startDownload(id, url, dest, win);
-    });
-
-    ipcMain.on('download-pause', (event, id) => {
-        const win = getMainWindow();
-        if (!win) return;
-        downloadManager.pauseDownload(id, win);
-    });
-
-    ipcMain.on('download-resume', (event, id) => {
-        const win = getMainWindow();
-        if (!win) return;
-        downloadManager.resumeDownload(id, win);
-    });
-
-    ipcMain.on('download-cancel', (event, id) => {
-        const win = getMainWindow();
-        if (!win) return;
-        downloadManager.cancelDownload(id, win);
     });
 }
 
