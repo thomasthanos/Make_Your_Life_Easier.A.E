@@ -63,7 +63,7 @@ async function ensure7za() {
  */
 async function extractArchive(filePath, password, destDir, trackExtractedDir) {
   const archive = String(filePath);
-  const pwd = String(password || '');
+  const pwd = String(password || '').replace(/["&|<>^]/g, ''); // Sanitize shell metacharacters
   let outDir;
 
   if (destDir) {

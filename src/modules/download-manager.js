@@ -10,8 +10,8 @@ const { clientFor } = require('./http-utils');
 const { sanitizeFilename, extFromUrl, removeFileIfExistsSync, cleanupExtractDirs } = require('./file-utils');
 
 const activeDownloads = new Map();
-const downloadedFiles = [];
-const extractedDirs = [];
+const downloadedFiles = new Set();
+const extractedDirs = new Set();
 
 const STALL_TIMEOUT_MS = 120000;
 const STALL_CHECK_INTERVAL_MS = 5000;
@@ -162,27 +162,29 @@ function startDownload(id, url, dest, mainWindow) {
           // Clear stall detection since download is done
           if (d.stallInterval) clearInterval(d.stallInterval);
 
-          // Retry rename with delay to handle transient file locks
-          const tryRename = (attempts) => {
-            if (d.cleaned) return;
-            fs.rename(tempPath, finalPath, (err) => {
-              if (err && attempts > 0 && (err.code === 'EBUSY' || err.code === 'EPERM' || err.code === 'ENOENT')) {
-                setTimeout(() => tryRename(attempts - 1), 500);
+          // Avoid race condition with cancellation cleanup
+          (async () => {
+            try {
+              if (d.cleaned) return;
+              await fs.promises.rename(tempPath, finalPath);
+              if (d.cleaned) {
+                // Canceled during rename
+                removeFileIfExistsSync(finalPath);
                 return;
               }
-              if (err) { cleanup(err.message); return; }
               activeDownloads.delete(id);
-
-              // ✅ Track with limit
               trackDownloadedFile(finalPath);
-
               safeSend(mainWindow, 'download-event', { id, status: 'complete', path: finalPath });
-            });
-          };
-          tryRename(3);
+            } catch (err) {
+              if (d.cleaned) return;
+              activeDownloads.delete(id);
+              removeFileIfExistsSync(tempPath);
+              removeFileIfExistsSync(finalPath);
+              safeSend(mainWindow, 'download-event', { id, status: 'error', error: 'Failed to finalize file: ' + err.message });
+            }
+          })();
         });
       });
-    });
 
     const downloadTimeout = setTimeout(() => {
       req.destroy(new Error('Connection timed out'));
@@ -267,12 +269,12 @@ function cancelDownload(id, mainWindow) {
  * @param {string} filePath - File path to track
  */
 function trackDownloadedFile(filePath) {
-  if (!downloadedFiles.includes(filePath)) {
-    downloadedFiles.push(filePath);
+  if (!downloadedFiles.has(filePath)) {
+    downloadedFiles.add(filePath);
 
     // ✅ Remove oldest entries if over limit
-    while (downloadedFiles.length > MAX_TRACKED_ITEMS) {
-      downloadedFiles.shift();
+    while (downloadedFiles.size > MAX_TRACKED_ITEMS) {
+      downloadedFiles.delete(downloadedFiles.values().next().value);
     }
   }
 }
@@ -282,12 +284,12 @@ function trackDownloadedFile(filePath) {
  * @param {string} dirPath - Directory path
  */
 function trackExtractedDir(dirPath) {
-  if (!extractedDirs.includes(dirPath)) {
-    extractedDirs.push(dirPath);
+  if (!extractedDirs.has(dirPath)) {
+    extractedDirs.add(dirPath);
 
     // ✅ Remove oldest entries if over limit
-    while (extractedDirs.length > MAX_TRACKED_ITEMS) {
-      extractedDirs.shift();
+    while (extractedDirs.size > MAX_TRACKED_ITEMS) {
+      extractedDirs.delete(extractedDirs.values().next().value);
     }
   }
 }
@@ -324,9 +326,9 @@ function cleanupOnQuit(debug) {
     }
   }
 
-  // ✅ Clear arrays after cleanup
-  downloadedFiles.length = 0;
-  extractedDirs.length = 0;
+  // ✅ Clear sets after cleanup
+  downloadedFiles.clear();
+  extractedDirs.clear();
 }
 
 

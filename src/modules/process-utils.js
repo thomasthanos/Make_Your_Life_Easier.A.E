@@ -166,7 +166,17 @@ function runElevatedPowerShellScript(psScript, successMessage, failureMessage) {
       const escapedPsFile = psFile.replace(/"/g, '\\"');
       const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
 
-      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
+      let child;
+      try {
+        child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
+      } catch (spawnError) {
+        finish({ 
+          success: false, 
+          error: 'Failed to launch elevated powershell: ' + spawnError.message, 
+          code: 'SPAWN_ERROR' 
+        });
+        return;
+      }
 
       child.on('error', () => {
         finish({
@@ -232,7 +242,20 @@ ${psScript}
       const escapedPsFile = psFile.replace(/"/g, '\\"');
       const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Hidden -Wait`;
       
-      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
+      let child;
+      try {
+        child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
+      } catch (spawnError) {
+        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+        try { if (resultFile && fs.existsSync(resultFile)) fs.unlinkSync(resultFile); } catch { }
+        try { if (startedFile && fs.existsSync(startedFile)) fs.unlinkSync(startedFile); } catch { }
+        resolve({ 
+          success: false, 
+          error: 'Failed to launch elevated powershell: ' + spawnError.message, 
+          code: 'SPAWN_ERROR' 
+        });
+        return;
+      }
       
       child.on('error', () => {
         try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }

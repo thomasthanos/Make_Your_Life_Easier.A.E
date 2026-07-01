@@ -110,10 +110,12 @@ async function cleanupUpdaterCache(debug) {
             return;
         }
 
-        const attemptCleanup = async () => {
+        const delay = (ms) => new Promise(r => setTimeout(r, ms));
+        let cleanedSize = 0;
+        
+        for (let retry = 0; retry < 3; retry++) {
             const files = await fs.promises.readdir(updaterCachePath).catch(() => []);
-            let cleanedSize = 0;
-            const failedFiles = [];
+            let failedFiles = 0;
 
             for (const file of files) {
                 const filePath = path.join(updaterCachePath, file);
@@ -128,23 +130,20 @@ async function cleanupUpdaterCache(debug) {
                         await fs.promises.unlink(filePath);
                     }
                 } catch {
-                    failedFiles.push(file);
+                    failedFiles++;
                 }
             }
 
-            if (cleanedSize > 0) {
-                const sizeMB = (cleanedSize / (1024 * 1024)).toFixed(2);
-                debug('success', `Updater cache cleaned: ${sizeMB} MB freed`);
+            if (failedFiles === 0) {
+                await fs.promises.rmdir(updaterCachePath).catch(() => {});
+                break;
             }
+            await delay(2000);
+        }
 
-            await fs.promises.rmdir(updaterCachePath).catch(() => {});
-            return failedFiles;
-        };
-
-        const failedFiles = await attemptCleanup();
-
-        if (failedFiles.length > 0) {
-            setTimeout(() => { attemptCleanup().catch(() => {}); }, 5000);
+        if (cleanedSize > 0) {
+            const sizeMB = (cleanedSize / (1024 * 1024)).toFixed(2);
+            debug('success', `Updater cache cleaned: ${sizeMB} MB freed`);
         }
     } catch (err) {
         debug('warn', 'Failed to clean updater cache:', err.message);
@@ -319,7 +318,7 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             retryCount = 0;
             sendUpdateStatus(updateWindow, { status: 'error', message });
             sendUpdateStatus(mainWindow, { status: 'error', message, canRetry: false });
-            launchAppAfterError(getUpdateWindow, getMainWindow, createMainWindow);
+            launchAppAfterError(getUpdateWindow, getMainWindow, createMainWindow).catch(e => debug('error', 'launchAppAfterError failed:', e));
         };
 
         if (isFirewallBlock) {
@@ -432,9 +431,11 @@ async function runUpdateCheck() {
     if (isChecking) return null;
     isChecking = true;
     try {
-        return await autoUpdater.checkForUpdates();
-    } finally {
+        const result = await autoUpdater.checkForUpdates();
+        return result;
+    } catch (e) {
         isChecking = false;
+        throw e;
     }
 }
 

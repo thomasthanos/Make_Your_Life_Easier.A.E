@@ -259,6 +259,7 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
 }
 
 function setupDownloadHandlers(downloadManager, getMainWindow) {
+    ipcMain.removeAllListeners('download-start');
     ipcMain.on('download-start', (event, { id, url, dest }) => {
         const win = getMainWindow();
         if (!win) return;
@@ -632,53 +633,52 @@ function setupSpicetifyHandlers(spicetifyModule) {
 
 function setupInstallerHandlers(debug, security) {
     ipcMain.handle('find-exe-files', async (event, directoryPath) => {
-        return new Promise((resolve) => {
+        try {
             try {
-                if (!fs.existsSync(directoryPath)) {
-                    resolve([]);
-                    return;
-                }
+                await fs.promises.access(directoryPath);
+            } catch {
+                return [];
+            }
 
-                const executableFiles = [];
-
-                const MAX_DEPTH = 10;
-                const MAX_FILES = 500;
-
-                function searchDirectory(dir, depth = 0) {
+            const executableFiles = [];
+            const MAX_DEPTH = 10;
+            const MAX_FILES = 500;
+            
+            const queue = [{ path: directoryPath, depth: 0 }];
+            
+            while (queue.length > 0 && executableFiles.length < MAX_FILES) {
+                // Process in chunks to avoid blocking the event loop
+                const currentChunk = queue.splice(0, 20);
+                
+                await Promise.all(currentChunk.map(async ({ path: dir, depth }) => {
                     if (depth > MAX_DEPTH || executableFiles.length >= MAX_FILES) return;
+                    
                     try {
-                        const items = fs.readdirSync(dir);
+                        const items = await fs.promises.readdir(dir, { withFileTypes: true });
                         for (const item of items) {
                             if (executableFiles.length >= MAX_FILES) break;
-                            const fullPath = path.join(dir, item);
-                            try {
-                                const stat = fs.lstatSync(fullPath);
-                                // Skip symlinks to avoid circular references
-                                if (stat.isSymbolicLink()) continue;
-                                if (stat.isDirectory()) {
-                                    searchDirectory(fullPath, depth + 1);
-                                } else if (stat.isFile()) {
-                                    const ext = path.extname(item).toLowerCase();
-                                    if (ext === '.exe' || ext === '.bat') {
-                                        executableFiles.push(fullPath);
-                                    }
+                            const fullPath = path.join(dir, item.name);
+                            
+                            if (item.isSymbolicLink()) continue;
+                            
+                            if (item.isDirectory()) {
+                                queue.push({ path: fullPath, depth: depth + 1 });
+                            } else if (item.isFile()) {
+                                const ext = path.extname(item.name).toLowerCase();
+                                if (ext === '.exe' || ext === '.bat') {
+                                    executableFiles.push(fullPath);
                                 }
-                            } catch (statErr) {
-                                debug('warn', 'Cannot access ' + fullPath + ': ' + (statErr.code || statErr.message));
-                                continue;
                             }
                         }
                     } catch (readErr) {
-                        debug('warn', 'Cannot read directory ' + dir + ': ' + (readErr.code || readErr.message));
+                        debug('warn', 'Cannot access ' + dir + ': ' + (readErr.code || readErr.message));
                     }
-                }
-
-                searchDirectory(directoryPath);
-                resolve(executableFiles);
-            } catch {
-                resolve([]);
+                }));
             }
-        });
+            return executableFiles;
+        } catch {
+            return [];
+        }
     });
 
     ipcMain.handle('run-msi-installer', async (event, msiPath) => {

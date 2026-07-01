@@ -8,6 +8,7 @@ const { debug } = require('../modules/debug');
 const STORES = ['Root', 'TrustedPublisher'];
 
 function getCertificatePath() {
+    if (process.platform !== 'win32') return null;
     return app.isPackaged
         ? path.join(process.resourcesPath, 'bin', 'certificate.cer')
         : path.join(__dirname, '..', 'resources', 'bin', 'certificate.cer');

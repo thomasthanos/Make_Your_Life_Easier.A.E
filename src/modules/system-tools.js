@@ -201,9 +201,16 @@ $log | Out-File -FilePath $logFile -Encoding UTF8
 async function restartToBios() {
   return new Promise((resolve) => {
     const tempDir = os.tmpdir();
-    const psPath = path.join(tempDir, `bios_restart_${Date.now()}.ps1`);
-    const vbsPath = path.join(tempDir, `bios_elevate_${Date.now()}.vbs`);
-    const resultPath = path.join(tempDir, `bios_result_${Date.now()}.txt`);
+    const timestamp = Date.now();
+    const psPath = path.join(tempDir, `bios_restart_${timestamp}.ps1`);
+    const vbsPath = path.join(tempDir, `bios_elevate_${timestamp}.vbs`);
+    const resultPath = path.join(tempDir, `bios_result_${timestamp}.txt`);
+
+    const cleanupTempFiles = () => {
+      try { if (fs.existsSync(vbsPath)) fs.unlinkSync(vbsPath); } catch (e) {}
+      try { if (fs.existsSync(psPath)) fs.unlinkSync(psPath); } catch (e) {}
+      try { if (fs.existsSync(resultPath)) fs.unlinkSync(resultPath); } catch (e) {}
+    };
 
     const psScript = `
 # Check if running as Administrator
@@ -238,21 +245,15 @@ objShell.ShellExecute "powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Fil
       const child = spawn('cscript.exe', ['//nologo', vbsPath], { windowsHide: true });
 
       child.on('error', (err) => {
-        try { fs.unlinkSync(vbsPath); } catch (e) { }
-        try { fs.unlinkSync(psPath); } catch (e) { }
-        try { fs.unlinkSync(resultPath); } catch (e) { }
+        cleanupTempFiles();
         resolve({ success: false, error: 'Failed to launch elevation script: ' + err.message });
       });
 
       child.on('close', () => {
         setTimeout(() => {
-          try { fs.unlinkSync(vbsPath); } catch (e) { }
-          try { fs.unlinkSync(psPath); } catch (e) { }
-
           try {
             if (fs.existsSync(resultPath)) {
               const result = fs.readFileSync(resultPath, 'utf8').trim();
-              try { fs.unlinkSync(resultPath); } catch (e) { }
 
               if (result.includes('ADMIN_OK') && result.includes('RESTART_OK')) {
                 resolve({ success: true, message: 'Restarting to BIOS in 3 seconds...' });
@@ -266,13 +267,13 @@ objShell.ShellExecute "powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Fil
             }
           } catch (readError) {
             resolve({ success: false, error: 'Could not verify restart status: ' + readError.message });
+          } finally {
+            cleanupTempFiles();
           }
         }, 2000);
       });
     } catch (fileError) {
-      try { fs.unlinkSync(vbsPath); } catch (e) { }
-      try { fs.unlinkSync(psPath); } catch (e) { }
-      try { fs.unlinkSync(resultPath); } catch (e) { }
+      cleanupTempFiles();
       resolve({ success: false, error: 'Failed to create elevation script: ' + fileError.message });
     }
   });

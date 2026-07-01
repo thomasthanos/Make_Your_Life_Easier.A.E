@@ -59,6 +59,8 @@ export function dismissToast(toastEl) {
     }, 300);
 }
 
+const MAX_TOASTS = 3;
+
 /**
  * Show a toast notification
  * @param {string} msg - Message to display
@@ -142,6 +144,15 @@ export function toast(msg, opts = {}) {
             timeout = setTimeout(() => dismissToast(toastEl), duration);
         }
     });
+
+    // Manage maximum number of toasts
+    const activeToasts = container.querySelectorAll('.toast:not(.toast-exit)');
+    if (activeToasts.length > MAX_TOASTS) {
+        for (let i = 0; i <= activeToasts.length - MAX_TOASTS; i++) {
+            dismissToast(activeToasts[i]);
+        }
+    }
+
     return toastEl;
 }
 

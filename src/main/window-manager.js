@@ -3,13 +3,16 @@
  * Handles creation and management of all application windows
  */
 
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, app } = require('electron');
 const path = require('path');
 
 // Window dimension constants
 const MAIN_WINDOW = { width: 1100, height: 750, minWidth: 800, minHeight: 600 };
 const UPDATE_WINDOW = { width: 650, height: 440 };
 const WINDOW_BG_COLOR = '#171717';
+
+// Whether the app is running in development mode
+const isDev = !app.isPackaged;
 
 // Window references
 let mainWindow = null;
@@ -53,11 +56,25 @@ function createMainWindow(showWindow = true, preloadPath) {
             preload: preloadPath,
             nodeIntegration: false,
             contextIsolation: true,
-            backgroundThrottling: false
+            backgroundThrottling: false,
+            devTools: isDev
         }
     });
 
     mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+
+    // Block DevTools keyboard shortcut in production
+    if (!isDev) {
+        mainWindow.webContents.on('before-input-event', (event, input) => {
+            // Block Ctrl+Shift+I, Ctrl+Shift+J, F12
+            if (
+                (input.control && input.shift && (input.key === 'I' || input.key === 'J')) ||
+                input.key === 'F12'
+            ) {
+                event.preventDefault();
+            }
+        });
+    }
 
     // Cleanup reference when window is closed
     mainWindow.on('closed', () => {
@@ -89,7 +106,8 @@ function createUpdateWindow(preloadPath, onReady) {
         webPreferences: {
             preload: preloadPath,
             nodeIntegration: false,
-            contextIsolation: true
+            contextIsolation: true,
+            devTools: isDev
         }
     });
 
@@ -100,7 +118,7 @@ function createUpdateWindow(preloadPath, onReady) {
         updateWindow = null;
     });
 
-    updateWindow.webContents.once('did-finish-load', () => {
+    updateWindow.once('ready-to-show', () => {
         if (updateWindow && !updateWindow.isDestroyed()) {
             updateWindow.show();
             if (onReady) {
