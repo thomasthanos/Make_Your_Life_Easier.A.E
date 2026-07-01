@@ -185,6 +185,7 @@ function startDownload(id, url, dest, mainWindow) {
           })();
         });
       });
+    });
 
     const downloadTimeout = setTimeout(() => {
       req.destroy(new Error('Connection timed out'));
