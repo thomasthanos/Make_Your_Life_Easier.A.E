@@ -3,73 +3,18 @@
  * Handles OAuth authentication flows for Google and Discord
  */
 
-const fs = require('fs');
-const path = require('path');
-const { app, BrowserWindow, BrowserView } = require('electron');
+require('dotenv').config();
+
+const { BrowserWindow, BrowserView } = require('electron');
 const { postForm, getJson } = require('./http-utils');
 
-// Embedded default credentials (used when oauth_config.json is not available, e.g. production builds)
-const EMBEDDED_DEFAULTS = {
-  google: {
-    clientId: '389774067739-qnshev3gbck4firdc787iqhd44omiajs.apps.googleusercontent.com',
-    clientSecret: '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',
-    redirectUri: 'http://localhost:5252'
-  },
-  discord: {
-    clientId: '1329887230482845797',
-    clientSecret: 'ZPK2i6WmbGnBhv7LmyzLwTOoKbaH8nDV',
-    redirectUri: 'http://localhost:5252'
-  }
-};
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5252';
 
-function loadOAuthConfig() {
-  const candidates = [];
-  // Most reliable: resolve relative to this file's location (src/modules/)
-  candidates.push(path.join(__dirname, '..', 'config', 'oauth_config.json'));
-  try { candidates.push(path.join(app.getAppPath(), 'src', 'config', 'oauth_config.json')); } catch {}
-  try { candidates.push(path.join(app.getAppPath(), 'oauth_config.json')); } catch {}
-  if (process.resourcesPath) candidates.push(path.join(process.resourcesPath, 'src', 'config', 'oauth_config.json'));
-  if (process.resourcesPath) candidates.push(path.join(process.resourcesPath, 'oauth_config.json'));
-  try { candidates.push(path.join(app.getPath('userData'), 'oauth_config.json')); } catch {}
-
-  let fileCfg = {};
-  for (const candidate of candidates) {
-    try {
-      if (candidate && fs.existsSync(candidate)) {
-        fileCfg = JSON.parse(fs.readFileSync(candidate, 'utf8')) || {};
-        break;
-      }
-    } catch {}
-  }
-
-  const g = fileCfg.google || {};
-  const d = fileCfg.discord || {};
-  const eg = EMBEDDED_DEFAULTS.google;
-  const ed = EMBEDDED_DEFAULTS.discord;
-
-  return {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID || g.clientId || eg.clientId,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || g.clientSecret || eg.clientSecret,
-      redirectUri: process.env.GOOGLE_REDIRECT_URI || g.redirectUri || eg.redirectUri
-    },
-    discord: {
-      clientId: process.env.DISCORD_CLIENT_ID || d.clientId || ed.clientId,
-      clientSecret: process.env.DISCORD_CLIENT_SECRET || d.clientSecret || ed.clientSecret,
-      redirectUri: process.env.DISCORD_REDIRECT_URI || d.redirectUri || ed.redirectUri
-    }
-  };
-}
-
-const oauthConfig = loadOAuthConfig();
-
-const GOOGLE_CLIENT_ID = oauthConfig.google.clientId;
-const GOOGLE_CLIENT_SECRET = oauthConfig.google.clientSecret;
-const GOOGLE_REDIRECT_URI = oauthConfig.google.redirectUri;
-
-const DISCORD_CLIENT_ID = oauthConfig.discord.clientId;
-const DISCORD_CLIENT_SECRET = oauthConfig.discord.clientSecret;
-const DISCORD_REDIRECT_URI = oauthConfig.discord.redirectUri;
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localhost:5252';
 
 /**
  * Open an OAuth authentication window
