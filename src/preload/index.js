@@ -95,4 +95,9 @@ contextBridge.exposeInMainWorld('api', {
   loginDiscord: () => ipcRenderer.invoke('login-discord'),
   getUserProfile: () => ipcRenderer.invoke('get-user-profile'),
   logout: () => ipcRenderer.invoke('logout'),
+
+  // ── Settings (local-first + Supabase sync) ──
+  getSetting: (key) => ipcRenderer.invoke('settings-get', key),
+  setSetting: (key, value) => ipcRenderer.invoke('settings-set', { key, value }),
+  getAllSettings: () => ipcRenderer.invoke('settings-all'),
 });

@@ -68,18 +68,24 @@ function setupSystemInfoHandlers() {
     });
 }
 
-function setupOAuthHandlers(oauth, userProfile, getMainWindow) {
+function setupOAuthHandlers(oauth, userProfile, getMainWindow, supabase, settingsStore) {
     ipcMain.handle('login-google', async () => {
         const mainWindow = getMainWindow();
         const result = await oauth.loginGoogle(mainWindow);
-        if (result) userProfile.set(result);
+        if (result) {
+            userProfile.set(result);
+            settingsStore.pullFromCloud().catch(() => {});
+        }
         return result;
     });
 
     ipcMain.handle('login-discord', async () => {
         const mainWindow = getMainWindow();
         const result = await oauth.loginDiscord(mainWindow);
-        if (result) userProfile.set(result);
+        if (result) {
+            userProfile.set(result);
+            settingsStore.pullFromCloud().catch(() => {});
+        }
         return result;
     });
 
@@ -88,8 +94,27 @@ function setupOAuthHandlers(oauth, userProfile, getMainWindow) {
     });
 
     ipcMain.handle('logout', async () => {
+        await supabase.signOut();
         userProfile.clear();
         return { success: true };
+    });
+}
+
+function setupSettingsHandlers(settingsStore) {
+    ipcMain.handle('settings-get', async (event, key) => {
+        return settingsStore.get(key);
+    });
+
+    ipcMain.handle('settings-set', async (event, payload) => {
+        if (!payload || typeof payload.key !== 'string') {
+            return { success: false, error: 'Invalid settings key' };
+        }
+        settingsStore.set(payload.key, payload.value);
+        return { success: true };
+    });
+
+    ipcMain.handle('settings-all', async () => {
+        return settingsStore.all();
     });
 }
 
@@ -773,6 +798,7 @@ module.exports = {
     setupWindowHandlers,
     setupSystemInfoHandlers,
     setupOAuthHandlers,
+    setupSettingsHandlers,
     setupCommandHandlers,
     setupDownloadHandlers,
     setupFileHandlers,

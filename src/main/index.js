@@ -30,6 +30,8 @@ const fileUtils = require('../modules/file-utils');
 const processUtils = require('../modules/process-utils');
 const downloadManager = require('../modules/download-manager');
 const userProfile = require('../modules/user-profile');
+const supabase = require('../modules/supabase');
+const settingsStore = require('../modules/settings-store');
 const oauth = require('../modules/oauth');
 const systemTools = require('../modules/system-tools');
 const spicetifyModule = require('../modules/spicetify');
@@ -96,7 +98,10 @@ ipcHandlers.setupWindowHandlers(windowManager.getMainWindow);
 ipcHandlers.setupSystemInfoHandlers();
 
 // OAuth and user profile
-ipcHandlers.setupOAuthHandlers(oauth, userProfile, windowManager.getMainWindow);
+ipcHandlers.setupOAuthHandlers(oauth, userProfile, windowManager.getMainWindow, supabase, settingsStore);
+
+// Settings (local-first + Supabase sync)
+ipcHandlers.setupSettingsHandlers(settingsStore);
 
 // Commands and external processes
 ipcHandlers.setupCommandHandlers(sharedSecurity, processUtils, fileUtils, systemTools);
@@ -190,6 +195,14 @@ app.whenReady().then(async () => {
         userProfile.initialize(app.getPath('userData'));
     } catch (err) {
         debug('warn', 'Failed to initialize user profile:', err.message);
+    }
+
+    // Initialize settings store and sync from cloud if a session was restored
+    try {
+        settingsStore.initialize(app.getPath('userData'));
+        settingsStore.pullFromCloud().catch(() => {});
+    } catch (err) {
+        debug('warn', 'Failed to initialize settings store:', err.message);
     }
 
     // Skip the update check on the first launch right after an update was installed
