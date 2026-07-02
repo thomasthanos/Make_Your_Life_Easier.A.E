@@ -71,6 +71,11 @@ async function getUser() {
   return data?.user || null;
 }
 
+async function getSessionUser() {
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.user || null;
+}
+
 async function signOut() {
   try {
     await supabase.auth.signOut();
@@ -83,6 +88,7 @@ module.exports = {
   supabase,
   isConfigured,
   getUser,
+  getSessionUser,
   signOut,
   SUPABASE_URL,
   SUPABASE_ANON_KEY

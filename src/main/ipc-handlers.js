@@ -74,7 +74,7 @@ function setupOAuthHandlers(oauth, userProfile, getMainWindow, supabase, setting
         const result = await oauth.loginGoogle(mainWindow);
         if (result) {
             userProfile.set(result);
-            settingsStore.pullFromCloud().catch(() => {});
+            await settingsStore.pullFromCloud().catch(() => {});
         }
         return result;
     });
@@ -84,7 +84,7 @@ function setupOAuthHandlers(oauth, userProfile, getMainWindow, supabase, setting
         const result = await oauth.loginDiscord(mainWindow);
         if (result) {
             userProfile.set(result);
-            settingsStore.pullFromCloud().catch(() => {});
+            await settingsStore.pullFromCloud().catch(() => {});
         }
         return result;
     });

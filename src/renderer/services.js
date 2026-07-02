@@ -47,6 +47,38 @@ export function applyTheme() {
     document.documentElement.setAttribute('data-theme', 'dark');
 }
 
+/**
+ * Mirror a UI preference to the cloud settings store (fire-and-forget)
+ * @param {string} key
+ * @param {*} value
+ */
+export function syncPref(key, value) {
+    try { window.api?.setSetting?.(key, value); } catch { /* ignore */ }
+}
+
+/**
+ * Pull cloud-synced UI preferences into localStorage before the UI reads them.
+ * Only handles prefs whose read path is synchronous localStorage (lang, sidebar).
+ * @returns {Promise<Object|null>}
+ */
+export async function hydratePrefsFromCloud() {
+    try {
+        const all = await window.api?.getAllSettings?.();
+        if (!all || typeof all !== 'object') return null;
+        if (all.lang === 'en' || all.lang === 'gr') {
+            const s = loadSettings();
+            s.lang = all.lang;
+            saveSettings(s);
+        }
+        if (typeof all.sidebarExpanded === 'boolean') {
+            try { localStorage.setItem('sidebarExpanded', all.sidebarExpanded ? '1' : '0'); } catch { /* ignore */ }
+        }
+        return all;
+    } catch {
+        return null;
+    }
+}
+
 // ============================================
 // TRANSLATIONS
 // ============================================
@@ -699,7 +731,8 @@ export async function ensureSidebarVersion(_state = {}) {
 
                 googleBtn.addEventListener('click', async () => {
                     try {
-                        await window.api?.loginGoogle?.();
+                        const res = await window.api?.loginGoogle?.();
+                        if (res && res.name) { window.location.reload(); return; }
                     } catch (err) {
                         debug('error', 'Google login failed:', err);
                         const msg = String(err?.message || err);
@@ -712,7 +745,8 @@ export async function ensureSidebarVersion(_state = {}) {
 
                 discordBtn.addEventListener('click', async () => {
                     try {
-                        await window.api?.loginDiscord?.();
+                        const res = await window.api?.loginDiscord?.();
+                        if (res && res.name) { window.location.reload(); return; }
                     } catch (err) {
                         debug('error', 'Discord login failed:', err);
                         const msg = String(err?.message || err);

@@ -8,7 +8,8 @@ import { EventListenerManager, attachTooltipHandlers, buttonStateManager, detach
 import { INFO_ICON, MENU_ICON, MENU_ICONS, toast, openInfoModal, createMenuButton, hideAppLoader } from './components.js';
 import {
     loadSettings, saveSettings, applyTheme, loadTranslations, setTranslations,
-    initializeAutoUpdater, ensureSidebarVersion, checkForChangelog
+    initializeAutoUpdater, ensureSidebarVersion, checkForChangelog,
+    syncPref, hydratePrefsFromCloud
 } from './services.js';
 
 // Default window dimensions (must match window-manager.js MAIN_WINDOW)
@@ -76,6 +77,7 @@ function updateHeader() {
             const newLang = (settings.lang === 'en') ? 'gr' : 'en';
             settings.lang = newLang;
             saveSettings(settings);
+            syncPref('lang', newLang);
             const dropdown = document.getElementById('titlebar-menu-dropdown');
             if (dropdown) dropdown.classList.add('hidden');
             translations = await loadTranslations(newLang);
@@ -336,6 +338,9 @@ export async function init() {
         if (window.api?.updateLoadingProgress) {
             await window.api.updateLoadingProgress(20, 'Loading settings...').catch(() => {});
         }
+
+        // Pull cloud-synced preferences into localStorage before reading them
+        await hydratePrefsFromCloud();
 
         // Load settings
         settings = loadSettings();

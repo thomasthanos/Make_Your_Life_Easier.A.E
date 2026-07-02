@@ -703,6 +703,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             sortGroup.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             applySort(value);
+            try { window.api?.setSetting?.('installer_sort', value); } catch { }
         });
         sortGroup.appendChild(btn);
     });
@@ -744,8 +745,8 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         });
     }
 
-    listViewBtn.addEventListener('click', () => applyView('list'));
-    gridViewBtn.addEventListener('click', () => applyView('grid'));
+    listViewBtn.addEventListener('click', () => { applyView('list'); try { window.api?.setSetting?.('installer_view', 'list'); } catch { } });
+    gridViewBtn.addEventListener('click', () => { applyView('grid'); try { window.api?.setSetting?.('installer_view', 'grid'); } catch { } });
     // ─────────────────────────────────────────────────────────────
 
     function updateActionButtonsState() {
@@ -755,11 +756,34 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         uncheckAllBtn.disabled = !anyChecked;
     }
 
+    function collectSelectedIds() {
+        const ids = [];
+        container.querySelectorAll('input[type="checkbox"]:checked').forEach((cb) => {
+            const li = cb.closest('li');
+            if (li && li.dataset.appId) ids.push(li.dataset.appId);
+        });
+        return ids;
+    }
+
+    function applySelectedIds(ids) {
+        const idSet = new Set((ids || []).map((x) => String(x)));
+        container.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+            const li = cb.closest('li');
+            if (li && li.dataset.appId) cb.checked = idSet.has(li.dataset.appId);
+        });
+        updateActionButtonsState();
+    }
+
+    function saveSelectedApps() {
+        try { window.api?.setSetting?.('selected_apps', collectSelectedIds()); } catch { }
+    }
+
     updateActionButtonsState();
 
     container.addEventListener('change', (e) => {
         if (e.target && e.target.type === 'checkbox') {
             updateActionButtonsState();
+            saveSelectedApps();
         }
     });
 
@@ -982,14 +1006,8 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     if (!Array.isArray(ids)) {
                         throw new Error('Invalid file format');
                     }
-                    const idSet = new Set(ids.map((x) => String(x)));
-                    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-                    checkboxes.forEach((cb) => {
-                        const li = cb.closest('li');
-                        if (li && li.dataset.appId) {
-                            cb.checked = idSet.has(li.dataset.appId);
-                        }
-                    });
+                    applySelectedIds(ids);
+                    saveSelectedApps();
                     toast('List imported.', { type: 'success', title: 'Import' });
                 } catch (err) {
                     debug('error', 'Failed to import list:', err);
@@ -1574,7 +1592,25 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     installBtn.addEventListener('click', runWingetInstallSelected);
 
     await buildList();
-    applySort('default');
+
+    // Restore cloud-synced install queue + view/sort preferences
+    try {
+        const savedIds = await window.api?.getSetting?.('selected_apps');
+        if (Array.isArray(savedIds) && savedIds.length) applySelectedIds(savedIds);
+    } catch { }
+
+    let savedView = 'list';
+    let savedSort = 'default';
+    try {
+        const v = await window.api?.getSetting?.('installer_view');
+        if (v === 'list' || v === 'grid') savedView = v;
+        const s = await window.api?.getSetting?.('installer_sort');
+        if (['default', 'az', 'za', 'status'].includes(s)) savedSort = s;
+    } catch { }
+
+    applyView(savedView);
+    sortGroup.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === savedSort));
+    applySort(savedSort);
 
     // Check winget on page load and show banner if missing
     checkWingetAvailable().then(({ available }) => {

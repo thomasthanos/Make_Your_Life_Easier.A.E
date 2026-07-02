@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { supabase, isConfigured, getUser } = require('./supabase');
+const { supabase, isConfigured, getSessionUser } = require('./supabase');
 const { debug } = require('./debug');
 
 const TABLE = 'user_settings';
@@ -65,7 +65,7 @@ function schedulePush() {
 async function pushToCloud() {
   if (!isConfigured()) return;
   try {
-    const user = await getUser();
+    const user = await getSessionUser();
     if (!user) return;
     const { error } = await supabase
       .from(TABLE)
@@ -79,7 +79,7 @@ async function pushToCloud() {
 async function pullFromCloud() {
   if (!isConfigured()) return;
   try {
-    const user = await getUser();
+    const user = await getSessionUser();
     if (!user) return;
     const { data: row, error } = await supabase
       .from(TABLE)
