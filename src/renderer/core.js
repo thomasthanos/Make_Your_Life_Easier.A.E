@@ -163,6 +163,12 @@ export function renderMenu() {
     menuKeys.forEach((key) => {
         const label = (translations.menu && translations.menu[key]) || key;
         const li = createMenuButton(key, label);
+        const btn = li.querySelector('button[data-key]');
+        if (btn) {
+            btn.setAttribute('data-tooltip', label);
+            btn.setAttribute('aria-label', label);
+            attachTooltipHandlers(btn);
+        }
         menuList.appendChild(li);
         const sepType = separatorsAfter[key];
         if (sepType) {
