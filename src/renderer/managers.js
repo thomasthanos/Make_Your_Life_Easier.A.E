@@ -480,8 +480,10 @@ export function initDownloadListener() {
                     try { dl.onUpdate(data); } catch { /* DOM may be stale, ignore */ }
                 }
 
-                // Clean up finished downloads from store after a delay
-                if (['error', 'cancelled'].includes(data.status)) {
+                // Clean up finished downloads from store after a delay.
+                // Includes 'complete' so entries do not leak when a download
+                // finishes while its page (and onUpdate callback) is not active.
+                if (['complete', 'error', 'cancelled'].includes(data.status)) {
                     setTimeout(() => downloadStore.delete(key), 2000);
                 }
                 break;

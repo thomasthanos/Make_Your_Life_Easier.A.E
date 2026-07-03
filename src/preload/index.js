@@ -16,7 +16,6 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── Platform ──
   isWindows: () => process.platform === 'win32',
-  getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
 
   // ── Window Controls ──
   minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
@@ -30,7 +29,6 @@ contextBridge.exposeInMainWorld('api', {
   getAssetPath: (relativePath) => ipcRenderer.invoke('get-asset-path', relativePath),
 
   // ── Auto-Updater ──
-  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getUpdateInfo: () => ipcRenderer.invoke('get-update-info'),
@@ -44,19 +42,14 @@ contextBridge.exposeInMainWorld('api', {
   runCommand: (command) => ipcRenderer.invoke('run-command', command),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openFile: (filePath) => ipcRenderer.invoke('open-file', filePath),
-  openInstaller: (filePath) => ipcRenderer.invoke('open-installer', filePath),
   runInstaller: (filePath) => ipcRenderer.invoke('run-installer', filePath),
-  runMsiInstaller: (msiPath) => ipcRenderer.invoke('run-msi-installer', msiPath),
   extractArchive: (filePath, password, destDir) =>
     ipcRenderer.invoke('extract-archive', { filePath, password, destDir }),
   replaceExe: (sourcePath, destPath) =>
     ipcRenderer.invoke('replace-exe', { sourcePath, destPath }),
-  fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
-  renameDirectory: (src, dest) => ipcRenderer.invoke('rename-directory', { src, dest }),
   findExeFiles: (directoryPath) => ipcRenderer.invoke('find-exe-files', directoryPath),
   showFileDialog: () => ipcRenderer.invoke('show-file-dialog'),
-  runElevatedWinget: (command) => ipcRenderer.invoke('run-elevated-winget', command),
 
   // ── System Maintenance: Cleanup ──
   runTempCleanup: () => ipcRenderer.invoke('run-temp-cleanup'),
@@ -81,7 +74,6 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── Debloat & Scripts ──
   runSparkleDebloat: () => ipcRenderer.invoke('run-sparkle-debloat'),
-  ensureSparkle: () => ipcRenderer.invoke('ensure-sparkle'),
   processDownloadedSparkle: (zipPath) => ipcRenderer.invoke('process-downloaded-sparkle', zipPath),
   runChrisTitus: () => ipcRenderer.invoke('run-christitus'),
 
@@ -100,4 +92,5 @@ contextBridge.exposeInMainWorld('api', {
   getSetting: (key) => ipcRenderer.invoke('settings-get', key),
   setSetting: (key, value) => ipcRenderer.invoke('settings-set', { key, value }),
   getAllSettings: () => ipcRenderer.invoke('settings-all'),
+  resetSettings: () => ipcRenderer.invoke('settings-reset'),
 });

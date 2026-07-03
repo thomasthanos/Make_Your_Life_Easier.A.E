@@ -654,12 +654,14 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     const listViewBtn = document.createElement('button');
     listViewBtn.className = 'view-toggle-btn active';
     listViewBtn.title = (translations.actions && translations.actions.list_view) || 'List view';
+    listViewBtn.setAttribute('aria-label', listViewBtn.title);
     listViewBtn.dataset.view = 'list';
     listViewBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
 
     const gridViewBtn = document.createElement('button');
     gridViewBtn.className = 'view-toggle-btn';
     gridViewBtn.title = (translations.actions && translations.actions.grid_view) || 'Grid view';
+    gridViewBtn.setAttribute('aria-label', gridViewBtn.title);
     gridViewBtn.dataset.view = 'grid';
     gridViewBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`;
 
@@ -1585,7 +1587,12 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 }
             });
 
-            window.api.downloadStart(downloadId, url, dest);
+            try {
+                window.api.downloadStart(downloadId, url, dest);
+            } catch (err) {
+                downloadStore.delete(storeKey);
+                reject(err);
+            }
         });
     }
 
@@ -1593,7 +1600,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     await buildList();
 
-    // Restore cloud-synced install queue + view/sort preferences
     try {
         const savedIds = await window.api?.getSetting?.('selected_apps');
         if (Array.isArray(savedIds) && savedIds.length) applySelectedIds(savedIds);
@@ -1983,6 +1989,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
             // Prevent starting if download already active
             if (getActiveDownload(cardId)) return;
 
+            const originalLabel = btn.textContent;
             trackProcess(cardId, 'download', btn, status);
 
             btn.disabled = true;
@@ -2001,7 +2008,15 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
             registerDownload(cardId, downloadId, { key, name, url });
             attachDownloadUI(cardId, makeCrackDownloadUI());
 
-            window.api.downloadStart(downloadId, url, name);
+            try {
+                window.api.downloadStart(downloadId, url, name);
+            } catch (err) {
+                downloadStore.delete(cardId);
+                completeProcess(cardId, 'download', false);
+                btn.disabled = false;
+                btn.textContent = originalLabel;
+                toast('Download failed', { type: 'error', title: name });
+            }
         });
 
         const buttonWrapper = document.createElement('div');

@@ -350,23 +350,6 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 }
 
 function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
-    ipcMain.handle('check-for-updates', async () => {
-        try {
-            retryCount = 0;
-            const result = await runUpdateCheck();
-            return {
-                success: true,
-                updateInfo: result ? {
-                    version: result.updateInfo?.version,
-                    releaseDate: result.updateInfo?.releaseDate,
-                    currentVersion: app.getVersion()
-                } : null
-            };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
-
     ipcMain.handle('download-update', async () => {
         try {
             await autoUpdater.downloadUpdate();
@@ -431,11 +414,9 @@ async function runUpdateCheck() {
     if (isChecking) return null;
     isChecking = true;
     try {
-        const result = await autoUpdater.checkForUpdates();
-        return result;
-    } catch (e) {
+        return await autoUpdater.checkForUpdates();
+    } finally {
         isChecking = false;
-        throw e;
     }
 }
 

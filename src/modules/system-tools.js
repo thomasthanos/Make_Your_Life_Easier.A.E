@@ -10,51 +10,47 @@ const fs = require('fs');
 const { runElevatedPowerShellScript, runElevatedPowerShellScriptHidden, getPowerShellExe, runSpawnCommand } = require('./process-utils');
 const { debug } = require('./debug');
 
+function createSystemTask({ script, successMsg, errorMsg, hidden = false, guardMsg = 'This feature is only available on Windows' }) {
+  return async function () {
+    if (process.platform !== 'win32') {
+      return { success: false, error: guardMsg };
+    }
+    const runner = hidden ? runElevatedPowerShellScriptHidden : runElevatedPowerShellScript;
+    return runner(script, successMsg, errorMsg);
+  };
+}
+
 /**
  * Run SFC scan with elevation
  * @returns {Promise<Object>}
  */
-async function runSfcScan() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'SFC is only available on Windows' };
-  }
-
-  const psScript = `
+const runSfcScan = createSystemTask({
+  guardMsg: 'SFC is only available on Windows',
+  script: `
 Write-Host "=== SYSTEM FILE CHECK (SFC) ===" -ForegroundColor Cyan
 Write-Host "Running sfc /scannow..." -ForegroundColor Yellow
 sfc /scannow
 exit $LASTEXITCODE
-`;
-
-  return runElevatedPowerShellScript(
-    psScript,
-    '✅ SFC scan completed successfully!',
-    'SFC scan encountered errors or was cancelled. Please accept the UAC prompt and try again.'
-  );
-}
+`,
+  successMsg: '✅ SFC scan completed successfully!',
+  errorMsg: 'SFC scan encountered errors or was cancelled. Please accept the UAC prompt and try again.'
+});
 
 /**
  * Run DISM repair with elevation
  * @returns {Promise<Object>}
  */
-async function runDismRepair() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'DISM is only available on Windows' };
-  }
-
-  const psScript = `
+const runDismRepair = createSystemTask({
+  guardMsg: 'DISM is only available on Windows',
+  script: `
 Write-Host "=== DEPLOYMENT IMAGE SERVICING AND MANAGEMENT (DISM) ===" -ForegroundColor Cyan
 Write-Host "Running DISM /Online /Cleanup-Image /RestoreHealth..." -ForegroundColor Yellow
 DISM /Online /Cleanup-Image /RestoreHealth
 exit $LASTEXITCODE
-`;
-
-  return runElevatedPowerShellScript(
-    psScript,
-    '✅ DISM repair completed successfully!',
-    'DISM repair encountered errors or was cancelled. Please accept the UAC prompt and try again.'
-  );
-}
+`,
+  successMsg: '✅ DISM repair completed successfully!',
+  errorMsg: 'DISM repair encountered errors or was cancelled. Please accept the UAC prompt and try again.'
+});
 
 /**
  * Run temporary files cleanup with elevation
@@ -99,7 +95,7 @@ if (Test-Path $recentPath) {
 
 # 2. Clean Prefetch
 $log += "2. Cleaning Prefetch..."
-$prefetchPath = "C:\\Windows\\Prefetch"
+$prefetchPath = "$env:SystemRoot\\Prefetch"
 if (Test-Path $prefetchPath) {
     try {
         $items = Get-ChildItem $prefetchPath -Force -ErrorAction SilentlyContinue
@@ -117,7 +113,7 @@ if (Test-Path $prefetchPath) {
 
 # 3. Clean Windows Temp
 $log += "3. Cleaning Windows Temp..."
-$winTemp = "C:\\Windows\\Temp"
+$winTemp = "$env:SystemRoot\\Temp"
 if (Test-Path $winTemp) {
     try {
         $items = Get-ChildItem $winTemp -Force -ErrorAction SilentlyContinue
@@ -203,11 +199,11 @@ async function restartToBios() {
     const tempDir = os.tmpdir();
     const timestamp = Date.now();
     const psPath = path.join(tempDir, `bios_restart_${timestamp}.ps1`);
-    const vbsPath = path.join(tempDir, `bios_elevate_${timestamp}.vbs`);
+    const launcherPath = path.join(tempDir, `bios_launcher_${timestamp}.ps1`);
     const resultPath = path.join(tempDir, `bios_result_${timestamp}.txt`);
 
     const cleanupTempFiles = () => {
-      try { if (fs.existsSync(vbsPath)) fs.unlinkSync(vbsPath); } catch (e) {}
+      try { if (fs.existsSync(launcherPath)) fs.unlinkSync(launcherPath); } catch (e) {}
       try { if (fs.existsSync(psPath)) fs.unlinkSync(psPath); } catch (e) {}
       try { if (fs.existsSync(resultPath)) fs.unlinkSync(resultPath); } catch (e) {}
     };
@@ -223,6 +219,12 @@ if (-not $isAdmin) {
 
 "ADMIN_OK" | Out-File -FilePath "${resultPath.replace(/\\/g, '\\\\')}" -Encoding UTF8
 
+$firmwareType = (Get-ItemProperty -Path "HKLM:\\System\\CurrentControlSet\\Control" -Name PEFirmwareType -ErrorAction SilentlyContinue).PEFirmwareType
+if ($firmwareType -ne 2) {
+    "NOT_UEFI" | Out-File -FilePath "${resultPath.replace(/\\/g, '\\\\')}" -Encoding UTF8 -Append
+    exit 1
+}
+
 try {
     shutdown /r /fw /t 3
     "RESTART_OK" | Out-File -FilePath "${resultPath.replace(/\\/g, '\\\\')}" -Encoding UTF8 -Append
@@ -233,16 +235,15 @@ try {
 }
 `;
 
-    const vbsScript = `
-Set objShell = CreateObject("Shell.Application")
-objShell.ShellExecute "powershell.exe", "-NoProfile -ExecutionPolicy Bypass -File ""${psPath.replace(/\\/g, '\\\\')}""", "", "runas", 0
-`;
+    // Elevate via PowerShell Start-Process -Verb RunAs (VBScript is disabled on Win11 24H2+)
+    const psPathPS = psPath.replace(/'/g, "''");
+    const launcherScript = `Start-Process powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','${psPathPS}') -Verb RunAs -WindowStyle Hidden -Wait`;
 
     try {
       fs.writeFileSync(psPath, psScript, 'utf8');
-      fs.writeFileSync(vbsPath, vbsScript, 'utf8');
+      fs.writeFileSync(launcherPath, launcherScript, 'utf8');
 
-      const child = spawn('cscript.exe', ['//nologo', vbsPath], { windowsHide: true });
+      const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', launcherPath], { windowsHide: true });
 
       child.on('error', (err) => {
         cleanupTempFiles();
@@ -259,6 +260,8 @@ objShell.ShellExecute "powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Fil
                 resolve({ success: true, message: 'Restarting to BIOS in 3 seconds...' });
               } else if (result.includes('ADMIN_FAILED')) {
                 resolve({ success: false, error: 'Administrator privileges denied.', code: 'UAC_DENIED' });
+              } else if (result.includes('NOT_UEFI')) {
+                resolve({ success: false, error: 'This PC uses legacy BIOS firmware, which does not support booting to firmware settings from Windows. Enter BIOS/UEFI manually (usually Del or F2 during startup).', code: 'NOT_UEFI' });
               } else {
                 resolve({ success: false, error: 'Restart command failed.', code: 'RESTART_FAILED' });
               }
@@ -426,21 +429,14 @@ async function runChrisTitus() {
  * Clean the Recycle Bin
  * @returns {Promise<Object>}
  */
-async function cleanRecycleBin() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const psScript = `
+const cleanRecycleBin = createSystemTask({
+  hidden: true,
+  script: `
 Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-`;
-
-  return runElevatedPowerShellScriptHidden(
-    psScript,
-    '✅ Recycle Bin emptied successfully!',
-    'Failed to empty Recycle Bin.'
-  );
-}
+`,
+  successMsg: '✅ Recycle Bin emptied successfully!',
+  errorMsg: 'Failed to empty Recycle Bin.'
+});
 
 /**
  * Clean Windows Update cache
@@ -465,7 +461,7 @@ $totalCleaned = 0
 Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
 
 # Clean Windows Update cache
-$wuPath = "C:\\Windows\\SoftwareDistribution\\Download"
+$wuPath = "$env:SystemRoot\\SoftwareDistribution\\Download"
 if (Test-Path $wuPath) {
     $items = Get-ChildItem $wuPath -Force -ErrorAction SilentlyContinue
     $count = ($items | Measure-Object).Count
@@ -501,12 +497,9 @@ $log | Out-File -FilePath $logFile -Encoding UTF8
  * Clear thumbnail cache
  * @returns {Promise<Object>}
  */
-async function clearThumbnailCache() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const psScript = `
+const clearThumbnailCache = createSystemTask({
+  hidden: true,
+  script: `
 # Kill Explorer to release thumbnail DB locks
 Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
@@ -519,25 +512,18 @@ if (Test-Path $thumbPath) {
 
 # Restart Explorer
 Start-Process explorer.exe
-`;
-
-  return runElevatedPowerShellScriptHidden(
-    psScript,
-    '✅ Thumbnail cache cleared successfully!',
-    'Failed to clear thumbnail cache.'
-  );
-}
+`,
+  successMsg: '✅ Thumbnail cache cleared successfully!',
+  errorMsg: 'Failed to clear thumbnail cache.'
+});
 
 /**
  * Clear error reports (CrashDumps)
  * @returns {Promise<Object>}
  */
-async function clearErrorReports() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const psScript = `
+const clearErrorReports = createSystemTask({
+  hidden: true,
+  script: `
 $totalCleaned = 0
 
 # Clean CrashDumps
@@ -557,47 +543,31 @@ if (Test-Path $werPath) {
         Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
     }
 }
-`;
-
-  return runElevatedPowerShellScriptHidden(
-    psScript,
-    '✅ Error reports cleared successfully!',
-    'Failed to clear error reports.'
-  );
-}
+`,
+  successMsg: '✅ Error reports cleared successfully!',
+  errorMsg: 'Failed to clear error reports.'
+});
 
 /**
  * Flush DNS cache
  * @returns {Promise<Object>}
  */
-async function flushDnsCache() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const psScript = `
+const flushDnsCache = createSystemTask({
+  script: `
 Write-Host "=== FLUSH DNS CACHE ===" -ForegroundColor Cyan
 ipconfig /flushdns
 exit $LASTEXITCODE
-`;
-
-  return runElevatedPowerShellScript(
-    psScript,
-    '✅ DNS cache flushed successfully!',
-    'Failed to flush DNS cache.'
-  );
-}
+`,
+  successMsg: '✅ DNS cache flushed successfully!',
+  errorMsg: 'Failed to flush DNS cache.'
+});
 
 /**
  * Release and renew IP address
  * @returns {Promise<Object>}
  */
-async function releaseRenewIp() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const psScript = `
+const releaseRenewIp = createSystemTask({
+  script: `
 Write-Host "=== IP RELEASE & RENEW ===" -ForegroundColor Cyan
 Write-Host "Releasing IP address..." -ForegroundColor Yellow
 ipconfig /release
@@ -606,25 +576,17 @@ Write-Host "Renewing IP address..." -ForegroundColor Yellow
 ipconfig /renew
 Write-Host "Done!" -ForegroundColor Green
 exit $LASTEXITCODE
-`;
-
-  return runElevatedPowerShellScript(
-    psScript,
-    '✅ IP address released and renewed successfully!',
-    'Failed to release/renew IP address.'
-  );
-}
+`,
+  successMsg: '✅ IP address released and renewed successfully!',
+  errorMsg: 'Failed to release/renew IP address.'
+});
 
 /**
  * Fix Bluetooth by restarting the Bluetooth service
  * @returns {Promise<Object>}
  */
-async function fixBluetooth() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const psScript = `
+const fixBluetooth = createSystemTask({
+  script: `
 Write-Host "=== FIX BLUETOOTH ===" -ForegroundColor Cyan
 Write-Host "Stopping Bluetooth services..." -ForegroundColor Yellow
 Stop-Service -Name bthserv -Force -ErrorAction SilentlyContinue
@@ -645,49 +607,33 @@ if ($btAdapter) {
     }
 }
 Write-Host "Bluetooth fix completed!" -ForegroundColor Green
-`;
-
-  return runElevatedPowerShellScript(
-    psScript,
-    '✅ Bluetooth services restarted successfully!',
-    'Failed to fix Bluetooth. Please accept the UAC prompt.'
-  );
-}
+`,
+  successMsg: '✅ Bluetooth services restarted successfully!',
+  errorMsg: 'Failed to fix Bluetooth. Please accept the UAC prompt.'
+});
 
 /**
  * Check disk for errors
  * @returns {Promise<Object>}
  */
-async function checkDisk() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const psScript = `
+const checkDisk = createSystemTask({
+  script: `
 Write-Host "=== CHECK DISK ===" -ForegroundColor Cyan
 Write-Host "Running chkdsk on C: drive (read-only scan)..." -ForegroundColor Yellow
 chkdsk C:
 Write-Host ""
 Write-Host "Scan complete. If errors were found, run 'chkdsk C: /F' from an elevated command prompt." -ForegroundColor Yellow
-`;
-
-  return runElevatedPowerShellScript(
-    psScript,
-    '✅ Disk check completed!',
-    'Failed to run disk check. Please accept the UAC prompt.'
-  );
-}
+`,
+  successMsg: '✅ Disk check completed!',
+  errorMsg: 'Failed to run disk check. Please accept the UAC prompt.'
+});
 
 /**
  * Network reset (Winsock + IP stack)
  * @returns {Promise<Object>}
  */
-async function networkReset() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const psScript = `
+const networkReset = createSystemTask({
+  script: `
 Write-Host "=== NETWORK RESET ===" -ForegroundColor Cyan
 Write-Host "Resetting Winsock..." -ForegroundColor Yellow
 netsh winsock reset
@@ -697,25 +643,17 @@ Write-Host "Flushing DNS..." -ForegroundColor Yellow
 ipconfig /flushdns
 Write-Host ""
 Write-Host "Network reset complete! A restart may be required for full effect." -ForegroundColor Green
-`;
-
-  return runElevatedPowerShellScript(
-    psScript,
-    '✅ Network reset completed! A restart may be required.',
-    'Failed to reset network. Please accept the UAC prompt.'
-  );
-}
+`,
+  successMsg: '✅ Network reset completed! A restart may be required.',
+  errorMsg: 'Failed to reset network. Please accept the UAC prompt.'
+});
 
 /**
  * Restart the Windows Audio system
  * @returns {Promise<Object>}
  */
-async function restartAudioSystem() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const psScript = `
+const restartAudioSystem = createSystemTask({
+  script: `
 Write-Host "=== RESTART AUDIO SYSTEM ===" -ForegroundColor Cyan
 Write-Host "Stopping audio services..." -ForegroundColor Yellow
 Stop-Service -Name Audiosrv -Force -ErrorAction SilentlyContinue
@@ -726,34 +664,23 @@ Start-Service -Name AudioEndpointBuilder -ErrorAction SilentlyContinue
 Start-Service -Name Audiosrv -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 Write-Host "Audio system restarted!" -ForegroundColor Green
-`;
-
-  return runElevatedPowerShellScript(
-    psScript,
-    '✅ Audio system restarted successfully!',
-    'Failed to restart audio system. Please accept the UAC prompt.'
-  );
-}
+`,
+  successMsg: '✅ Audio system restarted successfully!',
+  errorMsg: 'Failed to restart audio system. Please accept the UAC prompt.'
+});
 
 /**
  * Launch Windows Disk Cleanup utility (cleanmgr)
  * @returns {Promise<Object>}
  */
-async function runDiskCleaner() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const psScript = `
+const runDiskCleaner = createSystemTask({
+  hidden: true,
+  script: `
 Start-Process "cleanmgr.exe" -Verb RunAs
-`;
-
-  return runElevatedPowerShellScriptHidden(
-    psScript,
-    '✅ Disk Cleanup utility launched!',
-    'Failed to launch Disk Cleanup. Please accept the UAC prompt.'
-  );
-}
+`,
+  successMsg: '✅ Disk Cleanup utility launched!',
+  errorMsg: 'Failed to launch Disk Cleanup. Please accept the UAC prompt.'
+});
 
 module.exports = {
   runSfcScan,

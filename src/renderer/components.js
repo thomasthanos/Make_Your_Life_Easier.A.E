@@ -720,6 +720,71 @@ export async function openInfoModal() {
     document.body.appendChild(overlay);
 }
 
+export function openAccountModal(profile, syncedItems = [], handlers = {}) {
+    if (document.getElementById('account-modal-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'account-modal-overlay';
+    overlay.className = 'modal-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'account-modal';
+
+    const providerLabel = profile.provider === 'google'
+        ? 'Google'
+        : profile.provider === 'discord' ? 'Discord' : (profile.provider || '');
+
+    const rows = (syncedItems || []).map((item) =>
+        `<li><span class="account-sync-label">${escapeHtml(item.label)}</span><span class="account-sync-value">${escapeHtml(String(item.value))}</span></li>`
+    ).join('');
+
+    const avatar = profile.avatar
+        ? `<img class="account-avatar" src="${escapeHtml(profile.avatar)}" alt="avatar">`
+        : `<div class="account-avatar account-avatar-fallback">${escapeHtml((profile.name || '?').slice(0, 1).toUpperCase())}</div>`;
+
+    modal.innerHTML = `
+        <button class="account-close" aria-label="Close">&times;</button>
+        <div class="account-head">
+            ${avatar}
+            <div class="account-id">
+                <span class="account-name">${escapeHtml(profile.name || 'User')}</span>
+                <span class="account-provider">via ${escapeHtml(providerLabel)}</span>
+            </div>
+        </div>
+        <div class="account-synced">
+            <h4>Synced</h4>
+            <ul>${rows}</ul>
+        </div>
+        <div class="account-actions">
+            <button class="account-reset">Reset synced settings</button>
+            <button class="account-signout">Sign out</button>
+        </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    const close = () => {
+        document.removeEventListener('keydown', onKey);
+        overlay.remove();
+    };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    modal.querySelector('.account-close').addEventListener('click', close);
+
+    modal.querySelector('.account-signout').addEventListener('click', async () => {
+        close();
+        if (handlers.onSignOut) await handlers.onSignOut();
+    });
+
+    modal.querySelector('.account-reset').addEventListener('click', async () => {
+        if (handlers.onReset) await handlers.onReset();
+        close();
+    });
+}
+
 // ============================================
 // MENU BUTTON CREATION
 // ============================================
@@ -742,33 +807,4 @@ export function createMenuButton(key, label) {
   `;
     li.appendChild(btn);
     return li;
-}
-
-// ============================================
-// NOTIFICATION
-// ============================================
-
-/**
- * Show a notification (simple toast alternative)
- * @param {string} message - Message to display
- * @param {string} type - Type (info, error, success)
- */
-export function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `toast status-${type}`;
-    notification.textContent = message;
-    notification.classList.add('notification');
-
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-        notification.classList.add('slide-out');
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-// Make toast available globally
-if (typeof window !== 'undefined') {
-    window.toast = toast;
-    window.showToast = toast;
 }

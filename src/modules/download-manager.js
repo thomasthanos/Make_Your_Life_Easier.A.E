@@ -6,12 +6,29 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { app } = require('electron');
 const { clientFor } = require('./http-utils');
 const { sanitizeFilename, extFromUrl, removeFileIfExistsSync, cleanupExtractDirs } = require('./file-utils');
 
 const activeDownloads = new Map();
 const downloadedFiles = new Set();
 const extractedDirs = new Set();
+
+let cleanupManifestPath = null;
+function manifestPath() {
+  if (!cleanupManifestPath) {
+    try { cleanupManifestPath = path.join(app.getPath('userData'), 'pending-cleanup.json'); } catch { cleanupManifestPath = null; }
+  }
+  return cleanupManifestPath;
+}
+
+function persistTracking() {
+  try {
+    const p = manifestPath();
+    if (!p) return;
+    fs.writeFileSync(p, JSON.stringify({ files: [...downloadedFiles], dirs: [...extractedDirs] }));
+  } catch { }
+}
 
 const STALL_TIMEOUT_MS = 120000;
 const STALL_CHECK_INTERVAL_MS = 5000;
@@ -206,66 +223,6 @@ function startDownload(id, url, dest, mainWindow) {
 }
 
 /**
- * Pause a download
- * @param {string} id - Download identifier
- * @param {BrowserWindow} mainWindow - Window to send events to
- */
-function pauseDownload(id, mainWindow) {
-  const d = activeDownloads.get(id);
-  if (d && d.response) {
-    d.paused = true;
-    try { d.response.pause(); } catch { }
-    safeSend(mainWindow, 'download-event', { id, status: 'paused' });
-  }
-}
-
-/**
- * Resume a download
- * @param {string} id - Download identifier
- * @param {BrowserWindow} mainWindow - Window to send events to
- */
-function resumeDownload(id, mainWindow) {
-  const d = activeDownloads.get(id);
-  if (d && d.response) {
-    d.paused = false;
-    try { d.response.resume(); } catch { }
-    safeSend(mainWindow, 'download-event', { id, status: 'resumed' });
-  }
-}
-
-/**
- * Cancel a download
- * @param {string} id - Download identifier
- * @param {BrowserWindow} mainWindow - Window to send events to
- */
-function cancelDownload(id, mainWindow) {
-  const d = activeDownloads.get(id);
-  if (d) {
-    // Mark as cleaned first to prevent finish handler from racing
-    d.cleaned = true;
-    // Clear stall detection interval
-    if (d.stallInterval) clearInterval(d.stallInterval);
-    try {
-      if (d.response) {
-        d.response.removeAllListeners();
-        d.response.destroy();
-      }
-    } catch { }
-    try {
-      if (d.file) {
-        d.file.removeAllListeners();
-        d.file.close(() => {
-          try { d.file.destroy(); } catch { }
-        });
-      }
-    } catch { }
-    try { if (d.filePath) fs.unlink(d.filePath, () => { }); } catch { }
-    activeDownloads.delete(id);
-    safeSend(mainWindow, 'download-event', { id, status: 'cancelled' });
-  }
-}
-
-/**
  * Track a downloaded file with size limit
  * @param {string} filePath - File path to track
  */
@@ -277,6 +234,7 @@ function trackDownloadedFile(filePath) {
     while (downloadedFiles.size > MAX_TRACKED_ITEMS) {
       downloadedFiles.delete(downloadedFiles.values().next().value);
     }
+    persistTracking();
   }
 }
 
@@ -292,6 +250,7 @@ function trackExtractedDir(dirPath) {
     while (extractedDirs.size > MAX_TRACKED_ITEMS) {
       extractedDirs.delete(extractedDirs.values().next().value);
     }
+    persistTracking();
   }
 }
 
@@ -311,34 +270,61 @@ function cleanupOnQuit(debug) {
     }
   };
 
+  const tempDir = os.tmpdir().toLowerCase();
+  const isInTemp = (target) => typeof target === 'string' && target.toLowerCase().startsWith(tempDir);
+
+  // Only remove downloaded files that live in the OS temp dir — never delete
+  // completed downloads the user intentionally saved to their Downloads folder.
   for (const filePath of downloadedFiles) {
-    tryRemovePath(filePath);
-    const altFilePath = filePath.replace(/_/g, ' ');
-    if (altFilePath !== filePath) {
-      tryRemovePath(altFilePath);
-    }
+    if (isInTemp(filePath)) tryRemovePath(filePath);
   }
 
+  // Extraction directories are app-created artifacts — safe to remove.
   for (const dirPath of extractedDirs) {
     tryRemovePath(dirPath);
-    const altDirPath = dirPath.replace(/_/g, ' ');
-    if (altDirPath !== dirPath) {
-      tryRemovePath(altDirPath);
-    }
   }
 
   // ✅ Clear sets after cleanup
   downloadedFiles.clear();
   extractedDirs.clear();
+  try { const p = manifestPath(); if (p && fs.existsSync(p)) fs.unlinkSync(p); } catch { }
+}
+
+function cleanupLeftoverDownloads(debug) {
+  try {
+    const p = manifestPath();
+    if (!p || !fs.existsSync(p)) return;
+
+    let manifest;
+    try { manifest = JSON.parse(fs.readFileSync(p, 'utf-8')) || {}; } catch { manifest = {}; }
+
+    const tempDir = os.tmpdir().toLowerCase();
+    const isInTemp = (target) => typeof target === 'string' && target.toLowerCase().startsWith(tempDir);
+
+    // Files: only remove leftovers in temp — never the user's saved downloads.
+    // Dirs: extraction artifacts, always safe to remove.
+    const targets = [...(manifest.files || []).filter(isInTemp), ...(manifest.dirs || [])];
+
+    for (const target of targets) {
+      try {
+        if (target && fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
+      } catch (err) {
+        if (debug) debug('warn', 'Failed to remove leftover download:', target, err.message);
+      }
+    }
+
+    fs.unlinkSync(p);
+    if (debug && targets.length) debug('success', `Cleaned ${targets.length} leftover download item(s)`);
+  } catch (err) {
+    if (debug) debug('warn', 'Failed to clean leftover downloads:', err.message);
+  }
 }
 
 
 module.exports = {
   startDownload,
-  pauseDownload,
-  resumeDownload,
-  cancelDownload,
   cleanupOnQuit,
+  cleanupLeftoverDownloads,
   trackExtractedDir,
   trackDownloadedFile
 };

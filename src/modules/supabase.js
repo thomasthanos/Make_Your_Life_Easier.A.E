@@ -2,9 +2,17 @@ require('dotenv').config();
 
 const fs = require('fs');
 const path = require('path');
-const { app } = require('electron');
+const { app, safeStorage } = require('electron');
 const { createClient } = require('@supabase/supabase-js');
 const { debug } = require('./debug');
+
+function encryptionAvailable() {
+  try {
+    return safeStorage.isEncryptionAvailable();
+  } catch {
+    return false;
+  }
+}
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://oofcywdbmhmqpowmwykz.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
@@ -19,7 +27,17 @@ function ensureLoaded() {
   try {
     if (!sessionPath) sessionPath = path.join(app.getPath('userData'), 'supabase-session.json');
     if (fs.existsSync(sessionPath)) {
-      cache = JSON.parse(fs.readFileSync(sessionPath, 'utf-8')) || {};
+      const raw = fs.readFileSync(sessionPath);
+      let text;
+      if (encryptionAvailable()) {
+        // Encrypted payload written by a previous run; fall back to plaintext for
+        // sessions saved before encryption was enabled (migrated on next persist).
+        try { text = safeStorage.decryptString(raw); }
+        catch { text = raw.toString('utf-8'); }
+      } else {
+        text = raw.toString('utf-8');
+      }
+      cache = JSON.parse(text) || {};
     }
   } catch (err) {
     debug('warn', 'Failed to load Supabase session:', err.message);
@@ -31,7 +49,12 @@ function ensureLoaded() {
 function persist() {
   try {
     if (!sessionPath) sessionPath = path.join(app.getPath('userData'), 'supabase-session.json');
-    fs.writeFileSync(sessionPath, JSON.stringify(cache, null, 2));
+    const json = JSON.stringify(cache);
+    if (encryptionAvailable()) {
+      fs.writeFileSync(sessionPath, safeStorage.encryptString(json));
+    } else {
+      fs.writeFileSync(sessionPath, json, 'utf8');
+    }
   } catch (err) {
     debug('warn', 'Failed to persist Supabase session:', err.message);
   }
@@ -63,12 +86,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 function isConfigured() {
-  return SUPABASE_URL !== 'https://placeholder.supabase.co' && SUPABASE_ANON_KEY !== 'public-anon-key';
-}
-
-async function getUser() {
-  const { data } = await supabase.auth.getUser();
-  return data?.user || null;
+  return Boolean(SUPABASE_URL) && Boolean(SUPABASE_ANON_KEY);
 }
 
 async function getSessionUser() {
@@ -87,7 +105,6 @@ async function signOut() {
 module.exports = {
   supabase,
   isConfigured,
-  getUser,
   getSessionUser,
   signOut,
   SUPABASE_URL,

@@ -330,28 +330,18 @@ async function extractSparkleFromZip(zipPath) {
  * @returns {Promise<string>}
  */
 function fetchLatestReleaseUrl() {
-  return new Promise((resolve, reject) => {
-    const options = {
-      headers: { 'User-Agent': 'MakeYourLifeEasier' }
-    };
+  const REQUEST_TIMEOUT_MS = 15000;
+  const options = { headers: { 'User-Agent': 'MakeYourLifeEasier' } };
 
-    https.get(GITHUB_API_LATEST, options, (res) => {
-      // Handle redirects
+  const requestJson = (url, redirectsLeft) => new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (fn, val) => { if (!settled) { settled = true; fn(val); } };
+
+    const req = https.get(url, options, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        https.get(res.headers.location, options, (res2) => {
-          let body = '';
-          res2.on('data', (chunk) => { body += chunk; });
-          res2.on('end', () => {
-            try {
-              const release = JSON.parse(body);
-              const asset = findWinAsset(release);
-              if (asset) resolve(asset);
-              else reject(new Error('No Windows zip asset found in latest release'));
-            } catch (e) {
-              reject(new Error('Failed to parse GitHub release: ' + e.message));
-            }
-          });
-        }).on('error', reject);
+        res.resume();
+        if (redirectsLeft <= 0) { done(reject, new Error('Too many redirects from GitHub')); return; }
+        done(resolve, requestJson(res.headers.location, redirectsLeft - 1));
         return;
       }
 
@@ -359,20 +349,33 @@ function fetchLatestReleaseUrl() {
       res.on('data', (chunk) => { body += chunk; });
       res.on('end', () => {
         if (res.statusCode !== 200) {
-          reject(new Error(`GitHub API returned ${res.statusCode}`));
+          done(reject, new Error(`GitHub API returned HTTP ${res.statusCode}`));
           return;
         }
+        let release;
         try {
-          const release = JSON.parse(body);
-          const asset = findWinAsset(release);
-          if (asset) resolve(asset);
-          else reject(new Error('No Windows zip asset found in latest release'));
+          release = JSON.parse(body);
         } catch (e) {
-          reject(new Error('Failed to parse GitHub release: ' + e.message));
+          done(reject, new Error('Failed to parse GitHub release response: ' + e.message));
+          return;
         }
+        const asset = findWinAsset(release);
+        if (asset) done(resolve, asset);
+        else done(reject, new Error('No Windows zip asset found in the latest release'));
       });
-    }).on('error', reject);
+    });
+
+    req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      req.destroy();
+      done(reject, new Error('GitHub request timed out after 15 seconds'));
+    });
+
+    req.on('error', (err) => {
+      done(reject, new Error('Network error contacting GitHub: ' + err.message));
+    });
   });
+
+  return requestJson(GITHUB_API_LATEST, 3);
 }
 
 /**

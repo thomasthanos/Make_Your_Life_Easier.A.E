@@ -1,6 +1,6 @@
 {
   "name": "make-your-life-easier",
-  "version": "4.2.7",
+  "version": "4.2.8",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "homepage": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E",
@@ -16,11 +16,7 @@
     "@supabase/supabase-js": "^2.110.0",
     "dotenv": "^17.4.2",
     "electron-log": "^5.4.4",
-    "electron-store": "^11.0.2",
-    "electron-sudo": "^4.0.12",
-    "electron-updater": "^6.8.9",
-    "node-windows": "^1.0.0-beta.8",
-    "sqlite3": "^5.1.6"
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

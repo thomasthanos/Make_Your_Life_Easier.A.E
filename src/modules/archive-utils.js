@@ -63,7 +63,7 @@ async function ensure7za() {
  */
 async function extractArchive(filePath, password, destDir, trackExtractedDir) {
   const archive = String(filePath);
-  const pwd = String(password || '').replace(/["&|<>^]/g, ''); // Sanitize shell metacharacters
+  const pwd = String(password || '');
   let outDir;
 
   if (destDir) {
@@ -88,7 +88,7 @@ async function extractArchive(filePath, password, destDir, trackExtractedDir) {
         let pending = exes.length;
         const done = () => { if (--pending === 0) { clearTimeout(timeout); resolve(); } };
         exes.forEach(exe => {
-          const kill = sp('taskkill', ['/F', '/IM', `"${exe}"`], { windowsHide: true, stdio: 'ignore' });
+          const kill = sp('taskkill', ['/F', '/IM', exe], { windowsHide: true, stdio: 'ignore' });
           kill.on('close', done);
           kill.on('error', done);
         });

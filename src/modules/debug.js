@@ -3,13 +3,6 @@
  * Provides consistent logging with color-coded output
  */
 
-const emojiMap = {
-  info: '',  // emoji removed for compatibility with non-UTF8 consoles
-  warn: '',
-  error: '',
-  success: ''
-};
-
 const colorMap = {
   info: 'color:#2196F3; font-weight:bold;',
   warn: 'color:#FF9800; font-weight:bold;',
@@ -23,7 +16,6 @@ const colorMap = {
  * @param {...any} args - Arguments to log
  */
 function debug(level, ...args) {
-  const emoji = emojiMap[level] || '';
   const style = colorMap[level] || '';
   const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
@@ -35,9 +27,9 @@ function debug(level, ...args) {
         : console.log;
 
   if (isBrowser) {
-    fn.call(console, `%c${emoji}`, style, ...args);
+    fn.call(console, '%c', style, ...args);
   } else {
-    fn.call(console, `${emoji}`, ...args);
+    fn.call(console, ...args);
   }
 }
 

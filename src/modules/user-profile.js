@@ -5,10 +5,19 @@
 
 const fs = require('fs');
 const path = require('path');
+const { safeStorage } = require('electron');
 const { debug } = require('./debug');
 
 let userProfile = null;
 let profilePath = null;
+
+function encryptionAvailable() {
+  try {
+    return safeStorage.isEncryptionAvailable();
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Initialize the profile module with the user data path
@@ -25,8 +34,16 @@ function initialize(userDataPath) {
 function load() {
   try {
     if (profilePath && fs.existsSync(profilePath)) {
-      const data = fs.readFileSync(profilePath, 'utf-8');
-      userProfile = JSON.parse(data);
+      const raw = fs.readFileSync(profilePath);
+      let text;
+      if (encryptionAvailable()) {
+        // Fall back to plaintext for profiles saved before encryption was enabled.
+        try { text = safeStorage.decryptString(raw); }
+        catch { text = raw.toString('utf-8'); }
+      } else {
+        text = raw.toString('utf-8');
+      }
+      userProfile = JSON.parse(text);
     }
   } catch (err) {
     debug('warn', 'Failed to load saved user profile:', err);
@@ -40,9 +57,14 @@ function load() {
 function save() {
   try {
     if (!profilePath) return;
-    
+
     if (userProfile) {
-      fs.writeFileSync(profilePath, JSON.stringify(userProfile, null, 2));
+      const json = JSON.stringify(userProfile);
+      if (encryptionAvailable()) {
+        fs.writeFileSync(profilePath, safeStorage.encryptString(json));
+      } else {
+        fs.writeFileSync(profilePath, json, 'utf8');
+      }
     } else {
       if (fs.existsSync(profilePath)) {
         fs.unlinkSync(profilePath);
