@@ -85,6 +85,9 @@ export function buildSpicetifyPage(translations, settings) {
         button.textContent = (translations.general?.run || 'Run') + '...';
         try {
             const result = await action();
+            if (!result) {
+                throw new Error(errorMsg || 'No response from Spicetify');
+            }
             outputPre.textContent = result.output || '';
             if (result.success) {
                 toast(successMsg, { type: 'success', title: translations.menu?.spicetify || 'Spicetify' });

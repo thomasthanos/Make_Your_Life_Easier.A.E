@@ -133,12 +133,6 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
   });
 }
 
-/**
- * Map a Supabase session user to the app's profile shape
- * @param {Object} user - Supabase auth user
- * @param {string} provider - 'google' or 'discord'
- * @returns {Object}
- */
 function toProfile(user, provider) {
   const meta = (user && user.user_metadata) || {};
   return {
@@ -148,12 +142,6 @@ function toProfile(user, provider) {
   };
 }
 
-/**
- * Run an OAuth login through Supabase for the given provider
- * @param {string} provider - 'google' or 'discord'
- * @param {BrowserWindow} parentWindow - Parent window reference
- * @returns {Promise<Object|null>}
- */
 async function loginWith(provider, parentWindow) {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
@@ -180,20 +168,10 @@ async function loginWith(provider, parentWindow) {
   }, parentWindow);
 }
 
-/**
- * Perform Google OAuth login via Supabase
- * @param {BrowserWindow} parentWindow - Parent window reference
- * @returns {Promise<Object|null>}
- */
 function loginGoogle(parentWindow) {
   return loginWith('google', parentWindow);
 }
 
-/**
- * Perform Discord OAuth login via Supabase
- * @param {BrowserWindow} parentWindow - Parent window reference
- * @returns {Promise<Object|null>}
- */
 function loginDiscord(parentWindow) {
   return loginWith('discord', parentWindow);
 }

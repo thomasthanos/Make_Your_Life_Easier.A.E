@@ -99,8 +99,6 @@ ipcHandlers.setupSystemInfoHandlers();
 
 // OAuth and user profile
 ipcHandlers.setupOAuthHandlers(oauth, userProfile, windowManager.getMainWindow, supabase, settingsStore);
-
-// Settings (local-first + Supabase sync)
 ipcHandlers.setupSettingsHandlers(settingsStore);
 
 // Commands and external processes
@@ -187,6 +185,8 @@ app.whenReady().then(async () => {
     // 🧹 Clean up any leftover sparkle folder from a previous session where cleanup failed
     sparkleModule.cleanupLeftoverSparkle().catch(() => {});
 
+    downloadManager.cleanupLeftoverDownloads(debug);
+
     // Clean up any leftover update files from previous updates
     updater.cleanupUpdaterCache(debug);
 
@@ -197,7 +197,6 @@ app.whenReady().then(async () => {
         debug('warn', 'Failed to initialize user profile:', err.message);
     }
 
-    // Initialize settings store and sync from cloud if a session was restored
     try {
         settingsStore.initialize(app.getPath('userData'));
         settingsStore.pullFromCloud().catch(() => {});

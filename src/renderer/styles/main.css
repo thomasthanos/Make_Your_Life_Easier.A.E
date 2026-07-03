@@ -2401,6 +2401,158 @@ select:focus-visible {
   border: none;
 }
 
+.account-modal {
+  width: min(420px, 92vw);
+  background: var(--panel-strong);
+  border: 1px solid var(--gloss-border);
+  border-top-color: var(--gloss-border-top);
+  border-radius: 16px;
+  box-shadow: var(--shadow-panel);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  padding: 1.6rem;
+  position: relative;
+  color: var(--text-primary);
+}
+
+.account-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.account-close:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 1.3rem;
+}
+
+.account-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent-soft);
+  flex-shrink: 0;
+}
+
+.account-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.account-id {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.account-name {
+  font-size: 1.12rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-provider {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.account-synced h4 {
+  margin: 0 0 0.6rem;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.account-synced ul {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+}
+
+.account-synced li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.1rem;
+  border-bottom: 1px solid var(--gloss-border);
+  font-size: 0.9rem;
+}
+
+.account-synced li:last-child {
+  border-bottom: none;
+}
+
+.account-sync-label {
+  color: var(--text-secondary);
+}
+
+.account-sync-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.account-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.account-actions button {
+  flex: 1;
+  padding: 0.68rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--gloss-border);
+  transition: all 0.15s ease;
+}
+
+.account-reset {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.account-reset:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.account-signout {
+  background: var(--accent);
+  color: #04202b;
+  border-color: transparent;
+}
+
+.account-signout:hover {
+  background: var(--accent-hover);
+}
+
 .bios-overlay {
   position: fixed;
   top: 0;

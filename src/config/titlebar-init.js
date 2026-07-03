@@ -39,7 +39,6 @@
     try { sidebarExpanded = localStorage.getItem('sidebarExpanded') === '1'; } catch { }
     applySidebarState(sidebarExpanded);
 
-    // Override with the cloud-synced value once available (keeps instant first paint)
     Promise.resolve(window.api?.getSetting?.('sidebarExpanded')).then((cloudVal) => {
         if (typeof cloudVal === 'boolean' && cloudVal !== sidebarExpanded) {
             sidebarExpanded = cloudVal;

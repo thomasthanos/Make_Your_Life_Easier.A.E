@@ -48,21 +48,6 @@ function setupWindowHandlers(getMainWindow) {
 }
 
 function setupSystemInfoHandlers() {
-    ipcMain.handle('get-system-info', async () => {
-        return {
-            platform: os.platform(),
-            release: os.release(),
-            type: os.type(),
-            arch: os.arch(),
-            totalmem: os.totalmem(),
-            freemem: os.freemem(),
-            cpus: os.cpus().map(c => ({ model: c.model, speed: c.speed })),
-            hostname: os.hostname(),
-            user: os.userInfo(),
-            homedir: os.homedir()
-        };
-    });
-
     ipcMain.handle('get-app-version', async () => {
         return app.getVersion();
     });
@@ -116,6 +101,11 @@ function setupSettingsHandlers(settingsStore) {
     ipcMain.handle('settings-all', async () => {
         return settingsStore.all();
     });
+
+    ipcMain.handle('settings-reset', async () => {
+        settingsStore.clearAll();
+        return { success: true };
+    });
 }
 
 function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
@@ -150,32 +140,7 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
             }
         }
 
-        return processUtils.runSpawnCommand(parts[0], args, { shell: true, windowsHide: false });
-    });
-
-    ipcMain.handle('run-elevated-winget', async (event, command) => {
-        if (process.platform !== 'win32') {
-            return { error: 'Elevated commands only supported on Windows' };
-        }
-
-        if (typeof command !== 'string' || !command.trim()) {
-            return { error: 'Invalid command' };
-        }
-
-        const allowedElevatedCommands = [
-            'winget settings --enable InstallerHashOverride'
-        ];
-
-        if (!allowedElevatedCommands.includes(command.trim())) {
-            return { error: 'This elevated command is not allowed' };
-        }
-
-        const psScript = '\ntry {\n    ' + command + '\n    exit 0\n} catch {\n    exit 1\n}\n';
-        return processUtils.runElevatedPowerShellScriptHidden(
-            psScript,
-            'Setting enabled successfully',
-            'Failed to enable setting'
-        );
+        return processUtils.runSpawnCommand(parts[0], args, { shell: false, windowsHide: false });
     });
 
     ipcMain.handle('run-christitus', async () => {
@@ -246,31 +211,6 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
         });
     });
 
-    ipcMain.handle('open-installer', async (event, filePath) => {
-        if (typeof filePath !== 'string' || !filePath.trim()) {
-            return { success: false, error: 'Invalid file path' };
-        }
-
-        const validation = security.validatePath(filePath);
-        if (!validation.valid) {
-            return { success: false, error: validation.error };
-        }
-
-        const downloadsDir = path.join(os.homedir(), 'Downloads').toLowerCase();
-        const tempDir = os.tmpdir().toLowerCase();
-        const normalizedPath = validation.normalized.toLowerCase();
-
-        if (!normalizedPath.startsWith(downloadsDir) && !normalizedPath.startsWith(tempDir)) {
-            return { success: false, error: 'Installers can only be run from Downloads or temp folder' };
-        }
-
-        const errStr = await shell.openPath(validation.normalized);
-        if (errStr) {
-            return { success: false, error: errStr };
-        }
-        return { success: true };
-    });
-
     ipcMain.handle('show-file-dialog', async () => {
         try {
             return await dialog.showOpenDialog({
@@ -306,22 +246,6 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
             return 'file:///' + normalizedPath;
         }
         return 'file://' + normalizedPath;
-    });
-
-    ipcMain.handle('file-exists', async (event, filePath) => {
-        try {
-            if (typeof filePath !== 'string' || !filePath.trim()) {
-                return false;
-            }
-            const expanded = fileUtils.expandEnvVars(filePath);
-            const validation = security.validatePath(expanded);
-            if (!validation.valid) {
-                return false;
-            }
-            return fs.existsSync(validation.normalized);
-        } catch {
-            return false;
-        }
     });
 
     ipcMain.handle('delete-file', async (event, filePath) => {
@@ -360,66 +284,6 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
                 fs.unlink(normalizedPath, (err) => {
                     if (err) {
                         return resolve({ success: false, error: err.message, code: 'DELETE_FAILED' });
-                    }
-                    resolve({ success: true });
-                });
-            } catch (err) {
-                resolve({ success: false, error: err.message, code: 'EXCEPTION' });
-            }
-        });
-    });
-
-    ipcMain.handle('rename-directory', async (event, { src, dest }) => {
-        return new Promise((resolve) => {
-            try {
-                if (typeof src !== 'string' || typeof dest !== 'string' || !src || !dest) {
-                    return resolve({ success: false, error: 'Invalid source or destination' });
-                }
-
-                const srcExpanded = fileUtils.expandEnvVars(src);
-                const destExpanded = fileUtils.expandEnvVars(dest);
-
-                const srcValidation = security.validatePath(srcExpanded);
-                if (!srcValidation.valid) {
-                    return resolve({ success: false, error: 'Invalid source path: ' + srcValidation.error, code: 'INVALID_SOURCE' });
-                }
-
-                const destValidation = security.validatePath(destExpanded);
-                if (!destValidation.valid) {
-                    return resolve({ success: false, error: 'Invalid destination path: ' + destValidation.error, code: 'INVALID_DEST' });
-                }
-
-                const srcNormalized = srcValidation.normalized;
-                const destNormalized = destValidation.normalized;
-
-                try {
-                    const srcStats = fs.statSync(srcNormalized);
-                    if (!srcStats.isDirectory()) {
-                        return resolve({ success: false, error: 'Source is not a directory', code: 'NOT_DIRECTORY' });
-                    }
-                } catch (statErr) {
-                    if (statErr.code === 'ENOENT') {
-                        return resolve({ success: false, error: 'Source directory does not exist', code: 'SRC_NOT_FOUND' });
-                    }
-                    return resolve({ success: false, error: 'Cannot access source: ' + statErr.message, code: 'SRC_ACCESS_ERROR' });
-                }
-
-                try {
-                    if (fs.existsSync(destNormalized)) {
-                        const destStats = fs.statSync(destNormalized);
-                        if (destStats.isDirectory()) {
-                            fs.rmSync(destNormalized, { recursive: true, force: true });
-                        } else {
-                            return resolve({ success: false, error: 'Destination exists and is not a directory', code: 'DEST_EXISTS' });
-                        }
-                    }
-                } catch (rmErr) {
-                    debug('warn', 'Could not remove existing destination:', rmErr.message);
-                }
-
-                fs.rename(srcNormalized, destNormalized, (err) => {
-                    if (err) {
-                        return resolve({ success: false, error: err.message, code: 'RENAME_FAILED' });
                     }
                     resolve({ success: true });
                 });
@@ -602,14 +466,6 @@ function setupArchiveHandlers(security, archiveUtils, downloadManager) {
 }
 
 function setupSparkleHandlers(sparkleModule) {
-    ipcMain.handle('ensure-sparkle', async () => {
-        try {
-            return await sparkleModule.ensureSparkle();
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
-
     ipcMain.handle('process-downloaded-sparkle', async (event, zipPath) => {
         try {
             return await sparkleModule.processDownloadedSparkle(zipPath);
@@ -659,8 +515,17 @@ function setupSpicetifyHandlers(spicetifyModule) {
 function setupInstallerHandlers(debug, security) {
     ipcMain.handle('find-exe-files', async (event, directoryPath) => {
         try {
+            if (typeof directoryPath !== 'string' || !directoryPath.trim()) {
+                return [];
+            }
+            const validation = security.validatePath(directoryPath);
+            if (!validation.valid) {
+                return [];
+            }
+            const rootDir = validation.normalized;
+
             try {
-                await fs.promises.access(directoryPath);
+                await fs.promises.access(rootDir);
             } catch {
                 return [];
             }
@@ -668,8 +533,8 @@ function setupInstallerHandlers(debug, security) {
             const executableFiles = [];
             const MAX_DEPTH = 10;
             const MAX_FILES = 500;
-            
-            const queue = [{ path: directoryPath, depth: 0 }];
+
+            const queue = [{ path: rootDir, depth: 0 }];
             
             while (queue.length > 0 && executableFiles.length < MAX_FILES) {
                 // Process in chunks to avoid blocking the event loop
@@ -706,33 +571,6 @@ function setupInstallerHandlers(debug, security) {
         }
     });
 
-    ipcMain.handle('run-msi-installer', async (event, msiPath) => {
-        return new Promise((resolve) => {
-            if (process.platform !== 'win32') {
-                resolve({ success: false, error: 'MSI installers are only supported on Windows' });
-                return;
-            }
-
-            const validation = security.validatePath(msiPath);
-            if (!validation.valid) {
-                resolve({ success: false, error: validation.error });
-                return;
-            }
-            const normalized = validation.normalized;
-
-            try {
-                const child = spawn('msiexec', ['/i', normalized], { detached: true, stdio: 'ignore' });
-                child.on('error', (spawnErr) => {
-                    resolve({ success: false, error: spawnErr.message });
-                });
-                child.unref();
-                resolve({ success: true });
-            } catch (err) {
-                resolve({ success: false, error: err.message });
-            }
-        });
-    });
-
     ipcMain.handle('run-installer', async (event, filePath) => {
         return new Promise((resolve) => {
             debug('info', 'Running installer:', filePath);
@@ -741,6 +579,14 @@ function setupInstallerHandlers(debug, security) {
                 return resolve({ success: false, error: validation.error });
             }
             const normalized = validation.normalized;
+
+            const downloadsDir = path.join(os.homedir(), 'Downloads').toLowerCase();
+            const tempDir = os.tmpdir().toLowerCase();
+            const lowerPath = normalized.toLowerCase();
+            if (!lowerPath.startsWith(downloadsDir) && !lowerPath.startsWith(tempDir)) {
+                return resolve({ success: false, error: 'Installers can only be run from Downloads or temp folder' });
+            }
+
             const ext = path.extname(normalized).toLowerCase();
 
             try {

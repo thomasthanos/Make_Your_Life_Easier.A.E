@@ -217,15 +217,6 @@ export async function getAppVersionWithFallback() {
 // SVG DATA URL HELPER
 // ============================================
 
-/**
- * Convert an SVG string to a data URL
- * @param {string} svg - SVG markup
- * @returns {string} Data URL
- */
-export function svgDataUrl(svg) {
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
-
 // ============================================
 // UI HELPERS
 // ============================================
@@ -255,40 +246,9 @@ export function autoFadeStatus(statusElement, delay = 5000) {
             statusElement.classList.add('status-element');
             statusElement.classList.remove('fade-out');
             statusElement.classList.add('reset');
-            statusElement.textContent = '';
             statusElement.classList.remove('status-success', 'status-error', 'status-warning');
         }, 500);
     }, delay);
 }
 
-/**
- * Create a modern button element
- * @param {string} text - Button text
- * @param {Function} onClick - Click handler
- * @param {Object} options - Button options
- * @returns {HTMLButtonElement} The button element
- */
-export function createModernButton(text, onClick, options = {}) {
-    const button = document.createElement('button');
-    button.className = options.secondary ? 'button button-secondary' : 'button';
-    button.textContent = text;
-
-    if (options.icon) {
-        const iconSpan = document.createElement('span');
-        iconSpan.textContent = options.icon;
-        button.textContent = '';
-        button.appendChild(iconSpan);
-        button.appendChild(document.createTextNode(' ' + text));
-    }
-
-    if (onClick) {
-        button.addEventListener('click', onClick);
-    }
-
-    if (options.style) {
-        Object.assign(button.style, options.style);
-    }
-
-    return button;
-}
 

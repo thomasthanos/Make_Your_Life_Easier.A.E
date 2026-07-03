@@ -5,7 +5,7 @@
 
 import { debug } from './utils.js';
 import { EventListenerManager, attachTooltipHandlers, buttonStateManager, detachAllDownloadUI, initDownloadListener } from './managers.js';
-import { INFO_ICON, MENU_ICON, MENU_ICONS, toast, openInfoModal, createMenuButton, hideAppLoader } from './components.js';
+import { INFO_ICON, MENU_ICON, toast, openInfoModal, createMenuButton, hideAppLoader } from './components.js';
 import {
     loadSettings, saveSettings, applyTheme, loadTranslations, setTranslations,
     initializeAutoUpdater, ensureSidebarVersion, checkForChangelog,
@@ -162,7 +162,7 @@ export function renderMenu() {
 
     menuKeys.forEach((key) => {
         const label = (translations.menu && translations.menu[key]) || key;
-        const li = createMenuButton(key, label, MENU_ICONS);
+        const li = createMenuButton(key, label);
         menuList.appendChild(li);
         const sepType = separatorsAfter[key];
         if (sepType) {
@@ -339,7 +339,6 @@ export async function init() {
             await window.api.updateLoadingProgress(20, 'Loading settings...').catch(() => {});
         }
 
-        // Pull cloud-synced preferences into localStorage before reading them
         await hydratePrefsFromCloud();
 
         // Load settings

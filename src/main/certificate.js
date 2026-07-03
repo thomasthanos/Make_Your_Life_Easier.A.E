@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const { execFile } = require('child_process');
 const { debug } = require('../modules/debug');
 
-const STORES = ['Root', 'TrustedPublisher'];
+const STORES = ['TrustedPublisher'];
 
 function getCertificatePath() {
     if (process.platform !== 'win32') return null;

@@ -4,7 +4,7 @@
  */
 
 import { debug, escapeHtml, getAppVersionWithFallback, normalizeVersion, normalizeVersionTag } from './utils.js';
-import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay } from './components.js';
+import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay, openAccountModal } from './components.js';
 import { attachTooltipHandlers } from './managers.js';
 
 // ============================================
@@ -47,20 +47,10 @@ export function applyTheme() {
     document.documentElement.setAttribute('data-theme', 'dark');
 }
 
-/**
- * Mirror a UI preference to the cloud settings store (fire-and-forget)
- * @param {string} key
- * @param {*} value
- */
 export function syncPref(key, value) {
-    try { window.api?.setSetting?.(key, value); } catch { /* ignore */ }
+    try { window.api?.setSetting?.(key, value); } catch { }
 }
 
-/**
- * Pull cloud-synced UI preferences into localStorage before the UI reads them.
- * Only handles prefs whose read path is synchronous localStorage (lang, sidebar).
- * @returns {Promise<Object|null>}
- */
 export async function hydratePrefsFromCloud() {
     try {
         const all = await window.api?.getAllSettings?.();
@@ -71,12 +61,25 @@ export async function hydratePrefsFromCloud() {
             saveSettings(s);
         }
         if (typeof all.sidebarExpanded === 'boolean') {
-            try { localStorage.setItem('sidebarExpanded', all.sidebarExpanded ? '1' : '0'); } catch { /* ignore */ }
+            try { localStorage.setItem('sidebarExpanded', all.sidebarExpanded ? '1' : '0'); } catch { }
         }
         return all;
     } catch {
         return null;
     }
+}
+
+function syncedSummary(all) {
+    const s = all || {};
+    const queue = Array.isArray(s.selected_apps) ? s.selected_apps.length : 0;
+    const view = s.installer_view || 'list';
+    const sort = s.installer_sort || 'default';
+    return [
+        { label: 'Install queue', value: queue ? `${queue} app${queue !== 1 ? 's' : ''}` : 'empty' },
+        { label: 'Language', value: (s.lang || 'en').toUpperCase() },
+        { label: 'Sidebar', value: s.sidebarExpanded ? 'expanded' : 'collapsed' },
+        { label: 'Installer view', value: `${view} · ${sort}` }
+    ];
 }
 
 // ============================================
@@ -154,6 +157,8 @@ export async function resizeWindowSmooth(targetWidth, targetHeight) {
  * Initialize the auto-updater functionality
  * @param {Object} callbacks - Optional callbacks for update events
  */
+let autoUpdaterInitialized = false;
+
 export function initializeAutoUpdater() {
     const updateBtn = document.getElementById('title-bar-update');
 
@@ -166,6 +171,9 @@ export function initializeAutoUpdater() {
         console.warn('AutoUpdater: onUpdateStatus not available; skipping update event handlers.');
         return;
     }
+
+    if (autoUpdaterInitialized) return;
+    autoUpdaterInitialized = true;
 
     if (!updateBtn) {
         window.api.onUpdateStatus((data) => {
@@ -685,26 +693,27 @@ export async function ensureSidebarVersion(_state = {}) {
                 span.textContent = profile.name;
                 userInfoEl.appendChild(span);
 
-                const logoutMenu = document.createElement('div');
-                logoutMenu.className = 'logout-menu';
-                const logoutBtn = document.createElement('button');
-                logoutBtn.className = 'logout-btn';
-                logoutBtn.textContent = 'Logout';
-                logoutMenu.appendChild(logoutBtn);
-                userInfoEl.appendChild(logoutMenu);
-
-                const handler = async (e) => {
-                    if (e.target && e.target.classList.contains('logout-btn')) {
-                        e.stopPropagation();
-                        try {
-                            await window.api?.logout?.();
-                        } catch (err) {
-                            debug('error', 'Logout failed:', err);
+                const handler = async () => {
+                    const current = (await (window.api?.getUserProfile?.())) || profile;
+                    const all = (await (window.api?.getAllSettings?.())) || {};
+                    openAccountModal(current, syncedSummary(all), {
+                        onSignOut: async () => {
+                            try {
+                                await window.api?.logout?.();
+                            } catch (err) {
+                                debug('error', 'Logout failed:', err);
+                            }
+                            window.location.reload();
+                        },
+                        onReset: async () => {
+                            try {
+                                await window.api?.resetSettings?.();
+                            } catch (err) {
+                                debug('error', 'Reset failed:', err);
+                            }
+                            toast('Synced settings reset.', { type: 'success', title: 'Account' });
                         }
-                        updateUserInfo();
-                    } else {
-                        userInfoEl.classList.toggle('show-logout');
-                    }
+                    });
                 };
                 userInfoEl._toggleHandler = handler;
                 userInfoEl.addEventListener('click', handler);

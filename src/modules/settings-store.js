@@ -54,6 +54,12 @@ function set(key, value) {
   return local.data[key];
 }
 
+function clearAll() {
+  local = { data: {}, updated_at: new Date().toISOString() };
+  persist();
+  schedulePush();
+}
+
 function schedulePush() {
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = setTimeout(() => {
@@ -112,6 +118,7 @@ module.exports = {
   get,
   set,
   all,
+  clearAll,
   pullFromCloud,
   pushToCloud
 };
