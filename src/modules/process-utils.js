@@ -84,6 +84,38 @@ function runSpawnCommand(cmd, args = [], options = {}) {
 }
 
 /**
+ * Execute a command via spawn, streaming stdout/stderr chunks to a callback
+ * @param {string} cmd - The command to run
+ * @param {string[]} args - Command arguments
+ * @param {Object} options - Spawn options
+ * @param {Function} onOutput - Called with (stream, text) for every chunk
+ * @returns {{child: ChildProcess, done: Promise<{success: boolean, code?: number, error?: string}>}}
+ */
+function runStreamingCommand(cmd, args = [], options = {}, onOutput = () => { }) {
+  const child = spawn(cmd, args, options);
+
+  if (child.stdout) {
+    child.stdout.on('data', (data) => onOutput('stdout', data.toString()));
+  }
+  if (child.stderr) {
+    child.stderr.on('data', (data) => onOutput('stderr', data.toString()));
+  }
+
+  const done = new Promise((resolve) => {
+    let settled = false;
+    const settle = (result) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+    child.on('error', (err) => settle({ success: false, error: err.message }));
+    child.on('close', (code) => settle({ success: code === 0, code }));
+  });
+
+  return { child, done };
+}
+
+/**
  * Attach standard output handlers to a child process and resolve when it exits
  * @param {ChildProcess} child - The spawned child process
  * @param {Function} resolve - The promise resolver from the caller
@@ -348,6 +380,7 @@ ${psScript}
 module.exports = {
   stripAnsiCodes,
   runSpawnCommand,
+  runStreamingCommand,
   attachChildProcessHandlers,
   getPowerShellExe,
   runElevatedPowerShellScript,

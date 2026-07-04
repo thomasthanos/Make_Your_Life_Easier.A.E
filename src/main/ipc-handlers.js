@@ -143,6 +143,84 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
         return processUtils.runSpawnCommand(parts[0], args, { shell: false, windowsHide: false });
     });
 
+    let wingetUpgradeChild = null;
+    let wingetUpgradeCancelled = false;
+
+    // Probe winget presence + version. Returns { installed, version } where
+    // version is a { major, minor } object (null if it could not be parsed).
+    async function probeWinget() {
+        try {
+            const result = await processUtils.runSpawnCommand('winget', ['--version'], { shell: false, windowsHide: true });
+            const combined = ((result.stdout || '') + (result.stderr || '') + (result.error || '')).toLowerCase();
+            const notFound =
+                combined.includes('is not recognized') ||
+                combined.includes('was not found') ||
+                combined.includes('cannot find') ||
+                combined.includes('no such file') ||
+                combined.includes('command not found') ||
+                combined.includes('enoent');
+            if (notFound) return { installed: false, version: null };
+
+            const match = (result.stdout || '').match(/v?(\d+)\.(\d+)/);
+            const version = match ? { major: Number(match[1]), minor: Number(match[2]) } : null;
+            return { installed: true, version };
+        } catch {
+            return { installed: false, version: null };
+        }
+    }
+
+    ipcMain.handle('winget-upgrade-check', async () => probeWinget());
+
+    ipcMain.handle('winget-upgrade-all', async (event) => {
+        if (wingetUpgradeChild) {
+            return { success: false, error: 'An upgrade is already running.' };
+        }
+
+        const { installed, version } = await probeWinget();
+        if (!installed) {
+            return { success: false, notInstalled: true };
+        }
+
+        // --include-unknown / --disable-interactivity require winget 1.4+.
+        // Older builds reject them, so only add them when supported.
+        const supportsModernFlags = version && (version.major > 1 || (version.major === 1 && version.minor >= 4));
+        const args = ['upgrade', '--all', '--accept-source-agreements', '--accept-package-agreements'];
+        if (supportsModernFlags) {
+            args.push('--include-unknown', '--disable-interactivity');
+        }
+
+        wingetUpgradeCancelled = false;
+        const { child, done } = processUtils.runStreamingCommand('winget', args, { shell: false, windowsHide: true }, (stream, text) => {
+            try {
+                if (!event.sender.isDestroyed()) {
+                    event.sender.send('winget-upgrade-output', { stream, text });
+                }
+            } catch { }
+        });
+
+        wingetUpgradeChild = child;
+        try {
+            const result = await done;
+            if (wingetUpgradeCancelled) return { success: false, cancelled: true };
+            return result;
+        } finally {
+            wingetUpgradeChild = null;
+        }
+    });
+
+    ipcMain.handle('winget-upgrade-cancel', async () => {
+        if (!wingetUpgradeChild) {
+            return { success: false, error: 'No upgrade in progress.' };
+        }
+        try {
+            wingetUpgradeCancelled = true;
+            wingetUpgradeChild.kill();
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('run-christitus', async () => {
         return systemTools.runChrisTitus();
     });

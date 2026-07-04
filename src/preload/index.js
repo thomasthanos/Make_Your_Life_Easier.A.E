@@ -38,6 +38,12 @@ contextBridge.exposeInMainWorld('api', {
   downloadStart: (id, url, dest) => ipcRenderer.send('download-start', { id, url, dest }),
   onDownloadEvent: (callback) => onEvent('download-event', callback),
 
+  // ── Winget Upgrade (streaming) ──
+  checkWingetUpgrade: () => ipcRenderer.invoke('winget-upgrade-check'),
+  wingetUpgradeAll: () => ipcRenderer.invoke('winget-upgrade-all'),
+  cancelWingetUpgrade: () => ipcRenderer.invoke('winget-upgrade-cancel'),
+  onWingetUpgradeOutput: (callback) => onEvent('winget-upgrade-output', callback),
+
   // ── File Operations ──
   runCommand: (command) => ipcRenderer.invoke('run-command', command),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),

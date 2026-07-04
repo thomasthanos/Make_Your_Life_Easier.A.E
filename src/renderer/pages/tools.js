@@ -5,7 +5,7 @@
  */
 
 import { autoFadeStatus } from '../utils.js';
-import { buttonStateManager, registerDownload, attachDownloadUI, downloadStore } from '../managers.js';
+import { registerDownload, attachDownloadUI, downloadStore } from '../managers.js';
 import { toast } from '../components.js';
 
 // ============================================
@@ -179,79 +179,219 @@ const checkDisk = createSimpleTask(() => window.api.checkDisk(), 'Disk check com
 const networkReset = createSimpleTask(() => window.api.networkReset(), 'Network reset completed!', 'Failed to reset network.');
 const restartAudioSystem = createSimpleTask(() => window.api.restartAudioSystem(), 'Audio system restarted!', 'Failed to restart audio.');
 
-async function downloadAndRunPatchMyPC(statusElement, button) {
-    if (buttonStateManager.isLoading(button)) return;
+function stripAnsiSequences(text) {
+    return String(text)
+        .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+        .replace(/\x1b\][^\x07]*\x07/g, '')
+        .replace(/\x08/g, '');
+}
 
-    const downloadId = `patchmypc-${Date.now()}`;
-    const patchMyPCUrl = 'https://www.dropbox.com/scl/fi/z66qn3wgiyvh8uy3fedu7/patch_my_pc.exe?rlkey=saht980hb3zfezv2ixve697jo&st=3ww4r4vy&dl=1';
+function buildWingetUpdaterCard(translations) {
+    const card = document.createElement('div');
+    card.className = 'app-card feature-card patch-card-full';
 
-    statusElement.textContent = '';
-    statusElement.classList.remove('visible');
-    statusElement.classList.add('status-element');
-    statusElement.classList.remove('status-success', 'status-error', 'status-warning');
+    const header = document.createElement('div');
+    header.className = 'app-header';
 
-    const originalText = button.textContent;
-    if (!button.dataset.originalTextPatch) {
-        button.dataset.originalTextPatch = originalText;
+    const iconEl = document.createElement('div');
+    iconEl.classList.add('feature-card-icon');
+    iconEl.innerHTML = getMaintenanceIcon('tools');
+    header.appendChild(iconEl);
+
+    const text = document.createElement('div');
+    const nameEl = document.createElement('h3');
+    nameEl.textContent = translations.maintenance?.update_all_apps || 'Update All Apps';
+    nameEl.classList.add('feature-card-name');
+    const descEl = document.createElement('p');
+    descEl.textContent = translations.maintenance?.update_all_apps_desc || 'Upgrade every installed app in place with winget';
+    descEl.classList.add('feature-card-desc');
+    text.appendChild(nameEl);
+    text.appendChild(descEl);
+    header.appendChild(text);
+    card.appendChild(header);
+
+    const runBtn = document.createElement('button');
+    runBtn.className = 'button btn-standard-height';
+    runBtn.textContent = translations.actions?.upgrade_all || 'Upgrade All';
+    card.appendChild(runBtn);
+
+    // Shown when winget (App Installer) is missing — offers a Store shortcut.
+    const missing = document.createElement('div');
+    missing.className = 'winget-missing';
+    const missingText = document.createElement('span');
+    missingText.className = 'winget-missing-text';
+    missingText.textContent = translations.messages?.winget_missing
+        || 'Winget (App Installer) is not installed. Install or update it from the Microsoft Store to continue.';
+    const storeBtn = document.createElement('button');
+    storeBtn.type = 'button';
+    storeBtn.className = 'button-secondary winget-missing-store';
+    storeBtn.textContent = translations.actions?.open_store || 'Open Microsoft Store';
+    storeBtn.addEventListener('click', () => {
+        try { window.api.openExternal('ms-windows-store://pdp/?productid=9NBLGGH4NNS1'); } catch { }
+    });
+    missing.appendChild(missingText);
+    missing.appendChild(storeBtn);
+    card.appendChild(missing);
+
+    const terminal = document.createElement('div');
+    terminal.className = 'winget-terminal';
+
+    const termHeader = document.createElement('div');
+    termHeader.className = 'winget-terminal-header';
+
+    const dots = document.createElement('div');
+    dots.className = 'winget-terminal-dots';
+    for (let i = 0; i < 3; i++) dots.appendChild(document.createElement('span'));
+
+    const termTitle = document.createElement('span');
+    termTitle.className = 'winget-terminal-title';
+    termTitle.textContent = 'winget upgrade --all';
+
+    const stopBtn = document.createElement('button');
+    stopBtn.type = 'button';
+    stopBtn.className = 'winget-terminal-stop';
+    stopBtn.textContent = translations.actions?.stop || 'Stop';
+
+    termHeader.appendChild(dots);
+    termHeader.appendChild(termTitle);
+    termHeader.appendChild(stopBtn);
+
+    const termBody = document.createElement('div');
+    termBody.className = 'winget-terminal-body';
+
+    terminal.appendChild(termHeader);
+    terminal.appendChild(termBody);
+    card.appendChild(terminal);
+
+    let running = false;
+    let cancelled = false;
+    let currentLine = null;
+    let replaceCurrent = false;
+    const MAX_LINES = 400;
+
+    function newLine(className) {
+        currentLine = document.createElement('div');
+        currentLine.className = 'winget-terminal-line';
+        if (className) currentLine.classList.add(className);
+        termBody.appendChild(currentLine);
+        while (termBody.childElementCount > MAX_LINES) {
+            termBody.removeChild(termBody.firstElementChild);
+        }
     }
 
-    button.disabled = true;
-    button.textContent = 'Preparing Patch My PC...';
-
-    const storeKey = 'patchmypc';
-    registerDownload(storeKey, downloadId, { name: 'Patch My PC' });
-
-    return new Promise((resolve) => {
-        attachDownloadUI(storeKey, (data) => {
-            switch (data.status) {
-                case 'started':
-                    button.textContent = 'Downloading Patch My PC... 0%';
-                    break;
-                case 'progress':
-                    button.textContent = `Downloading Patch My PC... ${data.percent}%`;
-                    break;
-                case 'complete': {
-                    button.textContent = 'Opening Patch My PC...';
-                    downloadStore.delete(storeKey);
-                    window.api.openFile(data.path)
-                        .then((result) => {
-                            if (result && result.success) {
-                                button.textContent = 'Patch My PC Started';
-                            } else {
-                                button.textContent = originalText;
-                                toast('Failed to open Patch My PC', { type: 'error', title: 'Maintenance' });
-                            }
-                        })
-                        .catch(() => {
-                            button.textContent = originalText;
-                            toast('Error opening Patch My PC', { type: 'error', title: 'Maintenance' });
-                        })
-                        .finally(() => {
-                            button.disabled = false;
-                            resolve();
-                        });
-                    break;
+    function appendOutput(text, className) {
+        const clean = stripAnsiSequences(text).replace(/\r\n/g, '\n');
+        for (const chunk of clean.split(/(\n|\r)/)) {
+            if (chunk === '\n') {
+                currentLine = null;
+                replaceCurrent = false;
+            } else if (chunk === '\r') {
+                replaceCurrent = true;
+            } else if (chunk) {
+                if (!currentLine) newLine(className);
+                if (replaceCurrent) {
+                    currentLine.textContent = chunk;
+                    replaceCurrent = false;
+                } else {
+                    currentLine.textContent += chunk;
                 }
-                case 'error':
-                    button.textContent = originalText;
-                    button.disabled = false;
-                    downloadStore.delete(storeKey);
-                    toast('Download failed', { type: 'error', title: 'Maintenance' });
-                    resolve();
-                    break;
             }
+        }
+        termBody.scrollTop = termBody.scrollHeight;
+    }
+
+    function printLine(text, className) {
+        currentLine = null;
+        newLine(className);
+        currentLine.textContent = text;
+        currentLine = null;
+        termBody.scrollTop = termBody.scrollHeight;
+    }
+
+    function showMissing(show) {
+        card.classList.toggle('winget-unavailable', show);
+    }
+
+    runBtn.addEventListener('click', async () => {
+        if (running) return;
+        running = true;
+        cancelled = false;
+
+        const originalText = runBtn.textContent;
+        runBtn.disabled = true;
+        runBtn.classList.add('btn-loading');
+        runBtn.textContent = translations.actions?.checking || 'Checking winget...';
+
+        // Verify winget is present (and modern enough) before opening the terminal.
+        try {
+            const status = await window.api.checkWingetUpgrade();
+            if (!status || !status.installed) {
+                showMissing(true);
+                toast(translations.messages?.winget_not_installed || 'Winget is not installed.', { type: 'error', title: 'Winget' });
+                running = false;
+                runBtn.disabled = false;
+                runBtn.classList.remove('btn-loading');
+                runBtn.textContent = originalText;
+                return;
+            }
+        } catch { /* fall through and let the run attempt surface the error */ }
+
+        showMissing(false);
+        runBtn.textContent = translations.actions?.upgrading || 'Upgrading...';
+
+        termBody.innerHTML = '';
+        currentLine = null;
+        replaceCurrent = false;
+        terminal.classList.add('open', 'running');
+        printLine('> winget upgrade --all', 'is-cmd');
+
+        const unsubscribe = window.api.onWingetUpgradeOutput(({ stream, text }) => {
+            appendOutput(text, stream === 'stderr' ? 'is-stderr' : undefined);
         });
 
         try {
-            window.api.downloadStart(downloadId, patchMyPCUrl, 'PatchMyPC.exe');
-        } catch (e) {
-            button.textContent = originalText;
-            button.disabled = false;
-            downloadStore.delete(storeKey);
-            toast('Download failed', { type: 'error', title: 'Maintenance' });
-            resolve();
+            const result = await window.api.wingetUpgradeAll();
+            if (result && result.success) {
+                printLine('✔ All upgrades completed.', 'is-ok');
+                toast('All apps upgraded successfully!', { type: 'success', title: 'Winget' });
+            } else if (result && result.cancelled) {
+                // User stopped it — already reported by the stop handler, stay quiet.
+            } else if (result && result.notInstalled) {
+                showMissing(true);
+                terminal.classList.remove('open');
+                toast(translations.messages?.winget_not_installed || 'Winget is not installed.', { type: 'error', title: 'Winget' });
+            } else {
+                printLine(`✖ ${result?.error || `Winget exited with code ${result?.code ?? '?'}.`}`, 'is-err');
+                toast(result?.error || 'Winget upgrade finished with errors.', { type: 'error', title: 'Winget' });
+            }
+        } catch (error) {
+            if (!cancelled) {
+                printLine(`✖ ${error.message}`, 'is-err');
+                toast(error.message || 'Winget upgrade failed.', { type: 'error', title: 'Winget' });
+            }
+        } finally {
+            unsubscribe();
+            running = false;
+            terminal.classList.remove('running');
+            runBtn.disabled = false;
+            runBtn.classList.remove('btn-loading');
+            runBtn.textContent = originalText;
         }
     });
+
+    stopBtn.addEventListener('click', async () => {
+        if (!running) return;
+        cancelled = true;
+        stopBtn.disabled = true;
+        try {
+            await window.api.cancelWingetUpgrade();
+            printLine('■ Upgrade cancelled.', 'is-warn');
+        } finally {
+            stopBtn.disabled = false;
+        }
+    });
+
+    return card;
 }
 
 // ============================================
@@ -738,18 +878,9 @@ export async function buildMaintenancePage(translations, _settings) {
 
     const toolsRow = document.createElement('div');
 
-    const patchCard = createMaintenanceCard(
-        translations.maintenance?.patch_my_pc || 'Patch My PC',
-        translations.maintenance?.patch_my_pc_desc || 'Update third-party applications automatically',
-        'tools',
-        translations.actions?.download_run || 'Download & Run',
-        downloadAndRunPatchMyPC,
-        false
-    );
-    patchCard.querySelector('button').classList.add('btn-standard-height');
-    patchCard.classList.add('patch-card-full');
+    const updaterCard = buildWingetUpdaterCard(translations);
 
-    toolsRow.appendChild(patchCard);
+    toolsRow.appendChild(updaterCard);
     container.appendChild(toolsRow);
 
     return container;
