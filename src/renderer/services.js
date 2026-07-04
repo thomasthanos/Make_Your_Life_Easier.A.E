@@ -379,7 +379,22 @@ export async function parseMarkdown(notes) {
 
     if (typeof window !== 'undefined' && window.marked && typeof window.marked.parse === 'function') {
         try {
-            return window.marked.parse(escapeHtml(text));
+            const escapedText = escapeHtml(text).replace(/&gt;/g, '>').replace(
+                /^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*\n((?:(?!^>\s*\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\])(?:>\s?.*|\s*)\n?)*)/gmi,
+                (match, type, contentBlock) => {
+                    const map = { NOTE: 'note', TIP: 'tip', IMPORTANT: 'important', WARNING: 'warning', CAUTION: 'caution' };
+                    const content = contentBlock
+                        .split('\n')
+                        .map((line) => line.replace(/^>\s?/, '').trim())
+                        .filter((line) => line && !/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/i.test(line))
+                        .join('<br>');
+
+                    return `<div class="changelog-alert ${map[type.toUpperCase()]}">${content}</div>`;
+                }
+            );
+            return window.marked.parse(escapedText)
+                .replace(/<blockquote>\s*<p>\s*(?:&gt;|>)?\s*<\/p>\s*<\/blockquote>/gi, '')
+                .replace(/(<div class="changelog-alert [^"]+">\s*)(?:&gt;|>)\s*/gi, '$1');
         } catch (err) {
             console.warn('Failed to parse markdown with marked, falling back', err);
         }
@@ -408,13 +423,20 @@ export function formatReleaseNotes(notes) {
         .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '');
 
     // GitHub-style alerts
-    text = text.replace(/^>\s*\[!([A-Z]+)\]\s*\n>\s*(.+?)(?=\n\s*\n|$)/gms, (match, type, content) => {
+    text = text.replace(/^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*\n((?:(?!^>\s*\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\])(?:>\s?.*|\s*)\n?)*)/gmi, (match, type, content) => {
         const map = { NOTE: 'note', TIP: 'tip', IMPORTANT: 'important', WARNING: 'warning', CAUTION: 'caution' };
         const cls = map[type] || 'note';
-        return `<div class="changelog-alert ${cls}">${content.trim()}</div>`;
+        const body = content
+            .split('\n')
+            .map((line) => line.replace(/^>\s?/, '').trim())
+            .filter((line) => line && !/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/i.test(line))
+            .join('<br>');
+
+        return `<div class="changelog-alert ${cls}">${body}</div>`;
     });
 
     text = text
+        .replace(/^>\s*$/gm, '')
         .replace(/^###### (.+)$/gm, '<h6>$1</h6>')
         .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
         .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
@@ -435,6 +457,7 @@ export function formatReleaseNotes(notes) {
         .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
         .replace(/~~~([\s\S]*?)~~~/g, '<pre><code>$1</code></pre>')
         .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="changelog-img">')
         .replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, (match, text, url) => {
             const sanitizedUrl = url.trim();
             if (sanitizedUrl.startsWith('http://') || sanitizedUrl.startsWith('https://')) {
@@ -442,6 +465,8 @@ export function formatReleaseNotes(notes) {
             }
             return text;
         })
+        .replace(/^- \[x\] (.+)$/gmi, '<li><input type="checkbox" disabled checked> $1</li>')
+        .replace(/^- \[ \] (.+)$/gm, '<li><input type="checkbox" disabled> $1</li>')
         .replace(/^\* (.+)$/gm, '<li>$1</li>')
         .replace(/^- (.+)$/gm, '<li>$1</li>')
         .replace(/^\+ (.+)$/gm, '<li>$1</li>')
@@ -449,13 +474,11 @@ export function formatReleaseNotes(notes) {
         .replace(/^---$/gm, '<hr>')
         .replace(/^___$/gm, '<hr>')
         .replace(/^\*\*\*$/gm, '<hr>')
-        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="changelog-img">')
-        .replace(/^- \[x\] (.+)$/gm, '<li><input type="checkbox" disabled checked> $1</li>')
-        .replace(/^- \[ \] (.+)$/gm, '<li><input type="checkbox" disabled> $1</li>')
         .replace(/\n\n+/g, '</p><p>')
-        .replace(/\n/g, '<br>');
+        .replace(/\n/g, '<br>')
+        .replace(/<\/li>\s*<br\s*\/?>\s*<li/g, '</li><li');
 
-    text = text.replace(/(<li>.*?<\/li>(?:\s*<li>.*?<\/li>)*)/gs, '<ul>$1</ul>');
+    text = text.replace(/(<li(?:\s[^>]*)?>.*?<\/li>(?:\s*<li(?:\s[^>]*)?>.*?<\/li>)*)/gs, '<ul>$1</ul>');
 
     if (!/^\s*<\s*(h\d|ul|pre|blockquote|hr)/i.test(text)) {
         text = '<p>' + text + '</p>';
@@ -483,12 +506,24 @@ export async function showChangelog(updateInfo) {
 
     const title = document.createElement('h2');
     title.className = 'changelog-title';
-    title.textContent = 'Update Installed Successfully!';
+    title.textContent = 'Update Installed';
+
+    const titleGroup = document.createElement('div');
+    titleGroup.className = 'changelog-title-group';
+    titleGroup.appendChild(title);
+
+    if (updateInfo.releaseName) {
+        const patchTitle = document.createElement('span');
+        patchTitle.className = 'changelog-patch-title';
+        patchTitle.textContent = updateInfo.releaseName;
+        titleGroup.appendChild(patchTitle);
+    }
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'changelog-close';
-    closeBtn.innerHTML = '×';
-    header.appendChild(title);
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>';
+    header.appendChild(titleGroup);
     header.appendChild(closeBtn);
 
     const content = document.createElement('div');
@@ -497,21 +532,6 @@ export async function showChangelog(updateInfo) {
     const versionBadge = document.createElement('div');
     versionBadge.className = 'changelog-version';
     versionBadge.textContent = `Version ${updateInfo.version || 'Unknown'}`;
-
-    if (updateInfo.releaseName) {
-        const releaseContainer = document.createElement('div');
-        releaseContainer.className = 'release-title-container';
-
-        const releaseNameEl = document.createElement('h3');
-        releaseNameEl.className = 'release-title';
-        releaseNameEl.textContent = updateInfo.releaseName;
-
-        releaseContainer.appendChild(releaseNameEl);
-        releaseContainer.appendChild(versionBadge);
-        content.appendChild(releaseContainer);
-    } else {
-        content.appendChild(versionBadge);
-    }
 
     if (updateInfo.releaseNotes) {
         const notes = document.createElement('div');
@@ -522,7 +542,34 @@ export async function showChangelog(updateInfo) {
         } catch (err) {
             formattedNotes = formatReleaseNotes(updateInfo.releaseNotes);
         }
-        notes.innerHTML = formattedNotes;
+        notes.insertAdjacentHTML('beforeend', formattedNotes);
+        notes.querySelectorAll('blockquote').forEach((quote) => {
+            const text = quote.textContent.trim();
+            if (!text || text === '>') {
+                quote.remove();
+                return;
+            }
+            quote.textContent = text.replace(/^(?:>|&gt;)\s*/, '');
+        });
+        notes.querySelectorAll('.changelog-alert').forEach((alert) => {
+            alert.innerHTML = alert.innerHTML
+                .replace(/^(?:&gt;|>)\s*/i, '')
+                .replace(/<br\s*\/?>\s*(?:&gt;|>)\s*(?=<br\s*\/?>|$)/gi, '')
+                .replace(/<br\s*\/?>\s*$/i, '');
+        });
+        notes.querySelectorAll('p, blockquote').forEach((node) => {
+            if (/^(?:>|&gt;)\s*$/.test(node.innerHTML.trim()) || /^>\s*$/.test(node.textContent.trim())) {
+                node.remove();
+            }
+        });
+        notes.querySelectorAll('p, blockquote, div').forEach((node) => {
+            if (node.closest('pre, code, .changelog-alert')) return;
+            const text = node.textContent.trim();
+            if (/^(?:>|&gt;)\s+\S/.test(text)) {
+                node.textContent = text.replace(/^(?:>|&gt;)\s*/, '');
+            }
+        });
+        notes.querySelectorAll('ul br, ol br').forEach((br) => br.remove());
         content.appendChild(notes);
     } else {
         const defaultMessage = document.createElement('p');
@@ -530,14 +577,20 @@ export async function showChangelog(updateInfo) {
         content.appendChild(defaultMessage);
     }
 
+    const closeOverlay = () => {
+        overlay.remove();
+        document.removeEventListener('keydown', escHandler);
+    };
+
     const footer = document.createElement('div');
     footer.className = 'changelog-footer';
 
-    const okBtn = document.createElement('button');
-    okBtn.className = 'changelog-btn';
-    okBtn.textContent = 'Got it!';
+    const copyright = document.createElement('span');
+    copyright.className = 'changelog-copyright';
+    copyright.textContent = '© KOLOKITHES A.E. — ThomasT';
 
-    footer.appendChild(okBtn);
+    footer.appendChild(copyright);
+    footer.appendChild(versionBadge);
 
     modal.appendChild(header);
     modal.appendChild(content);
@@ -546,18 +599,12 @@ export async function showChangelog(updateInfo) {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    const closeOverlay = () => {
-        overlay.remove();
-        document.removeEventListener('keydown', escHandler);
-    };
-
     const escHandler = (e) => {
         if (e.key === 'Escape') closeOverlay();
     };
     document.addEventListener('keydown', escHandler);
 
     closeBtn.addEventListener('click', closeOverlay);
-    okBtn.addEventListener('click', closeOverlay);
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) closeOverlay();
     });
