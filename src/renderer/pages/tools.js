@@ -176,8 +176,6 @@ function createSimpleTask(apiFn, successMsg, errorMsg) {
     };
 }
 
-const runSfcScan = createSimpleTask(() => window.api.runSfcScan(), 'SFC scan completed!', 'SFC scan failed.');
-const runDismRepair = createSimpleTask(() => window.api.runDismRepair(), 'DISM repair completed!', 'DISM repair failed.');
 const flushDnsCache = createSimpleTask(() => window.api.flushDnsCache(), 'DNS cache flushed!', 'Failed to flush DNS cache.');
 const releaseRenewIp = createSimpleTask(() => window.api.releaseRenewIp(), 'IP released & renewed!', 'Failed to release/renew IP.');
 const fixBluetooth = createSimpleTask(() => window.api.fixBluetooth(), 'Bluetooth fixed!', 'Failed to fix Bluetooth.');
@@ -912,23 +910,149 @@ export async function buildMaintenancePage(translations, _settings) {
     dismButton.textContent = translations.actions?.run_dism || 'Run DISM';
     dismButton.classList.add('btn-half');
 
-    const sfcDismStatus = document.createElement('pre');
-    sfcDismStatus.className = 'status-pre';
-    sfcDismStatus.classList.add('sfc-dism-status');
-    sfcDismStatus.dataset.hideStatus = 'true';
+    const repairTerminal = document.createElement('div');
+    repairTerminal.className = 'winget-terminal';
 
-    sfcButton.addEventListener('click', async () => {
-        await runMaintenanceTask(sfcButton, sfcDismStatus, runSfcScan, translations.actions?.run_sfc || 'SFC', true);
+    const repairTermHeader = document.createElement('div');
+    repairTermHeader.className = 'winget-terminal-header';
+
+    const repairDots = document.createElement('div');
+    repairDots.className = 'winget-terminal-dots';
+    for (let i = 0; i < 3; i++) repairDots.appendChild(document.createElement('span'));
+
+    const repairTermTitle = document.createElement('span');
+    repairTermTitle.className = 'winget-terminal-title';
+
+    const repairStopBtn = document.createElement('button');
+    repairStopBtn.type = 'button';
+    repairStopBtn.className = 'winget-terminal-stop';
+    repairStopBtn.textContent = translations.actions?.stop || 'Stop';
+
+    repairTermHeader.appendChild(repairDots);
+    repairTermHeader.appendChild(repairTermTitle);
+    repairTermHeader.appendChild(repairStopBtn);
+
+    const repairTermBody = document.createElement('div');
+    repairTermBody.className = 'winget-terminal-body';
+
+    repairTerminal.appendChild(repairTermHeader);
+    repairTerminal.appendChild(repairTermBody);
+
+    let repairRunning = false;
+    let repairCancelled = false;
+    let repairLine = null;
+    let repairReplace = false;
+    const REPAIR_MAX_LINES = 400;
+
+    function repairNewLine(className) {
+        repairLine = document.createElement('div');
+        repairLine.className = 'winget-terminal-line';
+        if (className) repairLine.classList.add(className);
+        repairTermBody.appendChild(repairLine);
+        while (repairTermBody.childElementCount > REPAIR_MAX_LINES) {
+            repairTermBody.removeChild(repairTermBody.firstElementChild);
+        }
+    }
+
+    function repairAppend(text, className) {
+        const clean = stripAnsiSequences(text).replace(/\r\n/g, '\n');
+        for (const chunk of clean.split(/(\n|\r)/)) {
+            if (chunk === '\n') {
+                repairLine = null;
+                repairReplace = false;
+            } else if (chunk === '\r') {
+                repairReplace = true;
+            } else if (chunk) {
+                if (!repairLine) repairNewLine(className);
+                if (repairReplace) {
+                    repairLine.textContent = chunk;
+                    repairReplace = false;
+                } else {
+                    repairLine.textContent += chunk;
+                }
+            }
+        }
+        repairTermBody.scrollTop = repairTermBody.scrollHeight;
+    }
+
+    function repairPrint(text, className) {
+        repairLine = null;
+        repairNewLine(className);
+        repairLine.textContent = text;
+        repairLine = null;
+        repairTermBody.scrollTop = repairTermBody.scrollHeight;
+    }
+
+    async function runRepairTask(button, apiFn, cmdLabel, taskName) {
+        if (repairRunning) return;
+        repairRunning = true;
+        repairCancelled = false;
+
+        const originalText = button.textContent;
+        sfcButton.disabled = true;
+        dismButton.disabled = true;
+        button.textContent = translations.general?.run ? (translations.general.run + '...') : 'Running...';
+
+        repairTermTitle.textContent = cmdLabel;
+        repairTermBody.innerHTML = '';
+        repairLine = null;
+        repairReplace = false;
+        repairTerminal.classList.add('open', 'running');
+        repairPrint(`> ${cmdLabel}`, 'is-cmd');
+
+        const unsubscribe = window.api.onSystemRepairOutput(({ stream, text }) => {
+            repairAppend(text, stream === 'stderr' ? 'is-stderr' : undefined);
+        });
+
+        try {
+            const result = await apiFn();
+            if (result && result.success) {
+                repairPrint(`✔ ${taskName} completed.`, 'is-ok');
+                toast(`${taskName} completed!`, { type: 'success', title: 'Maintenance' });
+            } else if (result && result.cancelled) {
+            } else {
+                repairPrint(`✖ ${result?.error || `${taskName} exited with code ${result?.code ?? '?'}.`}`, 'is-err');
+                toast(result?.error || `${taskName} failed.`, { type: 'error', title: 'Maintenance' });
+            }
+        } catch (error) {
+            if (!repairCancelled) {
+                repairPrint(`✖ ${error.message}`, 'is-err');
+                toast(error.message || `${taskName} failed.`, { type: 'error', title: 'Maintenance' });
+            }
+        } finally {
+            unsubscribe();
+            repairRunning = false;
+            repairTerminal.classList.remove('running');
+            sfcButton.disabled = false;
+            dismButton.disabled = false;
+            button.textContent = originalText;
+        }
+    }
+
+    sfcButton.addEventListener('click', () => {
+        runRepairTask(sfcButton, () => window.api.runSfcScan(), 'sfc /scannow', translations.actions?.run_sfc || 'SFC scan');
     });
 
-    dismButton.addEventListener('click', async () => {
-        await runMaintenanceTask(dismButton, sfcDismStatus, runDismRepair, translations.actions?.run_dism || 'DISM', true);
+    dismButton.addEventListener('click', () => {
+        runRepairTask(dismButton, () => window.api.runDismRepair(), 'DISM /Online /Cleanup-Image /RestoreHealth', translations.actions?.run_dism || 'DISM repair');
+    });
+
+    repairStopBtn.addEventListener('click', async () => {
+        if (!repairRunning) return;
+        repairCancelled = true;
+        repairStopBtn.disabled = true;
+        try {
+            await window.api.cancelSystemRepair();
+            repairPrint('■ Task cancelled.', 'is-warn');
+        } finally {
+            repairStopBtn.disabled = false;
+        }
     });
 
     sfcDismButtons.appendChild(sfcButton);
     sfcDismButtons.appendChild(dismButton);
     sfcDismCard.appendChild(sfcDismButtons);
-    sfcDismCard.appendChild(sfcDismStatus);
+    sfcDismCard.appendChild(repairTerminal);
 
     const checkDiskCard = createMaintenanceCard(
         translations.maintenance?.check_disk || 'Check Disk',

@@ -78,6 +78,8 @@ contextBridge.exposeInMainWorld('api', {
   // ── System Maintenance: Repair & Diagnostics ──
   runSfcScan: () => ipcRenderer.invoke('run-sfc-scan'),
   runDismRepair: () => ipcRenderer.invoke('run-dism-repair'),
+  cancelSystemRepair: () => ipcRenderer.invoke('system-repair-cancel'),
+  onSystemRepairOutput: (callback) => onEvent('system-repair-output', callback),
   checkDisk: () => ipcRenderer.invoke('check-disk'),
   restartAudioSystem: () => ipcRenderer.invoke('restart-audio-system'),
   restartToBios: () => ipcRenderer.invoke('restart-to-bios'),

@@ -600,8 +600,53 @@ function setupSystemToolsHandlers(systemTools) {
     };
 
     ipcMain.handle('run-sparkle-debloat', safeWrap(() => systemTools.runSparkleDebloat()));
-    ipcMain.handle('run-sfc-scan', safeWrap(() => systemTools.runSfcScan()));
-    ipcMain.handle('run-dism-repair', safeWrap(() => systemTools.runDismRepair()));
+    let systemRepairChild = null;
+    let systemRepairCancelled = false;
+
+    const runSystemRepair = (runner) => async (event) => {
+        if (systemRepairChild) {
+            return { success: false, error: 'A repair task is already running.' };
+        }
+
+        systemRepairCancelled = false;
+        try {
+            const { child, done } = runner((stream, text) => {
+                try {
+                    if (!event.sender.isDestroyed()) {
+                        event.sender.send('system-repair-output', { stream, text });
+                    }
+                } catch { }
+            });
+
+            systemRepairChild = child;
+            try {
+                const result = await done;
+                if (systemRepairCancelled) return { success: false, cancelled: true };
+                return result;
+            } finally {
+                systemRepairChild = null;
+            }
+        } catch (error) {
+            systemRepairChild = null;
+            return { success: false, error: error.message };
+        }
+    };
+
+    ipcMain.handle('run-sfc-scan', runSystemRepair((onOutput) => systemTools.runSfcScan(onOutput)));
+    ipcMain.handle('run-dism-repair', runSystemRepair((onOutput) => systemTools.runDismRepair(onOutput)));
+
+    ipcMain.handle('system-repair-cancel', async () => {
+        if (!systemRepairChild) {
+            return { success: false, error: 'No repair task is running.' };
+        }
+        try {
+            systemRepairCancelled = true;
+            systemRepairChild.kill();
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
     ipcMain.handle('scan-cleaner-tasks', async (event, options) => {
         try { return await systemTools.scanCleanerTasks(options); } catch (error) { return { success: false, error: error.message }; }
     });

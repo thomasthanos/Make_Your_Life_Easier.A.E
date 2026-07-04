@@ -579,34 +579,6 @@ ${CLEANER_SCAN_PS}`;
  * Run SFC scan with elevation
  * @returns {Promise<Object>}
  */
-const runSfcScan = createSystemTask({
-  guardMsg: 'SFC is only available on Windows',
-  script: `
-Write-Host "=== SYSTEM FILE CHECK (SFC) ===" -ForegroundColor Cyan
-Write-Host "Running sfc /scannow..." -ForegroundColor Yellow
-sfc /scannow
-exit $LASTEXITCODE
-`,
-  successMsg: '✅ SFC scan completed successfully!',
-  errorMsg: 'SFC scan encountered errors or was cancelled. Please accept the UAC prompt and try again.'
-});
-
-/**
- * Run DISM repair with elevation
- * @returns {Promise<Object>}
- */
-const runDismRepair = createSystemTask({
-  guardMsg: 'DISM is only available on Windows',
-  script: `
-Write-Host "=== DEPLOYMENT IMAGE SERVICING AND MANAGEMENT (DISM) ===" -ForegroundColor Cyan
-Write-Host "Running DISM /Online /Cleanup-Image /RestoreHealth..." -ForegroundColor Yellow
-DISM /Online /Cleanup-Image /RestoreHealth
-exit $LASTEXITCODE
-`,
-  successMsg: '✅ DISM repair completed successfully!',
-  errorMsg: 'DISM repair encountered errors or was cancelled. Please accept the UAC prompt and try again.'
-});
-
 /**
  * Run temporary files cleanup with elevation
  * @returns {Promise<Object>}
@@ -965,13 +937,13 @@ async function runSparkleDebloat() {
 }
 
 /**
- * Run Chris Titus Windows Utility
- * @returns {Promise<Object>}
+ * Run an elevated command hidden, streaming its output via a tailed log file
+ * @returns {{ child: ChildProcess, done: Promise<Object> }}
  */
-function runChrisTitus(onOutput = () => { }) {
+function runElevatedStreaming(name, innerBody, propagateExitCode, onOutput = () => { }, heartbeat = false) {
   const psExe = getPowerShellExe() || 'powershell';
-  const logPath = path.join(os.tmpdir(), `christitus_${Date.now()}.log`).replace(/'/g, "''");
-  const tmpScriptPath = path.join(os.tmpdir(), `christitus_${Date.now()}.ps1`);
+  const logPath = path.join(os.tmpdir(), `${name}_${Date.now()}.log`).replace(/'/g, "''");
+  const tmpScriptPath = path.join(os.tmpdir(), `${name}_${Date.now()}.ps1`);
 
   const psLines = [
     "$ErrorActionPreference = 'Continue'",
@@ -979,14 +951,20 @@ function runChrisTitus(onOutput = () => { }) {
     `$log = '${logPath}'`,
     'Remove-Item $log -Force -ErrorAction SilentlyContinue',
     'New-Item -ItemType File -Path $log -Force | Out-Null',
-    '$inner = "`$ProgressPreference=\'SilentlyContinue\'; & { irm christitus.com/win | iex } *>&1 | Out-File -FilePath \'$log\' -Append -Encoding utf8"',
+    '$inner = "& { ' + innerBody + ' } *>&1 | Out-File -FilePath \'$log\' -Append -Encoding utf8' + (propagateExitCode ? '; exit `$LASTEXITCODE' : '') + '"',
     'try {',
     " $p = Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-Command', $inner) -PassThru",
     '} catch {',
     " Write-Output 'Administrator permission was denied.'",
     ' exit 1',
     '}',
+    ...(heartbeat ? [
+      '[Console]::Out.Write("Task started with administrator privileges.`n")',
+      '[Console]::Out.Flush()'
+    ] : []),
     '$pos = 0',
+    '$hb = [System.Diagnostics.Stopwatch]::StartNew()',
+    '$total = [System.Diagnostics.Stopwatch]::StartNew()',
     'while ($true) {',
     ' Start-Sleep -Milliseconds 400',
     ' try {',
@@ -998,8 +976,11 @@ function runChrisTitus(onOutput = () => { }) {
     '  $sr.Close()',
     '  $fs.Close()',
     '  $new = $new -replace [string][char]0xFEFF, \'\' -replace [string][char]0, \'\'',
-    '  if ($new) { [Console]::Out.Write($new); [Console]::Out.Flush() }',
+    '  if ($new) { [Console]::Out.Write($new); [Console]::Out.Flush(); $hb.Restart() }',
     ' } catch { }',
+    ...(heartbeat ? [
+      ' if ($hb.Elapsed.TotalSeconds -ge 10) { $hb.Restart(); $es = [int]$total.Elapsed.TotalSeconds; [Console]::Out.Write("... running (" + $es + "s elapsed)`n"); [Console]::Out.Flush() }'
+    ] : []),
     ' if ($p.HasExited) { break }',
     '}',
     '$p.WaitForExit()',
@@ -1033,6 +1014,148 @@ function runChrisTitus(onOutput = () => { }) {
   });
 
   return { child, done };
+}
+
+function runChrisTitus(onOutput = () => { }) {
+  return runElevatedStreaming(
+    'christitus',
+    "`$ProgressPreference='SilentlyContinue'; irm christitus.com/win | iex",
+    false,
+    onOutput
+  );
+}
+
+function runElevatedConsoleTask(name, exe, exeArgs, onOutput = () => { }) {
+  const psExe = getPowerShellExe() || 'powershell';
+  const stamp = Date.now();
+  const logPath = path.join(os.tmpdir(), `${name}_${stamp}.log`).replace(/'/g, "''");
+  const workerPath = path.join(os.tmpdir(), `${name}_worker_${stamp}.ps1`);
+  const outerPath = path.join(os.tmpdir(), `${name}_outer_${stamp}.ps1`);
+  const argList = exeArgs.map((a) => `'${a.replace(/'/g, "''")}'`).join(',');
+
+  const workerLines = [
+    `$log = '${logPath}'`,
+    '$enc = New-Object System.Text.UTF8Encoding($false)',
+    'function Emit([string]$s) { [System.IO.File]::AppendAllText($log, $s, $enc) }',
+    '$raw = $Host.UI.RawUI',
+    '$width = $raw.BufferSize.Width',
+    'function ReadRow([int]$y) {',
+    ' $rect = New-Object System.Management.Automation.Host.Rectangle 0, $y, ($width - 1), $y',
+    ' $cells = $raw.GetBufferContents($rect)',
+    ' $sb = New-Object System.Text.StringBuilder',
+    ' foreach ($cell in $cells) { [void]$sb.Append($cell.Character) }',
+    ' $sb.ToString().TrimEnd()',
+    '}',
+    'try {',
+    ` $p = Start-Process -FilePath '${exe}' -ArgumentList @(${argList}) -NoNewWindow -PassThru`,
+    '} catch {',
+    ' Emit ("Failed to start: " + $_.Exception.Message + "`n")',
+    ' exit 1',
+    '}',
+    '$lastY = $raw.CursorPosition.Y',
+    "$lastLine = ''",
+    'while ($true) {',
+    ' Start-Sleep -Milliseconds 400',
+    ' try {',
+    '  $curY = $raw.CursorPosition.Y',
+    '  while ($lastY -lt $curY) {',
+    '   $line = ReadRow $lastY',
+    '   Emit ("`r" + $line + "`n")',
+    '   $lastY++',
+    "   $lastLine = ''",
+    '  }',
+    '  $cur = ReadRow $curY',
+    '  if ($cur -ne $lastLine) { Emit ("`r" + $cur); $lastLine = $cur }',
+    ' } catch { }',
+    ' if ($p.HasExited) { break }',
+    '}',
+    'Start-Sleep -Milliseconds 300',
+    'try {',
+    ' $curY = $raw.CursorPosition.Y',
+    ' while ($lastY -lt $curY) {',
+    '  $line = ReadRow $lastY',
+    '  Emit ("`r" + $line + "`n")',
+    '  $lastY++',
+    ' }',
+    ' $fin = ReadRow $curY',
+    ' if ($fin -ne $lastLine) { Emit ("`r" + $fin) }',
+    ' Emit "`n"',
+    '} catch { }',
+    '$p.WaitForExit()',
+    'exit $p.ExitCode'
+  ];
+
+  const outerLines = [
+    "$ErrorActionPreference = 'Continue'",
+    'try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }',
+    `$log = '${logPath}'`,
+    'Remove-Item $log -Force -ErrorAction SilentlyContinue',
+    'New-Item -ItemType File -Path $log -Force | Out-Null',
+    'try {',
+    ` $p = Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','${workerPath.replace(/'/g, "''")}') -PassThru`,
+    '} catch {',
+    " Write-Output 'Administrator permission was denied.'",
+    ' exit 1',
+    '}',
+    '[Console]::Out.Write("Task started with administrator privileges.`n")',
+    '[Console]::Out.Flush()',
+    '$pos = 0',
+    'while ($true) {',
+    ' Start-Sleep -Milliseconds 300',
+    ' try {',
+    "  $fs = [System.IO.File]::Open($log, 'Open', 'Read', 'ReadWrite')",
+    "  $fs.Seek($pos, 'Begin') | Out-Null",
+    '  $sr = New-Object System.IO.StreamReader($fs, [System.Text.Encoding]::UTF8)',
+    '  $new = $sr.ReadToEnd()',
+    '  $pos = $fs.Position',
+    '  $sr.Close()',
+    '  $fs.Close()',
+    '  $new = $new -replace [string][char]0xFEFF, \'\' -replace [string][char]0, \'\'',
+    '  if ($new) { [Console]::Out.Write($new); [Console]::Out.Flush() }',
+    ' } catch { }',
+    ' if ($p.HasExited) { break }',
+    '}',
+    '$p.WaitForExit()',
+    'Remove-Item $log -Force -ErrorAction SilentlyContinue',
+    'exit $p.ExitCode'
+  ];
+
+  fs.writeFileSync(workerPath, workerLines.join('\n'), 'utf8');
+  fs.writeFileSync(outerPath, outerLines.join('\n'), 'utf8');
+
+  const child = spawn(psExe, [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', outerPath
+  ], { shell: false, windowsHide: true });
+
+  if (child.stdout) {
+    child.stdout.on('data', (data) => onOutput('stdout', data.toString()));
+  }
+  if (child.stderr) {
+    child.stderr.on('data', (data) => onOutput('stderr', data.toString()));
+  }
+
+  const done = new Promise((resolve) => {
+    let settled = false;
+    const settle = (result) => {
+      if (settled) return;
+      settled = true;
+      try { fs.unlinkSync(outerPath); } catch { }
+      try { fs.unlinkSync(workerPath); } catch { }
+      resolve(result);
+    };
+    child.on('error', (err) => settle({ success: false, error: err.message }));
+    child.on('close', (code) => settle({ success: code === 0, code }));
+  });
+
+  return { child, done };
+}
+
+function runSfcScan(onOutput = () => { }) {
+  return runElevatedConsoleTask('sfc_scan', 'sfc', ['/scannow'], onOutput);
+}
+
+function runDismRepair(onOutput = () => { }) {
+  return runElevatedConsoleTask('dism_repair', 'DISM', ['/Online', '/Cleanup-Image', '/RestoreHealth'], onOutput);
 }
 
 /**
