@@ -4576,6 +4576,13 @@ select:focus-visible {
   width: 24px;
   height: 24px;
 }
+.feature-card-icon .activation-svg-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+  color: currentColor;
+  flex: 0 0 auto;
+}
 .feature-card-name {
   margin: 0 0 0.5rem;
 }
@@ -5200,12 +5207,25 @@ body.sidebar-expanded #app {
   box-shadow: var(--gloss-sheen);
 }
 
+.sidebar-collapse-toggle,
+#menu-toggle {
+  border-radius: 7px;
+}
+
+.sidebar-collapse-toggle {
+  background: rgba(255, 255, 255, 0.045);
+}
+
 .sidebar-collapse-toggle:hover,
 .info-toggle:hover,
 .menu-toggle:hover,
 .lang-toggle:hover {
   background: rgba(255, 255, 255, 0.12);
   color: var(--text-primary);
+}
+
+.sidebar-collapse-toggle:hover {
+  background: rgba(255, 255, 255, 0.085);
 }
 
 #titlebar-menu-dropdown {
