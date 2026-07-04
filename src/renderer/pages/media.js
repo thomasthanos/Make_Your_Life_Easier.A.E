@@ -78,6 +78,142 @@ export function buildSpicetifyPage(translations, settings) {
     const outputPre = document.createElement('pre');
     outputPre.className = 'status-pre';
 
+    const terminal = document.createElement('div');
+    terminal.className = 'winget-terminal';
+
+    const termHeader = document.createElement('div');
+    termHeader.className = 'winget-terminal-header';
+
+    const dots = document.createElement('div');
+    dots.className = 'winget-terminal-dots';
+    for (let i = 0; i < 3; i++) dots.appendChild(document.createElement('span'));
+
+    const termTitle = document.createElement('span');
+    termTitle.className = 'winget-terminal-title';
+    termTitle.textContent = 'spicetify install';
+
+    const stopBtn = document.createElement('button');
+    stopBtn.type = 'button';
+    stopBtn.className = 'winget-terminal-stop';
+    stopBtn.textContent = translations.actions?.stop || 'Stop';
+
+    termHeader.appendChild(dots);
+    termHeader.appendChild(termTitle);
+    termHeader.appendChild(stopBtn);
+
+    const termBody = document.createElement('div');
+    termBody.className = 'winget-terminal-body';
+
+    terminal.appendChild(termHeader);
+    terminal.appendChild(termBody);
+
+    let installing = false;
+    let installCancelled = false;
+    let currentLine = null;
+    let replaceCurrent = false;
+    const MAX_LINES = 400;
+
+    function stripAnsiSequences(text) {
+        return String(text)
+            .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+            .replace(/\x1b\][^\x07]*\x07/g, '')
+            .replace(/\x08/g, '');
+    }
+
+    function newLine(className) {
+        currentLine = document.createElement('div');
+        currentLine.className = 'winget-terminal-line';
+        if (className) currentLine.classList.add(className);
+        termBody.appendChild(currentLine);
+        while (termBody.childElementCount > MAX_LINES) {
+            termBody.removeChild(termBody.firstElementChild);
+        }
+    }
+
+    function appendOutput(text, className) {
+        const clean = stripAnsiSequences(text).replace(/\r\n/g, '\n');
+        for (const chunk of clean.split(/(\n|\r)/)) {
+            if (chunk === '\n') {
+                currentLine = null;
+                replaceCurrent = false;
+            } else if (chunk === '\r') {
+                replaceCurrent = true;
+            } else if (chunk) {
+                if (!currentLine) newLine(className);
+                if (replaceCurrent) {
+                    currentLine.textContent = chunk;
+                    replaceCurrent = false;
+                } else {
+                    currentLine.textContent += chunk;
+                }
+            }
+        }
+        termBody.scrollTop = termBody.scrollHeight;
+    }
+
+    function printLine(text, className) {
+        currentLine = null;
+        newLine(className);
+        currentLine.textContent = text;
+        currentLine = null;
+        termBody.scrollTop = termBody.scrollHeight;
+    }
+
+    async function runInstall(button) {
+        if (installing) return;
+        installing = true;
+        installCancelled = false;
+
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = (translations.general?.run || 'Run') + '...';
+
+        termBody.innerHTML = '';
+        currentLine = null;
+        replaceCurrent = false;
+        terminal.classList.add('open', 'running');
+        printLine('> spicetify install', 'is-cmd');
+
+        const unsubscribe = window.api.onSpicetifyInstallOutput(({ stream, text }) => {
+            appendOutput(text, stream === 'stderr' ? 'is-stderr' : undefined);
+        });
+
+        try {
+            const result = await window.api.installSpicetify();
+            if (result && result.success) {
+                printLine('✔ Spicetify installed.', 'is-ok');
+                toast(translations.messages?.install_spicetify_success || 'Spicetify installed successfully!', { type: 'success', title: translations.menu?.spicetify || 'Spicetify' });
+            } else if (result && result.cancelled) {
+            } else {
+                printLine(`✖ ${result?.error || `Installer exited with code ${result?.code ?? '?'}.`}`, 'is-err');
+                toast(translations.messages?.install_spicetify_error || 'Error installing Spicetify', { type: 'error', title: translations.menu?.spicetify || 'Spicetify', duration: 6000 });
+            }
+        } catch (error) {
+            if (!installCancelled) {
+                printLine(`✖ ${error.message}`, 'is-err');
+                toast((translations.messages?.install_spicetify_error || 'Error installing Spicetify') + `: ${error.message}`, { type: 'error', title: translations.menu?.spicetify || 'Spicetify', duration: 6000 });
+            }
+        } finally {
+            unsubscribe();
+            installing = false;
+            terminal.classList.remove('running');
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    }
+
+    stopBtn.addEventListener('click', async () => {
+        if (!installing) return;
+        installCancelled = true;
+        stopBtn.disabled = true;
+        try {
+            await window.api.cancelSpicetifyInstall();
+            printLine('■ Installation cancelled.', 'is-warn');
+        } finally {
+            stopBtn.disabled = false;
+        }
+    });
+
     // Helper function for running Spicetify actions
     async function runAction(action, successMsg, errorMsg, button) {
         button.disabled = true;
@@ -151,12 +287,7 @@ export function buildSpicetifyPage(translations, settings) {
         translations.actions?.install_spicetify || 'Install Spicetify',
         translations.pages?.spicetify_desc || 'Adds themes and customizations to Spotify for a better experience.',
         translations.actions?.install || 'Install',
-        (btn) => runAction(
-            () => window.api.installSpicetify(),
-            translations.messages?.install_spicetify_success || 'Spicetify installed successfully!',
-            translations.messages?.install_spicetify_error || 'Error installing Spicetify',
-            btn
-        )
+        (btn) => runInstall(btn)
     );
 
     // Uninstall Spicetify Card
@@ -193,6 +324,7 @@ export function buildSpicetifyPage(translations, settings) {
     grid.appendChild(fullUninstallCard);
 
     container.appendChild(grid);
+    container.appendChild(terminal);
     container.appendChild(outputPre);
     return container;
 }

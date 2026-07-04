@@ -86,9 +86,13 @@ contextBridge.exposeInMainWorld('api', {
   runSparkleDebloat: () => ipcRenderer.invoke('run-sparkle-debloat'),
   processDownloadedSparkle: (zipPath) => ipcRenderer.invoke('process-downloaded-sparkle', zipPath),
   runChrisTitus: () => ipcRenderer.invoke('run-christitus'),
+  cancelChrisTitus: () => ipcRenderer.invoke('run-christitus-cancel'),
+  onChrisTitusOutput: (callback) => onEvent('christitus-output', callback),
 
   // ── Spicetify / Spotify ──
   installSpicetify: () => ipcRenderer.invoke('install-spicetify'),
+  cancelSpicetifyInstall: () => ipcRenderer.invoke('install-spicetify-cancel'),
+  onSpicetifyInstallOutput: (callback) => onEvent('spicetify-install-output', callback),
   uninstallSpicetify: () => ipcRenderer.invoke('uninstall-spicetify'),
   fullUninstallSpotify: () => ipcRenderer.invoke('full-uninstall-spotify'),
 

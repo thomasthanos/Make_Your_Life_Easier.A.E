@@ -968,16 +968,71 @@ async function runSparkleDebloat() {
  * Run Chris Titus Windows Utility
  * @returns {Promise<Object>}
  */
-async function runChrisTitus() {
+function runChrisTitus(onOutput = () => { }) {
   const psExe = getPowerShellExe() || 'powershell';
-  const args = [
-    '-NoProfile',
-    '-ExecutionPolicy', 'Bypass',
-    '-Command',
-    'irm christitus.com/win | iex'
+  const logPath = path.join(os.tmpdir(), `christitus_${Date.now()}.log`).replace(/'/g, "''");
+  const tmpScriptPath = path.join(os.tmpdir(), `christitus_${Date.now()}.ps1`);
+
+  const psLines = [
+    "$ErrorActionPreference = 'Continue'",
+    'try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }',
+    `$log = '${logPath}'`,
+    'Remove-Item $log -Force -ErrorAction SilentlyContinue',
+    'New-Item -ItemType File -Path $log -Force | Out-Null',
+    '$inner = "`$ProgressPreference=\'SilentlyContinue\'; & { irm christitus.com/win | iex } *>&1 | Out-File -FilePath \'$log\' -Append -Encoding utf8"',
+    'try {',
+    " $p = Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-Command', $inner) -PassThru",
+    '} catch {',
+    " Write-Output 'Administrator permission was denied.'",
+    ' exit 1',
+    '}',
+    '$pos = 0',
+    'while ($true) {',
+    ' Start-Sleep -Milliseconds 400',
+    ' try {',
+    "  $fs = [System.IO.File]::Open($log, 'Open', 'Read', 'ReadWrite')",
+    "  $fs.Seek($pos, 'Begin') | Out-Null",
+    '  $sr = New-Object System.IO.StreamReader($fs, [System.Text.Encoding]::UTF8)',
+    '  $new = $sr.ReadToEnd()',
+    '  $pos = $fs.Position',
+    '  $sr.Close()',
+    '  $fs.Close()',
+    '  $new = $new -replace [string][char]0xFEFF, \'\' -replace [string][char]0, \'\'',
+    '  if ($new) { [Console]::Out.Write($new); [Console]::Out.Flush() }',
+    ' } catch { }',
+    ' if ($p.HasExited) { break }',
+    '}',
+    '$p.WaitForExit()',
+    'Remove-Item $log -Force -ErrorAction SilentlyContinue',
+    'exit $p.ExitCode'
   ];
 
-  return runSpawnCommand(psExe, args, { shell: false, windowsHide: false });
+  fs.writeFileSync(tmpScriptPath, psLines.join('\n'), 'utf8');
+
+  const child = spawn(psExe, [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tmpScriptPath
+  ], { shell: false, windowsHide: true });
+
+  if (child.stdout) {
+    child.stdout.on('data', (data) => onOutput('stdout', data.toString()));
+  }
+  if (child.stderr) {
+    child.stderr.on('data', (data) => onOutput('stderr', data.toString()));
+  }
+
+  const done = new Promise((resolve) => {
+    let settled = false;
+    const settle = (result) => {
+      if (settled) return;
+      settled = true;
+      try { fs.unlinkSync(tmpScriptPath); } catch { }
+      resolve(result);
+    };
+    child.on('error', (err) => settle({ success: false, error: err.message }));
+    child.on('close', (code) => settle({ success: code === 0, code }));
+  });
+
+  return { child, done };
 }
 
 /**

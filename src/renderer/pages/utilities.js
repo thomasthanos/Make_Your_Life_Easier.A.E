@@ -86,41 +86,119 @@ export function buildChrisTitusPage(translations, _settings) {
         }
     };
 
-    // PowerShell Command
-    const psCmd = [
-        'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
-        `"irm christitus.com/win | iex"`
-    ].join(' ');
+    const terminal = el('div', 'winget-terminal');
+    const termHeader = el('div', 'winget-terminal-header');
+    const dots = el('div', 'winget-terminal-dots');
+    for (let i = 0; i < 3; i++) dots.appendChild(document.createElement('span'));
+    const termTitle = el('span', 'winget-terminal-title', 'irm christitus.com/win | iex');
+    const stopBtn = el('button', 'winget-terminal-stop', 'Stop');
+    stopBtn.type = 'button';
+    termHeader.appendChild(dots);
+    termHeader.appendChild(termTitle);
+    termHeader.appendChild(stopBtn);
+    const termBody = el('div', 'winget-terminal-body');
+    terminal.appendChild(termHeader);
+    terminal.appendChild(termBody);
+    card.appendChild(terminal);
+
+    let running = false;
+    let cancelled = false;
+    let currentLine = null;
+    let replaceCurrent = false;
+    const MAX_LINES = 400;
+
+    const stripAnsiSequences = (text) => String(text)
+        .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+        .replace(/\x1b\][^\x07]*\x07/g, '')
+        .replace(/\x08/g, '');
+
+    function newLine(className) {
+        currentLine = document.createElement('div');
+        currentLine.className = 'winget-terminal-line';
+        if (className) currentLine.classList.add(className);
+        termBody.appendChild(currentLine);
+        while (termBody.childElementCount > MAX_LINES) {
+            termBody.removeChild(termBody.firstElementChild);
+        }
+    }
+
+    function appendOutput(text, className) {
+        const clean = stripAnsiSequences(text).replace(/\r\n/g, '\n');
+        for (const chunk of clean.split(/(\n|\r)/)) {
+            if (chunk === '\n') {
+                currentLine = null;
+                replaceCurrent = false;
+            } else if (chunk === '\r') {
+                replaceCurrent = true;
+            } else if (chunk) {
+                if (!currentLine) newLine(className);
+                if (replaceCurrent) {
+                    currentLine.textContent = chunk;
+                    replaceCurrent = false;
+                } else {
+                    currentLine.textContent += chunk;
+                }
+            }
+        }
+        termBody.scrollTop = termBody.scrollHeight;
+    }
+
+    function printLine(text, className) {
+        currentLine = null;
+        newLine(className);
+        currentLine.textContent = text;
+        currentLine = null;
+        termBody.scrollTop = termBody.scrollHeight;
+    }
 
     launchBtn.addEventListener('click', async () => {
-        try {
-            launchBtn.disabled = true;
-            setStatus('Downloading & launching Windows Utility...');
+        if (running) return;
+        running = true;
+        cancelled = false;
+        launchBtn.disabled = true;
 
-            if (window.api?.runChrisTitus) {
-                const result = await window.api.runChrisTitus();
-                if (result && !result.error) {
-                    setStatus('Utility launched in a new PowerShell window. Follow the on-screen prompts.', 'success');
-                } else {
-                    const errMsg = result && result.error ? result.error : 'Unknown error';
-                    setStatus('Failed to launch: ' + errMsg, 'error');
-                }
-            } else if (window.api?.runCommand) {
-                const runResult = await window.api.runCommand(psCmd);
-                if (runResult && !runResult.error) {
-                    setStatus('Utility launched in a new PowerShell window. Follow the on-screen prompts.', 'success');
-                } else {
-                    const errMsg = runResult && runResult.error ? runResult.error : 'Unknown error';
-                    setStatus('Failed to launch: ' + errMsg, 'error');
-                }
+        termBody.innerHTML = '';
+        currentLine = null;
+        replaceCurrent = false;
+        terminal.classList.add('open', 'running');
+        printLine('> irm christitus.com/win | iex', 'is-cmd');
+
+        const unsubscribe = window.api.onChrisTitusOutput(({ stream, text }) => {
+            appendOutput(text, stream === 'stderr' ? 'is-stderr' : undefined);
+        });
+
+        try {
+            const result = await window.api.runChrisTitus();
+            if (result && result.success) {
+                printLine('✔ Utility finished.', 'is-ok');
+                setStatus('Windows Utility finished.', 'success');
+            } else if (result && result.cancelled) {
             } else {
-                await navigator.clipboard.writeText(psCmd);
-                setStatus('Electron bridge not found. Command copied to clipboard — run in elevated PowerShell.', 'error');
+                printLine(`✖ ${result?.error || `Utility exited with code ${result?.code ?? '?'}.`}`, 'is-err');
+                setStatus('Failed to launch: ' + (result?.error || 'Unknown error'), 'error');
             }
         } catch (e) {
-            setStatus('Failed to launch: ' + e.message, 'error');
+            if (!cancelled) {
+                printLine(`✖ ${e.message}`, 'is-err');
+                setStatus('Failed to launch: ' + e.message, 'error');
+            }
         } finally {
+            unsubscribe();
+            running = false;
+            terminal.classList.remove('running');
             launchBtn.disabled = false;
+        }
+    });
+
+    stopBtn.addEventListener('click', async () => {
+        if (!running) return;
+        cancelled = true;
+        stopBtn.disabled = true;
+        try {
+            await window.api.cancelChrisTitus();
+            printLine('■ Stopped.', 'is-warn');
+        } finally {
+            stopBtn.disabled = false;
         }
     });
 

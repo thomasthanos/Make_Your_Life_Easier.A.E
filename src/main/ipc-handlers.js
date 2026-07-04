@@ -221,8 +221,49 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
         }
     });
 
-    ipcMain.handle('run-christitus', async () => {
-        return systemTools.runChrisTitus();
+    let chrisTitusChild = null;
+    let chrisTitusCancelled = false;
+
+    ipcMain.handle('run-christitus', async (event) => {
+        if (chrisTitusChild) {
+            return { success: false, error: 'The utility is already running.' };
+        }
+
+        chrisTitusCancelled = false;
+        try {
+            const { child, done } = systemTools.runChrisTitus((stream, text) => {
+                try {
+                    if (!event.sender.isDestroyed()) {
+                        event.sender.send('christitus-output', { stream, text });
+                    }
+                } catch { }
+            });
+
+            chrisTitusChild = child;
+            try {
+                const result = await done;
+                if (chrisTitusCancelled) return { success: false, cancelled: true };
+                return result;
+            } finally {
+                chrisTitusChild = null;
+            }
+        } catch (error) {
+            chrisTitusChild = null;
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('run-christitus-cancel', async () => {
+        if (!chrisTitusChild) {
+            return { success: false, error: 'The utility is not running.' };
+        }
+        try {
+            chrisTitusCancelled = true;
+            chrisTitusChild.kill();
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     });
 
     ipcMain.handle('open-external', async (event, url) => {
@@ -589,8 +630,49 @@ function setupSystemToolsHandlers(systemTools) {
 }
 
 function setupSpicetifyHandlers(spicetifyModule) {
-    ipcMain.handle('install-spicetify', async () => {
-        try { return await spicetifyModule.installSpicetify(); } catch (error) { return { success: false, error: error.message }; }
+    let spicetifyInstallChild = null;
+    let spicetifyInstallCancelled = false;
+
+    ipcMain.handle('install-spicetify', async (event) => {
+        if (spicetifyInstallChild) {
+            return { success: false, error: 'An installation is already running.' };
+        }
+
+        spicetifyInstallCancelled = false;
+        try {
+            const { child, done } = spicetifyModule.installSpicetify((stream, text) => {
+                try {
+                    if (!event.sender.isDestroyed()) {
+                        event.sender.send('spicetify-install-output', { stream, text });
+                    }
+                } catch { }
+            });
+
+            spicetifyInstallChild = child;
+            try {
+                const result = await done;
+                if (spicetifyInstallCancelled) return { success: false, cancelled: true };
+                return result;
+            } finally {
+                spicetifyInstallChild = null;
+            }
+        } catch (error) {
+            spicetifyInstallChild = null;
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('install-spicetify-cancel', async () => {
+        if (!spicetifyInstallChild) {
+            return { success: false, error: 'No installation in progress.' };
+        }
+        try {
+            spicetifyInstallCancelled = true;
+            spicetifyInstallChild.kill();
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     });
 
     ipcMain.handle('uninstall-spicetify', async () => {

@@ -11,72 +11,95 @@ const { attachChildProcessHandlers } = require('./process-utils');
 
 /**
  * Install Spicetify
- * @returns {Promise<Object>}
+ * @returns {{ child: ChildProcess, done: Promise<Object> }}
  */
-async function installSpicetify() {
-  return new Promise((resolve) => {
-    if (process.platform === 'win32') {
-      try {
-        const tmpScriptName = `spicetify_install_${Date.now()}.ps1`;
-        const tmpScriptPath = path.join(os.tmpdir(), tmpScriptName);
-        
-        const psLines = [
-          'Start-Sleep -Seconds 3',
-          "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);' -Name Native -Namespace Win32",
-          '$hwnd = (Get-Process -Id $PID).MainWindowHandle',
-          '[Win32.Native]::ShowWindowAsync($hwnd, 6)',
-          "$ErrorActionPreference = 'Stop'",
-          "$tempCli = [System.IO.Path]::GetTempFileName() + '.ps1'",
-          "Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/spicetify/cli/main/install.ps1' -OutFile $tempCli",
-          "$lines = Get-Content $tempCli",
-          "$skip = $false",
-          "$filtered = @()",
-          "foreach ($line in $lines) {",
-          " if ($line -match '#region Marketplace') { $skip = $true; continue }",
-          " if ($line -match '#endregion Marketplace') { $skip = $false; continue }",
-          " if (-not $skip) { $filtered += $line }",
-          "}",
-          "$filtered | Set-Content $tempCli",
-          "& $tempCli",
-          "Remove-Item $tempCli -Force",
-          "try { Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/spicetify/marketplace/main/resources/install.ps1' | Invoke-Expression } catch {}",
-          "spicetify -v",
-          "spicetify backup apply"
-        ];
-        
-        fs.writeFileSync(tmpScriptPath, psLines.join('\n'), 'utf8');
-        
-        const child = spawn('cmd.exe', [
-          '/c', 'start', '', 'powershell.exe', '-ExecutionPolicy', 'Bypass', '-File', tmpScriptPath
-        ], { detached: true });
-        
-        child.on('error', (err) => {
-          resolve({ success: false, error: err.message, output: '' });
-        });
-        
-        child.on('spawn', () => {
-          resolve({ success: true, output: 'Installer started in a new console window.' });
-        });
-      } catch (e) {
-        resolve({ success: false, error: e.message, output: '' });
-      }
-    } else {
-      const shell = process.env.SHELL || '/bin/sh';
-      const unixCmd = [
-        'tmpfile=$(mktemp /tmp/spicetify_install.XXXXXX.sh)',
-        'curl -fsSL https://raw.githubusercontent.com/spicetify/cli/main/install.sh -o "$tmpfile"',
-        "sed -i '/Do you want to install spicetify Marketplace?/,/spicetify Marketplace installation script/d' \"$tmpfile\"",
-        'sh "$tmpfile"',
-        'rm -f "$tmpfile"',
-        'curl -fsSL https://raw.githubusercontent.com/spicetify/marketplace/main/resources/install.sh | sh || true',
-        'spicetify -v',
-        'spicetify backup apply'
-      ].join(' && ');
-      
-      const child = spawn(shell, ['-c', unixCmd]);
-      attachChildProcessHandlers(child, resolve, 'Installer');
+function installSpicetify(onOutput = () => { }) {
+  if (process.platform === 'win32') {
+    const tmpScriptName = `spicetify_install_${Date.now()}.ps1`;
+    const tmpScriptPath = path.join(os.tmpdir(), tmpScriptName);
+
+    const psLines = [
+      "$ErrorActionPreference = 'Stop'",
+      "$ProgressPreference = 'SilentlyContinue'",
+      "$tempCli = [System.IO.Path]::GetTempFileName() + '.ps1'",
+      "Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/spicetify/cli/main/install.ps1' -OutFile $tempCli",
+      "$lines = Get-Content $tempCli",
+      "$skip = $false",
+      "$filtered = @()",
+      "foreach ($line in $lines) {",
+      " if ($line -match '#region Marketplace') { $skip = $true; continue }",
+      " if ($line -match '#endregion Marketplace') { $skip = $false; continue }",
+      " if (-not $skip) { $filtered += $line }",
+      "}",
+      "$filtered | Set-Content $tempCli",
+      "& $tempCli",
+      "Remove-Item $tempCli -Force",
+      "try { Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/spicetify/marketplace/main/resources/install.ps1' | Invoke-Expression } catch {}",
+      "spicetify -v",
+      "spicetify backup apply"
+    ];
+
+    fs.writeFileSync(tmpScriptPath, psLines.join('\n'), 'utf8');
+
+    const child = spawn('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tmpScriptPath
+    ], { windowsHide: true });
+
+    if (child.stdout) {
+      child.stdout.on('data', (data) => onOutput('stdout', data.toString()));
     }
+    if (child.stderr) {
+      child.stderr.on('data', (data) => onOutput('stderr', data.toString()));
+    }
+
+    const done = new Promise((resolve) => {
+      let settled = false;
+      const settle = (result) => {
+        if (settled) return;
+        settled = true;
+        try { fs.unlinkSync(tmpScriptPath); } catch { }
+        resolve(result);
+      };
+      child.on('error', (err) => settle({ success: false, error: err.message }));
+      child.on('close', (code) => settle({ success: code === 0, code }));
+    });
+
+    return { child, done };
+  }
+
+  const shell = process.env.SHELL || '/bin/sh';
+  const unixCmd = [
+    'tmpfile=$(mktemp /tmp/spicetify_install.XXXXXX.sh)',
+    'curl -fsSL https://raw.githubusercontent.com/spicetify/cli/main/install.sh -o "$tmpfile"',
+    "sed -i '/Do you want to install spicetify Marketplace?/,/spicetify Marketplace installation script/d' \"$tmpfile\"",
+    'sh "$tmpfile"',
+    'rm -f "$tmpfile"',
+    'curl -fsSL https://raw.githubusercontent.com/spicetify/marketplace/main/resources/install.sh | sh || true',
+    'spicetify -v',
+    'spicetify backup apply'
+  ].join(' && ');
+
+  const child = spawn(shell, ['-c', unixCmd]);
+
+  if (child.stdout) {
+    child.stdout.on('data', (data) => onOutput('stdout', data.toString()));
+  }
+  if (child.stderr) {
+    child.stderr.on('data', (data) => onOutput('stderr', data.toString()));
+  }
+
+  const done = new Promise((resolve) => {
+    let settled = false;
+    const settle = (result) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+    child.on('error', (err) => settle({ success: false, error: err.message }));
+    child.on('close', (code) => settle({ success: code === 0, code }));
   });
+
+  return { child, done };
 }
 
 /**
@@ -88,8 +111,9 @@ async function uninstallSpicetify() {
     if (process.platform === 'win32') {
       const psCmd = [
         'try { spicetify restore } catch { }',
-        'try { Remove-Item -Recurse -Force "$env:APPDATA\\spicetify" } catch { }',
-        'try { Remove-Item -Recurse -Force "$env:LOCALAPPDATA\\spicetify" } catch { }'
+        'Remove-Item -Recurse -Force "$env:APPDATA\\spicetify" -ErrorAction SilentlyContinue',
+        'Remove-Item -Recurse -Force "$env:LOCALAPPDATA\\spicetify" -ErrorAction SilentlyContinue',
+        'if ((Test-Path "$env:APPDATA\\spicetify") -or (Test-Path "$env:LOCALAPPDATA\\spicetify")) { exit 1 } else { exit 0 }'
       ].join(' ; ');
       
       const child = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], { windowsHide: true });
