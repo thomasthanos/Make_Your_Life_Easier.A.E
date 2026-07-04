@@ -470,20 +470,18 @@ function notifyCleaner() {
     }
 }
 
-function runCleanerScan(preferElevated) {
+// Runs a non-elevated (limited) scan — no UAC. Protected folders come back as
+// `inaccessible` and are shown as "Admin needed"; their real sizes appear after
+// a Clean, which elevates once and returns fresh sizes for everything.
+function runCleanerScan() {
     if (cleanerState.scanPromise) return cleanerState.scanPromise;
 
     cleanerState.scanning = true;
-    cleanerState.scanMode = preferElevated ? 'Requesting administrator scan...' : 'Running limited scan...';
+    cleanerState.scanMode = 'Scanning...';
 
     const promise = (async () => {
         try {
-            let result = await window.api.scanCleanerTasks({ elevated: preferElevated });
-            if (preferElevated && (!result || !result.success)) {
-                cleanerState.scanMode = 'Limited scan - administrator access was not granted.';
-                notifyCleaner();
-                result = await window.api.scanCleanerTasks({ elevated: false });
-            }
+            const result = await window.api.scanCleanerTasks({ elevated: false });
 
             if (!result || !result.success) {
                 toast((result && result.error) || 'Cleaner scan failed.', { type: 'error', title: 'Cleaner' });
@@ -491,9 +489,7 @@ function runCleanerScan(preferElevated) {
             }
 
             cleanerState.results = result.items || [];
-            cleanerState.scanMode = result.elevated
-                ? 'Full scan completed with administrator access.'
-                : 'Limited scan completed. Protected folders need administrator access.';
+            cleanerState.scanMode = 'Scan completed. Protected items need admin — cleaned when you press Clean.';
         } catch (error) {
             toast((error && error.message) || 'Cleaner scan failed.', { type: 'error', title: 'Cleaner' });
         } finally {
@@ -542,7 +538,7 @@ export async function buildCleanerPage() {
 
     const scanMode = document.createElement('p');
     scanMode.className = 'cleaner-scan-mode';
-    scanMode.textContent = 'Requesting administrator scan...';
+    scanMode.textContent = 'Scanning...';
 
     summaryText.appendChild(title);
     summaryText.appendChild(lastCleaned);
@@ -602,8 +598,10 @@ export async function buildCleanerPage() {
 
         CLEANER_TASKS.forEach((task) => {
             const data = taskState.get(task.id) || task;
-            const isEmpty = Number(data.sizeBytes || 0) <= 0;
-            const isLocked = scanning || cleaning || data.inaccessible || isEmpty;
+            // "Admin needed" items stay selectable — Clean elevates once and handles
+            // them. Only lock truly-empty accessible folders (nothing to remove).
+            const accessibleEmpty = !data.inaccessible && Number(data.sizeBytes || 0) <= 0;
+            const isLocked = scanning || cleaning || accessibleEmpty;
 
             const row = document.createElement('article');
             row.className = 'cleaner-row';
@@ -654,7 +652,8 @@ export async function buildCleanerPage() {
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            checkbox.checked = !isEmpty && !data.inaccessible;
+            // Default-check anything with content, plus protected items (unknown size).
+            checkbox.checked = data.inaccessible || Number(data.sizeBytes || 0) > 0;
             checkbox.disabled = isLocked;
             checkbox.addEventListener('change', updateTotals);
 
@@ -715,7 +714,7 @@ export async function buildCleanerPage() {
         updateTotals();
     });
 
-    scanBtn.addEventListener('click', () => runCleanerScan(true));
+    scanBtn.addEventListener('click', () => runCleanerScan());
 
     cleanBtn.addEventListener('click', async () => {
         if (cleaning || scanning) return;
@@ -735,14 +734,18 @@ export async function buildCleanerPage() {
         setCleanerButtonContent(cleanBtn, 'cleaner', 'Cleaning...');
 
         try {
+            // Single elevated call: deletes AND returns a fresh (elevated) scan,
+            // so there is exactly one UAC prompt for the whole clean flow.
             const result = await window.api.runCleanerTasks(selectedIds);
             if (result && result.success) {
                 const now = new Date().toISOString();
                 localStorage.setItem('cleanerLastCleaned', now);
                 lastCleaned.textContent = `Last cleaned: ${formatCleanerDate(now)}`;
+                if (Array.isArray(result.items)) {
+                    cleanerState.results = result.items;
+                    cleanerState.scanMode = 'Cleaned. Sizes refreshed with administrator access.';
+                }
                 toast(result.message || 'Cleaner completed.', { type: 'success', title: 'Cleaner' });
-                cleaning = false;
-                await runCleanerScan(true);
             } else {
                 toast((result && result.error) || 'Cleaner failed.', { type: 'error', title: 'Cleaner' });
             }
@@ -753,7 +756,7 @@ export async function buildCleanerPage() {
             scanBtn.disabled = false;
             selectAllBtn.disabled = false;
             cleanBtn.classList.remove('btn-loading');
-            updateTotals();
+            renderFromState();
         }
     });
 
@@ -763,10 +766,9 @@ export async function buildCleanerPage() {
     renderFromState();
 
     // Only kick off a fresh scan if nothing is cached and none is already running.
-    // This prevents duplicate elevated scans (and repeated UAC prompts) when the
-    // user rapidly re-enters the tab, and preserves results across navigation.
+    // Preserves results across navigation and avoids redundant re-scans.
     if (!cleanerState.scanning && !Array.isArray(cleanerState.results)) {
-        runCleanerScan(true);
+        runCleanerScan();
     }
 
     return container;

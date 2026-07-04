@@ -99,8 +99,12 @@ ${script}
       });
 
       child.on('close', () => {
-        const maxWait = 45000;
-        const uacTimeout = 15000;
+        // With `Start-Process -Wait`, this child stays alive for the whole time the
+        // UAC dialog is on screen AND while the elevated script runs, so we only get
+        // here after the user answered. resultFile is normally already present; the
+        // timeouts below are just short safety nets (denial grace / flush wait).
+        const maxWait = 30000;
+        const uacTimeout = 5000;
         const pollInterval = 150;
         let waited = 0;
         let scriptStarted = false;
@@ -166,8 +170,10 @@ ${script}
 
 const CLEANER_TASK_IDS = ['temp', 'prefetch', 'recycle_bin', 'windows_update', 'thumbnail_cache', 'error_reports'];
 
-async function scanCleanerTasks(options = {}) {
-  const script = `
+// PowerShell that measures each cleaner target and emits the sizes as JSON.
+// Shared by scanCleanerTasks() and by runCleanerTasks() (which appends it after
+// the delete step so a single elevated run cleans AND returns fresh sizes).
+const CLEANER_SCAN_PS = `
 $ErrorActionPreference = 'SilentlyContinue'
 
 function Get-ItemSizeInfo {
@@ -234,17 +240,24 @@ $items = @(
 $items | ConvertTo-Json -Compress
 `;
 
-  const wantsElevated = Boolean(options && options.elevated);
-  const result = wantsElevated ? await runElevatedPowerShellJson(script) : await runPowerShellJson(script);
-  if (!result.success) return result;
-
-  const items = Array.isArray(result.data) ? result.data : [result.data];
-  const normalized = items.map((item) => ({
+function normalizeCleanerItems(data) {
+  const items = Array.isArray(data) ? data : [data];
+  return items.map((item) => ({
     id: String(item.id || ''),
     sizeBytes: Number(item.sizeBytes || 0),
     path: String(item.path || ''),
     inaccessible: Boolean(item.inaccessible)
   })).filter((item) => CLEANER_TASK_IDS.includes(item.id));
+}
+
+async function scanCleanerTasks(options = {}) {
+  const wantsElevated = Boolean(options && options.elevated);
+  const result = wantsElevated
+    ? await runElevatedPowerShellJson(CLEANER_SCAN_PS)
+    : await runPowerShellJson(CLEANER_SCAN_PS);
+  if (!result.success) return result;
+
+  const normalized = normalizeCleanerItems(result.data);
   const totalBytes = normalized.reduce((sum, item) => sum + item.sizeBytes, 0);
 
   return { success: true, items: normalized, totalBytes, scannedAt: new Date().toISOString(), elevated: Boolean(result.elevated) };
@@ -324,11 +337,35 @@ if ($tasks -contains 'error_reports') {
 }
 `;
 
-  return runElevatedPowerShellScriptHidden(
-    psScript,
-    'Cleaner completed successfully.',
-    'Cleaner failed or administrator permission was denied.'
-  );
+  // Run the delete AND a fresh scan inside a single elevated process, so the user
+  // is prompted for admin exactly once (no separate UAC for the post-clean rescan).
+  // The clean block is scoped and discarded so only the scan's JSON reaches stdout.
+  const combinedScript = `& {
+${psScript}
+} | Out-Null
+
+${CLEANER_SCAN_PS}`;
+
+  const result = await runElevatedPowerShellJson(combinedScript);
+  if (!result.success) {
+    return {
+      success: false,
+      error: result.error || 'Cleaner failed or administrator permission was denied.',
+      code: result.code
+    };
+  }
+
+  const normalized = normalizeCleanerItems(result.data);
+  const totalBytes = normalized.reduce((sum, item) => sum + item.sizeBytes, 0);
+
+  return {
+    success: true,
+    message: 'Cleaner completed successfully.',
+    items: normalized,
+    totalBytes,
+    scannedAt: new Date().toISOString(),
+    elevated: true
+  };
 }
 
 /**

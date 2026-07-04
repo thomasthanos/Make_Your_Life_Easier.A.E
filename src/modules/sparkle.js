@@ -16,6 +16,31 @@ const GITHUB_API_LATEST = 'https://api.github.com/repos/thedogecraft/sparkle/rel
 let _removeInProgress = null; // Promise | null
 
 /**
+ * Run a synchronous fs operation with Electron's asar handling disabled.
+ *
+ * CRITICAL: Sparkle is itself an Electron app, so its `resources/app.asar` is a
+ * real asar archive. When our code touches that path via `fs` inside Electron,
+ * Electron's asar layer opens the archive and caches its file descriptor for the
+ * lifetime of OUR process — which permanently locks app.asar and makes every
+ * deletion attempt fail with EBUSY. Toggling `process.noAsar` makes `fs` treat
+ * it as an ordinary file, so it is opened and closed cleanly with no cached lock.
+ * The calls wrapped here are synchronous, so the global flag can't leak across
+ * awaits into unrelated fs operations.
+ * @template T
+ * @param {() => T} fn
+ * @returns {T}
+ */
+function withNoAsar(fn) {
+  const prev = process.noAsar;
+  process.noAsar = true;
+  try {
+    return fn();
+  } finally {
+    process.noAsar = prev;
+  }
+}
+
+/**
  * Get Sparkle directory path
  * @returns {string}
  */
@@ -58,7 +83,7 @@ function moveSparkleDirToTrash(sparkleDir) {
   try {
     const parent = path.dirname(sparkleDir);
     const trashPath = path.join(parent, `${SPARKLE_TRASH_PREFIX}${Date.now()}-${process.pid}`);
-    fs.renameSync(sparkleDir, trashPath);
+    withNoAsar(() => fs.renameSync(sparkleDir, trashPath));
     return trashPath;
   } catch {
     return null;
@@ -78,7 +103,7 @@ function sweepSparkleTrash() {
       if (!entry.startsWith(SPARKLE_TRASH_PREFIX)) continue;
       const trashPath = path.join(parent, entry);
       try {
-        fs.rmSync(trashPath, { recursive: true, force: true });
+        withNoAsar(() => fs.rmSync(trashPath, { recursive: true, force: true }));
       } catch {
         // Still locked — schedule a detached PowerShell to retry after exit
         scheduleDelayedCleanup(trashPath);
@@ -171,7 +196,7 @@ function killSparkleProcess() {
 function waitForAsarUnlocked(sparkleDir) {
   return new Promise((resolve) => {
     const asarPath = path.join(sparkleDir, 'resources', 'app.asar');
-    if (!fs.existsSync(asarPath)) return resolve(); // nothing to wait for
+    if (!withNoAsar(() => fs.existsSync(asarPath))) return resolve(); // nothing to wait for
 
     const MAX_PROBES = 30; // 30 × 500ms = 15s max
     let probes = 0;
@@ -179,9 +204,12 @@ function waitForAsarUnlocked(sparkleDir) {
     const probe = () => {
       probes++;
       try {
-        // Try to open the file exclusively — fails with EBUSY/EPERM if still memory-mapped
-        const fd = fs.openSync(asarPath, 'r+');
-        fs.closeSync(fd);
+        // Try to open the file exclusively — fails with EBUSY/EPERM if still memory-mapped.
+        // noAsar so Electron does not cache (and thus lock) the archive fd.
+        withNoAsar(() => {
+          const fd = fs.openSync(asarPath, 'r+');
+          fs.closeSync(fd);
+        });
         debug('info', `app.asar lock released after ${probes} probe(s)`);
         resolve();
       } catch {
@@ -230,7 +258,7 @@ async function _doForceRemoveSparkleDir() {
   // Retry deletion up to 5 times with exponential back-off
   for (let attempt = 1; attempt <= 5; attempt++) {
     try {
-      fs.rmSync(sparkleDir, { recursive: true, force: true });
+      withNoAsar(() => fs.rmSync(sparkleDir, { recursive: true, force: true }));
       debug('info', `Sparkle directory removed (attempt ${attempt})`);
       return 'removed';
     } catch (err) {
@@ -535,24 +563,29 @@ async function processDownloadedSparkle(zipPath) {
 /**
  * Schedule a delayed folder deletion via a detached PowerShell process.
  * Runs AFTER Electron exits so all file handles are released.
- * Retries Remove-Item up to 10 times with a 2s pause between attempts.
+ * Waits for both sparkle.exe AND our own MakeYourLifeEasier process (which can
+ * itself hold app.asar open) to exit before retrying Remove-Item.
  * @param {string} targetDir
  */
 function scheduleDelayedCleanup(targetDir) {
   try {
     const dirPS = targetDir.replace(/'/g, "''");
+    const ownPid = process.pid;
     const psLines = [
-      // 1. Wait for sparkle.exe to finish (up to 60s)
+      // 1. Wait for our own MakeYourLifeEasier process (the real asar holder) to exit
       "$target = '" + dirPS + "'",
+      "$ownPid = " + ownPid,
       "$max = 60; $n = 0",
       "while ($n -lt $max) {",
-      "    if (-not (Get-Process -Name 'sparkle' -ErrorAction SilentlyContinue)) { break }",
-      "    Start-Sleep -Seconds 2; $n += 2",
+      "    $sparkle = Get-Process -Name 'sparkle' -ErrorAction SilentlyContinue",
+      "    $self = Get-Process -Id $ownPid -ErrorAction SilentlyContinue",
+      "    if (-not $sparkle -and -not $self) { break }",
+      "    Start-Sleep -Seconds 1; $n += 1",
       "}",
       // 2. Give Windows extra time to release memory-mapped handles (app.asar)
-      "Start-Sleep -Seconds 3",
-      // 3. Retry loop: try up to 10 times with 2s gap
-      "$retries = 10",
+      "Start-Sleep -Seconds 2",
+      // 3. Retry loop: try up to 15 times with 2s gap
+      "$retries = 15",
       "for ($i = 0; $i -lt $retries; $i++) {",
       "    if (-not (Test-Path -LiteralPath $target)) { break }",
       "    try {",
@@ -601,7 +634,7 @@ function cleanupSparkle() {
     safeDebug('warn', 'Failed to cleanup sparkle zip:', err.message);
   }
 
-  if (!fs.existsSync(sparkleDir)) return;
+  if (!withNoAsar(() => fs.existsSync(sparkleDir))) return;
 
   // Kill sparkle.exe synchronously before attempting deletion.
   // before-quit is synchronous so we can't await — execFileSync is the only option.
@@ -625,12 +658,14 @@ function cleanupSparkle() {
   // held the lock; a foreign lock (VS Code/Defender) is handled by the rename step
   // below, so we cap this low to avoid stalling shutdown.
   const asarPath = path.join(sparkleDir, 'resources', 'app.asar');
-  if (fs.existsSync(asarPath)) {
+  if (withNoAsar(() => fs.existsSync(asarPath))) {
     const MAX_PROBES = 6; // 6 × 250ms = 1.5s max
     for (let i = 0; i < MAX_PROBES; i++) {
       try {
-        const fd = fs.openSync(asarPath, 'r+');
-        fs.closeSync(fd);
+        withNoAsar(() => {
+          const fd = fs.openSync(asarPath, 'r+');
+          fs.closeSync(fd);
+        });
         break; // our lock released — proceed to delete
       } catch {
         const until = Date.now() + 250;
@@ -641,7 +676,7 @@ function cleanupSparkle() {
 
   // Try immediate removal
   try {
-    fs.rmSync(sparkleDir, { recursive: true, force: true });
+    withNoAsar(() => fs.rmSync(sparkleDir, { recursive: true, force: true }));
     safeDebug('info', 'Sparkle directory cleaned up on quit successfully');
     sweepSparkleTrash();
     return;
