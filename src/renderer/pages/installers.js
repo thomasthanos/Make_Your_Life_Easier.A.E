@@ -589,6 +589,8 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     const actionsWrapper = document.createElement('div');
     actionsWrapper.classList.add('actions-wrapper');
+    const actionsCluster = document.createElement('div');
+    actionsCluster.className = 'actions-cluster';
 
     function makeButton(text, { danger = false } = {}) {
         const btn = document.createElement('button');
@@ -634,14 +636,15 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     actionsWrapper.appendChild(installBtn);
     actionsWrapper.appendChild(checkInstalledBtn);
     actionsWrapper.appendChild(uncheckAllBtn);
-    container.appendChild(actionsWrapper);
+    actionsCluster.appendChild(actionsWrapper);
 
     // Create second row for export/import
     const actionsWrapper2 = document.createElement('div');
     actionsWrapper2.classList.add('actions-wrapper', 'actions-wrapper-secondary');
     actionsWrapper2.appendChild(exportBtn);
     actionsWrapper2.appendChild(importBtn);
-    container.appendChild(actionsWrapper2);
+    actionsCluster.appendChild(actionsWrapper2);
+    container.appendChild(actionsCluster);
 
     // ── Controls bar: view toggle + sort ──────────────────────────
     const controlsBar = document.createElement('div');
@@ -700,10 +703,16 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         btn.className = 'sort-btn';
         btn.dataset.sort = value;
         btn.innerHTML = `${icon}<span class="sort-btn-label">${escapeHtml(label)}</span>`;
-        if (value === 'default') btn.classList.add('active');
-        btn.addEventListener('click', () => {
-            sortGroup.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+        if (value === 'default') {
             btn.classList.add('active');
+            btn.disabled = true;
+        }
+        btn.addEventListener('click', () => {
+            sortGroup.querySelectorAll('.sort-btn').forEach((b) => {
+                const isActive = b === btn;
+                b.classList.toggle('active', isActive);
+                b.disabled = isActive;
+            });
             applySort(value);
             try { window.api?.setSetting?.('installer_sort', value); } catch { }
         });
@@ -1615,7 +1624,11 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     } catch { }
 
     applyView(savedView);
-    sortGroup.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === savedSort));
+    sortGroup.querySelectorAll('.sort-btn').forEach((b) => {
+        const isActive = b.dataset.sort === savedSort;
+        b.classList.toggle('active', isActive);
+        b.disabled = isActive;
+    });
     applySort(savedSort);
 
     // Check winget on page load and show banner if missing

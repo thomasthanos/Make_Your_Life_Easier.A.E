@@ -207,11 +207,6 @@ export function renderMenu() {
 // PAGE LOADING
 // ============================================
 
-function setHeader(text) {
-    const header = document.getElementById('header');
-    if (header) header.textContent = text;
-}
-
 export async function loadPage(key) {
     // Detach download UI callbacks before destroying DOM (downloads continue in background)
     detachAllDownloadUI();
@@ -257,73 +252,41 @@ export async function loadPage(key) {
 
     switch (key) {
         case 'install_apps': {
-            const headerText = (translations.pages && translations.pages.install_title) ||
-                (translations.menu && translations.menu.install_apps) ||
-                'install_apps';
-            setHeader(headerText);
             content.appendChild(await buildInstallPageWingetWithCategories(translations, settings, buttonStateManager));
             break;
         }
 
         case 'activate_autologin': {
-            const headerText = (translations.pages && (translations.pages.activate_autologin_title || translations.pages.activate_title)) ||
-                (translations.menu && translations.menu.activate_autologin) ||
-                'activate_autologin';
-            setHeader(headerText);
             content.appendChild(await buildActivateAutologinPage(translations, settings, buttonStateManager));
             break;
         }
 
         case 'system_maintenance': {
-            const headerText = (translations.pages && (translations.pages.system_maintenance_title || translations.pages.maintenance_title)) ||
-                (translations.menu && translations.menu.system_maintenance) ||
-                'system_maintenance';
-            setHeader(headerText);
             content.appendChild(await buildMaintenancePage(translations, settings, buttonStateManager));
             break;
         }
 
         case 'crack_installer': {
-            const headerText = (translations.pages && (translations.pages.crack_title || translations.pages.crack_installer_title)) ||
-                (translations.menu && translations.menu.crack_installer) ||
-                'crack_installer';
-            setHeader(headerText);
             content.appendChild(await buildCrackInstallerPage(translations, settings, buttonStateManager));
             break;
         }
 
         case 'spicetify': {
-            const headerText = (translations.pages && (translations.pages.spicetify_title)) ||
-                (translations.menu && translations.menu.spicetify) ||
-                'spicetify';
-            setHeader(headerText);
             content.appendChild(await buildSpicetifyPage(translations, settings, buttonStateManager));
             break;
         }
 
         case 'debloat': {
-            const headerText = (translations.pages && (translations.pages.debloat_title)) ||
-                (translations.menu && translations.menu.debloat) ||
-                'Debloat & Windows Tweaks';
-            setHeader(headerText);
             content.appendChild(await buildDebloatPage(translations, settings, buttonStateManager));
             break;
         }
 
         case 'christitus': {
-            const headerText = (translations.pages && (translations.pages.christitus_title)) ||
-                (translations.menu && translations.menu.christitus) ||
-                'christitus';
-            setHeader(headerText);
             content.appendChild(await buildChrisTitusPage(translations, settings, buttonStateManager));
             break;
         }
 
         case 'bios': {
-            const headerText = (translations.pages && (translations.pages.bios_title)) ||
-                (translations.menu && translations.menu.bios) ||
-                'bios';
-            setHeader(headerText);
             content.innerHTML = '';
             showRestartDialog(translations, menuKeys, loadPage);
             break;
@@ -437,6 +400,5 @@ export {
     settings,
     pageEventManager,
     menuKeys,
-    updateHeader,
-    setHeader
+    updateHeader
 };

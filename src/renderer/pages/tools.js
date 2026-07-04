@@ -12,17 +12,45 @@ import { toast } from '../components.js';
 // MAINTENANCE HELPER FUNCTIONS
 // ============================================
 
+const maintenanceIcon = (body) => `
+    <svg class="maintenance-svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        ${body}
+    </svg>
+`;
+
+const MAINTENANCE_ICONS = {
+    cleanup: maintenanceIcon('<path d="M4 17h16"/><path d="M7 17l1.2-7.2A2.2 2.2 0 0 1 10.4 8h3.2a2.2 2.2 0 0 1 2.2 1.8L17 17"/><path d="M9 17v3"/><path d="M15 17v3"/><path d="M10 5h4"/>'),
+    temp: maintenanceIcon('<path d="M8 3h8"/><path d="M10 3v5l-4.6 8A3.4 3.4 0 0 0 8.3 21h7.4a3.4 3.4 0 0 0 2.9-5L14 8V3"/><path d="M8.5 16h7"/><path d="M10 18h4"/>'),
+    recycle: maintenanceIcon('<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 14h8l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/>'),
+    cache: maintenanceIcon('<path d="M5 7c0-2.2 3.1-4 7-4s7 1.8 7 4-3.1 4-7 4-7-1.8-7-4z"/><path d="M5 7v5c0 2.2 3.1 4 7 4s7-1.8 7-4V7"/><path d="M5 12v5c0 2.2 3.1 4 7 4s7-1.8 7-4v-5"/>'),
+    thumbnail: maintenanceIcon('<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 9h3v3H8z"/><path d="M14 9h2"/><path d="M14 13h2"/><path d="M8 16h8"/>'),
+    report: maintenanceIcon('<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5"/><path d="M10 12h6"/><path d="M10 16h4"/>'),
+    disk: maintenanceIcon('<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/>'),
+    network: maintenanceIcon('<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>'),
+    dns: maintenanceIcon('<path d="M4 7h10"/><path d="M4 12h16"/><path d="M10 17h10"/><path d="M16 5l2 2-2 2"/><path d="M8 15l-2 2 2 2"/>'),
+    ip: maintenanceIcon('<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/><path d="M8 14h8"/>'),
+    bluetooth: maintenanceIcon('<path d="M7 7l10 10-5 4V3l5 4L7 17"/>'),
+    reset: maintenanceIcon('<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v6h-6"/><path d="M12 8v4l3 2"/>'),
+    repair: maintenanceIcon('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l2.8-2.8a5.5 5.5 0 0 1-7.1 7.1L7.1 20a2.1 2.1 0 0 1-3-3l6.3-6.3a5.5 5.5 0 0 1 7.1-7.1z"/>'),
+    audio: maintenanceIcon('<path d="M4 10v4h4l5 4V6l-5 4H4z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/>'),
+    tools: maintenanceIcon('<path d="M4 8l8-4 8 4-8 4-8-4z"/><path d="M4 8v8l8 4 8-4V8"/><path d="M12 12v8"/>')
+};
+
+function getMaintenanceIcon(iconKey) {
+    return MAINTENANCE_ICONS[iconKey] || MAINTENANCE_ICONS.tools;
+}
+
 /**
  * Creates a maintenance card with exact original CSS structure
  * @param {string} name - Card title
  * @param {string} description - Card description
- * @param {string} icon - Emoji icon
+ * @param {string} iconKey - Icon identifier
  * @param {string} buttonText - Button label
  * @param {Function} taskFunction - Function to execute
  * @param {boolean} requiresAdmin - Show admin warning
  * @param {boolean} hideStatus - Hide status element
  */
-function createMaintenanceCard(name, description, icon, buttonText, taskFunction, requiresAdmin = false, hideStatus = false) {
+function createMaintenanceCard(name, description, iconKey, buttonText, taskFunction, requiresAdmin = false, hideStatus = false) {
     const card = document.createElement('div');
     card.className = 'app-card';
     card.classList.add('feature-card');
@@ -32,7 +60,7 @@ function createMaintenanceCard(name, description, icon, buttonText, taskFunction
 
     const iconEl = document.createElement('div');
     iconEl.classList.add('feature-card-icon');
-    iconEl.textContent = icon;
+    iconEl.innerHTML = getMaintenanceIcon(iconKey);
     header.appendChild(iconEl);
 
     const text = document.createElement('div');
@@ -231,10 +259,16 @@ async function downloadAndRunPatchMyPC(statusElement, button) {
 /**
  * Creates a section title element
  */
-function createSectionTitle(text) {
+function createSectionTitle(text, iconKey) {
     const title = document.createElement('h3');
-    title.textContent = text;
     title.classList.add('maintenance-section-title');
+    const icon = document.createElement('span');
+    icon.className = 'maintenance-section-icon';
+    icon.innerHTML = getMaintenanceIcon(iconKey);
+    const label = document.createElement('span');
+    label.textContent = text;
+    title.appendChild(icon);
+    title.appendChild(label);
     return title;
 }
 
@@ -255,7 +289,7 @@ export async function buildMaintenancePage(translations, _settings) {
     container.appendChild(desc);
 
     // ── SECTION 1: Cleanup ──
-    container.appendChild(createSectionTitle('🧹 ' + (translations.maintenance?.cleanup_section || 'Cleanup')));
+    container.appendChild(createSectionTitle(translations.maintenance?.cleanup_section || 'Cleanup', 'cleanup'));
 
     const cleanupRow = document.createElement('div');
     cleanupRow.className = 'maintenance-row';
@@ -264,7 +298,7 @@ export async function buildMaintenancePage(translations, _settings) {
     const tempCard = createMaintenanceCard(
         translations.maintenance?.delete_temp_files || 'Clean Temp Files',
         translations.maintenance?.temp_files_desc || 'Clean TEMP, %TEMP%, and Prefetch folders',
-        '🧹',
+        'temp',
         translations.actions?.clean_temp_files || 'Clean',
         cleanTempFiles, false, true
     );
@@ -273,7 +307,7 @@ export async function buildMaintenancePage(translations, _settings) {
     const recycleBinCard = createMaintenanceCard(
         translations.maintenance?.recycle_bin || 'Clean Recycle Bin',
         translations.maintenance?.recycle_bin_desc || 'Empty the Windows Recycle Bin',
-        '🗑️',
+        'recycle',
         translations.actions?.clean || 'Clean',
         cleanRecycleBin, false, true
     );
@@ -282,7 +316,7 @@ export async function buildMaintenancePage(translations, _settings) {
     const winCacheCard = createMaintenanceCard(
         translations.maintenance?.windows_cache || 'Clean Windows Cache',
         translations.maintenance?.windows_cache_desc || 'Clean Windows Update download cache',
-        '💾',
+        'cache',
         translations.actions?.clean || 'Clean',
         cleanWindowsCache, true, true
     );
@@ -291,7 +325,7 @@ export async function buildMaintenancePage(translations, _settings) {
     const thumbCard = createMaintenanceCard(
         translations.maintenance?.thumbnail_cache || 'Clear Thumbnail Cache',
         translations.maintenance?.thumbnail_cache_desc || 'Clear icon and thumbnail cache files',
-        '🖼️',
+        'thumbnail',
         translations.actions?.clear || 'Clear',
         clearThumbnailCache, false, true
     );
@@ -300,7 +334,7 @@ export async function buildMaintenancePage(translations, _settings) {
     const errorReportsCard = createMaintenanceCard(
         translations.maintenance?.error_reports || 'Clear Error Reports',
         translations.maintenance?.error_reports_desc || 'Clean crash dumps and error reports',
-        '📋',
+        'report',
         translations.actions?.clear || 'Clear',
         clearErrorReports, false, true
     );
@@ -309,7 +343,7 @@ export async function buildMaintenancePage(translations, _settings) {
     const diskCleanerCard = createMaintenanceCard(
         translations.maintenance?.disk_cleaner || 'Disk Cleanup',
         translations.maintenance?.disk_cleaner_desc || 'Launch Windows Disk Cleanup utility (cleanmgr)',
-        '🧽',
+        'disk',
         translations.actions?.launch || 'Launch',
         runDiskCleaner, true, true
     );
@@ -324,7 +358,7 @@ export async function buildMaintenancePage(translations, _settings) {
     container.appendChild(cleanupRow);
 
     // ── SECTION 2: Network & Connectivity ──
-    container.appendChild(createSectionTitle('🌐 ' + (translations.maintenance?.network_section || 'Network & Connectivity')));
+    container.appendChild(createSectionTitle(translations.maintenance?.network_section || 'Network & Connectivity', 'network'));
 
     const networkRow = document.createElement('div');
     networkRow.className = 'maintenance-row';
@@ -333,7 +367,7 @@ export async function buildMaintenancePage(translations, _settings) {
     const dnsCard = createMaintenanceCard(
         translations.maintenance?.flush_dns || 'Flush DNS Cache',
         translations.maintenance?.flush_dns_desc || 'Clear the DNS resolver cache',
-        '🔄',
+        'dns',
         translations.actions?.flush || 'Flush',
         flushDnsCache, false, true
     );
@@ -342,7 +376,7 @@ export async function buildMaintenancePage(translations, _settings) {
     const ipCard = createMaintenanceCard(
         translations.maintenance?.release_renew_ip || 'Release & Renew IP',
         translations.maintenance?.release_renew_ip_desc || 'Release and renew IP address',
-        '📡',
+        'ip',
         translations.actions?.run || 'Run',
         releaseRenewIp, false, true
     );
@@ -351,7 +385,7 @@ export async function buildMaintenancePage(translations, _settings) {
     const btCard = createMaintenanceCard(
         translations.maintenance?.fix_bluetooth || 'Fix Bluetooth',
         translations.maintenance?.fix_bluetooth_desc || 'Restart Bluetooth services and adapter',
-        '📶',
+        'bluetooth',
         translations.actions?.fix || 'Fix',
         fixBluetooth, true, true
     );
@@ -360,7 +394,7 @@ export async function buildMaintenancePage(translations, _settings) {
     const netResetCard = createMaintenanceCard(
         translations.maintenance?.network_reset || 'Network Reset',
         translations.maintenance?.network_reset_desc || 'Reset Winsock, IP stack, and flush DNS',
-        '🔌',
+        'reset',
         translations.actions?.reset || 'Reset',
         networkReset, true, true
     );
@@ -373,7 +407,7 @@ export async function buildMaintenancePage(translations, _settings) {
     container.appendChild(networkRow);
 
     // ── SECTION 3: System Repair & Diagnostics ──
-    container.appendChild(createSectionTitle('🛠️ ' + (translations.maintenance?.repair_section || 'System Repair & Diagnostics')));
+    container.appendChild(createSectionTitle(translations.maintenance?.repair_section || 'System Repair & Diagnostics', 'repair'));
 
     const repairRow = document.createElement('div');
     repairRow.className = 'maintenance-row';
@@ -389,7 +423,7 @@ export async function buildMaintenancePage(translations, _settings) {
 
     const sfcDismIcon = document.createElement('div');
     sfcDismIcon.classList.add('feature-card-icon');
-    sfcDismIcon.textContent = '🛠️';
+    sfcDismIcon.innerHTML = getMaintenanceIcon('repair');
     sfcDismHeader.appendChild(sfcDismIcon);
 
     const sfcDismText = document.createElement('div');
@@ -438,7 +472,7 @@ export async function buildMaintenancePage(translations, _settings) {
     const checkDiskCard = createMaintenanceCard(
         translations.maintenance?.check_disk || 'Check Disk',
         translations.maintenance?.check_disk_desc || 'Scan C: drive for errors (read-only)',
-        '💿',
+        'disk',
         translations.actions?.check || 'Check',
         checkDisk, true, true
     );
@@ -447,7 +481,7 @@ export async function buildMaintenancePage(translations, _settings) {
     const audioCard = createMaintenanceCard(
         translations.maintenance?.restart_audio || 'Restart Audio System',
         translations.maintenance?.restart_audio_desc || 'Restart Windows Audio services',
-        '🔊',
+        'audio',
         translations.actions?.restart || 'Restart',
         restartAudioSystem, true, true
     );
@@ -459,14 +493,14 @@ export async function buildMaintenancePage(translations, _settings) {
     container.appendChild(repairRow);
 
     // ── SECTION 4: Tools ──
-    container.appendChild(createSectionTitle('📦 ' + (translations.maintenance?.tools_section || 'Tools')));
+    container.appendChild(createSectionTitle(translations.maintenance?.tools_section || 'Tools', 'tools'));
 
     const toolsRow = document.createElement('div');
 
     const patchCard = createMaintenanceCard(
         translations.maintenance?.patch_my_pc || 'Patch My PC',
         translations.maintenance?.patch_my_pc_desc || 'Update third-party applications automatically',
-        '📦',
+        'tools',
         translations.actions?.download_run || 'Download & Run',
         downloadAndRunPatchMyPC,
         false
