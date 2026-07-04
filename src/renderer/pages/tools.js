@@ -452,6 +452,62 @@ function setCleanerButtonContent(button, iconKey, label) {
     button.appendChild(text);
 }
 
+// Cleaner scan state lives at module scope so it survives tab switches:
+// results are cached and a single scan is shared/deduped across page rebuilds.
+const cleanerState = {
+    results: null,      // normalized items from the last completed scan, or null
+    scanMode: '',       // current status text
+    scanning: false,    // is a scan currently in flight
+    scanPromise: null,  // the in-flight scan promise (dedupe handle)
+};
+
+// The render fn of the currently-mounted cleaner page (only one exists at a time).
+let cleanerActiveRender = null;
+
+function notifyCleaner() {
+    if (cleanerActiveRender) {
+        try { cleanerActiveRender(); } catch { }
+    }
+}
+
+function runCleanerScan(preferElevated) {
+    if (cleanerState.scanPromise) return cleanerState.scanPromise;
+
+    cleanerState.scanning = true;
+    cleanerState.scanMode = preferElevated ? 'Requesting administrator scan...' : 'Running limited scan...';
+
+    const promise = (async () => {
+        try {
+            let result = await window.api.scanCleanerTasks({ elevated: preferElevated });
+            if (preferElevated && (!result || !result.success)) {
+                cleanerState.scanMode = 'Limited scan - administrator access was not granted.';
+                notifyCleaner();
+                result = await window.api.scanCleanerTasks({ elevated: false });
+            }
+
+            if (!result || !result.success) {
+                toast((result && result.error) || 'Cleaner scan failed.', { type: 'error', title: 'Cleaner' });
+                return;
+            }
+
+            cleanerState.results = result.items || [];
+            cleanerState.scanMode = result.elevated
+                ? 'Full scan completed with administrator access.'
+                : 'Limited scan completed. Protected folders need administrator access.';
+        } catch (error) {
+            toast((error && error.message) || 'Cleaner scan failed.', { type: 'error', title: 'Cleaner' });
+        } finally {
+            cleanerState.scanning = false;
+            cleanerState.scanPromise = null;
+            notifyCleaner();
+        }
+    })();
+
+    cleanerState.scanPromise = promise;
+    notifyCleaner();
+    return promise;
+}
+
 export async function buildCleanerPage() {
     const container = document.createElement('div');
     container.className = 'card cleaner-page';
@@ -616,33 +672,13 @@ export async function buildCleanerPage() {
         updateTotals();
     }
 
-    async function scanCleaner(preferElevated = false) {
-        if (scanning || cleaning) return;
-        scanning = true;
-        selectAllBtn.disabled = true;
-        cleanBtn.disabled = true;
-        scanBtn.classList.add('btn-loading');
-        setCleanerButtonContent(scanBtn, 'scan', 'Scanning...');
-        scanMode.textContent = preferElevated ? 'Requesting administrator scan...' : 'Running limited scan...';
-        renderRows();
+    // Pull the shared module state into this instance's DOM. Called on mount and
+    // whenever the shared scan changes phase (start / mode change / done).
+    function renderFromState() {
+        scanning = cleanerState.scanning;
 
-        try {
-            let result = await window.api.scanCleanerTasks({ elevated: preferElevated });
-            if (preferElevated && (!result || !result.success)) {
-                scanMode.textContent = 'Limited scan - administrator access was not granted.';
-                result = await window.api.scanCleanerTasks({ elevated: false });
-            }
-
-            if (!result || !result.success) {
-                toast((result && result.error) || 'Cleaner scan failed.', { type: 'error', title: 'Cleaner' });
-                return;
-            }
-
-            scanMode.textContent = result.elevated
-                ? 'Full scan completed with administrator access.'
-                : 'Limited scan completed. Protected folders need administrator access.';
-
-            (result.items || []).forEach((item) => {
+        if (Array.isArray(cleanerState.results)) {
+            cleanerState.results.forEach((item) => {
                 const existing = taskState.get(item.id);
                 if (existing) {
                     taskState.set(item.id, {
@@ -653,16 +689,21 @@ export async function buildCleanerPage() {
                     });
                 }
             });
-        } catch (error) {
-            toast((error && error.message) || 'Cleaner scan failed.', { type: 'error', title: 'Cleaner' });
-        } finally {
-            scanning = false;
-            scanBtn.disabled = false;
-            selectAllBtn.disabled = false;
+        }
+
+        if (cleanerState.scanMode) scanMode.textContent = cleanerState.scanMode;
+
+        if (scanning) {
+            scanBtn.classList.add('btn-loading');
+            setCleanerButtonContent(scanBtn, 'scan', 'Scanning...');
+        } else {
             scanBtn.classList.remove('btn-loading');
             setCleanerButtonContent(scanBtn, 'scan', 'Scan');
-            renderRows();
         }
+        scanBtn.disabled = scanning || cleaning;
+        selectAllBtn.disabled = scanning || cleaning;
+
+        renderRows();
     }
 
     selectAllBtn.addEventListener('click', () => {
@@ -674,7 +715,7 @@ export async function buildCleanerPage() {
         updateTotals();
     });
 
-    scanBtn.addEventListener('click', () => scanCleaner(true));
+    scanBtn.addEventListener('click', () => runCleanerScan(true));
 
     cleanBtn.addEventListener('click', async () => {
         if (cleaning || scanning) return;
@@ -701,7 +742,7 @@ export async function buildCleanerPage() {
                 lastCleaned.textContent = `Last cleaned: ${formatCleanerDate(now)}`;
                 toast(result.message || 'Cleaner completed.', { type: 'success', title: 'Cleaner' });
                 cleaning = false;
-                await scanCleaner(true);
+                await runCleanerScan(true);
             } else {
                 toast((result && result.error) || 'Cleaner failed.', { type: 'error', title: 'Cleaner' });
             }
@@ -716,8 +757,17 @@ export async function buildCleanerPage() {
         }
     });
 
-    renderRows();
-    scanCleaner(true);
+    // Become the live instance so an in-flight or future scan updates this DOM.
+    cleanerActiveRender = renderFromState;
+
+    renderFromState();
+
+    // Only kick off a fresh scan if nothing is cached and none is already running.
+    // This prevents duplicate elevated scans (and repeated UAC prompts) when the
+    // user rapidly re-enters the tab, and preserves results across navigation.
+    if (!cleanerState.scanning && !Array.isArray(cleanerState.results)) {
+        runCleanerScan(true);
+    }
 
     return container;
 }
