@@ -42,6 +42,51 @@ function getSparkleZipPath() {
   return path.join(baseDir, 'sparkle.zip');
 }
 
+// Prefix used for the temporary "trash" directory the sparkle folder is renamed
+// to when its files are locked by a foreign process (e.g. VS Code / Defender).
+const SPARKLE_TRASH_PREFIX = '.sparkle-trash-';
+
+/**
+ * Rename the sparkle directory to a sibling "trash" folder. This frees the
+ * canonical `sparkle` path instantly even when app.asar is locked by another
+ * process, because a directory rename does not open the locked file itself
+ * (foreign handles are typically opened with FILE_SHARE_DELETE).
+ * @param {string} sparkleDir
+ * @returns {string|null} the trash path if the move succeeded, otherwise null
+ */
+function moveSparkleDirToTrash(sparkleDir) {
+  try {
+    const parent = path.dirname(sparkleDir);
+    const trashPath = path.join(parent, `${SPARKLE_TRASH_PREFIX}${Date.now()}-${process.pid}`);
+    fs.renameSync(sparkleDir, trashPath);
+    return trashPath;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Best-effort synchronous removal of any leftover trash directories from
+ * previous sessions (only deletes ones whose lock has since been released).
+ * Anything still locked is left for the next sweep / scheduled cleanup.
+ */
+function sweepSparkleTrash() {
+  try {
+    const parent = path.dirname(getSparkleDir());
+    if (!fs.existsSync(parent)) return;
+    for (const entry of fs.readdirSync(parent)) {
+      if (!entry.startsWith(SPARKLE_TRASH_PREFIX)) continue;
+      const trashPath = path.join(parent, entry);
+      try {
+        fs.rmSync(trashPath, { recursive: true, force: true });
+      } catch {
+        // Still locked — schedule a detached PowerShell to retry after exit
+        scheduleDelayedCleanup(trashPath);
+      }
+    }
+  } catch { /* nothing to sweep */ }
+}
+
 /**
  * Check if Sparkle is already available
  * @returns {boolean}
@@ -213,7 +258,16 @@ async function _doForceRemoveSparkleDir() {
           debug('info', 'Sparkle directory removed via PowerShell');
           return 'removed';
         }
-        // Still locked — schedule a detached PowerShell to clean up after Electron exits
+        // Foreign process still holds a lock (e.g. VS Code on app.asar). We can't
+        // force-delete a file held open by another process, but we CAN rename the
+        // directory aside so the canonical `sparkle` path is freed immediately.
+        const trashPath = moveSparkleDirToTrash(sparkleDir);
+        if (trashPath) {
+          debug('info', 'Sparkle directory moved to trash; scheduling trash deletion');
+          scheduleDelayedCleanup(trashPath);
+          return 'removed';
+        }
+        // Even the rename failed — schedule a detached PowerShell for after exit
         debug('warn', 'Directory still locked, scheduling post-exit cleanup');
         scheduleDelayedCleanup(sparkleDir);
         return 'scheduled';
@@ -566,20 +620,20 @@ function cleanupSparkle() {
     }
   }
 
-  // Synchronous probe: wait until the OS releases the memory-map lock on app.asar.
-  // (app is already quitting — blocking the event loop here is acceptable)
+  // Short synchronous probe: give the OS a brief window to release the memory-map
+  // lock that sparkle.exe's own process held on app.asar. This only helps when WE
+  // held the lock; a foreign lock (VS Code/Defender) is handled by the rename step
+  // below, so we cap this low to avoid stalling shutdown.
   const asarPath = path.join(sparkleDir, 'resources', 'app.asar');
   if (fs.existsSync(asarPath)) {
-    const MAX_PROBES = 20; // 20 × 500ms = 10s max
+    const MAX_PROBES = 6; // 6 × 250ms = 1.5s max
     for (let i = 0; i < MAX_PROBES; i++) {
       try {
         const fd = fs.openSync(asarPath, 'r+');
         fs.closeSync(fd);
-        safeDebug('info', `app.asar unlocked after ${i + 1} probe(s) on quit`);
-        break; // lock released — proceed to delete
+        break; // our lock released — proceed to delete
       } catch {
-        // Still locked — busy-wait 500ms
-        const until = Date.now() + 500;
+        const until = Date.now() + 250;
         while (Date.now() < until) { /* spin */ }
       }
     }
@@ -589,15 +643,22 @@ function cleanupSparkle() {
   try {
     fs.rmSync(sparkleDir, { recursive: true, force: true });
     safeDebug('info', 'Sparkle directory cleaned up on quit successfully');
+    sweepSparkleTrash();
     return;
   } catch (err) {
-    safeDebug('warn', 'Immediate cleanup failed on quit, scheduling post-exit PowerShell cleanup:', err.message);
+    safeDebug('warn', 'Immediate cleanup failed on quit:', err.message);
   }
 
-  // Fallback: detached PowerShell that deletes the folder after Electron exits
+  // A foreign process still holds a lock. Rename the folder aside so the canonical
+  // `sparkle` path is gone immediately, then let a detached PowerShell delete the
+  // renamed folder once the lock is finally released.
   if (process.platform === 'win32') {
+    const trashPath = moveSparkleDirToTrash(sparkleDir);
     try {
-      scheduleDelayedCleanup(sparkleDir);
+      scheduleDelayedCleanup(trashPath || sparkleDir);
+      safeDebug('info', trashPath
+        ? 'Sparkle folder renamed to trash on quit; deletion scheduled'
+        : 'Sparkle folder locked and could not be renamed; deletion scheduled');
     } catch {
       // Pipe may be closed — ignore
     }
@@ -614,6 +675,8 @@ async function cleanupLeftoverSparkle() {
   try {
     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
   } catch { }
+  // Delete any trash folders left behind by a previous quit whose lock has released.
+  sweepSparkleTrash();
   try {
     const cleanupState = await forceRemoveSparkleDir();
     if (cleanupState === 'scheduled') {
