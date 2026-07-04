@@ -7,7 +7,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { runElevatedPowerShellScript, runElevatedPowerShellScriptHidden, getPowerShellExe, runSpawnCommand } = require('./process-utils');
+const { runElevatedPowerShellScript, runElevatedPowerShellScriptHidden, getPowerShellExe } = require('./process-utils');
 const { debug } = require('./debug');
 
 function createSystemTask({ script, successMsg, errorMsg, hidden = false, guardMsg = 'This feature is only available on Windows' }) {
@@ -1025,7 +1025,7 @@ function runChrisTitus(onOutput = () => { }) {
   );
 }
 
-function runElevatedConsoleTask(name, exe, exeArgs, onOutput = () => { }) {
+function runElevatedConsoleTask(name, exe, exeArgs, onOutput = () => { }, extraCleanup = []) {
   const psExe = getPowerShellExe() || 'powershell';
   const stamp = Date.now();
   const logPath = path.join(os.tmpdir(), `${name}_${stamp}.log`).replace(/'/g, "''");
@@ -1141,6 +1141,9 @@ function runElevatedConsoleTask(name, exe, exeArgs, onOutput = () => { }) {
       settled = true;
       try { fs.unlinkSync(outerPath); } catch { }
       try { fs.unlinkSync(workerPath); } catch { }
+      for (const extra of extraCleanup) {
+        try { fs.unlinkSync(extra); } catch { }
+      }
       resolve(result);
     };
     child.on('error', (err) => settle({ success: false, error: err.message }));
@@ -1148,6 +1151,18 @@ function runElevatedConsoleTask(name, exe, exeArgs, onOutput = () => { }) {
   });
 
   return { child, done };
+}
+
+function runMaintenanceScript(name, scriptBody, onOutput = () => { }) {
+  const taskPath = path.join(os.tmpdir(), `${name}_task_${Date.now()}.ps1`);
+  fs.writeFileSync(taskPath, scriptBody, 'utf8');
+  return runElevatedConsoleTask(
+    name,
+    'powershell.exe',
+    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', taskPath],
+    onOutput,
+    [taskPath]
+  );
 }
 
 function runSfcScan(onOutput = () => { }) {
@@ -1285,22 +1300,20 @@ if (Test-Path $werPath) {
  * Flush DNS cache
  * @returns {Promise<Object>}
  */
-const flushDnsCache = createSystemTask({
-  script: `
+function flushDnsCache(onOutput = () => { }) {
+  return runMaintenanceScript('flush_dns', `
 Write-Host "=== FLUSH DNS CACHE ===" -ForegroundColor Cyan
 ipconfig /flushdns
 exit $LASTEXITCODE
-`,
-  successMsg: '✅ DNS cache flushed successfully!',
-  errorMsg: 'Failed to flush DNS cache.'
-});
+`, onOutput);
+}
 
 /**
  * Release and renew IP address
  * @returns {Promise<Object>}
  */
-const releaseRenewIp = createSystemTask({
-  script: `
+function releaseRenewIp(onOutput = () => { }) {
+  return runMaintenanceScript('release_renew_ip', `
 Write-Host "=== IP RELEASE & RENEW ===" -ForegroundColor Cyan
 Write-Host "Releasing IP address..." -ForegroundColor Yellow
 ipconfig /release
@@ -1309,17 +1322,15 @@ Write-Host "Renewing IP address..." -ForegroundColor Yellow
 ipconfig /renew
 Write-Host "Done!" -ForegroundColor Green
 exit $LASTEXITCODE
-`,
-  successMsg: '✅ IP address released and renewed successfully!',
-  errorMsg: 'Failed to release/renew IP address.'
-});
+`, onOutput);
+}
 
 /**
  * Fix Bluetooth by restarting the Bluetooth service
  * @returns {Promise<Object>}
  */
-const fixBluetooth = createSystemTask({
-  script: `
+function fixBluetooth(onOutput = () => { }) {
+  return runMaintenanceScript('fix_bluetooth', `
 Write-Host "=== FIX BLUETOOTH ===" -ForegroundColor Cyan
 Write-Host "Stopping Bluetooth services..." -ForegroundColor Yellow
 Stop-Service -Name bthserv -Force -ErrorAction SilentlyContinue
@@ -1340,33 +1351,29 @@ if ($btAdapter) {
     }
 }
 Write-Host "Bluetooth fix completed!" -ForegroundColor Green
-`,
-  successMsg: '✅ Bluetooth services restarted successfully!',
-  errorMsg: 'Failed to fix Bluetooth. Please accept the UAC prompt.'
-});
+`, onOutput);
+}
 
 /**
  * Check disk for errors
  * @returns {Promise<Object>}
  */
-const checkDisk = createSystemTask({
-  script: `
+function checkDisk(onOutput = () => { }) {
+  return runMaintenanceScript('check_disk', `
 Write-Host "=== CHECK DISK ===" -ForegroundColor Cyan
 Write-Host "Running chkdsk on C: drive (read-only scan)..." -ForegroundColor Yellow
 chkdsk C:
 Write-Host ""
 Write-Host "Scan complete. If errors were found, run 'chkdsk C: /F' from an elevated command prompt." -ForegroundColor Yellow
-`,
-  successMsg: '✅ Disk check completed!',
-  errorMsg: 'Failed to run disk check. Please accept the UAC prompt.'
-});
+`, onOutput);
+}
 
 /**
  * Network reset (Winsock + IP stack)
  * @returns {Promise<Object>}
  */
-const networkReset = createSystemTask({
-  script: `
+function networkReset(onOutput = () => { }) {
+  return runMaintenanceScript('network_reset', `
 Write-Host "=== NETWORK RESET ===" -ForegroundColor Cyan
 Write-Host "Resetting Winsock..." -ForegroundColor Yellow
 netsh winsock reset
@@ -1376,17 +1383,15 @@ Write-Host "Flushing DNS..." -ForegroundColor Yellow
 ipconfig /flushdns
 Write-Host ""
 Write-Host "Network reset complete! A restart may be required for full effect." -ForegroundColor Green
-`,
-  successMsg: '✅ Network reset completed! A restart may be required.',
-  errorMsg: 'Failed to reset network. Please accept the UAC prompt.'
-});
+`, onOutput);
+}
 
 /**
  * Restart the Windows Audio system
  * @returns {Promise<Object>}
  */
-const restartAudioSystem = createSystemTask({
-  script: `
+function restartAudioSystem(onOutput = () => { }) {
+  return runMaintenanceScript('restart_audio', `
 Write-Host "=== RESTART AUDIO SYSTEM ===" -ForegroundColor Cyan
 Write-Host "Stopping audio services..." -ForegroundColor Yellow
 Stop-Service -Name Audiosrv -Force -ErrorAction SilentlyContinue
@@ -1397,10 +1402,8 @@ Start-Service -Name AudioEndpointBuilder -ErrorAction SilentlyContinue
 Start-Service -Name Audiosrv -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 Write-Host "Audio system restarted!" -ForegroundColor Green
-`,
-  successMsg: '✅ Audio system restarted successfully!',
-  errorMsg: 'Failed to restart audio system. Please accept the UAC prompt.'
-});
+`, onOutput);
+}
 
 /**
  * Launch Windows Disk Cleanup utility (cleanmgr)

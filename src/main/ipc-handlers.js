@@ -665,12 +665,12 @@ function setupSystemToolsHandlers(systemTools) {
     ipcMain.handle('clean-windows-cache', safeWrap(() => systemTools.cleanWindowsCache()));
     ipcMain.handle('clear-thumbnail-cache', safeWrap(() => systemTools.clearThumbnailCache()));
     ipcMain.handle('clear-error-reports', safeWrap(() => systemTools.clearErrorReports()));
-    ipcMain.handle('flush-dns-cache', safeWrap(() => systemTools.flushDnsCache()));
-    ipcMain.handle('release-renew-ip', safeWrap(() => systemTools.releaseRenewIp()));
-    ipcMain.handle('fix-bluetooth', safeWrap(() => systemTools.fixBluetooth()));
-    ipcMain.handle('check-disk', safeWrap(() => systemTools.checkDisk()));
-    ipcMain.handle('network-reset', safeWrap(() => systemTools.networkReset()));
-    ipcMain.handle('restart-audio-system', safeWrap(() => systemTools.restartAudioSystem()));
+    ipcMain.handle('flush-dns-cache', runSystemRepair((onOutput) => systemTools.flushDnsCache(onOutput)));
+    ipcMain.handle('release-renew-ip', runSystemRepair((onOutput) => systemTools.releaseRenewIp(onOutput)));
+    ipcMain.handle('fix-bluetooth', runSystemRepair((onOutput) => systemTools.fixBluetooth(onOutput)));
+    ipcMain.handle('check-disk', runSystemRepair((onOutput) => systemTools.checkDisk(onOutput)));
+    ipcMain.handle('network-reset', runSystemRepair((onOutput) => systemTools.networkReset(onOutput)));
+    ipcMain.handle('restart-audio-system', runSystemRepair((onOutput) => systemTools.restartAudioSystem(onOutput)));
     ipcMain.handle('run-disk-cleaner', safeWrap(() => systemTools.runDiskCleaner()));
 }
 

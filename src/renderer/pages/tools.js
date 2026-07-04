@@ -4,7 +4,6 @@
  * CSS classes match original renderer.js structure
  */
 
-import { autoFadeStatus } from '../utils.js';
 import { registerDownload, attachDownloadUI, downloadStore } from '../managers.js';
 import { toast } from '../components.js';
 
@@ -60,11 +59,10 @@ function getMaintenanceIcon(iconKey) {
  * @param {string} description - Card description
  * @param {string} iconKey - Icon identifier
  * @param {string} buttonText - Button label
- * @param {Function} taskFunction - Function to execute
+ * @param {Object} task - Streaming task descriptor { api, cmd, success, error }
  * @param {boolean} requiresAdmin - Show admin warning
- * @param {boolean} hideStatus - Hide status element
  */
-function createMaintenanceCard(name, description, iconKey, buttonText, taskFunction, requiresAdmin = false, hideStatus = false) {
+function createMaintenanceCard(name, description, iconKey, buttonText, task, requiresAdmin = false) {
     const card = document.createElement('div');
     card.className = 'app-card';
     card.classList.add('feature-card');
@@ -102,86 +100,162 @@ function createMaintenanceCard(name, description, iconKey, buttonText, taskFunct
     button.dataset.loadingText = createMaintenanceCard.runningText || 'Running...';
     button.classList.add('btn-full-width');
 
-    const status = document.createElement('pre');
-    status.className = 'status-pre';
-    status.classList.remove('visible');
+    const term = createStreamTerminal('Stop');
+    term.title.textContent = task.cmd;
 
-    if (hideStatus) {
-        status.dataset.hideStatus = 'true';
-    }
+    let running = false;
+    let cancelled = false;
 
     button.addEventListener('click', async () => {
-        await runMaintenanceTask(button, status, taskFunction, name, requiresAdmin);
+        if (running) return;
+        running = true;
+        cancelled = false;
+
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = button.dataset.loadingText || 'Running...';
+
+        term.reset();
+        term.terminal.classList.add('open', 'running');
+        term.print(`> ${task.cmd}`, 'is-cmd');
+
+        const unsubscribe = window.api.onSystemRepairOutput(({ stream, text }) => {
+            term.append(text, stream === 'stderr' ? 'is-stderr' : undefined);
+        });
+
+        try {
+            const result = await task.api();
+            if (result && result.success) {
+                term.print(`✔ ${task.success}`, 'is-ok');
+                toast(task.success, { type: 'success', title: 'Maintenance' });
+            } else if (!result || !result.cancelled) {
+                term.print(`✖ ${result?.error || `${name} exited with code ${result?.code ?? '?'}.`}`, 'is-err');
+                toast(result?.error || task.error, { type: 'error', title: 'Maintenance' });
+            }
+        } catch (error) {
+            if (!cancelled) {
+                term.print(`✖ ${error.message}`, 'is-err');
+                toast(error.message || task.error, { type: 'error', title: 'Maintenance' });
+            }
+        } finally {
+            unsubscribe();
+            running = false;
+            term.terminal.classList.remove('running');
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    });
+
+    term.stopBtn.addEventListener('click', async () => {
+        if (!running) return;
+        cancelled = true;
+        term.stopBtn.disabled = true;
+        try {
+            await window.api.cancelSystemRepair();
+            term.print('■ Task cancelled.', 'is-warn');
+        } finally {
+            term.stopBtn.disabled = false;
+        }
     });
 
     card.appendChild(header);
     card.appendChild(button);
-    card.appendChild(status);
+    card.appendChild(term.terminal);
 
     return card;
-}
-
-/**
- * Runs a maintenance task with proper button/status handling
- */
-async function runMaintenanceTask(button, statusElement, taskFunction, taskName, requiresAdmin = false) {
-    button.disabled = true;
-    const originalText = button.textContent;
-    button.textContent = button.dataset.loadingText || 'Running...';
-    const hideStatus = statusElement && statusElement.dataset && statusElement.dataset.hideStatus === 'true';
-
-    if (!hideStatus) {
-        statusElement.classList.add('visible');
-        if (requiresAdmin) {
-            statusElement.textContent = `Running ${taskName}...\n⚠️ This task may require Administrator privileges\n`;
-        } else {
-            statusElement.textContent = `Running ${taskName}...\n`;
-        }
-        statusElement.classList.remove('status-success', 'status-error', 'status-warning');
-    }
-
-    try {
-        await taskFunction(statusElement, button);
-    } catch (error) {
-        if (!hideStatus) {
-            statusElement.textContent += `\n❌ Error: ${error.message}`;
-            statusElement.classList.add('status-error');
-        }
-        toast(`Error running ${taskName}`, { type: 'error', title: 'Maintenance' });
-    } finally {
-        button.disabled = false;
-        button.textContent = originalText;
-        if (!hideStatus) {
-            autoFadeStatus(statusElement, 8000);
-        }
-    }
 }
 
 // ============================================
 // MAINTENANCE TASK FUNCTIONS
 // ============================================
 
-function createSimpleTask(apiFn, successMsg, errorMsg) {
-    return async function (_statusElement) {
-        try {
-            const result = await apiFn();
-            if (result && result.success) {
-                toast(result.message || successMsg, { type: 'success', title: 'Maintenance' });
-            } else {
-                toast((result && result.error) || errorMsg, { type: 'error', title: 'Maintenance' });
-            }
-        } catch (error) {
-            toast((error && error.message) || errorMsg, { type: 'error', title: 'Maintenance' });
+function createStreamTerminal(stopLabel) {
+    const terminal = document.createElement('div');
+    terminal.className = 'winget-terminal';
+
+    const header = document.createElement('div');
+    header.className = 'winget-terminal-header';
+
+    const dots = document.createElement('div');
+    dots.className = 'winget-terminal-dots';
+    for (let i = 0; i < 3; i++) dots.appendChild(document.createElement('span'));
+
+    const title = document.createElement('span');
+    title.className = 'winget-terminal-title';
+
+    const stopBtn = document.createElement('button');
+    stopBtn.type = 'button';
+    stopBtn.className = 'winget-terminal-stop';
+    stopBtn.textContent = stopLabel;
+
+    header.appendChild(dots);
+    header.appendChild(title);
+    header.appendChild(stopBtn);
+
+    const body = document.createElement('div');
+    body.className = 'winget-terminal-body';
+
+    terminal.appendChild(header);
+    terminal.appendChild(body);
+
+    let currentLine = null;
+    let replaceCurrent = false;
+    const MAX_LINES = 400;
+
+    function newLine(className) {
+        currentLine = document.createElement('div');
+        currentLine.className = 'winget-terminal-line';
+        if (className) currentLine.classList.add(className);
+        body.appendChild(currentLine);
+        while (body.childElementCount > MAX_LINES) {
+            body.removeChild(body.firstElementChild);
         }
-    };
+    }
+
+    function append(text, className) {
+        const clean = stripAnsiSequences(text).replace(/\r\n/g, '\n');
+        for (const chunk of clean.split(/(\n|\r)/)) {
+            if (chunk === '\n') {
+                currentLine = null;
+                replaceCurrent = false;
+            } else if (chunk === '\r') {
+                replaceCurrent = true;
+            } else if (chunk) {
+                if (!currentLine) newLine(className);
+                if (replaceCurrent) {
+                    currentLine.textContent = chunk;
+                    replaceCurrent = false;
+                } else {
+                    currentLine.textContent += chunk;
+                }
+            }
+        }
+        body.scrollTop = body.scrollHeight;
+    }
+
+    function print(text, className) {
+        currentLine = null;
+        newLine(className);
+        currentLine.textContent = text;
+        currentLine = null;
+        body.scrollTop = body.scrollHeight;
+    }
+
+    function reset() {
+        body.innerHTML = '';
+        currentLine = null;
+        replaceCurrent = false;
+    }
+
+    return { terminal, title, stopBtn, append, print, reset };
 }
 
-const flushDnsCache = createSimpleTask(() => window.api.flushDnsCache(), 'DNS cache flushed!', 'Failed to flush DNS cache.');
-const releaseRenewIp = createSimpleTask(() => window.api.releaseRenewIp(), 'IP released & renewed!', 'Failed to release/renew IP.');
-const fixBluetooth = createSimpleTask(() => window.api.fixBluetooth(), 'Bluetooth fixed!', 'Failed to fix Bluetooth.');
-const checkDisk = createSimpleTask(() => window.api.checkDisk(), 'Disk check completed!', 'Failed to check disk.');
-const networkReset = createSimpleTask(() => window.api.networkReset(), 'Network reset completed!', 'Failed to reset network.');
-const restartAudioSystem = createSimpleTask(() => window.api.restartAudioSystem(), 'Audio system restarted!', 'Failed to restart audio.');
+const flushDnsCache = { api: () => window.api.flushDnsCache(), cmd: 'ipconfig /flushdns', success: 'DNS cache flushed!', error: 'Failed to flush DNS cache.' };
+const releaseRenewIp = { api: () => window.api.releaseRenewIp(), cmd: 'ipconfig /release; ipconfig /renew', success: 'IP released & renewed!', error: 'Failed to release/renew IP.' };
+const fixBluetooth = { api: () => window.api.fixBluetooth(), cmd: 'Restart Bluetooth services', success: 'Bluetooth fixed!', error: 'Failed to fix Bluetooth.' };
+const checkDisk = { api: () => window.api.checkDisk(), cmd: 'chkdsk C:', success: 'Disk check completed!', error: 'Failed to check disk.' };
+const networkReset = { api: () => window.api.networkReset(), cmd: 'netsh winsock reset; netsh int ip reset', success: 'Network reset completed! A restart may be required.', error: 'Failed to reset network.' };
+const restartAudioSystem = { api: () => window.api.restartAudioSystem(), cmd: 'Restart Windows Audio services', success: 'Audio system restarted!', error: 'Failed to restart audio.' };
 
 function stripAnsiSequences(text) {
     return String(text)
@@ -1009,8 +1083,7 @@ export async function buildMaintenancePage(translations, _settings) {
             if (result && result.success) {
                 repairPrint(`✔ ${taskName} completed.`, 'is-ok');
                 toast(`${taskName} completed!`, { type: 'success', title: 'Maintenance' });
-            } else if (result && result.cancelled) {
-            } else {
+            } else if (!result || !result.cancelled) {
                 repairPrint(`✖ ${result?.error || `${taskName} exited with code ${result?.code ?? '?'}.`}`, 'is-err');
                 toast(result?.error || `${taskName} failed.`, { type: 'error', title: 'Maintenance' });
             }
