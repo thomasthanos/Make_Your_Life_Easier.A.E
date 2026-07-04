@@ -587,18 +587,13 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     searchWrapper.appendChild(searchContainer);
     container.appendChild(searchWrapper);
 
-    const actionsWrapper = document.createElement('div');
-    actionsWrapper.classList.add('actions-wrapper');
     const actionsCluster = document.createElement('div');
     actionsCluster.className = 'actions-cluster';
 
-    function makeButton(text, { danger = false } = {}) {
+    function makeButton(text) {
         const btn = document.createElement('button');
-        btn.className = 'action-btn';
+        btn.className = 'bulk-action-btn';
         btn.textContent = text;
-        if (danger) {
-            btn.classList.add('danger');
-        }
         return btn;
     }
 
@@ -627,23 +622,29 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     checkInstalledBtn.innerHTML = `${checkInstalledIcon}<span class="btn-label" >${escapeHtml(checkInstalledText)}</span>`;
     uncheckAllBtn.innerHTML = `${uncheckAllIcon}<span class="btn-label" >${escapeHtml(uncheckAllText)}</span>`;
 
-    installBtn.classList.add('btn-install', 'bulk-action-btn', 'bulk-install');
-    exportBtn.classList.add('btn-export', 'bulk-action-btn', 'bulk-export');
-    importBtn.classList.add('btn-import', 'bulk-action-btn', 'bulk-import');
-    checkInstalledBtn.classList.add('btn-check-installed', 'bulk-action-btn', 'bulk-check-installed');
-    uncheckAllBtn.classList.add('btn-uncheck-all', 'bulk-action-btn', 'bulk-uncheck-all');
+    installBtn.classList.add('bulk-install');
+    exportBtn.classList.add('bulk-export');
+    importBtn.classList.add('bulk-import');
+    checkInstalledBtn.classList.add('bulk-check-installed');
+    uncheckAllBtn.classList.add('bulk-uncheck-all');
 
-    actionsWrapper.appendChild(installBtn);
-    actionsWrapper.appendChild(checkInstalledBtn);
-    actionsWrapper.appendChild(uncheckAllBtn);
-    actionsCluster.appendChild(actionsWrapper);
+    const primaryGroup = document.createElement('div');
+    primaryGroup.className = 'actions-group actions-group-primary';
+    primaryGroup.appendChild(installBtn);
 
-    // Create second row for export/import
-    const actionsWrapper2 = document.createElement('div');
-    actionsWrapper2.classList.add('actions-wrapper', 'actions-wrapper-secondary');
-    actionsWrapper2.appendChild(exportBtn);
-    actionsWrapper2.appendChild(importBtn);
-    actionsCluster.appendChild(actionsWrapper2);
+    const selectionGroup = document.createElement('div');
+    selectionGroup.className = 'actions-group actions-group-selection';
+    selectionGroup.appendChild(checkInstalledBtn);
+    selectionGroup.appendChild(uncheckAllBtn);
+
+    const ioGroup = document.createElement('div');
+    ioGroup.className = 'actions-group actions-group-io';
+    ioGroup.appendChild(exportBtn);
+    ioGroup.appendChild(importBtn);
+
+    actionsCluster.appendChild(primaryGroup);
+    actionsCluster.appendChild(selectionGroup);
+    actionsCluster.appendChild(ioGroup);
     container.appendChild(actionsCluster);
 
     // ── Controls bar: view toggle + sort ──────────────────────────
@@ -671,10 +672,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     viewToggleGroup.appendChild(listViewBtn);
     viewToggleGroup.appendChild(gridViewBtn);
 
-    // Sort button group (custom segmented control)
-    const sortGroup = document.createElement('div');
-    sortGroup.className = 'sort-btn-group';
-
+    // Sort dropdown (Apple-style liquid glass menu)
     const sortOptions = [
         {
             value: 'default',
@@ -698,30 +696,88 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         },
     ];
 
+    const sortChevron = `<svg class="sort-dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+    const sortCheck = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+    const sortDropdown = document.createElement('div');
+    sortDropdown.className = 'sort-dropdown';
+
+    const sortTrigger = document.createElement('button');
+    sortTrigger.type = 'button';
+    sortTrigger.className = 'sort-dropdown-trigger';
+    sortTrigger.setAttribute('aria-haspopup', 'listbox');
+    sortTrigger.setAttribute('aria-expanded', 'false');
+
+    const sortMenu = document.createElement('div');
+    sortMenu.className = 'sort-dropdown-menu';
+    sortMenu.setAttribute('role', 'listbox');
+
+    function renderSortTrigger(value) {
+        const opt = sortOptions.find(o => o.value === value) || sortOptions[0];
+        sortTrigger.innerHTML = `${opt.icon}<span class="sort-dropdown-label">${escapeHtml(opt.label)}</span>${sortChevron}`;
+    }
+
+    function setSortSelection(value) {
+        renderSortTrigger(value);
+        sortMenu.querySelectorAll('.sort-dropdown-option').forEach((b) => {
+            const isActive = b.dataset.sort === value;
+            b.classList.toggle('active', isActive);
+            b.setAttribute('aria-selected', String(isActive));
+        });
+    }
+
+    function closeSortMenu() {
+        sortDropdown.classList.remove('open');
+        sortTrigger.setAttribute('aria-expanded', 'false');
+    }
+
     sortOptions.forEach(({ value, label, icon }) => {
         const btn = document.createElement('button');
-        btn.className = 'sort-btn';
+        btn.type = 'button';
+        btn.className = 'sort-dropdown-option';
         btn.dataset.sort = value;
-        btn.innerHTML = `${icon}<span class="sort-btn-label">${escapeHtml(label)}</span>`;
-        if (value === 'default') {
-            btn.classList.add('active');
-            btn.disabled = true;
-        }
+        btn.setAttribute('role', 'option');
+        btn.innerHTML = `${icon}<span class="sort-dropdown-option-label">${escapeHtml(label)}</span><span class="sort-dropdown-check">${sortCheck}</span>`;
         btn.addEventListener('click', () => {
-            sortGroup.querySelectorAll('.sort-btn').forEach((b) => {
-                const isActive = b === btn;
-                b.classList.toggle('active', isActive);
-                b.disabled = isActive;
-            });
+            setSortSelection(value);
+            closeSortMenu();
             applySort(value);
             try { window.api?.setSetting?.('installer_sort', value); } catch { }
         });
-        sortGroup.appendChild(btn);
+        sortMenu.appendChild(btn);
     });
 
+    sortTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = sortDropdown.classList.toggle('open');
+        sortTrigger.setAttribute('aria-expanded', String(open));
+    });
+
+    const onDocClick = (e) => {
+        if (!sortDropdown.isConnected) {
+            document.removeEventListener('click', onDocClick);
+            return;
+        }
+        if (!sortDropdown.contains(e.target)) closeSortMenu();
+    };
+    const onDocKeydown = (e) => {
+        if (!sortDropdown.isConnected) {
+            document.removeEventListener('keydown', onDocKeydown);
+            return;
+        }
+        if (e.key === 'Escape') closeSortMenu();
+    };
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onDocKeydown);
+
+    setSortSelection('default');
+
+    sortDropdown.appendChild(sortTrigger);
+    sortDropdown.appendChild(sortMenu);
+
     controlsBar.appendChild(viewToggleGroup);
-    controlsBar.appendChild(sortGroup);
-    container.appendChild(controlsBar);
+    controlsBar.appendChild(sortDropdown);
+    searchWrapper.appendChild(controlsBar);
 
     // View + sort helpers
     let currentSort = 'default';
@@ -1624,11 +1680,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     } catch { }
 
     applyView(savedView);
-    sortGroup.querySelectorAll('.sort-btn').forEach((b) => {
-        const isActive = b.dataset.sort === savedSort;
-        b.classList.toggle('active', isActive);
-        b.disabled = isActive;
-    });
+    setSortSelection(savedSort);
     applySort(savedSort);
 
     // Check winget on page load and show banner if missing

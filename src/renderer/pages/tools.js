@@ -394,6 +394,7 @@ export async function buildCleanerPage() {
         const checkedCount = Array.from(rowControls.values()).filter((control) => control.checkbox.checked).length;
 
         totalValue.textContent = scanning ? 'Scanning...' : formatCleanerBytes(totalBytes);
+        totalValue.classList.toggle('is-scanning', scanning);
         cleanBtn.disabled = scanning || cleaning || checkedCount === 0;
         setCleanerButtonContent(cleanBtn, 'cleaner', selectedBytes > 0 ? `Clean Selected (${formatCleanerBytes(selectedBytes)})` : 'Clean Selected');
         setCleanerButtonContent(selectAllBtn, 'selectAll', checkedCount === rowControls.size && checkedCount > 0 ? 'Unselect All' : 'Select All');
@@ -405,8 +406,13 @@ export async function buildCleanerPage() {
 
         CLEANER_TASKS.forEach((task) => {
             const data = taskState.get(task.id) || task;
+            const isEmpty = Number(data.sizeBytes || 0) <= 0;
+            const isLocked = scanning || cleaning || data.inaccessible || isEmpty;
+
             const row = document.createElement('article');
             row.className = 'cleaner-row';
+            if (isLocked && !scanning) row.classList.add('is-locked');
+            if (data.inaccessible) row.classList.add('is-admin');
 
             const icon = document.createElement('div');
             icon.className = 'cleaner-row-icon';
@@ -428,6 +434,7 @@ export async function buildCleanerPage() {
             size.className = 'cleaner-size';
             if (scanning) {
                 size.textContent = 'Scanning...';
+                size.classList.add('is-scanning');
             } else if (data.inaccessible) {
                 size.textContent = 'Admin needed';
                 size.classList.add('is-warning');
@@ -447,11 +454,12 @@ export async function buildCleanerPage() {
 
             const toggle = document.createElement('label');
             toggle.className = 'cleaner-toggle';
+            if (isLocked) toggle.classList.add('is-disabled');
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            checkbox.checked = Number(data.sizeBytes || 0) > 0;
-            checkbox.disabled = scanning || cleaning || (!data.inaccessible && Number(data.sizeBytes || 0) <= 0);
+            checkbox.checked = !isEmpty && !data.inaccessible;
+            checkbox.disabled = isLocked;
             checkbox.addEventListener('change', updateTotals);
 
             const track = document.createElement('span');
@@ -471,9 +479,10 @@ export async function buildCleanerPage() {
     async function scanCleaner(preferElevated = false) {
         if (scanning || cleaning) return;
         scanning = true;
-        scanBtn.disabled = true;
         selectAllBtn.disabled = true;
         cleanBtn.disabled = true;
+        scanBtn.classList.add('btn-loading');
+        setCleanerButtonContent(scanBtn, 'scan', 'Scanning...');
         scanMode.textContent = preferElevated ? 'Requesting administrator scan...' : 'Running limited scan...';
         renderRows();
 
@@ -510,6 +519,8 @@ export async function buildCleanerPage() {
             scanning = false;
             scanBtn.disabled = false;
             selectAllBtn.disabled = false;
+            scanBtn.classList.remove('btn-loading');
+            setCleanerButtonContent(scanBtn, 'scan', 'Scan');
             renderRows();
         }
     }
@@ -539,7 +550,7 @@ export async function buildCleanerPage() {
         cleaning = true;
         scanBtn.disabled = true;
         selectAllBtn.disabled = true;
-        cleanBtn.disabled = true;
+        cleanBtn.classList.add('btn-loading');
         setCleanerButtonContent(cleanBtn, 'cleaner', 'Cleaning...');
 
         try {
@@ -560,6 +571,7 @@ export async function buildCleanerPage() {
             cleaning = false;
             scanBtn.disabled = false;
             selectAllBtn.disabled = false;
+            cleanBtn.classList.remove('btn-loading');
             updateTotals();
         }
     });
