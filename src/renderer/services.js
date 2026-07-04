@@ -515,6 +515,7 @@ export async function showChangelog(updateInfo) {
 
     if (updateInfo.releaseNotes) {
         const notes = document.createElement('div');
+        notes.className = 'changelog-notes';
         let formattedNotes;
         try {
             formattedNotes = await parseMarkdown(updateInfo.releaseNotes);
