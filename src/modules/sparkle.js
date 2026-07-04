@@ -174,7 +174,7 @@ async function forceRemoveSparkleDir() {
 
 async function _doForceRemoveSparkleDir() {
   const sparkleDir = getSparkleDir();
-  if (!fs.existsSync(sparkleDir)) return;
+  if (!fs.existsSync(sparkleDir)) return 'missing';
 
   // Kill Sparkle process first
   await killSparkleProcess();
@@ -187,7 +187,7 @@ async function _doForceRemoveSparkleDir() {
     try {
       fs.rmSync(sparkleDir, { recursive: true, force: true });
       debug('info', `Sparkle directory removed (attempt ${attempt})`);
-      return;
+      return 'removed';
     } catch (err) {
       if ((err.code === 'EBUSY' || err.code === 'EPERM') && attempt < 5) {
         const delay = Math.min(500 * Math.pow(2, attempt - 1), 3000);
@@ -211,11 +211,12 @@ async function _doForceRemoveSparkleDir() {
         });
         if (!fs.existsSync(sparkleDir)) {
           debug('info', 'Sparkle directory removed via PowerShell');
-          return;
+          return 'removed';
         }
         // Still locked — schedule a detached PowerShell to clean up after Electron exits
         debug('warn', 'Directory still locked, scheduling post-exit cleanup');
         scheduleDelayedCleanup(sparkleDir);
+        return 'scheduled';
       } else {
         throw err;
       }
@@ -614,8 +615,12 @@ async function cleanupLeftoverSparkle() {
     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
   } catch { }
   try {
-    await forceRemoveSparkleDir();
-    debug('info', 'Cleaned up leftover sparkle directory from previous session');
+    const cleanupState = await forceRemoveSparkleDir();
+    if (cleanupState === 'scheduled') {
+      debug('info', 'Leftover sparkle directory is locked; cleanup was scheduled after exit');
+    } else if (cleanupState === 'removed') {
+      debug('info', 'Cleaned up leftover sparkle directory from previous session');
+    }
   } catch (err) {
     debug('warn', 'Could not clean leftover sparkle dir on startup:', err.message);
   }

@@ -32,6 +32,7 @@ const pageEventManager = new EventListenerManager();
 // Menu keys for sidebar navigation
 const menuKeys = [
     'install_apps',
+    'system_cleaner',
     'crack_installer',
     'system_maintenance',
     'activate_autologin',
@@ -246,7 +247,7 @@ export async function loadPage(key) {
     // Import page builders dynamically to avoid circular dependencies
     const { buildInstallPageWingetWithCategories, buildCrackInstallerPage } = await import('./pages/installers.js');
     const { buildActivateAutologinPage } = await import('./pages/activation.js');
-    const { buildMaintenancePage, buildDebloatPage, showRestartDialog } = await import('./pages/tools.js');
+    const { buildCleanerPage, buildMaintenancePage, buildDebloatPage, showRestartDialog } = await import('./pages/tools.js');
     const { buildSpicetifyPage } = await import('./pages/media.js');
     const { buildChrisTitusPage } = await import('./pages/utilities.js');
 
@@ -263,6 +264,11 @@ export async function loadPage(key) {
 
         case 'system_maintenance': {
             content.appendChild(await buildMaintenancePage(translations, settings, buttonStateManager));
+            break;
+        }
+
+        case 'system_cleaner': {
+            content.appendChild(await buildCleanerPage(translations, settings, buttonStateManager));
             break;
         }
 

@@ -20,6 +20,317 @@ function createSystemTask({ script, successMsg, errorMsg, hidden = false, guardM
   };
 }
 
+function runPowerShellJson(script) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') {
+      resolve({ success: false, error: 'This feature is only available on Windows' });
+      return;
+    }
+
+    const psExe = getPowerShellExe() || 'powershell.exe';
+    const child = spawn(psExe, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], { windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => { stdout += data.toString(); });
+    child.stderr.on('data', (data) => { stderr += data.toString(); });
+    child.on('error', (error) => resolve({ success: false, error: error.message }));
+    child.on('close', () => {
+      const output = stdout.trim();
+      if (!output) {
+        resolve({ success: false, error: stderr.trim() || 'No scan output returned.' });
+        return;
+      }
+
+      try {
+        resolve({ success: true, data: JSON.parse(output) });
+      } catch (error) {
+        resolve({ success: false, error: `Could not parse scan output: ${error.message}` });
+      }
+    });
+  });
+}
+
+function psSingleQuote(value) {
+  return String(value).replace(/'/g, "''");
+}
+
+function runElevatedPowerShellJson(script) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') {
+      resolve({ success: false, error: 'This feature is only available on Windows' });
+      return;
+    }
+
+    const timestamp = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const psFile = path.join(os.tmpdir(), `${timestamp}_cleaner_scan.ps1`);
+    const resultFile = `${psFile}.json`;
+    const startedFile = `${psFile}.started`;
+
+    const cleanup = () => {
+      try { if (fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
+      try { if (fs.existsSync(startedFile)) fs.unlinkSync(startedFile); } catch { }
+    };
+
+    try {
+      const wrappedScript = `
+"STARTED" | Out-File -LiteralPath '${psSingleQuote(startedFile)}' -Encoding UTF8
+try {
+    $scanJson = & {
+${script}
+    }
+    $scanJson | Out-File -LiteralPath '${psSingleQuote(resultFile)}' -Encoding UTF8
+    exit 0
+} catch {
+    @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress | Out-File -LiteralPath '${psSingleQuote(resultFile)}' -Encoding UTF8
+    exit 1
+}
+`;
+
+      fs.writeFileSync(psFile, wrappedScript, 'utf8');
+      const psFileArg = psFile.replace(/'/g, "''");
+      const command = `Start-Process powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','${psFileArg}') -Verb RunAs -WindowStyle Hidden -Wait`;
+      const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command], { windowsHide: true });
+
+      child.on('error', (error) => {
+        cleanup();
+        try { if (fs.existsSync(resultFile)) fs.unlinkSync(resultFile); } catch { }
+        resolve({ success: false, error: error.message, code: 'SPAWN_ERROR' });
+      });
+
+      child.on('close', () => {
+        const maxWait = 45000;
+        const uacTimeout = 15000;
+        const pollInterval = 150;
+        let waited = 0;
+        let scriptStarted = false;
+
+        const poll = () => {
+          try {
+            if (!scriptStarted && fs.existsSync(startedFile)) {
+              scriptStarted = true;
+            }
+
+            if (fs.existsSync(resultFile)) {
+              const raw = fs.readFileSync(resultFile, 'utf8').trim();
+              cleanup();
+              try { fs.unlinkSync(resultFile); } catch { }
+
+              try {
+                const parsed = JSON.parse(raw);
+                if (parsed && parsed.success === false) {
+                  resolve({ success: false, error: parsed.error || 'Elevated scan failed.', elevated: true });
+                } else {
+                  resolve({ success: true, data: parsed, elevated: true });
+                }
+              } catch (error) {
+                resolve({ success: false, error: `Could not parse elevated scan output: ${error.message}`, elevated: true });
+              }
+              return;
+            }
+
+            waited += pollInterval;
+            if (!scriptStarted && waited >= uacTimeout) {
+              cleanup();
+              resolve({
+                success: false,
+                error: 'Administrator scan was cancelled.',
+                code: 'UAC_DENIED',
+                elevated: true
+              });
+              return;
+            }
+
+            if (waited >= maxWait) {
+              cleanup();
+              resolve({ success: false, error: 'Elevated scan timed out.', code: 'TIMEOUT', elevated: true });
+              return;
+            }
+
+            setTimeout(poll, pollInterval);
+          } catch (error) {
+            cleanup();
+            resolve({ success: false, error: error.message, elevated: true });
+          }
+        };
+
+        setTimeout(poll, 100);
+      });
+    } catch (error) {
+      cleanup();
+      try { if (fs.existsSync(resultFile)) fs.unlinkSync(resultFile); } catch { }
+      resolve({ success: false, error: error.message, elevated: true });
+    }
+  });
+}
+
+const CLEANER_TASK_IDS = ['temp', 'prefetch', 'recycle_bin', 'windows_update', 'thumbnail_cache', 'error_reports'];
+
+async function scanCleanerTasks(options = {}) {
+  const script = `
+$ErrorActionPreference = 'SilentlyContinue'
+
+function Get-ItemSizeInfo {
+    param(
+        [string[]]$Paths,
+        [string[]]$Filters = @('*'),
+        [switch]$Recurse
+    )
+
+    [Int64]$total = 0
+    $exists = $false
+    $inaccessible = $false
+
+    foreach ($target in $Paths) {
+        if ([string]::IsNullOrWhiteSpace($target) -or -not (Test-Path -LiteralPath $target)) {
+            continue
+        }
+
+        $exists = $true
+        foreach ($filter in $Filters) {
+            try {
+                Get-ChildItem -LiteralPath $target -Filter $filter -Force -File -Recurse:$Recurse -ErrorAction Stop | ForEach-Object {
+                    $total += [Int64]$_.Length
+                }
+            } catch {
+                $inaccessible = $true
+            }
+        }
+    }
+
+    return [PSCustomObject]@{
+        sizeBytes = $total
+        exists = $exists
+        inaccessible = $inaccessible
+    }
+}
+
+$recentPath = Join-Path $env:APPDATA 'Microsoft\\Windows\\Recent'
+$tempPaths = @($env:TEMP, $env:TMP, (Join-Path $env:SystemRoot 'Temp'), $recentPath) | Select-Object -Unique
+$prefetchPath = Join-Path $env:SystemRoot 'Prefetch'
+$recyclePaths = @(Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root '$Recycle.Bin' })
+$windowsUpdatePath = Join-Path $env:SystemRoot 'SoftwareDistribution\\Download'
+$explorerCachePath = Join-Path $env:LOCALAPPDATA 'Microsoft\\Windows\\Explorer'
+$crashDumpPath = Join-Path $env:LOCALAPPDATA 'CrashDumps'
+$userWerPath = Join-Path $env:LOCALAPPDATA 'Microsoft\\Windows\\WER'
+$systemWerPath = Join-Path $env:ProgramData 'Microsoft\\Windows\\WER'
+
+$tempScan = Get-ItemSizeInfo -Paths $tempPaths -Recurse
+$prefetchScan = Get-ItemSizeInfo -Paths @($prefetchPath) -Recurse
+$recycleScan = Get-ItemSizeInfo -Paths $recyclePaths -Recurse
+$windowsUpdateScan = Get-ItemSizeInfo -Paths @($windowsUpdatePath) -Recurse
+$thumbnailScan = Get-ItemSizeInfo -Paths @($explorerCachePath) -Filters @('thumbcache_*', 'iconcache_*')
+$errorReportScan = Get-ItemSizeInfo -Paths @($crashDumpPath, $userWerPath, $systemWerPath) -Recurse
+
+$items = @(
+    [PSCustomObject]@{ id = 'temp'; sizeBytes = $tempScan.sizeBytes; path = 'Windows + user temp folders'; inaccessible = $tempScan.inaccessible },
+    [PSCustomObject]@{ id = 'prefetch'; sizeBytes = $prefetchScan.sizeBytes; path = $prefetchPath; inaccessible = $prefetchScan.inaccessible },
+    [PSCustomObject]@{ id = 'recycle_bin'; sizeBytes = $recycleScan.sizeBytes; path = 'Recycle Bin'; inaccessible = $recycleScan.inaccessible },
+    [PSCustomObject]@{ id = 'windows_update'; sizeBytes = $windowsUpdateScan.sizeBytes; path = $windowsUpdatePath; inaccessible = $windowsUpdateScan.inaccessible },
+    [PSCustomObject]@{ id = 'thumbnail_cache'; sizeBytes = $thumbnailScan.sizeBytes; path = $explorerCachePath; inaccessible = $thumbnailScan.inaccessible },
+    [PSCustomObject]@{ id = 'error_reports'; sizeBytes = $errorReportScan.sizeBytes; path = 'CrashDumps + Windows Error Reporting'; inaccessible = $errorReportScan.inaccessible }
+)
+
+$items | ConvertTo-Json -Compress
+`;
+
+  const wantsElevated = Boolean(options && options.elevated);
+  const result = wantsElevated ? await runElevatedPowerShellJson(script) : await runPowerShellJson(script);
+  if (!result.success) return result;
+
+  const items = Array.isArray(result.data) ? result.data : [result.data];
+  const normalized = items.map((item) => ({
+    id: String(item.id || ''),
+    sizeBytes: Number(item.sizeBytes || 0),
+    path: String(item.path || ''),
+    inaccessible: Boolean(item.inaccessible)
+  })).filter((item) => CLEANER_TASK_IDS.includes(item.id));
+  const totalBytes = normalized.reduce((sum, item) => sum + item.sizeBytes, 0);
+
+  return { success: true, items: normalized, totalBytes, scannedAt: new Date().toISOString(), elevated: Boolean(result.elevated) };
+}
+
+async function runCleanerTasks(taskIds) {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const selected = Array.isArray(taskIds)
+    ? taskIds.map(String).filter((id) => CLEANER_TASK_IDS.includes(id))
+    : [];
+
+  if (selected.length === 0) {
+    return { success: false, error: 'No cleaner tasks selected.' };
+  }
+
+  const selectedLiteral = selected.map((id) => `'${id}'`).join(', ');
+  const psScript = `
+$ErrorActionPreference = 'SilentlyContinue'
+$tasks = @(${selectedLiteral})
+
+function Remove-PathContents {
+    param(
+        [string[]]$Paths,
+        [string[]]$Filters = @('*')
+    )
+
+    foreach ($target in $Paths) {
+        if ([string]::IsNullOrWhiteSpace($target) -or -not (Test-Path -LiteralPath $target)) {
+            continue
+        }
+
+        foreach ($filter in $Filters) {
+            Get-ChildItem -LiteralPath $target -Filter $filter -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                Remove-Item -LiteralPath $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
+            }
+        }
+    }
+}
+
+$recentPath = Join-Path $env:APPDATA 'Microsoft\\Windows\\Recent'
+
+if ($tasks -contains 'temp') {
+    Remove-PathContents -Paths @($env:TEMP, $env:TMP, (Join-Path $env:SystemRoot 'Temp'), $recentPath)
+}
+
+if ($tasks -contains 'prefetch') {
+    Remove-PathContents -Paths @((Join-Path $env:SystemRoot 'Prefetch'))
+}
+
+if ($tasks -contains 'recycle_bin') {
+    Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+}
+
+if ($tasks -contains 'windows_update') {
+    Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+    Remove-PathContents -Paths @((Join-Path $env:SystemRoot 'SoftwareDistribution\\Download'))
+    Start-Service -Name wuauserv -ErrorAction SilentlyContinue
+}
+
+if ($tasks -contains 'thumbnail_cache') {
+    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+    $explorerCachePath = Join-Path $env:LOCALAPPDATA 'Microsoft\\Windows\\Explorer'
+    Remove-PathContents -Paths @($explorerCachePath) -Filters @('thumbcache_*', 'iconcache_*')
+    Start-Process explorer.exe
+}
+
+if ($tasks -contains 'error_reports') {
+    Remove-PathContents -Paths @(
+        (Join-Path $env:LOCALAPPDATA 'CrashDumps'),
+        (Join-Path $env:LOCALAPPDATA 'Microsoft\\Windows\\WER'),
+        (Join-Path $env:ProgramData 'Microsoft\\Windows\\WER')
+    )
+}
+`;
+
+  return runElevatedPowerShellScriptHidden(
+    psScript,
+    'Cleaner completed successfully.',
+    'Cleaner failed or administrator permission was denied.'
+  );
+}
+
 /**
  * Run SFC scan with elevation
  * @returns {Promise<Object>}
@@ -685,6 +996,8 @@ Start-Process "cleanmgr.exe" -Verb RunAs
 module.exports = {
   runSfcScan,
   runDismRepair,
+  scanCleanerTasks,
+  runCleanerTasks,
   runTempCleanup,
   restartToBios,
   runSparkleDebloat,

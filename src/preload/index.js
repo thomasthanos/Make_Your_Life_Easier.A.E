@@ -52,6 +52,8 @@ contextBridge.exposeInMainWorld('api', {
   showFileDialog: () => ipcRenderer.invoke('show-file-dialog'),
 
   // ── System Maintenance: Cleanup ──
+  scanCleanerTasks: (options) => ipcRenderer.invoke('scan-cleaner-tasks', options),
+  runCleanerTasks: (taskIds) => ipcRenderer.invoke('run-cleaner-tasks', taskIds),
   runTempCleanup: () => ipcRenderer.invoke('run-temp-cleanup'),
   cleanRecycleBin: () => ipcRenderer.invoke('clean-recycle-bin'),
   cleanWindowsCache: () => ipcRenderer.invoke('clean-windows-cache'),

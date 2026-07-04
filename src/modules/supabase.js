@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const fs = require('fs');
 const path = require('path');
@@ -37,10 +37,17 @@ function ensureLoaded() {
       } else {
         text = raw.toString('utf-8');
       }
-      cache = JSON.parse(text) || {};
+      const trimmed = String(text || '').trim();
+      if (!trimmed || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) {
+        throw new Error('Stored Supabase session is not valid JSON.');
+      }
+      cache = JSON.parse(trimmed) || {};
     }
   } catch (err) {
-    debug('warn', 'Failed to load Supabase session:', err.message);
+    debug('warn', 'Supabase session was invalid and has been reset:', err.message);
+    try {
+      if (sessionPath && fs.existsSync(sessionPath)) fs.unlinkSync(sessionPath);
+    } catch { }
     cache = {};
   }
   return cache;

@@ -483,6 +483,12 @@ function setupSystemToolsHandlers(systemTools) {
     ipcMain.handle('run-sparkle-debloat', safeWrap(() => systemTools.runSparkleDebloat()));
     ipcMain.handle('run-sfc-scan', safeWrap(() => systemTools.runSfcScan()));
     ipcMain.handle('run-dism-repair', safeWrap(() => systemTools.runDismRepair()));
+    ipcMain.handle('scan-cleaner-tasks', async (event, options) => {
+        try { return await systemTools.scanCleanerTasks(options); } catch (error) { return { success: false, error: error.message }; }
+    });
+    ipcMain.handle('run-cleaner-tasks', async (event, taskIds) => {
+        try { return await systemTools.runCleanerTasks(taskIds); } catch (error) { return { success: false, error: error.message }; }
+    });
     ipcMain.handle('run-temp-cleanup', safeWrap(() => systemTools.runTempCleanup()));
     ipcMain.handle('restart-to-bios', safeWrap(() => systemTools.restartToBios()));
     ipcMain.handle('clean-recycle-bin', safeWrap(() => systemTools.cleanRecycleBin()));

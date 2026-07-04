@@ -19,6 +19,14 @@ const maintenanceIcon = (body) => `
 `;
 
 const MAINTENANCE_ICONS = {
+    cleaner: maintenanceIcon('<path d="M4 17h9"/><path d="M7 17l1-6.4A2.1 2.1 0 0 1 10.1 9h2.8a2.1 2.1 0 0 1 2.1 1.6l1 6.4"/><path d="M8.7 17v3"/><path d="M14.3 17v3"/><path d="M10 6h4"/><path d="M18 5l.5-1.3L20 3l-1.5-.7L18 1l-.5 1.3L16 3l1.5.7L18 5z"/><path d="M20 11l.4-1 1-.4-1-.4-.4-1-.4 1-1 .4 1 .4.4 1z"/>'),
+    tempFile: maintenanceIcon('<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5"/><path d="M9.5 13.5l5 5"/><path d="M14.5 13.5l-5 5"/>'),
+    prefetch: maintenanceIcon('<path d="M5 17a7 7 0 1 1 14 0"/><path d="M12 17l4-5"/><path d="M8 17h8"/><path d="M8.5 9.5l1 1"/><path d="M15.5 9.5l-1 1"/>'),
+    updateCache: maintenanceIcon('<path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M5 16.5A3.5 3.5 0 0 0 8.5 20h7a3.5 3.5 0 0 0 1-6.86A5 5 0 0 0 7 11.2"/>'),
+    imageCache: maintenanceIcon('<rect x="4" y="5" width="16" height="14" rx="3"/><path d="m8 15 2.2-2.2a1.1 1.1 0 0 1 1.6 0L15 16"/><path d="m14 14 1-1a1.1 1.1 0 0 1 1.6 0L20 16"/><circle cx="9" cy="9.5" r="1.3"/>'),
+    crashReport: maintenanceIcon('<path d="M8 4h8l3 3v13H8z"/><path d="M16 4v4h4"/><path d="M12 12v3"/><path d="M12 18h.01"/><path d="M9.5 9.5h5"/>'),
+    scan: maintenanceIcon('<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v6h-6"/>'),
+    selectAll: maintenanceIcon('<path d="M4 12l4 4 8-9"/><rect x="3" y="3" width="18" height="18" rx="4"/>'),
     cleanup: maintenanceIcon('<path d="M4 17h16"/><path d="M7 17l1.2-7.2A2.2 2.2 0 0 1 10.4 8h3.2a2.2 2.2 0 0 1 2.2 1.8L17 17"/><path d="M9 17v3"/><path d="M15 17v3"/><path d="M10 5h4"/>'),
     temp: maintenanceIcon('<path d="M8 3h8"/><path d="M10 3v5l-4.6 8A3.4 3.4 0 0 0 8.3 21h7.4a3.4 3.4 0 0 0 2.9-5L14 8V3"/><path d="M8.5 16h7"/><path d="M10 18h4"/>'),
     recycle: maintenanceIcon('<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 14h8l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/>'),
@@ -164,18 +172,12 @@ function createSimpleTask(apiFn, successMsg, errorMsg) {
 
 const runSfcScan = createSimpleTask(() => window.api.runSfcScan(), 'SFC scan completed!', 'SFC scan failed.');
 const runDismRepair = createSimpleTask(() => window.api.runDismRepair(), 'DISM repair completed!', 'DISM repair failed.');
-const cleanTempFiles = createSimpleTask(() => window.api.runTempCleanup(), 'Temp files cleaned!', 'Temp cleanup failed.');
-const cleanRecycleBin = createSimpleTask(() => window.api.cleanRecycleBin(), 'Recycle Bin emptied!', 'Failed to empty Recycle Bin.');
-const cleanWindowsCache = createSimpleTask(() => window.api.cleanWindowsCache(), 'Windows cache cleaned!', 'Failed to clean Windows cache.');
-const clearThumbnailCache = createSimpleTask(() => window.api.clearThumbnailCache(), 'Thumbnail cache cleared!', 'Failed to clear thumbnail cache.');
-const clearErrorReports = createSimpleTask(() => window.api.clearErrorReports(), 'Error reports cleared!', 'Failed to clear error reports.');
 const flushDnsCache = createSimpleTask(() => window.api.flushDnsCache(), 'DNS cache flushed!', 'Failed to flush DNS cache.');
 const releaseRenewIp = createSimpleTask(() => window.api.releaseRenewIp(), 'IP released & renewed!', 'Failed to release/renew IP.');
 const fixBluetooth = createSimpleTask(() => window.api.fixBluetooth(), 'Bluetooth fixed!', 'Failed to fix Bluetooth.');
 const checkDisk = createSimpleTask(() => window.api.checkDisk(), 'Disk check completed!', 'Failed to check disk.');
 const networkReset = createSimpleTask(() => window.api.networkReset(), 'Network reset completed!', 'Failed to reset network.');
 const restartAudioSystem = createSimpleTask(() => window.api.restartAudioSystem(), 'Audio system restarted!', 'Failed to restart audio.');
-const runDiskCleaner = createSimpleTask(() => window.api.runDiskCleaner(), 'Disk Cleanup launched!', 'Failed to launch Disk Cleanup.');
 
 async function downloadAndRunPatchMyPC(statusElement, button) {
     if (buttonStateManager.isLoading(button)) return;
@@ -272,6 +274,302 @@ function createSectionTitle(text, iconKey) {
     return title;
 }
 
+const CLEANER_TASKS = [
+    { id: 'temp', title: 'Clean Temporary Files', description: 'Remove system and user temporary files.', detail: 'Windows + user temp folders', icon: 'tempFile' },
+    { id: 'prefetch', title: 'Clean Prefetch Files', description: 'Delete files from the Windows Prefetch folder.', detail: 'C:\\Windows\\Prefetch', icon: 'prefetch' },
+    { id: 'recycle_bin', title: 'Empty Recycle Bin', description: 'Permanently remove files from the Recycle Bin.', detail: 'Recycle Bin', icon: 'recycle' },
+    { id: 'windows_update', title: 'Clean Windows Update Cache', description: 'Remove Windows Update downloaded installation files.', detail: 'C:\\Windows\\SoftwareDistribution\\Download', icon: 'updateCache' },
+    { id: 'thumbnail_cache', title: 'Clear Thumbnail Cache', description: 'Remove cached thumbnail images used by File Explorer.', detail: 'Explorer thumbnail and icon cache', icon: 'imageCache' },
+    { id: 'error_reports', title: 'Clear Error Reports', description: 'Remove error report and crash dump files.', detail: 'CrashDumps + Windows Error Reporting', icon: 'crashReport' }
+];
+
+function formatCleanerBytes(bytes) {
+    const value = Number(bytes || 0);
+    if (value <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+    const amount = value / Math.pow(1024, index);
+    return `${amount.toFixed(index >= 3 ? 2 : 1)} ${units[index]}`;
+}
+
+function formatCleanerDate(value) {
+    if (!value) return 'Not cleaned yet.';
+    try {
+        return new Date(value).toLocaleString();
+    } catch {
+        return 'Not cleaned yet.';
+    }
+}
+
+function setCleanerButtonContent(button, iconKey, label) {
+    button.innerHTML = '';
+    const icon = document.createElement('span');
+    icon.className = 'cleaner-button-icon';
+    icon.innerHTML = getMaintenanceIcon(iconKey);
+    const text = document.createElement('span');
+    text.textContent = label;
+    button.appendChild(icon);
+    button.appendChild(text);
+}
+
+export async function buildCleanerPage() {
+    const container = document.createElement('div');
+    container.className = 'card cleaner-page';
+    const taskState = new Map(CLEANER_TASKS.map((task) => [task.id, { ...task, sizeBytes: 0, path: task.detail, inaccessible: false }]));
+    const rowControls = new Map();
+    let scanning = false;
+    let cleaning = false;
+
+    const summary = document.createElement('section');
+    summary.className = 'cleaner-summary';
+
+    const summaryIcon = document.createElement('div');
+    summaryIcon.className = 'cleaner-summary-icon';
+    summaryIcon.innerHTML = getMaintenanceIcon('cleaner');
+
+    const summaryText = document.createElement('div');
+    summaryText.className = 'cleaner-summary-text';
+
+    const title = document.createElement('h2');
+    title.textContent = 'System Cleaner';
+
+    const lastCleaned = document.createElement('p');
+    lastCleaned.className = 'cleaner-last-cleaned';
+    lastCleaned.textContent = `Last cleaned: ${formatCleanerDate(localStorage.getItem('cleanerLastCleaned'))}`;
+
+    const totalLine = document.createElement('p');
+    totalLine.className = 'cleaner-total-line';
+    totalLine.textContent = 'Total size ';
+    const totalValue = document.createElement('span');
+    totalValue.textContent = 'Scanning...';
+    totalLine.appendChild(totalValue);
+
+    const scanMode = document.createElement('p');
+    scanMode.className = 'cleaner-scan-mode';
+    scanMode.textContent = 'Requesting administrator scan...';
+
+    summaryText.appendChild(title);
+    summaryText.appendChild(lastCleaned);
+    summaryText.appendChild(totalLine);
+    summaryText.appendChild(scanMode);
+
+    const summaryActions = document.createElement('div');
+    summaryActions.className = 'cleaner-summary-actions';
+
+    const scanBtn = document.createElement('button');
+    scanBtn.type = 'button';
+    scanBtn.className = 'button-secondary cleaner-scan-btn';
+    setCleanerButtonContent(scanBtn, 'scan', 'Scan');
+
+    const selectAllBtn = document.createElement('button');
+    selectAllBtn.type = 'button';
+    selectAllBtn.className = 'button-secondary cleaner-select-btn';
+    setCleanerButtonContent(selectAllBtn, 'selectAll', 'Select All');
+
+    const cleanBtn = document.createElement('button');
+    cleanBtn.type = 'button';
+    cleanBtn.className = 'button cleaner-clean-btn';
+    setCleanerButtonContent(cleanBtn, 'cleaner', 'Clean Selected');
+    cleanBtn.disabled = true;
+
+    summaryActions.appendChild(scanBtn);
+    summaryActions.appendChild(selectAllBtn);
+    summaryActions.appendChild(cleanBtn);
+    summary.appendChild(summaryIcon);
+    summary.appendChild(summaryText);
+    summary.appendChild(summaryActions);
+    container.appendChild(summary);
+
+    const list = document.createElement('div');
+    list.className = 'cleaner-list';
+    container.appendChild(list);
+
+    function updateTotals() {
+        const totalBytes = Array.from(taskState.values()).reduce((sum, task) => sum + Number(task.sizeBytes || 0), 0);
+        const selectedBytes = Array.from(rowControls.values()).reduce((sum, control) => {
+            if (!control.checkbox.checked) return sum;
+            const task = taskState.get(control.id);
+            return sum + Number(task?.sizeBytes || 0);
+        }, 0);
+        const checkedCount = Array.from(rowControls.values()).filter((control) => control.checkbox.checked).length;
+
+        totalValue.textContent = scanning ? 'Scanning...' : formatCleanerBytes(totalBytes);
+        cleanBtn.disabled = scanning || cleaning || checkedCount === 0;
+        setCleanerButtonContent(cleanBtn, 'cleaner', selectedBytes > 0 ? `Clean Selected (${formatCleanerBytes(selectedBytes)})` : 'Clean Selected');
+        setCleanerButtonContent(selectAllBtn, 'selectAll', checkedCount === rowControls.size && checkedCount > 0 ? 'Unselect All' : 'Select All');
+    }
+
+    function renderRows() {
+        list.innerHTML = '';
+        rowControls.clear();
+
+        CLEANER_TASKS.forEach((task) => {
+            const data = taskState.get(task.id) || task;
+            const row = document.createElement('article');
+            row.className = 'cleaner-row';
+
+            const icon = document.createElement('div');
+            icon.className = 'cleaner-row-icon';
+            icon.innerHTML = getMaintenanceIcon(task.icon);
+
+            const content = document.createElement('div');
+            content.className = 'cleaner-row-content';
+
+            const rowTitle = document.createElement('h3');
+            rowTitle.textContent = task.title;
+
+            const desc = document.createElement('p');
+            desc.textContent = task.description;
+
+            const meta = document.createElement('div');
+            meta.className = 'cleaner-row-meta';
+
+            const size = document.createElement('span');
+            size.className = 'cleaner-size';
+            if (scanning) {
+                size.textContent = 'Scanning...';
+            } else if (data.inaccessible) {
+                size.textContent = 'Admin needed';
+                size.classList.add('is-warning');
+            } else {
+                size.textContent = formatCleanerBytes(data.sizeBytes);
+            }
+
+            const detail = document.createElement('span');
+            detail.className = 'cleaner-path';
+            detail.textContent = data.path || task.detail;
+
+            meta.appendChild(size);
+            meta.appendChild(detail);
+            content.appendChild(rowTitle);
+            content.appendChild(desc);
+            content.appendChild(meta);
+
+            const toggle = document.createElement('label');
+            toggle.className = 'cleaner-toggle';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = Number(data.sizeBytes || 0) > 0;
+            checkbox.disabled = scanning || cleaning || (!data.inaccessible && Number(data.sizeBytes || 0) <= 0);
+            checkbox.addEventListener('change', updateTotals);
+
+            const track = document.createElement('span');
+            toggle.appendChild(checkbox);
+            toggle.appendChild(track);
+
+            row.appendChild(icon);
+            row.appendChild(content);
+            row.appendChild(toggle);
+            list.appendChild(row);
+            rowControls.set(task.id, { id: task.id, checkbox, size, row });
+        });
+
+        updateTotals();
+    }
+
+    async function scanCleaner(preferElevated = false) {
+        if (scanning || cleaning) return;
+        scanning = true;
+        scanBtn.disabled = true;
+        selectAllBtn.disabled = true;
+        cleanBtn.disabled = true;
+        scanMode.textContent = preferElevated ? 'Requesting administrator scan...' : 'Running limited scan...';
+        renderRows();
+
+        try {
+            let result = await window.api.scanCleanerTasks({ elevated: preferElevated });
+            if (preferElevated && (!result || !result.success)) {
+                scanMode.textContent = 'Limited scan - administrator access was not granted.';
+                result = await window.api.scanCleanerTasks({ elevated: false });
+            }
+
+            if (!result || !result.success) {
+                toast((result && result.error) || 'Cleaner scan failed.', { type: 'error', title: 'Cleaner' });
+                return;
+            }
+
+            scanMode.textContent = result.elevated
+                ? 'Full scan completed with administrator access.'
+                : 'Limited scan completed. Protected folders need administrator access.';
+
+            (result.items || []).forEach((item) => {
+                const existing = taskState.get(item.id);
+                if (existing) {
+                    taskState.set(item.id, {
+                        ...existing,
+                        sizeBytes: Number(item.sizeBytes || 0),
+                        path: item.path || existing.detail,
+                        inaccessible: Boolean(item.inaccessible)
+                    });
+                }
+            });
+        } catch (error) {
+            toast((error && error.message) || 'Cleaner scan failed.', { type: 'error', title: 'Cleaner' });
+        } finally {
+            scanning = false;
+            scanBtn.disabled = false;
+            selectAllBtn.disabled = false;
+            renderRows();
+        }
+    }
+
+    selectAllBtn.addEventListener('click', () => {
+        const controls = Array.from(rowControls.values());
+        const shouldSelect = controls.some((control) => !control.checkbox.checked && !control.checkbox.disabled);
+        controls.forEach((control) => {
+            if (!control.checkbox.disabled) control.checkbox.checked = shouldSelect;
+        });
+        updateTotals();
+    });
+
+    scanBtn.addEventListener('click', () => scanCleaner(true));
+
+    cleanBtn.addEventListener('click', async () => {
+        if (cleaning || scanning) return;
+        const selectedIds = Array.from(rowControls.values())
+            .filter((control) => control.checkbox.checked && !control.checkbox.disabled)
+            .map((control) => control.id);
+
+        if (selectedIds.length === 0) {
+            toast('No cleaner tasks selected.', { type: 'error', title: 'Cleaner' });
+            return;
+        }
+
+        cleaning = true;
+        scanBtn.disabled = true;
+        selectAllBtn.disabled = true;
+        cleanBtn.disabled = true;
+        setCleanerButtonContent(cleanBtn, 'cleaner', 'Cleaning...');
+
+        try {
+            const result = await window.api.runCleanerTasks(selectedIds);
+            if (result && result.success) {
+                const now = new Date().toISOString();
+                localStorage.setItem('cleanerLastCleaned', now);
+                lastCleaned.textContent = `Last cleaned: ${formatCleanerDate(now)}`;
+                toast(result.message || 'Cleaner completed.', { type: 'success', title: 'Cleaner' });
+                cleaning = false;
+                await scanCleaner(true);
+            } else {
+                toast((result && result.error) || 'Cleaner failed.', { type: 'error', title: 'Cleaner' });
+            }
+        } catch (error) {
+            toast((error && error.message) || 'Cleaner failed.', { type: 'error', title: 'Cleaner' });
+        } finally {
+            cleaning = false;
+            scanBtn.disabled = false;
+            selectAllBtn.disabled = false;
+            updateTotals();
+        }
+    });
+
+    renderRows();
+    scanCleaner(true);
+
+    return container;
+}
+
 export async function buildMaintenancePage(translations, _settings) {
     createMaintenanceCard.adminRequiredText = translations.messages?.admin_required || 'Admin required';
     createMaintenanceCard.runningText = translations.actions?.running || 'Running...';
@@ -288,76 +586,7 @@ export async function buildMaintenancePage(translations, _settings) {
     desc.classList.add('desc-margin-large');
     container.appendChild(desc);
 
-    // ── SECTION 1: Cleanup ──
-    container.appendChild(createSectionTitle(translations.maintenance?.cleanup_section || 'Cleanup', 'cleanup'));
-
-    const cleanupRow = document.createElement('div');
-    cleanupRow.className = 'maintenance-row';
-    cleanupRow.classList.add('grid-2-col-margin');
-
-    const tempCard = createMaintenanceCard(
-        translations.maintenance?.delete_temp_files || 'Clean Temp Files',
-        translations.maintenance?.temp_files_desc || 'Clean TEMP, %TEMP%, and Prefetch folders',
-        'temp',
-        translations.actions?.clean_temp_files || 'Clean',
-        cleanTempFiles, false, true
-    );
-    tempCard.querySelector('button').classList.add('btn-standard-height');
-
-    const recycleBinCard = createMaintenanceCard(
-        translations.maintenance?.recycle_bin || 'Clean Recycle Bin',
-        translations.maintenance?.recycle_bin_desc || 'Empty the Windows Recycle Bin',
-        'recycle',
-        translations.actions?.clean || 'Clean',
-        cleanRecycleBin, false, true
-    );
-    recycleBinCard.querySelector('button').classList.add('btn-standard-height');
-
-    const winCacheCard = createMaintenanceCard(
-        translations.maintenance?.windows_cache || 'Clean Windows Cache',
-        translations.maintenance?.windows_cache_desc || 'Clean Windows Update download cache',
-        'cache',
-        translations.actions?.clean || 'Clean',
-        cleanWindowsCache, true, true
-    );
-    winCacheCard.querySelector('button').classList.add('btn-standard-height');
-
-    const thumbCard = createMaintenanceCard(
-        translations.maintenance?.thumbnail_cache || 'Clear Thumbnail Cache',
-        translations.maintenance?.thumbnail_cache_desc || 'Clear icon and thumbnail cache files',
-        'thumbnail',
-        translations.actions?.clear || 'Clear',
-        clearThumbnailCache, false, true
-    );
-    thumbCard.querySelector('button').classList.add('btn-standard-height');
-
-    const errorReportsCard = createMaintenanceCard(
-        translations.maintenance?.error_reports || 'Clear Error Reports',
-        translations.maintenance?.error_reports_desc || 'Clean crash dumps and error reports',
-        'report',
-        translations.actions?.clear || 'Clear',
-        clearErrorReports, false, true
-    );
-    errorReportsCard.querySelector('button').classList.add('btn-standard-height');
-
-    const diskCleanerCard = createMaintenanceCard(
-        translations.maintenance?.disk_cleaner || 'Disk Cleanup',
-        translations.maintenance?.disk_cleaner_desc || 'Launch Windows Disk Cleanup utility (cleanmgr)',
-        'disk',
-        translations.actions?.launch || 'Launch',
-        runDiskCleaner, true, true
-    );
-    diskCleanerCard.querySelector('button').classList.add('btn-standard-height');
-
-    cleanupRow.appendChild(tempCard);
-    cleanupRow.appendChild(recycleBinCard);
-    cleanupRow.appendChild(winCacheCard);
-    cleanupRow.appendChild(thumbCard);
-    cleanupRow.appendChild(errorReportsCard);
-    cleanupRow.appendChild(diskCleanerCard);
-    container.appendChild(cleanupRow);
-
-    // ── SECTION 2: Network & Connectivity ──
+    // Network & Connectivity
     container.appendChild(createSectionTitle(translations.maintenance?.network_section || 'Network & Connectivity', 'network'));
 
     const networkRow = document.createElement('div');
