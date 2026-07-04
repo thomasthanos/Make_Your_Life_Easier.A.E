@@ -564,8 +564,14 @@ function setupSystemToolsHandlers(systemTools) {
     ipcMain.handle('scan-cleaner-tasks', async (event, options) => {
         try { return await systemTools.scanCleanerTasks(options); } catch (error) { return { success: false, error: error.message }; }
     });
-    ipcMain.handle('run-cleaner-tasks', async (event, taskIds) => {
-        try { return await systemTools.runCleanerTasks(taskIds); } catch (error) { return { success: false, error: error.message }; }
+    ipcMain.handle('run-cleaner-tasks', async (event, taskIds, options) => {
+        try { return await systemTools.runCleanerTasks(taskIds, options); } catch (error) { return { success: false, error: error.message }; }
+    });
+    ipcMain.handle('cleaner-admin-enable', async () => {
+        try { return await systemTools.enableCleanerAdminSession(); } catch (error) { return { success: false, error: error.message }; }
+    });
+    ipcMain.handle('cleaner-admin-status', async () => {
+        try { return { enabled: await systemTools.isCleanerAdminAlive() }; } catch { return { enabled: false }; }
     });
     ipcMain.handle('run-temp-cleanup', safeWrap(() => systemTools.runTempCleanup()));
     ipcMain.handle('restart-to-bios', safeWrap(() => systemTools.restartToBios()));

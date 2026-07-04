@@ -250,37 +250,10 @@ function normalizeCleanerItems(data) {
   })).filter((item) => CLEANER_TASK_IDS.includes(item.id));
 }
 
-async function scanCleanerTasks(options = {}) {
-  const wantsElevated = Boolean(options && options.elevated);
-  const result = wantsElevated
-    ? await runElevatedPowerShellJson(CLEANER_SCAN_PS)
-    : await runPowerShellJson(CLEANER_SCAN_PS);
-  if (!result.success) return result;
-
-  const normalized = normalizeCleanerItems(result.data);
-  const totalBytes = normalized.reduce((sum, item) => sum + item.sizeBytes, 0);
-
-  return { success: true, items: normalized, totalBytes, scannedAt: new Date().toISOString(), elevated: Boolean(result.elevated) };
-}
-
-async function runCleanerTasks(taskIds) {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const selected = Array.isArray(taskIds)
-    ? taskIds.map(String).filter((id) => CLEANER_TASK_IDS.includes(id))
-    : [];
-
-  if (selected.length === 0) {
-    return { success: false, error: 'No cleaner tasks selected.' };
-  }
-
-  const selectedLiteral = selected.map((id) => `'${id}'`).join(', ');
-  const psScript = `
-$ErrorActionPreference = 'SilentlyContinue'
-$tasks = @(${selectedLiteral})
-
+// Delete logic for the selected cleaner tasks. Expects a $tasks string array to
+// be defined in scope. Shared by the one-shot elevated clean and by the
+// persistent admin worker.
+const CLEANER_CLEAN_BODY_PS = `
 function Remove-PathContents {
     param(
         [string[]]$Paths,
@@ -337,16 +310,250 @@ if ($tasks -contains 'error_reports') {
 }
 `;
 
-  // Run the delete AND a fresh scan inside a single elevated process, so the user
-  // is prompted for admin exactly once (no separate UAC for the post-clean rescan).
-  // The clean block is scoped and discarded so only the scan's JSON reaches stdout.
+// ── Persistent cleaner admin session ─────────────────────────────────────────
+// One UAC acceptance starts a hidden elevated PowerShell worker that serves
+// scan/clean requests over file-based IPC for the rest of the app session,
+// so the user is never prompted again. The worker exits when the app dies.
+let _cleanerAdmin = null; // { dir, seq } | null
+
+function cleanerAdminPaths(dir) {
+  return {
+    ready: path.join(dir, 'ready.flag'),
+    alive: path.join(dir, 'alive.flag'),
+    stop: path.join(dir, 'stop.flag')
+  };
+}
+
+async function isCleanerAdminAlive() {
+  if (!_cleanerAdmin) return false;
+  const { alive } = cleanerAdminPaths(_cleanerAdmin.dir);
+  // The worker refreshes alive.flag every ~300ms. Retry a few times before
+  // declaring the session dead so a momentary gap doesn't discard it.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const stat = fs.statSync(alive);
+      if (Date.now() - stat.mtimeMs < 8000) return true;
+    } catch { }
+    await new Promise((r) => setTimeout(r, 350));
+  }
+  _cleanerAdmin = null;
+  return false;
+}
+
+function buildCleanerAdminWorkerScript(dir, parentPid) {
+  const dirPS = dir.replace(/'/g, "''");
+  return `
+$ErrorActionPreference = 'SilentlyContinue'
+$dir = '${dirPS}'
+$parentPid = ${parentPid}
+
+function Get-CleanerSizes {
+${CLEANER_SCAN_PS}
+}
+
+function Invoke-CleanerClean {
+    param([string[]]$Tasks)
+    $tasks = @($Tasks)
+${CLEANER_CLEAN_BODY_PS}
+}
+
+Set-Content -LiteralPath (Join-Path $dir 'ready.flag') -Value 'ready' -Encoding UTF8
+
+while ($true) {
+    if (Test-Path -LiteralPath (Join-Path $dir 'stop.flag')) { break }
+    if (-not (Get-Process -Id $parentPid -ErrorAction SilentlyContinue)) { break }
+    Set-Content -LiteralPath (Join-Path $dir 'alive.flag') -Value ([string][DateTimeOffset]::Now.ToUnixTimeSeconds()) -Encoding UTF8
+
+    $cmds = Get-ChildItem -LiteralPath $dir -Filter 'cmd-*.json' -ErrorAction SilentlyContinue
+    foreach ($cmd in $cmds) {
+        $resPath = Join-Path $dir (($cmd.BaseName -replace '^cmd-', 'res-') + '.json')
+        try {
+            $req = Get-Content -LiteralPath $cmd.FullName -Raw | ConvertFrom-Json
+            if ($req.action -eq 'clean') {
+                Invoke-CleanerClean -Tasks @($req.tasks)
+            }
+            $json = Get-CleanerSizes
+            Set-Content -LiteralPath ($resPath + '.tmp') -Value $json -Encoding UTF8
+            Move-Item -LiteralPath ($resPath + '.tmp') -Destination $resPath -Force
+        } catch {
+            Set-Content -LiteralPath $resPath -Value (@{ error = $_.Exception.Message } | ConvertTo-Json -Compress) -Encoding UTF8
+        }
+        Remove-Item -LiteralPath $cmd.FullName -Force -ErrorAction SilentlyContinue
+    }
+
+    Start-Sleep -Milliseconds 300
+}
+
+Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+`;
+}
+
+async function enableCleanerAdminSession() {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+  if (await isCleanerAdminAlive()) {
+    return { success: true, enabled: true };
+  }
+
+  const dir = path.join(os.tmpdir(), `myle-cleaner-admin-${process.pid}-${Date.now()}`);
+  const workerPath = path.join(dir, 'worker.ps1');
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(workerPath, buildCleanerAdminWorkerScript(dir, process.pid), 'utf8');
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+
+  const workerPS = workerPath.replace(/'/g, "''");
+  const launched = await new Promise((resolve) => {
+    const launcher = spawn('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+      `Start-Process powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File','${workerPS}') -Verb RunAs -WindowStyle Hidden`
+    ], { windowsHide: true });
+    launcher.on('error', () => resolve(false));
+    // Exit code is non-zero when the user cancels the UAC dialog.
+    launcher.on('close', (code) => resolve(code === 0));
+  });
+
+  if (!launched) {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch { }
+    return { success: false, enabled: false, code: 'UAC_DENIED', error: 'Administrator access was not granted.' };
+  }
+
+  // Wait for the worker's heartbeat (written every loop iteration) so the
+  // session is provably serving before we hand it out — ready.flag alone can
+  // race the first alive.flag write and get the session discarded immediately.
+  const { alive } = cleanerAdminPaths(dir);
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    if (fs.existsSync(alive)) {
+      _cleanerAdmin = { dir, seq: 0 };
+      debug('info', 'Cleaner admin session started');
+      return { success: true, enabled: true };
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+
+  try { fs.rmSync(dir, { recursive: true, force: true }); } catch { }
+  return { success: false, enabled: false, code: 'TIMEOUT', error: 'Administrator session did not start in time.' };
+}
+
+async function cleanerAdminExec(request, timeoutMs) {
+  if (!_cleanerAdmin) return { success: false, error: 'No admin session' };
+  const { dir } = _cleanerAdmin;
+  const id = ++_cleanerAdmin.seq;
+  const cmdPath = path.join(dir, `cmd-${id}.json`);
+  const resPath = path.join(dir, `res-${id}.json`);
+
+  try {
+    fs.writeFileSync(`${cmdPath}.tmp`, JSON.stringify(request), 'utf8');
+    fs.renameSync(`${cmdPath}.tmp`, cmdPath);
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (fs.existsSync(resPath)) {
+      try {
+        const raw = fs.readFileSync(resPath, 'utf8').trim();
+        fs.unlinkSync(resPath);
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.error) return { success: false, error: parsed.error };
+        return { success: true, data: parsed };
+      } catch (error) {
+        return { success: false, error: `Could not parse admin session output: ${error.message}` };
+      }
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+
+  _cleanerAdmin = null;
+  try { fs.unlinkSync(cmdPath); } catch { }
+  return { success: false, error: 'Admin session request timed out.' };
+}
+
+function stopCleanerAdminSession() {
+  if (!_cleanerAdmin) return;
+  try {
+    const { stop } = cleanerAdminPaths(_cleanerAdmin.dir);
+    fs.writeFileSync(stop, 'stop', 'utf8');
+  } catch { }
+  _cleanerAdmin = null;
+}
+
+async function scanCleanerTasks(options = {}) {
+  const wantsElevated = Boolean(options && options.elevated);
+
+  let result;
+  let elevated = false;
+  if (wantsElevated && await isCleanerAdminAlive()) {
+    result = await cleanerAdminExec({ action: 'scan' }, 120000);
+    elevated = result.success;
+    if (!result.success) {
+      debug('warn', 'Admin session scan failed, falling back to limited scan:', result.error);
+      result = await runPowerShellJson(CLEANER_SCAN_PS);
+    }
+  } else {
+    result = await runPowerShellJson(CLEANER_SCAN_PS);
+  }
+  if (!result.success) return result;
+
+  const normalized = normalizeCleanerItems(result.data);
+  const totalBytes = normalized.reduce((sum, item) => sum + item.sizeBytes, 0);
+
+  return { success: true, items: normalized, totalBytes, scannedAt: new Date().toISOString(), elevated };
+}
+
+async function runCleanerTasks(taskIds, options = {}) {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'This feature is only available on Windows' };
+  }
+
+  const selected = Array.isArray(taskIds)
+    ? taskIds.map(String).filter((id) => CLEANER_TASK_IDS.includes(id))
+    : [];
+
+  if (selected.length === 0) {
+    return { success: false, error: 'No cleaner tasks selected.' };
+  }
+
+  // If the persistent admin session is active, clean through it — no extra UAC.
+  if (await isCleanerAdminAlive()) {
+    const result = await cleanerAdminExec({ action: 'clean', tasks: selected }, 300000);
+    if (result.success) {
+      const normalized = normalizeCleanerItems(result.data);
+      const totalBytes = normalized.reduce((sum, item) => sum + item.sizeBytes, 0);
+      return {
+        success: true,
+        message: 'Cleaner completed successfully.',
+        items: normalized,
+        totalBytes,
+        scannedAt: new Date().toISOString(),
+        elevated: true
+      };
+    }
+    debug('warn', 'Cleaner admin session failed, falling back to one-shot elevation:', result.error);
+  }
+
+  const selectedLiteral = selected.map((id) => `'${id}'`).join(', ');
+
+  // Clean AND rescan inside a single process so sizes come back fresh with no
+  // extra round-trip. Elevated one-shot (one UAC) by default; when the caller
+  // explicitly declined admin, run non-elevated and skip protected items.
   const combinedScript = `& {
-${psScript}
+$ErrorActionPreference = 'SilentlyContinue'
+$tasks = @(${selectedLiteral})
+${CLEANER_CLEAN_BODY_PS}
 } | Out-Null
 
 ${CLEANER_SCAN_PS}`;
 
-  const result = await runElevatedPowerShellJson(combinedScript);
+  const wantsElevated = options.elevated !== false;
+  const result = wantsElevated
+    ? await runElevatedPowerShellJson(combinedScript)
+    : await runPowerShellJson(combinedScript);
   if (!result.success) {
     return {
       success: false,
@@ -364,7 +571,7 @@ ${CLEANER_SCAN_PS}`;
     items: normalized,
     totalBytes,
     scannedAt: new Date().toISOString(),
-    elevated: true
+    elevated: wantsElevated
   };
 }
 
@@ -1035,6 +1242,9 @@ module.exports = {
   runDismRepair,
   scanCleanerTasks,
   runCleanerTasks,
+  enableCleanerAdminSession,
+  isCleanerAdminAlive,
+  stopCleanerAdminSession,
   runTempCleanup,
   restartToBios,
   runSparkleDebloat,

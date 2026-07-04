@@ -246,6 +246,9 @@ app.on('before-quit', () => {
 
     downloadManager.cleanupOnQuit(safeDebug);
 
+    // Stop the elevated cleaner admin worker, if one is running
+    try { systemTools.stopCleanerAdminSession(); } catch { }
+
     // Cleanup sparkle files
     sparkleModule.cleanupSparkle();
 

@@ -461,10 +461,12 @@ function setCleanerButtonContent(button, iconKey, label) {
 // Cleaner scan state lives at module scope so it survives tab switches:
 // results are cached and a single scan is shared/deduped across page rebuilds.
 const cleanerState = {
-    results: null,      // normalized items from the last completed scan, or null
-    scanMode: '',       // current status text
-    scanning: false,    // is a scan currently in flight
-    scanPromise: null,  // the in-flight scan promise (dedupe handle)
+    results: null,       // normalized items from the last completed scan, or null
+    scanMode: '',        // current status text
+    scanning: false,     // is a scan currently in flight
+    scanPromise: null,   // the in-flight scan promise (dedupe handle)
+    adminEnabled: false, // persistent elevated session is active
+    adminDeclined: false // user declined UAC — don't ask again this session
 };
 
 // The render fn of the currently-mounted cleaner page (only one exists at a time).
@@ -476,9 +478,10 @@ function notifyCleaner() {
     }
 }
 
-// Runs a non-elevated (limited) scan — no UAC. Protected folders come back as
-// `inaccessible` and are shown as "Admin needed"; their real sizes appear after
-// a Clean, which elevates once and returns fresh sizes for everything.
+// On the first run this asks for admin ONCE (UAC). Accepting starts a persistent
+// elevated session: this scan and every later scan/clean go through it with no
+// further prompts. Declining locks the session to limited mode — protected
+// folders show "Admin needed" and it never asks again.
 function runCleanerScan() {
     if (cleanerState.scanPromise) return cleanerState.scanPromise;
 
@@ -487,7 +490,24 @@ function runCleanerScan() {
 
     const promise = (async () => {
         try {
-            const result = await window.api.scanCleanerTasks({ elevated: false });
+            if (!cleanerState.adminEnabled && !cleanerState.adminDeclined) {
+                cleanerState.scanMode = 'Waiting for administrator approval...';
+                notifyCleaner();
+                try {
+                    const res = await window.api.enableCleanerAdmin();
+                    if (res && res.enabled) {
+                        cleanerState.adminEnabled = true;
+                    } else {
+                        cleanerState.adminDeclined = true;
+                    }
+                } catch {
+                    cleanerState.adminDeclined = true;
+                }
+                cleanerState.scanMode = 'Scanning...';
+                notifyCleaner();
+            }
+
+            const result = await window.api.scanCleanerTasks({ elevated: cleanerState.adminEnabled });
 
             if (!result || !result.success) {
                 toast((result && result.error) || 'Cleaner scan failed.', { type: 'error', title: 'Cleaner' });
@@ -495,7 +515,9 @@ function runCleanerScan() {
             }
 
             cleanerState.results = result.items || [];
-            cleanerState.scanMode = 'Scan completed. Protected items need admin — cleaned when you press Clean.';
+            cleanerState.scanMode = result.elevated
+                ? 'Full scan completed with administrator access.'
+                : 'Limited scan. Protected items need admin — cleaned when you press Clean.';
         } catch (error) {
             toast((error && error.message) || 'Cleaner scan failed.', { type: 'error', title: 'Cleaner' });
         } finally {
@@ -604,10 +626,11 @@ export async function buildCleanerPage() {
 
         CLEANER_TASKS.forEach((task) => {
             const data = taskState.get(task.id) || task;
-            // "Admin needed" items stay selectable — Clean elevates once and handles
-            // them. Only lock truly-empty accessible folders (nothing to remove).
+            // With the admin session active, protected items are selectable (the
+            // session cleans them silently). If the user declined admin, they lock.
             const accessibleEmpty = !data.inaccessible && Number(data.sizeBytes || 0) <= 0;
-            const isLocked = scanning || cleaning || accessibleEmpty;
+            const adminBlocked = data.inaccessible && !cleanerState.adminEnabled;
+            const isLocked = scanning || cleaning || accessibleEmpty || adminBlocked;
 
             const row = document.createElement('article');
             row.className = 'cleaner-row';
@@ -658,8 +681,7 @@ export async function buildCleanerPage() {
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            // Default-check anything with content, plus protected items (unknown size).
-            checkbox.checked = data.inaccessible || Number(data.sizeBytes || 0) > 0;
+            checkbox.checked = !isLocked && ((data.inaccessible && cleanerState.adminEnabled) || Number(data.sizeBytes || 0) > 0);
             checkbox.disabled = isLocked;
             checkbox.addEventListener('change', updateTotals);
 
@@ -740,9 +762,9 @@ export async function buildCleanerPage() {
         setCleanerButtonContent(cleanBtn, 'cleaner', 'Cleaning...');
 
         try {
-            // Single elevated call: deletes AND returns a fresh (elevated) scan,
-            // so there is exactly one UAC prompt for the whole clean flow.
-            const result = await window.api.runCleanerTasks(selectedIds);
+            // With the admin session: silent elevated clean + fresh sizes, no UAC.
+            // Declined admin: non-elevated clean of the accessible items only.
+            const result = await window.api.runCleanerTasks(selectedIds, { elevated: cleanerState.adminEnabled });
             if (result && result.success) {
                 const now = new Date().toISOString();
                 localStorage.setItem('cleanerLastCleaned', now);

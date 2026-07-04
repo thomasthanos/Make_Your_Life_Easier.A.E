@@ -59,7 +59,9 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── System Maintenance: Cleanup ──
   scanCleanerTasks: (options) => ipcRenderer.invoke('scan-cleaner-tasks', options),
-  runCleanerTasks: (taskIds) => ipcRenderer.invoke('run-cleaner-tasks', taskIds),
+  runCleanerTasks: (taskIds, options) => ipcRenderer.invoke('run-cleaner-tasks', taskIds, options),
+  enableCleanerAdmin: () => ipcRenderer.invoke('cleaner-admin-enable'),
+  getCleanerAdminStatus: () => ipcRenderer.invoke('cleaner-admin-status'),
   runTempCleanup: () => ipcRenderer.invoke('run-temp-cleanup'),
   cleanRecycleBin: () => ipcRenderer.invoke('clean-recycle-bin'),
   cleanWindowsCache: () => ipcRenderer.invoke('clean-windows-cache'),
