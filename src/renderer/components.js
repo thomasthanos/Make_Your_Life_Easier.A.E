@@ -652,6 +652,13 @@ export function hideAppLoader() {
 export async function openInfoModal() {
     if (document.getElementById('info-modal-overlay')) return;
 
+    const sidebarToggle = document.getElementById('sidebar-collapse-toggle');
+    const sidebarToggleWasDisabled = sidebarToggle?.disabled === true;
+    if (sidebarToggle) {
+        sidebarToggle.disabled = true;
+        sidebarToggle.setAttribute('aria-disabled', 'true');
+    }
+
     const overlay = document.createElement('div');
     overlay.id = 'info-modal-overlay';
     overlay.className = 'modal-overlay';
@@ -677,6 +684,12 @@ export async function openInfoModal() {
         const removeOverlay = () => {
             if (overlay.parentNode) {
                 overlay.remove();
+            }
+            if (sidebarToggle) {
+                sidebarToggle.disabled = sidebarToggleWasDisabled;
+                if (!sidebarToggleWasDisabled) {
+                    sidebarToggle.removeAttribute('aria-disabled');
+                }
             }
         };
 
@@ -734,30 +747,49 @@ export function openAccountModal(profile, syncedItems = [], handlers = {}) {
         ? 'Google'
         : profile.provider === 'discord' ? 'Discord' : (profile.provider || '');
 
-    const rows = (syncedItems || []).map((item) =>
-        `<li><span class="account-sync-label">${escapeHtml(item.label)}</span><span class="account-sync-value">${escapeHtml(String(item.value))}</span></li>`
-    ).join('');
+    const rows = (syncedItems || []).map((item) => `
+            <li class="account-sync-row">
+                <span class="account-sync-label">${escapeHtml(item.label)}</span>
+                <span class="account-sync-value">${escapeHtml(String(item.value))}</span>
+            </li>
+        `).join('');
+    const syncedContent = rows
+        ? `<ul class="account-sync-list">${rows}</ul>`
+        : '<div class="account-sync-empty">No synced settings yet.</div>';
 
     const avatar = profile.avatar
         ? `<img class="account-avatar" src="${escapeHtml(profile.avatar)}" alt="avatar">`
         : `<div class="account-avatar account-avatar-fallback">${escapeHtml((profile.name || '?').slice(0, 1).toUpperCase())}</div>`;
 
     modal.innerHTML = `
-        <button class="account-close" aria-label="Close">&times;</button>
-        <div class="account-head">
+        <div class="account-modal-header">
+            <div>
+                <span class="account-kicker">Account</span>
+                <h3>Profile</h3>
+            </div>
+            <button class="account-close" type="button" aria-label="Close">
+                <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+                    <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="account-profile">
             ${avatar}
             <div class="account-id">
                 <span class="account-name">${escapeHtml(profile.name || 'User')}</span>
-                <span class="account-provider">via ${escapeHtml(providerLabel)}</span>
+                <span class="account-provider">via ${escapeHtml(providerLabel || 'Account')}</span>
             </div>
         </div>
         <div class="account-synced">
-            <h4>Synced</h4>
-            <ul>${rows}</ul>
+            <div class="account-section-head">
+                <h4>Synced</h4>
+                <span>${(syncedItems || []).length} items</span>
+            </div>
+            ${syncedContent}
         </div>
         <div class="account-actions">
-            <button class="account-reset">Reset synced settings</button>
-            <button class="account-signout">Sign out</button>
+            <button class="account-reset" type="button">Reset synced settings</button>
+            <button class="account-signout" type="button">Sign out</button>
         </div>
     `;
 

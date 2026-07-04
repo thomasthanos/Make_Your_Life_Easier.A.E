@@ -61,7 +61,7 @@ const ICON_FULL_UNINSTALL_SPOTIFY = `
 
 export function buildSpicetifyPage(translations, settings) {
     const container = document.createElement('div');
-    container.className = 'card';
+    container.className = 'card spicetify-card';
 
     const pageTitle = document.createElement('h2');
     pageTitle.textContent = translations.pages?.spicetify_title || 'Install Spicetify';
@@ -118,6 +118,7 @@ export function buildSpicetifyPage(translations, settings) {
         iconWrap.innerHTML = svgHTML;
 
         const textBox = document.createElement('div');
+        textBox.className = 'app-header-text';
         const h3 = document.createElement('h3');
         h3.textContent = titleTxt;
         const p = document.createElement('p');
