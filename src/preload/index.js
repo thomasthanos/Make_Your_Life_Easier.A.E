@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('api', {
   // ── System Maintenance: Cleanup ──
   scanCleanerTasks: (options) => ipcRenderer.invoke('scan-cleaner-tasks', options),
   runCleanerTasks: (taskIds, options) => ipcRenderer.invoke('run-cleaner-tasks', taskIds, options),
+  onCleanerProgress: (callback) => onEvent('cleaner-progress', callback),
   enableCleanerAdmin: () => ipcRenderer.invoke('cleaner-admin-enable'),
   getCleanerAdminStatus: () => ipcRenderer.invoke('cleaner-admin-status'),
   runTempCleanup: () => ipcRenderer.invoke('run-temp-cleanup'),

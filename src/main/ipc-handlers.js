@@ -651,7 +651,15 @@ function setupSystemToolsHandlers(systemTools) {
         try { return await systemTools.scanCleanerTasks(options); } catch (error) { return { success: false, error: error.message }; }
     });
     ipcMain.handle('run-cleaner-tasks', async (event, taskIds, options) => {
-        try { return await systemTools.runCleanerTasks(taskIds, options); } catch (error) { return { success: false, error: error.message }; }
+        try {
+            return await systemTools.runCleanerTasks(taskIds, options, (text) => {
+                try {
+                    if (!event.sender.isDestroyed()) {
+                        event.sender.send('cleaner-progress', { text });
+                    }
+                } catch { }
+            });
+        } catch (error) { return { success: false, error: error.message }; }
     });
     ipcMain.handle('cleaner-admin-enable', async () => {
         try { return await systemTools.enableCleanerAdminSession(); } catch (error) { return { success: false, error: error.message }; }

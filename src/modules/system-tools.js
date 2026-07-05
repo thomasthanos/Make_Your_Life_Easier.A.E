@@ -214,7 +214,8 @@ function Get-ItemSizeInfo {
 $recentPath = Join-Path $env:APPDATA 'Microsoft\\Windows\\Recent'
 $tempPaths = @($env:TEMP, $env:TMP, (Join-Path $env:SystemRoot 'Temp'), $recentPath) | Select-Object -Unique
 $prefetchPath = Join-Path $env:SystemRoot 'Prefetch'
-$recyclePaths = @(Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root '$Recycle.Bin' })
+$currentSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+$recyclePaths = @(Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root ('$Recycle.Bin\\' + $currentSid) })
 $windowsUpdatePath = Join-Path $env:SystemRoot 'SoftwareDistribution\\Download'
 $explorerCachePath = Join-Path $env:LOCALAPPDATA 'Microsoft\\Windows\\Explorer'
 $crashDumpPath = Join-Path $env:LOCALAPPDATA 'CrashDumps'
@@ -254,6 +255,10 @@ function normalizeCleanerItems(data) {
 // be defined in scope. Shared by the one-shot elevated clean and by the
 // persistent admin worker.
 const CLEANER_CLEAN_BODY_PS = `
+if (-not (Get-Command Write-CleanerProgress -ErrorAction SilentlyContinue)) {
+    function Write-CleanerProgress([string]$m) { }
+}
+
 function Remove-PathContents {
     param(
         [string[]]$Paths,
@@ -276,24 +281,32 @@ function Remove-PathContents {
 $recentPath = Join-Path $env:APPDATA 'Microsoft\\Windows\\Recent'
 
 if ($tasks -contains 'temp') {
+    Write-CleanerProgress 'Cleaning temporary files...'
     Remove-PathContents -Paths @($env:TEMP, $env:TMP, (Join-Path $env:SystemRoot 'Temp'), $recentPath)
 }
 
 if ($tasks -contains 'prefetch') {
+    Write-CleanerProgress 'Cleaning Prefetch files...'
     Remove-PathContents -Paths @((Join-Path $env:SystemRoot 'Prefetch'))
 }
 
 if ($tasks -contains 'recycle_bin') {
+    Write-CleanerProgress 'Emptying Recycle Bin...'
     Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+    $currentSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+    $recycleRoots = @(Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root ('$Recycle.Bin\\' + $currentSid) })
+    Remove-PathContents -Paths $recycleRoots
 }
 
 if ($tasks -contains 'windows_update') {
+    Write-CleanerProgress 'Cleaning Windows Update cache...'
     Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
     Remove-PathContents -Paths @((Join-Path $env:SystemRoot 'SoftwareDistribution\\Download'))
     Start-Service -Name wuauserv -ErrorAction SilentlyContinue
 }
 
 if ($tasks -contains 'thumbnail_cache') {
+    Write-CleanerProgress 'Clearing thumbnail cache (Explorer will restart)...'
     Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 1
     $explorerCachePath = Join-Path $env:LOCALAPPDATA 'Microsoft\\Windows\\Explorer'
@@ -302,12 +315,15 @@ if ($tasks -contains 'thumbnail_cache') {
 }
 
 if ($tasks -contains 'error_reports') {
+    Write-CleanerProgress 'Clearing error reports and crash dumps...'
     Remove-PathContents -Paths @(
         (Join-Path $env:LOCALAPPDATA 'CrashDumps'),
         (Join-Path $env:LOCALAPPDATA 'Microsoft\\Windows\\WER'),
         (Join-Path $env:ProgramData 'Microsoft\\Windows\\WER')
     )
 }
+
+Write-CleanerProgress 'Selected items cleaned.'
 `;
 
 // ── Persistent cleaner admin session ─────────────────────────────────────────
@@ -347,6 +363,14 @@ $ErrorActionPreference = 'SilentlyContinue'
 $dir = '${dirPS}'
 $parentPid = ${parentPid}
 
+$script:progPath = $null
+function Write-CleanerProgress([string]$m) {
+    if ($script:progPath) {
+        Add-Content -LiteralPath $script:progPath -Value $m -Encoding UTF8
+    }
+    Set-Content -LiteralPath (Join-Path $dir 'alive.flag') -Value ([string][DateTimeOffset]::Now.ToUnixTimeSeconds()) -Encoding UTF8
+}
+
 function Get-CleanerSizes {
 ${CLEANER_SCAN_PS}
 }
@@ -367,10 +391,12 @@ while ($true) {
     $cmds = Get-ChildItem -LiteralPath $dir -Filter 'cmd-*.json' -ErrorAction SilentlyContinue
     foreach ($cmd in $cmds) {
         $resPath = Join-Path $dir (($cmd.BaseName -replace '^cmd-', 'res-') + '.json')
+        $script:progPath = Join-Path $dir (($cmd.BaseName -replace '^cmd-', 'prog-') + '.log')
         try {
             $req = Get-Content -LiteralPath $cmd.FullName -Raw | ConvertFrom-Json
             if ($req.action -eq 'clean') {
                 Invoke-CleanerClean -Tasks @($req.tasks)
+                Write-CleanerProgress 'Refreshing sizes...'
             }
             $json = Get-CleanerSizes
             Set-Content -LiteralPath ($resPath + '.tmp') -Value $json -Encoding UTF8
@@ -378,6 +404,7 @@ while ($true) {
         } catch {
             Set-Content -LiteralPath $resPath -Value (@{ error = $_.Exception.Message } | ConvertTo-Json -Compress) -Encoding UTF8
         }
+        $script:progPath = $null
         Remove-Item -LiteralPath $cmd.FullName -Force -ErrorAction SilentlyContinue
     }
 
@@ -396,7 +423,12 @@ async function enableCleanerAdminSession() {
     return { success: true, enabled: true };
   }
 
-  const dir = path.join(os.tmpdir(), `myle-cleaner-admin-${process.pid}-${Date.now()}`);
+  // The IPC directory must live OUTSIDE %TEMP% — the 'temp' cleaner task wipes
+  // %TEMP% and would destroy the session's own command/response files mid-clean.
+  const ipcRoot = process.env.LOCALAPPDATA
+    ? path.join(process.env.LOCALAPPDATA, 'MakeYourLifeEasier')
+    : path.join(os.homedir(), '.myle');
+  const dir = path.join(ipcRoot, `cleaner-admin-${process.pid}-${Date.now()}`);
   const workerPath = path.join(dir, 'worker.ps1');
   try {
     fs.mkdirSync(dir, { recursive: true });
@@ -439,12 +471,13 @@ async function enableCleanerAdminSession() {
   return { success: false, enabled: false, code: 'TIMEOUT', error: 'Administrator session did not start in time.' };
 }
 
-async function cleanerAdminExec(request, timeoutMs) {
+async function cleanerAdminExec(request, timeoutMs, onProgress = null) {
   if (!_cleanerAdmin) return { success: false, error: 'No admin session' };
   const { dir } = _cleanerAdmin;
   const id = ++_cleanerAdmin.seq;
   const cmdPath = path.join(dir, `cmd-${id}.json`);
   const resPath = path.join(dir, `res-${id}.json`);
+  const progPath = path.join(dir, `prog-${id}.log`);
 
   try {
     fs.writeFileSync(`${cmdPath}.tmp`, JSON.stringify(request), 'utf8');
@@ -453,16 +486,41 @@ async function cleanerAdminExec(request, timeoutMs) {
     return { success: false, error: error.message };
   }
 
+  let progOffset = 0;
+  const drainProgress = () => {
+    if (!onProgress) return;
+    try {
+      const text = fs.readFileSync(progPath, 'utf8');
+      if (text.length > progOffset) {
+        const chunk = text.slice(progOffset);
+        progOffset = text.length;
+        for (const line of chunk.split(/\r?\n/)) {
+          const trimmed = line.trim();
+          if (trimmed) {
+            try { onProgress(trimmed); } catch { }
+          }
+        }
+      }
+    } catch { }
+  };
+  const cleanupProgress = () => {
+    drainProgress();
+    try { fs.unlinkSync(progPath); } catch { }
+  };
+
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    drainProgress();
     if (fs.existsSync(resPath)) {
       try {
         const raw = fs.readFileSync(resPath, 'utf8').trim();
         fs.unlinkSync(resPath);
+        cleanupProgress();
         const parsed = JSON.parse(raw);
         if (parsed && parsed.error) return { success: false, error: parsed.error };
         return { success: true, data: parsed };
       } catch (error) {
+        cleanupProgress();
         return { success: false, error: `Could not parse admin session output: ${error.message}` };
       }
     }
@@ -471,6 +529,7 @@ async function cleanerAdminExec(request, timeoutMs) {
 
   _cleanerAdmin = null;
   try { fs.unlinkSync(cmdPath); } catch { }
+  cleanupProgress();
   return { success: false, error: 'Admin session request timed out.' };
 }
 
@@ -506,7 +565,7 @@ async function scanCleanerTasks(options = {}) {
   return { success: true, items: normalized, totalBytes, scannedAt: new Date().toISOString(), elevated };
 }
 
-async function runCleanerTasks(taskIds, options = {}) {
+async function runCleanerTasks(taskIds, options = {}, onProgress = null) {
   if (process.platform !== 'win32') {
     return { success: false, error: 'This feature is only available on Windows' };
   }
@@ -521,7 +580,7 @@ async function runCleanerTasks(taskIds, options = {}) {
 
   // If the persistent admin session is active, clean through it — no extra UAC.
   if (await isCleanerAdminAlive()) {
-    const result = await cleanerAdminExec({ action: 'clean', tasks: selected }, 300000);
+    const result = await cleanerAdminExec({ action: 'clean', tasks: selected }, 300000, onProgress);
     if (result.success) {
       const normalized = normalizeCleanerItems(result.data);
       const totalBytes = normalized.reduce((sum, item) => sum + item.sizeBytes, 0);
@@ -551,6 +610,9 @@ ${CLEANER_CLEAN_BODY_PS}
 ${CLEANER_SCAN_PS}`;
 
   const wantsElevated = options.elevated !== false;
+  if (onProgress) {
+    try { onProgress(wantsElevated ? 'Cleaning selected items (one-time administrator run)...' : 'Cleaning accessible items...'); } catch { }
+  }
   const result = wantsElevated
     ? await runElevatedPowerShellJson(combinedScript)
     : await runPowerShellJson(combinedScript);

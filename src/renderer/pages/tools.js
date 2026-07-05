@@ -676,6 +676,11 @@ export async function buildCleanerPage() {
     list.className = 'cleaner-list';
     container.appendChild(list);
 
+    const cleanTerm = createStreamTerminal('Stop');
+    cleanTerm.stopBtn.remove();
+    cleanTerm.title.textContent = 'cleaner';
+    container.appendChild(cleanTerm.terminal);
+
     function updateTotals() {
         const totalBytes = Array.from(taskState.values()).reduce((sum, task) => sum + Number(task.sizeBytes || 0), 0);
         const selectedBytes = Array.from(rowControls.values()).reduce((sum, control) => {
@@ -833,6 +838,16 @@ export async function buildCleanerPage() {
         cleanBtn.classList.add('btn-loading');
         setCleanerButtonContent(cleanBtn, 'cleaner', 'Cleaning...');
 
+        const bytesBefore = Array.from(taskState.values()).reduce((sum, task) => sum + Number(task.sizeBytes || 0), 0);
+
+        cleanTerm.reset();
+        cleanTerm.terminal.classList.add('open', 'running');
+        cleanTerm.print('> Clean selected items', 'is-cmd');
+
+        const unsubscribe = window.api.onCleanerProgress(({ text }) => {
+            cleanTerm.print(text);
+        });
+
         try {
             // With the admin session: silent elevated clean + fresh sizes, no UAC.
             // Declined admin: non-elevated clean of the accessible items only.
@@ -841,17 +856,26 @@ export async function buildCleanerPage() {
                 const now = new Date().toISOString();
                 localStorage.setItem('cleanerLastCleaned', now);
                 lastCleaned.textContent = `Last cleaned: ${formatCleanerDate(now)}`;
+                let freedText = '';
                 if (Array.isArray(result.items)) {
                     cleanerState.results = result.items;
                     cleanerState.scanMode = 'Cleaned. Sizes refreshed with administrator access.';
+                    const bytesAfter = result.items.reduce((sum, item) => sum + Number(item.sizeBytes || 0), 0);
+                    const freed = Math.max(0, bytesBefore - bytesAfter);
+                    freedText = ` Freed ${formatCleanerBytes(freed)}.`;
                 }
-                toast(result.message || 'Cleaner completed.', { type: 'success', title: 'Cleaner' });
+                cleanTerm.print(`✔ Cleaning completed.${freedText}`, 'is-ok');
+                toast((result.message || 'Cleaner completed.') + freedText, { type: 'success', title: 'Cleaner' });
             } else {
+                cleanTerm.print(`✖ ${(result && result.error) || 'Cleaner failed.'}`, 'is-err');
                 toast((result && result.error) || 'Cleaner failed.', { type: 'error', title: 'Cleaner' });
             }
         } catch (error) {
+            cleanTerm.print(`✖ ${(error && error.message) || 'Cleaner failed.'}`, 'is-err');
             toast((error && error.message) || 'Cleaner failed.', { type: 'error', title: 'Cleaner' });
         } finally {
+            unsubscribe();
+            cleanTerm.terminal.classList.remove('running');
             cleaning = false;
             scanBtn.disabled = false;
             selectAllBtn.disabled = false;
