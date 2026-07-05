@@ -304,6 +304,9 @@ if (-not (Get-Command Write-CleanerProgress -ErrorAction SilentlyContinue)) {
     function Write-CleanerProgress([string]$m) { }
 }
 
+$script:myleSkippedFiles = 0
+$script:myleSkippedBytes = [Int64]0
+
 function Remove-PathContents {
     param(
         [string[]]$Paths,
@@ -317,11 +320,23 @@ function Remove-PathContents {
 
         foreach ($filter in $Filters) {
             Get-ChildItem -LiteralPath $target -Filter $filter -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                $item = $_
                 try {
-                    if ($_.PSIsContainer) { [System.IO.Directory]::Delete($_.FullName, $true) }
-                    else { [System.IO.File]::Delete($_.FullName) }
+                    if ($item.PSIsContainer) { [System.IO.Directory]::Delete($item.FullName, $true) }
+                    else { [System.IO.File]::Delete($item.FullName) }
                 } catch {
-                    Remove-Item -LiteralPath $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
+                    try { Remove-Item -LiteralPath $item.FullName -Force -Recurse -ErrorAction SilentlyContinue } catch { }
+                    if (Test-Path -LiteralPath $item.FullName) {
+                        if ($item.PSIsContainer) {
+                            Get-ChildItem -LiteralPath $item.FullName -Recurse -Force -File -ErrorAction SilentlyContinue | ForEach-Object {
+                                $script:myleSkippedFiles++
+                                $script:myleSkippedBytes += [Int64]$_.Length
+                            }
+                        } else {
+                            $script:myleSkippedFiles++
+                            $script:myleSkippedBytes += [Int64]$item.Length
+                        }
+                    }
                 }
             }
         }
@@ -373,6 +388,10 @@ if ($tasks -contains 'error_reports') {
     )
 }
 
+if ($script:myleSkippedFiles -gt 0) {
+    $mbSkipped = [Math]::Round($script:myleSkippedBytes / 1MB, 1)
+    Write-CleanerProgress ("Skipped " + $script:myleSkippedFiles + " file(s) still in use by running apps (" + $mbSkipped + " MB) - close those apps and clean again to remove them.")
+}
 Write-CleanerProgress 'Selected items cleaned.'
 `;
 
