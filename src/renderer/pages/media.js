@@ -4,7 +4,7 @@
  * CSS classes match original renderer.js structure
  */
 
-import { toast } from '../components.js';
+import { toast, closeOtherTerminals } from '../components.js';
 
 // ============================================
 // SPICETIFY ICONS
@@ -159,7 +159,7 @@ export function buildSpicetifyPage(translations, settings) {
         termBody.scrollTop = termBody.scrollHeight;
     }
 
-    async function runInstall(button) {
+    async function runStreamingTask(button, cmdLabel, apiFn, successMsg, errorMsg) {
         if (installing) return;
         installing = true;
         installCancelled = false;
@@ -168,30 +168,31 @@ export function buildSpicetifyPage(translations, settings) {
         button.disabled = true;
         button.textContent = (translations.general?.run || 'Run') + '...';
 
+        termTitle.textContent = cmdLabel;
         termBody.innerHTML = '';
         currentLine = null;
         replaceCurrent = false;
+        closeOtherTerminals(terminal);
         terminal.classList.add('open', 'running');
-        printLine('> spicetify install', 'is-cmd');
+        printLine(`> ${cmdLabel}`, 'is-cmd');
 
         const unsubscribe = window.api.onSpicetifyInstallOutput(({ stream, text }) => {
             appendOutput(text, stream === 'stderr' ? 'is-stderr' : undefined);
         });
 
         try {
-            const result = await window.api.installSpicetify();
+            const result = await apiFn();
             if (result && result.success) {
-                printLine('✔ Spicetify installed.', 'is-ok');
-                toast(translations.messages?.install_spicetify_success || 'Spicetify installed successfully!', { type: 'success', title: translations.menu?.spicetify || 'Spicetify' });
-            } else if (result && result.cancelled) {
-            } else {
-                printLine(`✖ ${result?.error || `Installer exited with code ${result?.code ?? '?'}.`}`, 'is-err');
-                toast(translations.messages?.install_spicetify_error || 'Error installing Spicetify', { type: 'error', title: translations.menu?.spicetify || 'Spicetify', duration: 6000 });
+                printLine(`✔ ${successMsg}`, 'is-ok');
+                toast(successMsg, { type: 'success', title: translations.menu?.spicetify || 'Spicetify' });
+            } else if (!result || !result.cancelled) {
+                printLine(`✖ ${result?.error || `Task exited with code ${result?.code ?? '?'}.`}`, 'is-err');
+                toast(errorMsg, { type: 'error', title: translations.menu?.spicetify || 'Spicetify', duration: 6000 });
             }
         } catch (error) {
             if (!installCancelled) {
                 printLine(`✖ ${error.message}`, 'is-err');
-                toast((translations.messages?.install_spicetify_error || 'Error installing Spicetify') + `: ${error.message}`, { type: 'error', title: translations.menu?.spicetify || 'Spicetify', duration: 6000 });
+                toast(`${errorMsg}: ${error.message}`, { type: 'error', title: translations.menu?.spicetify || 'Spicetify', duration: 6000 });
             }
         } finally {
             unsubscribe();
@@ -202,13 +203,33 @@ export function buildSpicetifyPage(translations, settings) {
         }
     }
 
+    function runInstall(button) {
+        return runStreamingTask(
+            button,
+            'spicetify install',
+            () => window.api.installSpicetify(),
+            translations.messages?.install_spicetify_success || 'Spicetify installed successfully!',
+            translations.messages?.install_spicetify_error || 'Error installing Spicetify'
+        );
+    }
+
+    function runFullUninstall(button) {
+        return runStreamingTask(
+            button,
+            'spotify full uninstall',
+            () => window.api.fullUninstallSpotify(),
+            translations.messages?.full_uninstall_spotify_success || 'Spotify fully uninstalled!',
+            translations.messages?.full_uninstall_spotify_error || 'Error fully uninstalling Spotify'
+        );
+    }
+
     stopBtn.addEventListener('click', async () => {
         if (!installing) return;
         installCancelled = true;
         stopBtn.disabled = true;
         try {
             await window.api.cancelSpicetifyInstall();
-            printLine('■ Installation cancelled.', 'is-warn');
+            printLine('■ Cancelled.', 'is-warn');
         } finally {
             stopBtn.disabled = false;
         }
@@ -295,7 +316,7 @@ export function buildSpicetifyPage(translations, settings) {
         ICON_UNINSTALL_SPICETIFY,
         translations.actions?.uninstall_spicetify || 'Uninstall Spicetify',
         translations.general?.not_implemented || 'Completely remove Spicetify and restore Spotify to its default state',
-        translations.general?.cancel || 'Cancel',
+        translations.actions?.uninstall_spicetify || 'Uninstall Spicetify',
         (btn) => runAction(
             () => window.api.uninstallSpicetify(),
             translations.messages?.uninstall_spicetify_success || 'Spicetify uninstalled successfully!',
@@ -310,12 +331,7 @@ export function buildSpicetifyPage(translations, settings) {
         translations.actions?.full_uninstall_spotify || 'Full Uninstall Spotify',
         translations.general?.not_implemented || 'Complete removal of both Spotify and Spicetify',
         translations.actions?.full_uninstall_spotify || 'Full Uninstall Spotify',
-        (btn) => runAction(
-            () => window.api.fullUninstallSpotify(),
-            translations.messages?.full_uninstall_spotify_success || 'Spotify fully uninstalled!',
-            translations.messages?.full_uninstall_spotify_error || 'Error fully uninstalling Spotify',
-            btn
-        )
+        (btn) => runFullUninstall(btn)
     );
     fullUninstallCard.classList.add('full-span');
 

@@ -170,6 +170,33 @@ ${script}
 
 const CLEANER_TASK_IDS = ['temp', 'prefetch', 'recycle_bin', 'windows_update', 'thumbnail_cache', 'error_reports'];
 
+// SID of the desktop (non-elevated) user. Passed into elevated cleaner scripts
+// so the Recycle Bin stays scoped to this user even when UAC elevates through
+// a different administrator account.
+let _userSidPromise = null;
+function getCurrentUserSid() {
+  if (!_userSidPromise) {
+    _userSidPromise = new Promise((resolve) => {
+      try {
+        const child = spawn('powershell.exe', [
+          '-NoProfile', '-Command',
+          '([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value'
+        ], { windowsHide: true });
+        let out = '';
+        if (child.stdout) child.stdout.on('data', (d) => { out += d.toString(); });
+        child.on('error', () => resolve(null));
+        child.on('close', () => {
+          const sid = out.trim();
+          resolve(/^S-[\d-]+$/.test(sid) ? sid : null);
+        });
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+  return _userSidPromise;
+}
+
 // PowerShell that measures each cleaner target and emits the sizes as JSON.
 // Shared by scanCleanerTasks() and by runCleanerTasks() (which appends it after
 // the delete step so a single elevated run cleans AND returns fresh sizes).
@@ -193,13 +220,31 @@ function Get-ItemSizeInfo {
         }
 
         $exists = $true
-        foreach ($filter in $Filters) {
-            try {
-                Get-ChildItem -LiteralPath $target -Filter $filter -Force -File -Recurse:$Recurse -ErrorAction Stop | ForEach-Object {
-                    $total += [Int64]$_.Length
+        $stack = New-Object 'System.Collections.Generic.Stack[string]'
+        $stack.Push($target)
+
+        while ($stack.Count -gt 0) {
+            $dir = $stack.Pop()
+            foreach ($filter in $Filters) {
+                try {
+                    foreach ($file in [System.IO.Directory]::EnumerateFiles($dir, $filter)) {
+                        try { $total += (New-Object System.IO.FileInfo($file)).Length } catch { }
+                    }
+                } catch {
+                    $inaccessible = $true
                 }
-            } catch {
-                $inaccessible = $true
+            }
+            if ($Recurse) {
+                try {
+                    foreach ($sub in [System.IO.Directory]::EnumerateDirectories($dir)) {
+                        try {
+                            $attr = [System.IO.File]::GetAttributes($sub)
+                            if (($attr -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) { $stack.Push($sub) }
+                        } catch { }
+                    }
+                } catch {
+                    $inaccessible = $true
+                }
             }
         }
     }
@@ -214,8 +259,8 @@ function Get-ItemSizeInfo {
 $recentPath = Join-Path $env:APPDATA 'Microsoft\\Windows\\Recent'
 $tempPaths = @($env:TEMP, $env:TMP, (Join-Path $env:SystemRoot 'Temp'), $recentPath) | Select-Object -Unique
 $prefetchPath = Join-Path $env:SystemRoot 'Prefetch'
-$currentSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
-$recyclePaths = @(Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root ('$Recycle.Bin\\' + $currentSid) })
+if (-not $myleUserSid) { $myleUserSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value }
+$recyclePaths = @(Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root ('$Recycle.Bin\\' + $myleUserSid) })
 $windowsUpdatePath = Join-Path $env:SystemRoot 'SoftwareDistribution\\Download'
 $explorerCachePath = Join-Path $env:LOCALAPPDATA 'Microsoft\\Windows\\Explorer'
 $crashDumpPath = Join-Path $env:LOCALAPPDATA 'CrashDumps'
@@ -272,7 +317,12 @@ function Remove-PathContents {
 
         foreach ($filter in $Filters) {
             Get-ChildItem -LiteralPath $target -Filter $filter -Force -ErrorAction SilentlyContinue | ForEach-Object {
-                Remove-Item -LiteralPath $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
+                try {
+                    if ($_.PSIsContainer) { [System.IO.Directory]::Delete($_.FullName, $true) }
+                    else { [System.IO.File]::Delete($_.FullName) }
+                } catch {
+                    Remove-Item -LiteralPath $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
+                }
             }
         }
     }
@@ -293,8 +343,8 @@ if ($tasks -contains 'prefetch') {
 if ($tasks -contains 'recycle_bin') {
     Write-CleanerProgress 'Emptying Recycle Bin...'
     Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-    $currentSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
-    $recycleRoots = @(Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root ('$Recycle.Bin\\' + $currentSid) })
+    if (-not $myleUserSid) { $myleUserSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value }
+    $recycleRoots = @(Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root ('$Recycle.Bin\\' + $myleUserSid) })
     Remove-PathContents -Paths $recycleRoots
 }
 
@@ -356,12 +406,14 @@ async function isCleanerAdminAlive() {
   return false;
 }
 
-function buildCleanerAdminWorkerScript(dir, parentPid) {
+function buildCleanerAdminWorkerScript(dir, parentPid, userSid) {
   const dirPS = dir.replace(/'/g, "''");
+  const sidLine = userSid ? `$myleUserSid = '${userSid}'` : '';
   return `
 $ErrorActionPreference = 'SilentlyContinue'
 $dir = '${dirPS}'
 $parentPid = ${parentPid}
+${sidLine}
 
 $script:progPath = $null
 function Write-CleanerProgress([string]$m) {
@@ -428,11 +480,23 @@ async function enableCleanerAdminSession() {
   const ipcRoot = process.env.LOCALAPPDATA
     ? path.join(process.env.LOCALAPPDATA, 'MakeYourLifeEasier')
     : path.join(os.homedir(), '.myle');
+
+  // Stale dirs survive a crash (the worker only removes its own dir on a
+  // graceful stop). Orphaned workers exit on their own via the parent-PID check.
+  try {
+    for (const entry of fs.readdirSync(ipcRoot)) {
+      if (entry.startsWith('cleaner-admin-')) {
+        try { fs.rmSync(path.join(ipcRoot, entry), { recursive: true, force: true }); } catch { }
+      }
+    }
+  } catch { }
+
   const dir = path.join(ipcRoot, `cleaner-admin-${process.pid}-${Date.now()}`);
   const workerPath = path.join(dir, 'worker.ps1');
+  const userSid = await getCurrentUserSid();
   try {
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(workerPath, buildCleanerAdminWorkerScript(dir, process.pid), 'utf8');
+    fs.writeFileSync(workerPath, buildCleanerAdminWorkerScript(dir, process.pid, userSid), 'utf8');
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -597,11 +661,14 @@ async function runCleanerTasks(taskIds, options = {}, onProgress = null) {
   }
 
   const selectedLiteral = selected.map((id) => `'${id}'`).join(', ');
+  const oneShotSid = await getCurrentUserSid();
+  const sidLine = oneShotSid ? `$myleUserSid = '${oneShotSid}'` : '';
 
   // Clean AND rescan inside a single process so sizes come back fresh with no
   // extra round-trip. Elevated one-shot (one UAC) by default; when the caller
   // explicitly declined admin, run non-elevated and skip protected items.
-  const combinedScript = `& {
+  const combinedScript = `${sidLine}
+& {
 $ErrorActionPreference = 'SilentlyContinue'
 $tasks = @(${selectedLiteral})
 ${CLEANER_CLEAN_BODY_PS}
@@ -1004,13 +1071,15 @@ async function runSparkleDebloat() {
  */
 function runElevatedStreaming(name, innerBody, propagateExitCode, onOutput = () => { }, heartbeat = false) {
   const psExe = getPowerShellExe() || 'powershell';
-  const logPath = path.join(os.tmpdir(), `${name}_${Date.now()}.log`).replace(/'/g, "''");
+  const rawLogPath = path.join(os.tmpdir(), `${name}_${Date.now()}.log`);
+  const logPath = rawLogPath.replace(/'/g, "''");
   const tmpScriptPath = path.join(os.tmpdir(), `${name}_${Date.now()}.ps1`);
 
   const psLines = [
     "$ErrorActionPreference = 'Continue'",
     'try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }',
     `$log = '${logPath}'`,
+    `$stopFile = '${logPath}.stop'`,
     'Remove-Item $log -Force -ErrorAction SilentlyContinue',
     'New-Item -ItemType File -Path $log -Force | Out-Null',
     '$inner = "& { ' + innerBody + ' } *>&1 | Out-File -FilePath \'$log\' -Append -Encoding utf8' + (propagateExitCode ? '; exit `$LASTEXITCODE' : '') + '"',
@@ -1043,6 +1112,7 @@ function runElevatedStreaming(name, innerBody, propagateExitCode, onOutput = () 
     ...(heartbeat ? [
       ' if ($hb.Elapsed.TotalSeconds -ge 10) { $hb.Restart(); $es = [int]$total.Elapsed.TotalSeconds; [Console]::Out.Write("... running (" + $es + "s elapsed)`n"); [Console]::Out.Flush() }'
     ] : []),
+    ' if (Test-Path -LiteralPath $stopFile) { try { Stop-Process -Id $p.Id -Force } catch { }; break }',
     ' if ($p.HasExited) { break }',
     '}',
     '$p.WaitForExit()',
@@ -1063,19 +1133,28 @@ function runElevatedStreaming(name, innerBody, propagateExitCode, onOutput = () 
     child.stderr.on('data', (data) => onOutput('stderr', data.toString()));
   }
 
+  const stopPath = `${rawLogPath}.stop`;
   const done = new Promise((resolve) => {
     let settled = false;
     const settle = (result) => {
       if (settled) return;
       settled = true;
       try { fs.unlinkSync(tmpScriptPath); } catch { }
+      try { fs.unlinkSync(stopPath); } catch { }
       resolve(result);
     };
     child.on('error', (err) => settle({ success: false, error: err.message }));
     child.on('close', (code) => settle({ success: code === 0, code }));
   });
 
-  return { child, done };
+  const cancel = () => {
+    try { fs.writeFileSync(stopPath, 'stop', 'utf8'); } catch { }
+    setTimeout(() => {
+      try { child.kill(); } catch { }
+    }, 5000);
+  };
+
+  return { child, done, cancel };
 }
 
 function runChrisTitus(onOutput = () => { }) {
@@ -1097,6 +1176,7 @@ function runElevatedConsoleTask(name, exe, exeArgs, onOutput = () => { }, extraC
 
   const workerLines = [
     `$log = '${logPath}'`,
+    `$stopFile = '${logPath}.stop'`,
     '$enc = New-Object System.Text.UTF8Encoding($false)',
     'function Emit([string]$s) { [System.IO.File]::AppendAllText($log, $s, $enc) }',
     '$raw = $Host.UI.RawUI',
@@ -1108,14 +1188,14 @@ function runElevatedConsoleTask(name, exe, exeArgs, onOutput = () => { }, extraC
     ' foreach ($cell in $cells) { [void]$sb.Append($cell.Character) }',
     ' $sb.ToString().TrimEnd()',
     '}',
+    '$lastY = $raw.CursorPosition.Y',
+    "$lastLine = ''",
     'try {',
     ` $p = Start-Process -FilePath '${exe}' -ArgumentList @(${argList}) -NoNewWindow -PassThru`,
     '} catch {',
     ' Emit ("Failed to start: " + $_.Exception.Message + "`n")',
     ' exit 1',
     '}',
-    '$lastY = $raw.CursorPosition.Y',
-    "$lastLine = ''",
     'while ($true) {',
     ' Start-Sleep -Milliseconds 400',
     ' try {',
@@ -1129,6 +1209,7 @@ function runElevatedConsoleTask(name, exe, exeArgs, onOutput = () => { }, extraC
     '  $cur = ReadRow $curY',
     '  if ($cur -ne $lastLine) { Emit ("`r" + $cur); $lastLine = $cur }',
     ' } catch { }',
+    ' if (Test-Path -LiteralPath $stopFile) { try { Stop-Process -Id $p.Id -Force } catch { }; break }',
     ' if ($p.HasExited) { break }',
     '}',
     'Start-Sleep -Milliseconds 300',
@@ -1196,6 +1277,7 @@ function runElevatedConsoleTask(name, exe, exeArgs, onOutput = () => { }, extraC
     child.stderr.on('data', (data) => onOutput('stderr', data.toString()));
   }
 
+  const stopPath = path.join(os.tmpdir(), `${name}_${stamp}.log.stop`);
   const done = new Promise((resolve) => {
     let settled = false;
     const settle = (result) => {
@@ -1203,6 +1285,7 @@ function runElevatedConsoleTask(name, exe, exeArgs, onOutput = () => { }, extraC
       settled = true;
       try { fs.unlinkSync(outerPath); } catch { }
       try { fs.unlinkSync(workerPath); } catch { }
+      try { fs.unlinkSync(stopPath); } catch { }
       for (const extra of extraCleanup) {
         try { fs.unlinkSync(extra); } catch { }
       }
@@ -1212,7 +1295,14 @@ function runElevatedConsoleTask(name, exe, exeArgs, onOutput = () => { }, extraC
     child.on('close', (code) => settle({ success: code === 0, code }));
   });
 
-  return { child, done };
+  const cancel = () => {
+    try { fs.writeFileSync(stopPath, 'stop', 'utf8'); } catch { }
+    setTimeout(() => {
+      try { child.kill(); } catch { }
+    }, 5000);
+  };
+
+  return { child, done, cancel };
 }
 
 function runMaintenanceScript(name, scriptBody, onOutput = () => { }) {
@@ -1427,6 +1517,7 @@ Write-Host "Running chkdsk on C: drive (read-only scan)..." -ForegroundColor Yel
 chkdsk C:
 Write-Host ""
 Write-Host "Scan complete. If errors were found, run 'chkdsk C: /F' from an elevated command prompt." -ForegroundColor Yellow
+exit $LASTEXITCODE
 `, onOutput);
 }
 

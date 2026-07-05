@@ -140,7 +140,7 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
             }
         }
 
-        return processUtils.runSpawnCommand(parts[0], args, { shell: false, windowsHide: false });
+        return processUtils.runSpawnCommand(parts[0], args, { shell: false, windowsHide: true });
     });
 
     let wingetUpgradeChild = null;
@@ -221,17 +221,17 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
         }
     });
 
-    let chrisTitusChild = null;
+    let chrisTitusTask = null;
     let chrisTitusCancelled = false;
 
     ipcMain.handle('run-christitus', async (event) => {
-        if (chrisTitusChild) {
+        if (chrisTitusTask) {
             return { success: false, error: 'The utility is already running.' };
         }
 
         chrisTitusCancelled = false;
         try {
-            const { child, done } = systemTools.runChrisTitus((stream, text) => {
+            const task = systemTools.runChrisTitus((stream, text) => {
                 try {
                     if (!event.sender.isDestroyed()) {
                         event.sender.send('christitus-output', { stream, text });
@@ -239,27 +239,31 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
                 } catch { }
             });
 
-            chrisTitusChild = child;
+            chrisTitusTask = task;
             try {
-                const result = await done;
+                const result = await task.done;
                 if (chrisTitusCancelled) return { success: false, cancelled: true };
                 return result;
             } finally {
-                chrisTitusChild = null;
+                chrisTitusTask = null;
             }
         } catch (error) {
-            chrisTitusChild = null;
+            chrisTitusTask = null;
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('run-christitus-cancel', async () => {
-        if (!chrisTitusChild) {
+        if (!chrisTitusTask) {
             return { success: false, error: 'The utility is not running.' };
         }
         try {
             chrisTitusCancelled = true;
-            chrisTitusChild.kill();
+            if (typeof chrisTitusTask.cancel === 'function') {
+                chrisTitusTask.cancel();
+            } else {
+                chrisTitusTask.child.kill();
+            }
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
@@ -600,17 +604,17 @@ function setupSystemToolsHandlers(systemTools) {
     };
 
     ipcMain.handle('run-sparkle-debloat', safeWrap(() => systemTools.runSparkleDebloat()));
-    let systemRepairChild = null;
+    let systemRepairTask = null;
     let systemRepairCancelled = false;
 
     const runSystemRepair = (runner) => async (event) => {
-        if (systemRepairChild) {
+        if (systemRepairTask) {
             return { success: false, error: 'A repair task is already running.' };
         }
 
         systemRepairCancelled = false;
         try {
-            const { child, done } = runner((stream, text) => {
+            const task = runner((stream, text) => {
                 try {
                     if (!event.sender.isDestroyed()) {
                         event.sender.send('system-repair-output', { stream, text });
@@ -618,16 +622,16 @@ function setupSystemToolsHandlers(systemTools) {
                 } catch { }
             });
 
-            systemRepairChild = child;
+            systemRepairTask = task;
             try {
-                const result = await done;
+                const result = await task.done;
                 if (systemRepairCancelled) return { success: false, cancelled: true };
                 return result;
             } finally {
-                systemRepairChild = null;
+                systemRepairTask = null;
             }
         } catch (error) {
-            systemRepairChild = null;
+            systemRepairTask = null;
             return { success: false, error: error.message };
         }
     };
@@ -636,12 +640,16 @@ function setupSystemToolsHandlers(systemTools) {
     ipcMain.handle('run-dism-repair', runSystemRepair((onOutput) => systemTools.runDismRepair(onOutput)));
 
     ipcMain.handle('system-repair-cancel', async () => {
-        if (!systemRepairChild) {
+        if (!systemRepairTask) {
             return { success: false, error: 'No repair task is running.' };
         }
         try {
             systemRepairCancelled = true;
-            systemRepairChild.kill();
+            if (typeof systemRepairTask.cancel === 'function') {
+                systemRepairTask.cancel();
+            } else {
+                systemRepairTask.child.kill();
+            }
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
@@ -683,17 +691,17 @@ function setupSystemToolsHandlers(systemTools) {
 }
 
 function setupSpicetifyHandlers(spicetifyModule) {
-    let spicetifyInstallChild = null;
-    let spicetifyInstallCancelled = false;
+    let spicetifyTask = null;
+    let spicetifyCancelled = false;
 
-    ipcMain.handle('install-spicetify', async (event) => {
-        if (spicetifyInstallChild) {
-            return { success: false, error: 'An installation is already running.' };
+    const runSpicetifyStreaming = (runner) => async (event) => {
+        if (spicetifyTask) {
+            return { success: false, error: 'A Spicetify task is already running.' };
         }
 
-        spicetifyInstallCancelled = false;
+        spicetifyCancelled = false;
         try {
-            const { child, done } = spicetifyModule.installSpicetify((stream, text) => {
+            const task = runner((stream, text) => {
                 try {
                     if (!event.sender.isDestroyed()) {
                         event.sender.send('spicetify-install-output', { stream, text });
@@ -701,27 +709,30 @@ function setupSpicetifyHandlers(spicetifyModule) {
                 } catch { }
             });
 
-            spicetifyInstallChild = child;
+            spicetifyTask = task;
             try {
-                const result = await done;
-                if (spicetifyInstallCancelled) return { success: false, cancelled: true };
+                const result = await task.done;
+                if (spicetifyCancelled) return { success: false, cancelled: true };
                 return result;
             } finally {
-                spicetifyInstallChild = null;
+                spicetifyTask = null;
             }
         } catch (error) {
-            spicetifyInstallChild = null;
+            spicetifyTask = null;
             return { success: false, error: error.message };
         }
-    });
+    };
+
+    ipcMain.handle('install-spicetify', runSpicetifyStreaming((onOutput) => spicetifyModule.installSpicetify(onOutput)));
+    ipcMain.handle('full-uninstall-spotify', runSpicetifyStreaming((onOutput) => spicetifyModule.fullUninstallSpotify(onOutput)));
 
     ipcMain.handle('install-spicetify-cancel', async () => {
-        if (!spicetifyInstallChild) {
-            return { success: false, error: 'No installation in progress.' };
+        if (!spicetifyTask) {
+            return { success: false, error: 'No Spicetify task in progress.' };
         }
         try {
-            spicetifyInstallCancelled = true;
-            spicetifyInstallChild.kill();
+            spicetifyCancelled = true;
+            spicetifyTask.child.kill();
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
@@ -730,10 +741,6 @@ function setupSpicetifyHandlers(spicetifyModule) {
 
     ipcMain.handle('uninstall-spicetify', async () => {
         try { return await spicetifyModule.uninstallSpicetify(); } catch (error) { return { success: false, error: error.message }; }
-    });
-
-    ipcMain.handle('full-uninstall-spotify', async () => {
-        try { return await spicetifyModule.fullUninstallSpotify(); } catch (error) { return { success: false, error: error.message }; }
     });
 }
 

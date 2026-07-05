@@ -63,6 +63,18 @@ export function dismissToast(toastEl) {
 const MAX_TOASTS = 3;
 
 /**
+ * Hide every finished in-app terminal except the given one
+ * @param {HTMLElement} current - The terminal that should stay open
+ */
+export function closeOtherTerminals(current) {
+    document.querySelectorAll('.winget-terminal.open').forEach((terminal) => {
+        if (terminal !== current && !terminal.classList.contains('running')) {
+            terminal.classList.remove('open');
+        }
+    });
+}
+
+/**
  * Show a toast notification
  * @param {string} msg - Message to display
  * @param {Object} opts - Options (title, type, duration)

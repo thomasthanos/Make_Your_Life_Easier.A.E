@@ -5,7 +5,7 @@
  */
 
 import { registerDownload, attachDownloadUI, downloadStore } from '../managers.js';
-import { toast } from '../components.js';
+import { toast, closeOtherTerminals } from '../components.js';
 
 // ============================================
 // MAINTENANCE HELPER FUNCTIONS
@@ -116,6 +116,7 @@ function createMaintenanceCard(name, description, iconKey, buttonText, task, req
         button.textContent = button.dataset.loadingText || 'Running...';
 
         term.reset();
+        closeOtherTerminals(term.terminal);
         term.terminal.classList.add('open', 'running');
         term.print(`> ${task.cmd}`, 'is-cmd');
 
@@ -420,6 +421,7 @@ function buildWingetUpdaterCard(translations) {
         termBody.innerHTML = '';
         currentLine = null;
         replaceCurrent = false;
+        closeOtherTerminals(terminal);
         terminal.classList.add('open', 'running');
         printLine('> winget upgrade --all', 'is-cmd');
 
@@ -841,6 +843,7 @@ export async function buildCleanerPage() {
         const bytesBefore = Array.from(taskState.values()).reduce((sum, task) => sum + Number(task.sizeBytes || 0), 0);
 
         cleanTerm.reset();
+        closeOtherTerminals(cleanTerm.terminal);
         cleanTerm.terminal.classList.add('open', 'running');
         cleanTerm.print('> Clean selected items', 'is-cmd');
 
@@ -1095,6 +1098,7 @@ export async function buildMaintenancePage(translations, _settings) {
         repairTermBody.innerHTML = '';
         repairLine = null;
         repairReplace = false;
+        closeOtherTerminals(repairTerminal);
         repairTerminal.classList.add('open', 'running');
         repairPrint(`> ${cmdLabel}`, 'is-cmd');
 

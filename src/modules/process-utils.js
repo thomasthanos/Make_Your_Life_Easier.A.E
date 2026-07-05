@@ -301,7 +301,7 @@ ${psScript}
       
       child.on('exit', () => {
         // Poll for result file instead of fixed delay
-        const maxWait = 60000; // 60 seconds max for long operations
+        const maxWait = 600000; // 10 minutes max for long operations
         const uacTimeout = 15000; // 15 seconds to detect UAC rejection (UAC can be slow on some systems)
         const pollInterval = 150; // Check every 150ms
         let waited = 0;

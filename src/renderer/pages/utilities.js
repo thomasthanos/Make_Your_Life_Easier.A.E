@@ -5,7 +5,7 @@
  */
 
 import { escapeHtml } from '../utils.js';
-import { toast } from '../components.js';
+import { toast, closeOtherTerminals } from '../components.js';
 
 // ============================================
 // CHRIS TITUS PAGE (Original Structure)
@@ -160,6 +160,7 @@ export function buildChrisTitusPage(translations, _settings) {
         termBody.innerHTML = '';
         currentLine = null;
         replaceCurrent = false;
+        closeOtherTerminals(terminal);
         terminal.classList.add('open', 'running');
         printLine('> irm christitus.com/win | iex', 'is-cmd');
 
@@ -172,8 +173,7 @@ export function buildChrisTitusPage(translations, _settings) {
             if (result && result.success) {
                 printLine('✔ Utility finished.', 'is-ok');
                 setStatus('Windows Utility finished.', 'success');
-            } else if (result && result.cancelled) {
-            } else {
+            } else if (!result || !result.cancelled) {
                 printLine(`✖ ${result?.error || `Utility exited with code ${result?.code ?? '?'}.`}`, 'is-err');
                 setStatus('Failed to launch: ' + (result?.error || 'Unknown error'), 'error');
             }
