@@ -14,7 +14,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          now=$(TZ='Europe/Athens' date +%Y-%m-%dT%H:%M:%S)
           resp=$(curl -s -w $'\n%{http_code}' -X PATCH \
             "$SUPABASE_URL/rest/v1/keepalive?id=eq.1" \
             -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
