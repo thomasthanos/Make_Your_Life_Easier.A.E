@@ -321,6 +321,7 @@ function Remove-PathContents {
         foreach ($filter in $Filters) {
             Get-ChildItem -LiteralPath $target -Filter $filter -Force -ErrorAction SilentlyContinue | ForEach-Object {
                 $item = $_
+                if ($null -eq $item -or [string]::IsNullOrEmpty($item.FullName)) { return }
                 try {
                     if ($item.PSIsContainer) { [System.IO.Directory]::Delete($item.FullName, $true) }
                     else { [System.IO.File]::Delete($item.FullName) }
@@ -676,7 +677,17 @@ async function runCleanerTasks(taskIds, options = {}, onProgress = null) {
         elevated: true
       };
     }
-    debug('warn', 'Cleaner admin session failed, falling back to one-shot elevation:', result.error);
+    // The session is elevated and already ran the clean. If it is still alive,
+    // the failure was inside the clean itself — surface it rather than firing a
+    // second UAC one-shot, which would re-prompt and duplicate the same error.
+    if (await isCleanerAdminAlive()) {
+      return {
+        success: false,
+        error: result.error || 'Cleaner failed.',
+        elevated: true
+      };
+    }
+    debug('warn', 'Cleaner admin session died, falling back to one-shot elevation:', result.error);
   }
 
   const selectedLiteral = selected.map((id) => `'${id}'`).join(', ');
