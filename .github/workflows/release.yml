@@ -69,7 +69,7 @@ jobs:
         aws s3 cp artifacts/dist/MakeYourLifeEasier-installer.exe "s3://$env:R2_BUCKET/MakeYourLifeEasier-installer.exe" --endpoint-url $endpoint
         aws s3 cp artifacts/dist/MakeYourLifeEasier-installer.exe.blockmap "s3://$env:R2_BUCKET/MakeYourLifeEasier-installer.exe.blockmap" --endpoint-url $endpoint
         $zip = Get-ChildItem artifacts/dist/*-win.zip | Select-Object -First 1
-        aws s3 cp $zip.FullName "s3://$env:R2_BUCKET/$($zip.Name)" --endpoint-url $endpoint
+        aws s3 cp $zip.FullName "s3://$env:R2_BUCKET/$($zip.Name)" --endpoint-url $endpoint --content-type "application/zip" --cache-control "no-cache"
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
