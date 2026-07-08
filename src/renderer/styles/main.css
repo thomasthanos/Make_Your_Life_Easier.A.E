@@ -6094,40 +6094,58 @@ body.sidebar-expanded #app {
 body.sidebar-expanded #sidebar {
   width: 280px;
 }
-#sidebar .label,
 #sidebar .app-title,
 #sidebar .app-subtitle,
-#sidebar .dot,
 #sidebar .version-text,
-#sidebar #userInfo {
-  display: none;
+#sidebar #userInfo > span {
+  opacity: 0;
+  max-width: 0;
+  transform: translateX(-6px);
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity 0.14s ease, max-width 0.26s cubic-bezier(0.4, 0, 0.2, 1), transform 0.14s ease;
+}
+#sidebar .label {
+  opacity: 0;
+  transform: translateX(-8px);
+  pointer-events: none;
+  transition: opacity 0.16s ease, transform 0.2s ease;
+}
+body:not(.sidebar-expanded) #sidebar .dot {
+  max-width: 0;
+  margin: 0;
+  overflow: hidden;
 }
 #menu-list button {
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
-  gap: 0;
-  width: 48px;
-  min-height: 48px;
-  margin: 0 auto;
-  padding: 0;
+  gap: 11px;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 0.5rem 0.68rem 0.5rem 0.92rem;
   border-radius: 14px;
+  box-sizing: border-box;
+  overflow: hidden;
+  transition: background .2s, border-color .2s, box-shadow .2s, color .2s, padding 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 #menu-list li {
-  width: 48px;
+  width: 100%;
   display: flex;
-  justify-content: center;
-  margin-top: 0.24rem;
-  margin-bottom: 0.24rem;
+  justify-content: stretch;
+  margin-top: 0.2rem;
+  margin-bottom: 0.2rem;
 }
 #menu-list {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   flex: 1 1 auto;
   margin: 0;
   min-height: 0;
-  padding: 0.45rem 0 0.65rem;
+  padding: 0.45rem 0.68rem 0.65rem;
   overflow: hidden;
 }
 #menu-list .menu-separator {
@@ -6140,11 +6158,12 @@ body.sidebar-expanded #sidebar {
   margin-bottom: 0.65rem;
 }
 .sidebar-header {
-  justify-content: center;
-  gap: 0;
+  justify-content: flex-start;
+  gap: 10px;
   min-height: 66px;
   margin-bottom: 0;
-  padding: 12px 0;
+  padding: 12px 20px;
+  transition: padding 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sidebar-footer {
   justify-content: center;
@@ -6157,7 +6176,12 @@ body.sidebar-expanded #sidebar {
   box-sizing: border-box;
 }
 #sidebar .title-group {
-  display: none;
+  display: flex;
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 0.14s ease, max-width 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 #sidebar #userInfo {
   display: flex;
@@ -6165,7 +6189,9 @@ body.sidebar-expanded #sidebar {
   align-items: center;
 }
 #sidebar #userInfo > span {
-  display: none;
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
 }
 #sidebar #userInfo img {
   width: 34px;
@@ -6222,29 +6248,41 @@ body:not(.sidebar-expanded) #sidebar .user-info .login-card button {
   gap: 6px;
 }
 body.sidebar-expanded #sidebar .title-group {
-  display: flex;
-  min-width: 0;
+  opacity: 1;
+  max-width: 220px;
+  pointer-events: auto;
+  transition: opacity 0.2s ease 0.08s, max-width 0.26s ease;
 }
 body.sidebar-expanded #sidebar .label {
-  display: block;
+  opacity: 1;
+  transform: translateX(0);
   min-width: 0;
+  pointer-events: auto;
+  transition: opacity 0.2s ease 0.1s, transform 0.2s ease 0.08s;
 }
 body.sidebar-expanded #sidebar .app-title,
 body.sidebar-expanded #sidebar .app-subtitle,
 body.sidebar-expanded #sidebar .version-text {
-  display: block;
+  opacity: 1;
+  max-width: 220px;
+  transform: translateX(0);
   min-width: 0;
+  pointer-events: auto;
+  transition: opacity 0.2s ease 0.08s, max-width 0.26s ease, transform 0.2s ease 0.06s;
 }
 body.sidebar-expanded #sidebar #userInfo {
   display: flex;
   justify-content: space-between;
 }
 body.sidebar-expanded #sidebar #userInfo > span {
-  display: inline;
+  opacity: 1;
+  max-width: 160px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: auto;
+  transition: opacity 0.2s ease 0.08s, max-width 0.26s ease;
 }
 body.sidebar-expanded #menu-list button.active .dot {
   display: block;
