@@ -15,6 +15,16 @@ const MAX_RETRIES = 3;
 
 function getFeedUrl() {
     if (process.env.UPDATE_FEED_URL) return process.env.UPDATE_FEED_URL;
+
+    try {
+        const ymlPath = path.join(process.resourcesPath, 'app-update.yml');
+        const yml = fs.readFileSync(ymlPath, 'utf8');
+        const match = yml.match(/^\s*url:\s*(.+?)\s*$/m);
+        if (match) return match[1].replace(/^["']|["']$/g, '');
+    } catch {
+        // not packaged or app-update.yml missing
+    }
+
     try {
         return require('../../package.json').build.publish.url;
     } catch {
