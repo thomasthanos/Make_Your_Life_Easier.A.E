@@ -9,6 +9,8 @@ const externalUpdater = require('./external-updater');
 let pendingUpdateInfo = null;
 let isChecking = false;
 let quittingForInstall = false;
+let updateInProgress = false;
+let updateCancelled = false;
 let retryCount = 0;
 let eventCtx = null;
 const MAX_RETRIES = 3;
@@ -66,31 +68,10 @@ async function launchAppAfterError(getUpdateWindow, getMainWindow, createMainWin
     }
 }
 
-function isRecentUpdateFailure() {
-    try {
-        const marker = path.join(app.getPath('userData'), '.update-failed');
-        const stat = fs.statSync(marker);
-        if (Date.now() - stat.mtimeMs < 15 * 60 * 1000) return true;
-        fs.unlinkSync(marker);
-    } catch {
-        // no marker
-    }
-    return false;
-}
-
-async function handOffToExternalUpdater(info, ctx) {
-    if (quittingForInstall) return;
-
-    if (isRecentUpdateFailure()) {
-        ctx.debug('warn', 'Skipping update handoff: a recent update attempt failed');
-        sendUpdateStatus(ctx.getUpdateWindow(), {
-            status: 'error',
-            message: 'Update postponed after a recent failure. Launching application...'
-        });
-        launchAppAfterError(ctx.getUpdateWindow, ctx.getMainWindow, ctx.createMainWindow)
-            .catch(e => ctx.debug('error', 'launchAppAfterError failed:', e));
-        return;
-    }
+async function performInAppUpdate(info, ctx) {
+    if (updateInProgress || quittingForInstall) return;
+    updateInProgress = true;
+    updateCancelled = false;
 
     try {
         await saveUpdateInfo(pendingUpdateInfo || {
@@ -99,13 +80,31 @@ async function handOffToExternalUpdater(info, ctx) {
             releaseNotes: info.releaseNotes
         });
 
+        const { stagingDir } = await externalUpdater.runInAppUpdate({
+            info,
+            feedUrl: getFeedUrl(),
+            isCancelled: () => updateCancelled,
+            debug: ctx.debug,
+            onStatus: (payload) => {
+                sendUpdateStatus(ctx.getUpdateWindow(), payload);
+                sendUpdateStatus(ctx.getMainWindow(), payload);
+            }
+        });
+
+        if (updateCancelled) {
+            updateInProgress = false;
+            await fs.promises.rm(stagingDir, { recursive: true, force: true }).catch(() => {});
+            abortToApp(ctx, 'Launching application...');
+            return;
+        }
+
         sendUpdateStatus(ctx.getUpdateWindow(), {
-            status: 'downloading',
-            message: 'Launching updater...',
+            status: 'extracting',
+            message: 'Applying update...',
             percent: 100
         });
 
-        externalUpdater.launchExternalUpdater({ info, feedUrl: getFeedUrl(), debug: ctx.debug });
+        externalUpdater.launchSwapper({ stagingDir, version: info.version, debug: ctx.debug });
         quittingForInstall = true;
 
         setTimeout(() => {
@@ -120,19 +119,22 @@ async function handOffToExternalUpdater(info, ctx) {
             app.quit();
         }, 300);
     } catch (err) {
-        ctx.debug('error', 'External updater handoff failed:', err.message);
-        sendUpdateStatus(ctx.getUpdateWindow(), {
-            status: 'error',
-            message: 'Update failed to start. Launching application...'
-        });
-        sendUpdateStatus(ctx.getMainWindow(), {
-            status: 'error',
-            message: 'Update failed to start.',
-            canRetry: false
-        });
-        launchAppAfterError(ctx.getUpdateWindow, ctx.getMainWindow, ctx.createMainWindow)
-            .catch(e => ctx.debug('error', 'launchAppAfterError failed:', e));
+        updateInProgress = false;
+        if (err && err.cancelled) {
+            ctx.debug('info', 'Update cancelled by user');
+            abortToApp(ctx, 'Launching application...');
+            return;
+        }
+        ctx.debug('error', 'In-app update failed:', err.message);
+        abortToApp(ctx, 'Update failed. Launching application...');
     }
+}
+
+function abortToApp(ctx, message) {
+    sendUpdateStatus(ctx.getUpdateWindow(), { status: 'error', message });
+    sendUpdateStatus(ctx.getMainWindow(), { status: 'error', message, canRetry: false });
+    launchAppAfterError(ctx.getUpdateWindow, ctx.getMainWindow, ctx.createMainWindow)
+        .catch(e => ctx.debug('error', 'launchAppAfterError failed:', e));
 }
 
 function isQuittingForInstall() {
@@ -171,6 +173,10 @@ function configureAutoUpdater() {
 
 async function cleanupExternalUpdaterLeftovers(debug) {
     if (!app.isPackaged) return;
+
+    // If we reached startup, the install dir is intact. Any leftover swap marker
+    // or staging dir is from an update that didn't complete; clearing them is safe.
+    await fs.promises.unlink(path.join(app.getPath('userData'), '.swap-pending')).catch(() => {});
 
     const installDir = path.dirname(process.execPath);
     for (const suffix of ['.staging', '.backup']) {
@@ -310,7 +316,7 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
         sendUpdateStatus(getUpdateWindow(), payload);
         sendUpdateStatus(getMainWindow(), payload);
 
-        handOffToExternalUpdater(info, eventCtx);
+        performInAppUpdate(info, eventCtx);
     });
 
     autoUpdater.on('update-not-available', async () => {
@@ -407,11 +413,20 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
             if (!pendingUpdateInfo || !eventCtx) {
                 return { success: false, error: 'No pending update' };
             }
-            await handOffToExternalUpdater(pendingUpdateInfo, eventCtx);
+            performInAppUpdate(pendingUpdateInfo, eventCtx);
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
         }
+    });
+
+    ipcMain.handle('cancel-update', async () => {
+        if (updateInProgress && !quittingForInstall) {
+            updateCancelled = true;
+            debug('info', 'Update cancellation requested');
+            return { success: true };
+        }
+        return { success: false, error: 'No update in progress' };
     });
 
     ipcMain.handle('app-ready', async (event, size) => {

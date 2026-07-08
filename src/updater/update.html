@@ -217,6 +217,30 @@
         display: none;
       }
 
+      .cancel-btn {
+        position: relative;
+        z-index: 1;
+        margin-top: 18px;
+        padding: 8px 22px;
+        color: rgba(245, 248, 255, 0.7);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        transition: color 0.2s, background 0.2s;
+      }
+
+      .cancel-btn:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      .cancel-btn[hidden] {
+        display: none;
+      }
+
       @keyframes shimmer {
         0% { background-position: 200% 0; }
         100% { background-position: -200% 0; }
@@ -277,6 +301,7 @@
           </div>
         </div>
       </div>
+      <button id="cancel-btn" class="cancel-btn" type="button" hidden>Cancel</button>
     </div>
 
     <script src="../config/favicon-config.js"></script>

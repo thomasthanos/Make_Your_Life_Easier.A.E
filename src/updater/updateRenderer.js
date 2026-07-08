@@ -9,16 +9,30 @@ window.addEventListener('DOMContentLoaded', () => {
   const progressSizeEl = document.getElementById('progress-size');
   const progressSpeedEl = document.getElementById('progress-speed');
   const progressEtaEl = document.getElementById('progress-eta');
+  const cancelBtn = document.getElementById('cancel-btn');
 
   let lastProgress = 0;
   let currentPhase = 'init';
   let lastDownloadDetails = {};
+  let cancelling = false;
 
   function setMode(mode) {
     if (!cardEl) return;
     const isDownloading = mode === 'downloading';
     cardEl.classList.toggle('is-downloading', isDownloading);
     cardEl.classList.toggle('is-message', !isDownloading);
+    if (cancelBtn && !cancelling) {
+      cancelBtn.hidden = !isDownloading;
+    }
+  }
+
+  if (cancelBtn && window.api && typeof window.api.cancelUpdate === 'function') {
+    cancelBtn.addEventListener('click', () => {
+      if (cancelling) return;
+      cancelling = true;
+      cancelBtn.hidden = true;
+      window.api.cancelUpdate().catch(() => {});
+    });
   }
 
   function formatDecimal(value, fallback = '0.00') {
@@ -121,6 +135,11 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         break;
       }
+
+      case 'extracting':
+        setMode('message');
+        updateProgress(100, data.message || 'Extracting update...', 'update-install');
+        break;
 
       case 'downloaded':
         setMode('downloading');

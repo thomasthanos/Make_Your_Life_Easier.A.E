@@ -2,9 +2,6 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
-using System.IO.Compression;
-using System.Net;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
@@ -16,8 +13,7 @@ namespace MyleUpdater
         public int Pid;
         public string AppDir;
         public string ExeName;
-        public string Url;
-        public string Sha512;
+        public string StagingDir;
         public string Version;
         public string UserData;
 
@@ -32,17 +28,16 @@ namespace MyleUpdater
                     case "--pid": o.Pid = int.Parse(value); break;
                     case "--app-dir": o.AppDir = Path.GetFullPath(value); break;
                     case "--exe": o.ExeName = value; break;
-                    case "--url": o.Url = value; break;
-                    case "--sha512": o.Sha512 = value.Trim(); break;
+                    case "--staging": o.StagingDir = Path.GetFullPath(value); break;
                     case "--version": o.Version = value; break;
                     case "--user-data": o.UserData = Path.GetFullPath(value); break;
                 }
             }
             if (o.Pid <= 0 || string.IsNullOrEmpty(o.AppDir) || string.IsNullOrEmpty(o.ExeName) ||
-                string.IsNullOrEmpty(o.Url) || string.IsNullOrEmpty(o.Sha512) ||
-                string.IsNullOrEmpty(o.Version) || string.IsNullOrEmpty(o.UserData))
+                string.IsNullOrEmpty(o.StagingDir) || string.IsNullOrEmpty(o.Version) ||
+                string.IsNullOrEmpty(o.UserData))
             {
-                throw new ArgumentException("Usage: Updater.exe --pid <n> --app-dir <path> --exe <name> --url <url> --sha512 <base64> --version <x.y.z> --user-data <path>");
+                throw new ArgumentException("Usage: Updater.exe --pid <n> --app-dir <path> --exe <name> --staging <path> --version <x.y.z> --user-data <path>");
             }
             return o;
         }
@@ -145,8 +140,8 @@ namespace MyleUpdater
     {
         readonly Options _opts;
         readonly Label _status;
-        readonly Label _detail;
-        readonly ProgressBar _bar;
+        readonly System.Windows.Forms.Timer _revealTimer;
+        bool _closing;
         public int ExitCode;
 
         public UpdaterForm(Options opts)
@@ -155,8 +150,10 @@ namespace MyleUpdater
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.CenterScreen;
             TopMost = true;
-            ShowInTaskbar = true;
-            ClientSize = new Size(400, 148);
+            ShowInTaskbar = false;
+            WindowState = FormWindowState.Minimized;
+            Opacity = 0;
+            ClientSize = new Size(400, 120);
             BackColor = Color.FromArgb(23, 23, 23);
             Text = "Make Your Life Easier - Updater";
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
@@ -168,45 +165,36 @@ namespace MyleUpdater
                 Font = new Font("Segoe UI", 12f, FontStyle.Bold),
                 AutoSize = false,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Bounds = new Rectangle(0, 18, 400, 28)
+                Bounds = new Rectangle(0, 24, 400, 28)
             };
 
             _status = new Label
             {
-                Text = "Preparing update...",
+                Text = "Applying update...",
                 ForeColor = Color.FromArgb(190, 190, 190),
                 Font = new Font("Segoe UI", 9.5f),
                 AutoSize = false,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Bounds = new Rectangle(0, 52, 400, 22)
+                Bounds = new Rectangle(0, 60, 400, 22)
             };
 
-            _bar = new ProgressBar
+            var bar = new ProgressBar
             {
-                Bounds = new Rectangle(40, 86, 320, 8),
+                Bounds = new Rectangle(40, 90, 320, 8),
                 Style = ProgressBarStyle.Marquee,
-                MarqueeAnimationSpeed = 25,
-                Minimum = 0,
-                Maximum = 100
-            };
-
-            _detail = new Label
-            {
-                Text = "v" + opts.Version,
-                ForeColor = Color.FromArgb(120, 120, 120),
-                Font = new Font("Segoe UI", 8.5f),
-                AutoSize = false,
-                TextAlign = ContentAlignment.MiddleCenter,
-                Bounds = new Rectangle(0, 108, 400, 20)
+                MarqueeAnimationSpeed = 25
             };
 
             Controls.Add(title);
             Controls.Add(_status);
-            Controls.Add(_bar);
-            Controls.Add(_detail);
+            Controls.Add(bar);
+
+            _revealTimer = new System.Windows.Forms.Timer { Interval = 1500 };
+            _revealTimer.Tick += (s, e) => Reveal();
 
             Shown += (s, e) =>
             {
+                _revealTimer.Start();
                 var worker = new Thread(Run) { IsBackground = true };
                 worker.Start();
             };
@@ -221,6 +209,18 @@ namespace MyleUpdater
             }
         }
 
+        void Reveal()
+        {
+            _revealTimer.Stop();
+            if (_closing) return;
+            WindowState = FormWindowState.Normal;
+            ShowInTaskbar = true;
+            Opacity = 1;
+            CenterToScreen();
+            TopMost = true;
+            Activate();
+        }
+
         void SetStatus(string text, Color? color = null)
         {
             BeginInvoke((Action)(() =>
@@ -230,83 +230,48 @@ namespace MyleUpdater
             }));
         }
 
-        void SetDetail(string text)
-        {
-            BeginInvoke((Action)(() => { _detail.Text = text; }));
-        }
-
-        void SetMarquee()
+        void CloseSelf()
         {
             BeginInvoke((Action)(() =>
             {
-                _bar.Style = ProgressBarStyle.Marquee;
-                _bar.MarqueeAnimationSpeed = 25;
-            }));
-        }
-
-        void SetProgress(int percent)
-        {
-            BeginInvoke((Action)(() =>
-            {
-                if (_bar.Style != ProgressBarStyle.Continuous) _bar.Style = ProgressBarStyle.Continuous;
-                _bar.Value = Math.Max(0, Math.Min(100, percent));
+                _closing = true;
+                _revealTimer.Stop();
+                Close();
             }));
         }
 
         void Run()
         {
             var appDir = _opts.AppDir.TrimEnd('\\');
-            var stagingDir = appDir + ".staging";
+            var stagingDir = _opts.StagingDir.TrimEnd('\\');
             var backupDir = appDir + ".backup";
-            var selfDir = Path.GetDirectoryName(Path.GetFullPath(Application.ExecutablePath));
-            var downloadDir = Path.Combine(selfDir, "download");
-            var zipPath = Path.Combine(downloadDir, "update-" + _opts.Version + ".zip");
             var appExePath = Path.Combine(appDir, _opts.ExeName);
+            var swapMarker = Path.Combine(_opts.UserData, ".swap-pending");
             bool installIntact = true;
 
             try
             {
-                Log.Write("=== updater start v" + _opts.Version + " pid=" + _opts.Pid + " appDir=" + appDir);
+                Log.Write("=== swapper start v" + _opts.Version + " pid=" + _opts.Pid + " appDir=" + appDir);
 
-                CleanupLeftovers(stagingDir, backupDir, selfDir);
+                FileOps.TryDeleteDir(backupDir, 3);
+                CleanupStaleSiblings();
 
-                SetStatus("Waiting for application to close...");
-                WaitForAppExit(appDir);
-
-                SetStatus("Downloading update...");
-                DownloadWithRetry(zipPath, downloadDir);
-
-                SetStatus("Verifying download...");
-                SetMarquee();
-                if (!VerifySha512(zipPath, _opts.Sha512))
+                if (!Directory.Exists(stagingDir))
                 {
-                    Log.Write("sha512 mismatch, retrying full download");
-                    FileOps.TryDeleteFile(zipPath);
-                    SetStatus("Verification failed. Retrying download...");
-                    DownloadWithRetry(zipPath, downloadDir);
-                    SetStatus("Verifying download...");
-                    SetMarquee();
-                    if (!VerifySha512(zipPath, _opts.Sha512))
-                    {
-                        FileOps.TryDeleteFile(zipPath);
-                        throw new UpdateException(4, "Checksum verification failed twice");
-                    }
+                    throw new UpdateException(5, "Staging directory not found: " + stagingDir);
                 }
-                Log.Write("sha512 verified");
 
-                SetStatus("Extracting files...");
-                ExtractToStaging(zipPath, stagingDir);
+                WaitForAppExit();
 
-                PreserveFiles(appDir, stagingDir);
+                try { File.WriteAllText(swapMarker, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString()); }
+                catch { }
 
-                SetStatus("Installing update...");
                 try
                 {
                     FileOps.RetryMove(appDir, backupDir, 10);
                 }
                 catch (Exception ex)
                 {
-                    FileOps.TryDeleteDir(stagingDir, 3);
                     throw new UpdateException(6, "Could not move current installation aside: " + ex.Message, ex);
                 }
 
@@ -320,11 +285,11 @@ namespace MyleUpdater
                 {
                     Log.Write("swap failed, rolling back: " + ex.Message);
                     SetStatus("Restoring previous version...", Color.FromArgb(230, 160, 60));
+                    Reveal();
                     try
                     {
                         FileOps.RetryMove(backupDir, appDir, 10);
                         installIntact = true;
-                        FileOps.TryDeleteDir(stagingDir, 3);
                         throw new UpdateException(6, "Update failed, previous version restored: " + ex.Message, ex);
                     }
                     catch (UpdateException) { throw; }
@@ -335,6 +300,7 @@ namespace MyleUpdater
                 }
 
                 Log.Write("swap complete");
+                FileOps.TryDeleteFile(swapMarker);
                 WriteJustUpdatedFlag();
                 FileOps.TryDeleteFile(Path.Combine(_opts.UserData, ".update-failed"));
                 UpdateUninstallRegistry();
@@ -342,39 +308,38 @@ namespace MyleUpdater
                 SetStatus("Starting application...");
                 bool relaunched = Relaunch(appExePath, appDir);
 
-                SetStatus("Cleaning up...");
                 FileOps.TryDeleteDir(backupDir, 5);
-                FileOps.TryDeleteFile(zipPath);
 
                 Log.Write("update finished successfully");
                 ExitCode = relaunched ? 0 : 8;
             }
             catch (UpdateException ex)
             {
-                Fail(ex.Code, ex.Message, installIntact, appExePath, appDir, zipPath);
+                Fail(ex.Code, ex.Message, installIntact, appExePath, appDir);
             }
             catch (Exception ex)
             {
-                Fail(9, ex.ToString(), installIntact, appExePath, appDir, zipPath);
+                Fail(9, ex.ToString(), installIntact, appExePath, appDir);
             }
             finally
             {
-                BeginInvoke((Action)Close);
+                CloseSelf();
             }
         }
 
-        void Fail(int code, string message, bool installIntact, string appExePath, string appDir, string zipPath)
+        void Fail(int code, string message, bool installIntact, string appExePath, string appDir)
         {
             Log.Write("FAILED (exit " + code + "): " + message);
             ExitCode = code;
-            FileOps.TryDeleteFile(zipPath);
             FileOps.TryDeleteFile(Path.Combine(_opts.UserData, "update-info.json"));
+            DeleteProgramDataUpdateInfo();
             try { File.WriteAllText(Path.Combine(_opts.UserData, ".update-failed"), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString()); }
             catch { }
 
             if (code == 7)
             {
                 SetStatus("Update failed", Color.FromArgb(220, 80, 80));
+                Reveal();
                 MessageBox.Show(
                     "The update failed and the previous version could not be restored.\nPlease reinstall the application from:\nhttps://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest",
                     "Make Your Life Easier - Update Failed",
@@ -382,20 +347,17 @@ namespace MyleUpdater
                 return;
             }
 
-            SetStatus("Update failed. Restarting application...", Color.FromArgb(220, 80, 80));
-            Thread.Sleep(4000);
             if (installIntact && File.Exists(appExePath))
             {
                 Relaunch(appExePath, appDir);
             }
         }
 
-        void CleanupLeftovers(string stagingDir, string backupDir, string selfDir)
+        void CleanupStaleSiblings()
         {
-            FileOps.TryDeleteDir(stagingDir, 3);
-            FileOps.TryDeleteDir(backupDir, 3);
             try
             {
+                var selfDir = Path.GetDirectoryName(Path.GetFullPath(Application.ExecutablePath));
                 var self = Path.GetFullPath(Application.ExecutablePath);
                 foreach (var file in Directory.GetFiles(selfDir, "Updater-*.exe"))
                 {
@@ -408,7 +370,7 @@ namespace MyleUpdater
             catch { }
         }
 
-        void WaitForAppExit(string appDir)
+        void WaitForAppExit()
         {
             try
             {
@@ -437,199 +399,8 @@ namespace MyleUpdater
             }
             catch (ArgumentException) { }
 
-            var deadline = DateTime.UtcNow.AddSeconds(10);
-            var prefix = appDir.TrimEnd('\\') + "\\";
-            while (DateTime.UtcNow < deadline)
-            {
-                if (!AnyProcessUnder(prefix)) break;
-                Thread.Sleep(500);
-            }
-            Log.Write("app processes exited");
-        }
-
-        static bool AnyProcessUnder(string prefix)
-        {
-            foreach (var p in Process.GetProcesses())
-            {
-                try
-                {
-                    var path = p.MainModule.FileName;
-                    if (path != null && path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return true;
-                }
-                catch { }
-                finally { p.Dispose(); }
-            }
-            return false;
-        }
-
-        void DownloadWithRetry(string zipPath, string downloadDir)
-        {
-            Directory.CreateDirectory(downloadDir);
-            var delays = new[] { 2000, 5000, 10000 };
-            for (int attempt = 0; ; attempt++)
-            {
-                try
-                {
-                    DownloadOnce(zipPath);
-                    return;
-                }
-                catch (UpdateException) { throw; }
-                catch (Exception ex)
-                {
-                    FileOps.TryDeleteFile(zipPath);
-                    Log.Write("download attempt " + (attempt + 1) + " failed: " + ex.Message);
-                    if (attempt >= delays.Length - 1)
-                    {
-                        throw new UpdateException(3, "Download failed after " + delays.Length + " attempts: " + ex.Message, ex);
-                    }
-                    SetStatus("Connection lost. Retrying (" + (attempt + 2) + "/" + delays.Length + ")...");
-                    SetMarquee();
-                    Thread.Sleep(delays[attempt]);
-                }
-            }
-        }
-
-        void DownloadOnce(string zipPath)
-        {
-            var request = (HttpWebRequest)WebRequest.Create(_opts.Url);
-            request.Method = "GET";
-            request.Timeout = 30000;
-            request.ReadWriteTimeout = 30000;
-            request.Headers["Cache-Control"] = "no-cache";
-
-            using (var response = (HttpWebResponse)request.GetResponse())
-            {
-                long total = response.ContentLength;
-                if (total > 0)
-                {
-                    var drive = new DriveInfo(Path.GetPathRoot(zipPath));
-                    if (drive.AvailableFreeSpace < total * 3)
-                    {
-                        throw new UpdateException(3, "Not enough free disk space (need " + FormatMb(total * 3) + " MB)");
-                    }
-                }
-
-                var sw = Stopwatch.StartNew();
-                long received = 0;
-                long lastUiUpdate = 0;
-                var buffer = new byte[81920];
-
-                using (var stream = response.GetResponseStream())
-                using (var file = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    int read;
-                    while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
-                    {
-                        file.Write(buffer, 0, read);
-                        received += read;
-
-                        if (sw.ElapsedMilliseconds - lastUiUpdate >= 150)
-                        {
-                            lastUiUpdate = sw.ElapsedMilliseconds;
-                            double speed = received / Math.Max(0.001, sw.Elapsed.TotalSeconds);
-                            if (total > 0)
-                            {
-                                int percent = (int)(received * 100 / total);
-                                SetProgress(percent);
-                                SetStatus("Downloading update... " + percent + "%");
-                                SetDetail(FormatMb(received) + " / " + FormatMb(total) + " MB  •  " + FormatMb((long)speed) + " MB/s");
-                            }
-                            else
-                            {
-                                SetStatus("Downloading update...");
-                                SetDetail(FormatMb(received) + " MB  •  " + FormatMb((long)speed) + " MB/s");
-                            }
-                        }
-                    }
-                }
-
-                if (total > 0 && received != total)
-                {
-                    throw new IOException("Incomplete download: " + received + "/" + total + " bytes");
-                }
-                Log.Write("downloaded " + received + " bytes");
-                SetProgress(100);
-                SetDetail("v" + _opts.Version);
-            }
-        }
-
-        static string FormatMb(long bytes)
-        {
-            return (bytes / 1048576.0).ToString("0.0");
-        }
-
-        static bool VerifySha512(string filePath, string expectedBase64)
-        {
-            using (var sha = SHA512.Create())
-            using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 1048576))
-            {
-                var hash = sha.ComputeHash(stream);
-                var computed = Convert.ToBase64String(hash);
-                return string.Equals(computed, expectedBase64, StringComparison.Ordinal);
-            }
-        }
-
-        void ExtractToStaging(string zipPath, string stagingDir)
-        {
-            try
-            {
-                FileOps.TryDeleteDir(stagingDir, 3);
-                Directory.CreateDirectory(stagingDir);
-                var root = Path.GetFullPath(stagingDir).TrimEnd('\\') + "\\";
-
-                using (var archive = ZipFile.OpenRead(zipPath))
-                {
-                    int count = 0;
-                    foreach (var entry in archive.Entries)
-                    {
-                        var destination = Path.GetFullPath(Path.Combine(stagingDir, entry.FullName));
-                        if (!destination.StartsWith(root, StringComparison.OrdinalIgnoreCase))
-                        {
-                            throw new IOException("Zip entry escapes staging dir: " + entry.FullName);
-                        }
-                        if (string.IsNullOrEmpty(entry.Name))
-                        {
-                            Directory.CreateDirectory(destination);
-                            continue;
-                        }
-                        Directory.CreateDirectory(Path.GetDirectoryName(destination));
-                        entry.ExtractToFile(destination, true);
-                        count++;
-                    }
-                    Log.Write("extracted " + count + " files to staging");
-                }
-
-                if (!File.Exists(Path.Combine(stagingDir, _opts.ExeName)) ||
-                    !Directory.Exists(Path.Combine(stagingDir, "resources")))
-                {
-                    throw new IOException("Staging sanity check failed: missing " + _opts.ExeName + " or resources dir");
-                }
-            }
-            catch (Exception ex)
-            {
-                FileOps.TryDeleteDir(stagingDir, 3);
-                throw new UpdateException(5, "Extraction failed: " + ex.Message, ex);
-            }
-        }
-
-        void PreserveFiles(string appDir, string stagingDir)
-        {
-            var preserve = new[] { "Uninstall MakeYourLifeEasier.exe", "resources\\app-update.yml" };
-            foreach (var relative in preserve)
-            {
-                try
-                {
-                    var source = Path.Combine(appDir, relative);
-                    var destination = Path.Combine(stagingDir, relative);
-                    if (File.Exists(source) && !File.Exists(destination))
-                    {
-                        Directory.CreateDirectory(Path.GetDirectoryName(destination));
-                        File.Copy(source, destination);
-                        Log.Write("preserved " + relative);
-                    }
-                }
-                catch (Exception ex) { Log.Write("preserve failed (" + relative + "): " + ex.Message); }
-            }
+            Thread.Sleep(500);
+            Log.Write("app exited");
         }
 
         void WriteJustUpdatedFlag()
@@ -640,6 +411,16 @@ namespace MyleUpdater
                 Log.Write("wrote .just-updated flag");
             }
             catch (Exception ex) { Log.Write("failed to write .just-updated: " + ex.Message); }
+        }
+
+        void DeleteProgramDataUpdateInfo()
+        {
+            try
+            {
+                var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                FileOps.TryDeleteFile(Path.Combine(programData, "MakeYourLifeEasier", "update-info.json"));
+            }
+            catch { }
         }
 
         void UpdateUninstallRegistry()
@@ -697,7 +478,6 @@ namespace MyleUpdater
         [STAThread]
         static int Main(string[] args)
         {
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
             try { Directory.SetCurrentDirectory(Path.GetTempPath()); } catch { }
 
             Options opts;
@@ -716,7 +496,7 @@ namespace MyleUpdater
             Application.SetCompatibleTextRenderingDefault(false);
             var form = new UpdaterForm(opts);
             Application.Run(form);
-            Log.Write("=== updater exit " + form.ExitCode);
+            Log.Write("=== swapper exit " + form.ExitCode);
             return form.ExitCode;
         }
     }

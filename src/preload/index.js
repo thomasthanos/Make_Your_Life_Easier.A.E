@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── Auto-Updater ──
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  cancelUpdate: () => ipcRenderer.invoke('cancel-update'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getUpdateInfo: () => ipcRenderer.invoke('get-update-info'),
   onUpdateStatus: (callback) => onEvent('update-status', callback),
