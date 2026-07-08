@@ -41,10 +41,17 @@ jobs:
         $pass = ConvertTo-SecureString $env:CERT_PASS -AsPlainText -Force
         Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pass | Out-Null
 
+    - name: Compile updater
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force src/resources/updater | Out-Null
+        & "$env:SystemRoot\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /optimize+ /out:src\resources\updater\Updater.exe /r:System.IO.Compression.FileSystem.dll /r:System.IO.Compression.dll /win32icon:src\assets\icons\hacker.ico tools\updater\Updater.cs
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
     - name: Build application
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      run: npm run build-all
+      run: npm run build-app
 
     - name: Publish update feed to R2
       shell: pwsh
@@ -61,6 +68,8 @@ jobs:
         aws s3 cp artifacts/dist/latest.yml "s3://$env:R2_BUCKET/latest.yml" --endpoint-url $endpoint --content-type "text/yaml" --cache-control "no-cache"
         aws s3 cp artifacts/dist/MakeYourLifeEasier-installer.exe "s3://$env:R2_BUCKET/MakeYourLifeEasier-installer.exe" --endpoint-url $endpoint
         aws s3 cp artifacts/dist/MakeYourLifeEasier-installer.exe.blockmap "s3://$env:R2_BUCKET/MakeYourLifeEasier-installer.exe.blockmap" --endpoint-url $endpoint
+        $zip = Get-ChildItem artifacts/dist/*-win.zip | Select-Object -First 1
+        aws s3 cp $zip.FullName "s3://$env:R2_BUCKET/$($zip.Name)" --endpoint-url $endpoint
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
@@ -69,6 +78,7 @@ jobs:
         files: |
           artifacts/dist/*.exe
           artifacts/dist/*.blockmap
+          artifacts/dist/*.zip
           artifacts/dist/latest.yml
         generate_release_notes: true
       env:

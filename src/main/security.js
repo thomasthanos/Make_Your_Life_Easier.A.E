@@ -25,6 +25,7 @@ function configureAppSecurity() {
 function shouldSkipUpdater() {
     return Boolean(process.env.ELECTRON_NO_UPDATER) ||
         Boolean(process.env.BYPASS_UPDATER) ||
+        Boolean(process.env.PORTABLE_EXECUTABLE_DIR) ||
         process.argv.includes('--no-updater');
 }
 

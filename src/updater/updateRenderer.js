@@ -91,8 +91,8 @@ window.addEventListener('DOMContentLoaded', () => {
         setMode('message');
         const sizeInfo = data.size ? ` (${data.size})` : '';
         const message = data.releaseName
-          ? `${data.releaseName} available${sizeInfo}! Downloading...`
-          : `Update available${sizeInfo}! Downloading...`;
+          ? `${data.releaseName} available${sizeInfo}! Preparing update...`
+          : `Update available${sizeInfo}! Preparing update...`;
         updateProgress(10, message, 'update-download');
         break;
       }

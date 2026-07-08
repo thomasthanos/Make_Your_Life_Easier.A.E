@@ -4,13 +4,23 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { saveUpdateInfo, readAndClearUpdateInfo } = require('./update-info');
+const externalUpdater = require('./external-updater');
 
 let pendingUpdateInfo = null;
 let isChecking = false;
 let quittingForInstall = false;
 let retryCount = 0;
-let downloadStartTime = null;
+let eventCtx = null;
 const MAX_RETRIES = 3;
+
+function getFeedUrl() {
+    if (process.env.UPDATE_FEED_URL) return process.env.UPDATE_FEED_URL;
+    try {
+        return require('../../package.json').build.publish.url;
+    } catch {
+        return null;
+    }
+}
 
 function sendUpdateStatus(window, payload) {
     if (window && !window.isDestroyed() && window.webContents) {
@@ -46,32 +56,73 @@ async function launchAppAfterError(getUpdateWindow, getMainWindow, createMainWin
     }
 }
 
-function performInstall(getUpdateWindow, getMainWindow, debug) {
-    if (quittingForInstall) return;
-    quittingForInstall = true;
-
+function isRecentUpdateFailure() {
     try {
-        fs.writeFileSync(path.join(app.getPath('userData'), '.just-updated'), Date.now().toString());
+        const marker = path.join(app.getPath('userData'), '.update-failed');
+        const stat = fs.statSync(marker);
+        if (Date.now() - stat.mtimeMs < 15 * 60 * 1000) return true;
+        fs.unlinkSync(marker);
     } catch {
-        // non-fatal: post-install launch will just do a normal update check
+        // no marker
+    }
+    return false;
+}
+
+async function handOffToExternalUpdater(info, ctx) {
+    if (quittingForInstall) return;
+
+    if (isRecentUpdateFailure()) {
+        ctx.debug('warn', 'Skipping update handoff: a recent update attempt failed');
+        sendUpdateStatus(ctx.getUpdateWindow(), {
+            status: 'error',
+            message: 'Update postponed after a recent failure. Launching application...'
+        });
+        launchAppAfterError(ctx.getUpdateWindow, ctx.getMainWindow, ctx.createMainWindow)
+            .catch(e => ctx.debug('error', 'launchAppAfterError failed:', e));
+        return;
     }
 
-    const updateWin = getUpdateWindow();
-    const mainWin = getMainWindow();
+    try {
+        await saveUpdateInfo(pendingUpdateInfo || {
+            version: info.version,
+            releaseName: info.releaseName,
+            releaseNotes: info.releaseNotes
+        });
 
-    sendUpdateStatus(updateWin, { status: 'downloaded', message: 'Installing update...', percent: 100 });
+        sendUpdateStatus(ctx.getUpdateWindow(), {
+            status: 'downloading',
+            message: 'Launching updater...',
+            percent: 100
+        });
 
-    setTimeout(() => {
-        try {
-            if (updateWin && !updateWin.isDestroyed()) updateWin.destroy();
-            if (mainWin && !mainWin.isDestroyed()) mainWin.destroy();
-            debug('info', 'Launching installer...');
-            autoUpdater.quitAndInstall(true, true);
-        } catch (err) {
-            debug('error', 'Failed to install update:', err.message);
+        externalUpdater.launchExternalUpdater({ info, feedUrl: getFeedUrl(), debug: ctx.debug });
+        quittingForInstall = true;
+
+        setTimeout(() => {
+            try {
+                const updateWin = ctx.getUpdateWindow();
+                const mainWin = ctx.getMainWindow();
+                if (updateWin && !updateWin.isDestroyed()) updateWin.destroy();
+                if (mainWin && !mainWin.isDestroyed()) mainWin.destroy();
+            } catch {
+                // windows already closing
+            }
             app.quit();
-        }
-    }, 250);
+        }, 300);
+    } catch (err) {
+        ctx.debug('error', 'External updater handoff failed:', err.message);
+        sendUpdateStatus(ctx.getUpdateWindow(), {
+            status: 'error',
+            message: 'Update failed to start. Launching application...'
+        });
+        sendUpdateStatus(ctx.getMainWindow(), {
+            status: 'error',
+            message: 'Update failed to start.',
+            canRetry: false
+        });
+        launchAppAfterError(ctx.getUpdateWindow, ctx.getMainWindow, ctx.createMainWindow)
+            .catch(e => ctx.debug('error', 'launchAppAfterError failed:', e));
+    }
 }
 
 function isQuittingForInstall() {
@@ -79,8 +130,8 @@ function isQuittingForInstall() {
 }
 
 function configureAutoUpdater() {
-    autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.allowPrerelease = false;
     autoUpdater.allowDowngrade = false;
     autoUpdater.disableDifferentialDownload = true;
@@ -97,9 +148,63 @@ function configureAutoUpdater() {
     } catch {
         // electron-log not available
     }
+
+    if (process.env.UPDATE_FEED_URL) {
+        autoUpdater.setFeedURL({ provider: 'generic', url: process.env.UPDATE_FEED_URL });
+        try {
+            autoUpdater.logger.warn(`UPDATE_FEED_URL override active: ${process.env.UPDATE_FEED_URL}`);
+        } catch {
+            // logger not available
+        }
+    }
+}
+
+async function cleanupExternalUpdaterLeftovers(debug) {
+    if (!app.isPackaged) return;
+
+    const installDir = path.dirname(process.execPath);
+    for (const suffix of ['.staging', '.backup']) {
+        const target = installDir + suffix;
+        try {
+            await fs.promises.rm(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 1000 });
+        } catch (err) {
+            debug('warn', `Failed to remove leftover ${target}:`, err.message);
+        }
+    }
+
+    try {
+        const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+        const updaterDir = path.join(localAppData, 'ThomasThanos', 'updater');
+        const dayMs = 24 * 60 * 60 * 1000;
+        const now = Date.now();
+
+        const staleExes = await fs.promises.readdir(updaterDir).catch(() => []);
+        for (const name of staleExes) {
+            if (!/^Updater-\d+\.exe$/i.test(name)) continue;
+            const filePath = path.join(updaterDir, name);
+            const stat = await fs.promises.stat(filePath).catch(() => null);
+            if (stat && now - stat.mtimeMs > dayMs) {
+                await fs.promises.unlink(filePath).catch(() => {});
+            }
+        }
+
+        const downloadDir = path.join(updaterDir, 'download');
+        const downloads = await fs.promises.readdir(downloadDir).catch(() => []);
+        for (const name of downloads) {
+            const filePath = path.join(downloadDir, name);
+            const stat = await fs.promises.stat(filePath).catch(() => null);
+            if (stat && now - stat.mtimeMs > dayMs) {
+                await fs.promises.rm(filePath, { recursive: true, force: true }).catch(() => {});
+            }
+        }
+    } catch (err) {
+        debug('warn', 'Failed to clean external updater leftovers:', err.message);
+    }
 }
 
 async function cleanupUpdaterCache(debug) {
+    await cleanupExternalUpdaterLeftovers(debug);
+
     try {
         const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
         const updaterCachePath = path.join(localAppData, 'make-your-life-easier-updater');
@@ -151,6 +256,8 @@ async function cleanupUpdaterCache(debug) {
 }
 
 function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, debug }) {
+    eventCtx = { getUpdateWindow, getMainWindow, createMainWindow, debug };
+
     autoUpdater.on('checking-for-update', () => {
         debug('info', 'Checking for updates...');
         sendUpdateStatus(getUpdateWindow(), {
@@ -162,7 +269,6 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
     autoUpdater.on('update-available', (info) => {
         debug('info', `Update available: v${info.version}`);
         retryCount = 0;
-        downloadStartTime = Date.now();
 
         pendingUpdateInfo = {
             version: info.version,
@@ -193,6 +299,8 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 
         sendUpdateStatus(getUpdateWindow(), payload);
         sendUpdateStatus(getMainWindow(), payload);
+
+        handOffToExternalUpdater(info, eventCtx);
     });
 
     autoUpdater.on('update-not-available', async () => {
@@ -228,74 +336,8 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
         }
     });
 
-    autoUpdater.on('download-progress', (progressObj) => {
-        const now = Date.now();
-        if (!downloadStartTime) downloadStartTime = now;
-
-        const bytesReceived = progressObj.transferred || 0;
-        const totalBytes = progressObj.total || 0;
-        const percent = Math.round(progressObj.percent || 0);
-
-        const elapsedSeconds = (now - downloadStartTime) / 1000;
-        const speed = elapsedSeconds > 0 ? bytesReceived / elapsedSeconds : 0;
-        const remainingBytes = totalBytes - bytesReceived;
-        const etaSeconds = speed > 0 ? remainingBytes / speed : 0;
-
-        const speedMB = (speed / (1024 * 1024)).toFixed(2);
-        const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
-        const receivedMB = (bytesReceived / (1024 * 1024)).toFixed(2);
-
-        const etaMinutes = Math.floor(etaSeconds / 60);
-        const etaRemainder = Math.floor(etaSeconds % 60);
-        const etaFormatted = etaMinutes > 0 ? `${etaMinutes}m ${etaRemainder}s` : `${etaRemainder}s`;
-
-        const message = speed > 0
-            ? `Downloading: ${percent}% (${receivedMB}/${totalMB} MB) • ${speedMB} MB/s • ETA: ${etaFormatted}`
-            : `Downloading update: ${percent}%`;
-
-        const payload = {
-            status: 'downloading',
-            message,
-            percent,
-            speed: speedMB,
-            eta: etaFormatted,
-            downloaded: receivedMB,
-            total: totalMB,
-            bytesPerSecond: speed,
-            transferred: bytesReceived,
-            totalBytes
-        };
-
-        sendUpdateStatus(getUpdateWindow(), payload);
-        sendUpdateStatus(getMainWindow(), payload);
-    });
-
-    autoUpdater.on('update-downloaded', (info) => {
-        debug('success', `Update downloaded: v${info.version}`);
-
-        const title = info.releaseName || '';
-        const version = info.version || '';
-        const message = title ? `${title} (v${version}) downloaded.` : `v${version} downloaded.`;
-
-        const payload = { status: 'downloaded', message, version, releaseName: title };
-        sendUpdateStatus(getUpdateWindow(), payload);
-        sendUpdateStatus(getMainWindow(), payload);
-
-        const infoToSave = pendingUpdateInfo || {
-            version: info.version,
-            releaseName: info.releaseName,
-            releaseNotes: info.releaseNotes
-        };
-        saveUpdateInfo(infoToSave).catch((err) => {
-            debug('warn', 'Failed to persist update info:', err.message);
-        });
-
-        performInstall(getUpdateWindow, getMainWindow, debug);
-    });
-
     autoUpdater.on('error', (err) => {
         isChecking = false;
-        downloadStartTime = null;
 
         const msg = (err && err.message) ? err.message : String(err);
         debug('error', 'Update error:', msg);
@@ -352,7 +394,10 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
 function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
     ipcMain.handle('download-update', async () => {
         try {
-            await autoUpdater.downloadUpdate();
+            if (!pendingUpdateInfo || !eventCtx) {
+                return { success: false, error: 'No pending update' };
+            }
+            await handOffToExternalUpdater(pendingUpdateInfo, eventCtx);
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
