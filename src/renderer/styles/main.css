@@ -6127,8 +6127,46 @@ body:not(.sidebar-expanded) #sidebar .dot {
   padding: 0.5rem 0.68rem 0.5rem 0.78rem;
   border-radius: 14px;
   box-sizing: border-box;
-  overflow: hidden;
-  transition: background .2s, border-color .2s, box-shadow .2s, color .2s, padding 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  transition: color .2s, padding 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#menu-list button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 1px;
+  right: 1px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  z-index: 0;
+  pointer-events: none;
+  transition: background .2s, border-color .2s, box-shadow .2s;
+}
+#menu-list button > * {
+  position: relative;
+  z-index: 1;
+}
+#menu-list button:hover {
+  background: transparent;
+  border-color: transparent;
+}
+#menu-list button.active {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+#menu-list button:hover::before {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+#menu-list button.active::before {
+  background: linear-gradient(180deg, rgba(10, 132, 255, 0.22), rgba(10, 132, 255, 0.11));
+  border-color: rgba(255, 255, 255, 0.13);
+  border-top-color: rgba(255, 255, 255, 0.2);
+  box-shadow: var(--gloss-sheen), 0 5px 14px rgba(10, 132, 255, 0.07);
 }
 #menu-list li {
   width: 100%;
@@ -6149,13 +6187,12 @@ body:not(.sidebar-expanded) #sidebar .dot {
   overflow: hidden;
 }
 #menu-list .menu-separator {
-  width: 100%;
-  max-width: 34px;
-  margin-left: auto;
-  margin-right: auto;
+  width: auto;
+  align-self: stretch;
+  margin-left: 10px;
+  margin-right: 10px;
   margin-top: 0.48rem;
   margin-bottom: 0.48rem;
-  transition: max-width 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 #menu-list .menu-separator-large {
   margin-top: 0.65rem;
@@ -6164,10 +6201,10 @@ body:not(.sidebar-expanded) #sidebar .dot {
 .sidebar-header {
   justify-content: flex-start;
   gap: 10px;
-  min-height: 66px;
+  min-height: 56px;
   margin-bottom: 0;
-  padding: 12px 20px;
-  transition: padding 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 10px 20px;
+  transition: padding 0.26s cubic-bezier(0.4, 0, 0.2, 1), min-height 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sidebar-footer {
   justify-content: flex-start;
@@ -6176,7 +6213,7 @@ body:not(.sidebar-expanded) #sidebar .dot {
   width: auto;
   max-width: none;
   min-height: 52px;
-  padding: 9px 12px;
+  padding: 9px 9px;
   margin-left: 8px;
   margin-right: 8px;
   box-sizing: border-box;
@@ -6195,6 +6232,7 @@ body:not(.sidebar-expanded) #sidebar .dot {
   display: flex;
   justify-content: flex-start;
   align-items: center;
+  gap: 10px;
   margin-right: auto;
   min-width: 0;
 }
@@ -6326,7 +6364,6 @@ body.sidebar-expanded #menu-list {
   overflow: hidden;
 }
 body.sidebar-expanded #menu-list .menu-separator {
-  max-width: 100%;
   margin-top: 0.36rem;
   margin-bottom: 0.36rem;
 }
