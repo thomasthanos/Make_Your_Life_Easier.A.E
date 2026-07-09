@@ -6124,7 +6124,7 @@ body:not(.sidebar-expanded) #sidebar .dot {
   width: 100%;
   min-height: 44px;
   margin: 0;
-  padding: 0.5rem 0.68rem 0.5rem 0.92rem;
+  padding: 0.5rem 0.68rem 0.5rem 0.78rem;
   border-radius: 14px;
   box-sizing: border-box;
   overflow: hidden;
