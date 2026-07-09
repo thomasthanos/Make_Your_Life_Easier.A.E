@@ -6149,9 +6149,13 @@ body:not(.sidebar-expanded) #sidebar .dot {
   overflow: hidden;
 }
 #menu-list .menu-separator {
-  width: 28px;
+  width: 100%;
+  max-width: 34px;
+  margin-left: auto;
+  margin-right: auto;
   margin-top: 0.48rem;
   margin-bottom: 0.48rem;
+  transition: max-width 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 #menu-list .menu-separator-large {
   margin-top: 0.65rem;
@@ -6166,14 +6170,18 @@ body:not(.sidebar-expanded) #sidebar .dot {
   transition: padding 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sidebar-footer {
-  justify-content: center;
+  justify-content: flex-start;
+  align-items: center;
   margin-top: 0;
-  width: 48px;
-  max-width: 48px;
-  padding: 8px 0;
-  margin-left: auto;
-  margin-right: auto;
+  width: auto;
+  max-width: none;
+  min-height: 52px;
+  padding: 9px 12px;
+  margin-left: 8px;
+  margin-right: 8px;
   box-sizing: border-box;
+  overflow: hidden;
+  transition: padding 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 #sidebar .title-group {
   display: flex;
@@ -6185,8 +6193,10 @@ body:not(.sidebar-expanded) #sidebar .dot {
 }
 #sidebar #userInfo {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
+  margin-right: auto;
+  min-width: 0;
 }
 #sidebar #userInfo > span {
   opacity: 0;
@@ -6316,7 +6326,7 @@ body.sidebar-expanded #menu-list {
   overflow: hidden;
 }
 body.sidebar-expanded #menu-list .menu-separator {
-  width: auto;
+  max-width: 100%;
   margin-top: 0.36rem;
   margin-bottom: 0.36rem;
 }
@@ -6332,7 +6342,7 @@ body.sidebar-expanded .sidebar-header {
   box-sizing: border-box;
 }
 body.sidebar-expanded .sidebar-footer {
-  justify-content: space-between;
+  justify-content: flex-start;
   margin-top: 0;
   width: auto;
   max-width: none;
