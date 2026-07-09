@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Make Your Life Easier - Windows System Management & Password Security</title>
-    <meta name="description" content="Comprehensive Windows system management tool with military-grade password manager, software installer, and system maintenance utilities.">
+    <title>Make Your Life Easier - Windows Desktop Toolkit</title>
+    <meta name="description" content="Make Your Life Easier is a Windows desktop toolkit for app installation, system maintenance, debloat tools, Spotify customization, BIOS restart, activation helpers, and auto-updates.">
     <style>
         * {
             margin: 0;
@@ -14,894 +14,744 @@
 
         :root {
             --primary: #7c3aed;
-            --primary-dark: #6d28d9;
-            --secondary: #3b82f6;
+            --primary-dark: #5b21b6;
+            --secondary: #0ea5e9;
             --accent: #10b981;
+            --warning: #f59e0b;
             --dark: #0f172a;
-            --dark-lighter: #1e293b;
-            --dark-card: rgba(30, 41, 59, 0.8);
-            --text: #f1f5f9;
-            --text-muted: #94a3b8;
-            --glass: rgba(255, 255, 255, 0.05);
-            --glass-border: rgba(255, 255, 255, 0.1);
+            --dark-soft: #162033;
+            --card: rgba(22, 32, 51, 0.84);
+            --text: #f8fafc;
+            --muted: #a8b3c7;
+            --line: rgba(255, 255, 255, 0.12);
+            --glass: rgba(255, 255, 255, 0.06);
+        }
+
+        html {
+            scroll-behavior: smooth;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background:
+                radial-gradient(circle at 15% 0%, rgba(124, 58, 237, 0.22), transparent 32rem),
+                radial-gradient(circle at 85% 10%, rgba(14, 165, 233, 0.18), transparent 34rem),
+                linear-gradient(135deg, #0f172a 0%, #172033 55%, #0b1120 100%);
             color: var(--text);
             line-height: 1.6;
             overflow-x: hidden;
         }
 
-        /* Animated background */
-        .bg-animation {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            overflow: hidden;
+        a {
+            color: inherit;
         }
 
-        .bg-circle {
-            position: absolute;
-            border-radius: 50%;
-            background: radial-gradient(circle, var(--primary) 0%, transparent 70%);
-            opacity: 0.1;
-            animation: float 20s infinite ease-in-out;
-        }
-
-        .bg-circle:nth-child(1) {
-            width: 400px;
-            height: 400px;
-            top: -200px;
-            left: -200px;
-            animation-delay: 0s;
-        }
-
-        .bg-circle:nth-child(2) {
-            width: 600px;
-            height: 600px;
-            bottom: -300px;
-            right: -300px;
-            animation-delay: 5s;
-        }
-
-        .bg-circle:nth-child(3) {
-            width: 300px;
-            height: 300px;
-            top: 50%;
-            left: 50%;
-            animation-delay: 10s;
-        }
-
-        @keyframes float {
-            0%, 100% {
-                transform: translate(0, 0) scale(1);
-            }
-            33% {
-                transform: translate(30px, -30px) scale(1.1);
-            }
-            66% {
-                transform: translate(-20px, 20px) scale(0.9);
-            }
-        }
-
-        /* Header */
         header {
-            position: fixed;
+            position: sticky;
             top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            padding: 1rem 0;
-            backdrop-filter: blur(20px);
-            background: rgba(15, 23, 42, 0.8);
-            border-bottom: 1px solid var(--glass-border);
-            transition: all 0.3s ease;
-        }
-
-        header.scrolled {
-            padding: 0.5rem 0;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 50;
+            background: rgba(15, 23, 42, 0.86);
+            border-bottom: 1px solid var(--line);
+            backdrop-filter: blur(18px);
         }
 
         nav {
-            max-width: 1200px;
+            max-width: 1180px;
             margin: 0 auto;
-            padding: 0 2rem;
+            padding: 0.9rem 1.5rem;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
         }
 
         .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text);
-            text-decoration: none;
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.65rem;
+            font-size: 1.15rem;
+            font-weight: 800;
+            text-decoration: none;
+            white-space: nowrap;
         }
 
-        .logo::before {
-            content: '🔐';
-            font-size: 2rem;
+        .logo-mark {
+            display: grid;
+            place-items: center;
+            width: 2.2rem;
+            height: 2.2rem;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            box-shadow: 0 10px 30px rgba(14, 165, 233, 0.24);
         }
 
         .nav-links {
             display: flex;
-            gap: 2rem;
+            align-items: center;
+            gap: 1.4rem;
             list-style: none;
         }
 
         .nav-links a {
-            color: var(--text-muted);
+            color: var(--muted);
+            font-weight: 600;
             text-decoration: none;
-            transition: color 0.3s;
-            font-weight: 500;
+            transition: color 0.2s ease;
         }
 
         .nav-links a:hover {
-            color: var(--primary);
+            color: var(--text);
         }
 
-        .cta-button {
-            padding: 0.75rem 1.5rem;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.3s;
-            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
-        }
-
-        .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(124, 58, 237, 0.5);
-        }
-
-        /* Hero Section */
-        .hero {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 8rem 2rem 4rem;
-        }
-
-        .hero-content {
-            max-width: 800px;
-            animation: fadeInUp 1s ease;
-        }
-
-        .hero h1 {
-            font-size: clamp(2.5rem, 5vw, 4rem);
-            font-weight: 800;
-            margin-bottom: 1.5rem;
-            background: linear-gradient(135deg, #ffffff 0%, var(--primary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .hero-subtitle {
-            font-size: clamp(1.1rem, 2vw, 1.5rem);
-            color: var(--text-muted);
-            margin-bottom: 2rem;
-            line-height: 1.8;
-        }
-
-        .hero-buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .btn-primary, .btn-secondary {
-            padding: 1rem 2rem;
-            border-radius: 10px;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all 0.3s;
+        .cta-button,
+        .btn-primary,
+        .btn-secondary {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 0.5rem;
+            min-height: 44px;
+            padding: 0.75rem 1.1rem;
+            border-radius: 8px;
+            font-weight: 800;
+            text-decoration: none;
+            transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
         }
 
+        .cta-button,
         .btn-primary {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: white;
-            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 30px rgba(124, 58, 237, 0.6);
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: #ffffff;
+            box-shadow: 0 14px 32px rgba(124, 58, 237, 0.28);
         }
 
         .btn-secondary {
             background: var(--glass);
             color: var(--text);
-            border: 1px solid var(--glass-border);
-            backdrop-filter: blur(10px);
+            border: 1px solid var(--line);
         }
 
+        .cta-button:hover,
+        .btn-primary:hover,
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: var(--primary);
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.28);
         }
 
-        /* Stats Section */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 2rem;
-            max-width: 1000px;
-            margin: 4rem auto;
-            padding: 0 2rem;
+        .hero {
+            min-height: 84vh;
+            display: flex;
+            align-items: center;
+            padding: 6rem 1.5rem 3rem;
         }
 
-        .stat-card {
-            text-align: center;
-            padding: 2rem;
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--primary);
-        }
-
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: var(--primary);
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-label {
-            color: var(--text-muted);
-            font-size: 1rem;
-        }
-
-        /* Features Section */
-        .section {
-            padding: 5rem 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .section-title {
-            text-align: center;
-            font-size: clamp(2rem, 4vw, 3rem);
-            font-weight: 800;
-            margin-bottom: 1rem;
-        }
-
-        .section-subtitle {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 1.2rem;
-            margin-bottom: 4rem;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-top: 3rem;
-        }
-
-        .feature-card {
-            padding: 2rem;
-            background: var(--dark-card);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            backdrop-filter: blur(20px);
-            transition: all 0.3s;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .feature-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
+        .hero-inner {
             width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            transform: scaleX(0);
-            transition: transform 0.3s;
+            max-width: 1180px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 380px;
+            gap: 3rem;
+            align-items: center;
         }
 
-        .feature-card:hover {
-            transform: translateY(-10px);
-            border-color: var(--primary);
-            box-shadow: 0 10px 40px rgba(124, 58, 237, 0.3);
-        }
-
-        .feature-card:hover::before {
-            transform: scaleX(1);
-        }
-
-        .feature-icon {
-            font-size: 3rem;
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
             margin-bottom: 1rem;
+            color: #bae6fd;
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+
+        h1 {
+            max-width: 760px;
+            font-size: clamp(2.45rem, 5vw, 4.9rem);
+            line-height: 1.02;
+            font-weight: 900;
+            letter-spacing: 0;
+            margin-bottom: 1.35rem;
+        }
+
+        .hero-subtitle {
+            max-width: 720px;
+            color: var(--muted);
+            font-size: clamp(1.05rem, 1.5vw, 1.28rem);
+            margin-bottom: 1.8rem;
+        }
+
+        .hero-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.85rem;
+        }
+
+        .hero-panel {
+            background: rgba(22, 32, 51, 0.72);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 1.25rem;
+            box-shadow: 0 22px 60px rgba(0, 0, 0, 0.32);
+        }
+
+        .panel-title {
+            color: var(--muted);
+            font-size: 0.86rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 0.9rem;
+        }
+
+        .quick-list {
+            list-style: none;
+            display: grid;
+            gap: 0.7rem;
+        }
+
+        .quick-list li {
+            display: grid;
+            grid-template-columns: 2rem 1fr;
+            gap: 0.75rem;
+            align-items: start;
+            color: var(--muted);
+        }
+
+        .quick-list strong {
             display: block;
-        }
-
-        .feature-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
             color: var(--text);
         }
 
-        .feature-card p {
-            color: var(--text-muted);
-            line-height: 1.8;
+        .icon {
+            display: grid;
+            place-items: center;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 8px;
+            background: rgba(124, 58, 237, 0.2);
+            color: #ddd6fe;
+            font-size: 1.05rem;
+        }
+
+        .section {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 4.5rem 1.5rem;
+        }
+
+        .section-header {
+            max-width: 760px;
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: clamp(2rem, 3vw, 3rem);
+            line-height: 1.12;
+            font-weight: 900;
+            margin-bottom: 0.75rem;
+        }
+
+        .section-subtitle {
+            color: var(--muted);
+            font-size: 1.08rem;
+        }
+
+        .stats {
+            max-width: 1180px;
+            margin: -2rem auto 1rem;
+            padding: 0 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .stat-card,
+        .feature-card,
+        .privacy-card,
+        .download-card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+        }
+
+        .stat-card {
+            padding: 1.2rem;
+        }
+
+        .stat-number {
+            color: #c4b5fd;
+            font-size: 1.65rem;
+            font-weight: 900;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            color: var(--muted);
+            font-weight: 650;
+        }
+
+        .features-grid,
+        .privacy-grid,
+        .download-options {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .feature-card,
+        .privacy-card,
+        .download-card {
+            padding: 1.35rem;
+        }
+
+        .feature-card h3,
+        .privacy-card h3,
+        .download-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.55rem;
+        }
+
+        .feature-card p,
+        .privacy-card p,
+        .download-card p {
+            color: var(--muted);
+            margin-bottom: 0.95rem;
         }
 
         .feature-list {
             list-style: none;
-            margin-top: 1rem;
+            display: grid;
+            gap: 0.45rem;
+            color: var(--muted);
         }
 
         .feature-list li {
-            padding: 0.5rem 0;
-            color: var(--text-muted);
             display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            gap: 0.55rem;
+            align-items: flex-start;
         }
 
         .feature-list li::before {
-            content: '✓';
+            content: "\2713";
             color: var(--accent);
-            font-weight: bold;
+            font-weight: 900;
+            line-height: 1.4;
         }
 
-        /* How to Use Section */
         .steps {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-top: 3rem;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 1rem;
         }
 
         .step {
-            text-align: center;
-            position: relative;
+            padding: 1.25rem;
+            border-left: 3px solid var(--primary);
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 8px;
         }
 
         .step-number {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin: 0 auto 1.5rem;
-            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+            color: #c4b5fd;
+            font-size: 1.65rem;
+            font-weight: 900;
         }
 
         .step h3 {
-            font-size: 1.3rem;
-            margin-bottom: 1rem;
+            margin: 0.35rem 0 0.4rem;
         }
 
         .step p {
-            color: var(--text-muted);
+            color: var(--muted);
         }
 
-        /* Screenshot Section */
-        .screenshot-container {
-            margin-top: 4rem;
-            text-align: center;
+        .notice {
+            margin-top: 1.25rem;
+            padding: 1rem 1.1rem;
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            border-radius: 8px;
+            background: rgba(245, 158, 11, 0.08);
+            color: #fde68a;
         }
 
         .screenshot {
-            max-width: 100%;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--glass-border);
-            transition: all 0.3s;
+            width: 100%;
+            height: auto;
+            margin-top: 2rem;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
         }
 
-        .screenshot:hover {
-            transform: scale(1.02);
-            box-shadow: 0 25px 80px rgba(124, 58, 237, 0.3);
-        }
-
-        /* Security Section */
-        .security-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-            margin-top: 3rem;
-        }
-
-        .security-badge {
-            padding: 2rem;
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            text-align: center;
-        }
-
-        .security-badge-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            display: block;
-        }
-
-        .security-badge h4 {
-            font-size: 1.2rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .security-badge p {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-
-        /* Download Section */
         .download-section {
-            background: var(--dark-card);
-            border: 1px solid var(--glass-border);
-            border-radius: 30px;
-            padding: 4rem 2rem;
-            text-align: center;
-            margin-top: 4rem;
-            backdrop-filter: blur(20px);
+            background: rgba(22, 32, 51, 0.6);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 2rem;
         }
 
         .download-options {
-            display: flex;
-            gap: 2rem;
-            justify-content: center;
-            margin-top: 2rem;
-            flex-wrap: wrap;
+            margin-top: 1.5rem;
         }
 
-        .download-card {
-            padding: 2rem;
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            border-radius: 15px;
-            min-width: 250px;
-            transition: all 0.3s;
+        .download-card .btn-primary,
+        .download-card .btn-secondary {
+            width: 100%;
         }
 
-        .download-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--primary);
-        }
-
-        .download-card h4 {
-            font-size: 1.3rem;
-            margin-bottom: 1rem;
-        }
-
-        .download-card p {
-            color: var(--text-muted);
-            margin-bottom: 1.5rem;
-        }
-
-        /* Footer */
         footer {
-            padding: 3rem 2rem;
+            margin-top: 2rem;
+            padding: 2.8rem 1.5rem;
+            border-top: 1px solid var(--line);
             text-align: center;
-            border-top: 1px solid var(--glass-border);
-            margin-top: 5rem;
+            color: var(--muted);
         }
 
         .footer-links {
             display: flex;
-            gap: 2rem;
             justify-content: center;
-            margin-bottom: 2rem;
+            gap: 1.2rem;
             flex-wrap: wrap;
+            margin-bottom: 1.2rem;
         }
 
         .footer-links a {
-            color: var(--text-muted);
+            color: var(--muted);
             text-decoration: none;
-            transition: color 0.3s;
+            font-weight: 700;
         }
 
         .footer-links a:hover {
-            color: var(--primary);
-        }
-
-        .social-links {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            margin-bottom: 2rem;
-        }
-
-        .social-link {
-            width: 40px;
-            height: 40px;
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             color: var(--text);
-            text-decoration: none;
-            transition: all 0.3s;
         }
 
-        .social-link:hover {
-            background: var(--primary);
-            border-color: var(--primary);
-            transform: translateY(-3px);
-        }
-
-        /* Animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .fade-in {
-            opacity: 0;
-            animation: fadeInUp 0.8s ease forwards;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .nav-links {
-                display: none;
-            }
-
-            .hero {
-                padding: 6rem 1rem 2rem;
-            }
-
-            .section {
-                padding: 3rem 1rem;
-            }
-
-            .features-grid,
-            .steps,
-            .security-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Scroll to top button */
         .scroll-top {
             position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            width: 50px;
-            height: 50px;
+            right: 1.5rem;
+            bottom: 1.5rem;
+            width: 46px;
+            height: 46px;
+            display: grid;
+            place-items: center;
+            border: 0;
+            border-radius: 999px;
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
+            color: #ffffff;
+            font-size: 1.25rem;
             cursor: pointer;
             opacity: 0;
             pointer-events: none;
-            transition: all 0.3s;
-            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
-            z-index: 999;
+            transition: opacity 0.2s ease, transform 0.2s ease;
         }
 
         .scroll-top.visible {
             opacity: 1;
-            pointer-events: all;
+            pointer-events: auto;
         }
 
         .scroll-top:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 30px rgba(124, 58, 237, 0.6);
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 920px) {
+            .hero-inner {
+                grid-template-columns: 1fr;
+            }
+
+            .stats,
+            .features-grid,
+            .privacy-grid,
+            .download-options,
+            .steps {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 720px) {
+            nav {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .nav-links {
+                width: 100%;
+                gap: 0.9rem;
+                overflow-x: auto;
+                padding-bottom: 0.2rem;
+            }
+
+            .cta-button {
+                width: 100%;
+            }
+
+            .hero {
+                min-height: auto;
+                padding-top: 3rem;
+            }
+
+            .stats,
+            .features-grid,
+            .privacy-grid,
+            .download-options,
+            .steps {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Background Animation -->
-    <div class="bg-animation">
-        <div class="bg-circle"></div>
-        <div class="bg-circle"></div>
-        <div class="bg-circle"></div>
-    </div>
-
-    <!-- Header -->
-    <header id="header">
+    <header>
         <nav>
-            <a href="#" class="logo">Make Your Life Easier</a>
+            <a href="#" class="logo">
+                <span class="logo-mark">&#9881;</span>
+                <span>Make Your Life Easier</span>
+            </a>
             <ul class="nav-links">
                 <li><a href="#features">Features</a></li>
                 <li><a href="#how-to-use">How to Use</a></li>
-                <li><a href="#security">Security</a></li>
+                <li><a href="#privacy">Privacy</a></li>
                 <li><a href="#download">Download</a></li>
             </ul>
-            <a href="#download" class="cta-button">Download Now</a>
+            <a href="#download" class="cta-button">Download</a>
         </nav>
     </header>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-content">
-            <h1>Make Your Life Easier</h1>
-            <p class="hero-subtitle">
-                The ultimate Windows system management tool with military-grade password security, 
-                one-click software installation, and powerful system maintenance utilities.
-            </p>
-            <div class="hero-buttons">
-                <a href="#download" class="btn-primary">
-                    📥 Download for Windows
-                </a>
-                <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E" class="btn-secondary">
-                    💻 View on GitHub
-                </a>
+    <main>
+        <section class="hero">
+            <div class="hero-inner">
+                <div>
+                    <div class="eyebrow">&#10022; Windows desktop toolkit</div>
+                    <h1>Make Your Life Easier</h1>
+                    <p class="hero-subtitle">
+                        A practical Windows app that helps you install popular software, clean and repair your system,
+                        launch trusted maintenance tools, customize Spotify with Spicetify, and keep the app updated automatically.
+                    </p>
+                    <div class="hero-buttons">
+                        <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest" class="btn-primary">&#11015; Download for Windows</a>
+                        <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E" class="btn-secondary">&#128187; View on GitHub</a>
+                    </div>
+                </div>
+
+                <aside class="hero-panel" aria-label="App overview">
+                    <div class="panel-title">Current app focus</div>
+                    <ul class="quick-list">
+                        <li>
+                            <span class="icon">&#128230;</span>
+                            <span><strong>App installer hub</strong>Install and manage popular apps through winget and custom downloads.</span>
+                        </li>
+                        <li>
+                            <span class="icon">&#128295;</span>
+                            <span><strong>Maintenance tools</strong>Clean cache, repair Windows files, reset network tools, and update apps.</span>
+                        </li>
+                        <li>
+                            <span class="icon">&#128274;</span>
+                            <span><strong>Privacy-first</strong>No telemetry, no ads, and no personal data collection for tracking.</span>
+                        </li>
+                    </ul>
+                </aside>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Stats -->
-    <div class="stats">
-        <div class="stat-card fade-in">
-            <div class="stat-number">AES-256</div>
-            <div class="stat-label">Military Encryption</div>
-        </div>
-        <div class="stat-card fade-in">
-            <div class="stat-number">10+</div>
-            <div class="stat-label">Pre-configured Apps</div>
-        </div>
-        <div class="stat-card fade-in">
-            <div class="stat-number">5</div>
-            <div class="stat-label">System Tools</div>
-        </div>
-        <div class="stat-card fade-in">
-            <div class="stat-number">2</div>
-            <div class="stat-label">Languages</div>
-        </div>
-    </div>
-
-    <!-- Features Section -->
-    <section id="features" class="section">
-        <h2 class="section-title">Powerful Features</h2>
-        <p class="section-subtitle">Everything you need to manage your Windows system and keep your passwords secure</p>
-        
-        <div class="features-grid">
-            <div class="feature-card fade-in">
-                <span class="feature-icon">🔐</span>
-                <h3>Password Manager</h3>
-                <p>Store your passwords with military-grade AES-256-GCM encryption</p>
-                <ul class="feature-list">
-                    <li>Master password protection</li>
-                    <li>Auto-fetch website logos</li>
-                    <li>Password strength validator</li>
-                    <li>Organized categories</li>
-                    <li>30-minute auto-logout</li>
-                </ul>
+        <section class="stats" aria-label="Highlights">
+            <div class="stat-card">
+                <div class="stat-number">4.5.2</div>
+                <div class="stat-label">Current version</div>
             </div>
+            <div class="stat-card">
+                <div class="stat-number">58</div>
+                <div class="stat-label">App catalog entries</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">EN / GR</div>
+                <div class="stat-label">Languages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">Win 10/11</div>
+                <div class="stat-label">Supported platform</div>
+            </div>
+        </section>
 
-            <div class="feature-card fade-in">
-                <span class="feature-icon">💻</span>
-                <h3>Software Manager</h3>
-                <p>Install popular applications with one click</p>
-                <ul class="feature-list">
-                    <li>Discord & BetterDiscord</li>
-                    <li>Epic Games Launcher</li>
-                    <li>Spotify & Ubisoft Connect</li>
-                    <li>Progress tracking</li>
-                    <li>Auto-installer launch</li>
-                </ul>
+        <section id="features" class="section">
+            <div class="section-header">
+                <h2 class="section-title">Features</h2>
+                <p class="section-subtitle">
+                    Focused on the tools that are currently available in the application.
+                </p>
             </div>
 
-            <div class="feature-card fade-in">
-                <span class="feature-icon">🛠️</span>
-                <h3>System Maintenance</h3>
-                <p>Keep your Windows running smoothly</p>
-                <ul class="feature-list">
-                    <li>SFC Scan & DISM Repair</li>
-                    <li>Temp files cleanup</li>
-                    <li>Windows Debloat</li>
-                    <li>Patch My PC integration</li>
-                    <li>Chris Titus Utility</li>
-                </ul>
+            <div class="features-grid">
+                <article class="feature-card">
+                    <h3>&#128230; App Installer</h3>
+                    <p>Install popular Windows applications from a curated winget-powered catalog.</p>
+                    <ul class="feature-list">
+                        <li>Search and select apps</li>
+                        <li>Install selected apps in bulk</li>
+                        <li>Check installed and upgradable packages</li>
+                        <li>List and grid views</li>
+                        <li>Export and import selected app lists</li>
+                    </ul>
+                </article>
+
+                <article class="feature-card">
+                    <h3>&#128295; System Maintenance</h3>
+                    <p>Run common cleanup, repair, and diagnostics actions from one place.</p>
+                    <ul class="feature-list">
+                        <li>Clean temporary files and cache</li>
+                        <li>Empty Recycle Bin and cleanup Windows Update cache</li>
+                        <li>Run SFC and DISM repair tools</li>
+                        <li>Flush DNS, renew IP, and reset network stack</li>
+                        <li>Launch Patch My PC for app updates</li>
+                    </ul>
+                </article>
+
+                <article class="feature-card">
+                    <h3>&#129529; Debloat</h3>
+                    <p>Download and launch Windows debloat and optimization tooling when you need deeper cleanup.</p>
+                    <ul class="feature-list">
+                        <li>Sparkle debloat integration</li>
+                        <li>Windows bloatware cleanup workflow</li>
+                        <li>Performance and privacy optimization focus</li>
+                        <li>Administrator prompts only when required</li>
+                    </ul>
+                </article>
+
+                <article class="feature-card">
+                    <h3>&#9835; Spicetify</h3>
+                    <p>Customize Spotify with Spicetify tools directly from the app.</p>
+                    <ul class="feature-list">
+                        <li>Install Spicetify</li>
+                        <li>Uninstall Spicetify</li>
+                        <li>Full Spotify and Spicetify uninstall option</li>
+                        <li>Live progress output for long-running tasks</li>
+                    </ul>
+                </article>
+
+                <article class="feature-card">
+                    <h3>&#9881; Windows Utilities</h3>
+                    <p>Access advanced Windows helper workflows without digging through menus.</p>
+                    <ul class="feature-list">
+                        <li>Chris Titus Tech WinUtil launcher</li>
+                        <li>Restart directly into BIOS/UEFI</li>
+                        <li>Windows activation helper</li>
+                        <li>Auto-login helper</li>
+                    </ul>
+                </article>
+
+                <article class="feature-card">
+                    <h3>&#128260; Updates and UI</h3>
+                    <p>Modern Electron interface with automatic update support.</p>
+                    <ul class="feature-list">
+                        <li>Automatic update checks</li>
+                        <li>Installer, portable, and zip builds</li>
+                        <li>Dark and light theme support</li>
+                        <li>English and Greek interface</li>
+                        <li>Optional settings sync when sign-in is configured</li>
+                    </ul>
+                </article>
+            </div>
+        </section>
+
+        <section id="how-to-use" class="section">
+            <div class="section-header">
+                <h2 class="section-title">How to Use</h2>
+                <p class="section-subtitle">Download, open the app, and choose the tool you need from the sidebar.</p>
             </div>
 
-            <div class="feature-card fade-in">
-                <span class="feature-icon">🎨</span>
-                <h3>Customization</h3>
-                <p>Personalize your experience</p>
-                <ul class="feature-list">
-                    <li>Spicetify for Spotify</li>
-                    <li>Dark-first interface</li>
-                    <li>Multi-language support</li>
-                    <li>Custom layouts</li>
-                </ul>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Download</h3>
+                    <p>Get the installer or portable version from the latest release.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Choose a Tool</h3>
+                    <p>Open Install Apps, System Maintenance, Debloat, Spicetify, BIOS, or Activation.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Run Actions</h3>
+                    <p>Select the action you want and follow any Windows permission prompts.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h3>Stay Updated</h3>
+                    <p>Use the built-in updater to keep the app current.</p>
+                </div>
             </div>
 
-            <div class="feature-card fade-in">
-                <span class="feature-icon">🔄</span>
-                <h3>Auto-Updates</h3>
-                <p>Stay up to date automatically</p>
-                <ul class="feature-list">
-                    <li>Silent background updates</li>
-                    <li>Changelog display</li>
-                    <li>GitHub releases integration</li>
-                    <li>Progress tracking</li>
-                    <li>No interruptions</li>
-                </ul>
+            <div class="notice">
+                Some tools make system-level changes and may require administrator rights. Review what each action does before running it.
             </div>
 
-            <div class="feature-card fade-in">
-                <span class="feature-icon">⚙️</span>
-                <h3>System Tools</h3>
-                <p>Advanced Windows utilities</p>
-                <ul class="feature-list">
-                    <li>Windows Activation</li>
-                    <li>Auto-login setup</li>
-                    <li>BIOS/UEFI restart</li>
-                    <li>Archive extraction</li>
-                    <li>UAC elevation</li>
-                </ul>
-            </div>
-        </div>
-    </section>
-
-    <!-- How to Use Section -->
-    <section id="how-to-use" class="section">
-        <h2 class="section-title">How to Use</h2>
-        <p class="section-subtitle">Get started in just a few simple steps</p>
-
-        <div class="steps">
-            <div class="step fade-in">
-                <div class="step-number">1</div>
-                <h3>Download & Install</h3>
-                <p>Download the installer or portable version and run it on your Windows PC</p>
-            </div>
-
-            <div class="step fade-in">
-                <div class="step-number">2</div>
-                <h3>Set Master Password</h3>
-                <p>Create a strong master password to protect your stored passwords with AES-256 encryption</p>
-            </div>
-
-            <div class="step fade-in">
-                <div class="step-number">3</div>
-                <h3>Start Managing</h3>
-                <p>Add passwords, install software, and maintain your system with just a few clicks</p>
-            </div>
-
-            <div class="step fade-in">
-                <div class="step-number">4</div>
-                <h3>Stay Secure</h3>
-                <p>Your data is encrypted locally with no cloud sync. Auto-lock keeps everything secure</p>
-            </div>
-        </div>
-
-        <!-- Screenshot placeholder -->
-        <div class="screenshot-container fade-in">
-            <img 
+            <img
                 class="screenshot"
                 src="https://i.postimg.cc/Ls8fLP83/collage-left-top-bottom.png"
                 width="1600"
                 height="600"
-                alt="Screenshot"
-            />
-        </div>
+                alt="Make Your Life Easier app screenshots"
+            >
+        </section>
 
-    </section>
-
-    <!-- Security Section -->
-    <section id="security" class="section">
-        <h2 class="section-title">Security First</h2>
-        <p class="section-subtitle">Your data security is our top priority</p>
-
-        <div class="security-grid">
-            <div class="security-badge fade-in">
-                <span class="security-badge-icon">🔒</span>
-                <h4>AES-256-GCM</h4>
-                <p>Military-grade encryption with authenticated encryption mode</p>
+        <section id="privacy" class="section">
+            <div class="section-header">
+                <h2 class="section-title">Privacy</h2>
+                <p class="section-subtitle">
+                    Make Your Life Easier does not collect personal data for tracking, advertising, telemetry, or analytics.
+                </p>
             </div>
 
-            <div class="security-badge fade-in">
-                <span class="security-badge-icon">🔑</span>
-                <h4>scrypt Hashing</h4>
-                <p>Key derivation with 2^14 cost factor prevents brute force attacks</p>
+            <div class="privacy-grid">
+                <article class="privacy-card">
+                    <h3>&#128274; No Personal Data Collection</h3>
+                    <p>The app does not collect personal data, does not run ads, and does not include analytics tracking.</p>
+                </article>
+                <article class="privacy-card">
+                    <h3>&#128187; Local-First Tools</h3>
+                    <p>Installer, maintenance, debloat, BIOS, activation, and Spicetify actions run on your own Windows device.</p>
+                </article>
+                <article class="privacy-card">
+                    <h3>&#9729; Optional Sign-In</h3>
+                    <p>If cloud sync is enabled, sign-in is optional and used only for account session and settings sync. The app works without signing in.</p>
+                </article>
             </div>
+        </section>
 
-            <div class="security-badge fade-in">
-                <span class="security-badge-icon">💾</span>
-                <h4>Local Storage</h4>
-                <p>All data stored locally on your device, never sent to cloud</p>
-            </div>
-
-            <div class="security-badge fade-in">
-                <span class="security-badge-icon">⏱️</span>
-                <h4>Auto-Lock</h4>
-                <p>Session timeout after 30 minutes of inactivity</p>
-            </div>
-
-            <div class="security-badge fade-in">
-                <span class="security-badge-icon">🚫</span>
-                <h4>No Telemetry</h4>
-                <p>Zero data collection, no analytics, complete privacy</p>
-            </div>
-
-            <div class="security-badge fade-in">
-                <span class="security-badge-icon">🛡️</span>
-                <h4>Context Isolation</h4>
-                <p>Renderer process isolated from Node.js for extra security</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Download Section -->
-    <section id="download" class="section">
-        <div class="download-section fade-in">
-            <h2 class="section-title">Download Now</h2>
-            <p class="section-subtitle">Choose your preferred installation method</p>
-
-            <div class="download-options">
-                <div class="download-card">
-                    <h4>💿 Installer</h4>
-                    <p>Full installation with Start Menu shortcuts and auto-updates</p>
-                    <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest" class="btn-primary">
-                        Download Installer
-                    </a>
+        <section id="download" class="section">
+            <div class="download-section">
+                <div class="section-header">
+                    <h2 class="section-title">Download</h2>
+                    <p class="section-subtitle">Choose the build that fits how you want to run the app.</p>
                 </div>
 
-                <div class="download-card">
-                    <h4>📦 Portable</h4>
-                    <p>No installation required, run directly from any location</p>
-                    <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest" class="btn-primary">
-                        Download Portable
-                    </a>
+                <div class="download-options">
+                    <article class="download-card">
+                        <h3>Installer</h3>
+                        <p>Standard Windows installation with shortcuts and app integration.</p>
+                        <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest/download/MakeYourLifeEasier-installer.exe" class="btn-primary">Download Installer</a>
+                    </article>
+
+                    <article class="download-card">
+                        <h3>Portable</h3>
+                        <p>Run the app without a full installation.</p>
+                        <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest/download/MakeYourLifeEasier-Portable.exe" class="btn-primary">Download Portable</a>
+                    </article>
+
+                    <article class="download-card">
+                        <h3>Source Code</h3>
+                        <p>View the project repository and release history.</p>
+                        <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E" class="btn-secondary">Open GitHub</a>
+                    </article>
                 </div>
 
-                <div class="download-card">
-                    <h4>💻 Source Code</h4>
-                    <p>Build from source and contribute to the project</p>
-                    <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E" class="btn-secondary">
-                        View on GitHub
-                    </a>
-                </div>
+                <p class="notice">
+                    System requirements: Windows 10/11 64-bit, 4GB RAM, and about 200MB free space.
+                </p>
             </div>
+        </section>
+    </main>
 
-            <p style="margin-top: 2rem; color: var(--text-muted);">
-                <strong>System Requirements:</strong> Windows 10/11 (64-bit) • 4GB RAM • 100MB Free Space
-            </p>
-        </div>
-    </section>
-
-    <!-- Footer -->
     <footer>
         <div class="footer-links">
             <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E">GitHub</a>
@@ -909,97 +759,27 @@
             <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/issues">Report Issue</a>
             <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/blob/main/README.md">Documentation</a>
         </div>
-
-        <div class="social-links">
-            <a href="https://github.com/thomasthanos" class="social-link" title="GitHub">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                </svg>
-            </a>
-        </div>
-
-        <p style="color: var(--text-muted); margin-top: 2rem;">
-            Made with ❤️ by <a href="https://github.com/thomasthanos" style="color: var(--primary); text-decoration: none;">ThomasThanos</a>
-        </p>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">
-            © 2024 Make Your Life Easier • MIT License
-        </p>
+        <p>Made by <a href="https://github.com/thomasthanos" style="color: #c4b5fd; text-decoration: none;">ThomasThanos</a></p>
+        <p style="margin-top: 0.45rem;">Copyright 2026 Make Your Life Easier. See the project license for usage terms.</p>
     </footer>
 
-    <!-- Scroll to Top Button -->
-    <div class="scroll-top" id="scrollTop">↑</div>
+    <button class="scroll-top" id="scrollTop" type="button" aria-label="Scroll to top">&#8593;</button>
 
     <script>
-        // Header scroll effect
-        const header = document.getElementById('header');
-        window.addEventListener('scroll', () => {
-            if (window.scrollY > 100) {
-                header.classList.add('scrolled');
-            } else {
-                header.classList.remove('scrolled');
-            }
-        });
+        const scrollTopBtn = document.getElementById("scrollTop");
 
-        // Scroll to top button
-        const scrollTopBtn = document.getElementById('scrollTop');
-        window.addEventListener('scroll', () => {
+        window.addEventListener("scroll", () => {
             if (window.scrollY > 500) {
-                scrollTopBtn.classList.add('visible');
+                scrollTopBtn.classList.add("visible");
             } else {
-                scrollTopBtn.classList.remove('visible');
+                scrollTopBtn.classList.remove("visible");
             }
         });
 
-        scrollTopBtn.addEventListener('click', () => {
+        scrollTopBtn.addEventListener("click", () => {
             window.scrollTo({
                 top: 0,
-                behavior: 'smooth'
-            });
-        });
-
-        // Smooth scroll for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
-
-        // Intersection Observer for fade-in animations
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.style.opacity = '1';
-                    entry.target.style.transform = 'translateY(0)';
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, observerOptions);
-
-        document.querySelectorAll('.fade-in').forEach(el => {
-            observer.observe(el);
-        });
-
-        // Parallax effect for background circles
-        window.addEventListener('mousemove', (e) => {
-            const circles = document.querySelectorAll('.bg-circle');
-            const x = e.clientX / window.innerWidth;
-            const y = e.clientY / window.innerHeight;
-
-            circles.forEach((circle, index) => {
-                const speed = (index + 1) * 20;
-                circle.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
+                behavior: "smooth"
             });
         });
     </script>
