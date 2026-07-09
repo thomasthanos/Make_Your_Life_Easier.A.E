@@ -780,7 +780,15 @@ export async function buildCleanerPage() {
 
     // Pull the shared module state into this instance's DOM. Called on mount and
     // whenever the shared scan changes phase (start / mode change / done).
+    let wasMounted = false;
     function renderFromState() {
+        if (container.isConnected) {
+            wasMounted = true;
+        } else if (wasMounted) {
+            if (cleanerActiveRender === renderFromState) cleanerActiveRender = null;
+            return;
+        }
+
         scanning = cleanerState.scanning;
 
         if (Array.isArray(cleanerState.results)) {
@@ -929,7 +937,7 @@ export async function buildMaintenancePage(translations, _settings) {
         translations.maintenance?.flush_dns_desc || 'Clear the DNS resolver cache',
         'dns',
         translations.actions?.flush || 'Flush',
-        flushDnsCache, false, true
+        flushDnsCache, false
     );
     dnsCard.querySelector('button').classList.add('btn-standard-height');
 
@@ -938,7 +946,7 @@ export async function buildMaintenancePage(translations, _settings) {
         translations.maintenance?.release_renew_ip_desc || 'Release and renew IP address',
         'ip',
         translations.actions?.run || 'Run',
-        releaseRenewIp, false, true
+        releaseRenewIp, false
     );
     ipCard.querySelector('button').classList.add('btn-standard-height');
 
@@ -947,7 +955,7 @@ export async function buildMaintenancePage(translations, _settings) {
         translations.maintenance?.fix_bluetooth_desc || 'Restart Bluetooth services and adapter',
         'bluetooth',
         translations.actions?.fix || 'Fix',
-        fixBluetooth, true, true
+        fixBluetooth, true
     );
     btCard.querySelector('button').classList.add('btn-standard-height');
 
@@ -956,7 +964,7 @@ export async function buildMaintenancePage(translations, _settings) {
         translations.maintenance?.network_reset_desc || 'Reset Winsock, IP stack, and flush DNS',
         'reset',
         translations.actions?.reset || 'Reset',
-        networkReset, true, true
+        networkReset, true
     );
     netResetCard.querySelector('button').classList.add('btn-standard-height');
 
@@ -1160,7 +1168,7 @@ export async function buildMaintenancePage(translations, _settings) {
         translations.maintenance?.check_disk_desc || 'Scan C: drive for errors (read-only)',
         'disk',
         translations.actions?.check || 'Check',
-        checkDisk, true, true
+        checkDisk, true
     );
     checkDiskCard.querySelector('button').classList.add('btn-standard-height');
 
@@ -1169,7 +1177,7 @@ export async function buildMaintenancePage(translations, _settings) {
         translations.maintenance?.restart_audio_desc || 'Restart Windows Audio services',
         'audio',
         translations.actions?.restart || 'Restart',
-        restartAudioSystem, true, true
+        restartAudioSystem, true
     );
     audioCard.querySelector('button').classList.add('btn-standard-height');
 

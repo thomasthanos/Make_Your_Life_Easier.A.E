@@ -59,7 +59,5 @@ async function readAndClearUpdateInfo() {
 
 module.exports = {
     saveUpdateInfo,
-    readAndClearUpdateInfo,
-    primaryPath,
-    secondaryPath
+    readAndClearUpdateInfo
 };

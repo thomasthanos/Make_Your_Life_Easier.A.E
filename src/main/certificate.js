@@ -66,6 +66,5 @@ async function ensureCertificateTrusted() {
 }
 
 module.exports = {
-    ensureCertificateTrusted,
-    getCertificatePath
+    ensureCertificateTrusted
 };

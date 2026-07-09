@@ -59,7 +59,9 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
       try {
         if (!authWindow.isDestroyed() && authWindow.getBrowserView() === loaderView) {
           authWindow.setBrowserView(null);
-          loaderView.destroy();
+        }
+        if (!loaderView.webContents.isDestroyed()) {
+          loaderView.webContents.close();
         }
       } catch { }
     };
@@ -177,8 +179,6 @@ function loginDiscord(parentWindow) {
 }
 
 module.exports = {
-  openAuthWindow,
   loginGoogle,
-  loginDiscord,
-  toProfile
+  loginDiscord
 };

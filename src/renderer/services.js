@@ -114,39 +114,11 @@ export async function loadTranslations(lang) {
 }
 
 /**
- * Get current translations object
- * @returns {Object} Translations
- */
-export function getTranslations() {
-    return translations;
-}
-
-/**
  * Set translations object (for external use)
  * @param {Object} trans - Translations object
  */
 export function setTranslations(trans) {
     translations = trans;
-}
-
-// ============================================
-// WINDOW RESIZE
-// ============================================
-
-/**
- * Smoothly resize the Electron window
- * @param {number} targetWidth - Desired final width in pixels
- * @param {number} targetHeight - Desired final height in pixels
- */
-export async function resizeWindowSmooth(targetWidth, targetHeight) {
-    try {
-        // Simple, direct resize - no animation tricks
-        if (window.api && typeof window.api.setWindowSize === 'function') {
-            await window.api.setWindowSize(targetWidth, targetHeight);
-        }
-    } catch (err) {
-        // Ignore resize errors
-    }
 }
 
 // ============================================
@@ -191,13 +163,9 @@ export function initializeAutoUpdater() {
                     });
                     break;
                 }
-                case 'downloaded':
-                    showUpdateOverlay('Update downloaded');
-                    updateUpdateOverlay(100, 'Restarting to install update...', {
-                        bytesPerSecond: 0,
-                        transferred: data.totalBytes || 0,
-                        total: data.totalBytes || 0
-                    });
+                case 'extracting':
+                    showUpdateOverlay(data.message || 'Applying update...');
+                    updateUpdateOverlay(100, data.message || 'Applying update...');
                     break;
                 case 'error':
                     hideUpdateOverlay();
@@ -280,16 +248,12 @@ export function initializeAutoUpdater() {
                 break;
             }
 
-            case 'downloaded':
+            case 'extracting':
                 updateBtn.classList.remove('downloading');
                 updateBtn.classList.add('ready');
-                updateBtn.setAttribute('data-tooltip', 'Restarting to install update...');
-                showUpdateOverlay('Update downloaded');
-                updateUpdateOverlay(100, 'Restarting to install update...', {
-                    bytesPerSecond: 0,
-                    transferred: data.totalBytes || 0,
-                    total: data.totalBytes || 0
-                });
+                updateBtn.setAttribute('data-tooltip', 'Applying update...');
+                showUpdateOverlay(data.message || 'Applying update...');
+                updateUpdateOverlay(100, data.message || 'Applying update...');
                 break;
 
             case 'error':
@@ -366,41 +330,6 @@ export async function fetchReleaseNotesFromGithub() {
         console.error('Error fetching release notes from GitHub:', error);
         return null;
     }
-}
-
-/**
- * Parse markdown content (with fallback)
- * @param {string} notes - Markdown content
- * @returns {Promise<string>} HTML content
- */
-export async function parseMarkdown(notes) {
-    if (!notes) return '';
-    const text = typeof notes === 'string' ? notes : String(notes);
-
-    if (typeof window !== 'undefined' && window.marked && typeof window.marked.parse === 'function') {
-        try {
-            const escapedText = escapeHtml(text).replace(/&gt;/g, '>').replace(
-                /^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*\n((?:(?!^>\s*\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\])(?:>\s?.*|\s*)\n?)*)/gmi,
-                (match, type, contentBlock) => {
-                    const map = { NOTE: 'note', TIP: 'tip', IMPORTANT: 'important', WARNING: 'warning', CAUTION: 'caution' };
-                    const content = contentBlock
-                        .split('\n')
-                        .map((line) => line.replace(/^>\s?/, '').trim())
-                        .filter((line) => line && !/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/i.test(line))
-                        .join('<br>');
-
-                    return `<div class="changelog-alert ${map[type.toUpperCase()]}">${content}</div>`;
-                }
-            );
-            return window.marked.parse(escapedText)
-                .replace(/<blockquote>\s*<p>\s*(?:&gt;|>)?\s*<\/p>\s*<\/blockquote>/gi, '')
-                .replace(/(<div class="changelog-alert [^"]+">\s*)(?:&gt;|>)\s*/gi, '$1');
-        } catch (err) {
-            console.warn('Failed to parse markdown with marked, falling back', err);
-        }
-    }
-
-    return formatReleaseNotes(text);
 }
 
 /**
@@ -536,12 +465,7 @@ export async function showChangelog(updateInfo) {
     if (updateInfo.releaseNotes) {
         const notes = document.createElement('div');
         notes.className = 'changelog-notes';
-        let formattedNotes;
-        try {
-            formattedNotes = await parseMarkdown(updateInfo.releaseNotes);
-        } catch (err) {
-            formattedNotes = formatReleaseNotes(updateInfo.releaseNotes);
-        }
+        const formattedNotes = formatReleaseNotes(updateInfo.releaseNotes);
         notes.insertAdjacentHTML('beforeend', formattedNotes);
         notes.querySelectorAll('blockquote').forEach((quote) => {
             const text = quote.textContent.trim();

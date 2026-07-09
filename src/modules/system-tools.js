@@ -7,18 +7,8 @@ const { spawn } = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { runElevatedPowerShellScript, runElevatedPowerShellScriptHidden, getPowerShellExe } = require('./process-utils');
+const { getPowerShellExe } = require('./process-utils');
 const { debug } = require('./debug');
-
-function createSystemTask({ script, successMsg, errorMsg, hidden = false, guardMsg = 'This feature is only available on Windows' }) {
-  return async function () {
-    if (process.platform !== 'win32') {
-      return { success: false, error: guardMsg };
-    }
-    const runner = hidden ? runElevatedPowerShellScriptHidden : runElevatedPowerShellScript;
-    return runner(script, successMsg, errorMsg);
-  };
-}
 
 function runPowerShellJson(script) {
   return new Promise((resolve) => {
@@ -735,148 +725,6 @@ ${CLEANER_SCAN_PS}`;
 }
 
 /**
- * Run SFC scan with elevation
- * @returns {Promise<Object>}
- */
-/**
- * Run temporary files cleanup with elevation
- * @returns {Promise<Object>}
- */
-async function runTempCleanup() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const timestamp = Date.now();
-  const logFile = path.join(os.tmpdir(), `cleanup_log_${timestamp}.txt`);
-  const logFileEscaped = logFile.replace(/\\/g, '\\\\');
-
-  const psScript = `
-$logFile = "${logFileEscaped}"
-$log = @()
-$log += "=== TEMPORARY FILES CLEANUP ==="
-$log += "Started at: $(Get-Date)"
-$log += ""
-
-$totalCleaned = 0
-$totalErrors = 0
-
-# 1. Clean Recent files
-$log += "1. Cleaning Recent files..."
-$recentPath = [System.IO.Path]::Combine($env:APPDATA, "Microsoft", "Windows", "Recent")
-if (Test-Path $recentPath) {
-    try {
-        $items = Get-ChildItem $recentPath -Force -ErrorAction SilentlyContinue
-        $count = ($items | Measure-Object).Count
-        $items | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-        $totalCleaned += $count
-        $log += "   OK: Recent files cleaned ($count items)"
-    } catch {
-        $log += "   ERROR: $($_.Exception.Message)"
-        $totalErrors++
-    }
-} else {
-    $log += "   SKIP: Recent folder not found"
-}
-
-# 2. Clean Prefetch
-$log += "2. Cleaning Prefetch..."
-$prefetchPath = "$env:SystemRoot\\Prefetch"
-if (Test-Path $prefetchPath) {
-    try {
-        $items = Get-ChildItem $prefetchPath -Force -ErrorAction SilentlyContinue
-        $count = ($items | Measure-Object).Count
-        $items | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-        $totalCleaned += $count
-        $log += "   OK: Prefetch cleaned ($count items)"
-    } catch {
-        $log += "   ERROR: $($_.Exception.Message)"
-        $totalErrors++
-    }
-} else {
-    $log += "   SKIP: Prefetch folder not found"
-}
-
-# 3. Clean Windows Temp
-$log += "3. Cleaning Windows Temp..."
-$winTemp = "$env:SystemRoot\\Temp"
-if (Test-Path $winTemp) {
-    try {
-        $items = Get-ChildItem $winTemp -Force -ErrorAction SilentlyContinue
-        $count = ($items | Measure-Object).Count
-        $items | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-        $totalCleaned += $count
-        $log += "   OK: Windows Temp cleaned ($count items)"
-    } catch {
-        $log += "   ERROR: $($_.Exception.Message)"
-        $totalErrors++
-    }
-} else {
-    $log += "   SKIP: Windows Temp folder not found"
-}
-
-# 4. Clean User Temp
-$log += "4. Cleaning User Temp..."
-$userTemp = $env:TEMP
-if (Test-Path $userTemp) {
-    $items = Get-ChildItem $userTemp -Force -ErrorAction SilentlyContinue
-    $count = ($items | Measure-Object).Count
-    $deleted = 0
-    $skipped = 0
-    foreach ($item in $items) {
-        try {
-            Remove-Item $item.FullName -Force -Recurse -ErrorAction Stop
-            $deleted++
-        } catch {
-            $skipped++
-        }
-    }
-    $totalCleaned += $deleted
-    $log += "   OK: User Temp cleaned ($deleted items, $skipped skipped - in use)"
-} else {
-    $log += "   SKIP: User Temp not found"
-}
-
-$log += ""
-$log += "=== CLEANUP COMPLETED ==="
-$log += "Total items processed: $totalCleaned"
-$log += "Total errors: $totalErrors"
-$log += "Finished at: $(Get-Date)"
-
-# Write log to file
-$log | Out-File -FilePath $logFile -Encoding UTF8
-`;
-
-  const result = await runElevatedPowerShellScriptHidden(
-    psScript,
-    '✅ Temporary files cleanup completed successfully!',
-    'Administrator privileges required or cleanup failed. Please accept the UAC prompt and try again.'
-  );
-
-  // Read log file for details
-  try {
-    if (fs.existsSync(logFile)) {
-      const logContent = fs.readFileSync(logFile, 'utf8');
-      fs.unlinkSync(logFile);
-      result.details = logContent;
-
-      const match = logContent.match(/Total errors:\s+(\d+)/i);
-      const errorCount = match ? parseInt(match[1], 10) : 0;
-      if (!Number.isNaN(errorCount) && errorCount > 0) {
-        result.warning = true;
-        result.message = `Cleanup completed with warnings. Skipped or failed items: ${errorCount}.`;
-      }
-    } else {
-      debug('warn', '🧹 Cleanup may have been cancelled (UAC denied)');
-    }
-  } catch (e) {
-    // Ignore log file errors
-  }
-
-  return result;
-}
-
-/**
  * Restart computer to BIOS/UEFI
  * @returns {Promise<Object>}
  */
@@ -1356,129 +1204,6 @@ function runDismRepair(onOutput = () => { }) {
 }
 
 /**
- * Clean the Recycle Bin
- * @returns {Promise<Object>}
- */
-const cleanRecycleBin = createSystemTask({
-  hidden: true,
-  script: `
-Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-`,
-  successMsg: '✅ Recycle Bin emptied successfully!',
-  errorMsg: 'Failed to empty Recycle Bin.'
-});
-
-/**
- * Clean Windows Update cache
- * @returns {Promise<Object>}
- */
-async function cleanWindowsCache() {
-  if (process.platform !== 'win32') {
-    return { success: false, error: 'This feature is only available on Windows' };
-  }
-
-  const timestamp = Date.now();
-  const logFile = path.join(os.tmpdir(), `wincache_log_${timestamp}.txt`);
-  const logFileEscaped = logFile.replace(/\\/g, '\\\\');
-
-  const psScript = `
-$logFile = "${logFileEscaped}"
-$log = @()
-$log += "=== WINDOWS CACHE CLEANUP ==="
-$totalCleaned = 0
-
-# Stop Windows Update service
-Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
-
-# Clean Windows Update cache
-$wuPath = "$env:SystemRoot\\SoftwareDistribution\\Download"
-if (Test-Path $wuPath) {
-    $items = Get-ChildItem $wuPath -Force -ErrorAction SilentlyContinue
-    $count = ($items | Measure-Object).Count
-    $items | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-    $totalCleaned += $count
-    $log += "Windows Update cache: $count items cleaned"
-}
-
-# Restart Windows Update service
-Start-Service -Name wuauserv -ErrorAction SilentlyContinue
-
-$log += "Total items cleaned: $totalCleaned"
-$log | Out-File -FilePath $logFile -Encoding UTF8
-`;
-
-  const result = await runElevatedPowerShellScriptHidden(
-    psScript,
-    '✅ Windows cache cleaned successfully!',
-    'Failed to clean Windows cache. Please accept the UAC prompt.'
-  );
-
-  try {
-    if (fs.existsSync(logFile)) {
-      result.details = fs.readFileSync(logFile, 'utf8');
-      fs.unlinkSync(logFile);
-    }
-  } catch (e) { }
-
-  return result;
-}
-
-/**
- * Clear thumbnail cache
- * @returns {Promise<Object>}
- */
-const clearThumbnailCache = createSystemTask({
-  hidden: true,
-  script: `
-# Kill Explorer to release thumbnail DB locks
-Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 2
-
-$thumbPath = Join-Path $env:LOCALAPPDATA "Microsoft\\Windows\\Explorer"
-if (Test-Path $thumbPath) {
-    Get-ChildItem $thumbPath -Filter "thumbcache_*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-    Get-ChildItem $thumbPath -Filter "iconcache_*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-}
-
-# Restart Explorer
-Start-Process explorer.exe
-`,
-  successMsg: '✅ Thumbnail cache cleared successfully!',
-  errorMsg: 'Failed to clear thumbnail cache.'
-});
-
-/**
- * Clear error reports (CrashDumps)
- * @returns {Promise<Object>}
- */
-const clearErrorReports = createSystemTask({
-  hidden: true,
-  script: `
-$totalCleaned = 0
-
-# Clean CrashDumps
-$crashPath = Join-Path $env:LOCALAPPDATA "CrashDumps"
-if (Test-Path $crashPath) {
-    $items = Get-ChildItem $crashPath -Force -ErrorAction SilentlyContinue
-    $totalCleaned += ($items | Measure-Object).Count
-    $items | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-}
-
-# Clean Windows Error Reporting
-$werPath = Join-Path $env:LOCALAPPDATA "Microsoft\\Windows\\WER"
-if (Test-Path $werPath) {
-    $items = Get-ChildItem $werPath -Force -Recurse -ErrorAction SilentlyContinue
-    $totalCleaned += ($items | Measure-Object).Count
-    Get-ChildItem $werPath -Directory -Force -ErrorAction SilentlyContinue | ForEach-Object {
-        Remove-Item $_.FullName -Force -Recurse -ErrorAction SilentlyContinue
-    }
-}
-`,
-  successMsg: '✅ Error reports cleared successfully!',
-  errorMsg: 'Failed to clear error reports.'
-});
-
-/**
  * Flush DNS cache
  * @returns {Promise<Object>}
  */
@@ -1588,19 +1313,6 @@ Write-Host "Audio system restarted!" -ForegroundColor Green
 `, onOutput);
 }
 
-/**
- * Launch Windows Disk Cleanup utility (cleanmgr)
- * @returns {Promise<Object>}
- */
-const runDiskCleaner = createSystemTask({
-  hidden: true,
-  script: `
-Start-Process "cleanmgr.exe" -Verb RunAs
-`,
-  successMsg: '✅ Disk Cleanup utility launched!',
-  errorMsg: 'Failed to launch Disk Cleanup. Please accept the UAC prompt.'
-});
-
 module.exports = {
   runSfcScan,
   runDismRepair,
@@ -1609,19 +1321,13 @@ module.exports = {
   enableCleanerAdminSession,
   isCleanerAdminAlive,
   stopCleanerAdminSession,
-  runTempCleanup,
   restartToBios,
   runSparkleDebloat,
   runChrisTitus,
-  cleanRecycleBin,
-  cleanWindowsCache,
-  clearThumbnailCache,
-  clearErrorReports,
   flushDnsCache,
   releaseRenewIp,
   fixBluetooth,
   checkDisk,
   networkReset,
-  restartAudioSystem,
-  runDiskCleaner
+  restartAudioSystem
 };

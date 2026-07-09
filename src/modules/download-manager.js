@@ -67,7 +67,7 @@ function startDownload(id, url, dest, mainWindow) {
 
   const downloadsDir = path.join(os.homedir(), 'Downloads');
 
-  const start = (downloadUrl) => {
+  const start = (downloadUrl, redirects = 0) => {
     // Add timeout for slow connections (5 minutes)
     const DOWNLOAD_TIMEOUT = 5 * 60 * 1000;
 
@@ -77,8 +77,13 @@ function startDownload(id, url, dest, mainWindow) {
       // Handle HTTP redirects (3xx)
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
+        if (redirects >= 5) {
+          activeDownloads.delete(id);
+          safeSend(mainWindow, 'download-event', { id, status: 'error', error: 'Too many redirects' });
+          return;
+        }
         const nextUrl = new URL(res.headers.location, downloadUrl).toString();
-        start(nextUrl);
+        start(nextUrl, redirects + 1);
         return;
       }
 
@@ -125,7 +130,7 @@ function startDownload(id, url, dest, mainWindow) {
 
       const total = parseInt(res.headers['content-length'] || '0', 10);
       const file = fs.createWriteStream(tempPath);
-      const d = { response: res, file, total, received: 0, paused: false, filePath: tempPath, finalPath, lastProgress: Date.now(), cleaned: false };
+      const d = { response: res, file, total, received: 0, filePath: tempPath, finalPath, lastProgress: Date.now(), cleaned: false };
       activeDownloads.set(id, d);
 
       safeSend(mainWindow, 'download-event', { id, status: 'started', total });
@@ -161,7 +166,6 @@ function startDownload(id, url, dest, mainWindow) {
       }, STALL_CHECK_INTERVAL_MS);
 
       res.on('data', (chunk) => {
-        if (d.paused) return;
         d.received += chunk.length;
         d.lastProgress = Date.now(); // Update last progress timestamp
         const percent = total > 0 ? Math.round((d.received / total) * 100) : null;

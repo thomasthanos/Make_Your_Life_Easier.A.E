@@ -477,11 +477,6 @@ function matchWingetId(appId, pkgId) {
     return false;
 }
 
-// Make processAdvancedInstaller available globally for custom packages
-if (typeof window !== 'undefined') {
-    window.processAdvancedInstaller = processAdvancedInstaller;
-}
-
 // ============================================
 // WINGET AVAILABILITY CHECK
 // ============================================
@@ -1307,11 +1302,11 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         };
 
         const buildInstallCommand = (pkgId, pythonArgs, options = {}) => {
-            const { silent = false, userScope = false, ignoreHash = false, extraArgs = '' } = options;
+            const { silent = false, userScope = false, ignoreHash = false } = options;
             const silentArg = silent ? ' --silent' : '';
             const scopeArg = userScope ? ' --scope user' : '';
             const hashArg = ignoreHash ? ' --ignore-security-hash' : '';
-            return `winget install --id ${pkgId} -e${silentArg}${scopeArg}${hashArg} --accept-source-agreements --accept-package-agreements --source winget${pythonArgs}${extraArgs}`;
+            return `winget install --id ${pkgId} -e${silentArg}${scopeArg}${hashArg} --accept-source-agreements --accept-package-agreements --source winget${pythonArgs}`;
         };
 
         const isNoInstalledResult = (rawOutput = '') => {

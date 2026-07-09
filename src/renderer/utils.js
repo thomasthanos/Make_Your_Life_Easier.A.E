@@ -67,29 +67,20 @@ export function escapeHtml(text) {
  * until after the specified wait time has elapsed since the last call.
  * @param {Function} func - The function to debounce
  * @param {number} wait - Milliseconds to wait (default: 300)
- * @param {boolean} immediate - Execute on leading edge instead of trailing
  * @returns {Function} Debounced function with .cancel() method
  */
-export function debounce(func, wait = 300, immediate = false) {
+export function debounce(func, wait = 300) {
     let timeoutId = null;
 
     const debounced = function (...args) {
-        const callNow = immediate && !timeoutId;
-
         if (timeoutId) {
             clearTimeout(timeoutId);
         }
 
         timeoutId = setTimeout(() => {
             timeoutId = null;
-            if (!immediate) {
-                func.apply(this, args);
-            }
-        }, wait);
-
-        if (callNow) {
             func.apply(this, args);
-        }
+        }, wait);
     };
 
     debounced.cancel = function () {
@@ -213,42 +204,5 @@ export async function getAppVersionWithFallback() {
     return 'v1.0.0';
 }
 
-// ============================================
-// SVG DATA URL HELPER
-// ============================================
-
-// ============================================
-// UI HELPERS
-// ============================================
-
-/**
- * Auto-fade a status element after a delay
- * @param {HTMLElement} statusElement - The status element to fade
- * @param {number} delay - Delay in milliseconds before fading
- */
-export function autoFadeStatus(statusElement, delay = 5000) {
-    if (!statusElement || !statusElement.textContent || statusElement.textContent.trim() === '') return;
-
-    if (statusElement._autoFadeTimeout) {
-        clearTimeout(statusElement._autoFadeTimeout);
-    }
-    if (statusElement._fadeOutTimeout) {
-        clearTimeout(statusElement._fadeOutTimeout);
-    }
-
-    statusElement._autoFadeTimeout = setTimeout(() => {
-        if (!statusElement.isConnected) return;
-        statusElement.classList.add('status-element', 'fade-out');
-
-        statusElement._fadeOutTimeout = setTimeout(() => {
-            if (!statusElement.isConnected) return;
-            statusElement.classList.remove('visible');
-            statusElement.classList.add('status-element');
-            statusElement.classList.remove('fade-out');
-            statusElement.classList.add('reset');
-            statusElement.classList.remove('status-success', 'status-error', 'status-warning');
-        }, 500);
-    }, delay);
-}
 
 

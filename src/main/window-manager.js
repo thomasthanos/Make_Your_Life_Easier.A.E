@@ -134,7 +134,5 @@ module.exports = {
     getMainWindow,
     getUpdateWindow,
     createMainWindow,
-    createUpdateWindow,
-    MAIN_WINDOW,
-    WINDOW_BG_COLOR
+    createUpdateWindow
 };

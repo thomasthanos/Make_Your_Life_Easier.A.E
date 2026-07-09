@@ -26,10 +26,8 @@ async function initializeApp() {
     } catch (err) {
         debug('error', 'Failed to initialize application:', err);
 
-        showErrorCard({
-            title: 'Initialization Error',
-            message: `Failed to initialize application: ${err.message}`,
-            details: err.stack
+        showErrorCard(`Failed to initialize application: ${err.message}`, {
+            title: 'Initialization Error'
         });
     }
 }

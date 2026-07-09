@@ -63,13 +63,6 @@ contextBridge.exposeInMainWorld('api', {
   runCleanerTasks: (taskIds, options) => ipcRenderer.invoke('run-cleaner-tasks', taskIds, options),
   onCleanerProgress: (callback) => onEvent('cleaner-progress', callback),
   enableCleanerAdmin: () => ipcRenderer.invoke('cleaner-admin-enable'),
-  getCleanerAdminStatus: () => ipcRenderer.invoke('cleaner-admin-status'),
-  runTempCleanup: () => ipcRenderer.invoke('run-temp-cleanup'),
-  cleanRecycleBin: () => ipcRenderer.invoke('clean-recycle-bin'),
-  cleanWindowsCache: () => ipcRenderer.invoke('clean-windows-cache'),
-  clearThumbnailCache: () => ipcRenderer.invoke('clear-thumbnail-cache'),
-  clearErrorReports: () => ipcRenderer.invoke('clear-error-reports'),
-  runDiskCleaner: () => ipcRenderer.invoke('run-disk-cleaner'),
 
   // ── System Maintenance: Network & Connectivity ──
   flushDnsCache: () => ipcRenderer.invoke('flush-dns-cache'),

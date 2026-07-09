@@ -13,7 +13,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   let lastProgress = 0;
   let currentPhase = 'init';
-  let lastDownloadDetails = {};
   let cancelling = false;
 
   function setMode(mode) {
@@ -130,7 +129,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
         updateProgress(percent, text, phase);
         if (!isAppLoading) {
-          lastDownloadDetails = { ...lastDownloadDetails, ...data };
           updateDownloadMetrics(percent, data);
         }
         break;
@@ -139,17 +137,6 @@ window.addEventListener('DOMContentLoaded', () => {
       case 'extracting':
         setMode('message');
         updateProgress(100, data.message || 'Extracting update...', 'update-install');
-        break;
-
-      case 'downloaded':
-        setMode('downloading');
-        updateDownloadMetrics(100, { ...lastDownloadDetails, ...data });
-        updateProgress(100, 'Update downloaded! Installing...', 'update-install');
-        break;
-
-      case 'not-available':
-        setMode('message');
-        updateProgress(100, 'Launching application...', 'app-loading');
         break;
 
       case 'error': {

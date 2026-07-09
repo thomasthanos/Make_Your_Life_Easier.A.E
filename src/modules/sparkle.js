@@ -45,7 +45,7 @@ function withNoAsar(fn) {
  * @returns {string}
  */
 function getSparkleDir() {
-  const userRoaming = path.join(os.homedir(), 'AppData', 'Roaming');
+  const userRoaming = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
   return path.join(userRoaming, 'ThomasThanos', 'MakeYourLifeEasier', 'sparkle');
 }
 
@@ -62,7 +62,7 @@ function getSparkleExePath() {
  * @returns {string}
  */
 function getSparkleZipPath() {
-  const userRoaming = path.join(os.homedir(), 'AppData', 'Roaming');
+  const userRoaming = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
   const baseDir = path.join(userRoaming, 'ThomasThanos', 'MakeYourLifeEasier');
   return path.join(baseDir, 'sparkle.zip');
 }

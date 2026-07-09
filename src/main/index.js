@@ -269,14 +269,3 @@ app.on('before-quit', () => {
 app.on('will-quit', () => {
     try { debug('info', '👋 Application shutting down gracefully'); } catch { /* pipe closed */ }
 });
-
-// ============================================================================
-// Export for testing (optional)
-// ============================================================================
-
-module.exports = {
-    createMainWindow,
-    createUpdateWindow,
-    windowManager,
-    updater
-};

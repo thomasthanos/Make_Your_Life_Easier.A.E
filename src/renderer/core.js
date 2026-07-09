@@ -4,7 +4,7 @@
  */
 
 import { debug } from './utils.js';
-import { EventListenerManager, attachTooltipHandlers, buttonStateManager, detachAllDownloadUI, initDownloadListener } from './managers.js';
+import { attachTooltipHandlers, buttonStateManager, detachAllDownloadUI, initDownloadListener } from './managers.js';
 import { INFO_ICON, MENU_ICON, toast, openInfoModal, createMenuButton, hideAppLoader } from './components.js';
 import {
     loadSettings, saveSettings, applyTheme, loadTranslations, setTranslations,
@@ -23,9 +23,6 @@ const DEFAULT_WINDOW_HEIGHT = 750;
 let currentPage = null;
 let translations = {};
 let settings = {};
-
-// Page-specific event listener manager (cleaned up on page change)
-const pageEventManager = new EventListenerManager();
 
 // Use singleton buttonStateManager from managers.js (imported above)
 
@@ -212,10 +209,7 @@ export async function loadPage(key) {
     // Detach download UI callbacks before destroying DOM (downloads continue in background)
     detachAllDownloadUI();
 
-    // Cleanup previous page's event listeners and button states
-    if (pageEventManager) {
-        pageEventManager.cleanup();
-    }
+    // Cleanup previous page's button states
     buttonStateManager.resetAll();
 
     // Cleanup any pending debounced functions from previous page
@@ -404,7 +398,6 @@ export async function init() {
 export {
     translations,
     settings,
-    pageEventManager,
     menuKeys,
     updateHeader
 };

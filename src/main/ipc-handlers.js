@@ -108,6 +108,16 @@ function setupSettingsHandlers(settingsStore) {
     });
 }
 
+function splitCommandLine(command) {
+    const parts = [];
+    const re = /"([^"]*)"|(\S+)/g;
+    let match;
+    while ((match = re.exec(command)) !== null) {
+        parts.push(match[1] !== undefined ? match[1] : match[2]);
+    }
+    return parts;
+}
+
 function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
     ipcMain.handle('run-command', async (event, command) => {
         if (typeof command !== 'string' || !command.trim()) {
@@ -115,7 +125,7 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
         }
 
         const allowedCommands = ['winget'];
-        const parts = command.trim().split(/\s+/);
+        const parts = splitCommandLine(command.trim());
         const cmd = parts[0].toLowerCase();
 
         if (!allowedCommands.includes(cmd)) {
@@ -672,22 +682,13 @@ function setupSystemToolsHandlers(systemTools) {
     ipcMain.handle('cleaner-admin-enable', async () => {
         try { return await systemTools.enableCleanerAdminSession(); } catch (error) { return { success: false, error: error.message }; }
     });
-    ipcMain.handle('cleaner-admin-status', async () => {
-        try { return { enabled: await systemTools.isCleanerAdminAlive() }; } catch { return { enabled: false }; }
-    });
-    ipcMain.handle('run-temp-cleanup', safeWrap(() => systemTools.runTempCleanup()));
     ipcMain.handle('restart-to-bios', safeWrap(() => systemTools.restartToBios()));
-    ipcMain.handle('clean-recycle-bin', safeWrap(() => systemTools.cleanRecycleBin()));
-    ipcMain.handle('clean-windows-cache', safeWrap(() => systemTools.cleanWindowsCache()));
-    ipcMain.handle('clear-thumbnail-cache', safeWrap(() => systemTools.clearThumbnailCache()));
-    ipcMain.handle('clear-error-reports', safeWrap(() => systemTools.clearErrorReports()));
     ipcMain.handle('flush-dns-cache', runSystemRepair((onOutput) => systemTools.flushDnsCache(onOutput)));
     ipcMain.handle('release-renew-ip', runSystemRepair((onOutput) => systemTools.releaseRenewIp(onOutput)));
     ipcMain.handle('fix-bluetooth', runSystemRepair((onOutput) => systemTools.fixBluetooth(onOutput)));
     ipcMain.handle('check-disk', runSystemRepair((onOutput) => systemTools.checkDisk(onOutput)));
     ipcMain.handle('network-reset', runSystemRepair((onOutput) => systemTools.networkReset(onOutput)));
     ipcMain.handle('restart-audio-system', runSystemRepair((onOutput) => systemTools.restartAudioSystem(onOutput)));
-    ipcMain.handle('run-disk-cleaner', safeWrap(() => systemTools.runDiskCleaner()));
 }
 
 function setupSpicetifyHandlers(spicetifyModule) {
