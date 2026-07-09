@@ -6213,7 +6213,7 @@ body:not(.sidebar-expanded) #sidebar .dot {
   width: auto;
   max-width: none;
   min-height: 52px;
-  padding: 9px 9px;
+  padding: 9px;
   margin-left: 8px;
   margin-right: 8px;
   box-sizing: border-box;
