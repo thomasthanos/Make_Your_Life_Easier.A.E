@@ -70,15 +70,21 @@ export async function hydratePrefsFromCloud() {
 }
 
 function syncedSummary(all) {
+    const A = translations.account_ui || {};
+    const L = A.labels || {};
+    const V = A.values || {};
     const s = all || {};
     const queue = Array.isArray(s.selected_apps) ? s.selected_apps.length : 0;
     const view = s.installer_view || 'list';
     const sort = s.installer_sort || 'default';
+    const queueValue = queue
+        ? `${queue} ${queue === 1 ? (V.app || 'app') : (V.apps || 'apps')}`
+        : (V.empty || 'empty');
     return [
-        { label: 'Install queue', value: queue ? `${queue} app${queue !== 1 ? 's' : ''}` : 'empty' },
-        { label: 'Language', value: (s.lang || 'en').toUpperCase() },
-        { label: 'Sidebar', value: s.sidebarExpanded ? 'expanded' : 'collapsed' },
-        { label: 'Installer view', value: `${view} · ${sort}` }
+        { label: L.queue || 'Install queue', value: queueValue },
+        { label: L.language || 'Language', value: (s.lang || 'en').toUpperCase() },
+        { label: L.sidebar || 'Sidebar', value: s.sidebarExpanded ? (V.expanded || 'expanded') : (V.collapsed || 'collapsed') },
+        { label: L.view || 'Installer view', value: `${view} · ${sort}` }
     ];
 }
 
@@ -683,9 +689,10 @@ export async function ensureSidebarVersion(_state = {}) {
                             } catch (err) {
                                 debug('error', 'Reset failed:', err);
                             }
-                            toast('Synced settings reset.', { type: 'success', title: 'Account' });
+                            const A = translations.account_ui || {};
+                            toast(A.reset_done || 'Synced settings reset.', { type: 'success', title: A.title || 'Account' });
                         }
-                    });
+                    }, translations.account_ui || {});
                 };
                 userInfoEl._toggleHandler = handler;
                 userInfoEl.addEventListener('click', handler);

@@ -43,6 +43,28 @@
     "ready_hint": "Ready — one click to download and run.",
     "admin_badge": "Admin required"
   },
+  "account_ui": {
+    "title": "Account",
+    "synced": "Synced settings",
+    "empty": "No synced settings yet.",
+    "reset": "Reset synced settings",
+    "signout": "Sign out",
+    "via": "via",
+    "reset_done": "Synced settings reset.",
+    "labels": {
+      "queue": "Install queue",
+      "language": "Language",
+      "sidebar": "Sidebar",
+      "view": "Installer view"
+    },
+    "values": {
+      "empty": "empty",
+      "expanded": "expanded",
+      "collapsed": "collapsed",
+      "app": "app",
+      "apps": "apps"
+    }
+  },
   "cleaner_ui": {
     "title": "System Cleaner",
     "last_cleaned": "Last cleaned:",
@@ -200,6 +222,8 @@
     "temp_files_desc": "Delete temporary files for space",
     "system_file_repair": "SFC Scan",
     "system_file_desc": "Scan and repair system files",
+    "sfc_desc": "Scan and repair protected system files",
+    "dism_desc": "Repair the Windows component store image",
     "patch_my_pc": "Update Applications",
     "patch_my_pc_desc": "Automatically update all installed applications with one click",
     "cleanup_section": "Cleanup",
