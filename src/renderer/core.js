@@ -163,7 +163,8 @@ export function renderMenu() {
         const li = createMenuButton(key, label);
         const btn = li.querySelector('button[data-key]');
         if (btn) {
-            btn.setAttribute('data-tooltip', label);
+            const info = translations.menu_info && translations.menu_info[key];
+            btn.setAttribute('data-tooltip', info ? `${label}\n${info}` : label);
             btn.setAttribute('aria-label', label);
             attachTooltipHandlers(btn);
         }
@@ -212,6 +213,8 @@ export async function loadPage(key) {
     // Cleanup previous page's button states
     buttonStateManager.resetAll();
 
+    document.querySelectorAll('.bios-overlay').forEach((el) => el.remove());
+
     // Cleanup any pending debounced functions from previous page
     const prevSearchInput = document.querySelector('.search-input-styled');
     if (prevSearchInput && typeof prevSearchInput._searchCleanup === 'function') {
@@ -238,6 +241,7 @@ export async function loadPage(key) {
 
     // Now clear and load new content
     content.innerHTML = '';
+    try {
     // Import page builders dynamically to avoid circular dependencies
     const { buildInstallPageWingetWithCategories, buildCrackInstallerPage } = await import('./pages/installers.js');
     const { buildActivateAutologinPage } = await import('./pages/activation.js');
@@ -294,6 +298,10 @@ export async function loadPage(key) {
 
         default:
             content.textContent = '';
+    }
+    } catch (err) {
+        debug('error', 'Failed to load page:', err);
+        toast('Failed to load this page.', { type: 'error', title: 'Error' });
     }
 }
 

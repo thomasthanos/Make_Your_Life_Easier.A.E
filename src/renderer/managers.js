@@ -136,6 +136,7 @@ export const tooltipManager = (() => {
     function show(target, text, event) {
         const tooltip = ensure();
         tooltip.textContent = text;
+        tooltip.classList.toggle('multiline', String(text).includes('\n'));
         clearTimeout(tooltip._showTimer);
         tooltip._showTimer = setTimeout(() => {
             tooltip.classList.add('visible');
@@ -363,7 +364,11 @@ export function initDownloadListener() {
                 // Includes 'complete' so entries do not leak when a download
                 // finishes while its page (and onUpdate callback) is not active.
                 if (['complete', 'error', 'cancelled'].includes(data.status)) {
-                    setTimeout(() => downloadStore.delete(key), 2000);
+                    const finishedId = data.id;
+                    setTimeout(() => {
+                        const cur = downloadStore.get(key);
+                        if (cur && cur.downloadId === finishedId) downloadStore.delete(key);
+                    }, 2000);
                 }
                 break;
             }

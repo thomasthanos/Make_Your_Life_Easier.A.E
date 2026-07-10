@@ -7,6 +7,8 @@
 import { registerDownload, attachDownloadUI, downloadStore } from '../managers.js';
 import { toast, closeOtherTerminals } from '../components.js';
 
+let maintenanceBusy = false;
+
 // ============================================
 // MAINTENANCE HELPER FUNCTIONS
 // ============================================
@@ -31,6 +33,8 @@ const MAINTENANCE_ICONS = {
     imageCache: maintenanceIcon('<rect x="4" y="5" width="16" height="14" rx="3"/><path d="m8 15 2.2-2.2a1.1 1.1 0 0 1 1.6 0L15 16"/><path d="m14 14 1-1a1.1 1.1 0 0 1 1.6 0L20 16"/><circle cx="9" cy="9.5" r="1.3"/>'),
     crashReport: maintenanceIcon('<path d="M8 4h8l3 3v13H8z"/><path d="M16 4v4h4"/><path d="M12 12v3"/><path d="M12 18h.01"/><path d="M9.5 9.5h5"/>'),
     scan: maintenanceIcon('<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v6h-6"/>'),
+    sparkle: maintenanceIcon('<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.7 1.8L21.5 17.5l-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7L19 15z"/><path d="M5.5 16.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6.6-1.4z"/>'),
+    shield: maintenanceIcon('<path d="M12 3l7 3v5c0 4.4-2.9 8.1-7 9.5C7.9 19.1 5 15.4 5 11V6l7-3z"/><path d="M9.5 12l1.8 1.8 3.4-3.6"/>'),
     selectAll: maintenanceIcon('<path d="M4 12l4 4 8-9"/><rect x="3" y="3" width="18" height="18" rx="4"/>'),
     cleanup: maintenanceIcon('<path d="M4 17h16"/><path d="M7 17l1.2-7.2A2.2 2.2 0 0 1 10.4 8h3.2a2.2 2.2 0 0 1 2.2 1.8L17 17"/><path d="M9 17v3"/><path d="M15 17v3"/><path d="M10 5h4"/>'),
     temp: maintenanceIcon('<path d="M8 3h8"/><path d="M10 3v5l-4.6 8A3.4 3.4 0 0 0 8.3 21h7.4a3.4 3.4 0 0 0 2.9-5L14 8V3"/><path d="M8.5 16h7"/><path d="M10 18h4"/>'),
@@ -108,7 +112,12 @@ function createMaintenanceCard(name, description, iconKey, buttonText, task, req
 
     button.addEventListener('click', async () => {
         if (running) return;
+        if (maintenanceBusy) {
+            toast('Another maintenance task is running.', { type: 'info', title: 'Maintenance' });
+            return;
+        }
         running = true;
+        maintenanceBusy = true;
         cancelled = false;
 
         const originalText = button.textContent;
@@ -141,6 +150,7 @@ function createMaintenanceCard(name, description, iconKey, buttonText, task, req
         } finally {
             unsubscribe();
             running = false;
+            maintenanceBusy = false;
             term.terminal.classList.remove('running');
             button.disabled = false;
             button.textContent = originalText;
@@ -431,7 +441,10 @@ function buildWingetUpdaterCard(translations) {
 
         try {
             const result = await window.api.wingetUpgradeAll();
-            if (result && result.success) {
+            if (result && result.success && result.partial) {
+                printLine('⚠ Some packages could not be upgraded (see output above).', 'is-warn');
+                toast('Upgrades finished — some packages were skipped or blocked.', { type: 'warning', title: 'Winget' });
+            } else if (result && result.success) {
                 printLine('✔ All upgrades completed.', 'is-ok');
                 toast('All apps upgraded successfully!', { type: 'success', title: 'Winget' });
             } else if (result && result.cancelled) {
@@ -868,12 +881,18 @@ export async function buildCleanerPage() {
                 localStorage.setItem('cleanerLastCleaned', now);
                 lastCleaned.textContent = `Last cleaned: ${formatCleanerDate(now)}`;
                 let freedText = '';
+                const cleanedIds = new Set(selectedIds);
+                const zeroCleaned = (items) => items.map((item) => (
+                    cleanedIds.has(item.id) ? { ...item, sizeBytes: 0, inaccessible: false } : item
+                ));
                 if (Array.isArray(result.items)) {
-                    cleanerState.results = result.items;
+                    cleanerState.results = zeroCleaned(result.items);
                     cleanerState.scanMode = 'Cleaned. Sizes refreshed with administrator access.';
                     const bytesAfter = result.items.reduce((sum, item) => sum + Number(item.sizeBytes || 0), 0);
                     const freed = Math.max(0, bytesBefore - bytesAfter);
                     freedText = ` Freed ${formatCleanerBytes(freed)}.`;
+                } else if (Array.isArray(cleanerState.results)) {
+                    cleanerState.results = zeroCleaned(cleanerState.results);
                 }
                 cleanTerm.print(`✔ Cleaning completed.${freedText}`, 'is-ok');
                 toast((result.message || 'Cleaner completed.') + freedText, { type: 'success', title: 'Cleaner' });
@@ -919,11 +938,6 @@ export async function buildMaintenancePage(translations, _settings) {
     const title = document.createElement('h2');
     title.textContent = translations.pages?.maintenance_title || 'System Maintenance';
     container.appendChild(title);
-
-    const desc = document.createElement('p');
-    desc.textContent = translations.pages?.maintenance_desc || 'Perform various system maintenance tasks to keep your computer running smoothly.';
-    desc.classList.add('desc-margin-large');
-    container.appendChild(desc);
 
     // Network & Connectivity
     container.appendChild(createSectionTitle(translations.maintenance?.network_section || 'Network & Connectivity', 'network'));
@@ -1094,7 +1108,12 @@ export async function buildMaintenancePage(translations, _settings) {
 
     async function runRepairTask(button, apiFn, cmdLabel, taskName) {
         if (repairRunning) return;
+        if (maintenanceBusy) {
+            toast('Another maintenance task is running.', { type: 'info', title: 'Maintenance' });
+            return;
+        }
         repairRunning = true;
+        maintenanceBusy = true;
         repairCancelled = false;
 
         const originalText = button.textContent;
@@ -1131,6 +1150,7 @@ export async function buildMaintenancePage(translations, _settings) {
         } finally {
             unsubscribe();
             repairRunning = false;
+            maintenanceBusy = false;
             repairTerminal.classList.remove('running');
             sfcButton.disabled = false;
             dismButton.disabled = false;
@@ -1205,41 +1225,126 @@ export async function buildMaintenancePage(translations, _settings) {
 
 export async function buildDebloatPage(translations, _settings) {
     const container = document.createElement('div');
-    container.className = 'card';
+    container.className = 'card debloat-page';
+
+    const hero = document.createElement('section');
+    hero.className = 'debloat-hero';
+
+    const heroIcon = document.createElement('div');
+    heroIcon.className = 'debloat-hero-icon';
+    heroIcon.innerHTML = getMaintenanceIcon('sparkle');
+
+    const heroText = document.createElement('div');
+    heroText.className = 'debloat-hero-text';
 
     const heading = document.createElement('h2');
     heading.textContent = (translations.debloat && translations.debloat.heading) || 'Windows Debloat';
-    heading.classList.add('script-heading');
-    container.appendChild(heading);
 
     const description = document.createElement('p');
-    description.classList.add('script-description');
     description.textContent = (translations.pages && translations.pages.debloat_raphi_desc) ||
         'Launch Sparkle debloat utility to remove bloatware and optimize your Windows system. ' +
         'The utility will be downloaded if not already available.';
-    container.appendChild(description);
+
+    const status = document.createElement('p');
+    status.className = 'debloat-status';
+    status.textContent = 'Checking Sparkle...';
+
+    const progress = document.createElement('div');
+    progress.className = 'debloat-progress';
+    const progressFill = document.createElement('div');
+    progressFill.className = 'debloat-progress-fill';
+    progress.appendChild(progressFill);
+
+    heroText.appendChild(heading);
+    heroText.appendChild(description);
+    heroText.appendChild(status);
+    heroText.appendChild(progress);
+
+    const heroActions = document.createElement('div');
+    heroActions.className = 'debloat-hero-actions';
+
+    hero.appendChild(heroIcon);
+    hero.appendChild(heroText);
+    hero.appendChild(heroActions);
+    container.appendChild(hero);
+
+    const setStatus = (text) => { status.textContent = text; };
+    const setProgress = (percent) => {
+        if (percent === null) {
+            progress.classList.remove('active');
+            progressFill.style.width = '0%';
+        } else {
+            progress.classList.add('active');
+            progressFill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+        }
+    };
+
+    const refreshStatus = async () => {
+        try {
+            const res = await window.api.sparkleStatus?.();
+            if (res && res.available) {
+                setStatus('Sparkle is installed and ready to launch.');
+            } else {
+                setStatus('Sparkle will be downloaded from GitHub on first launch — portable, no installation.');
+            }
+        } catch {
+            setStatus('');
+        }
+    };
 
     const isWindows = await window.api.isWindows();
     if (!isWindows) {
-        const warn = document.createElement('p');
-        warn.textContent = 'Sparkle Debloat is only supported on Windows.';
-        warn.classList.add('script-warning');
-        container.appendChild(warn);
+        setStatus('Sparkle Debloat is only supported on Windows.');
+        status.classList.add('is-warning');
         return container;
     }
 
     const runBtn = document.createElement('button');
-    runBtn.className = 'button';
+    runBtn.className = 'button debloat-run-btn';
     runBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.runRaphiScript) ||
         'Launch Sparkle Debloat';
-    runBtn.classList.add('btn-run');
+    heroActions.appendChild(runBtn);
+
+    const grid = document.createElement('div');
+    grid.className = 'debloat-grid';
+    const DEBLOAT_FEATURES = [
+        { icon: 'recycle', title: 'Remove bloatware', text: 'Uninstalls preinstalled apps and OEM junk you never asked for.' },
+        { icon: 'shield', title: 'Privacy & telemetry', text: 'Disables tracking, telemetry and advertising services.' },
+        { icon: 'prefetch', title: 'Performance tweaks', text: 'Trims background services and startup load for a snappier PC.' },
+        { icon: 'updateCache', title: 'Portable from GitHub', text: 'Fetched from the official Sparkle releases on first launch — nothing to install.' }
+    ];
+    DEBLOAT_FEATURES.forEach((feature) => {
+        const row = document.createElement('article');
+        row.className = 'debloat-feature';
+
+        const icon = document.createElement('div');
+        icon.className = 'debloat-feature-icon';
+        icon.innerHTML = getMaintenanceIcon(feature.icon);
+
+        const content = document.createElement('div');
+        content.className = 'debloat-feature-content';
+        const featureTitle = document.createElement('h3');
+        featureTitle.textContent = feature.title;
+        const featureText = document.createElement('p');
+        featureText.textContent = feature.text;
+        content.appendChild(featureTitle);
+        content.appendChild(featureText);
+
+        row.appendChild(icon);
+        row.appendChild(content);
+        grid.appendChild(row);
+    });
+    container.appendChild(grid);
+
+    refreshStatus();
 
     runBtn.addEventListener('click', async () => {
         if (runBtn.disabled) return;
-        
+
         const original = runBtn.textContent;
         runBtn.disabled = true;
         runBtn.textContent = 'Checking Sparkle...';
+        setStatus('Checking Sparkle...');
 
         try {
             const result = await window.api.runSparkleDebloat();
@@ -1251,7 +1356,9 @@ export async function buildDebloatPage(translations, _settings) {
             // Case 1: Sparkle needs to be downloaded
             if (result.needsDownload) {
                 runBtn.textContent = 'Downloading Sparkle...';
-                
+                setStatus('Downloading Sparkle from GitHub...');
+                setProgress(0);
+
                 const downloadId = result.downloadId || `sparkle-${Date.now()}`;
                 const downloadDest = result.downloadDest;
 
@@ -1261,17 +1368,33 @@ export async function buildDebloatPage(translations, _settings) {
                 attachDownloadUI(sparkleStoreKey, (data) => {
                     switch (data.status) {
                         case 'progress':
-                            runBtn.textContent = `Downloading Sparkle... ${data.percent}%`;
+                            runBtn.textContent = `Downloading... ${data.percent}%`;
+                            setStatus(`Downloading Sparkle from GitHub... ${data.percent}%`);
+                            setProgress(data.percent);
                             break;
-                        case 'complete':
+                        case 'complete': {
                             runBtn.textContent = 'Extracting Sparkle...';
+                            setStatus('Extracting Sparkle...');
+                            setProgress(null);
                             downloadStore.delete(sparkleStoreKey);
+
+                            const extractWatchdog = setTimeout(() => {
+                                runBtn.disabled = false;
+                                runBtn.textContent = original;
+                                refreshStatus();
+                                toast('Sparkle is taking too long to extract/launch. Please try again.', {
+                                    type: 'error',
+                                    title: 'Debloat Error',
+                                    duration: 8000
+                                });
+                            }, 120000);
 
                             // Extract the downloaded zip
                             window.api.processDownloadedSparkle(downloadDest)
                                 .then(extractResult => {
                                     if (extractResult && extractResult.success) {
                                         runBtn.textContent = 'Launching Sparkle...';
+                                        setStatus('Launching Sparkle...');
                                         // Now run it
                                         return window.api.runSparkleDebloat();
                                     } else {
@@ -1287,6 +1410,7 @@ export async function buildDebloatPage(translations, _settings) {
                                         });
                                         runBtn.textContent = '✅ Launched!';
                                         runBtn.disabled = true;
+                                        refreshStatus();
                                         setTimeout(() => {
                                             runBtn.textContent = original;
                                             runBtn.disabled = false;
@@ -1303,8 +1427,11 @@ export async function buildDebloatPage(translations, _settings) {
                                     });
                                     runBtn.disabled = false;
                                     runBtn.textContent = original;
-                                });
+                                    refreshStatus();
+                                })
+                                .finally(() => clearTimeout(extractWatchdog));
                             break;
+                        }
                         case 'error':
                             toast(data.error || 'Download failed', {
                                 type: 'error',
@@ -1313,6 +1440,8 @@ export async function buildDebloatPage(translations, _settings) {
                             });
                             runBtn.disabled = false;
                             runBtn.textContent = original;
+                            setProgress(null);
+                            refreshStatus();
                             downloadStore.delete(sparkleStoreKey);
                             break;
                     }
@@ -1325,12 +1454,13 @@ export async function buildDebloatPage(translations, _settings) {
 
             // Case 2: Sparkle is already available and launched
             if (result.success) {
-                toast(result.message || 'Sparkle Debloat launched successfully!', { 
-                    type: 'success', 
-                    title: 'Debloat', 
-                    duration: 5000 
+                toast(result.message || 'Sparkle Debloat launched successfully!', {
+                    type: 'success',
+                    title: 'Debloat',
+                    duration: 5000
                 });
                 runBtn.textContent = '✅ Launched!';
+                refreshStatus();
                 setTimeout(() => {
                     runBtn.textContent = original;
                     runBtn.disabled = false;
@@ -1339,17 +1469,18 @@ export async function buildDebloatPage(translations, _settings) {
                 throw new Error(result.error || 'Failed to launch Sparkle Debloat');
             }
         } catch (err) {
-            toast(err.message || 'Failed to launch Sparkle Debloat', { 
-                type: 'error', 
+            toast(err.message || 'Failed to launch Sparkle Debloat', {
+                type: 'error',
                 title: 'Debloat Error',
                 duration: 8000
             });
             runBtn.disabled = false;
             runBtn.textContent = original;
+            setProgress(null);
+            refreshStatus();
         }
     });
 
-    container.appendChild(runBtn);
     return container;
 }
 

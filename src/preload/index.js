@@ -82,6 +82,7 @@ contextBridge.exposeInMainWorld('api', {
   // ── Debloat & Scripts ──
   runSparkleDebloat: () => ipcRenderer.invoke('run-sparkle-debloat'),
   processDownloadedSparkle: (zipPath) => ipcRenderer.invoke('process-downloaded-sparkle', zipPath),
+  sparkleStatus: () => ipcRenderer.invoke('sparkle-status'),
   runChrisTitus: () => ipcRenderer.invoke('run-christitus'),
   cancelChrisTitus: () => ipcRenderer.invoke('run-christitus-cancel'),
   onChrisTitusOutput: (callback) => onEvent('christitus-output', callback),

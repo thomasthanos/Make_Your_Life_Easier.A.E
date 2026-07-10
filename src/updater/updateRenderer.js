@@ -112,13 +112,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
       case 'downloading': {
         const percent = Math.round(data.percent || 0);
-        const isAppLoading = data.message &&
+        const isAppLoading = data.appLoading === true || (data.message &&
           (data.message.includes('Loading') ||
             data.message.includes('Initializing') ||
             data.message.includes('Building') ||
             data.message.includes('Finalizing') ||
             data.message.includes('Almost') ||
-            data.message.includes('Launching'));
+            data.message.includes('Launching')));
 
         const phase = isAppLoading ? 'app-loading' : 'update-download';
         setMode(isAppLoading ? 'message' : 'downloading');

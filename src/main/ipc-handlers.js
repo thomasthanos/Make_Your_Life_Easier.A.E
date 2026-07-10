@@ -212,6 +212,15 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
         try {
             const result = await done;
             if (wingetUpgradeCancelled) return { success: false, cancelled: true };
+
+            // winget `upgrade --all` exits non-zero when ANY single package fails or
+            // is blocked, even if the rest upgraded fine. Treat the known
+            // "some upgrades failed" code (0x8A15002C) as a partial success so the
+            // UI doesn't report the whole run as a hard failure.
+            const WINGET_UPDATE_ALL_HAS_FAILURE = 0x8A15002C; // 2316632108
+            if (!result.success && result.code === WINGET_UPDATE_ALL_HAS_FAILURE) {
+                return { success: true, partial: true, code: result.code };
+            }
             return result;
         } finally {
             wingetUpgradeChild = null;
@@ -606,6 +615,14 @@ function setupSparkleHandlers(sparkleModule) {
             return { success: false, error: error.message };
         }
     });
+
+    ipcMain.handle('sparkle-status', async () => {
+        try {
+            return { available: sparkleModule.isSparkleAvailable() };
+        } catch (error) {
+            return { available: false, error: error.message };
+        }
+    });
 }
 
 function setupSystemToolsHandlers(systemTools) {
@@ -694,9 +711,10 @@ function setupSystemToolsHandlers(systemTools) {
 function setupSpicetifyHandlers(spicetifyModule) {
     let spicetifyTask = null;
     let spicetifyCancelled = false;
+    let spicetifyUninstalling = false;
 
     const runSpicetifyStreaming = (runner) => async (event) => {
-        if (spicetifyTask) {
+        if (spicetifyTask || spicetifyUninstalling) {
             return { success: false, error: 'A Spicetify task is already running.' };
         }
 
@@ -741,7 +759,13 @@ function setupSpicetifyHandlers(spicetifyModule) {
     });
 
     ipcMain.handle('uninstall-spicetify', async () => {
-        try { return await spicetifyModule.uninstallSpicetify(); } catch (error) { return { success: false, error: error.message }; }
+        if (spicetifyTask || spicetifyUninstalling) {
+            return { success: false, error: 'A Spicetify task is already running.' };
+        }
+        spicetifyUninstalling = true;
+        try { return await spicetifyModule.uninstallSpicetify(); }
+        catch (error) { return { success: false, error: error.message }; }
+        finally { spicetifyUninstalling = false; }
     });
 }
 

@@ -25,7 +25,8 @@ const ACTIVATION_ICONS = {
     windows: activationSvg(`<path d="${ACTIVATE_WINDOWS_ICON_PATH}"/>`, {
         viewBox: '4.099108108108108 3.9500089999999997 92.16216216216216 91.53'
     }),
-    autologin: activationSvg('<path d="M15 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><path d="M15 12H4"/><path d="M7 7V5a3 3 0 0 1 6 0v2"/>', { stroke: true })
+    autologin: activationSvg('<path d="M15 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><path d="M15 12H4"/><path d="M7 7V5a3 3 0 0 1 6 0v2"/>', { stroke: true }),
+    hero: activationSvg('<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2"/><path d="M15 8l3 3"/><path d="M18 5l2 2"/>', { stroke: true })
 };
 
 // ============================================
@@ -35,40 +36,64 @@ const ACTIVATION_ICONS = {
 async function downloadAndRun(button, config) {
     if (buttonStateManager && buttonStateManager.isLoading && buttonStateManager.isLoading(button)) return;
 
+    const ui = config.ui || { setStatus: () => { }, setProgress: () => { } };
+
     button.disabled = true;
     const originalText = button.textContent;
 
     button.textContent = config.preparingText;
+    ui.setStatus(config.preparingText);
+    ui.setProgress(null);
 
     const downloadId = `${config.idPrefix}-${Date.now()}`;
     const storeKey = config.storeKey;
     registerDownload(storeKey, downloadId, { name: config.name });
+
+    const fail = (message) => {
+        button.textContent = originalText;
+        button.disabled = false;
+        ui.setStatus(message);
+        ui.setProgress(null);
+        toast(message, { type: 'error', title: config.name });
+    };
 
     return new Promise((resolve) => {
         attachDownloadUI(storeKey, (data) => {
             switch (data.status) {
                 case 'started':
                     button.textContent = `${config.downloadingText} 0%`;
+                    ui.setStatus(`${config.downloadingText} 0%`);
+                    ui.setProgress(0);
                     break;
                 case 'progress':
                     button.textContent = `${config.downloadingText} ${data.percent}%`;
+                    ui.setStatus(`${config.downloadingText} ${data.percent}%`);
+                    ui.setProgress(data.percent);
                     break;
                 case 'complete': {
                     button.textContent = config.runningText;
+                    ui.setStatus(config.runningText);
+                    ui.setProgress(null);
                     downloadStore.delete(storeKey);
 
                     window.api.openFile(data.path)
                         .then((result) => {
                             if (result && result.success) {
                                 button.textContent = config.startedText;
-                                setTimeout(() => { button.textContent = originalText; }, 3000);
+                                ui.setStatus(config.startedText);
+                                setTimeout(() => {
+                                    button.textContent = originalText;
+                                    ui.setStatus(config.idleText || '');
+                                }, 3000);
                             } else {
                                 button.textContent = originalText;
+                                ui.setStatus(config.runFailMsg);
                                 toast(config.runFailMsg, { type: 'error', title: config.name });
                             }
                         })
                         .catch(() => {
                             button.textContent = originalText;
+                            ui.setStatus(config.runErrorMsg);
                             toast(config.runErrorMsg, { type: 'error', title: config.name });
                         })
                         .finally(() => {
@@ -78,10 +103,8 @@ async function downloadAndRun(button, config) {
                     break;
                 }
                 case 'error':
-                    button.textContent = originalText;
-                    button.disabled = false;
                     downloadStore.delete(storeKey);
-                    toast('Download failed', { type: 'error', title: config.name });
+                    fail('Download failed');
                     resolve();
                     break;
             }
@@ -90,17 +113,17 @@ async function downloadAndRun(button, config) {
         try {
             window.api.downloadStart(downloadId, config.url, config.fileName);
         } catch (e) {
-            button.textContent = originalText;
-            button.disabled = false;
             downloadStore.delete(storeKey);
-            toast('Download failed', { type: 'error', title: config.name });
+            fail('Download failed');
             resolve();
         }
     });
 }
 
-function downloadAndRunActivate(button) {
+function downloadAndRunActivate(button, ui) {
     return downloadAndRun(button, {
+        ui,
+        idleText: 'Ready — one click to download and run.',
         idPrefix: 'activate',
         url: 'https://www.dropbox.com/scl/fi/oqgye14tmcg97mxbphorp/activate.bat?rlkey=307wz4bzkzejip3os7iztt54l&st=oz6nh4pf&dl=1',
         fileName: 'activate.bat',
@@ -115,8 +138,10 @@ function downloadAndRunActivate(button) {
     });
 }
 
-function downloadAndRunAutologin(button) {
+function downloadAndRunAutologin(button, ui) {
     return downloadAndRun(button, {
+        ui,
+        idleText: 'Ready — one click to download and run.',
         idPrefix: 'autologin',
         url: 'https://www.dropbox.com/scl/fi/a0bphjru0qfnbsokk751h/auto-login.exe?rlkey=b3ogyjelioq49jyty1odi58x9&st=4o2oq4sc&dl=1',
         fileName: 'auto_login.exe',
@@ -135,109 +160,120 @@ function downloadAndRunAutologin(button) {
 // PAGE BUILDER
 // ============================================
 
-export async function buildActivateAutologinPage(translations, settings) {
+function createActivationCard({ icon, title, description, badge, buttonText, onRun }) {
+    const card = document.createElement('article');
+    card.className = 'activation-card';
+
+    const header = document.createElement('div');
+    header.className = 'activation-card-header';
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'activation-card-icon';
+    iconWrap.innerHTML = icon;
+
+    const text = document.createElement('div');
+    text.className = 'activation-card-text';
+
+    const name = document.createElement('h3');
+    name.textContent = title;
+
+    const desc = document.createElement('p');
+    desc.textContent = description;
+
+    text.appendChild(name);
+    text.appendChild(desc);
+    header.appendChild(iconWrap);
+    header.appendChild(text);
+    card.appendChild(header);
+
+    if (badge) {
+        const badgeEl = document.createElement('span');
+        badgeEl.className = 'activation-badge';
+        badgeEl.textContent = badge;
+        header.appendChild(badgeEl);
+    }
+
+    const status = document.createElement('p');
+    status.className = 'activation-status';
+    status.textContent = 'Ready — one click to download and run.';
+    card.appendChild(status);
+
+    const progress = document.createElement('div');
+    progress.className = 'activation-progress';
+    const progressFill = document.createElement('div');
+    progressFill.className = 'activation-progress-fill';
+    progress.appendChild(progressFill);
+    card.appendChild(progress);
+
+    const button = document.createElement('button');
+    button.className = 'button activation-run-btn';
+    button.textContent = buttonText;
+    card.appendChild(button);
+
+    const ui = {
+        setStatus: (text) => { status.textContent = text || 'Ready — one click to download and run.'; },
+        setProgress: (percent) => {
+            if (percent === null) {
+                progress.classList.remove('active');
+                progressFill.style.width = '0%';
+            } else {
+                progress.classList.add('active');
+                progressFill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+            }
+        }
+    };
+
+    button.addEventListener('click', () => onRun(button, ui));
+
+    return card;
+}
+
+export async function buildActivateAutologinPage(translations, _settings) {
     const container = document.createElement('div');
-    container.className = 'card';
+    container.className = 'card activation-page';
+
+    const hero = document.createElement('section');
+    hero.className = 'activation-hero';
+
+    const heroIcon = document.createElement('div');
+    heroIcon.className = 'activation-hero-icon';
+    heroIcon.innerHTML = ACTIVATION_ICONS.hero;
+
+    const heroText = document.createElement('div');
+    heroText.className = 'activation-hero-text';
 
     const title = document.createElement('h2');
     title.textContent = (translations.pages && translations.pages.activate_title) || 'Windows Activation & Auto Login';
-    container.appendChild(title);
 
-    const desc = document.createElement('p');
-    desc.textContent = (translations.pages && translations.pages.activate_desc) || 'Use these tools to activate Windows and configure automatic login without a password.';
-    desc.classList.add('page-desc');
-    container.appendChild(desc);
+    const heroDesc = document.createElement('p');
+    heroDesc.textContent = (translations.pages && translations.pages.activate_desc) ||
+        'Use these tools to activate Windows and configure automatic login without a password.';
 
-    // Activate Windows Card
-    const activateCard = document.createElement('div');
-    activateCard.className = 'app-card fixed-height';
+    heroText.appendChild(title);
+    heroText.appendChild(heroDesc);
+    hero.appendChild(heroIcon);
+    hero.appendChild(heroText);
+    container.appendChild(hero);
 
-    const activateHeader = document.createElement('div');
-    activateHeader.className = 'app-header';
-
-    const activateIcon = document.createElement('div');
-    activateIcon.classList.add('feature-card-icon');
-    activateIcon.innerHTML = ACTIVATION_ICONS.windows;
-    activateHeader.appendChild(activateIcon);
-
-    const activateText = document.createElement('div');
-    const activateName = document.createElement('h3');
-    activateName.textContent = (translations.activation && translations.activation.activate_windows) || 'Activate Windows';
-    activateName.classList.add('feature-card-name');
-    if (settings.lang === 'gr') {
-        activateName.classList.add('feature-card-name-gr');
-    }
-    const activateDesc = document.createElement('p');
-    activateDesc.textContent = (translations.activation && translations.activation.activate_desc) || 'Downloads and runs the Windows activation script. Administrator rights required';
-    activateDesc.classList.add('feature-card-desc-warning');
-    activateText.appendChild(activateName);
-    activateText.appendChild(activateDesc);
-    activateHeader.appendChild(activateText);
-
-    activateCard.appendChild(activateHeader);
-
-    const activateActions = document.createElement('div');
-    activateActions.className = 'feature-actions';
-
-    const activateButton = document.createElement('button');
-    activateButton.className = 'button';
-    activateButton.textContent = (translations.actions && translations.actions.activate_windows) || 'Download & Activate Windows';
-    activateButton.classList.add('btn-full-width');
-
-    activateButton.addEventListener('click', async () => {
-        await downloadAndRunActivate(activateButton);
-    });
-
-    activateActions.appendChild(activateButton);
-    activateCard.appendChild(activateActions);
-
-    // Auto Login Card
-    const autologinCard = document.createElement('div');
-    autologinCard.className = 'app-card fixed-height';
-
-    const autologinHeader = document.createElement('div');
-    autologinHeader.className = 'app-header';
-
-    const autologinIcon = document.createElement('div');
-    autologinIcon.classList.add('feature-card-icon');
-    autologinIcon.innerHTML = ACTIVATION_ICONS.autologin;
-    autologinHeader.appendChild(autologinIcon);
-
-    const autologinText = document.createElement('div');
-    const autologinName = document.createElement('h3');
-    autologinName.textContent = (translations.activation && translations.activation.auto_login) || 'Auto Login';
-    autologinName.classList.add('feature-card-name');
-    const autologinDesc = document.createElement('p');
-    autologinDesc.textContent = (translations.activation && translations.activation.auto_login_desc) || 'Downloads and sets up automatic login without a password';
-    autologinDesc.classList.add('feature-card-desc');
-    autologinText.appendChild(autologinName);
-    autologinText.appendChild(autologinDesc);
-    autologinHeader.appendChild(autologinText);
-
-    autologinCard.appendChild(autologinHeader);
-
-    const autologinActions = document.createElement('div');
-    autologinActions.className = 'feature-actions';
-
-    const autologinButton = document.createElement('button');
-    autologinButton.className = 'button';
-    autologinButton.textContent = (translations.actions && translations.actions.setup_autologin) || 'Download & Setup Auto Login';
-    autologinButton.classList.add('btn-full-width');
-
-    autologinButton.addEventListener('click', async () => {
-        await downloadAndRunAutologin(autologinButton);
-    });
-
-    autologinActions.appendChild(autologinButton);
-    autologinCard.appendChild(autologinActions);
-
-    // Grid layout
     const grid = document.createElement('div');
-    grid.className = 'install-grid';
-    grid.classList.add('grid-2-col');
+    grid.className = 'activation-grid';
 
-    grid.appendChild(activateCard);
-    grid.appendChild(autologinCard);
+    grid.appendChild(createActivationCard({
+        icon: ACTIVATION_ICONS.windows,
+        title: (translations.activation && translations.activation.activate_windows) || 'Activate Windows',
+        description: (translations.activation && translations.activation.activate_desc) || 'Downloads and runs the Windows activation script.',
+        badge: 'Admin required',
+        buttonText: (translations.actions && translations.actions.activate_windows) || 'Download & Activate Windows',
+        onRun: (button, ui) => downloadAndRunActivate(button, ui)
+    }));
+
+    grid.appendChild(createActivationCard({
+        icon: ACTIVATION_ICONS.autologin,
+        title: (translations.activation && translations.activation.auto_login) || 'Auto Login',
+        description: (translations.activation && translations.activation.auto_login_desc) || 'Downloads and sets up automatic login without a password.',
+        buttonText: (translations.actions && translations.actions.setup_autologin) || 'Download & Setup Auto Login',
+        onRun: (button, ui) => downloadAndRunAutologin(button, ui)
+    }));
 
     container.appendChild(grid);
 

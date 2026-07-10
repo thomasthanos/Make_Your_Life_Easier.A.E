@@ -3,7 +3,7 @@
  * Handles OAuth authentication flows for Google and Discord
  */
 
-const { BrowserWindow, BrowserView } = require('electron');
+const { BrowserWindow, WebContentsView } = require('electron');
 const { supabase } = require('./supabase');
 
 const REDIRECT_URI = process.env.OAUTH_REDIRECT_URI || 'http://localhost:5252';
@@ -36,7 +36,7 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
     const authWindow = new BrowserWindow(windowOpts);
 
     // Create loader view
-    const loaderView = new BrowserView({
+    const loaderView = new WebContentsView({
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
 
@@ -50,17 +50,30 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
       </style></head>
       <body><div class="spinner"></div></body></html>`;
 
+    let loaderAttached = false;
     loaderView.webContents.loadURL('data:text/html;base64,' + Buffer.from(loaderHtml).toString('base64'));
-    authWindow.setBrowserView(loaderView);
+    authWindow.contentView.addChildView(loaderView);
+    loaderAttached = true;
     loaderView.setBounds({ x: 0, y: 0, width: windowOpts.width, height: windowOpts.height });
-    loaderView.setAutoResize({ width: true, height: true });
+
+    const resizeLoader = () => {
+      try {
+        if (loaderAttached && !authWindow.isDestroyed()) {
+          const [w, h] = authWindow.getContentSize();
+          loaderView.setBounds({ x: 0, y: 0, width: w, height: h });
+        }
+      } catch { }
+    };
+    authWindow.on('resize', resizeLoader);
 
     const removeLoaderView = () => {
       try {
-        if (!authWindow.isDestroyed() && authWindow.getBrowserView() === loaderView) {
-          authWindow.setBrowserView(null);
+        authWindow.removeListener('resize', resizeLoader);
+        if (loaderAttached && !authWindow.isDestroyed()) {
+          authWindow.contentView.removeChildView(loaderView);
+          loaderAttached = false;
         }
-        if (!loaderView.webContents.isDestroyed()) {
+        if (loaderView.webContents && !loaderView.webContents.isDestroyed()) {
           loaderView.webContents.close();
         }
       } catch { }

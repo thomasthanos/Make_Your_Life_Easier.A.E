@@ -11,6 +11,18 @@
     "bios": "Ρυθμίσεις BIOS",
     "debloat": "Debloat"
   },
+  "menu_info": {
+    "settings": "Προτιμήσεις εφαρμογής, γλώσσα και λογαριασμός",
+    "install_apps": "Αναζήτηση και εγκατάσταση δημοφιλών εφαρμογών με ένα κλικ",
+    "system_cleaner": "Σάρωση και διαγραφή προσωρινών αρχείων για ελευθέρωση χώρου",
+    "activate_autologin": "Ενεργοποίηση Windows/Office και ρύθμιση αυτόματης σύνδεσης",
+    "system_maintenance": "Εργαλεία επισκευής και συντήρησης των Windows",
+    "crack_installer": "Λήψη και εγκατάσταση patched εκδόσεων δημοφιλών εφαρμογών",
+    "spicetify": "Προσαρμογή του Spotify με θέματα και επεκτάσεις Spicetify",
+    "christitus": "Εκτέλεση της εργαλειοθήκης Chris Titus για Windows",
+    "bios": "Οδηγοί και συντομεύσεις για ρυθμίσεις BIOS/UEFI",
+    "debloat": "Αφαίρεση bloatware και περιττών στοιχείων των Windows"
+  },
   "general": {
     "language": "Γλώσσα",
     "not_implemented": "Αφαιρει το Spicetify και θα επαναφέρει το Spotify",

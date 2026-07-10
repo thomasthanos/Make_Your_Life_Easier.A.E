@@ -4,7 +4,6 @@
  */
 
 const { spawn } = require('child_process');
-const { shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { debug } = require('./debug');
@@ -123,8 +122,7 @@ async function extractArchive(filePath, password, destDir, trackExtractedDir) {
   // Find 7za executable
   const exe = await ensure7za();
   if (!exe) {
-    shell.openPath(archive);
-    return { success: true, output: 'File opened directly (7-Zip not available)' };
+    return { success: false, error: '7-Zip executable not found — cannot extract archive.' };
   }
 
   debug('info', 'Using 7za.exe from:', exe);

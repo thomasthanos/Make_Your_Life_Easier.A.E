@@ -72,14 +72,18 @@ function downloadOnce(url, destPath, onProgress, isCancelled) {
         let total = 0;
         let file = null;
         let settled = false;
+        let hardTimer = null;
 
         const fail = (err) => {
             if (settled) return;
             settled = true;
+            clearTimeout(hardTimer);
             try { if (file) file.destroy(); } catch { /* ignore */ }
             safeUnlink(tmpPath);
             reject(err);
         };
+
+        hardTimer = setTimeout(() => fail(new Error('Download exceeded the time limit')), 20 * 60 * 1000);
 
         const doGet = (currentUrl, redirects) => {
             if (redirects > 5) return fail(new Error('Too many redirects'));
@@ -125,6 +129,7 @@ function downloadOnce(url, destPath, onProgress, isCancelled) {
                             if (settled) return;
                             if (err) return fail(err);
                             settled = true;
+                            clearTimeout(hardTimer);
                             resolve(hash.digest('base64'));
                         });
                     });

@@ -113,7 +113,5 @@ module.exports = {
   supabase,
   isConfigured,
   getSessionUser,
-  signOut,
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY
+  signOut
 };

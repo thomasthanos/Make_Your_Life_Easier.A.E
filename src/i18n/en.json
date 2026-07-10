@@ -11,6 +11,18 @@
     "bios": "BIOS Settings",
     "debloat": "Debloat"
   },
+  "menu_info": {
+    "settings": "App preferences, language and account options",
+    "install_apps": "Browse and install popular apps with one click",
+    "system_cleaner": "Scan and remove temporary files to free up disk space",
+    "activate_autologin": "Activate Windows/Office and set up automatic login",
+    "system_maintenance": "Repair and maintenance tools for Windows",
+    "crack_installer": "Download and install patched versions of popular apps",
+    "spicetify": "Customize Spotify with Spicetify themes and extensions",
+    "christitus": "Run the Chris Titus Windows utility toolbox",
+    "bios": "Guides and shortcuts for BIOS/UEFI settings",
+    "debloat": "Remove bloatware and unnecessary Windows components"
+  },
   "general": {
     "language": "Language",
     "not_implemented": "This will completely remove Spicetify and restore Spotify to its original state.",

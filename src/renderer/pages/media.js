@@ -67,11 +67,6 @@ export function buildSpicetifyPage(translations, settings) {
     pageTitle.textContent = translations.pages?.spicetify_title || 'Install Spicetify';
     container.appendChild(pageTitle);
 
-    const pageDesc = document.createElement('p');
-    pageDesc.textContent = translations.pages?.spicetify_desc || 'Adds themes and customizations to Spotify for a better experience.';
-    pageDesc.classList.add('page-desc');
-    container.appendChild(pageDesc);
-
     const grid = document.createElement('div');
     grid.className = 'install-grid';
 
@@ -108,6 +103,7 @@ export function buildSpicetifyPage(translations, settings) {
     terminal.appendChild(termBody);
 
     let installing = false;
+    let streaming = false;
     let installCancelled = false;
     let currentLine = null;
     let replaceCurrent = false;
@@ -162,6 +158,7 @@ export function buildSpicetifyPage(translations, settings) {
     async function runStreamingTask(button, cmdLabel, apiFn, successMsg, errorMsg) {
         if (installing) return;
         installing = true;
+        streaming = true;
         installCancelled = false;
 
         const originalText = button.textContent;
@@ -197,6 +194,7 @@ export function buildSpicetifyPage(translations, settings) {
         } finally {
             unsubscribe();
             installing = false;
+            streaming = false;
             terminal.classList.remove('running');
             button.disabled = false;
             button.textContent = originalText;
@@ -224,7 +222,7 @@ export function buildSpicetifyPage(translations, settings) {
     }
 
     stopBtn.addEventListener('click', async () => {
-        if (!installing) return;
+        if (!streaming) return;
         installCancelled = true;
         stopBtn.disabled = true;
         try {
@@ -237,6 +235,8 @@ export function buildSpicetifyPage(translations, settings) {
 
     // Helper function for running Spicetify actions
     async function runAction(action, successMsg, errorMsg, button) {
+        if (installing) return;
+        installing = true;
         button.disabled = true;
         const originalText = button.textContent;
         button.textContent = (translations.general?.run || 'Run') + '...';
@@ -261,6 +261,7 @@ export function buildSpicetifyPage(translations, settings) {
             button.classList.add('error');
             setTimeout(() => { button.textContent = originalText; button.classList.remove('error'); }, 2000);
         } finally {
+            installing = false;
             button.disabled = false;
         }
     }

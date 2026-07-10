@@ -68,7 +68,7 @@ function createMainWindow(showWindow = true, preloadPath) {
         mainWindow.webContents.on('before-input-event', (event, input) => {
             // Block Ctrl+Shift+I, Ctrl+Shift+J, F12
             if (
-                (input.control && input.shift && (input.key === 'I' || input.key === 'J')) ||
+                (input.control && input.shift && (input.key === 'I' || input.key === 'J' || input.key === 'C')) ||
                 input.key === 'F12'
             ) {
                 event.preventDefault();

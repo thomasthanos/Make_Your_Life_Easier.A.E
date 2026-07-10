@@ -52,7 +52,8 @@ async function launchAppAfterError(getUpdateWindow, getMainWindow, createMainWin
         sendUpdateStatus(updateWin, {
             status: 'downloading',
             message: 'Launching application...',
-            percent: 100
+            percent: 100,
+            appLoading: true
         });
 
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -328,7 +329,8 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
         sendUpdateStatus(updateWindow, {
             status: 'downloading',
             message: 'Launching application...',
-            percent: 100
+            percent: 100,
+            appLoading: true
         });
 
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -445,7 +447,8 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
                 sendUpdateStatus(updateWin, {
                     status: 'downloading',
                     message: 'Application ready!',
-                    percent: 100
+                    percent: 100,
+                    appLoading: true
                 });
                 await new Promise(resolve => setTimeout(resolve, 200));
                 updateWin.close();
@@ -464,7 +467,8 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
         sendUpdateStatus(getUpdateWindow(), {
             status: 'downloading',
             message: message || `Loading application: ${Math.round(progress)}%`,
-            percent: progress
+            percent: progress,
+            appLoading: true
         });
         return { success: true };
     });

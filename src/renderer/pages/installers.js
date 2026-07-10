@@ -1583,9 +1583,8 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             // Use global store callback instead of direct IPC listener
             attachDownloadUI(storeKey, async (data) => {
                 try {
-                    // Guard: skip DOM updates if elements are no longer in the document
-                    if (!li.isConnected) return;
                     if (data.status === 'progress') {
+                        if (!li.isConnected) return;
                         const hasPercent = typeof data.percent === 'number' && Number.isFinite(data.percent);
                         if (itemProgressFill) {
                             itemProgressFill.classList.toggle('determinate', hasPercent);
@@ -1693,15 +1692,8 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 // ============================================
 
 export async function buildCrackInstallerPage(translations, settings, buttonStateManager) {
-    const crackDesc = (translations.pages && translations.pages.crack_desc) || 'Download backups of your projects from Dropbox';
-
     const container = document.createElement('div');
     container.className = 'card';
-
-    const pageDesc = document.createElement('p');
-    pageDesc.textContent = crackDesc;
-    pageDesc.classList.add('page-desc');
-    container.appendChild(pageDesc);
 
     const projects = [
         {
@@ -2095,5 +2087,3 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
     container.appendChild(grid);
     return container;
 }
-
-export { getFaviconUrl, getDeveloperUrl, getCategoryForId, processAdvancedInstaller };
