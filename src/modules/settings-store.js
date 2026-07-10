@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { supabase, isConfigured, getSessionUser } = require('./supabase');
+const userProfile = require('./user-profile');
 const { debug } = require('./debug');
 
 const TABLE = 'user_settings';
@@ -46,18 +47,24 @@ function all() {
   return { ...local.data };
 }
 
+function isLoggedIn() {
+  return Boolean(userProfile.get());
+}
+
 function set(key, value) {
   local.data[key] = value;
-  local.updated_at = new Date().toISOString();
+  if (isLoggedIn()) {
+    local.updated_at = new Date().toISOString();
+    schedulePush();
+  }
   persist();
-  schedulePush();
   return local.data[key];
 }
 
 function clearAll() {
-  local = { data: {}, updated_at: new Date().toISOString() };
+  local = { data: {}, updated_at: isLoggedIn() ? new Date().toISOString() : local.updated_at };
   persist();
-  schedulePush();
+  if (isLoggedIn()) schedulePush();
 }
 
 function schedulePush() {
@@ -69,7 +76,7 @@ function schedulePush() {
 }
 
 async function pushToCloud() {
-  if (!isConfigured()) return;
+  if (!isConfigured() || !isLoggedIn()) return;
   try {
     const user = await getSessionUser();
     if (!user) return;
@@ -83,7 +90,7 @@ async function pushToCloud() {
 }
 
 async function pullFromCloud() {
-  if (!isConfigured()) return;
+  if (!isConfigured() || !isLoggedIn()) return;
   try {
     const user = await getSessionUser();
     if (!user) return;

@@ -1,7 +1,7 @@
 /**
  * Tools Page
  * Contains System Maintenance, Debloat, and BIOS pages
- * CSS classes match original renderer.js structure
+ * Maintenance uses dedicated component classes and synced layout settings.
  */
 
 import { registerDownload, attachDownloadUI, downloadStore } from '../managers.js';
@@ -50,15 +50,35 @@ const MAINTENANCE_ICONS = {
     reset: maintenanceCustomIcon('0 0 1024 1024', '<path fill="currentColor" d="M372.288 745.792a394.048 394.048 0 0 0 113.728 102.848v-127.744a390.08 390.08 0 0 0-113.728 24.896z m-51.584 24.192a392.96 392.96 0 0 0-60.16 41.6h-1.28a390.336 390.336 0 0 0 205.696 89.6 450.24 450.24 0 0 1-144.256-131.2z m-24.704-230.016c3.968 56.768 20.096 110.208 45.696 157.696a445.696 445.696 0 0 1 144.32-32.896v-124.8h-190.08z m-56.128 0H120.96a390.4 390.4 0 0 0 98.56 233.024c22.208-19.2 46.272-36.224 71.808-50.752a445.312 445.312 0 0 1-51.456-182.272z m445.824 158.784c25.984-47.808 42.24-101.568 46.336-158.72H540.992v124.864c51.072 3.2 99.776 14.976 144.704 33.92z m50.24 24.96c24.448 14.08 47.552 30.464 68.928 48.896a390.4 390.4 0 0 0 98.176-232.576h-114.88a445.312 445.312 0 0 1-52.224 183.68z m-194.944 125.44a394.048 394.048 0 0 0 113.92-102.4 389.888 389.888 0 0 0-113.92-25.728v128.192z m23.104 51.392a390.4 390.4 0 0 0 200.704-88.96h-0.512a392.96 392.96 0 0 0-57.92-40.32 450.24 450.24 0 0 1-142.272 129.28zM341.76 326.144a389.632 389.632 0 0 0-45.76 157.824h190.016V358.976a445.696 445.696 0 0 1-144.256-32.768z m-50.368-24.576a449.216 449.216 0 0 1-71.808-50.56 390.4 390.4 0 0 0-98.56 232.96h118.848a445.312 445.312 0 0 1 51.52-182.4z m194.56-126.208A394.048 394.048 0 0 0 372.48 278.016a390.08 390.08 0 0 0 113.536 24.768V175.36z m-20.992-52.544a390.272 390.272 0 0 0-205.312 89.152h0.512c18.88 15.872 39.168 29.888 60.608 41.92a450.24 450.24 0 0 1 144.192-131.072z m189.76 154.048a394.048 394.048 0 0 0-113.728-102.08v127.808a389.952 389.952 0 0 0 113.728-25.728z m51.392-24.576a392.96 392.96 0 0 0 57.856-40.32h0.384A390.336 390.336 0 0 0 564.16 123.52a450.24 450.24 0 0 1 141.952 128.832z m25.92 231.68a389.632 389.632 0 0 0-46.528-159.168 445.568 445.568 0 0 1-144.512 33.92v125.248h191.04z m56.128 0h114.88a390.4 390.4 0 0 0-98.56-232.96 449.28 449.28 0 0 1-68.736 48.896c29.824 55.424 48.32 117.76 52.416 184.128zM512 960A448 448 0 1 1 512 64a448 448 0 0 1 0 896z"/>'),
     repair: maintenanceIcon('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l2.8-2.8a5.5 5.5 0 0 1-7.1 7.1L7.1 20a2.1 2.1 0 0 1-3-3l6.3-6.3a5.5 5.5 0 0 1 7.1-7.1z"/>'),
     audio: maintenanceIcon('<path d="M4 10v4h4l5 4V6l-5 4H4z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/>'),
-    tools: maintenanceCustomIcon('0 0 24 24', '<path d="M4 12A8 8 0 0 1 18.93 8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" opacity="0.72"/><path d="M20 12A8 8 0 0 1 5.07 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" opacity="0.72"/><polyline points="14 8 19 8 19 3" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><polyline points="10 16 5 16 5 21" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>')
+    tools: maintenanceCustomIcon('0 0 24 24', '<path d="M4 12A8 8 0 0 1 18.93 8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" opacity="0.72"/><path d="M20 12A8 8 0 0 1 5.07 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" opacity="0.72"/><polyline points="14 8 19 8 19 3" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><polyline points="10 16 5 16 5 21" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>'),
+    overview: maintenanceIcon('<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/>'),
+    list: maintenanceIcon('<path d="M9 6h12"/><path d="M9 12h12"/><path d="M9 18h12"/><circle cx="4.5" cy="6" r="1.5"/><circle cx="4.5" cy="12" r="1.5"/><circle cx="4.5" cy="18" r="1.5"/>')
 };
 
 function getMaintenanceIcon(iconKey) {
     return MAINTENANCE_ICONS[iconKey] || MAINTENANCE_ICONS.tools;
 }
 
+function createMaintenanceBadge(text, tone = 'admin') {
+    const badge = document.createElement('span');
+    badge.className = `maintenance-card-badge maintenance-card-badge--${tone}`;
+    badge.setAttribute('aria-label', text);
+    badge.title = text;
+
+    const icon = document.createElement('span');
+    icon.className = 'maintenance-card-badge-icon';
+    icon.innerHTML = getMaintenanceIcon(tone === 'admin' ? 'shield' : 'tools');
+
+    const label = document.createElement('span');
+    label.textContent = text;
+
+    badge.appendChild(icon);
+    badge.appendChild(label);
+    return badge;
+}
+
 /**
- * Creates a maintenance card with exact original CSS structure
+ * Creates a self-contained maintenance action card.
  * @param {string} name - Card title
  * @param {string} description - Card description
  * @param {string} iconKey - Icon identifier
@@ -68,30 +88,28 @@ function getMaintenanceIcon(iconKey) {
  */
 function createMaintenanceCard(name, description, iconKey, buttonText, task, requiresAdmin = false) {
     const card = document.createElement('div');
-    card.className = 'app-card';
-    card.classList.add('feature-card');
+    card.className = 'maintenance-action-card';
 
     const header = document.createElement('div');
-    header.className = 'app-header';
+    header.className = 'maintenance-card-header';
 
     const iconEl = document.createElement('div');
-    iconEl.classList.add('feature-card-icon');
+    iconEl.className = 'maintenance-card-icon';
     iconEl.innerHTML = getMaintenanceIcon(iconKey);
     header.appendChild(iconEl);
 
     const text = document.createElement('div');
+    text.className = 'maintenance-card-copy';
     const nameEl = document.createElement('h3');
     nameEl.textContent = name;
-    nameEl.classList.add('feature-card-name');
+    nameEl.className = 'maintenance-card-title';
     const descEl = document.createElement('p');
     descEl.textContent = description;
-    descEl.classList.add('feature-card-desc');
+    descEl.className = 'maintenance-card-description';
 
     if (requiresAdmin) {
-        const adminWarning = document.createElement('small');
-        adminWarning.textContent = ` (${createMaintenanceCard.adminRequiredText || 'Admin required'})`;
-        adminWarning.classList.add('admin-warning');
-        descEl.appendChild(adminWarning);
+        card.classList.add('maintenance-action-card--admin');
+        card.appendChild(createMaintenanceBadge(createMaintenanceCard.adminBadgeText || 'Admin'));
     }
 
     text.appendChild(nameEl);
@@ -99,10 +117,9 @@ function createMaintenanceCard(name, description, iconKey, buttonText, task, req
     header.appendChild(text);
 
     const button = document.createElement('button');
-    button.className = 'button';
+    button.className = 'button maintenance-card-action';
     button.textContent = buttonText;
     button.dataset.loadingText = createMaintenanceCard.runningText || 'Running...';
-    button.classList.add('btn-full-width');
 
     const term = createStreamTerminal('Stop');
     term.title.textContent = task.cmd;
@@ -113,12 +130,15 @@ function createMaintenanceCard(name, description, iconKey, buttonText, task, req
     button.addEventListener('click', async () => {
         if (running) return;
         if (maintenanceBusy) {
-            toast('Another maintenance task is running.', { type: 'info', title: 'Maintenance' });
+            toast(createMaintenanceCard.busyMessage || 'Another maintenance task is running.', {
+                type: 'info', title: createMaintenanceCard.toastTitle || 'Maintenance'
+            });
             return;
         }
         running = true;
         maintenanceBusy = true;
         cancelled = false;
+        card.classList.add('is-running');
 
         const originalText = button.textContent;
         button.disabled = true;
@@ -137,20 +157,21 @@ function createMaintenanceCard(name, description, iconKey, buttonText, task, req
             const result = await task.api();
             if (result && result.success) {
                 term.print(`✔ ${task.success}`, 'is-ok');
-                toast(task.success, { type: 'success', title: 'Maintenance' });
+                toast(task.success, { type: 'success', title: createMaintenanceCard.toastTitle || 'Maintenance' });
             } else if (!result || !result.cancelled) {
                 term.print(`✖ ${result?.error || `${name} exited with code ${result?.code ?? '?'}.`}`, 'is-err');
-                toast(result?.error || task.error, { type: 'error', title: 'Maintenance' });
+                toast(result?.error || task.error, { type: 'error', title: createMaintenanceCard.toastTitle || 'Maintenance' });
             }
         } catch (error) {
             if (!cancelled) {
                 term.print(`✖ ${error.message}`, 'is-err');
-                toast(error.message || task.error, { type: 'error', title: 'Maintenance' });
+                toast(error.message || task.error, { type: 'error', title: createMaintenanceCard.toastTitle || 'Maintenance' });
             }
         } finally {
             unsubscribe();
             running = false;
             maintenanceBusy = false;
+            card.classList.remove('is-running');
             term.terminal.classList.remove('running');
             button.disabled = false;
             button.textContent = originalText;
@@ -277,30 +298,32 @@ function stripAnsiSequences(text) {
 
 function buildWingetUpdaterCard(translations) {
     const card = document.createElement('div');
-    card.className = 'app-card feature-card patch-card-full';
+    card.className = 'maintenance-action-card maintenance-action-card--updater';
+    card.appendChild(createMaintenanceBadge('Winget', 'info'));
 
     const header = document.createElement('div');
-    header.className = 'app-header';
+    header.className = 'maintenance-card-header';
 
     const iconEl = document.createElement('div');
-    iconEl.classList.add('feature-card-icon');
+    iconEl.className = 'maintenance-card-icon';
     iconEl.innerHTML = getMaintenanceIcon('tools');
     header.appendChild(iconEl);
 
     const text = document.createElement('div');
+    text.className = 'maintenance-card-copy';
     const nameEl = document.createElement('h3');
     nameEl.textContent = translations.maintenance?.update_all_apps || 'Update All Apps';
-    nameEl.classList.add('feature-card-name');
+    nameEl.className = 'maintenance-card-title';
     const descEl = document.createElement('p');
     descEl.textContent = translations.maintenance?.update_all_apps_desc || 'Upgrade every installed app in place with winget';
-    descEl.classList.add('feature-card-desc');
+    descEl.className = 'maintenance-card-description';
     text.appendChild(nameEl);
     text.appendChild(descEl);
     header.appendChild(text);
     card.appendChild(header);
 
     const runBtn = document.createElement('button');
-    runBtn.className = 'button btn-standard-height';
+    runBtn.className = 'button maintenance-card-action';
     runBtn.textContent = translations.actions?.upgrade_all || 'Upgrade All';
     card.appendChild(runBtn);
 
@@ -403,8 +426,16 @@ function buildWingetUpdaterCard(translations) {
 
     runBtn.addEventListener('click', async () => {
         if (running) return;
+        if (maintenanceBusy) {
+            toast(translations.maintenance?.busy_message || 'Another maintenance task is running.', {
+                type: 'info', title: translations.maintenance?.toast_title || 'Maintenance'
+            });
+            return;
+        }
         running = true;
+        maintenanceBusy = true;
         cancelled = false;
+        card.classList.add('is-running');
 
         const originalText = runBtn.textContent;
         runBtn.disabled = true;
@@ -418,6 +449,8 @@ function buildWingetUpdaterCard(translations) {
                 showMissing(true);
                 toast(translations.messages?.winget_not_installed || 'Winget is not installed.', { type: 'error', title: 'Winget' });
                 running = false;
+                maintenanceBusy = false;
+                card.classList.remove('is-running');
                 runBtn.disabled = false;
                 runBtn.classList.remove('btn-loading');
                 runBtn.textContent = originalText;
@@ -465,6 +498,8 @@ function buildWingetUpdaterCard(translations) {
         } finally {
             unsubscribe();
             running = false;
+            maintenanceBusy = false;
+            card.classList.remove('is-running');
             terminal.classList.remove('running');
             runBtn.disabled = false;
             runBtn.classList.remove('btn-loading');
@@ -491,20 +526,223 @@ function buildWingetUpdaterCard(translations) {
 // SYSTEM MAINTENANCE PAGE
 // ============================================
 
-/**
- * Creates a section title element
- */
-function createSectionTitle(text, iconKey) {
-    const title = document.createElement('h3');
-    title.classList.add('maintenance-section-title');
+const MAINTENANCE_LAYOUT_SETTING_KEY = 'maintenance_layout';
+const MAINTENANCE_LAYOUTS = ['overview', 'list'];
+
+function syncMaintenanceLayout(layout) {
+    if (!MAINTENANCE_LAYOUTS.includes(layout)) return;
+    // The main-process settings store persists locally now and coalesces
+    // rapid changes into one Supabase upsert after its 1.5 s quiet period.
+    try {
+        const request = window.api?.setSetting?.(MAINTENANCE_LAYOUT_SETTING_KEY, layout);
+        if (request && typeof request.catch === 'function') request.catch(() => { });
+    } catch { }
+}
+
+function setMaintenanceLayout(container, layout, buttons, persist = true) {
+    const selected = MAINTENANCE_LAYOUTS.includes(layout) ? layout : 'overview';
+    const changed = container.dataset.maintenanceView !== selected;
+    for (const option of MAINTENANCE_LAYOUTS) {
+        container.classList.toggle(`maintenance-view--${option}`, option === selected);
+    }
+    container.dataset.maintenanceView = selected;
+
+    buttons.forEach((button) => {
+        const active = button.dataset.maintenanceLayout === selected;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+    });
+
+    if (persist && changed) {
+        syncMaintenanceLayout(selected);
+    }
+}
+
+async function loadMaintenanceLayoutPreference() {
+    try {
+        const synced = await window.api?.getSetting?.(MAINTENANCE_LAYOUT_SETTING_KEY);
+        if (MAINTENANCE_LAYOUTS.includes(synced)) return synced;
+    } catch { }
+
+    return 'overview';
+}
+
+function createMaintenanceHero(translations, container, initialLayout) {
+    const T = translations.maintenance || {};
+    const hero = document.createElement('header');
+    hero.className = 'maintenance-hero';
+
+    const main = document.createElement('div');
+    main.className = 'maintenance-hero-main';
+
+    const heroIcon = document.createElement('div');
+    heroIcon.className = 'maintenance-hero-icon';
+    heroIcon.innerHTML = getMaintenanceIcon('sparkle');
+
+    const copy = document.createElement('div');
+    copy.className = 'maintenance-hero-copy';
+
+    const eyebrow = document.createElement('div');
+    eyebrow.className = 'maintenance-hero-eyebrow';
+
+    const kicker = document.createElement('span');
+    kicker.textContent = T.page_kicker || 'Windows Care Center';
+
+    const ready = document.createElement('span');
+    ready.className = 'maintenance-ready-status';
+    const readyDot = document.createElement('span');
+    readyDot.className = 'maintenance-ready-dot';
+    const readyText = document.createElement('span');
+    readyText.textContent = T.ready || 'Ready';
+    ready.appendChild(readyDot);
+    ready.appendChild(readyText);
+
+    eyebrow.appendChild(kicker);
+    eyebrow.appendChild(ready);
+
+    const title = document.createElement('h1');
+    title.textContent = T.page_title || translations.menu?.system_maintenance || 'System Maintenance';
+
+    const description = document.createElement('p');
+    description.textContent = T.page_description
+        || translations.menu_info?.system_maintenance
+        || 'Repair connections, diagnose Windows, and keep your applications current.';
+
+    copy.appendChild(eyebrow);
+    copy.appendChild(title);
+    copy.appendChild(description);
+
+    const stats = document.createElement('div');
+    stats.className = 'maintenance-hero-stats';
+
+    const statItems = [
+        { value: '9', label: T.actions_label || 'actions' },
+        { value: '3', label: T.categories_label || 'categories' }
+    ];
+
+    for (const item of statItems) {
+        const stat = document.createElement('div');
+        stat.className = 'maintenance-hero-stat';
+        const value = document.createElement('strong');
+        value.textContent = item.value;
+        const label = document.createElement('span');
+        label.textContent = item.label;
+        stat.appendChild(value);
+        stat.appendChild(label);
+        stats.appendChild(stat);
+    }
+
+    main.appendChild(heroIcon);
+    main.appendChild(copy);
+    main.appendChild(stats);
+
+    const footer = document.createElement('div');
+    footer.className = 'maintenance-hero-footer';
+
+    const notice = document.createElement('div');
+    notice.className = 'maintenance-hero-notice';
+    const noticeIcon = document.createElement('span');
+    noticeIcon.innerHTML = getMaintenanceIcon('shield');
+    const noticeText = document.createElement('span');
+    noticeText.textContent = T.one_task_notice
+        || 'One task runs at a time. Admin actions may request permission.';
+    notice.appendChild(noticeIcon);
+    notice.appendChild(noticeText);
+
+    const layoutControl = document.createElement('div');
+    layoutControl.className = 'maintenance-layout-control';
+
+    const layoutLabel = document.createElement('span');
+    layoutLabel.className = 'maintenance-layout-label';
+    layoutLabel.textContent = T.layout_label || 'Layout';
+
+    const switcher = document.createElement('div');
+    switcher.className = 'maintenance-layout-switcher';
+    switcher.setAttribute('role', 'group');
+    switcher.setAttribute('aria-label', T.layout_hint || 'Choose a maintenance layout');
+
+    const layoutOptions = [
+        { id: 'overview', icon: 'overview', label: T.view_overview || 'Overview' },
+        { id: 'list', icon: 'list', label: T.view_list || 'List' }
+    ];
+    const buttons = [];
+
+    for (const option of layoutOptions) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'maintenance-layout-option';
+        button.dataset.maintenanceLayout = option.id;
+
+        const icon = document.createElement('span');
+        icon.className = 'maintenance-layout-option-icon';
+        icon.innerHTML = getMaintenanceIcon(option.icon);
+
+        const label = document.createElement('span');
+        label.textContent = option.label;
+
+        button.appendChild(icon);
+        button.appendChild(label);
+        button.addEventListener('click', () => setMaintenanceLayout(container, option.id, buttons));
+        buttons.push(button);
+        switcher.appendChild(button);
+    }
+
+    layoutControl.appendChild(layoutLabel);
+    layoutControl.appendChild(switcher);
+    footer.appendChild(notice);
+    footer.appendChild(layoutControl);
+    hero.appendChild(main);
+    hero.appendChild(footer);
+
+    setMaintenanceLayout(container, initialLayout, buttons, false);
+
+    return hero;
+}
+
+function createMaintenanceSection(titleText, descriptionText, iconKey, actionCount, actionLabel, tone) {
+    const section = document.createElement('section');
+    section.className = `maintenance-section maintenance-section--${tone}`;
+
+    const header = document.createElement('header');
+    header.className = 'maintenance-section-header';
+
+    const heading = document.createElement('div');
+    heading.className = 'maintenance-section-heading';
+
     const icon = document.createElement('span');
     icon.className = 'maintenance-section-icon';
     icon.innerHTML = getMaintenanceIcon(iconKey);
-    const label = document.createElement('span');
-    label.textContent = text;
-    title.appendChild(icon);
-    title.appendChild(label);
-    return title;
+
+    const copy = document.createElement('div');
+    copy.className = 'maintenance-section-copy';
+
+    const title = document.createElement('h2');
+    title.className = 'maintenance-section-title';
+    title.textContent = titleText;
+
+    const description = document.createElement('p');
+    description.className = 'maintenance-section-description';
+    description.textContent = descriptionText;
+
+    copy.appendChild(title);
+    copy.appendChild(description);
+    heading.appendChild(icon);
+    heading.appendChild(copy);
+
+    const count = document.createElement('span');
+    count.className = 'maintenance-section-count';
+    count.textContent = String(actionCount);
+    count.setAttribute('aria-label', `${actionCount} ${actionLabel}`);
+
+    const grid = document.createElement('div');
+    grid.className = 'maintenance-action-grid';
+
+    header.appendChild(heading);
+    header.appendChild(count);
+    section.appendChild(header);
+    section.appendChild(grid);
+
+    return { section, grid };
 }
 
 const CLEANER_TASKS = [
@@ -935,18 +1173,24 @@ export async function buildCleanerPage(translations = {}) {
 }
 
 export async function buildMaintenancePage(translations, _settings) {
-    createMaintenanceCard.adminRequiredText = translations.messages?.admin_required || 'Admin required';
+    createMaintenanceCard.adminBadgeText = translations.maintenance?.admin_badge || 'Admin';
     createMaintenanceCard.runningText = translations.actions?.running || 'Running...';
+    createMaintenanceCard.busyMessage = translations.maintenance?.busy_message || 'Another maintenance task is running.';
+    createMaintenanceCard.toastTitle = translations.maintenance?.toast_title || 'Maintenance';
 
+    const T = translations.maintenance || {};
+    const initialLayout = await loadMaintenanceLayoutPreference();
     const container = document.createElement('div');
-    container.className = 'card page-flat';
+    container.className = 'maintenance-page';
+    container.appendChild(createMaintenanceHero(translations, container, initialLayout));
 
     // Network & Connectivity
-    container.appendChild(createSectionTitle(translations.maintenance?.network_section || 'Network & Connectivity', 'network'));
-
-    const networkRow = document.createElement('div');
-    networkRow.className = 'maintenance-row';
-    networkRow.classList.add('grid-2-col-margin');
+    const networkSection = createMaintenanceSection(
+        T.network_section || 'Network & Connectivity',
+        T.network_section_desc || 'Quick fixes for connection, DNS, Bluetooth, and Windows networking.',
+        'network', 4, T.actions_label || 'actions', 'network'
+    );
+    const networkRow = networkSection.grid;
 
     const dnsCard = createMaintenanceCard(
         translations.maintenance?.flush_dns || 'Flush DNS Cache',
@@ -955,7 +1199,6 @@ export async function buildMaintenancePage(translations, _settings) {
         translations.actions?.flush || 'Flush',
         flushDnsCache, false
     );
-    dnsCard.querySelector('button').classList.add('btn-standard-height');
 
     const ipCard = createMaintenanceCard(
         translations.maintenance?.release_renew_ip || 'Release & Renew IP',
@@ -964,7 +1207,6 @@ export async function buildMaintenancePage(translations, _settings) {
         translations.actions?.run || 'Run',
         releaseRenewIp, false
     );
-    ipCard.querySelector('button').classList.add('btn-standard-height');
 
     const btCard = createMaintenanceCard(
         translations.maintenance?.fix_bluetooth || 'Fix Bluetooth',
@@ -973,7 +1215,6 @@ export async function buildMaintenancePage(translations, _settings) {
         translations.actions?.fix || 'Fix',
         fixBluetooth, true
     );
-    btCard.querySelector('button').classList.add('btn-standard-height');
 
     const netResetCard = createMaintenanceCard(
         translations.maintenance?.network_reset || 'Network Reset',
@@ -982,41 +1223,43 @@ export async function buildMaintenancePage(translations, _settings) {
         translations.actions?.reset || 'Reset',
         networkReset, true
     );
-    netResetCard.querySelector('button').classList.add('btn-standard-height');
+    netResetCard.classList.add('maintenance-action-card--caution');
 
     networkRow.appendChild(dnsCard);
     networkRow.appendChild(ipCard);
     networkRow.appendChild(btCard);
     networkRow.appendChild(netResetCard);
-    container.appendChild(networkRow);
+    container.appendChild(networkSection.section);
 
     // ── SECTION 3: System Repair & Diagnostics ──
-    container.appendChild(createSectionTitle(translations.maintenance?.repair_section || 'System Repair & Diagnostics', 'repair'));
-
-    const repairRow = document.createElement('div');
-    repairRow.className = 'maintenance-row';
-    repairRow.classList.add('grid-2-col-margin');
+    const repairSection = createMaintenanceSection(
+        T.repair_section || 'System Repair & Diagnostics',
+        T.repair_section_desc || 'Check Windows integrity, disk health, and essential system services.',
+        'repair', 4, T.actions_label || 'actions', 'repair'
+    );
+    const repairRow = repairSection.grid;
 
     // SFC/DISM Card (special dual-button card)
     const sfcDismCard = document.createElement('div');
-    sfcDismCard.className = 'app-card';
-    sfcDismCard.classList.add('feature-card');
+    sfcDismCard.className = 'maintenance-action-card maintenance-action-card--admin maintenance-action-card--featured';
+    sfcDismCard.appendChild(createMaintenanceBadge(T.admin_badge || 'Admin'));
 
     const sfcDismHeader = document.createElement('div');
-    sfcDismHeader.className = 'app-header';
+    sfcDismHeader.className = 'maintenance-card-header';
 
     const sfcDismIcon = document.createElement('div');
-    sfcDismIcon.classList.add('feature-card-icon');
+    sfcDismIcon.className = 'maintenance-card-icon';
     sfcDismIcon.innerHTML = getMaintenanceIcon('repair');
     sfcDismHeader.appendChild(sfcDismIcon);
 
     const sfcDismText = document.createElement('div');
+    sfcDismText.className = 'maintenance-card-copy';
     const sfcDismName = document.createElement('h3');
     sfcDismName.textContent = translations.maintenance?.system_file_repair || 'System File Repair';
-    sfcDismName.classList.add('feature-card-name');
+    sfcDismName.className = 'maintenance-card-title';
     const sfcDismDesc = document.createElement('p');
     sfcDismDesc.textContent = translations.maintenance?.system_file_desc || 'SFC Scan & DISM Repair system tools (Admin required)';
-    sfcDismDesc.classList.add('feature-card-desc-warning');
+    sfcDismDesc.className = 'maintenance-card-description';
     sfcDismText.appendChild(sfcDismName);
     sfcDismText.appendChild(sfcDismDesc);
     sfcDismHeader.appendChild(sfcDismText);
@@ -1026,14 +1269,12 @@ export async function buildMaintenancePage(translations, _settings) {
     sfcDismButtons.classList.add('sfc-dism-buttons');
 
     const sfcButton = document.createElement('button');
-    sfcButton.className = 'button';
+    sfcButton.className = 'button maintenance-card-action';
     sfcButton.textContent = translations.actions?.run_sfc || 'Run SFC';
-    sfcButton.classList.add('btn-half');
 
     const dismButton = document.createElement('button');
-    dismButton.className = 'button';
+    dismButton.className = 'button maintenance-card-action';
     dismButton.textContent = translations.actions?.run_dism || 'Run DISM';
-    dismButton.classList.add('btn-half');
 
     const repairTerminal = document.createElement('div');
     repairTerminal.className = 'winget-terminal';
@@ -1111,12 +1352,15 @@ export async function buildMaintenancePage(translations, _settings) {
     async function runRepairTask(button, apiFn, cmdLabel, taskName) {
         if (repairRunning) return;
         if (maintenanceBusy) {
-            toast('Another maintenance task is running.', { type: 'info', title: 'Maintenance' });
+            toast(T.busy_message || 'Another maintenance task is running.', {
+                type: 'info', title: T.toast_title || 'Maintenance'
+            });
             return;
         }
         repairRunning = true;
         maintenanceBusy = true;
         repairCancelled = false;
+        sfcDismCard.classList.add('is-running');
 
         const originalText = button.textContent;
         sfcButton.disabled = true;
@@ -1139,20 +1383,21 @@ export async function buildMaintenancePage(translations, _settings) {
             const result = await apiFn();
             if (result && result.success) {
                 repairPrint(`✔ ${taskName} completed.`, 'is-ok');
-                toast(`${taskName} completed!`, { type: 'success', title: 'Maintenance' });
+                toast(`${taskName} completed!`, { type: 'success', title: T.toast_title || 'Maintenance' });
             } else if (!result || !result.cancelled) {
                 repairPrint(`✖ ${result?.error || `${taskName} exited with code ${result?.code ?? '?'}.`}`, 'is-err');
-                toast(result?.error || `${taskName} failed.`, { type: 'error', title: 'Maintenance' });
+                toast(result?.error || `${taskName} failed.`, { type: 'error', title: T.toast_title || 'Maintenance' });
             }
         } catch (error) {
             if (!repairCancelled) {
                 repairPrint(`✖ ${error.message}`, 'is-err');
-                toast(error.message || `${taskName} failed.`, { type: 'error', title: 'Maintenance' });
+                toast(error.message || `${taskName} failed.`, { type: 'error', title: T.toast_title || 'Maintenance' });
             }
         } finally {
             unsubscribe();
             repairRunning = false;
             maintenanceBusy = false;
+            sfcDismCard.classList.remove('is-running');
             repairTerminal.classList.remove('running');
             sfcButton.disabled = false;
             dismButton.disabled = false;
@@ -1192,7 +1437,7 @@ export async function buildMaintenancePage(translations, _settings) {
         translations.actions?.check || 'Check',
         checkDisk, true
     );
-    checkDiskCard.querySelector('button').classList.add('btn-standard-height');
+    checkDiskCard.classList.add('maintenance-action-card--read-only');
 
     const audioCard = createMaintenanceCard(
         translations.maintenance?.restart_audio || 'Restart Audio System',
@@ -1201,22 +1446,24 @@ export async function buildMaintenancePage(translations, _settings) {
         translations.actions?.restart || 'Restart',
         restartAudioSystem, true
     );
-    audioCard.querySelector('button').classList.add('btn-standard-height');
 
     repairRow.appendChild(sfcDismCard);
     repairRow.appendChild(checkDiskCard);
     repairRow.appendChild(audioCard);
-    container.appendChild(repairRow);
+    container.appendChild(repairSection.section);
 
     // ── SECTION 4: Tools ──
-    container.appendChild(createSectionTitle(translations.maintenance?.tools_section || 'Tools', 'tools'));
-
-    const toolsRow = document.createElement('div');
+    const toolsSection = createMaintenanceSection(
+        T.tools_section || 'Application Updates',
+        T.tools_section_desc || 'Keep installed applications current through Windows Package Manager.',
+        'tools', 1, T.action_label || 'action', 'updates'
+    );
+    const toolsRow = toolsSection.grid;
 
     const updaterCard = buildWingetUpdaterCard(translations);
 
     toolsRow.appendChild(updaterCard);
-    container.appendChild(toolsRow);
+    container.appendChild(toolsSection.section);
 
     return container;
 }

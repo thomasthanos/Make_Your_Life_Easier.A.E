@@ -1196,6 +1196,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         });
 
         updateActionButtonsState();
+        saveSelectedApps();
 
         if (uncheckedCount > 0) {
             toast(`Unchecked ${uncheckedCount} application${uncheckedCount !== 1 ? 's' : ''}.`, {
@@ -1290,6 +1291,10 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         };
 
         const setBadge = (li, state) => {
+            if (state === 'installed') {
+                const cb = li.querySelector('input[type="checkbox"]');
+                if (cb) cb.checked = false;
+            }
             const badge = li.querySelector('.app-status-badge');
             if (!badge) return;
             if (state === 'installed') {
@@ -1547,6 +1552,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             buttonStateManager.resetState(actionBtn);
             [checkInstalledBtn, uncheckAllBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = false));
             updateActionButtonsState();
+            saveSelectedApps();
         }
     }
 

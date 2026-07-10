@@ -73,10 +73,14 @@ function syncedSummary(all) {
     const A = translations.account_ui || {};
     const L = A.labels || {};
     const V = A.values || {};
+    const M = translations.maintenance || {};
     const s = all || {};
     const queue = Array.isArray(s.selected_apps) ? s.selected_apps.length : 0;
     const view = s.installer_view || 'list';
     const sort = s.installer_sort || 'default';
+    const maintenanceLayout = s.maintenance_layout === 'list'
+        ? (M.view_list || 'List')
+        : (M.view_overview || 'Overview');
     const queueValue = queue
         ? `${queue} ${queue === 1 ? (V.app || 'app') : (V.apps || 'apps')}`
         : (V.empty || 'empty');
@@ -84,7 +88,8 @@ function syncedSummary(all) {
         { label: L.queue || 'Install queue', value: queueValue },
         { label: L.language || 'Language', value: (s.lang || 'en').toUpperCase() },
         { label: L.sidebar || 'Sidebar', value: s.sidebarExpanded ? (V.expanded || 'expanded') : (V.collapsed || 'collapsed') },
-        { label: L.view || 'Installer view', value: `${view} · ${sort}` }
+        { label: L.view || 'Installer view', value: `${view} · ${sort}` },
+        { label: L.maintenance_view || 'Maintenance layout', value: maintenanceLayout }
     ];
 }
 
