@@ -1693,7 +1693,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
 export async function buildCrackInstallerPage(translations, settings, buttonStateManager) {
     const container = document.createElement('div');
-    container.className = 'card';
+    container.className = 'card page-flat';
 
     const projects = [
         {

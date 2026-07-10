@@ -516,6 +516,8 @@ const CLEANER_TASKS = [
     { id: 'error_reports', title: 'Clear Error Reports', description: 'Remove error report and crash dump files.', detail: 'CrashDumps + Windows Error Reporting', icon: 'crashReport' }
 ];
 
+let cleanerT = {};
+
 function formatCleanerBytes(bytes) {
     const value = Number(bytes || 0);
     if (value <= 0) return '0 B';
@@ -526,11 +528,12 @@ function formatCleanerBytes(bytes) {
 }
 
 function formatCleanerDate(value) {
-    if (!value) return 'Not cleaned yet.';
+    const never = cleanerT.never_cleaned || 'Not cleaned yet.';
+    if (!value) return never;
     try {
         return new Date(value).toLocaleString();
     } catch {
-        return 'Not cleaned yet.';
+        return never;
     }
 }
 
@@ -573,12 +576,12 @@ function runCleanerScan() {
     if (cleanerState.scanPromise) return cleanerState.scanPromise;
 
     cleanerState.scanning = true;
-    cleanerState.scanMode = 'Scanning...';
+    cleanerState.scanMode = cleanerT.scanning || 'Scanning...';
 
     const promise = (async () => {
         try {
             if (!cleanerState.adminEnabled && !cleanerState.adminDeclined) {
-                cleanerState.scanMode = 'Waiting for administrator approval...';
+                cleanerState.scanMode = cleanerT.waiting_admin || 'Waiting for administrator approval...';
                 notifyCleaner();
                 try {
                     const res = await window.api.enableCleanerAdmin();
@@ -590,23 +593,23 @@ function runCleanerScan() {
                 } catch {
                     cleanerState.adminDeclined = true;
                 }
-                cleanerState.scanMode = 'Scanning...';
+                cleanerState.scanMode = cleanerT.scanning || 'Scanning...';
                 notifyCleaner();
             }
 
             const result = await window.api.scanCleanerTasks({ elevated: cleanerState.adminEnabled });
 
             if (!result || !result.success) {
-                toast((result && result.error) || 'Cleaner scan failed.', { type: 'error', title: 'Cleaner' });
+                toast((result && result.error) || cleanerT.scan_failed || 'Cleaner scan failed.', { type: 'error', title: cleanerT.title || 'Cleaner' });
                 return;
             }
 
             cleanerState.results = result.items || [];
             cleanerState.scanMode = result.elevated
-                ? 'Full scan completed with administrator access.'
-                : 'Limited scan. Protected items need admin — cleaned when you press Clean.';
+                ? (cleanerT.scan_full || 'Full scan completed with administrator access.')
+                : (cleanerT.scan_limited || 'Limited scan. Protected items need admin — cleaned when you press Clean.');
         } catch (error) {
-            toast((error && error.message) || 'Cleaner scan failed.', { type: 'error', title: 'Cleaner' });
+            toast((error && error.message) || cleanerT.scan_failed || 'Cleaner scan failed.', { type: 'error', title: cleanerT.title || 'Cleaner' });
         } finally {
             cleanerState.scanning = false;
             cleanerState.scanPromise = null;
@@ -619,7 +622,9 @@ function runCleanerScan() {
     return promise;
 }
 
-export async function buildCleanerPage() {
+export async function buildCleanerPage(translations = {}) {
+    cleanerT = translations.cleaner_ui || {};
+    const taskText = (task) => (cleanerT.tasks && cleanerT.tasks[task.id]) || {};
     const container = document.createElement('div');
     container.className = 'card cleaner-page';
     const taskState = new Map(CLEANER_TASKS.map((task) => [task.id, { ...task, sizeBytes: 0, path: task.detail, inaccessible: false }]));
@@ -638,22 +643,22 @@ export async function buildCleanerPage() {
     summaryText.className = 'cleaner-summary-text';
 
     const title = document.createElement('h2');
-    title.textContent = 'System Cleaner';
+    title.textContent = cleanerT.title || 'System Cleaner';
 
     const lastCleaned = document.createElement('p');
     lastCleaned.className = 'cleaner-last-cleaned';
-    lastCleaned.textContent = `Last cleaned: ${formatCleanerDate(localStorage.getItem('cleanerLastCleaned'))}`;
+    lastCleaned.textContent = `${cleanerT.last_cleaned || 'Last cleaned:'} ${formatCleanerDate(localStorage.getItem('cleanerLastCleaned'))}`;
 
     const totalLine = document.createElement('p');
     totalLine.className = 'cleaner-total-line';
-    totalLine.textContent = 'Total size ';
+    totalLine.textContent = `${cleanerT.total_size || 'Total size'} `;
     const totalValue = document.createElement('span');
-    totalValue.textContent = 'Scanning...';
+    totalValue.textContent = cleanerT.scanning || 'Scanning...';
     totalLine.appendChild(totalValue);
 
     const scanMode = document.createElement('p');
     scanMode.className = 'cleaner-scan-mode';
-    scanMode.textContent = 'Scanning...';
+    scanMode.textContent = cleanerT.scanning || 'Scanning...';
 
     summaryText.appendChild(title);
     summaryText.appendChild(lastCleaned);
@@ -666,17 +671,17 @@ export async function buildCleanerPage() {
     const scanBtn = document.createElement('button');
     scanBtn.type = 'button';
     scanBtn.className = 'button-secondary cleaner-scan-btn';
-    setCleanerButtonContent(scanBtn, 'scan', 'Scan');
+    setCleanerButtonContent(scanBtn, 'scan', cleanerT.scan || 'Scan');
 
     const selectAllBtn = document.createElement('button');
     selectAllBtn.type = 'button';
     selectAllBtn.className = 'button-secondary cleaner-select-btn';
-    setCleanerButtonContent(selectAllBtn, 'selectAll', 'Select All');
+    setCleanerButtonContent(selectAllBtn, 'selectAll', cleanerT.select_all || 'Select All');
 
     const cleanBtn = document.createElement('button');
     cleanBtn.type = 'button';
     cleanBtn.className = 'button cleaner-clean-btn';
-    setCleanerButtonContent(cleanBtn, 'cleaner', 'Clean Selected');
+    setCleanerButtonContent(cleanBtn, 'cleaner', cleanerT.clean_selected || 'Clean Selected');
     cleanBtn.disabled = true;
 
     summaryActions.appendChild(scanBtn);
@@ -705,11 +710,12 @@ export async function buildCleanerPage() {
         }, 0);
         const checkedCount = Array.from(rowControls.values()).filter((control) => control.checkbox.checked).length;
 
-        totalValue.textContent = scanning ? 'Scanning...' : formatCleanerBytes(totalBytes);
+        const cleanLabel = cleanerT.clean_selected || 'Clean Selected';
+        totalValue.textContent = scanning ? (cleanerT.scanning || 'Scanning...') : formatCleanerBytes(totalBytes);
         totalValue.classList.toggle('is-scanning', scanning);
         cleanBtn.disabled = scanning || cleaning || checkedCount === 0;
-        setCleanerButtonContent(cleanBtn, 'cleaner', selectedBytes > 0 ? `Clean Selected (${formatCleanerBytes(selectedBytes)})` : 'Clean Selected');
-        setCleanerButtonContent(selectAllBtn, 'selectAll', checkedCount === rowControls.size && checkedCount > 0 ? 'Unselect All' : 'Select All');
+        setCleanerButtonContent(cleanBtn, 'cleaner', selectedBytes > 0 ? `${cleanLabel} (${formatCleanerBytes(selectedBytes)})` : cleanLabel);
+        setCleanerButtonContent(selectAllBtn, 'selectAll', checkedCount === rowControls.size && checkedCount > 0 ? (cleanerT.unselect_all || 'Unselect All') : (cleanerT.select_all || 'Select All'));
     }
 
     function renderRows() {
@@ -737,10 +743,10 @@ export async function buildCleanerPage() {
             content.className = 'cleaner-row-content';
 
             const rowTitle = document.createElement('h3');
-            rowTitle.textContent = task.title;
+            rowTitle.textContent = taskText(task).title || task.title;
 
             const desc = document.createElement('p');
-            desc.textContent = task.description;
+            desc.textContent = taskText(task).description || task.description;
 
             const meta = document.createElement('div');
             meta.className = 'cleaner-row-meta';
@@ -748,10 +754,10 @@ export async function buildCleanerPage() {
             const size = document.createElement('span');
             size.className = 'cleaner-size';
             if (scanning) {
-                size.textContent = 'Scanning...';
+                size.textContent = cleanerT.scanning || 'Scanning...';
                 size.classList.add('is-scanning');
             } else if (data.inaccessible) {
-                size.textContent = 'Admin needed';
+                size.textContent = cleanerT.admin_needed || 'Admin needed';
                 size.classList.add('is-warning');
             } else {
                 size.textContent = formatCleanerBytes(data.sizeBytes);
@@ -822,10 +828,10 @@ export async function buildCleanerPage() {
 
         if (scanning) {
             scanBtn.classList.add('btn-loading');
-            setCleanerButtonContent(scanBtn, 'scan', 'Scanning...');
+            setCleanerButtonContent(scanBtn, 'scan', cleanerT.scanning || 'Scanning...');
         } else {
             scanBtn.classList.remove('btn-loading');
-            setCleanerButtonContent(scanBtn, 'scan', 'Scan');
+            setCleanerButtonContent(scanBtn, 'scan', cleanerT.scan || 'Scan');
         }
         scanBtn.disabled = scanning || cleaning;
         selectAllBtn.disabled = scanning || cleaning;
@@ -851,7 +857,7 @@ export async function buildCleanerPage() {
             .map((control) => control.id);
 
         if (selectedIds.length === 0) {
-            toast('No cleaner tasks selected.', { type: 'error', title: 'Cleaner' });
+            toast(cleanerT.no_selection || 'No cleaner tasks selected.', { type: 'error', title: cleanerT.title || 'Cleaner' });
             return;
         }
 
@@ -859,7 +865,7 @@ export async function buildCleanerPage() {
         scanBtn.disabled = true;
         selectAllBtn.disabled = true;
         cleanBtn.classList.add('btn-loading');
-        setCleanerButtonContent(cleanBtn, 'cleaner', 'Cleaning...');
+        setCleanerButtonContent(cleanBtn, 'cleaner', cleanerT.cleaning || 'Cleaning...');
 
         const bytesBefore = Array.from(taskState.values()).reduce((sum, task) => sum + Number(task.sizeBytes || 0), 0);
 
@@ -879,7 +885,7 @@ export async function buildCleanerPage() {
             if (result && result.success) {
                 const now = new Date().toISOString();
                 localStorage.setItem('cleanerLastCleaned', now);
-                lastCleaned.textContent = `Last cleaned: ${formatCleanerDate(now)}`;
+                lastCleaned.textContent = `${cleanerT.last_cleaned || 'Last cleaned:'} ${formatCleanerDate(now)}`;
                 let freedText = '';
                 const cleanedIds = new Set(selectedIds);
                 const zeroCleaned = (items) => items.map((item) => (
@@ -887,22 +893,22 @@ export async function buildCleanerPage() {
                 ));
                 if (Array.isArray(result.items)) {
                     cleanerState.results = zeroCleaned(result.items);
-                    cleanerState.scanMode = 'Cleaned. Sizes refreshed with administrator access.';
+                    cleanerState.scanMode = cleanerT.cleaned_refreshed || 'Cleaned. Sizes refreshed with administrator access.';
                     const bytesAfter = result.items.reduce((sum, item) => sum + Number(item.sizeBytes || 0), 0);
                     const freed = Math.max(0, bytesBefore - bytesAfter);
-                    freedText = ` Freed ${formatCleanerBytes(freed)}.`;
+                    freedText = ` ${cleanerT.freed || 'Freed'} ${formatCleanerBytes(freed)}.`;
                 } else if (Array.isArray(cleanerState.results)) {
                     cleanerState.results = zeroCleaned(cleanerState.results);
                 }
-                cleanTerm.print(`✔ Cleaning completed.${freedText}`, 'is-ok');
-                toast((result.message || 'Cleaner completed.') + freedText, { type: 'success', title: 'Cleaner' });
+                cleanTerm.print(`✔ ${cleanerT.clean_done || 'Cleaning completed.'}${freedText}`, 'is-ok');
+                toast((cleanerT.clean_done || result.message || 'Cleaner completed.') + freedText, { type: 'success', title: cleanerT.title || 'Cleaner' });
             } else {
-                cleanTerm.print(`✖ ${(result && result.error) || 'Cleaner failed.'}`, 'is-err');
-                toast((result && result.error) || 'Cleaner failed.', { type: 'error', title: 'Cleaner' });
+                cleanTerm.print(`✖ ${(result && result.error) || cleanerT.clean_failed || 'Cleaner failed.'}`, 'is-err');
+                toast((result && result.error) || cleanerT.clean_failed || 'Cleaner failed.', { type: 'error', title: cleanerT.title || 'Cleaner' });
             }
         } catch (error) {
-            cleanTerm.print(`✖ ${(error && error.message) || 'Cleaner failed.'}`, 'is-err');
-            toast((error && error.message) || 'Cleaner failed.', { type: 'error', title: 'Cleaner' });
+            cleanTerm.print(`✖ ${(error && error.message) || cleanerT.clean_failed || 'Cleaner failed.'}`, 'is-err');
+            toast((error && error.message) || cleanerT.clean_failed || 'Cleaner failed.', { type: 'error', title: cleanerT.title || 'Cleaner' });
         } finally {
             unsubscribe();
             cleanTerm.terminal.classList.remove('running');
@@ -933,11 +939,7 @@ export async function buildMaintenancePage(translations, _settings) {
     createMaintenanceCard.runningText = translations.actions?.running || 'Running...';
 
     const container = document.createElement('div');
-    container.className = 'card';
-
-    const title = document.createElement('h2');
-    title.textContent = translations.pages?.maintenance_title || 'System Maintenance';
-    container.appendChild(title);
+    container.className = 'card page-flat';
 
     // Network & Connectivity
     container.appendChild(createSectionTitle(translations.maintenance?.network_section || 'Network & Connectivity', 'network'));
@@ -1224,6 +1226,7 @@ export async function buildMaintenancePage(translations, _settings) {
 // ============================================
 
 export async function buildDebloatPage(translations, _settings) {
+    const T = translations.debloat_ui || {};
     const container = document.createElement('div');
     container.className = 'card debloat-page';
 
@@ -1247,7 +1250,7 @@ export async function buildDebloatPage(translations, _settings) {
 
     const status = document.createElement('p');
     status.className = 'debloat-status';
-    status.textContent = 'Checking Sparkle...';
+    status.textContent = T.checking || 'Checking Sparkle...';
 
     const progress = document.createElement('div');
     progress.className = 'debloat-progress';
@@ -1283,9 +1286,9 @@ export async function buildDebloatPage(translations, _settings) {
         try {
             const res = await window.api.sparkleStatus?.();
             if (res && res.available) {
-                setStatus('Sparkle is installed and ready to launch.');
+                setStatus(T.ready || 'Sparkle is installed and ready to launch.');
             } else {
-                setStatus('Sparkle will be downloaded from GitHub on first launch — portable, no installation.');
+                setStatus(T.will_download || 'Sparkle will be downloaded from GitHub on first launch — portable, no installation.');
             }
         } catch {
             setStatus('');
@@ -1294,25 +1297,28 @@ export async function buildDebloatPage(translations, _settings) {
 
     const isWindows = await window.api.isWindows();
     if (!isWindows) {
-        setStatus('Sparkle Debloat is only supported on Windows.');
+        setStatus(T.windows_only || 'Sparkle Debloat is only supported on Windows.');
         status.classList.add('is-warning');
         return container;
     }
 
     const runBtn = document.createElement('button');
     runBtn.className = 'button debloat-run-btn';
-    runBtn.textContent = (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.runRaphiScript) ||
+    runBtn.textContent = T.launch_btn ||
+        (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.runRaphiScript) ||
         'Launch Sparkle Debloat';
     heroActions.appendChild(runBtn);
 
     const grid = document.createElement('div');
     grid.className = 'debloat-grid';
-    const DEBLOAT_FEATURES = [
-        { icon: 'recycle', title: 'Remove bloatware', text: 'Uninstalls preinstalled apps and OEM junk you never asked for.' },
-        { icon: 'shield', title: 'Privacy & telemetry', text: 'Disables tracking, telemetry and advertising services.' },
-        { icon: 'prefetch', title: 'Performance tweaks', text: 'Trims background services and startup load for a snappier PC.' },
-        { icon: 'updateCache', title: 'Portable from GitHub', text: 'Fetched from the official Sparkle releases on first launch — nothing to install.' }
+    const featureIcons = ['recycle', 'shield', 'prefetch', 'updateCache'];
+    const featureTexts = (Array.isArray(T.features) && T.features.length === 4) ? T.features : [
+        { title: 'Remove bloatware', text: 'Uninstalls preinstalled apps and OEM junk you never asked for.' },
+        { title: 'Privacy & telemetry', text: 'Disables tracking, telemetry and advertising services.' },
+        { title: 'Performance tweaks', text: 'Trims background services and startup load for a snappier PC.' },
+        { title: 'Portable from GitHub', text: 'Fetched from the official Sparkle releases on first launch — nothing to install.' }
     ];
+    const DEBLOAT_FEATURES = featureTexts.map((feature, index) => ({ ...feature, icon: featureIcons[index] }));
     DEBLOAT_FEATURES.forEach((feature) => {
         const row = document.createElement('article');
         row.className = 'debloat-feature';
@@ -1343,8 +1349,8 @@ export async function buildDebloatPage(translations, _settings) {
 
         const original = runBtn.textContent;
         runBtn.disabled = true;
-        runBtn.textContent = 'Checking Sparkle...';
-        setStatus('Checking Sparkle...');
+        runBtn.textContent = T.checking || 'Checking Sparkle...';
+        setStatus(T.checking || 'Checking Sparkle...');
 
         try {
             const result = await window.api.runSparkleDebloat();
@@ -1355,8 +1361,8 @@ export async function buildDebloatPage(translations, _settings) {
 
             // Case 1: Sparkle needs to be downloaded
             if (result.needsDownload) {
-                runBtn.textContent = 'Downloading Sparkle...';
-                setStatus('Downloading Sparkle from GitHub...');
+                runBtn.textContent = T.downloading || 'Downloading Sparkle from GitHub...';
+                setStatus(T.downloading || 'Downloading Sparkle from GitHub...');
                 setProgress(0);
 
                 const downloadId = result.downloadId || `sparkle-${Date.now()}`;
@@ -1368,13 +1374,13 @@ export async function buildDebloatPage(translations, _settings) {
                 attachDownloadUI(sparkleStoreKey, (data) => {
                     switch (data.status) {
                         case 'progress':
-                            runBtn.textContent = `Downloading... ${data.percent}%`;
-                            setStatus(`Downloading Sparkle from GitHub... ${data.percent}%`);
+                            runBtn.textContent = `${data.percent}%`;
+                            setStatus(`${T.downloading || 'Downloading Sparkle from GitHub...'} ${data.percent}%`);
                             setProgress(data.percent);
                             break;
                         case 'complete': {
-                            runBtn.textContent = 'Extracting Sparkle...';
-                            setStatus('Extracting Sparkle...');
+                            runBtn.textContent = T.extracting || 'Extracting Sparkle...';
+                            setStatus(T.extracting || 'Extracting Sparkle...');
                             setProgress(null);
                             downloadStore.delete(sparkleStoreKey);
 
@@ -1393,8 +1399,8 @@ export async function buildDebloatPage(translations, _settings) {
                             window.api.processDownloadedSparkle(downloadDest)
                                 .then(extractResult => {
                                     if (extractResult && extractResult.success) {
-                                        runBtn.textContent = 'Launching Sparkle...';
-                                        setStatus('Launching Sparkle...');
+                                        runBtn.textContent = T.launching || 'Launching Sparkle...';
+                                        setStatus(T.launching || 'Launching Sparkle...');
                                         // Now run it
                                         return window.api.runSparkleDebloat();
                                     } else {

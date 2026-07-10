@@ -23,6 +23,56 @@
     "bios": "Οδηγοί και συντομεύσεις για ρυθμίσεις BIOS/UEFI",
     "debloat": "Αφαίρεση bloatware και περιττών στοιχείων των Windows"
   },
+  "debloat_ui": {
+    "checking": "Έλεγχος Sparkle...",
+    "ready": "Το Sparkle είναι εγκατεστημένο και έτοιμο για εκκίνηση.",
+    "will_download": "Το Sparkle θα κατέβει από το GitHub στην πρώτη εκκίνηση — portable, χωρίς εγκατάσταση.",
+    "downloading": "Λήψη του Sparkle από το GitHub...",
+    "extracting": "Αποσυμπίεση του Sparkle...",
+    "launching": "Εκκίνηση του Sparkle...",
+    "windows_only": "Το Sparkle Debloat υποστηρίζεται μόνο σε Windows.",
+    "launch_btn": "Εκκίνηση Sparkle Debloat",
+    "features": [
+      { "title": "Αφαίρεση bloatware", "text": "Απεγκαθιστά προεγκατεστημένες εφαρμογές και περιττά προγράμματα OEM." },
+      { "title": "Ιδιωτικότητα & τηλεμετρία", "text": "Απενεργοποιεί παρακολούθηση, τηλεμετρία και διαφημιστικές υπηρεσίες." },
+      { "title": "Βελτιώσεις απόδοσης", "text": "Περιορίζει υπηρεσίες παρασκηνίου και φόρτο εκκίνησης για πιο γρήγορο PC." },
+      { "title": "Portable από το GitHub", "text": "Κατεβαίνει από τα επίσημα releases του Sparkle στην πρώτη εκκίνηση — δεν χρειάζεται εγκατάσταση." }
+    ]
+  },
+  "activation_ui": {
+    "ready_hint": "Έτοιμο — ένα κλικ για λήψη και εκτέλεση.",
+    "admin_badge": "Απαιτείται διαχειριστής"
+  },
+  "cleaner_ui": {
+    "title": "System Cleaner",
+    "last_cleaned": "Τελευταίος καθαρισμός:",
+    "never_cleaned": "Δεν έχει γίνει καθαρισμός.",
+    "total_size": "Συνολικό μέγεθος",
+    "scanning": "Σάρωση...",
+    "waiting_admin": "Αναμονή έγκρισης διαχειριστή...",
+    "scan_failed": "Η σάρωση απέτυχε.",
+    "scan_full": "Πλήρης σάρωση με δικαιώματα διαχειριστή.",
+    "scan_limited": "Περιορισμένη σάρωση. Τα προστατευμένα στοιχεία θέλουν διαχειριστή — καθαρίζονται όταν πατήσεις Καθαρισμό.",
+    "cleaned_refreshed": "Ολοκληρώθηκε. Τα μεγέθη ανανεώθηκαν με δικαιώματα διαχειριστή.",
+    "scan": "Σάρωση",
+    "select_all": "Επιλογή όλων",
+    "unselect_all": "Αποεπιλογή όλων",
+    "clean_selected": "Καθαρισμός επιλεγμένων",
+    "cleaning": "Καθαρισμός...",
+    "admin_needed": "Απαιτείται διαχειριστής",
+    "no_selection": "Δεν έχει επιλεγεί καμία εργασία.",
+    "clean_done": "Ο καθαρισμός ολοκληρώθηκε.",
+    "freed": "Ελευθερώθηκαν",
+    "clean_failed": "Ο καθαρισμός απέτυχε.",
+    "tasks": {
+      "temp": { "title": "Καθαρισμός προσωρινών αρχείων", "description": "Αφαιρεί προσωρινά αρχεία συστήματος και χρήστη." },
+      "prefetch": { "title": "Καθαρισμός Prefetch", "description": "Διαγράφει αρχεία από τον φάκελο Prefetch των Windows." },
+      "recycle_bin": { "title": "Άδειασμα Κάδου Ανακύκλωσης", "description": "Οριστική διαγραφή των αρχείων του Κάδου Ανακύκλωσης." },
+      "windows_update": { "title": "Καθαρισμός cache Windows Update", "description": "Αφαιρεί κατεβασμένα αρχεία εγκατάστασης του Windows Update." },
+      "thumbnail_cache": { "title": "Καθαρισμός cache μικρογραφιών", "description": "Αφαιρεί αποθηκευμένες μικρογραφίες του File Explorer." },
+      "error_reports": { "title": "Καθαρισμός αναφορών σφαλμάτων", "description": "Αφαιρεί αναφορές σφαλμάτων και αρχεία crash dump." }
+    }
+  },
   "general": {
     "language": "Γλώσσα",
     "not_implemented": "Αφαιρει το Spicetify και θα επαναφέρει το Spotify",
@@ -244,6 +294,8 @@
     }
   },
   "christitus_page": {
+    "launch_btn": "Εκκίνηση εργαλείου",
+    "github_btn": "GitHub",
     "subtitle_full": "Πλήρης εργαλειοθήκη για βελτιστοποίηση των Windows",
     "features": [
       "Βελτιστοποίηση συστήματος και ρυθμίσεις απόδοσης",

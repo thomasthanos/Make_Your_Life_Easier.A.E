@@ -61,11 +61,7 @@ const ICON_FULL_UNINSTALL_SPOTIFY = `
 
 export function buildSpicetifyPage(translations, settings) {
     const container = document.createElement('div');
-    container.className = 'card spicetify-card';
-
-    const pageTitle = document.createElement('h2');
-    pageTitle.textContent = translations.pages?.spicetify_title || 'Install Spicetify';
-    container.appendChild(pageTitle);
+    container.className = 'card spicetify-card page-flat';
 
     const grid = document.createElement('div');
     grid.className = 'install-grid';

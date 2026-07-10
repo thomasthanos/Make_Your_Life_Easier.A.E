@@ -120,10 +120,10 @@ async function downloadAndRun(button, config) {
     });
 }
 
-function downloadAndRunActivate(button, ui) {
+function downloadAndRunActivate(button, ui, idleText) {
     return downloadAndRun(button, {
         ui,
-        idleText: 'Ready — one click to download and run.',
+        idleText,
         idPrefix: 'activate',
         url: 'https://www.dropbox.com/scl/fi/oqgye14tmcg97mxbphorp/activate.bat?rlkey=307wz4bzkzejip3os7iztt54l&st=oz6nh4pf&dl=1',
         fileName: 'activate.bat',
@@ -138,10 +138,10 @@ function downloadAndRunActivate(button, ui) {
     });
 }
 
-function downloadAndRunAutologin(button, ui) {
+function downloadAndRunAutologin(button, ui, idleText) {
     return downloadAndRun(button, {
         ui,
-        idleText: 'Ready — one click to download and run.',
+        idleText,
         idPrefix: 'autologin',
         url: 'https://www.dropbox.com/scl/fi/a0bphjru0qfnbsokk751h/auto-login.exe?rlkey=b3ogyjelioq49jyty1odi58x9&st=4o2oq4sc&dl=1',
         fileName: 'auto_login.exe',
@@ -160,7 +160,7 @@ function downloadAndRunAutologin(button, ui) {
 // PAGE BUILDER
 // ============================================
 
-function createActivationCard({ icon, title, description, badge, buttonText, onRun }) {
+function createActivationCard({ icon, title, description, badge, buttonText, readyHint, onRun }) {
     const card = document.createElement('article');
     card.className = 'activation-card';
 
@@ -193,9 +193,10 @@ function createActivationCard({ icon, title, description, badge, buttonText, onR
         header.appendChild(badgeEl);
     }
 
+    const idleHint = readyHint || 'Ready — one click to download and run.';
     const status = document.createElement('p');
     status.className = 'activation-status';
-    status.textContent = 'Ready — one click to download and run.';
+    status.textContent = idleHint;
     card.appendChild(status);
 
     const progress = document.createElement('div');
@@ -211,7 +212,7 @@ function createActivationCard({ icon, title, description, badge, buttonText, onR
     card.appendChild(button);
 
     const ui = {
-        setStatus: (text) => { status.textContent = text || 'Ready — one click to download and run.'; },
+        setStatus: (text) => { status.textContent = text || idleHint; },
         setProgress: (percent) => {
             if (percent === null) {
                 progress.classList.remove('active');
@@ -258,13 +259,17 @@ export async function buildActivateAutologinPage(translations, _settings) {
     const grid = document.createElement('div');
     grid.className = 'activation-grid';
 
+    const uiText = translations.activation_ui || {};
+    const readyHint = uiText.ready_hint || 'Ready — one click to download and run.';
+
     grid.appendChild(createActivationCard({
         icon: ACTIVATION_ICONS.windows,
         title: (translations.activation && translations.activation.activate_windows) || 'Activate Windows',
         description: (translations.activation && translations.activation.activate_desc) || 'Downloads and runs the Windows activation script.',
-        badge: 'Admin required',
+        badge: uiText.admin_badge || 'Admin required',
         buttonText: (translations.actions && translations.actions.activate_windows) || 'Download & Activate Windows',
-        onRun: (button, ui) => downloadAndRunActivate(button, ui)
+        readyHint,
+        onRun: (button, ui) => downloadAndRunActivate(button, ui, readyHint)
     }));
 
     grid.appendChild(createActivationCard({
@@ -272,7 +277,8 @@ export async function buildActivateAutologinPage(translations, _settings) {
         title: (translations.activation && translations.activation.auto_login) || 'Auto Login',
         description: (translations.activation && translations.activation.auto_login_desc) || 'Downloads and sets up automatic login without a password.',
         buttonText: (translations.actions && translations.actions.setup_autologin) || 'Download & Setup Auto Login',
-        onRun: (button, ui) => downloadAndRunAutologin(button, ui)
+        readyHint,
+        onRun: (button, ui) => downloadAndRunAutologin(button, ui, readyHint)
     }));
 
     container.appendChild(grid);

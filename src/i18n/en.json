@@ -23,6 +23,56 @@
     "bios": "Guides and shortcuts for BIOS/UEFI settings",
     "debloat": "Remove bloatware and unnecessary Windows components"
   },
+  "debloat_ui": {
+    "checking": "Checking Sparkle...",
+    "ready": "Sparkle is installed and ready to launch.",
+    "will_download": "Sparkle will be downloaded from GitHub on first launch — portable, no installation.",
+    "downloading": "Downloading Sparkle from GitHub...",
+    "extracting": "Extracting Sparkle...",
+    "launching": "Launching Sparkle...",
+    "windows_only": "Sparkle Debloat is only supported on Windows.",
+    "launch_btn": "Launch Sparkle Debloat",
+    "features": [
+      { "title": "Remove bloatware", "text": "Uninstalls preinstalled apps and OEM junk you never asked for." },
+      { "title": "Privacy & telemetry", "text": "Disables tracking, telemetry and advertising services." },
+      { "title": "Performance tweaks", "text": "Trims background services and startup load for a snappier PC." },
+      { "title": "Portable from GitHub", "text": "Fetched from the official Sparkle releases on first launch — nothing to install." }
+    ]
+  },
+  "activation_ui": {
+    "ready_hint": "Ready — one click to download and run.",
+    "admin_badge": "Admin required"
+  },
+  "cleaner_ui": {
+    "title": "System Cleaner",
+    "last_cleaned": "Last cleaned:",
+    "never_cleaned": "Not cleaned yet.",
+    "total_size": "Total size",
+    "scanning": "Scanning...",
+    "waiting_admin": "Waiting for administrator approval...",
+    "scan_failed": "Cleaner scan failed.",
+    "scan_full": "Full scan completed with administrator access.",
+    "scan_limited": "Limited scan. Protected items need admin — cleaned when you press Clean.",
+    "cleaned_refreshed": "Cleaned. Sizes refreshed with administrator access.",
+    "scan": "Scan",
+    "select_all": "Select All",
+    "unselect_all": "Unselect All",
+    "clean_selected": "Clean Selected",
+    "cleaning": "Cleaning...",
+    "admin_needed": "Admin needed",
+    "no_selection": "No cleaner tasks selected.",
+    "clean_done": "Cleaning completed.",
+    "freed": "Freed",
+    "clean_failed": "Cleaner failed.",
+    "tasks": {
+      "temp": { "title": "Clean Temporary Files", "description": "Remove system and user temporary files." },
+      "prefetch": { "title": "Clean Prefetch Files", "description": "Delete files from the Windows Prefetch folder." },
+      "recycle_bin": { "title": "Empty Recycle Bin", "description": "Permanently remove files from the Recycle Bin." },
+      "windows_update": { "title": "Clean Windows Update Cache", "description": "Remove Windows Update downloaded installation files." },
+      "thumbnail_cache": { "title": "Clear Thumbnail Cache", "description": "Remove cached thumbnail images used by File Explorer." },
+      "error_reports": { "title": "Clear Error Reports", "description": "Remove error report and crash dump files." }
+    }
+  },
   "general": {
     "language": "Language",
     "not_implemented": "This will completely remove Spicetify and restore Spotify to its original state.",
@@ -244,6 +294,8 @@
     }
   },
   "christitus_page": {
+    "launch_btn": "Launch Tool",
+    "github_btn": "GitHub",
     "subtitle_full": "Comprehensive toolbox for Windows optimization",
     "features": [
       "System optimization and performance tweaks",
