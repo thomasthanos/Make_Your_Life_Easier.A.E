@@ -21,14 +21,14 @@ export function buildChrisTitusPage(translations, _settings) {
         return n;
     };
 
-    const card = el('section', 'ctt-card');
+    const card = el('section', 'tool-card');
 
     const style = document.createElement('style');
     card.appendChild(style);
 
     // Header
-    const header = el('div', 'ctt-header');
-    const icon = el('img', 'ctt-icon');
+    const header = el('div', 'tool-card-header');
+    const icon = el('img', 'tool-card-icon');
     const terminalSVG = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
          fill="none" stroke="#1ea8ff" stroke-width="2"
@@ -42,8 +42,8 @@ export function buildChrisTitusPage(translations, _settings) {
     const subtitleText = (translations.christitus_page && translations.christitus_page.subtitle_full) || 'COMPREHENSIVE TOOLBOX FOR WINDOWS OPTIMIZATION';
     const titleWrapper = el('div');
     titleWrapper.innerHTML = `
-    <h2 class="ctt-title">${escapeHtml(titleText)}</h2>
-    <p class="ctt-sub">${escapeHtml(subtitleText)}</p>
+    <h2 class="tool-card-title">${escapeHtml(titleText)}</h2>
+    <p class="tool-card-sub">${escapeHtml(subtitleText)}</p>
   `;
     header.appendChild(icon);
     header.appendChild(titleWrapper);
@@ -63,22 +63,22 @@ export function buildChrisTitusPage(translations, _settings) {
         .filter(item => item != null && item !== '')
         .map((item) => `<li>${escapeHtml(item)}</li>`)
         .join('');
-    card.appendChild(el('ul', 'ctt-bullets', bulletHtml));
+    card.appendChild(el('ul', 'tool-card-bullets', bulletHtml));
 
     // Action Buttons
-    const actions = el('div', 'ctt-actions');
-    const launchBtn = el('button', 'ctt-launch', `<span class="ctt-iconmono">›_</span>Launch Tool`);
-    const ghBtn = el('button', 'ctt-outline', `<span class="ctt-iconmono">↗</span>GitHub`);
+    const actions = el('div', 'tool-card-actions');
+    const launchBtn = el('button', 'tool-card-launch', `<span class="tool-card-iconmono">›_</span>Launch Tool`);
+    const ghBtn = el('button', 'tool-card-outline', `<span class="tool-card-iconmono">↗</span>GitHub`);
     actions.appendChild(launchBtn);
     actions.appendChild(ghBtn);
     card.appendChild(actions);
 
     // Status
-    const status = el('div', 'ctt-status');
+    const status = el('div', 'tool-card-status');
     card.appendChild(status);
 
     const setStatus = (msg, type = '') => {
-        status.className = 'ctt-status';
+        status.className = 'tool-card-status';
         status.textContent = '';
         if (msg) {
             const toastType = (type && type.toLowerCase().includes('error')) ? 'error' : 'success';

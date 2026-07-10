@@ -494,7 +494,7 @@ export function createMenuButton(key, label) {
     btn.type = 'button';
     btn.dataset.key = key;
     btn.innerHTML = `
-    <span class="mi">${MENU_ICONS[key] || ''}</span>
+    <span class="menu-icon">${MENU_ICONS[key] || ''}</span>
     <span class="label">${escapeHtml(label)}</span>
     <span class="dot" aria-hidden="true"></span>
   `;

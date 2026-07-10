@@ -1241,7 +1241,7 @@ export async function buildMaintenancePage(translations, _settings) {
 
     // SFC/DISM Card (special dual-button card)
     const sfcDismCard = document.createElement('div');
-    sfcDismCard.className = 'maintenance-action-card maintenance-action-card--admin maintenance-action-card--featured';
+    sfcDismCard.className = 'maintenance-action-card maintenance-action-card--admin maintenance-action-card--primary';
     sfcDismCard.appendChild(createMaintenanceBadge(T.admin_badge || 'Admin'));
 
     const sfcDismHeader = document.createElement('div');
