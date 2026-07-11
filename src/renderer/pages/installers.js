@@ -512,27 +512,26 @@ function showWingetMissingUI(container, translations) {
 
     const banner = document.createElement('div');
     banner.className = 'winget-missing-banner';
-    banner.style.cssText = 'padding:16px 20px;margin:12px 0;border-radius:10px;background:rgba(255,69,58,0.12);border:1px solid rgba(255,69,58,0.35);color:var(--text-primary,#fff);display:flex;align-items:center;gap:14px;';
 
     const icon = document.createElement('span');
+    icon.className = 'winget-missing-banner-icon';
     icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff453a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-    icon.style.flexShrink = '0';
 
     const textWrap = document.createElement('div');
-    textWrap.style.flex = '1';
+    textWrap.className = 'winget-missing-banner-copy';
 
     const title = document.createElement('div');
-    title.style.cssText = 'font-weight:600;font-size:14px;margin-bottom:4px;color:#ef4444;';
+    title.className = 'winget-missing-banner-title';
     title.textContent = (translations.messages && translations.messages.winget_not_installed) || 'Winget Not Installed';
 
     const desc = document.createElement('div');
-    desc.style.cssText = 'font-size:13px;opacity:0.85;';
+    desc.className = 'winget-missing-banner-description';
     desc.textContent = (translations.messages && translations.messages.winget_missing)
         || 'Winget (App Installer) is not found on this PC. Install it to use the app installer features.';
 
     const storeBtn = document.createElement('button');
+    storeBtn.className = 'winget-missing-banner-action';
     storeBtn.textContent = (translations.actions && translations.actions.open_store) || '📦 Open Microsoft Store';
-    storeBtn.style.cssText = 'margin-top:10px;padding:6px 14px;border-radius:6px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:500;cursor:pointer;';
     storeBtn.addEventListener('click', () => {
         try { window.api.openExternal('ms-windows-store://pdp/?productid=9NBLGGH4NNS1'); } catch { }
     });
@@ -543,10 +542,12 @@ function showWingetMissingUI(container, translations) {
     banner.appendChild(icon);
     banner.appendChild(textWrap);
 
-    // Insert after search wrapper
+    // Insert after search wrapper, inside whichever toolbar owns it.
     const searchWrapper = container.querySelector('.search-wrapper');
-    if (searchWrapper && searchWrapper.nextSibling) {
-        container.insertBefore(banner, searchWrapper.nextSibling);
+    if (searchWrapper?.parentNode && searchWrapper.nextSibling) {
+        searchWrapper.parentNode.insertBefore(banner, searchWrapper.nextSibling);
+    } else if (searchWrapper?.parentNode) {
+        searchWrapper.parentNode.appendChild(banner);
     } else {
         container.prepend(banner);
     }
@@ -558,7 +559,43 @@ function showWingetMissingUI(container, translations) {
 
 export async function buildInstallPageWingetWithCategories(translations, settings, buttonStateManager) {
     const container = document.createElement('div');
-    container.className = 'card';
+    container.className = 'installer-page';
+
+    const hero = document.createElement('section');
+    hero.className = 'installer-hero';
+
+    const heroMain = document.createElement('div');
+    heroMain.className = 'installer-hero-main';
+
+    const heroIcon = document.createElement('div');
+    heroIcon.className = 'installer-hero-icon';
+    heroIcon.setAttribute('aria-hidden', 'true');
+    heroIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 13.5v7M14 17h7"/></svg>';
+
+    const heroCopy = document.createElement('div');
+    heroCopy.className = 'installer-hero-copy';
+
+    const heroTitle = document.createElement('h2');
+    heroTitle.textContent = translations.pages?.install_title || 'Install Popular Applications';
+
+    const heroDescription = document.createElement('p');
+    heroDescription.textContent = translations.pages?.install_desc || 'Browse, select, and install your favorite applications.';
+
+    const installerCount = document.createElement('span');
+    installerCount.className = 'installer-count-badge';
+    installerCount.textContent = settings?.lang === 'gr' ? 'Φόρτωση εφαρμογών...' : 'Loading apps...';
+
+    heroCopy.appendChild(heroTitle);
+    heroCopy.appendChild(heroDescription);
+    heroMain.appendChild(heroIcon);
+    heroMain.appendChild(heroCopy);
+    hero.appendChild(heroMain);
+    hero.appendChild(installerCount);
+    container.appendChild(hero);
+
+    const toolbar = document.createElement('section');
+    toolbar.className = 'installer-toolbar';
+    container.appendChild(toolbar);
 
     const searchWrapper = document.createElement('div');
     searchWrapper.classList.add('search-wrapper');
@@ -580,7 +617,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     searchContainer.appendChild(searchIcon);
     searchContainer.appendChild(searchInput);
     searchWrapper.appendChild(searchContainer);
-    container.appendChild(searchWrapper);
+    toolbar.appendChild(searchWrapper);
 
     const actionsCluster = document.createElement('div');
     actionsCluster.className = 'actions-cluster';
@@ -640,7 +677,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     actionsCluster.appendChild(primaryGroup);
     actionsCluster.appendChild(selectionGroup);
     actionsCluster.appendChild(ioGroup);
-    container.appendChild(actionsCluster);
+    toolbar.appendChild(actionsCluster);
 
     // ── Controls bar: view toggle + sort ──────────────────────────
     const controlsBar = document.createElement('div');
@@ -893,6 +930,9 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         });
 
         const total = ids.length + (CUSTOM_APPS ? CUSTOM_APPS.length : 0);
+        installerCount.textContent = settings?.lang === 'gr'
+            ? `${total} εφαρμογές`
+            : `${total} app${total === 1 ? '' : 's'}`;
         const plural = total !== 1 ? 's' : '';
         const suffix = settings?.lang === 'gr'
             ? (total !== 1 ? 'ές' : 'ή')

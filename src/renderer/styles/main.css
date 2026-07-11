@@ -714,9 +714,6 @@ body.sidebar-expanded .sidebar-collapse-toggle svg {
 .card::-webkit-scrollbar {
   display: none;
 }
-.card:has(.install-controls-bar):hover {
-  box-shadow: none;
-}
 .card > h2 {
   display: none;
 }
@@ -4252,121 +4249,147 @@ select:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-.list-container[data-view="grid"] .category-list {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.installer-page .list-container[data-view="grid"] .category-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--installer-grid-card-min-width), 1fr));
+  gap: var(--installer-list-gap);
 }
-.list-container[data-view="grid"] .app-list-item {
+
+.installer-page .list-container[data-view="grid"] .app-list-item {
   position: relative;
   display: flex;
+  align-items: stretch;
+  justify-content: center;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 0.7rem 0.42rem 0.55rem;
-  border-radius: 14px;
-  text-align: center;
-  flex: 0 0 92px;
-  width: 92px;
-  height: auto;
   gap: 0;
+  width: auto;
+  min-width: 0;
+  min-height: var(--installer-grid-card-min-height);
+  padding: 0.68rem 0.72rem;
+  border-radius: 13px;
+  text-align: left;
 }
-.list-container[data-view="grid"] .app-checkbox {
+
+.installer-page .list-container[data-view="grid"] .app-checkbox {
   position: absolute;
-  top: 6px;
-  left: 6px;
-  margin: 0;
+  top: 8px;
+  right: 8px;
   width: 0;
   height: 0;
+  margin: 0;
 }
-#content .list-container[data-view="grid"] input[type="checkbox"] + .app-label::before {
+
+#content .installer-page .list-container[data-view="grid"] input[type="checkbox"] + .app-label::before {
   position: absolute;
-  top: 6px;
-  left: 6px;
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  margin: 0;
+  top: 8px;
+  right: 8px;
+  left: auto;
   z-index: 2;
-  flex-shrink: unset;
-}
-.list-container[data-view="grid"] .app-label {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.45rem;
-  width: 100%;
-  cursor: pointer;
-  position: static;
-}
-.list-container[data-view="grid"] .app-favicon {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 15px;
+  height: 15px;
   margin: 0;
-  object-fit: contain;
   flex-shrink: 0;
+  border-radius: 5px;
 }
-.list-container[data-view="grid"] .app-text-container {
+
+.installer-page .list-container[data-view="grid"] .app-label {
+  position: static;
   display: flex;
-  flex-direction: column;
   align-items: center;
+  flex-direction: row;
+  gap: 0.68rem;
   width: 100%;
   min-width: 0;
+  padding-right: 1.15rem;
+  cursor: pointer;
 }
-.list-container[data-view="grid"] .app-name {
-  font-size: 0.76rem;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--text-primary);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  line-clamp: 2;
-  overflow: hidden;
+
+.installer-page .list-container[data-view="grid"] .app-favicon {
+  width: var(--installer-grid-icon-size);
+  height: var(--installer-grid-icon-size);
+  margin: 0;
+  flex: 0 0 var(--installer-grid-icon-size);
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.installer-page .list-container[data-view="grid"] .app-text-container {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+}
+
+.installer-page .list-container[data-view="grid"] .app-name {
+  display: block;
   width: 100%;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  min-height: calc(1.3em * 2);
-  height: calc(1.3em * 2);
-  flex-shrink: 0;
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.list-container[data-view="grid"] .app-id {
-  display: none;
+
+.installer-page .list-container[data-view="grid"] .app-id {
+  display: block;
+  width: 100%;
+  margin-top: 0.16rem;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  line-height: 1.2;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.list-container[data-view="grid"] .app-status-badge {
-  margin: 0.3rem 0 0;
-  font-size: 0.58rem;
+
+.installer-page .list-container[data-view="grid"] .app-status-badge {
+  align-self: flex-start;
+  margin: 0.42rem 1.5rem 0 calc(var(--installer-grid-icon-size) + 0.68rem);
   padding: 1px 6px;
+  font-size: 0.58rem;
   line-height: 1.5;
 }
-.list-container[data-view="grid"] .app-status-badge[data-status="unknown"] {
+
+.installer-page .list-container[data-view="grid"] .app-status-badge[data-status="unknown"] {
   display: none;
 }
-.list-container[data-view="grid"] .app-link {
+
+.installer-page .list-container[data-view="grid"] .app-link {
   position: absolute;
-  bottom: 5px;
-  right: 5px;
-  opacity: 0;
-  color: rgba(255, 255, 255, 0.4);
-  transition: opacity 0.2s ease;
+  right: 8px;
+  bottom: 8px;
+  padding: 0;
+  opacity: 0.38;
+  color: var(--text-muted);
+  transition: opacity 0.18s ease, color 0.18s ease;
 }
-.list-container[data-view="grid"] .app-list-item:hover .app-link {
-  opacity: 0.5;
+
+.installer-page .list-container[data-view="grid"] .app-list-item:hover .app-link {
+  opacity: 0.85;
+  color: #a9dff7;
 }
-.list-container[data-view="grid"] .app-progress-wrap {
+
+.installer-page .list-container[data-view="grid"] .app-progress-wrap {
   position: absolute;
+  right: 0;
   bottom: 0;
   left: 0;
-  right: 0;
   margin: 0;
-  border-radius: 0 0 16px 16px;
+  padding: 0 0.72rem 0.4rem;
   overflow: hidden;
-  padding: 0 0.9rem 0.45rem;
+  border-radius: 0 0 13px 13px;
   background: transparent;
 }
-.list-container[data-view="grid"] .app-progress-fill {
+
+.installer-page .list-container[data-view="grid"] .app-progress-fill {
   flex: 1;
   width: auto;
 }
@@ -4850,13 +4873,284 @@ body.sidebar-expanded #app {
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26);
 }
 
-.card:has(.install-controls-bar) {
+.installer-page {
+  --installer-page-gap: 0.62rem;
+  --installer-row-min-height: 62px;
+  --installer-row-padding: 0.58rem 0.72rem;
+  --installer-list-gap: 0.5rem;
+  --installer-favicon-size: 28px;
+  --installer-grid-card-min-width: 215px;
+  --installer-grid-card-min-height: 84px;
+  --installer-grid-icon-size: 42px;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--installer-page-gap);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.42rem;
+  overflow: hidden;
+  background: transparent;
+}
+
+body.sidebar-expanded .installer-page {
+  --installer-page-gap: 0.5rem;
+  --installer-row-min-height: 54px;
+  --installer-row-padding: 0.48rem 0.6rem;
+  --installer-list-gap: 0.42rem;
+  --installer-favicon-size: 25px;
+  --installer-grid-card-min-width: 185px;
+  --installer-grid-card-min-height: 76px;
+  --installer-grid-icon-size: 38px;
+  padding: 0.32rem;
+}
+
+.installer-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+  padding: 0.74rem 0.86rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 0 0, rgba(10, 132, 255, 0.055), transparent 34%),
+    linear-gradient(145deg, rgba(27, 30, 35, 0.96), rgba(16, 18, 22, 0.97));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.installer-hero-main {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  min-width: 0;
+}
+
+.installer-hero-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  color: #9edfff;
+  border: 1px solid rgba(100, 210, 255, 0.23);
+  border-radius: 13px;
+  background: rgba(10, 132, 255, 0.07);
+}
+
+.installer-hero-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.installer-hero-copy {
+  min-width: 0;
+}
+
+.installer-hero-copy h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.08rem;
+  font-weight: 760;
+  line-height: 1.2;
+}
+
+.installer-hero-copy p {
+  display: -webkit-box;
+  margin: 0.2rem 0 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.installer-count-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 29px;
+  padding: 0 0.68rem;
+  flex: 0 0 auto;
+  color: #a9dff7;
+  border: 1px solid rgba(100, 210, 255, 0.2);
+  border-radius: var(--radius-pill);
+  background: rgba(10, 132, 255, 0.05);
+  font-size: 0.71rem;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+.installer-toolbar {
+  flex: 0 0 auto;
+  padding: 0.58rem 0.64rem;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-top-color: rgba(255, 255, 255, 0.15);
+  border-radius: 15px;
+  background: linear-gradient(180deg, rgba(24, 27, 32, 0.88), rgba(16, 18, 22, 0.86));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.installer-page .search-wrapper {
+  margin: 0;
+}
+
+.installer-page .search-input-styled {
+  height: 40px;
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.11);
+  border-top-color: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.installer-page .install-controls-bar {
+  min-height: 40px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-  padding: 0.38rem 0.52rem 0.55rem;
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
+}
+
+.installer-page .actions-cluster {
+  margin: 0.52rem 0 0;
+  padding-top: 0.52rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.065);
+}
+
+.installer-page .winget-missing-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  margin: 0.5rem 0 0;
+  padding: 0.62rem 0.72rem;
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 105, 97, 0.24);
+  border-radius: 11px;
+  background: rgba(255, 69, 58, 0.055);
+}
+
+.winget-missing-banner-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.winget-missing-banner-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.winget-missing-banner-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.winget-missing-banner-title {
+  margin-bottom: 0.14rem;
+  color: #ff8d87;
+  font-size: 0.77rem;
+  font-weight: 680;
+}
+
+.winget-missing-banner-description {
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.winget-missing-banner-action {
+  min-height: 30px;
+  margin-top: 0.42rem;
+  padding: 0 0.72rem;
+  color: #ffd6d2;
+  border: 1px solid rgba(255, 105, 97, 0.28);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 69, 58, 0.08);
+  font-size: 0.7rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.installer-page .bulk-action-btn {
+  height: 36px;
+  min-height: 36px;
+  font-size: 0.78rem;
+}
+
+.installer-page .list-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0.56rem;
+  padding-right: 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.installer-page .list-container::-webkit-scrollbar {
+  display: none;
+}
+
+.installer-page .category-heading {
+  margin: 0.12rem 0 0.3rem;
+  padding: 0 0.12rem;
+  color: rgba(235, 238, 245, 0.7);
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+}
+
+.installer-page .install-grid {
+  gap: var(--installer-list-gap);
+  margin: 0;
+}
+
+.installer-page .app-list-item {
+  min-height: var(--installer-row-min-height);
+  padding: var(--installer-row-padding);
+  border-color: rgba(255, 255, 255, 0.075);
+  border-top-color: rgba(255, 255, 255, 0.13);
+  background: linear-gradient(180deg, rgba(27, 30, 35, 0.86), rgba(18, 20, 24, 0.84));
+}
+
+.installer-page .app-list-item:hover {
+  background: linear-gradient(180deg, rgba(31, 34, 39, 0.9), rgba(21, 23, 27, 0.88));
+}
+
+.installer-page .app-list-item:has(input[type="checkbox"]:checked) {
+  background: rgba(10, 132, 255, 0.065);
+  border-color: rgba(100, 210, 255, 0.25);
+}
+
+.installer-page .app-favicon {
+  width: var(--installer-favicon-size);
+  height: var(--installer-favicon-size);
+}
+
+@container (max-width: 680px) {
+  .installer-count-badge {
+    display: none;
+  }
+
+  .installer-page .search-wrapper {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .installer-page .install-controls-bar {
+    width: 100%;
+  }
+
+  .installer-page .actions-cluster {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 .card > p {
@@ -6766,7 +7060,6 @@ body:not(.sidebar-expanded) .page-flat {
   padding: 0.7rem;
 }
 
-body:not(.sidebar-expanded) .install-grid,
 body:not(.sidebar-expanded) .info-grid {
   gap: 1rem;
 }
@@ -6798,27 +7091,6 @@ body:not(.sidebar-expanded) .app-card .button {
   height: 44px;
   min-height: 44px;
   font-size: 0.9rem;
-}
-
-body:not(.sidebar-expanded) .app-list-item {
-  min-height: 72px;
-  padding: 0.78rem 0.95rem;
-}
-
-body:not(.sidebar-expanded) .app-favicon {
-  width: 30px;
-  height: 30px;
-}
-
-body:not(.sidebar-expanded) .list-container[data-view="grid"] .app-list-item {
-  flex-basis: 116px;
-  width: 116px;
-  padding: 1rem 0.65rem 0.78rem;
-}
-
-body:not(.sidebar-expanded) .list-container[data-view="grid"] .app-favicon {
-  width: 54px;
-  height: 54px;
 }
 
 /* Sidebar collapsed/expanded states */
