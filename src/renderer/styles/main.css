@@ -1692,8 +1692,6 @@ table tr:hover td {
 .button,
 .button-secondary,
 .action-btn,
-.bios-restart-btn,
-.bios-cancel-btn,
 .tool-card-launch,
 .tool-card-outline {
   display: inline-flex;
@@ -1724,8 +1722,7 @@ table tr:hover td {
 .btn:active,
 .button:active,
 .button-secondary:active,
-.action-btn:active,
-.bios-restart-btn:active {
+.action-btn:active {
   box-shadow: var(--btn-shadow);
 }
 .btn:focus-visible,
@@ -2751,10 +2748,10 @@ select:focus-visible {
   width: 100%;
   height: 100%;
   background:
-    radial-gradient(circle at 50% 18%, var(--stroke-08), transparent 34%),
-    rgba(5, 8, 14, 0.58);
-  backdrop-filter: blur(18px) saturate(1.25);
-  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+    radial-gradient(circle at 50% 18%, rgba(100, 210, 255, 0.045), transparent 34%),
+    rgba(5, 7, 11, 0.66);
+  backdrop-filter: blur(16px) saturate(1.08);
+  -webkit-backdrop-filter: blur(16px) saturate(1.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2762,20 +2759,30 @@ select:focus-visible {
   animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .bios-dialog {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto;
   background:
-    linear-gradient(180deg, rgba(34, 42, 58, 0.92), rgba(18, 24, 36, 0.94));
-  padding: 2rem;
+    radial-gradient(circle at 0 0, rgba(100, 210, 255, 0.055), transparent 38%),
+    linear-gradient(145deg, rgba(28, 31, 36, 0.98), rgba(16, 18, 22, 0.98));
+  padding: 0;
   border-radius: 20px;
-  max-width: 560px;
+  max-width: 720px;
+  max-height: min(92vh, 720px);
   width: 90%;
   box-shadow:
     0 24px 72px rgba(0, 0, 0, 0.48),
     inset 0 1px 0 var(--stroke-16);
-  border: 1px solid var(--stroke-14);
-  border-top-color: rgba(255, 255, 255, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-top-color: rgba(255, 255, 255, 0.21);
   animation: slideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.bios-dialog::-webkit-scrollbar {
+  display: none;
 }
 .bios-dialog::before {
   content: '';
@@ -2784,41 +2791,96 @@ select:focus-visible {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  background: linear-gradient(90deg, transparent, rgba(100, 210, 255, 0.22), transparent);
+}
+.bios-dialog-header {
+  display: flex;
+  grid-column: 1;
+  grid-row: 1 / 4;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: 1.4rem 1.2rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.018);
+}
+.bios-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  color: #9edfff;
+  border: 1px solid rgba(100, 210, 255, 0.24);
+  border-radius: 15px;
+  background: rgba(10, 132, 255, 0.075);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.bios-dialog-icon .maintenance-svg-icon {
+  width: 28px;
+  height: 28px;
+}
+.bios-dialog-copy {
+  min-width: 0;
+  margin-top: 0.08rem;
+}
+.bios-firmware-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 29px;
+  padding: 0 0.68rem;
+  color: #a9dff7;
+  border: 1px solid rgba(100, 210, 255, 0.2);
+  border-radius: var(--radius-pill);
+  background: rgba(10, 132, 255, 0.055);
+  font-size: 0.7rem;
+  font-weight: 720;
+  white-space: nowrap;
+  margin-top: auto;
 }
 .bios-title {
-  font-size: 1.75rem;
+  font-size: 1.38rem;
   font-weight: 750;
-  margin: 0 0 0.75rem;
+  margin: 0;
   color: var(--text-primary);
-  text-align: center;
+  text-align: left;
   letter-spacing: 0;
 }
 .bios-description {
   color: var(--text-secondary);
-  line-height: 1.55;
-  margin: 0 auto 1.5rem;
-  text-align: center;
-  font-size: 0.95rem;
-  max-width: 46ch;
+  line-height: 1.42;
+  margin: 0.2rem 0 0;
+  text-align: left;
+  font-size: 0.78rem;
+  max-width: 27ch;
 }
 .bios-section-title {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
   font-size: 0.78rem;
   font-weight: 700;
-  margin: 0 0 0.75rem;
+  margin: 0;
+  padding: 1.35rem 1.35rem 0.58rem;
   color: rgba(255, 255, 255, 0.72);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .bios-steps {
+  display: flex;
+  grid-column: 2;
+  grid-row: 2;
+  flex-direction: column;
+  gap: 0.38rem;
   list-style: none;
   counter-reset: bios-step;
-  padding: 0.5rem;
-  margin: 0 0 1rem;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid var(--stroke-09);
-  border-radius: 14px;
-  box-shadow: inset 0 1px 0 var(--stroke-06);
+  padding: 0;
+  margin: 0 1.35rem 0.78rem;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 .bios-steps li {
   counter-increment: bios-step;
@@ -2826,16 +2888,18 @@ select:focus-visible {
   align-items: center;
   gap: 0.75rem;
   color: var(--text-primary);
-  min-height: 42px;
-  padding: 0.55rem 0.65rem;
+  min-height: 43px;
+  padding: 0.5rem 0.62rem;
   margin: 0;
   line-height: 1.35;
   opacity: 0.9;
   position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.075);
   border-radius: 10px;
+  background: rgba(255, 255, 255, 0.022);
 }
 .bios-steps li + li {
-  margin-top: 0.25rem;
+  margin-top: 0;
 }
 .bios-steps li::before {
   content: counter(bios-step);
@@ -2846,7 +2910,7 @@ select:focus-visible {
   justify-content: center;
   flex: 0 0 auto;
   color: rgba(255, 255, 255, 0.84);
-  background: var(--stroke-09);
+  background: rgba(100, 210, 255, 0.07);
   border: 1px solid var(--stroke-12);
   border-radius: 50%;
   font-size: 0.78rem;
@@ -2856,16 +2920,18 @@ select:focus-visible {
   content: '';
 }
 .bios-warning {
+  grid-column: 2;
+  grid-row: 3;
   position: relative;
   display: block;
   color: #ffe8c2;
   background:
-    linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.07));
-  padding: 1rem 1rem 1rem 3.85rem;
+    linear-gradient(135deg, rgba(245, 158, 11, 0.095), rgba(245, 158, 11, 0.035));
+  padding: 0.78rem 0.85rem 0.78rem 3.35rem;
   border-radius: 14px;
   border: 1px solid rgba(245, 158, 11, 0.32);
   border-top-color: rgba(255, 213, 140, 0.4);
-  margin-bottom: 1.4rem;
+  margin: 0 1.35rem 1.15rem;
   line-height: 1.45;
   box-shadow:
     inset 0 1px 0 var(--stroke-08),
@@ -2875,15 +2941,15 @@ select:focus-visible {
 .bios-warning::before {
   content: "!";
   position: absolute;
-  top: 1rem;
-  left: 1rem;
-  width: 30px;
-  height: 30px;
+  top: 0.72rem;
+  left: 0.82rem;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #fff4df;
-  background: rgba(245, 158, 11, 0.22);
+  background: rgba(245, 158, 11, 0.13);
   border: 1px solid rgba(255, 213, 140, 0.35);
   border-radius: 50%;
   font-size: 1rem;
@@ -2902,54 +2968,122 @@ select:focus-visible {
   display: none;
 }
 .bios-buttons {
+  grid-column: 1 / -1;
+  grid-row: 4;
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1.5rem;
+  gap: 0.62rem;
+  margin: 0;
+  padding: 0.88rem 1.1rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.1);
 }
-.bios-cancel-btn {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--stroke-12);
-  border-top-color: var(--stroke-20);
-  color: var(--text-primary);
-  padding: 0.875rem 1.75rem;
-  border-radius: 12px;
-  font-weight: 600;
-  transition: all 0.25s ease;
+.bios-dialog .bios-cancel-btn,
+.bios-dialog .bios-restart-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  margin: 0;
+  padding: 0 1.1rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.82rem;
+  font-weight: 680;
   cursor: pointer;
   box-shadow: none;
 }
-.bios-cancel-btn:hover {
+.bios-dialog .bios-cancel-btn {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--stroke-12);
+  border-top-color: var(--stroke-20);
+  color: var(--text-primary);
+  transition: all 0.25s ease;
+}
+.bios-dialog .bios-cancel-btn:hover:not(:disabled) {
   background: var(--stroke-08);
   border-color: rgba(255, 255, 255, 0.24);
   box-shadow: none;
   color: var(--text-primary);
 }
-.bios-restart-btn {
-  background: rgba(255, 69, 58, 0.12);
-  border: 1px solid rgba(255, 69, 58, 0.4);
-  border-top-color: rgba(255, 69, 58, 0.5);
-  color: #ff6961;
-  padding: 0.875rem 2rem;
-  border-radius: 12px;
-  font-weight: 600;
-  box-shadow: none;
+.bios-dialog .bios-restart-btn {
+  min-width: 150px;
+  background: linear-gradient(180deg, rgba(10, 132, 255, 0.23), rgba(10, 132, 255, 0.12));
+  border: 1px solid rgba(100, 210, 255, 0.28);
+  border-top-color: rgba(255, 255, 255, 0.25);
+  color: #edf8ff;
   transition: all 0.25s ease;
   position: relative;
   overflow: hidden;
-  cursor: pointer;
 }
-.bios-restart-btn:hover {
-  background: rgba(255, 69, 58, 0.2);
-  border-color: rgba(255, 69, 58, 0.65);
+.bios-dialog .bios-restart-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(10, 132, 255, 0.31), rgba(10, 132, 255, 0.17));
+  border-color: rgba(100, 210, 255, 0.4);
   box-shadow: none;
-  color: #ff6961;
+  color: #fff;
 }
 .bios-overlay.fade-out {
   animation: fadeOut 0.3s ease forwards;
 }
 .bios-dialog.slide-down {
   animation: slideDown 0.3s ease forwards;
+}
+
+@media (max-width: 620px) {
+  .bios-dialog {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    width: min(92%, 520px);
+  }
+
+  .bios-dialog-header {
+    display: grid;
+    grid-column: 1;
+    grid-row: auto;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .bios-dialog-copy {
+    margin-top: 0;
+  }
+
+  .bios-firmware-badge {
+    display: none;
+  }
+
+  .bios-section-title,
+  .bios-steps,
+  .bios-warning,
+  .bios-buttons {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .bios-section-title {
+    padding: 1rem 1rem 0.55rem;
+  }
+
+  .bios-steps {
+    margin: 0 1rem 0.72rem;
+  }
+
+  .bios-warning {
+    margin: 0 1rem 0.9rem;
+  }
+
+  .bios-buttons {
+    flex-direction: column-reverse;
+  }
+
+  .bios-dialog .bios-cancel-btn,
+  .bios-dialog .bios-restart-btn {
+    width: 100%;
+  }
 }
 
 /* ============================================
@@ -4879,8 +5013,6 @@ body.sidebar-expanded #app {
 .button-secondary,
 .action-btn,
 .bulk-action-btn,
-.bios-restart-btn,
-.bios-cancel-btn,
 .tool-card-launch,
 .tool-card-outline,
 .sort-dropdown-trigger,
@@ -4918,7 +5050,6 @@ body.sidebar-expanded #app {
 
 .button,
 .bulk-install,
-.bios-restart-btn,
 .tool-card-launch {
   color: #f3f9ff;
   background: linear-gradient(180deg, rgba(10, 132, 255, 0.33), rgba(10, 132, 255, 0.18));
@@ -4932,8 +5063,7 @@ body.sidebar-expanded #app {
   background: var(--btn-bg);
 }
 
-.button.error,
-.bios-cancel-btn {
+.button.error {
   color: #fff4f2;
   background: linear-gradient(180deg, rgba(255, 69, 58, 0.3), rgba(255, 69, 58, 0.16));
   border-color: rgba(255, 105, 97, 0.34);
@@ -4941,7 +5071,6 @@ body.sidebar-expanded #app {
 
 .button:hover:not(:disabled),
 .bulk-install:hover:not(:disabled),
-.bios-restart-btn:hover:not(:disabled),
 .tool-card-launch:hover:not(:disabled) {
   background: linear-gradient(180deg, rgba(10, 132, 255, 0.42), rgba(10, 132, 255, 0.23));
   border-color: rgba(100, 210, 255, 0.46);
@@ -4950,8 +5079,7 @@ body.sidebar-expanded #app {
   filter: brightness(1.06);
 }
 
-.button.error:hover:not(:disabled),
-.bios-cancel-btn:hover:not(:disabled) {
+.button.error:hover:not(:disabled) {
   background: linear-gradient(180deg, rgba(255, 69, 58, 0.4), rgba(255, 69, 58, 0.22));
   border-color: rgba(255, 105, 97, 0.48);
   border-top-color: rgba(255, 255, 255, 0.36);
@@ -5194,7 +5322,6 @@ body.sidebar-expanded #app {
 }
 
 .modal-container,
-.bios-dialog,
 .update-overlay-container,
 .changelog-modal,
 .menu-dropdown,
@@ -5236,9 +5363,7 @@ body.sidebar-expanded #app {
 }
 
 .btn-success-gradient,
-.btn-error-gradient,
-.bios-restart-btn,
-.bios-cancel-btn {
+.btn-error-gradient {
   border: 1px solid var(--stroke-12);
   border-top-color: rgba(255, 255, 255, 0.22);
   box-shadow: var(--gloss-sheen);
@@ -5259,13 +5384,41 @@ body.sidebar-expanded #app {
 }
 
 .cleaner-page {
+  --cleaner-page-gap: 0.68rem;
+  --cleaner-summary-padding: 0.92rem 1.05rem;
+  --cleaner-summary-icon-size: 54px;
+  --cleaner-list-gap: 0.62rem;
+  --cleaner-row-padding: 0.7rem 0.78rem;
+  --cleaner-row-icon-size: 42px;
+  --cleaner-action-height: 40px;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
-  gap: 0.58rem;
-  padding: 0.48rem;
+  gap: var(--cleaner-page-gap);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.42rem;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: transparent;
-  border-color: transparent;
-  box-shadow: none;
+  scrollbar-width: none;
+}
+
+.cleaner-page::-webkit-scrollbar {
+  display: none;
+}
+
+body.sidebar-expanded .cleaner-page {
+  --cleaner-page-gap: 0.52rem;
+  --cleaner-summary-padding: 0.72rem 0.82rem;
+  --cleaner-summary-icon-size: 46px;
+  --cleaner-list-gap: 0.46rem;
+  --cleaner-row-padding: 0.56rem 0.64rem;
+  --cleaner-row-icon-size: 36px;
+  --cleaner-action-height: 36px;
+  padding: 0.32rem;
 }
 
 .cleaner-summary {
@@ -5273,11 +5426,13 @@ body.sidebar-expanded #app {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.85rem;
-  padding: 0.75rem 0.95rem;
+  padding: var(--cleaner-summary-padding);
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid var(--gloss-rim);
-  border-top-color: var(--gloss-rim-top);
+  background:
+    radial-gradient(circle at 0 0, rgba(10, 132, 255, 0.06), transparent 34%),
+    linear-gradient(145deg, rgba(27, 30, 35, 0.96), rgba(16, 18, 22, 0.97));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255, 255, 255, 0.19);
   border-radius: 16px;
   box-shadow: var(--gloss-sheen), 0 8px 22px rgba(0, 0, 0, 0.22);
   isolation: isolate;
@@ -5292,14 +5447,14 @@ body.sidebar-expanded #app {
   justify-content: center;
   flex: 0 0 auto;
   color: #9ecbff;
-  background: linear-gradient(180deg, rgba(10, 132, 255, 0.26), rgba(10, 132, 255, 0.1));
-  border: 1px solid rgba(10, 132, 255, 0.3);
+  background: linear-gradient(180deg, rgba(10, 132, 255, 0.15), rgba(10, 132, 255, 0.055));
+  border: 1px solid rgba(10, 132, 255, 0.24);
   box-shadow: var(--gloss-sheen), 0 8px 18px rgba(10, 132, 255, 0.08);
 }
 
 .cleaner-summary-icon {
-  width: 50px;
-  height: 50px;
+  width: var(--cleaner-summary-icon-size);
+  height: var(--cleaner-summary-icon-size);
   border-radius: 13px;
 }
 
@@ -5385,8 +5540,8 @@ body.sidebar-expanded #app {
   justify-content: center;
   gap: 0.42rem;
   min-width: 0;
-  height: 38px;
-  min-height: 38px;
+  height: var(--cleaner-action-height);
+  min-height: var(--cleaner-action-height);
   border-radius: var(--radius-pill);
   padding: 0 0.9rem;
   font-size: 0.84rem;
@@ -5421,7 +5576,7 @@ body.sidebar-expanded #app {
 .cleaner-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: var(--cleaner-list-gap);
   flex-shrink: 0;
   overflow: visible;
   background: transparent;
@@ -5435,9 +5590,9 @@ body.sidebar-expanded #app {
   align-items: center;
   gap: 0.62rem;
   min-height: 0;
-  padding: 0.6rem 0.72rem;
+  padding: var(--cleaner-row-padding);
   background:
-    linear-gradient(180deg, rgba(25, 28, 34, 0.82), rgba(18, 20, 25, 0.78));
+    linear-gradient(180deg, rgba(27, 30, 35, 0.86), rgba(18, 20, 24, 0.84));
   border: 1px solid rgba(255, 255, 255, 0.095);
   border-top-color: rgba(255, 255, 255, 0.17);
   border-radius: 14px;
@@ -5447,15 +5602,15 @@ body.sidebar-expanded #app {
 
 .cleaner-row:hover {
   background:
-    linear-gradient(180deg, rgba(31, 35, 42, 0.86), rgba(22, 25, 30, 0.8));
+    linear-gradient(180deg, rgba(31, 34, 39, 0.9), rgba(21, 23, 27, 0.88));
   border-color: var(--stroke-14);
   border-top-color: rgba(255, 255, 255, 0.23);
   box-shadow: var(--gloss-sheen-hover), 0 10px 22px rgba(0, 0, 0, 0.22);
 }
 
 .cleaner-row-icon {
-  width: 38px;
-  height: 38px;
+  width: var(--cleaner-row-icon-size);
+  height: var(--cleaner-row-icon-size);
   border-radius: 11px;
   color: rgba(230, 244, 255, 0.84);
   background:
@@ -5523,7 +5678,7 @@ body.sidebar-expanded #app {
 
 .cleaner-row.is-locked:hover {
   background:
-    linear-gradient(180deg, rgba(25, 28, 34, 0.82), rgba(18, 20, 25, 0.78));
+    linear-gradient(180deg, rgba(27, 30, 35, 0.86), rgba(18, 20, 24, 0.84));
   border-color: rgba(255, 255, 255, 0.095);
   border-top-color: rgba(255, 255, 255, 0.17);
   box-shadow: var(--gloss-sheen), 0 8px 20px rgba(0, 0, 0, 0.18);
@@ -5563,7 +5718,7 @@ body.sidebar-expanded #app {
 }
 
 .cleaner-toggle input:checked + span {
-  background: linear-gradient(180deg, rgba(10, 132, 255, 0.85), rgba(10, 132, 255, 0.6));
+  background: linear-gradient(180deg, rgba(10, 132, 255, 0.62), rgba(10, 132, 255, 0.4));
   border-color: rgba(100, 210, 255, 0.45);
 }
 
@@ -5577,7 +5732,7 @@ body.sidebar-expanded #app {
   cursor: default;
 }
 
-@media (max-width: 940px) {
+@container (max-width: 760px) {
   .cleaner-list {
     grid-template-columns: 1fr;
   }
@@ -5588,6 +5743,7 @@ body.sidebar-expanded #app {
 
   .cleaner-summary-actions {
     grid-column: 1 / -1;
+    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -6605,44 +6761,16 @@ body:not(.sidebar-expanded) #content {
   padding: 0.82rem;
 }
 
-body:not(.sidebar-expanded) .page-flat,
-body:not(.sidebar-expanded) .cleaner-page {
+body:not(.sidebar-expanded) .page-flat {
   gap: 0.9rem;
   padding: 0.7rem;
 }
 
 body:not(.sidebar-expanded) .install-grid,
-body:not(.sidebar-expanded) .cleaner-list,
 body:not(.sidebar-expanded) .info-grid {
   gap: 1rem;
 }
 
-body:not(.sidebar-expanded) .cleaner-summary {
-  padding: 1.15rem 1.3rem;
-  gap: 1.05rem;
-  border-radius: 18px;
-}
-
-body:not(.sidebar-expanded) .cleaner-summary-icon {
-  width: 58px;
-  height: 58px;
-  border-radius: 15px;
-}
-
-body:not(.sidebar-expanded) .cleaner-summary-icon .maintenance-svg-icon {
-  width: 30px;
-  height: 30px;
-}
-
-body:not(.sidebar-expanded) .cleaner-summary-text h2 {
-  font-size: 1.34rem;
-}
-
-body:not(.sidebar-expanded) .cleaner-summary-text p:not(.cleaner-scan-mode) {
-  font-size: 0.87rem;
-}
-
-body:not(.sidebar-expanded) .cleaner-row,
 body:not(.sidebar-expanded) .info-row,
 body:not(.sidebar-expanded) .page-flat .app-card {
   padding: 1.05rem 1.12rem;
@@ -6650,32 +6778,23 @@ body:not(.sidebar-expanded) .page-flat .app-card {
   border-radius: 16px;
 }
 
-body:not(.sidebar-expanded) .app-icon,
-body:not(.sidebar-expanded) .cleaner-row-icon {
+body:not(.sidebar-expanded) .app-icon {
   width: 50px;
   min-width: 50px;
   height: 50px;
   border-radius: 13px;
 }
 
-body:not(.sidebar-expanded) .cleaner-row-icon .maintenance-svg-icon {
-  width: 26px;
-  height: 26px;
-}
-
-body:not(.sidebar-expanded) .app-card h3,
-body:not(.sidebar-expanded) .cleaner-row-content h3 {
+body:not(.sidebar-expanded) .app-card h3 {
   font-size: 1.04rem;
 }
 
 body:not(.sidebar-expanded) .app-card p,
-body:not(.sidebar-expanded) .app-header p,
-body:not(.sidebar-expanded) .cleaner-row-content p {
+body:not(.sidebar-expanded) .app-header p {
   font-size: 0.88rem;
 }
 
-body:not(.sidebar-expanded) .app-card .button,
-body:not(.sidebar-expanded) .cleaner-summary-actions button {
+body:not(.sidebar-expanded) .app-card .button {
   height: 44px;
   min-height: 44px;
   font-size: 0.9rem;

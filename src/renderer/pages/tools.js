@@ -26,6 +26,7 @@ const maintenanceCustomIcon = (viewBox, body) => `
 `;
 
 const MAINTENANCE_ICONS = {
+    bios: maintenanceIcon('<rect x="5" y="3" width="14" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M8 6.5h.01M7 17.5h3M14 17.5h3"/>'),
     cleaner: maintenanceIcon('<path d="M4 17h9"/><path d="M7 17l1-6.4A2.1 2.1 0 0 1 10.1 9h2.8a2.1 2.1 0 0 1 2.1 1.6l1 6.4"/><path d="M8.7 17v3"/><path d="M14.3 17v3"/><path d="M10 6h4"/><path d="M18 5l.5-1.3L20 3l-1.5-.7L18 1l-.5 1.3L16 3l1.5.7L18 5z"/><path d="M20 11l.4-1 1-.4-1-.4-.4-1-.4 1-1 .4 1 .4.4 1z"/>'),
     tempFile: maintenanceIcon('<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5"/><path d="M9.5 13.5l5 5"/><path d="M14.5 13.5l-5 5"/>'),
     prefetch: maintenanceIcon('<path d="M5 17a7 7 0 1 1 14 0"/><path d="M12 17l4-5"/><path d="M8 17h8"/><path d="M8.5 9.5l1 1"/><path d="M15.5 9.5l-1 1"/>'),
@@ -864,7 +865,7 @@ export async function buildCleanerPage(translations = {}) {
     cleanerT = translations.cleaner_ui || {};
     const taskText = (task) => (cleanerT.tasks && cleanerT.tasks[task.id]) || {};
     const container = document.createElement('div');
-    container.className = 'card cleaner-page';
+    container.className = 'cleaner-page';
     const taskState = new Map(CLEANER_TASKS.map((task) => [task.id, { ...task, sizeBytes: 0, path: task.detail, inaccessible: false }]));
     const rowControls = new Map();
     let scanning = false;
@@ -1768,16 +1769,40 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     const dialog = document.createElement('div');
     dialog.className = 'bios-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'bios-dialog-title');
+
+    const header = document.createElement('div');
+    header.className = 'bios-dialog-header';
+
+    const headerIcon = document.createElement('div');
+    headerIcon.className = 'bios-dialog-icon';
+    headerIcon.setAttribute('aria-hidden', 'true');
+    headerIcon.innerHTML = getMaintenanceIcon('bios');
+
+    const headerCopy = document.createElement('div');
+    headerCopy.className = 'bios-dialog-copy';
 
     const title = document.createElement('h2');
     title.className = 'bios-title';
+    title.id = 'bios-dialog-title';
     title.textContent = translations.menu?.bios || 'BIOS Settings';
-    dialog.appendChild(title);
 
     const desc = document.createElement('p');
     desc.className = 'bios-description';
     desc.textContent = translations.messages?.bios_instructions || 'This action will restart your computer and boot into BIOS/UEFI settings. Make sure to save all your work before proceeding.';
-    dialog.appendChild(desc);
+
+    const firmwareBadge = document.createElement('span');
+    firmwareBadge.className = 'bios-firmware-badge';
+    firmwareBadge.textContent = 'BIOS / UEFI';
+
+    headerCopy.appendChild(title);
+    headerCopy.appendChild(desc);
+    header.appendChild(headerIcon);
+    header.appendChild(headerCopy);
+    header.appendChild(firmwareBadge);
+    dialog.appendChild(header);
 
     const whatTitle = document.createElement('h3');
     whatTitle.className = 'bios-section-title';
@@ -1820,7 +1845,7 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     const restartBtn = document.createElement('button');
     restartBtn.className = 'bios-restart-btn';
-    restartBtn.textContent = '🔄 ' + (translations.messages?.restart_to_bios || 'Restart to BIOS');
+    restartBtn.textContent = translations.messages?.restart_to_bios || 'Restart to BIOS';
 
     // Escape key handler — cleaned up when dialog closes via cancel or success
     const escapeHandler = (e) => {
@@ -1877,7 +1902,7 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
             setTimeout(() => {
                 restartBtn.disabled = false;
-                restartBtn.textContent = '🔄 ' + (translations.messages?.restart_to_bios || 'Restart to BIOS');
+                restartBtn.textContent = translations.messages?.restart_to_bios || 'Restart to BIOS';
                 restartBtn.classList.remove('btn-error-gradient');
             }, 2000);
 
