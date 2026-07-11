@@ -1553,8 +1553,7 @@ select:focus-visible {
   border-radius: 8px;
 }
 .error-close,
-.error-copy,
-.error-report {
+.error-copy {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1571,14 +1570,10 @@ select:focus-visible {
   margin-left: 0.35rem;
 }
 .error-copy {
-  margin-left: 0.35rem;
-}
-.error-report {
   margin-left: auto;
 }
 .error-close>svg,
-.error-copy>svg,
-.error-report>svg {
+.error-copy>svg {
   width: 16px;
   height: 16px;
 }
@@ -4453,8 +4448,7 @@ body.sidebar-expanded #app {
 
 .toast-close:active,
 .error-close:active,
-.error-copy:active,
-.error-report:active {
+.error-copy:active {
   transform: none;
   filter: brightness(1.25);
 }
