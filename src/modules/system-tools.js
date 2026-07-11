@@ -1319,7 +1319,6 @@ module.exports = {
   scanCleanerTasks,
   runCleanerTasks,
   enableCleanerAdminSession,
-  isCleanerAdminAlive,
   stopCleanerAdminSession,
   restartToBios,
   runSparkleDebloat,

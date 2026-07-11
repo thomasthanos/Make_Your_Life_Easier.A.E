@@ -95,7 +95,6 @@ function expandEnvVars(input) {
 
 module.exports = {
   removeFileIfExistsSync,
-  removeDirIfExistsSync,
   cleanupExtractDirs,
   sanitizeFilename,
   extFromUrl,

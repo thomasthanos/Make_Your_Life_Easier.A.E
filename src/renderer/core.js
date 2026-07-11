@@ -147,7 +147,7 @@ function updateHeader() {
 // MENU RENDERING
 // ============================================
 
-export function renderMenu() {
+function renderMenu() {
     const menuList = document.getElementById('menu-list');
     if (!menuList) return;
 
@@ -406,6 +406,5 @@ export async function init() {
 export {
     translations,
     settings,
-    menuKeys,
-    updateHeader
+    menuKeys
 };

@@ -11,7 +11,7 @@
  * Manages button states during async operations.
  * Prevents double-clicks and provides visual feedback.
  */
-export class ButtonStateManager {
+class ButtonStateManager {
     constructor() {
         this.buttonStates = new Map();
     }
@@ -103,7 +103,7 @@ export class ButtonStateManager {
 /**
  * Creates and manages a singleton tooltip element
  */
-export const tooltipManager = (() => {
+const tooltipManager = (() => {
     let tooltipEl;
 
     function ensure() {
@@ -236,7 +236,7 @@ export function attachTooltipHandlers(el) {
 /**
  * Tracks process states for cards (downloads, replacements, etc.)
  */
-export const processStates = new Map();
+const processStates = new Map();
 
 /**
  * Track a process for a card

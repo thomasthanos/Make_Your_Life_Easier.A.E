@@ -286,7 +286,7 @@ export function initializeAutoUpdater() {
  * @param {string} version - Version string
  * @returns {boolean}
  */
-export function shouldShowChangelog(version) {
+function shouldShowChangelog(version) {
     const key = normalizeVersionTag(version);
     if (!key) return true;
     return localStorage.getItem('changelog_shown_version') !== key;
@@ -296,7 +296,7 @@ export function shouldShowChangelog(version) {
  * Mark changelog as shown for this version
  * @param {string} version - Version string
  */
-export function markChangelogShown(version) {
+function markChangelogShown(version) {
     const key = normalizeVersionTag(version);
     if (key) {
         try {
@@ -309,7 +309,7 @@ export function markChangelogShown(version) {
  * Fetch release notes from GitHub for current version
  * @returns {Promise<Object|null>} Release info or null
  */
-export async function fetchReleaseNotesFromGithub() {
+async function fetchReleaseNotesFromGithub() {
     try {
         const rawVersion = await getAppVersionWithFallback();
         const normalizedVersion = normalizeVersion(rawVersion);
@@ -348,7 +348,7 @@ export async function fetchReleaseNotesFromGithub() {
  * @param {string} notes - Release notes text
  * @returns {string} Formatted HTML
  */
-export function formatReleaseNotes(notes) {
+function formatReleaseNotes(notes) {
     if (!notes) return '';
 
     let text = typeof notes === 'string' ? notes : String(notes);
@@ -431,7 +431,7 @@ export function formatReleaseNotes(notes) {
  * Show the changelog modal
  * @param {Object} updateInfo - Update info object with version, releaseName, releaseNotes
  */
-export async function showChangelog(updateInfo) {
+async function showChangelog(updateInfo) {
     if (!shouldShowChangelog(updateInfo?.version)) return;
     markChangelogShown(updateInfo?.version || 'unknown');
 

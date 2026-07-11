@@ -102,7 +102,7 @@ export function debounce(func, wait = 300) {
  * @param {string} filePath - The file path
  * @returns {string} The directory name
  */
-export function getDirectoryName(filePath) {
+function getDirectoryName(filePath) {
     if (!filePath || typeof filePath !== 'string') {
         return '';
     }

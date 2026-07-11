@@ -726,11 +726,8 @@ async function cleanupLeftoverSparkle() {
 
 module.exports = {
   ensureSparkle,
-  getSparkleDir,
-  getSparkleZipPath,
   getSparkleExePath,
   isSparkleAvailable,
-  extractSparkleFromZip,
   processDownloadedSparkle,
   cleanupSparkle,
   cleanupLeftoverSparkle

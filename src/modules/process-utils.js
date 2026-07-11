@@ -167,7 +167,6 @@ function getPowerShellExe() {
 }
 
 module.exports = {
-  stripAnsiCodes,
   runSpawnCommand,
   runStreamingCommand,
   attachChildProcessHandlers,

@@ -126,6 +126,5 @@ module.exports = {
   set,
   all,
   clearAll,
-  pullFromCloud,
-  pushToCloud
+  pullFromCloud
 };

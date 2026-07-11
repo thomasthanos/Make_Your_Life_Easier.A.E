@@ -329,6 +329,5 @@ module.exports = {
   startDownload,
   cleanupOnQuit,
   cleanupLeftoverDownloads,
-  trackExtractedDir,
-  trackDownloadedFile
+  trackExtractedDir
 };

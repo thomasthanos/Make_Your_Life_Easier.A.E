@@ -1,4 +1,7 @@
+import { getAppVersionWithFallback } from './utils.js';
+
 const MAX_TOASTS = 3;
+const MAX_ERROR_HISTORY = 100;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const TYPE_CONFIG = {
@@ -16,6 +19,111 @@ const TYPE_CONFIG = {
 let currentErrorCard = null;
 let errorPaletteIndex = 0;
 const errorBulletColours = ['#8a8e99', '#0a84ff', '#aeb4be', '#ffd60a', '#30d158'];
+
+const errorHistory = [];
+
+function recordError(message, { stack = '', source = '' } = {}) {
+    message = String(message);
+    const last = errorHistory[errorHistory.length - 1];
+    if (last && last.message === message && Date.now() - last.at < 1000) return;
+    errorHistory.push({
+        at: Date.now(),
+        time: new Date().toLocaleTimeString('en-GB'),
+        message,
+        stack: String(stack || ''),
+        source
+    });
+    if (errorHistory.length > MAX_ERROR_HISTORY) errorHistory.shift();
+}
+
+function stringifyArg(arg) {
+    if (arg instanceof Error) return arg.message;
+    if (typeof arg === 'object' && arg !== null) {
+        try { return JSON.stringify(arg); } catch { return String(arg); }
+    }
+    return String(arg);
+}
+
+function installGlobalErrorCapture() {
+    if (window.__errorCaptureInstalled) return;
+    window.__errorCaptureInstalled = true;
+
+    const originalConsoleError = console.error.bind(console);
+    console.error = (...args) => {
+        originalConsoleError(...args);
+        try {
+            let parts = args;
+            // debug() prepends a "%c<emoji>" format string plus its CSS style — drop both
+            if (typeof parts[0] === 'string' && parts[0].startsWith('%c')) parts = parts.slice(2);
+            const errArg = parts.find((a) => a instanceof Error);
+            const message = parts.map(stringifyArg).join(' ').trim();
+            if (message) recordError(message, { stack: errArg?.stack || '', source: 'console' });
+        } catch { }
+    };
+
+    window.addEventListener('error', (ev) => {
+        if (!ev.message && !ev.error) return;
+        const stack = ev.error?.stack || (ev.filename ? `    at ${ev.filename}:${ev.lineno}:${ev.colno}` : '');
+        recordError(ev.message || String(ev.error), { stack, source: 'uncaught' });
+        showErrorCard(ev.message || String(ev.error), { _skipRecord: true });
+    });
+
+    window.addEventListener('unhandledrejection', (ev) => {
+        const reason = ev.reason;
+        const message = reason instanceof Error ? reason.message : String(reason);
+        recordError(message, { stack: reason instanceof Error ? reason.stack || '' : '', source: 'unhandled promise' });
+        showErrorCard(message, { _skipRecord: true });
+    });
+}
+
+installGlobalErrorCapture();
+
+async function buildBugReport() {
+    let version = 'unknown';
+    try { version = await getAppVersionWithFallback(); } catch { }
+    const activePage = document.querySelector('#menu-list button.active')?.dataset.key || 'unknown';
+    const platform = navigator.userAgentData?.platform || navigator.platform || 'unknown';
+
+    const lines = [
+        '════════ MAKE YOUR LIFE EASIER — BUG REPORT ════════',
+        `Date:        ${new Date().toISOString()} (local: ${new Date().toLocaleString('en-GB')})`,
+        `App version: ${version}`,
+        `Platform:    ${platform}`,
+        `User agent:  ${navigator.userAgent}`,
+        `Language:    ${document.documentElement.lang || navigator.language}`,
+        `Active page: ${activePage}`,
+        `Window:      ${window.innerWidth}x${window.innerHeight} (screen ${window.screen.width}x${window.screen.height})`,
+        `Online:      ${navigator.onLine ? 'yes' : 'no'}`,
+        '',
+        `──────── Errors this session (${errorHistory.length}) ────────`
+    ];
+
+    if (!errorHistory.length) {
+        lines.push('(no errors recorded)');
+    }
+    for (const entry of errorHistory) {
+        lines.push('');
+        const origin = entry.source ? ` [${entry.source}]` : '';
+        lines.push(`[${entry.time}]${origin} ${entry.message}`);
+        if (entry.stack) {
+            let stack = entry.stack;
+            if (stack.startsWith(`Error: ${entry.message}`) || stack.startsWith(entry.message)) {
+                stack = stack.split('\n').slice(1).join('\n');
+            }
+            const indented = stack
+                .split('\n')
+                .filter((l) => l.trim() !== '')
+                .map((l) => `    ${l.trim()}`)
+                .join('\n');
+            if (indented) lines.push(indented);
+        }
+    }
+
+    lines.push('');
+    lines.push('Paste this report at: https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/issues');
+    lines.push('════════ END OF REPORT ════════');
+    return lines.join('\n');
+}
 
 function ensureNotificationCenter() {
     let center = document.getElementById('notification-center');
@@ -60,7 +168,7 @@ function createIcon(pathD, opts = {}) {
     return svg;
 }
 
-export function dismissToast(toastEl) {
+function dismissToast(toastEl) {
     if (!toastEl || toastEl.classList.contains('toast-exit')) return;
     if (toastEl._dismissTimer) {
         clearTimeout(toastEl._dismissTimer);
@@ -76,7 +184,7 @@ export function toast(msg, opts = {}) {
     const { title = '', type = 'info', duration = 4000 } = opts;
 
     if (type === 'error') {
-        showErrorCard(msg, { title: title || 'Error' });
+        showErrorCard(msg, { title: title || 'Error', error: opts.error });
         return null;
     }
 
@@ -157,9 +265,15 @@ function appendErrorLine(bodyEl, msg) {
 
 export function showErrorCard(msg, opts = {}) {
     msg = String(msg);
+    if (!opts._skipRecord) {
+        recordError(msg, {
+            stack: opts.error instanceof Error ? opts.error.stack || '' : '',
+            source: opts.title && opts.title !== 'Error' ? opts.title : ''
+        });
+    }
     if (msg.includes('\n')) {
         for (const part of msg.split(/\n+/).filter((p) => p.trim() !== '')) {
-            showErrorCard(part, opts);
+            showErrorCard(part, { ...opts, _skipRecord: true });
         }
         return;
     }
@@ -191,9 +305,28 @@ export function showErrorCard(msg, opts = {}) {
     ));
     titleEl.appendChild(document.createTextNode(' Terminal'));
 
+    const reportBtn = document.createElement('button');
+    reportBtn.className = 'error-report';
+    reportBtn.setAttribute('aria-label', 'Report a bug — copy full error report');
+    reportBtn.setAttribute('title', 'Report a bug');
+    reportBtn.appendChild(createIcon([
+        'm8 2 1.88 1.88',
+        'M14.12 3.88 16 2',
+        'M9 7.13v-1a3.003 3.003 0 1 1 6 0v1',
+        'M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6',
+        'M12 20v-9',
+        'M6.53 9C4.6 8.8 3 7.1 3 5',
+        'M6 13H2',
+        'M3 21c0-2.1 1.7-3.8 3.8-4',
+        'M20.97 5c0 2.1-1.6 3.8-3.5 4',
+        'M22 13h-4',
+        'M17.2 17c2.1.2 3.8 1.9 3.8 4'
+    ], { strokeWidth: '2' }));
+
     const copyBtn = document.createElement('button');
     copyBtn.className = 'error-copy';
     copyBtn.setAttribute('aria-label', 'Copy error messages');
+    copyBtn.setAttribute('title', 'Copy messages');
     copyBtn.appendChild(createIcon([
         'M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2',
         'M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z'
@@ -205,6 +338,7 @@ export function showErrorCard(msg, opts = {}) {
     closeBtn.appendChild(createIcon(['M6 6L18 18', 'M6 18L18 6'], { strokeWidth: '2' }));
 
     head.appendChild(titleEl);
+    head.appendChild(reportBtn);
     head.appendChild(copyBtn);
     head.appendChild(closeBtn);
 
@@ -229,6 +363,16 @@ export function showErrorCard(msg, opts = {}) {
                 .catch(() => toast('Failed to copy', { type: 'error', title: 'Clipboard' }));
         } catch {
             toast('Failed to copy', { type: 'error', title: 'Clipboard' });
+        }
+    };
+
+    reportBtn.onclick = async () => {
+        try {
+            const report = await buildBugReport();
+            await navigator.clipboard.writeText(report);
+            toast('Full bug report copied — paste it into a GitHub issue.', { type: 'success', title: 'Bug report' });
+        } catch {
+            toast('Failed to copy bug report', { type: 'error', title: 'Bug report' });
         }
     };
 

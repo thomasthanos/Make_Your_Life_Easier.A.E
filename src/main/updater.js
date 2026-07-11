@@ -506,6 +506,5 @@ module.exports = {
     setupUpdaterEvents,
     setupUpdaterIpcHandlers,
     checkForUpdates,
-    isQuittingForInstall,
-    autoUpdater
+    isQuittingForInstall
 };
