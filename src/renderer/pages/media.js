@@ -1,7 +1,6 @@
 /**
  * Media Page
  * Contains Spicetify page
- * CSS classes match original renderer.js structure
  */
 
 import { toast, closeOtherTerminals, openTerminal } from '../components.js';
@@ -56,21 +55,65 @@ const ICON_FULL_UNINSTALL_SPOTIFY = `
 `;
 
 // ============================================
-// SPICETIFY PAGE (Original Structure)
+// SPICETIFY PAGE
 // ============================================
 
 export function buildSpicetifyPage(translations, settings) {
     const container = document.createElement('div');
-    container.className = 'card spicetify-card page-flat';
+    container.className = 'spotify-page';
+
+    const spotifyUi = translations.spicetify_ui || {};
+
+    const hero = document.createElement('section');
+    hero.className = 'spotify-hero';
+
+    const heroMain = document.createElement('div');
+    heroMain.className = 'spotify-hero-main';
+
+    const heroIcon = document.createElement('div');
+    heroIcon.className = 'spotify-hero-icon';
+    heroIcon.setAttribute('aria-hidden', 'true');
+    heroIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M7.8 9.2c3.1-1 6.8-.7 9.4.8M8.5 12.2c2.6-.8 5.7-.5 8 .7M9.2 15.1c2-.5 4.4-.3 6.2.6"/></svg>';
+
+    const heroCopy = document.createElement('div');
+    heroCopy.className = 'spotify-hero-copy';
+
+    const heroTitle = document.createElement('h2');
+    heroTitle.textContent = translations.pages?.spicetify_title || 'Customize Spotify';
+
+    const heroDescription = document.createElement('p');
+    heroDescription.textContent = translations.pages?.spicetify_desc || 'Install, restore, or fully remove Spotify customizations.';
+
+    heroCopy.appendChild(heroTitle);
+    heroCopy.appendChild(heroDescription);
+    heroMain.appendChild(heroIcon);
+    heroMain.appendChild(heroCopy);
+
+    const heroMeta = document.createElement('div');
+    heroMeta.className = 'spotify-hero-meta';
+
+    const actionCount = document.createElement('span');
+    actionCount.className = 'spotify-action-count';
+    actionCount.textContent = `3 ${spotifyUi.actions_label || 'actions'}`;
+
+    const localBadge = document.createElement('span');
+    localBadge.className = 'spotify-local-badge';
+    localBadge.textContent = spotifyUi.local_setup || 'Local setup';
+
+    heroMeta.appendChild(actionCount);
+    heroMeta.appendChild(localBadge);
+    hero.appendChild(heroMain);
+    hero.appendChild(heroMeta);
+    container.appendChild(hero);
 
     const grid = document.createElement('div');
-    grid.className = 'install-grid';
+    grid.className = 'spotify-action-grid';
 
     const outputPre = document.createElement('pre');
-    outputPre.className = 'status-pre';
+    outputPre.className = 'status-pre spotify-output';
 
     const terminal = document.createElement('div');
-    terminal.className = 'winget-terminal';
+    terminal.className = 'winget-terminal spotify-terminal';
 
     const termHeader = document.createElement('div');
     termHeader.className = 'winget-terminal-header';
@@ -104,6 +147,24 @@ export function buildSpicetifyPage(translations, settings) {
     let currentLine = null;
     let replaceCurrent = false;
     const MAX_LINES = 400;
+
+    function setSpotifyCardState(button, state = 'ready') {
+        const card = button.closest('.spotify-action-card');
+        if (!card) return;
+
+        const stateText = card.querySelector('.spotify-action-state-text');
+        card.classList.toggle('is-busy', state === 'busy');
+        card.classList.toggle('is-complete', state === 'complete');
+
+        if (!stateText) return;
+        if (state === 'busy') {
+            stateText.textContent = spotifyUi.running || 'Running task';
+        } else if (state === 'complete') {
+            stateText.textContent = spotifyUi.complete || 'Completed';
+        } else {
+            stateText.textContent = spotifyUi.ready || 'Ready';
+        }
+    }
 
     function stripAnsiSequences(text) {
         return String(text)
@@ -158,6 +219,7 @@ export function buildSpicetifyPage(translations, settings) {
         installCancelled = false;
 
         const originalText = button.textContent;
+        setSpotifyCardState(button, 'busy');
         button.disabled = true;
         button.textContent = (translations.general?.run || 'Run') + '...';
 
@@ -176,13 +238,16 @@ export function buildSpicetifyPage(translations, settings) {
         try {
             const result = await apiFn();
             if (result && result.success) {
+                setSpotifyCardState(button, 'complete');
                 printLine(`✔ ${successMsg}`, 'is-ok');
                 toast(successMsg, { type: 'success', title: translations.menu?.spicetify || 'Spicetify' });
             } else if (!result || !result.cancelled) {
+                setSpotifyCardState(button, 'ready');
                 printLine(`✖ ${result?.error || `Task exited with code ${result?.code ?? '?'}.`}`, 'is-err');
                 toast(errorMsg, { type: 'error', title: translations.menu?.spicetify || 'Spicetify', duration: 6000 });
             }
         } catch (error) {
+            setSpotifyCardState(button, 'ready');
             if (!installCancelled) {
                 printLine(`✖ ${error.message}`, 'is-err');
                 toast(`${errorMsg}: ${error.message}`, { type: 'error', title: translations.menu?.spicetify || 'Spicetify', duration: 6000 });
@@ -194,6 +259,11 @@ export function buildSpicetifyPage(translations, settings) {
             terminal.classList.remove('running');
             button.disabled = false;
             button.textContent = originalText;
+            if (button.closest('.spotify-action-card')?.classList.contains('is-complete')) {
+                setTimeout(() => setSpotifyCardState(button, 'ready'), 2000);
+            } else {
+                setSpotifyCardState(button, 'ready');
+            }
         }
     }
 
@@ -233,6 +303,7 @@ export function buildSpicetifyPage(translations, settings) {
     async function runAction(action, successMsg, errorMsg, button) {
         if (installing) return;
         installing = true;
+        setSpotifyCardState(button, 'busy');
         button.disabled = true;
         const originalText = button.textContent;
         button.textContent = (translations.general?.run || 'Run') + '...';
@@ -243,6 +314,7 @@ export function buildSpicetifyPage(translations, settings) {
             }
             outputPre.textContent = result.output || '';
             if (result.success) {
+                setSpotifyCardState(button, 'complete');
                 toast(successMsg, { type: 'success', title: translations.menu?.spicetify || 'Spicetify' });
                 button.textContent = '✓ ' + originalText;
                 button.classList.add('success');
@@ -251,6 +323,7 @@ export function buildSpicetifyPage(translations, settings) {
                 throw new Error(result.error);
             }
         } catch (err) {
+            setSpotifyCardState(button, 'ready');
             outputPre.textContent = '';
             toast(errorMsg + `: ${err.message}`, { type: 'error', title: translations.menu?.spicetify || 'Spicetify', duration: 6000 });
             button.textContent = '✗ ' + originalText;
@@ -259,20 +332,23 @@ export function buildSpicetifyPage(translations, settings) {
         } finally {
             installing = false;
             button.disabled = false;
+            if (button.closest('.spotify-action-card')?.classList.contains('is-complete')) {
+                setTimeout(() => setSpotifyCardState(button, 'ready'), 2000);
+            }
         }
     }
 
-    // Helper to build card header (original structure)
+    // Helper to build card header
     function buildHeader(svgHTML, titleTxt, descTxt) {
         const header = document.createElement('div');
-        header.className = 'app-header';
+        header.className = 'spotify-action-header';
 
         const iconWrap = document.createElement('div');
-        iconWrap.className = 'app-icon';
+        iconWrap.className = 'spotify-action-icon';
         iconWrap.innerHTML = svgHTML;
 
         const textBox = document.createElement('div');
-        textBox.className = 'app-header-text';
+        textBox.className = 'spotify-action-copy';
         const h3 = document.createElement('h3');
         h3.textContent = titleTxt;
         const p = document.createElement('p');
@@ -286,16 +362,37 @@ export function buildSpicetifyPage(translations, settings) {
         return header;
     }
 
-    // Helper to create cards (original structure)
-    const makeCard = (svg, title, desc, btnLabel, onClick) => {
+    // Helper to create action cards
+    const makeCard = (svg, title, desc, btnLabel, tone, onClick) => {
         const card = document.createElement('div');
-        card.className = 'app-card';
+        card.className = `spotify-action-card is-${tone}`;
         card.appendChild(buildHeader(svg, title, desc));
+
+        const footer = document.createElement('div');
+        footer.className = 'spotify-action-footer';
+
+        const state = document.createElement('span');
+        state.className = 'spotify-action-state';
+
+        const stateDot = document.createElement('span');
+        stateDot.className = 'spotify-action-state-dot';
+        stateDot.setAttribute('aria-hidden', 'true');
+
+        const stateText = document.createElement('span');
+        stateText.className = 'spotify-action-state-text';
+        stateText.textContent = spotifyUi.ready || 'Ready';
+
+        state.appendChild(stateDot);
+        state.appendChild(stateText);
+
         const btn = document.createElement('button');
-        btn.className = 'button';
+        btn.className = 'button spotify-action-button';
         btn.textContent = btnLabel;
         btn.addEventListener('click', () => onClick(btn));
-        card.appendChild(btn);
+
+        footer.appendChild(state);
+        footer.appendChild(btn);
+        card.appendChild(footer);
         return card;
     };
 
@@ -303,8 +400,9 @@ export function buildSpicetifyPage(translations, settings) {
     const installCard = makeCard(
         ICON_INSTALL_SPICETIFY,
         translations.actions?.install_spicetify || 'Install Spicetify',
-        translations.pages?.spicetify_desc || 'Adds themes and customizations to Spotify for a better experience.',
+        spotifyUi.install_description || translations.pages?.spicetify_desc || 'Add themes and customizations to Spotify.',
         translations.actions?.install || 'Install',
+        'primary',
         (btn) => runInstall(btn)
     );
 
@@ -312,8 +410,9 @@ export function buildSpicetifyPage(translations, settings) {
     const uninstallCard = makeCard(
         ICON_UNINSTALL_SPICETIFY,
         translations.actions?.uninstall_spicetify || 'Uninstall Spicetify',
-        translations.general?.not_implemented || 'Completely remove Spicetify and restore Spotify to its default state',
-        translations.actions?.uninstall_spicetify || 'Uninstall Spicetify',
+        spotifyUi.uninstall_description || 'Remove Spicetify and restore the default Spotify experience.',
+        spotifyUi.uninstall_button || 'Uninstall',
+        'warning',
         (btn) => runAction(
             () => window.api.uninstallSpicetify(),
             translations.messages?.uninstall_spicetify_success || 'Spicetify uninstalled successfully!',
@@ -326,11 +425,12 @@ export function buildSpicetifyPage(translations, settings) {
     const fullUninstallCard = makeCard(
         ICON_FULL_UNINSTALL_SPOTIFY,
         translations.actions?.full_uninstall_spotify || 'Full Uninstall Spotify',
-        translations.general?.not_implemented || 'Complete removal of both Spotify and Spicetify',
-        translations.actions?.full_uninstall_spotify || 'Full Uninstall Spotify',
+        spotifyUi.full_remove_description || 'Completely remove both Spotify and Spicetify from this PC.',
+        spotifyUi.full_remove_button || 'Remove all',
+        'danger',
         (btn) => runFullUninstall(btn)
     );
-    fullUninstallCard.classList.add('full-span');
+    fullUninstallCard.classList.add('spotify-action-full');
 
     grid.appendChild(installCard);
     grid.appendChild(uninstallCard);

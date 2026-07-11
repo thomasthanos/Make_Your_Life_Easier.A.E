@@ -1475,17 +1475,20 @@ export async function buildMaintenancePage(translations, _settings) {
 export async function buildDebloatPage(translations, _settings) {
     const T = translations.debloat_ui || {};
     const container = document.createElement('div');
-    container.className = 'card debloat-page';
+    container.className = 'debloat-page';
 
-    const hero = document.createElement('section');
-    hero.className = 'debloat-hero';
+    const mainPanel = document.createElement('section');
+    mainPanel.className = 'debloat-main-panel';
+
+    const panelHeader = document.createElement('div');
+    panelHeader.className = 'debloat-panel-header';
 
     const heroIcon = document.createElement('div');
-    heroIcon.className = 'debloat-hero-icon';
+    heroIcon.className = 'debloat-panel-icon';
     heroIcon.innerHTML = getMaintenanceIcon('sparkle');
 
     const heroText = document.createElement('div');
-    heroText.className = 'debloat-hero-text';
+    heroText.className = 'debloat-panel-copy';
 
     const heading = document.createElement('h2');
     heading.textContent = (translations.debloat && translations.debloat.heading) || 'Windows Debloat';
@@ -1507,16 +1510,67 @@ export async function buildDebloatPage(translations, _settings) {
 
     heroText.appendChild(heading);
     heroText.appendChild(description);
-    heroText.appendChild(status);
-    heroText.appendChild(progress);
+
+    const toolBadge = document.createElement('span');
+    toolBadge.className = 'debloat-tool-badge';
+    toolBadge.textContent = T.portable_label || 'Portable tool';
+
+    panelHeader.appendChild(heroIcon);
+    panelHeader.appendChild(heroText);
+    panelHeader.appendChild(toolBadge);
+
+    const capabilities = document.createElement('div');
+    capabilities.className = 'debloat-capabilities';
+    const capabilityIcons = ['recycle', 'shield', 'prefetch', 'updateCache'];
+    const capabilityTexts = (Array.isArray(T.features) && T.features.length === 4) ? T.features : [
+        { title: 'Remove bloatware', text: 'Uninstalls preinstalled apps and OEM junk you never asked for.' },
+        { title: 'Privacy & telemetry', text: 'Disables tracking, telemetry and advertising services.' },
+        { title: 'Performance tweaks', text: 'Trims background services and startup load for a snappier PC.' },
+        { title: 'Portable from GitHub', text: 'Fetched from the official Sparkle releases on first launch — nothing to install.' }
+    ];
+
+    capabilityTexts.forEach((capability, index) => {
+        const item = document.createElement('div');
+        item.className = 'debloat-capability';
+
+        const icon = document.createElement('span');
+        icon.className = 'debloat-capability-icon';
+        icon.innerHTML = getMaintenanceIcon(capabilityIcons[index]);
+
+        const content = document.createElement('div');
+        content.className = 'debloat-capability-copy';
+
+        const capabilityTitle = document.createElement('h3');
+        capabilityTitle.textContent = capability.title;
+
+        const capabilityText = document.createElement('p');
+        capabilityText.textContent = capability.text;
+
+        content.appendChild(capabilityTitle);
+        content.appendChild(capabilityText);
+        item.appendChild(icon);
+        item.appendChild(content);
+        capabilities.appendChild(item);
+    });
 
     const heroActions = document.createElement('div');
-    heroActions.className = 'debloat-hero-actions';
+    heroActions.className = 'debloat-panel-actions';
 
-    hero.appendChild(heroIcon);
-    hero.appendChild(heroText);
-    hero.appendChild(heroActions);
-    container.appendChild(hero);
+    const panelFooter = document.createElement('div');
+    panelFooter.className = 'debloat-panel-footer';
+
+    const state = document.createElement('div');
+    state.className = 'debloat-panel-state';
+    state.appendChild(status);
+    state.appendChild(progress);
+
+    panelFooter.appendChild(state);
+    panelFooter.appendChild(heroActions);
+
+    mainPanel.appendChild(panelHeader);
+    mainPanel.appendChild(capabilities);
+    mainPanel.appendChild(panelFooter);
+    container.appendChild(mainPanel);
 
     const setStatus = (text) => { status.textContent = text; };
     const setProgress = (percent) => {
@@ -1555,39 +1609,6 @@ export async function buildDebloatPage(translations, _settings) {
         (translations.debloat && translations.debloat.buttons && translations.debloat.buttons.runRaphiScript) ||
         'Launch Sparkle Debloat';
     heroActions.appendChild(runBtn);
-
-    const grid = document.createElement('div');
-    grid.className = 'debloat-grid';
-    const featureIcons = ['recycle', 'shield', 'prefetch', 'updateCache'];
-    const featureTexts = (Array.isArray(T.features) && T.features.length === 4) ? T.features : [
-        { title: 'Remove bloatware', text: 'Uninstalls preinstalled apps and OEM junk you never asked for.' },
-        { title: 'Privacy & telemetry', text: 'Disables tracking, telemetry and advertising services.' },
-        { title: 'Performance tweaks', text: 'Trims background services and startup load for a snappier PC.' },
-        { title: 'Portable from GitHub', text: 'Fetched from the official Sparkle releases on first launch — nothing to install.' }
-    ];
-    const DEBLOAT_FEATURES = featureTexts.map((feature, index) => ({ ...feature, icon: featureIcons[index] }));
-    DEBLOAT_FEATURES.forEach((feature) => {
-        const row = document.createElement('article');
-        row.className = 'debloat-feature';
-
-        const icon = document.createElement('div');
-        icon.className = 'debloat-feature-icon';
-        icon.innerHTML = getMaintenanceIcon(feature.icon);
-
-        const content = document.createElement('div');
-        content.className = 'debloat-feature-content';
-        const featureTitle = document.createElement('h3');
-        featureTitle.textContent = feature.title;
-        const featureText = document.createElement('p');
-        featureText.textContent = feature.text;
-        content.appendChild(featureTitle);
-        content.appendChild(featureText);
-
-        row.appendChild(icon);
-        row.appendChild(content);
-        grid.appendChild(row);
-    });
-    container.appendChild(grid);
 
     refreshStatus();
 

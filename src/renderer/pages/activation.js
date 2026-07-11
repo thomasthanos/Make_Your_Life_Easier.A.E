@@ -26,7 +26,9 @@ const ACTIVATION_ICONS = {
         viewBox: '4.099108108108108 3.9500089999999997 92.16216216216216 91.53'
     }),
     autologin: activationSvg('<path d="M15 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><path d="M15 12H4"/><path d="M7 7V5a3 3 0 0 1 6 0v2"/>', { stroke: true }),
-    hero: activationSvg('<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2"/><path d="M15 8l3 3"/><path d="M18 5l2 2"/>', { stroke: true })
+    hero: activationSvg('<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2"/><path d="M15 8l3 3"/><path d="M18 5l2 2"/>', { stroke: true }),
+    shield: activationSvg('<path d="M12 3 5 6v5c0 4.6 2.9 8.5 7 10 4.1-1.5 7-5.4 7-10V6z"/><path d="m9 12 2 2 4-4"/>', { stroke: true }),
+    local: activationSvg('<path d="M4 5h16v11H4z"/><path d="M8 20h8"/><path d="M12 16v4"/>', { stroke: true })
 };
 
 // ============================================
@@ -37,8 +39,10 @@ async function downloadAndRun(button, config) {
     if (buttonStateManager && buttonStateManager.isLoading && buttonStateManager.isLoading(button)) return;
 
     const ui = config.ui || { setStatus: () => { }, setProgress: () => { } };
+    const card = button.closest('.activation-action-card');
 
     button.disabled = true;
+    card?.classList.add('is-running');
     const originalText = button.textContent;
 
     button.textContent = config.preparingText;
@@ -52,6 +56,7 @@ async function downloadAndRun(button, config) {
     const fail = (message) => {
         button.textContent = originalText;
         button.disabled = false;
+        card?.classList.remove('is-running');
         ui.setStatus(message);
         ui.setProgress(null);
         toast(message, { type: 'error', title: config.name });
@@ -98,6 +103,7 @@ async function downloadAndRun(button, config) {
                         })
                         .finally(() => {
                             button.disabled = false;
+                            card?.classList.remove('is-running');
                             resolve();
                         });
                     break;
@@ -160,9 +166,25 @@ function downloadAndRunAutologin(button, ui, idleText) {
 // PAGE BUILDER
 // ============================================
 
-function createActivationCard({ icon, title, description, badge, buttonText, readyHint, onRun }) {
+function createActivationBadge(text, tone = 'admin') {
+    const badge = document.createElement('span');
+    badge.className = `activation-card-badge activation-card-badge--${tone}`;
+
+    const icon = document.createElement('span');
+    icon.className = 'activation-card-badge-icon';
+    icon.innerHTML = tone === 'admin' ? ACTIVATION_ICONS.shield : ACTIVATION_ICONS.local;
+
+    const label = document.createElement('span');
+    label.textContent = text;
+
+    badge.appendChild(icon);
+    badge.appendChild(label);
+    return badge;
+}
+
+function createActivationCard({ icon, tone, title, description, badge, badgeTone, buttonText, readyHint, onRun }) {
     const card = document.createElement('article');
-    card.className = 'activation-card';
+    card.className = `activation-action-card activation-action-card--${tone}`;
 
     const header = document.createElement('div');
     header.className = 'activation-card-header';
@@ -187,17 +209,22 @@ function createActivationCard({ icon, title, description, badge, buttonText, rea
     card.appendChild(header);
 
     if (badge) {
-        const badgeEl = document.createElement('span');
-        badgeEl.className = 'activation-badge';
-        badgeEl.textContent = badge;
-        header.appendChild(badgeEl);
+        card.appendChild(createActivationBadge(badge, badgeTone));
     }
 
     const idleHint = readyHint || 'Ready — one click to download and run.';
+    const statusRow = document.createElement('div');
+    statusRow.className = 'activation-card-status';
+
+    const statusDot = document.createElement('span');
+    statusDot.className = 'activation-card-status-dot';
+
     const status = document.createElement('p');
     status.className = 'activation-status';
     status.textContent = idleHint;
-    card.appendChild(status);
+    statusRow.appendChild(statusDot);
+    statusRow.appendChild(status);
+    card.appendChild(statusRow);
 
     const progress = document.createElement('div');
     progress.className = 'activation-progress';
@@ -207,7 +234,7 @@ function createActivationCard({ icon, title, description, badge, buttonText, rea
     card.appendChild(progress);
 
     const button = document.createElement('button');
-    button.className = 'button activation-run-btn';
+    button.className = 'button activation-card-action';
     button.textContent = buttonText;
     card.appendChild(button);
 
@@ -230,43 +257,129 @@ function createActivationCard({ icon, title, description, badge, buttonText, rea
 }
 
 export async function buildActivateAutologinPage(translations, _settings) {
+    const uiText = translations.activation_ui || {};
     const container = document.createElement('div');
-    container.className = 'card activation-page';
+    container.className = 'activation-page';
 
-    const hero = document.createElement('section');
+    const hero = document.createElement('header');
     hero.className = 'activation-hero';
+
+    const heroMain = document.createElement('div');
+    heroMain.className = 'activation-hero-main';
 
     const heroIcon = document.createElement('div');
     heroIcon.className = 'activation-hero-icon';
     heroIcon.innerHTML = ACTIVATION_ICONS.hero;
 
     const heroText = document.createElement('div');
-    heroText.className = 'activation-hero-text';
+    heroText.className = 'activation-hero-copy';
 
-    const title = document.createElement('h2');
+    const eyebrow = document.createElement('div');
+    eyebrow.className = 'activation-hero-eyebrow';
+
+    const kicker = document.createElement('span');
+    kicker.textContent = uiText.page_kicker || 'Windows Access Center';
+
+    const ready = document.createElement('span');
+    ready.className = 'activation-ready-status';
+    const readyDot = document.createElement('span');
+    readyDot.className = 'activation-ready-dot';
+    const readyText = document.createElement('span');
+    readyText.textContent = uiText.ready || 'Ready';
+    ready.appendChild(readyDot);
+    ready.appendChild(readyText);
+    eyebrow.appendChild(kicker);
+    eyebrow.appendChild(ready);
+
+    const title = document.createElement('h1');
     title.textContent = (translations.pages && translations.pages.activate_title) || 'Windows Activation & Auto Login';
 
     const heroDesc = document.createElement('p');
     heroDesc.textContent = (translations.pages && translations.pages.activate_desc) ||
         'Use these tools to activate Windows and configure automatic login without a password.';
 
+    heroText.appendChild(eyebrow);
     heroText.appendChild(title);
     heroText.appendChild(heroDesc);
-    hero.appendChild(heroIcon);
-    hero.appendChild(heroText);
+
+    const stats = document.createElement('div');
+    stats.className = 'activation-hero-stats';
+    const statItems = [
+        { value: '2', label: uiText.tools_label || 'tools' },
+        { value: '1', label: uiText.admin_count_label || 'admin action' }
+    ];
+    statItems.forEach((item) => {
+        const stat = document.createElement('div');
+        stat.className = 'activation-hero-stat';
+        const value = document.createElement('strong');
+        value.textContent = item.value;
+        const label = document.createElement('span');
+        label.textContent = item.label;
+        stat.appendChild(value);
+        stat.appendChild(label);
+        stats.appendChild(stat);
+    });
+
+    heroMain.appendChild(heroIcon);
+    heroMain.appendChild(heroText);
+    heroMain.appendChild(stats);
+
+    const heroFooter = document.createElement('div');
+    heroFooter.className = 'activation-hero-footer';
+    const noticeIcon = document.createElement('span');
+    noticeIcon.innerHTML = ACTIVATION_ICONS.shield;
+    const noticeText = document.createElement('span');
+    noticeText.textContent = uiText.security_notice || 'Tools are downloaded on demand and launched locally.';
+    heroFooter.appendChild(noticeIcon);
+    heroFooter.appendChild(noticeText);
+
+    hero.appendChild(heroMain);
+    hero.appendChild(heroFooter);
     container.appendChild(hero);
+
+    const section = document.createElement('section');
+    section.className = 'activation-section';
+
+    const sectionHeader = document.createElement('header');
+    sectionHeader.className = 'activation-section-header';
+    const sectionHeading = document.createElement('div');
+    sectionHeading.className = 'activation-section-heading';
+    const sectionIcon = document.createElement('span');
+    sectionIcon.className = 'activation-section-icon';
+    sectionIcon.innerHTML = ACTIVATION_ICONS.shield;
+    const sectionCopy = document.createElement('div');
+    sectionCopy.className = 'activation-section-copy';
+    const sectionTitle = document.createElement('h2');
+    sectionTitle.className = 'activation-section-title';
+    sectionTitle.textContent = uiText.section_title || 'Activation & Sign-in';
+    const sectionDescription = document.createElement('p');
+    sectionDescription.className = 'activation-section-description';
+    sectionDescription.textContent = uiText.section_description || 'Choose a Windows access tool to download and run.';
+    const sectionCount = document.createElement('span');
+    sectionCount.className = 'activation-section-count';
+    sectionCount.textContent = '2';
+    sectionCount.setAttribute('aria-label', `2 ${uiText.tools_label || 'tools'}`);
+
+    sectionCopy.appendChild(sectionTitle);
+    sectionCopy.appendChild(sectionDescription);
+    sectionHeading.appendChild(sectionIcon);
+    sectionHeading.appendChild(sectionCopy);
+    sectionHeader.appendChild(sectionHeading);
+    sectionHeader.appendChild(sectionCount);
+    section.appendChild(sectionHeader);
 
     const grid = document.createElement('div');
     grid.className = 'activation-grid';
 
-    const uiText = translations.activation_ui || {};
     const readyHint = uiText.ready_hint || 'Ready — one click to download and run.';
 
     grid.appendChild(createActivationCard({
         icon: ACTIVATION_ICONS.windows,
+        tone: 'windows',
         title: (translations.activation && translations.activation.activate_windows) || 'Activate Windows',
         description: (translations.activation && translations.activation.activate_desc) || 'Downloads and runs the Windows activation script.',
         badge: uiText.admin_badge || 'Admin required',
+        badgeTone: 'admin',
         buttonText: (translations.actions && translations.actions.activate_windows) || 'Download & Activate Windows',
         readyHint,
         onRun: (button, ui) => downloadAndRunActivate(button, ui, readyHint)
@@ -274,14 +387,18 @@ export async function buildActivateAutologinPage(translations, _settings) {
 
     grid.appendChild(createActivationCard({
         icon: ACTIVATION_ICONS.autologin,
+        tone: 'autologin',
         title: (translations.activation && translations.activation.auto_login) || 'Auto Login',
         description: (translations.activation && translations.activation.auto_login_desc) || 'Downloads and sets up automatic login without a password.',
+        badge: uiText.local_badge || 'Local setup',
+        badgeTone: 'info',
         buttonText: (translations.actions && translations.actions.setup_autologin) || 'Download & Setup Auto Login',
         readyHint,
         onRun: (button, ui) => downloadAndRunAutologin(button, ui, readyHint)
     }));
 
-    container.appendChild(grid);
+    section.appendChild(grid);
+    container.appendChild(section);
 
     return container;
 }

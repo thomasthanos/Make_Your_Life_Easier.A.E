@@ -1699,7 +1699,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
 export async function buildCrackInstallerPage(translations, settings, buttonStateManager) {
     const container = document.createElement('div');
-    container.className = 'card page-flat';
+    container.className = 'crack-page';
 
     const projects = [
         {
@@ -1753,50 +1753,112 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
         }
     ];
 
+    const crackUi = translations.crack_ui || {};
+
+    const hero = document.createElement('section');
+    hero.className = 'crack-hero';
+
+    const heroMain = document.createElement('div');
+    heroMain.className = 'crack-hero-main';
+
+    const heroIcon = document.createElement('div');
+    heroIcon.className = 'crack-hero-icon';
+    heroIcon.setAttribute('aria-hidden', 'true');
+    heroIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/><path d="m7.5 4.3 9 5.2"/></svg>';
+
+    const heroCopy = document.createElement('div');
+    heroCopy.className = 'crack-hero-copy';
+
+    const heroTitle = document.createElement('h2');
+    heroTitle.textContent = translations.pages?.crack_title || 'Professional Software';
+
+    const heroDescription = document.createElement('p');
+    heroDescription.textContent = translations.pages?.crack_desc || 'Download and install available software packages.';
+
+    heroCopy.appendChild(heroTitle);
+    heroCopy.appendChild(heroDescription);
+    heroMain.appendChild(heroIcon);
+    heroMain.appendChild(heroCopy);
+
+    const heroMeta = document.createElement('div');
+    heroMeta.className = 'crack-hero-meta';
+
+    const appCount = document.createElement('span');
+    appCount.className = 'crack-count-badge';
+    appCount.textContent = `${projects.length} ${crackUi.available_apps || 'available apps'}`;
+
+    const onDemand = document.createElement('span');
+    onDemand.className = 'crack-on-demand';
+    onDemand.textContent = crackUi.on_demand || 'On-demand download and setup';
+
+    heroMeta.appendChild(appCount);
+    heroMeta.appendChild(onDemand);
+    hero.appendChild(heroMain);
+    hero.appendChild(heroMeta);
+    container.appendChild(hero);
+
     const grid = document.createElement('div');
-    grid.className = 'install-grid crack-grid';
-    grid.classList.add('grid-auto-fit');
+    grid.className = 'crack-app-grid';
 
     projects.forEach((project) => {
-        const { key, fallbackName, url, icon } = project;
+        const { key, fallbackName, desc, url, icon } = project;
         const name = (translations.apps && translations.apps[key] && translations.apps[key].name) || fallbackName;
+        const description = (translations.apps && translations.apps[key] && translations.apps[key].description) || desc;
 
         const card = document.createElement('div');
-        card.className = 'app-card';
+        card.className = 'crack-app-card';
 
         const header = document.createElement('div');
-        header.className = 'app-header';
+        header.className = 'crack-app-header';
 
         const img = document.createElement('img');
         img.src = icon;
         img.alt = name;
-        img.className = 'app-icon';
-        img.classList.add('download-card-img');
+        img.className = 'crack-app-icon';
         header.appendChild(img);
+
+        const appCopy = document.createElement('div');
+        appCopy.className = 'crack-app-copy';
 
         const h3 = document.createElement('h3');
         h3.textContent = name;
-        header.appendChild(h3);
-        card.appendChild(header);
 
         const p = document.createElement('p');
-        p.textContent = '';
+        p.textContent = description;
+
+        appCopy.appendChild(h3);
+        appCopy.appendChild(p);
+        header.appendChild(appCopy);
+        card.appendChild(header);
 
         const btn = document.createElement('button');
-        btn.className = 'button';
+        btn.className = 'button crack-app-download';
         const downloadLabel = (translations.actions && translations.actions.download) || 'Download';
         btn.textContent = downloadLabel;
         btn.dataset.originalText = btn.textContent;
 
         const status = document.createElement('pre');
-        status.className = 'status-pre';
+        status.className = 'status-pre crack-app-status';
+
+        const availability = document.createElement('span');
+        availability.className = 'crack-app-availability';
+
+        const availabilityDot = document.createElement('span');
+        availabilityDot.className = 'crack-app-availability-dot';
+        availabilityDot.setAttribute('aria-hidden', 'true');
+
+        const availabilityText = document.createElement('span');
+        availabilityText.textContent = crackUi.ready || 'Ready to download';
+
+        availability.appendChild(availabilityDot);
+        availability.appendChild(availabilityText);
 
         const isClipStudio = key === 'clip_studio_paint';
         let replaceBtn = null;
 
         if (isClipStudio) {
             replaceBtn = document.createElement('button');
-            replaceBtn.className = 'button button-secondary';
+            replaceBtn.className = 'button button-secondary crack-app-download';
             replaceBtn.textContent = 'Replace EXE';
             replaceBtn.classList.add('download-replace-btn');
             replaceBtn.style.display = 'none';
@@ -1919,6 +1981,20 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
         const cardId = `crack-${key}`;
         const crackBtnOriginalText = btn.textContent;
 
+        function setCrackCardState(state = 'ready') {
+            const isBusy = state === 'busy';
+            card.classList.toggle('is-busy', isBusy);
+            card.classList.toggle('is-complete', state === 'complete');
+
+            if (state === 'busy') {
+                availabilityText.textContent = crackUi.busy || 'Download in progress';
+            } else if (state === 'complete') {
+                availabilityText.textContent = crackUi.installer_opened || 'Installer opened';
+            } else {
+                availabilityText.textContent = crackUi.ready || 'Ready to download';
+            }
+        }
+
         // UI update callback for download events (used by global download store)
         function makeCrackDownloadUI() {
             return async (data) => {
@@ -1926,14 +2002,17 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                 if (!btn.isConnected) return;
                 switch (data.status) {
                     case 'started':
+                        setCrackCardState('busy');
                         btn.textContent = 'Downloading... 0%';
                         break;
 
                     case 'progress':
+                        setCrackCardState('busy');
                         btn.textContent = `Downloading... ${data.percent}%`;
                         break;
 
                     case 'complete': {
+                        setCrackCardState('busy');
                         btn.textContent = 'Download complete! Extracting...';
 
                         try {
@@ -1957,6 +2036,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                                     const openResult = await window.api.openFile(installerExe);
                                     if (openResult.success) {
                                         if (isClipStudio) {
+                                            setCrackCardState('complete');
                                             completeProcess(cardId, 'download', true);
                                             downloadStore.delete(cardId);
 
@@ -1973,6 +2053,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                                                 title: 'Clip Studio'
                                             });
                                         } else {
+                                            setCrackCardState('complete');
                                             btn.textContent = 'Installation Running';
                                             completeProcess(cardId, 'download', true);
                                             downloadStore.delete(cardId);
@@ -1991,6 +2072,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                                 throw new Error(extractResult.error || 'Extraction failed');
                             }
                         } catch (error) {
+                            setCrackCardState('ready');
                             btn.textContent = crackBtnOriginalText;
                             btn.disabled = false;
                             downloadStore.delete(cardId);
@@ -2006,6 +2088,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
 
                     case 'error':
                     case 'cancelled': {
+                        setCrackCardState('ready');
                         btn.textContent = crackBtnOriginalText;
                         btn.style.display = '';
                         btn.disabled = false;
@@ -2031,6 +2114,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
         // Check if there's an active download for this card (e.g., user switched tabs and came back)
         const existingDownload = getActiveDownload(cardId);
         if (existingDownload) {
+            setCrackCardState('busy');
             btn.disabled = true;
             if (existingDownload.status === 'progress' || existingDownload.status === 'started') {
                 btn.textContent = `Downloading... ${existingDownload.percent || 0}%`;
@@ -2050,6 +2134,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
             const originalLabel = btn.textContent;
             trackProcess(cardId, 'download', btn, status);
 
+            setCrackCardState('busy');
             btn.disabled = true;
             btn.textContent = 'Preparing download...';
             status.textContent = '';
@@ -2069,6 +2154,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
             try {
                 window.api.downloadStart(downloadId, url, name);
             } catch (err) {
+                setCrackCardState('ready');
                 downloadStore.delete(cardId);
                 completeProcess(cardId, 'download', false);
                 btn.disabled = false;
@@ -2077,15 +2163,19 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
             }
         });
 
+        const footer = document.createElement('div');
+        footer.className = 'crack-app-footer';
+
         const buttonWrapper = document.createElement('div');
-        buttonWrapper.classList.add('button-wrapper');
+        buttonWrapper.className = 'crack-app-actions';
         buttonWrapper.appendChild(btn);
         if (replaceBtn) {
             buttonWrapper.appendChild(replaceBtn);
         }
 
-        card.appendChild(p);
-        card.appendChild(buttonWrapper);
+        footer.appendChild(availability);
+        footer.appendChild(buttonWrapper);
+        card.appendChild(footer);
         card.appendChild(status);
         grid.appendChild(card);
     });

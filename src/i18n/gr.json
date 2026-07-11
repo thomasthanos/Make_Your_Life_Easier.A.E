@@ -32,6 +32,7 @@
     "launching": "Εκκίνηση του Sparkle...",
     "windows_only": "Το Sparkle Debloat υποστηρίζεται μόνο σε Windows.",
     "launch_btn": "Εκκίνηση Sparkle Debloat",
+    "portable_label": "Portable εργαλείο",
     "features": [
       { "title": "Αφαίρεση bloatware", "text": "Απεγκαθιστά προεγκατεστημένες εφαρμογές και περιττά προγράμματα OEM." },
       { "title": "Ιδιωτικότητα & τηλεμετρία", "text": "Απενεργοποιεί παρακολούθηση, τηλεμετρία και διαφημιστικές υπηρεσίες." },
@@ -40,8 +41,35 @@
     ]
   },
   "activation_ui": {
+    "page_kicker": "Κέντρο Πρόσβασης Windows",
+    "ready": "Έτοιμο",
+    "tools_label": "εργαλεία",
+    "admin_count_label": "διαχειριστής",
+    "section_title": "Ενεργοποίηση & Σύνδεση",
+    "section_description": "Επίλεξε ένα εργαλείο πρόσβασης Windows για λήψη και εκτέλεση.",
+    "security_notice": "Τα εργαλεία κατεβαίνουν όταν χρειάζονται και εκτελούνται τοπικά.",
     "ready_hint": "Έτοιμο — ένα κλικ για λήψη και εκτέλεση.",
-    "admin_badge": "Απαιτείται διαχειριστής"
+    "admin_badge": "Απαιτείται διαχειριστής",
+    "local_badge": "Τοπική ρύθμιση"
+  },
+  "crack_ui": {
+    "available_apps": "διαθέσιμες εφαρμογές",
+    "on_demand": "Λήψη και εγκατάσταση όταν τη χρειάζεσαι",
+    "ready": "Έτοιμο για λήψη",
+    "busy": "Η λήψη βρίσκεται σε εξέλιξη",
+    "installer_opened": "Ο εγκαταστάτης άνοιξε"
+  },
+  "spicetify_ui": {
+    "actions_label": "ενέργειες",
+    "local_setup": "Τοπική ρύθμιση",
+    "ready": "Έτοιμο",
+    "running": "Η εργασία εκτελείται",
+    "complete": "Ολοκληρώθηκε",
+    "install_description": "Εγκατάσταση Spicetify με υποστήριξη για θέματα και επεκτάσεις.",
+    "uninstall_description": "Αφαίρεση Spicetify και επαναφορά του Spotify στην αρχική του μορφή.",
+    "full_remove_description": "Πλήρης αφαίρεση του Spotify και του Spicetify από τον υπολογιστή.",
+    "uninstall_button": "Απεγκατάσταση",
+    "full_remove_button": "Αφαίρεση όλων"
   },
   "account_ui": {
     "title": "Λογαριασμός",
@@ -144,8 +172,8 @@
     "scan_repair": "Έλεγχος & Επιδιόρθωση",
     "download_patch": "Λήψη Patch My PC",
     "download": "Λήψη",
-    "install_spicetify": "Install Spicetify",
-    "uninstall_spicetify": "Uninstall Spicetify",
+    "install_spicetify": "Εγκατάσταση Spicetify",
+    "uninstall_spicetify": "Απεγκατάσταση Spicetify",
     "full_uninstall_spotify": "Πλήρης Απεγκατάσταση Spotify",
     "activate_windows": "Ενεργοποίηση Windows",
     "setup_autologin": "Αυτόματη Σύνδεση",
@@ -317,31 +345,31 @@
     },
     "clip_studio_paint": {
       "name": "Clip Studio Paint",
-      "description": ""
+      "description": "Ψηφιακή ζωγραφική και εικονογράφηση"
     },
     "encoder": {
       "name": "Media Encoder",
-      "description": ""
+      "description": "Κωδικοποίηση και εξαγωγή πολυμέσων"
     },
     "illustrator": {
       "name": "Illustrator",
-      "description": ""
+      "description": "Διανυσματικά γραφικά και εικονογράφηση"
     },
     "lightroom_classic": {
       "name": "Lightroom Classic",
-      "description": ""
+      "description": "Επεξεργασία και οργάνωση φωτογραφιών"
     },
     "office": {
       "name": "Office",
-      "description": ""
+      "description": "Word, Excel, PowerPoint και άλλα"
     },
     "photoshop": {
       "name": "Photoshop",
-      "description": ""
+      "description": "Επεξεργασία εικόνας και γραφιστική"
     },
     "premiere": {
       "name": "Premiere",
-      "description": ""
+      "description": "Επαγγελματική επεξεργασία βίντεο"
     }
   },
   "christitus_page": {

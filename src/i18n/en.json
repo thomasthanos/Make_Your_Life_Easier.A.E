@@ -32,6 +32,7 @@
     "launching": "Launching Sparkle...",
     "windows_only": "Sparkle Debloat is only supported on Windows.",
     "launch_btn": "Launch Sparkle Debloat",
+    "portable_label": "Portable tool",
     "features": [
       { "title": "Remove bloatware", "text": "Uninstalls preinstalled apps and OEM junk you never asked for." },
       { "title": "Privacy & telemetry", "text": "Disables tracking, telemetry and advertising services." },
@@ -40,8 +41,35 @@
     ]
   },
   "activation_ui": {
+    "page_kicker": "Windows Access Center",
+    "ready": "Ready",
+    "tools_label": "tools",
+    "admin_count_label": "admin",
+    "section_title": "Activation & Sign-in",
+    "section_description": "Choose a Windows access tool to download and run.",
+    "security_notice": "Tools are downloaded on demand and launched locally.",
     "ready_hint": "Ready — one click to download and run.",
-    "admin_badge": "Admin required"
+    "admin_badge": "Admin required",
+    "local_badge": "Local setup"
+  },
+  "crack_ui": {
+    "available_apps": "available apps",
+    "on_demand": "On-demand download and setup",
+    "ready": "Ready to download",
+    "busy": "Download in progress",
+    "installer_opened": "Installer opened"
+  },
+  "spicetify_ui": {
+    "actions_label": "actions",
+    "local_setup": "Local setup",
+    "ready": "Ready",
+    "running": "Task in progress",
+    "complete": "Completed",
+    "install_description": "Install Spicetify and enable themes and extensions.",
+    "uninstall_description": "Remove Spicetify and restore the default Spotify experience.",
+    "full_remove_description": "Completely remove both Spotify and Spicetify from this PC.",
+    "uninstall_button": "Uninstall",
+    "full_remove_button": "Remove all"
   },
   "account_ui": {
     "title": "Account",
@@ -317,31 +345,31 @@
     },
     "clip_studio_paint": {
       "name": "Clip Studio Paint",
-      "description": ""
+      "description": "Digital painting and illustration software"
     },
     "encoder": {
       "name": "Media Encoder",
-      "description": ""
+      "description": "Encode and export multimedia content"
     },
     "illustrator": {
       "name": "Illustrator",
-      "description": ""
+      "description": "Vector graphics and illustration tools"
     },
     "lightroom_classic": {
       "name": "Lightroom Classic",
-      "description": ""
+      "description": "Photo editing and library management"
     },
     "office": {
       "name": "Office",
-      "description": ""
+      "description": "Word, Excel, PowerPoint, and more"
     },
     "photoshop": {
       "name": "Photoshop",
-      "description": ""
+      "description": "Image editing and graphic design software"
     },
     "premiere": {
       "name": "Premiere",
-      "description": ""
+      "description": "Professional video editing software"
     }
   },
   "christitus_page": {
