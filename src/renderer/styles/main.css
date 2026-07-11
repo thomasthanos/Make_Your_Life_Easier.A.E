@@ -1529,7 +1529,9 @@ select:focus-visible {
   position: relative;
   border-bottom-right-radius: 8px;
   border-bottom-left-radius: 8px;
+  max-height: 50vh;
   overflow-x: auto;
+  overflow-y: auto;
   padding: 0.85rem 0.95rem;
   line-height: 19px;
   color: var(--text-primary, #fff);
@@ -3540,7 +3542,7 @@ select:focus-visible {
   border-color: rgba(255, 105, 97, 0.55);
 }
 .winget-terminal-body {
-  max-height: 280px;
+  max-height: min(280px, 42vh);
   overflow-y: auto;
   padding: 0.6rem 0.8rem;
   font-family: Consolas, 'Cascadia Mono', Monaco, monospace;
@@ -3689,6 +3691,7 @@ select:focus-visible {
 .app-label {
   display: flex;
   flex: 1;
+  min-width: 0;
   align-items: center;
   cursor: pointer;
 }
@@ -3696,11 +3699,13 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-width: 0;
   justify-content: center;
   align-items: flex-start;
 }
 .app-link {
   margin-left: auto;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   color: inherit;
@@ -4077,6 +4082,7 @@ body.sidebar-expanded #app {
   font-weight: 600;
   line-height: 1.2;
   color: var(--text-primary);
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4089,6 +4095,7 @@ body.sidebar-expanded #app {
   color: var(--text-secondary);
   font-family: Consolas, Monaco, monospace;
   line-height: 1.2;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4287,7 +4294,6 @@ body.sidebar-expanded #app {
   -webkit-backdrop-filter: blur(var(--blur-thin)) saturate(var(--mat-sat));
   backdrop-filter: blur(var(--blur-thin)) saturate(var(--mat-sat));
   min-height: 44px;
-  height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;

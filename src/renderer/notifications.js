@@ -62,6 +62,10 @@ function createIcon(pathD, opts = {}) {
 
 export function dismissToast(toastEl) {
     if (!toastEl || toastEl.classList.contains('toast-exit')) return;
+    if (toastEl._dismissTimer) {
+        clearTimeout(toastEl._dismissTimer);
+        toastEl._dismissTimer = null;
+    }
     toastEl.classList.add('toast-exit');
     const remove = () => toastEl.remove();
     toastEl.addEventListener('animationend', remove, { once: true });
@@ -116,6 +120,9 @@ export function toast(msg, opts = {}) {
         progress.style.animationDuration = `${duration}ms`;
         progress.addEventListener('animationend', () => dismissToast(toastEl), { once: true });
         toastEl.appendChild(progress);
+        // Fallback: the progress bar's animationend is throttled/paused while the
+        // window is minimized, so a timer guarantees the toast still auto-dismisses.
+        toastEl._dismissTimer = setTimeout(() => dismissToast(toastEl), duration + 150);
     }
 
     toasts.appendChild(toastEl);

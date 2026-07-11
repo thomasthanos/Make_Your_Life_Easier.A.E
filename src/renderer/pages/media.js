@@ -4,7 +4,7 @@
  * CSS classes match original renderer.js structure
  */
 
-import { toast, closeOtherTerminals } from '../components.js';
+import { toast, closeOtherTerminals, openTerminal } from '../components.js';
 
 // ============================================
 // SPICETIFY ICONS
@@ -166,7 +166,7 @@ export function buildSpicetifyPage(translations, settings) {
         currentLine = null;
         replaceCurrent = false;
         closeOtherTerminals(terminal);
-        terminal.classList.add('open', 'running');
+        openTerminal(terminal);
         printLine(`> ${cmdLabel}`, 'is-cmd');
 
         const unsubscribe = window.api.onSpicetifyInstallOutput(({ stream, text }) => {

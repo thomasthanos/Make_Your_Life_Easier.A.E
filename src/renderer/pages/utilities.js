@@ -5,7 +5,7 @@
  */
 
 import { escapeHtml } from '../utils.js';
-import { toast, closeOtherTerminals } from '../components.js';
+import { toast, closeOtherTerminals, openTerminal } from '../components.js';
 
 // ============================================
 // CHRIS TITUS PAGE (Original Structure)
@@ -161,7 +161,7 @@ export function buildChrisTitusPage(translations, _settings) {
         currentLine = null;
         replaceCurrent = false;
         closeOtherTerminals(terminal);
-        terminal.classList.add('open', 'running');
+        openTerminal(terminal);
         printLine('> irm christitus.com/win | iex', 'is-cmd');
 
         const unsubscribe = window.api.onChrisTitusOutput(({ stream, text }) => {

@@ -5,7 +5,7 @@
  */
 
 import { registerDownload, attachDownloadUI, downloadStore } from '../managers.js';
-import { toast, closeOtherTerminals } from '../components.js';
+import { toast, closeOtherTerminals, openTerminal } from '../components.js';
 
 let maintenanceBusy = false;
 
@@ -146,7 +146,7 @@ function createMaintenanceCard(name, description, iconKey, buttonText, task, req
 
         term.reset();
         closeOtherTerminals(term.terminal);
-        term.terminal.classList.add('open', 'running');
+        openTerminal(term.terminal);
         term.print(`> ${task.cmd}`, 'is-cmd');
 
         const unsubscribe = window.api.onSystemRepairOutput(({ stream, text }) => {
@@ -465,7 +465,7 @@ function buildWingetUpdaterCard(translations) {
         currentLine = null;
         replaceCurrent = false;
         closeOtherTerminals(terminal);
-        terminal.classList.add('open', 'running');
+        openTerminal(terminal);
         printLine('> winget upgrade --all', 'is-cmd');
 
         const unsubscribe = window.api.onWingetUpgradeOutput(({ stream, text }) => {
@@ -1109,7 +1109,7 @@ export async function buildCleanerPage(translations = {}) {
 
         cleanTerm.reset();
         closeOtherTerminals(cleanTerm.terminal);
-        cleanTerm.terminal.classList.add('open', 'running');
+        openTerminal(cleanTerm.terminal);
         cleanTerm.print('> Clean selected items', 'is-cmd');
 
         const unsubscribe = window.api.onCleanerProgress(({ text }) => {
@@ -1372,7 +1372,7 @@ export async function buildMaintenancePage(translations, _settings) {
         repairLine = null;
         repairReplace = false;
         closeOtherTerminals(repairTerminal);
-        repairTerminal.classList.add('open', 'running');
+        openTerminal(repairTerminal);
         repairPrint(`> ${cmdLabel}`, 'is-cmd');
 
         const unsubscribe = window.api.onSystemRepairOutput(({ stream, text }) => {

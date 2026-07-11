@@ -46,6 +46,19 @@ export function closeOtherTerminals(current) {
     });
 }
 
+/**
+ * Reveal a just-opened terminal: mark it open and scroll it into view so it is
+ * never left below the fold (e.g. on short viewports or with DevTools docked).
+ * @param {HTMLElement} terminal - the .winget-terminal element to open
+ */
+export function openTerminal(terminal) {
+    if (!terminal) return;
+    terminal.classList.add('open', 'running');
+    requestAnimationFrame(() => {
+        terminal.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+}
+
 
 // ============================================
 // UPDATE OVERLAY
