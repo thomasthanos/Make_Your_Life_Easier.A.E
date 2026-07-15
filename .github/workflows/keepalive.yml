@@ -2,7 +2,7 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    - cron: '0 3 */6 * *'
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 jobs:
@@ -14,17 +14,30 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY secrets are missing"
+            exit 1
+          fi
           now=$(TZ='Europe/Athens' date +%Y-%m-%dT%H:%M:%S)
-          resp=$(curl -s -w $'\n%{http_code}' -X PATCH \
-            "$SUPABASE_URL/rest/v1/keepalive?id=eq.1" \
-            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Content-Type: application/json" \
-            -H "Prefer: return=representation" \
-            --data "{\"pinged_at\":\"$now\"}")
-          code=$(printf '%s' "$resp" | tail -n1)
-          body=$(printf '%s' "$resp" | sed '$d')
-          echo "HTTP $code"
-          echo "$body"
-          test "$code" = "200"
-          printf '%s' "$body" | grep -q pinged_at
+          for attempt in 1 2 3; do
+            resp=$(curl -s --max-time 30 -w $'\n%{http_code}' -X PATCH \
+              "$SUPABASE_URL/rest/v1/keepalive?id=eq.1" \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Content-Type: application/json" \
+              -H "Prefer: return=representation" \
+              --data "{\"pinged_at\":\"$now\"}")
+            code=$(printf '%s' "$resp" | tail -n1)
+            body=$(printf '%s' "$resp" | sed '$d')
+            echo "Attempt $attempt: HTTP $code"
+            echo "$body"
+            if [ "$code" = "200" ] && printf '%s' "$body" | grep -q pinged_at; then
+              echo "Keep-alive OK"
+              exit 0
+            fi
+            # PostgREST schema cache can be stale right after the project wakes
+            # up (PGRST205) — wait and retry instead of failing the whole run.
+            sleep 30
+          done
+          echo "::error::Keep-alive failed after 3 attempts"
+          exit 1
