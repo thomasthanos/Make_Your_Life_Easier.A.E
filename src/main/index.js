@@ -193,6 +193,10 @@ app.whenReady().then(async () => {
     // Initialize user profile
     try {
         userProfile.initialize(app.getPath('userData'));
+        if (userProfile.get() && !(await supabase.getSessionUser())) {
+            debug('warn', 'Clearing cached user profile because the Supabase session is missing.');
+            userProfile.clear();
+        }
     } catch (err) {
         debug('warn', 'Failed to initialize user profile:', err.message);
     }

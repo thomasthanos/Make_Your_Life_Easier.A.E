@@ -820,6 +820,23 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         gridViewBtn.classList.toggle('active', view === 'grid');
     }
 
+    async function selectInstallerView(view) {
+        if (view !== 'list' && view !== 'grid') return;
+        if (listContainer.dataset.view === view) return;
+
+        applyView(view);
+        if (settings && typeof settings === 'object') settings.installer_view = view;
+
+        try {
+            const result = await window.api?.setSetting?.('installer_view', view);
+            if (result && result.success === false) {
+                throw new Error(result.error || 'Failed to save installer view');
+            }
+        } catch (err) {
+            debug('warn', 'Failed to save installer view:', err);
+        }
+    }
+
     function applySort(value) {
         currentSort = value;
         const groups = listContainer.querySelectorAll(':scope > div');
@@ -844,8 +861,8 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         });
     }
 
-    listViewBtn.addEventListener('click', () => { applyView('list'); try { window.api?.setSetting?.('installer_view', 'list'); } catch { } });
-    gridViewBtn.addEventListener('click', () => { applyView('grid'); try { window.api?.setSetting?.('installer_view', 'grid'); } catch { } });
+    listViewBtn.addEventListener('click', () => { void selectInstallerView('list'); });
+    gridViewBtn.addEventListener('click', () => { void selectInstallerView('grid'); });
     // ─────────────────────────────────────────────────────────────
 
     function updateActionButtonsState() {

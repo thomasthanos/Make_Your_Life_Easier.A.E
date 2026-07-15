@@ -79,7 +79,10 @@ async function pushToCloud() {
   if (!isConfigured() || !isLoggedIn()) return;
   try {
     const user = await getSessionUser();
-    if (!user) return;
+    if (!user) {
+      debug('warn', 'Settings push skipped: the cached account has no active Supabase session.');
+      return;
+    }
     const { error } = await supabase
       .from(TABLE)
       .upsert({ user_id: user.id, data: local.data, updated_at: local.updated_at || new Date().toISOString() });

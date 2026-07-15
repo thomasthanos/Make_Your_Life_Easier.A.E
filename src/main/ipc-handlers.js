@@ -75,7 +75,18 @@ function setupOAuthHandlers(oauth, userProfile, getMainWindow, supabase, setting
     });
 
     ipcMain.handle('get-user-profile', async () => {
-        return userProfile.get();
+        const profile = userProfile.get();
+        if (!profile) return null;
+
+        // A cached profile without a Supabase session cannot sync settings.
+        // Clear the stale identity so the renderer offers sign-in again.
+        const sessionUser = await supabase.getSessionUser();
+        if (!sessionUser) {
+            userProfile.clear();
+            return null;
+        }
+
+        return profile;
     });
 
     ipcMain.handle('logout', async () => {
