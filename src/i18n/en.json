@@ -57,7 +57,11 @@
     "on_demand": "On-demand download and setup",
     "ready": "Ready to download",
     "busy": "Download in progress",
-    "installer_opened": "Installer opened"
+    "extracting": "Extracting files",
+    "opening": "Opening installer",
+    "cleaning": "Cleaning up",
+    "working": "Working…",
+    "installer_opened": "Installer opened — files cleaned up"
   },
   "spicetify_ui": {
     "actions_label": "actions",

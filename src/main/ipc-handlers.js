@@ -446,6 +446,50 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
         });
     });
 
+    // ─── cleanup-install-artifacts ──────────────────────────────────────────────
+    // Removes the leftover download ZIP and its extracted folder once a crack
+    // installer has been launched. The ZIP goes immediately (it is redundant
+    // after extraction); the folder is retried a few times because the freshly
+    // launched installer may still hold a handle to it for a moment.
+    ipcMain.handle('cleanup-install-artifacts', async (event, { zipPath, dir } = {}) => {
+        const allowedDirs = [os.tmpdir(), path.join(os.homedir(), 'Downloads')];
+        const removed = { zip: false, dir: false };
+
+        const safeResolve = (target) => {
+            if (typeof target !== 'string' || target.trim() === '') return null;
+            const expanded = fileUtils.expandEnvVars(target);
+            const validation = security.validateDeletePath(expanded, allowedDirs);
+            return validation.valid ? validation.normalized : null;
+        };
+
+        const zip = safeResolve(zipPath);
+        if (zip) {
+            try {
+                await fs.promises.rm(zip, { force: true });
+                removed.zip = true;
+            } catch (err) {
+                debug('warn', 'Failed to remove install ZIP:', err.message);
+            }
+        }
+
+        const folder = safeResolve(dir);
+        if (folder) {
+            for (let attempt = 0; attempt < 5; attempt++) {
+                try {
+                    await fs.promises.rm(folder, { recursive: true, force: true });
+                    removed.dir = true;
+                    break;
+                } catch (err) {
+                    // Installer likely still holds the directory — wait and retry.
+                    await new Promise((r) => setTimeout(r, 2000));
+                    if (attempt === 4) debug('warn', 'Failed to remove extracted folder:', err.message);
+                }
+            }
+        }
+
+        return { success: true, removed };
+    });
+
     // ─── replace-exe ────────────────────────────────────────────────────────────
     // Strategy:
     //   1. Write src/dst to a JSON config file  → no path quoting in PS scripts

@@ -2038,18 +2038,24 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
         const cardId = `crack-${key}`;
         const crackBtnOriginalText = btn.textContent;
 
+        // Detailed phase text lives on the availability line so the narrow
+        // download button can stay short (a percentage or one-word label)
+        // instead of clipping long strings like "Installation Running".
         function setCrackCardState(state = 'ready') {
-            const isBusy = state === 'busy';
+            const busyStates = ['busy', 'extracting', 'opening', 'cleaning'];
+            const isBusy = busyStates.includes(state);
             card.classList.toggle('is-busy', isBusy);
             card.classList.toggle('is-complete', state === 'complete');
 
-            if (state === 'busy') {
-                availabilityText.textContent = crackUi.busy || 'Download in progress';
-            } else if (state === 'complete') {
-                availabilityText.textContent = crackUi.installer_opened || 'Installer opened';
-            } else {
-                availabilityText.textContent = crackUi.ready || 'Ready to download';
-            }
+            const stateText = {
+                busy: crackUi.busy || 'Download in progress',
+                extracting: crackUi.extracting || 'Extracting files',
+                opening: crackUi.opening || 'Opening installer',
+                cleaning: crackUi.cleaning || 'Cleaning up',
+                complete: crackUi.installer_opened || 'Installer opened',
+                ready: crackUi.ready || 'Ready to download'
+            };
+            availabilityText.textContent = stateText[state] || stateText.ready;
         }
 
         // UI update callback for download events (used by global download store)
@@ -2057,20 +2063,22 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
             return async (data) => {
                 // Guard: skip DOM updates if elements are no longer in the document (user switched pages)
                 if (!btn.isConnected) return;
+                const workingLabel = crackUi.working || 'Working…';
+
                 switch (data.status) {
                     case 'started':
                         setCrackCardState('busy');
-                        btn.textContent = 'Downloading... 0%';
+                        btn.textContent = '0%';
                         break;
 
                     case 'progress':
                         setCrackCardState('busy');
-                        btn.textContent = `Downloading... ${data.percent}%`;
+                        btn.textContent = `${data.percent}%`;
                         break;
 
                     case 'complete': {
-                        setCrackCardState('busy');
-                        btn.textContent = 'Download complete! Extracting...';
+                        setCrackCardState('extracting');
+                        btn.textContent = workingLabel;
 
                         try {
                             // Small delay to ensure file handles are fully released
@@ -2079,8 +2087,8 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                             const extractResult = await window.api.extractArchive(data.path, '123');
 
                             if (extractResult.success) {
-                                btn.textContent = 'Extraction complete! Running installer...';
                                 const extractedDir = getExtractedFolderPath(data.path);
+                                setCrackCardState('opening');
 
                                 let installerExe;
                                 if (isClipStudio) {
@@ -2093,6 +2101,8 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                                     const openResult = await window.api.openFile(installerExe);
                                     if (openResult.success) {
                                         if (isClipStudio) {
+                                            // Clip Studio needs the extracted folder for the
+                                            // Replace EXE step, so it is intentionally NOT cleaned.
                                             setCrackCardState('complete');
                                             completeProcess(cardId, 'download', true);
                                             downloadStore.delete(cardId);
@@ -2110,14 +2120,30 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                                                 title: 'Clip Studio'
                                             });
                                         } else {
-                                            setCrackCardState('complete');
-                                            btn.textContent = 'Installation Running';
                                             completeProcess(cardId, 'download', true);
                                             downloadStore.delete(cardId);
                                             toast(`${name} installer started!`, {
                                                 type: 'info',
                                                 title: name
                                             });
+
+                                            // Installer launched — remove the leftover ZIP and
+                                            // extracted folder so nothing piles up in Downloads.
+                                            setCrackCardState('cleaning');
+                                            try {
+                                                await window.api.cleanupInstallArtifacts(data.path, extractedDir);
+                                            } catch (cleanupErr) {
+                                                debug('warn', 'Cleanup after install failed:', cleanupErr?.message);
+                                            }
+
+                                            setCrackCardState('complete');
+                                            // Return the card to a reusable ready state shortly after.
+                                            setTimeout(() => {
+                                                if (!btn.isConnected) return;
+                                                setCrackCardState('ready');
+                                                btn.textContent = crackBtnOriginalText;
+                                                btn.disabled = false;
+                                            }, 4000);
                                         }
                                     } else {
                                         throw new Error('Could not start installer automatically');
@@ -2174,9 +2200,9 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
             setCrackCardState('busy');
             btn.disabled = true;
             if (existingDownload.status === 'progress' || existingDownload.status === 'started') {
-                btn.textContent = `Downloading... ${existingDownload.percent || 0}%`;
+                btn.textContent = `${existingDownload.percent || 0}%`;
             } else if (existingDownload.status === 'pending') {
-                btn.textContent = 'Preparing download...';
+                btn.textContent = crackUi.working || 'Working…';
             }
             // Re-attach UI callback so future events update this card's button
             attachDownloadUI(cardId, makeCrackDownloadUI());
@@ -2193,7 +2219,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
 
             setCrackCardState('busy');
             btn.disabled = true;
-            btn.textContent = 'Preparing download...';
+            btn.textContent = crackUi.working || 'Working…';
             status.textContent = '';
             status.classList.remove('visible');
 

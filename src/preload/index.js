@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld('api', {
   replaceExe: (sourcePath, destPath) =>
     ipcRenderer.invoke('replace-exe', { sourcePath, destPath }),
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
+  cleanupInstallArtifacts: (zipPath, dir) => ipcRenderer.invoke('cleanup-install-artifacts', { zipPath, dir }),
   findExeFiles: (directoryPath) => ipcRenderer.invoke('find-exe-files', directoryPath),
   showFileDialog: () => ipcRenderer.invoke('show-file-dialog'),
 
