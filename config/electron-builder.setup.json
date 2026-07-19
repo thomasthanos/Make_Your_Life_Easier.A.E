@@ -1,0 +1,55 @@
+{
+  "appId": "com.kolokithes.makeyourlifeeasier",
+  "productName": "MakeYourLifeEasier",
+  "directories": {
+    "output": "artifacts/dist"
+  },
+  "files": [
+    "package.json",
+    "src/**/*",
+    "!src/resources/bin/**/*",
+    "!src/public/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "src/resources/bin",
+      "to": "bin",
+      "filter": [
+        "7za.exe",
+        "7za.dll",
+        "7zxa.dll",
+        "certificate.cer"
+      ]
+    },
+    {
+      "from": "src/resources/updater",
+      "to": "updater",
+      "filter": [
+        "Updater.exe"
+      ]
+    }
+  ],
+  "asar": true,
+  "win": {
+    "target": [
+      {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "src/assets/icons/hacker.ico",
+    "signtoolOptions": {
+      "certificateSubjectName": "ThomasThanos",
+      "publisherName": "ThomasThanos",
+      "signingHashAlgorithms": [
+        "sha256"
+      ]
+    }
+  },
+  "portable": {
+    "artifactName": "MakeYourLifeEasier-Setup.exe",
+    "unpackDirName": "MakeYourLifeEasier-Setup"
+  }
+}

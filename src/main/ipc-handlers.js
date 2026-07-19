@@ -952,6 +952,58 @@ function setupInstallerHandlers(debug, security) {
     });
 }
 
+// ─── Installer / Uninstaller mode ───────────────────────────────────────────
+function setupInstallerModeHandlers(selfInstaller, getInstallerWindow, debug) {
+    const mode = selfInstaller.isUninstallMode() ? 'uninstall' : 'install';
+    let lastInstalledExe = null;
+
+    ipcMain.handle('installer-get-mode', () => mode);
+
+    ipcMain.handle('installer-get-info', () => selfInstaller.getInstallInfo());
+
+    ipcMain.handle('installer-install', async (event, options) => {
+        const win = getInstallerWindow();
+        const onProgress = (data) => {
+            if (win && !win.isDestroyed()) win.webContents.send('installer-progress', data);
+        };
+        try {
+            const result = await selfInstaller.install(win, options, onProgress, debug);
+            lastInstalledExe = result.targetExe;
+            return { success: true, ...result };
+        } catch (err) {
+            debug('warn', 'Install failed:', err.message);
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('installer-uninstall', async () => {
+        try {
+            const result = await selfInstaller.uninstall(debug);
+            return { success: true, ...result };
+        } catch (err) {
+            debug('warn', 'Uninstall failed:', err.message);
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('installer-launch', () => {
+        try {
+            if (lastInstalledExe) selfInstaller.launchInstalled(lastInstalledExe);
+        } catch (err) {
+            debug('warn', 'Launch failed:', err.message);
+        }
+        app.quit();
+        return { success: true };
+    });
+
+    ipcMain.handle('installer-close', () => app.quit());
+
+    ipcMain.handle('installer-minimize', () => {
+        const win = getInstallerWindow();
+        if (win && !win.isDestroyed()) win.minimize();
+    });
+}
+
 module.exports = {
     setupWindowHandlers,
     setupSystemInfoHandlers,
@@ -964,5 +1016,6 @@ module.exports = {
     setupSparkleHandlers,
     setupSystemToolsHandlers,
     setupSpicetifyHandlers,
-    setupInstallerHandlers
+    setupInstallerHandlers,
+    setupInstallerModeHandlers
 };

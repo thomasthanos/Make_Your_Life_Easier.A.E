@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';" />
+  <title>Make Your Life Easier — Setup</title>
+  <link rel="icon" type="image/x-icon" href="../assets/icons/hacker.ico" />
+  <link rel="stylesheet" href="installer.css" />
+</head>
+
+<body>
+  <div class="setup-card" id="card">
+    <div class="titlebar">
+      <span class="titlebar-label">Setup</span>
+      <div class="titlebar-actions">
+        <button id="min-btn" class="win-btn" type="button" title="Minimize" aria-label="Minimize">&#8211;</button>
+        <button id="close-btn" class="win-btn win-btn--close" type="button" title="Close" aria-label="Close">&#10005;</button>
+      </div>
+    </div>
+
+    <header class="hero">
+      <img class="hero-icon" src="../assets/icons/hacker.ico" alt="App logo" />
+      <div class="hero-text">
+        <h1 class="hero-title">Make Your Life Easier</h1>
+        <p class="hero-version" id="version">v—</p>
+      </div>
+    </header>
+
+    <!-- ── Configure view ── -->
+    <section class="view" id="view-config">
+      <div class="field">
+        <span class="field-label">Install location</span>
+        <p class="location" id="location">—</p>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-chip">
+          <span class="meta-key">Required space</span>
+          <span class="meta-val" id="size-val">—</span>
+        </div>
+        <div class="meta-chip">
+          <span class="meta-key">Files</span>
+          <span class="meta-val" id="files-val">—</span>
+        </div>
+      </div>
+
+      <div class="options">
+        <label class="check">
+          <input type="checkbox" id="opt-desktop" checked />
+          <span class="check-box" aria-hidden="true"></span>
+          <span class="check-label">Create Desktop shortcut</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="opt-startmenu" checked />
+          <span class="check-box" aria-hidden="true"></span>
+          <span class="check-label">Create Start Menu shortcut</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="opt-startup" />
+          <span class="check-box" aria-hidden="true"></span>
+          <span class="check-label">Launch at Windows startup</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="opt-taskbar" />
+          <span class="check-box" aria-hidden="true"></span>
+          <span class="check-label">Pin to taskbar (if supported)</span>
+        </label>
+      </div>
+
+      <div id="config-error" class="inline-error" hidden></div>
+
+      <div class="actions">
+        <button id="cancel-btn" class="ghost-btn" type="button">Cancel</button>
+        <button id="install-btn" class="primary-btn" type="button">Install</button>
+      </div>
+    </section>
+
+    <!-- ── Progress view ── -->
+    <section class="view" id="view-progress" hidden>
+      <p class="progress-phase" id="progress-phase">Preparing…</p>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <p class="progress-detail" id="progress-detail">0%</p>
+    </section>
+
+    <!-- ── Done view ── -->
+    <section class="view" id="view-done" hidden>
+      <div class="done-badge" id="done-badge">✓</div>
+      <h2 class="done-title" id="done-title">Installation complete</h2>
+      <p class="done-sub" id="done-sub">Make Your Life Easier is ready.</p>
+      <div class="actions actions--center">
+        <button id="finish-btn" class="ghost-btn" type="button">Close</button>
+        <button id="launch-btn" class="primary-btn" type="button">Launch now</button>
+      </div>
+    </section>
+
+    <!-- ── Uninstall confirm view ── -->
+    <section class="view" id="view-uninstall" hidden>
+      <p class="uninstall-text">Remove <strong>Make Your Life Easier</strong> and its shortcuts from this computer?</p>
+      <div class="actions">
+        <button id="uninstall-cancel" class="ghost-btn" type="button">Keep it</button>
+        <button id="uninstall-confirm" class="danger-btn" type="button">Uninstall</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="installer.js"></script>
+</body>
+
+</html>

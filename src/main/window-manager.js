@@ -9,6 +9,7 @@ const path = require('path');
 // Window dimension constants
 const MAIN_WINDOW = { width: 1100, height: 750, minWidth: 800, minHeight: 600 };
 const UPDATE_WINDOW = { width: 650, height: 440 };
+const INSTALLER_WINDOW = { width: 560, height: 560 };
 const WINDOW_BG_COLOR = '#171717';
 
 // Whether the app is running in development mode
@@ -17,6 +18,7 @@ const isDev = !app.isPackaged;
 // Window references
 let mainWindow = null;
 let updateWindow = null;
+let installerWindow = null;
 
 /**
  * Get the main window instance
@@ -130,9 +132,60 @@ function createUpdateWindow(preloadPath, onReady) {
     return updateWindow;
 }
 
+/**
+ * Get the installer window instance
+ * @returns {BrowserWindow|null}
+ */
+function getInstallerWindow() {
+    return installerWindow;
+}
+
+/**
+ * Create the themed installer/uninstaller window
+ * @param {string} preloadPath - Path to the installer preload script
+ * @returns {BrowserWindow}
+ */
+function createInstallerWindow(preloadPath) {
+    installerWindow = new BrowserWindow({
+        width: INSTALLER_WINDOW.width,
+        height: INSTALLER_WINDOW.height,
+        resizable: false,
+        maximizable: false,
+        fullscreenable: false,
+        icon: path.join(__dirname, '..', 'assets', 'icons', 'hacker.ico'),
+        autoHideMenuBar: true,
+        frame: false,
+        show: false,
+        transparent: true,
+        backgroundColor: '#00000000',
+        hasShadow: true,
+        webPreferences: {
+            preload: preloadPath,
+            nodeIntegration: false,
+            contextIsolation: true,
+            devTools: isDev
+        }
+    });
+
+    installerWindow.setMenuBarVisibility(false);
+    installerWindow.loadFile(path.join(__dirname, '..', 'installer-ui', 'installer.html'));
+
+    installerWindow.once('ready-to-show', () => {
+        if (installerWindow && !installerWindow.isDestroyed()) installerWindow.show();
+    });
+
+    installerWindow.on('closed', () => {
+        installerWindow = null;
+    });
+
+    return installerWindow;
+}
+
 module.exports = {
     getMainWindow,
     getUpdateWindow,
+    getInstallerWindow,
     createMainWindow,
-    createUpdateWindow
+    createUpdateWindow,
+    createInstallerWindow
 };

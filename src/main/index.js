@@ -23,6 +23,7 @@ const ipcHandlers = require('./ipc-handlers');
 const updater = require('./updater');
 const security = require('./security');
 const certificate = require('./certificate');
+const selfInstaller = require('./self-installer');
 
 // Shared modules
 const { debug } = require('../modules/debug');
@@ -60,6 +61,10 @@ const pendingCleanupFiles = new Set();
 // ============================================================================
 
 const preloadPath = path.join(__dirname, '..', 'preload', 'index.js');
+const installerPreloadPath = path.join(__dirname, '..', 'installer-ui', 'preload.js');
+
+// Whether this launch is acting as the Setup installer / uninstaller
+const installerMode = selfInstaller.isInstallerMode() || selfInstaller.isUninstallMode();
 
 // ============================================================================
 // Window Creation Wrappers
@@ -137,12 +142,12 @@ updater.setupUpdaterIpcHandlers({
 // Single Instance Lock
 // ============================================================================
 
-const gotTheLock = app.requestSingleInstanceLock();
+const gotTheLock = installerMode ? true : app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
     debug('warn', 'Another instance is already running, quitting...');
     app.quit();
-} else {
+} else if (!installerMode) {
     app.on('second-instance', (event, commandLine, workingDirectory) => {
         // Someone tried to run a second instance, focus our window instead
         const mainWindow = windowManager.getMainWindow();
@@ -179,6 +184,13 @@ function cleanupStaleLockFiles() {
 // ============================================================================
 
 app.whenReady().then(async () => {
+    // Installer / uninstaller mode: show only the themed Setup window and stop here
+    if (installerMode) {
+        ipcHandlers.setupInstallerModeHandlers(selfInstaller, windowManager.getInstallerWindow, debug);
+        windowManager.createInstallerWindow(installerPreloadPath);
+        return;
+    }
+
     // Clean up stale lock files first
     cleanupStaleLockFiles();
 
