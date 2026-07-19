@@ -114,27 +114,76 @@ async function closeRunningInstance(exePath, debug) {
     }
 }
 
+const STREAM_COPY_THRESHOLD = 8 * 1024 * 1024;
+
+function streamCopy(src, dest, onChunk) {
+    return new Promise((resolve, reject) => {
+        const rs = fs.createReadStream(src);
+        const ws = fs.createWriteStream(dest);
+        rs.on('data', (chunk) => onChunk(chunk.length));
+        rs.on('error', reject);
+        ws.on('error', reject);
+        ws.on('finish', resolve);
+        rs.pipe(ws);
+    });
+}
+
 async function copyTree(src, dest, onProgress, debug) {
     return withoutAsar(async () => {
         const files = await walkFiles(src, []);
-        const total = files.length || 1;
+        const totalFiles = files.length || 1;
+        const sizes = new Map();
+        let bytesTotal = 0;
+        for (const file of files) {
+            try {
+                const stat = await fs.promises.stat(file);
+                sizes.set(file, stat.size);
+                bytesTotal += stat.size;
+            } catch {
+                sizes.set(file, 0);
+            }
+        }
+
         let done = 0;
+        let bytesDone = 0;
+        let lastEmit = 0;
+        const emit = (force) => {
+            if (!onProgress) return;
+            const now = Date.now();
+            if (!force && now - lastEmit < 100) return;
+            lastEmit = now;
+            onProgress({
+                percent: Math.min(100, Math.round((bytesDone / (bytesTotal || 1)) * 100)),
+                done,
+                total: totalFiles,
+                bytesDone,
+                bytesTotal
+            });
+        };
+
         await fs.promises.mkdir(dest, { recursive: true });
+        emit(true);
 
         for (const file of files) {
             const rel = path.relative(src, file);
             const target = path.join(dest, rel);
             try {
                 await fs.promises.mkdir(path.dirname(target), { recursive: true });
-                await fs.promises.copyFile(file, target);
+                if ((sizes.get(file) || 0) > STREAM_COPY_THRESHOLD) {
+                    await streamCopy(file, target, (len) => {
+                        bytesDone += len;
+                        emit(false);
+                    });
+                } else {
+                    await fs.promises.copyFile(file, target);
+                    bytesDone += sizes.get(file) || 0;
+                }
             } catch (err) {
                 debug('warn', `Copy failed for ${rel}: ${err.message}`);
                 throw err;
             }
             done += 1;
-            if (onProgress && (done % 12 === 0 || done === total)) {
-                onProgress(Math.round((done / total) * 100), done, total);
-            }
+            emit(done === totalFiles);
         }
     });
 }
@@ -210,8 +259,8 @@ async function install(win, options, onProgress, debug) {
     }
 
     onProgress({ phase: 'copying', percent: 0 });
-    await copyTree(src, targetDir, (percent, done, total) => {
-        onProgress({ phase: 'copying', percent, done, total });
+    await copyTree(src, targetDir, (data) => {
+        onProgress({ phase: 'copying', ...data });
     }, debug);
 
     onProgress({ phase: 'shortcuts', percent: 100 });

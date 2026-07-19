@@ -31,37 +31,36 @@
 
     <!-- ── Configure view ── -->
     <section class="view" id="view-config">
-      <div class="field">
-        <span class="field-label">Install location</span>
-        <p class="location" id="location">—</p>
+      <div class="group">
+        <div class="row row--stacked">
+          <span class="row-label">Location</span>
+          <span class="row-path" id="location">—</span>
+        </div>
+        <div class="row">
+          <span class="row-label">App size</span>
+          <span class="row-value" id="size-val">—</span>
+        </div>
+        <div class="row">
+          <span class="row-label">Setup needs</span>
+          <span class="row-value" id="req-val">—</span>
+        </div>
       </div>
 
-      <div class="meta-grid">
-        <div class="meta-chip">
-          <span class="meta-key">Required space</span>
-          <span class="meta-val" id="size-val">—</span>
-        </div>
-        <div class="meta-chip">
-          <span class="meta-key">Files</span>
-          <span class="meta-val" id="files-val">—</span>
-        </div>
-      </div>
-
-      <div class="options">
-        <label class="check">
+      <div class="group">
+        <label class="row row--toggle">
+          <span class="row-label">Desktop shortcut</span>
           <input type="checkbox" id="opt-desktop" checked />
-          <span class="check-box" aria-hidden="true"></span>
-          <span class="check-label">Create Desktop shortcut</span>
+          <span class="switch" aria-hidden="true"></span>
         </label>
-        <label class="check">
+        <label class="row row--toggle">
+          <span class="row-label">Start Menu shortcut</span>
           <input type="checkbox" id="opt-startmenu" checked />
-          <span class="check-box" aria-hidden="true"></span>
-          <span class="check-label">Create Start Menu shortcut</span>
+          <span class="switch" aria-hidden="true"></span>
         </label>
-        <label class="check">
+        <label class="row row--toggle">
+          <span class="row-label">Launch at startup</span>
           <input type="checkbox" id="opt-startup" />
-          <span class="check-box" aria-hidden="true"></span>
-          <span class="check-label">Launch at Windows startup</span>
+          <span class="switch" aria-hidden="true"></span>
         </label>
       </div>
 
@@ -85,7 +84,11 @@
 
     <!-- ── Done view ── -->
     <section class="view" id="view-done" hidden>
-      <div class="done-badge" id="done-badge">✓</div>
+      <svg class="done-badge" id="done-badge" viewBox="0 0 56 56" aria-hidden="true">
+        <circle cx="28" cy="28" r="26" />
+        <path class="done-check" d="M17.5 29.5l7.5 7.5 14-15" />
+        <path class="done-cross" d="M20 20l16 16M36 20l-16 16" />
+      </svg>
       <h2 class="done-title" id="done-title">Installation complete</h2>
       <p class="done-sub" id="done-sub">Make Your Life Easier is ready.</p>
       <div class="actions actions--center">

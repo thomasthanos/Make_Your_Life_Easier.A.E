@@ -1001,7 +1001,7 @@ function setupInstallerModeHandlers(selfInstaller, getInstallerWindow, debug) {
     ipcMain.handle('installer-set-height', (event, height) => {
         const win = getInstallerWindow();
         if (!win || win.isDestroyed()) return;
-        const h = Math.max(300, Math.min(700, Math.round(height) || 0));
+        const h = Math.max(240, Math.min(700, Math.round(height) || 0));
         const [w, prevH] = win.getSize();
         const [x, y] = win.getPosition();
         win.setBounds({ x, y: Math.round(y + (prevH - h) / 2), width: w, height: h });
