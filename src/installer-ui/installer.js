@@ -11,8 +11,8 @@ const views = {
 const viewHeights = {
     config: 520,
     progress: 400,
-    done: 430,
-    uninstall: 340
+    done: 410,
+    uninstall: 300
 };
 
 function showView(name) {
@@ -46,8 +46,13 @@ function setProgress(data) {
     }
 }
 
+function fadeOutThen(action) {
+    el('card').classList.add('closing');
+    setTimeout(action, 220);
+}
+
 el('min-btn').addEventListener('click', () => api.minimize());
-el('close-btn').addEventListener('click', () => api.close());
+el('close-btn').addEventListener('click', () => fadeOutThen(() => api.close()));
 
 async function initInstall() {
     showView('config');
@@ -63,7 +68,7 @@ async function initInstall() {
         err.hidden = false;
     }
 
-    el('cancel-btn').addEventListener('click', () => api.close());
+    el('cancel-btn').addEventListener('click', () => fadeOutThen(() => api.close()));
 
     el('install-btn').addEventListener('click', async () => {
         el('config-error').hidden = true;
@@ -96,8 +101,8 @@ async function initInstall() {
         showView('done');
     });
 
-    el('finish-btn').addEventListener('click', () => api.close());
-    el('launch-btn').addEventListener('click', () => api.launchAndClose());
+    el('finish-btn').addEventListener('click', () => fadeOutThen(() => api.close()));
+    el('launch-btn').addEventListener('click', () => fadeOutThen(() => api.launchAndClose()));
 }
 
 async function initUninstall() {
@@ -106,7 +111,7 @@ async function initUninstall() {
     document.querySelector('.titlebar-label').textContent = 'Uninstall';
     showView('uninstall');
 
-    el('uninstall-cancel').addEventListener('click', () => api.close());
+    el('uninstall-cancel').addEventListener('click', () => fadeOutThen(() => api.close()));
     el('uninstall-confirm').addEventListener('click', async () => {
         showView('progress');
         el('progress-phase').textContent = 'Removing…';

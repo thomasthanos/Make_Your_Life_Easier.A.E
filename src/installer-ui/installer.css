@@ -41,7 +41,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px;
 }
 
 .setup-card {
@@ -55,10 +54,14 @@ body {
   background:
     radial-gradient(120% 80% at 50% -10%, rgba(10, 132, 255, 0.14), transparent 60%),
     linear-gradient(180deg, rgb(27, 30, 36), rgb(14, 16, 20));
-  box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   overflow: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.setup-card.closing {
+  opacity: 0;
+  transform: scale(0.96);
 }
 
 /* ── Titlebar ── */
@@ -458,7 +461,12 @@ button:disabled {
 /* ── Uninstall view ── */
 #view-uninstall {
   justify-content: center;
-  gap: 22px;
+  gap: 26px;
+}
+
+#view-uninstall .actions,
+#view-done .actions {
+  margin-top: 0;
 }
 
 .uninstall-text {

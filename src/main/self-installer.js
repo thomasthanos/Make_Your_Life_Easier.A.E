@@ -247,11 +247,16 @@ async function install(win, options, onProgress, debug) {
 }
 
 function launchInstalled(targetExe) {
+    const env = { ...process.env };
+    delete env.PORTABLE_EXECUTABLE_FILE;
+    delete env.PORTABLE_EXECUTABLE_DIR;
+    delete env.PORTABLE_EXECUTABLE_APP_FILENAME;
     const child = spawn(targetExe, [], {
         detached: true,
         stdio: 'ignore',
         windowsHide: false,
-        cwd: path.dirname(targetExe)
+        cwd: path.dirname(targetExe),
+        env
     });
     child.unref();
 }

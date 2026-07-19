@@ -987,6 +987,8 @@ function setupInstallerModeHandlers(selfInstaller, getInstallerWindow, debug) {
     });
 
     ipcMain.handle('installer-launch', () => {
+        const win = getInstallerWindow();
+        if (win && !win.isDestroyed()) win.hide();
         try {
             if (lastInstalledExe) selfInstaller.launchInstalled(lastInstalledExe);
         } catch (err) {
@@ -1005,7 +1007,11 @@ function setupInstallerModeHandlers(selfInstaller, getInstallerWindow, debug) {
         win.setBounds({ x, y: Math.round(y + (prevH - h) / 2), width: w, height: h });
     });
 
-    ipcMain.handle('installer-close', () => app.quit());
+    ipcMain.handle('installer-close', () => {
+        const win = getInstallerWindow();
+        if (win && !win.isDestroyed()) win.hide();
+        app.quit();
+    });
 
     ipcMain.handle('installer-minimize', () => {
         const win = getInstallerWindow();
