@@ -28,6 +28,16 @@ function sourceDir() {
     return path.dirname(process.execPath);
 }
 
+async function withoutAsar(fn) {
+    const prev = process.noAsar;
+    process.noAsar = true;
+    try {
+        return await fn();
+    } finally {
+        process.noAsar = prev;
+    }
+}
+
 async function walkFiles(dir, out) {
     const entries = await fs.promises.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
@@ -42,17 +52,19 @@ async function walkFiles(dir, out) {
 }
 
 async function computeSize(dir) {
-    let bytes = 0;
-    let count = 0;
-    const files = await walkFiles(dir, []);
-    for (const file of files) {
-        try {
-            const stat = await fs.promises.stat(file);
-            bytes += stat.size;
-            count += 1;
-        } catch { /* skip unreadable */ }
-    }
-    return { bytes, count, sizeMB: Math.max(1, Math.round(bytes / (1024 * 1024))) };
+    return withoutAsar(async () => {
+        let bytes = 0;
+        let count = 0;
+        const files = await walkFiles(dir, []);
+        for (const file of files) {
+            try {
+                const stat = await fs.promises.stat(file);
+                bytes += stat.size;
+                count += 1;
+            } catch { /* skip unreadable */ }
+        }
+        return { bytes, count, sizeMB: Math.max(1, Math.round(bytes / (1024 * 1024))) };
+    });
 }
 
 async function getInstallInfo() {
@@ -103,26 +115,28 @@ async function closeRunningInstance(exePath, debug) {
 }
 
 async function copyTree(src, dest, onProgress, debug) {
-    const files = await walkFiles(src, []);
-    const total = files.length || 1;
-    let done = 0;
-    await fs.promises.mkdir(dest, { recursive: true });
+    return withoutAsar(async () => {
+        const files = await walkFiles(src, []);
+        const total = files.length || 1;
+        let done = 0;
+        await fs.promises.mkdir(dest, { recursive: true });
 
-    for (const file of files) {
-        const rel = path.relative(src, file);
-        const target = path.join(dest, rel);
-        try {
-            await fs.promises.mkdir(path.dirname(target), { recursive: true });
-            await fs.promises.copyFile(file, target);
-        } catch (err) {
-            debug('warn', `Copy failed for ${rel}: ${err.message}`);
-            throw err;
+        for (const file of files) {
+            const rel = path.relative(src, file);
+            const target = path.join(dest, rel);
+            try {
+                await fs.promises.mkdir(path.dirname(target), { recursive: true });
+                await fs.promises.copyFile(file, target);
+            } catch (err) {
+                debug('warn', `Copy failed for ${rel}: ${err.message}`);
+                throw err;
+            }
+            done += 1;
+            if (onProgress && (done % 12 === 0 || done === total)) {
+                onProgress(Math.round((done / total) * 100), done, total);
+            }
         }
-        done += 1;
-        if (onProgress && (done % 12 === 0 || done === total)) {
-            onProgress(Math.round((done / total) * 100), done, total);
-        }
-    }
+    });
 }
 
 async function createShortcut(lnkPath, targetExe, workingDir) {
@@ -202,7 +216,9 @@ async function install(win, options, onProgress, debug) {
     await closeRunningInstance(targetExe, debug);
 
     if (fs.existsSync(targetDir)) {
-        await fs.promises.rm(targetDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }).catch(() => {});
+        await withoutAsar(() =>
+            fs.promises.rm(targetDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 })
+        ).catch(() => {});
     }
 
     onProgress({ phase: 'copying', percent: 0 });
@@ -274,6 +290,17 @@ async function uninstall(debug) {
 
     const roaming = path.join(app.getPath('appData'), 'ThomasThanos', 'MakeYourLifeEasier');
     await fs.promises.rm(roaming, { recursive: true, force: true, maxRetries: 3 }).catch(() => {});
+
+    if (fs.existsSync(targetDir)) {
+        app.once('will-quit', () => {
+            try {
+                const script = `ping -n 3 127.0.0.1 >nul & rmdir /s /q "${targetDir}" & if exist "${targetDir}" (ping -n 3 127.0.0.1 >nul & rmdir /s /q "${targetDir}")`;
+                spawn('cmd.exe', ['/c', script], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+            } catch (err) {
+                debug('warn', 'Deferred install-dir removal failed to start:', err.message);
+            }
+        });
+    }
 
     return { targetDir };
 }
