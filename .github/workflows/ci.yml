@@ -16,7 +16,7 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm install --ignore-scripts --no-audit --no-fund
-      - run: npm run lint
+      - run: npx eslint --config config/eslint.config.js .
 
   build:
     name: Build (signed)
