@@ -151,28 +151,16 @@ async function createShortcut(lnkPath, targetExe, workingDir) {
     return runPs(script);
 }
 
+function programsDir() {
+    return path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+}
+
 function startMenuDir() {
-    return path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', APP_DISPLAY_NAME);
+    return path.join(programsDir(), APP_DISPLAY_NAME);
 }
 
 function startupDir() {
-    return path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup');
-}
-
-async function pinToTaskbar(targetExe) {
-    // Windows 10/11 block programmatic taskbar pinning; this is best-effort and often fails.
-    const escaped = targetExe.replace(/'/g, "''");
-    const dir = path.dirname(targetExe).replace(/'/g, "''");
-    const file = path.basename(targetExe).replace(/'/g, "''");
-    const script =
-        `$shell = New-Object -ComObject Shell.Application;` +
-        `$folder = $shell.Namespace('${dir}');` +
-        `$item = $folder.ParseName('${file}');` +
-        `$verb = $item.Verbs() | Where-Object { $_.Name -replace '&','' -match 'taskbar' } | Select-Object -First 1;` +
-        `if ($verb) { $verb.DoIt() } else { throw 'Taskbar pin verb not available on this Windows version' }`;
-    return runPs(script).catch(() => runPs(
-        `(New-Object -ComObject Shell.Application).Namespace('${dir}').ParseName('${file}').InvokeVerb('taskbarpin')`
-    ).catch(() => { throw new Error('Taskbar pin unavailable'); })).then(() => escaped);
+    return path.join(programsDir(), 'Startup');
 }
 
 async function writeUninstallRegistry(targetExe, targetDir, version, sizeMB) {
@@ -188,7 +176,7 @@ async function writeUninstallRegistry(targetExe, targetDir, version, sizeMB) {
         ['NoModify', 'REG_DWORD', '1'],
         ['NoRepair', 'REG_DWORD', '1'],
         ['EstimatedSize', 'REG_DWORD', String(Math.max(1, sizeMB) * 1024)],
-        ['URLInfoAbout', 'REG_SZ', 'https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/renderer/info/info.html'],
+        ['URLInfoAbout', 'REG_SZ', 'https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/readme.html'],
         ['Comments', 'REG_SZ', 'A modern, user-friendly desktop application with auto-updater']
     ];
     for (const [name, type, data] of entries) {
@@ -231,7 +219,6 @@ async function install(win, options, onProgress, debug) {
     const desktopShortcut = opts.desktopShortcut !== false;
     const startMenuShortcut = opts.startMenuShortcut !== false;
     const startupShortcut = opts.startupShortcut === true;
-    const taskbarPin = opts.taskbarPin === true;
     const lnkName = `${APP_DISPLAY_NAME}.lnk`;
 
     if (desktopShortcut) {
@@ -239,9 +226,7 @@ async function install(win, options, onProgress, debug) {
             .catch((err) => debug('warn', 'Desktop shortcut failed:', err.message));
     }
     if (startMenuShortcut) {
-        const smDir = startMenuDir();
-        await fs.promises.mkdir(smDir, { recursive: true }).catch(() => {});
-        await createShortcut(path.join(smDir, lnkName), targetExe, targetDir)
+        await createShortcut(path.join(programsDir(), lnkName), targetExe, targetDir)
             .catch((err) => debug('warn', 'Start Menu shortcut failed:', err.message));
     }
     if (startupShortcut) {
@@ -249,10 +234,6 @@ async function install(win, options, onProgress, debug) {
         await fs.promises.mkdir(suDir, { recursive: true }).catch(() => {});
         await createShortcut(path.join(suDir, lnkName), targetExe, targetDir)
             .catch((err) => debug('warn', 'Startup shortcut failed:', err.message));
-    }
-    if (taskbarPin) {
-        await pinToTaskbar(targetExe)
-            .catch((err) => debug('warn', 'Taskbar pin skipped:', err.message));
     }
 
     onProgress({ phase: 'registry', percent: 100 });
@@ -284,6 +265,7 @@ async function uninstall(debug) {
     const lnkName = `${APP_DISPLAY_NAME}.lnk`;
     await fs.promises.rm(path.join(app.getPath('desktop'), lnkName), { force: true }).catch(() => {});
     await fs.promises.rm(path.join(startupDir(), lnkName), { force: true }).catch(() => {});
+    await fs.promises.rm(path.join(programsDir(), lnkName), { force: true }).catch(() => {});
     await fs.promises.rm(startMenuDir(), { recursive: true, force: true }).catch(() => {});
 
     await runReg(['delete', UNINSTALL_KEY, '/f']).catch(() => {});

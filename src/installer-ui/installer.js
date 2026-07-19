@@ -9,7 +9,7 @@ const views = {
 };
 
 const viewHeights = {
-    config: 560,
+    config: 520,
     progress: 400,
     done: 430,
     uninstall: 340
@@ -74,8 +74,7 @@ async function initInstall() {
         const result = await api.install({
             desktopShortcut: el('opt-desktop').checked,
             startMenuShortcut: el('opt-startmenu').checked,
-            startupShortcut: el('opt-startup').checked,
-            taskbarPin: el('opt-taskbar').checked
+            startupShortcut: el('opt-startup').checked
         });
         unsub();
 

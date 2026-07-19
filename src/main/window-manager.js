@@ -9,7 +9,7 @@ const path = require('path');
 // Window dimension constants
 const MAIN_WINDOW = { width: 1100, height: 750, minWidth: 800, minHeight: 600 };
 const UPDATE_WINDOW = { width: 650, height: 440 };
-const INSTALLER_WINDOW = { width: 560, height: 560 };
+const INSTALLER_WINDOW = { width: 560, height: 520 };
 const WINDOW_BG_COLOR = '#171717';
 
 // Whether the app is running in development mode
