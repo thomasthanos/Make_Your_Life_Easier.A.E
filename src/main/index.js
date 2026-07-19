@@ -66,6 +66,26 @@ const installerPreloadPath = path.join(__dirname, '..', 'installer-ui', 'preload
 // Whether this launch is acting as the Setup installer / uninstaller
 const installerMode = selfInstaller.isInstallerMode() || selfInstaller.isUninstallMode();
 
+// When launched from the Setup "Launch now" button, signal the installer once our
+// first window is visible so it can close without leaving a blank gap.
+function signalInstallerWhenReady() {
+    const signalPath = process.env.MYLE_LAUNCH_SIGNAL;
+    if (!signalPath) return;
+    let done = false;
+    const write = () => {
+        if (done) return;
+        done = true;
+        try { fs.writeFileSync(signalPath, '1'); } catch { /* installer may be gone */ }
+    };
+    app.on('browser-window-created', (_event, win) => {
+        win.once('ready-to-show', write);
+        win.once('show', write);
+    });
+    setTimeout(write, 10000);
+}
+
+if (!installerMode) signalInstallerWhenReady();
+
 // ============================================================================
 // Window Creation Wrappers
 // ============================================================================

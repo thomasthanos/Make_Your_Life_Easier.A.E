@@ -986,14 +986,31 @@ function setupInstallerModeHandlers(selfInstaller, getInstallerWindow, debug) {
         }
     });
 
-    ipcMain.handle('installer-launch', () => {
-        const win = getInstallerWindow();
-        if (win && !win.isDestroyed()) win.hide();
+    ipcMain.handle('installer-launch', async () => {
+        let signalPath = null;
         try {
-            if (lastInstalledExe) selfInstaller.launchInstalled(lastInstalledExe);
+            if (lastInstalledExe) signalPath = selfInstaller.launchInstalled(lastInstalledExe);
         } catch (err) {
             debug('warn', 'Launch failed:', err.message);
         }
+
+        if (signalPath) {
+            const start = Date.now();
+            await new Promise((resolve) => {
+                const timer = setInterval(() => {
+                    let ready = false;
+                    try { ready = fs.existsSync(signalPath); } catch { /* ignore */ }
+                    if (ready || Date.now() - start > 12000) {
+                        clearInterval(timer);
+                        resolve();
+                    }
+                }, 80);
+            });
+            try { fs.rmSync(signalPath, { force: true }); } catch { /* ignore */ }
+        }
+
+        const win = getInstallerWindow();
+        if (win && !win.isDestroyed()) win.hide();
         app.quit();
         return { success: true };
     });

@@ -493,6 +493,36 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+/* ── Launching view ── */
+#view-launching {
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 24px;
+}
+
+.spinner {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--accent);
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.launching-text {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 /* ── Uninstall view ── */
 #view-uninstall {
   justify-content: center;

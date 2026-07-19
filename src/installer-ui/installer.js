@@ -5,6 +5,7 @@ const views = {
     config: el('view-config'),
     progress: el('view-progress'),
     done: el('view-done'),
+    launching: el('view-launching'),
     uninstall: el('view-uninstall')
 };
 
@@ -12,6 +13,7 @@ const viewHeights = {
     config: 462,
     progress: 265,
     done: 305,
+    launching: 230,
     uninstall: 275
 };
 
@@ -112,7 +114,10 @@ async function initInstall() {
     });
 
     el('finish-btn').addEventListener('click', () => fadeOutThen(() => api.close()));
-    el('launch-btn').addEventListener('click', () => fadeOutThen(() => api.launchAndClose()));
+    el('launch-btn').addEventListener('click', () => {
+        showView('launching');
+        api.launchAndClose();
+    });
 }
 
 async function initUninstall() {

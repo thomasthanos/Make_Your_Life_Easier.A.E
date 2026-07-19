@@ -300,6 +300,11 @@ function launchInstalled(targetExe) {
     delete env.PORTABLE_EXECUTABLE_FILE;
     delete env.PORTABLE_EXECUTABLE_DIR;
     delete env.PORTABLE_EXECUTABLE_APP_FILENAME;
+
+    const signalPath = path.join(os.tmpdir(), `myle-launch-${process.pid}-${Date.now()}.ready`);
+    try { fs.rmSync(signalPath, { force: true }); } catch { /* ignore */ }
+    env.MYLE_LAUNCH_SIGNAL = signalPath;
+
     const child = spawn(targetExe, [], {
         detached: true,
         stdio: 'ignore',
@@ -308,6 +313,7 @@ function launchInstalled(targetExe) {
         env
     });
     child.unref();
+    return signalPath;
 }
 
 async function uninstall(debug) {
