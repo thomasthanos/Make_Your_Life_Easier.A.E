@@ -1,143 +1,96 @@
 {
   "name": "make-your-life-easier",
-  "version": "3.8.0",
+  "version": "4.6.3",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "homepage": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E",
   "main": "src/main/index.js",
   "scripts": {
     "dev": "cls && electron . --no-updater",
-    "build-all": "cls && electron-builder --win portable && electron-builder --win nsis",
-    "release": "cls && electron-builder --win portable && electron-builder --win nsis && electron-builder --publish=always",
-    "postinstall": "electron-builder install-app-deps"
+    "build-all": "cls && (if not exist src\\resources\\updater mkdir src\\resources\\updater) && %SystemRoot%\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /nologo /target:winexe /optimize+ /out:src\\resources\\updater\\Updater.exe /r:System.IO.Compression.FileSystem.dll /r:System.IO.Compression.dll /win32icon:src\\assets\\icons\\hacker.ico tools\\updater\\Updater.cs && electron-builder --win portable zip && node tools/patch-latest-yml.js && electron-builder --config config/electron-builder.setup.json && node tools/clean-dist.js"
   },
   "dependencies": {
-    "electron-log": "^5.2.2",
-    "electron-store": "^11.0.2",
-    "electron-sudo": "^4.0.12",
-    "electron-updater": "^6.7.2",
-    "node-windows": "^1.0.0-beta.8",
-    "sqlite3": "^5.1.6"
+    "@supabase/supabase-js": "^2.110.0",
+    "dotenv": "^17.4.2",
+    "electron-log": "^5.4.4",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
-    "electron": "^39.2.4",
-    "electron-builder": "^26.3.2"
+    "@eslint/js": "^9.18.0",
+    "electron": "^39.8.10",
+    "electron-builder": "^26.15.3",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2"
   },
   "build": {
     "appId": "com.kolokithes.makeyourlifeeasier",
     "productName": "MakeYourLifeEasier",
     "directories": {
-      "output": "dist"
+      "output": "artifacts/dist"
     },
     "files": [
-      "**/*",
-      "!dist/**/*",
-      "!Github-Build-Release/**/*",
-      "!build/**/*",
-      "!python/**/*",
-      "!**/node_modules/*/{README.md,README,readme.md,readme}",
-      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
-      "!**/node_modules/*.d.ts",
-      "!**/node_modules/.bin",
-      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
-      "!.editorconfig",
-      "!**/._*",
-      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
-      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
-      "!**/{appveyor.yml,.travis.yml,circle.yml}",
-      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
-      "!bin/**/*"
+      "package.json",
+      "src/**/*",
+      "!src/resources/bin/**/*",
+      "!src/public/**/*"
     ],
     "extraResources": [
       {
-        "from": "bin",
+        "from": "src/resources/bin",
         "to": "bin",
         "filter": [
-          "**/*"
+          "7za.exe",
+          "7za.dll",
+          "7zxa.dll",
+          "certificate.cer"
         ]
       },
       {
-        "from": "lang",
-        "to": "lang",
+        "from": "src/resources/updater",
+        "to": "updater",
         "filter": [
-          "**/*"
+          "Updater.exe"
         ]
       },
       {
-        "from": "password-manager",
-        "to": "password-manager",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "src/assets",
-        "to": "src/assets",
-        "filter": [
-          "**/*"
-        ]
+        "from": "config/app-update.yml",
+        "to": "app-update.yml"
       }
     ],
     "asar": true,
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "portable",
           "arch": [
             "x64"
           ]
         },
         {
-          "target": "portable",
+          "target": "zip",
           "arch": [
             "x64"
           ]
         }
       ],
+      "artifactName": "MakeYourLifeEasier-win.${ext}",
       "icon": "src/assets/icons/hacker.ico",
-      "cscLink": "bin/certificate.pfx",
-      "cscKeyPassword": "12123123",
       "signtoolOptions": {
+        "certificateSubjectName": "ThomasThanos",
         "publisherName": "ThomasThanos",
         "signingHashAlgorithms": [
           "sha256"
         ]
-      },
-      "publish": {
-        "provider": "github",
-        "releaseType": "release"
       }
-    },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Make Your Life Easier",
-      "installerIcon": "src/assets/icons/hacker.ico",
-      "uninstallerIcon": "src/assets/icons/hacker.ico",
-      "warningsAsErrors": false,
-      "artifactName": "MakeYourLifeEasier-installer.exe",
-      "deleteAppDataOnUninstall": true,
-      "include": "build/installer.nsh",
-      "guid": "MakeYourLifeEasier",
-      "uninstallDisplayName": "Make Your Life Easier ${version}",
-      "uninstallUrlHelp": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/copyright.html",
-      "uninstallUrlInfoAbout": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/info/info.html",
-      "uninstallUrlReadme": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/readme.html",
-      "uninstallUrlUpdateInfo": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E/src/public/changelog.html",
-      "differentialPackage": true,
-      "runAfterFinish": true,
-      "allowElevation": false
     },
     "portable": {
       "artifactName": "MakeYourLifeEasier-Portable.exe"
     },
-    "generateUpdatesFilesForAllChannels": true,
     "publish": {
-      "provider": "github",
-      "owner": "thomasthanos",
-      "repo": "Make_Your_Life_Easier.A.E"
+      "provider": "generic",
+      "url": "https://downloads.thomast.uk"
     }
   },
   "repository": {

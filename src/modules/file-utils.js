@@ -4,7 +4,6 @@
  */
 
 const fs = require('fs');
-const fsPromises = fs.promises;
 const path = require('path');
 
 /**
@@ -96,12 +95,8 @@ function expandEnvVars(input) {
 
 module.exports = {
   removeFileIfExistsSync,
-  removeDirIfExistsSync,
   cleanupExtractDirs,
   sanitizeFilename,
   extFromUrl,
-  expandEnvVars,
-  // Export fs for backward compatibility
-  fs,
-  fsPromises
+  expandEnvVars
 };

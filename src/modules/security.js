@@ -27,7 +27,7 @@ function validatePath(filePath) {
 
   // Check for dangerous patterns that could be used for injection
   const dangerousPatterns = [
-    /[;&|`$<>]/,           // Command separators and redirection
+    /[;|`$<>]/,            // Command separators and redirection
     /\$\(/,                // Command substitution
     /\$\{/,                // Variable expansion with braces
     /\.\./,                // Path traversal (we'll handle this separately)
@@ -51,7 +51,6 @@ function validatePath(filePath) {
 
   // Additional validation: ensure path doesn't escape expected boundaries
   // This is a basic check - you may want to add whitelist/blacklist logic
-  const homedir = os.homedir();
   const systemRoot = process.platform === 'win32' 
     ? (process.env.SystemRoot || 'C:\\Windows')
     : '/';
@@ -126,27 +125,6 @@ function validateDeletePath(filePath, allowedDirs = []) {
 }
 
 /**
- * Sanitize a path for use in PowerShell commands
- * Escapes special characters and validates the path
- * @param {string} filePath - The path to sanitize
- * @returns {{valid: boolean, error?: string, sanitized?: string}}
- */
-function sanitizePathForPowerShell(filePath) {
-  const validation = validatePath(filePath);
-  if (!validation.valid) {
-    return validation;
-  }
-
-  const normalized = validation.normalized;
-
-  // PowerShell path escaping: single quotes escape everything except single quotes
-  // We need to escape single quotes by doubling them
-  const sanitized = normalized.replace(/'/g, "''");
-
-  return { valid: true, sanitized: `'${sanitized}'` };
-}
-
-/**
  * Validate command arguments for safe execution
  * @param {string[]} args - Command arguments to validate
  * @returns {{valid: boolean, error?: string}}
@@ -201,7 +179,6 @@ async function validateFileExists(filePath) {
 module.exports = {
   validatePath,
   validateDeletePath,
-  sanitizePathForPowerShell,
   validateCommandArgs,
   validateFileExists
 };

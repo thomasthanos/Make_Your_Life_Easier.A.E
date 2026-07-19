@@ -7,7 +7,6 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { execFile } = require('child_process');
 
 // Set userData path to AppData\Roaming\ThomasThanos\MakeYourLifeEasier
 // Must be done before any module imports that call app.getPath('userData')
@@ -23,6 +22,8 @@ const windowManager = require('./window-manager');
 const ipcHandlers = require('./ipc-handlers');
 const updater = require('./updater');
 const security = require('./security');
+const certificate = require('./certificate');
+const selfInstaller = require('./self-installer');
 
 // Shared modules
 const { debug } = require('../modules/debug');
@@ -30,16 +31,14 @@ const fileUtils = require('../modules/file-utils');
 const processUtils = require('../modules/process-utils');
 const downloadManager = require('../modules/download-manager');
 const userProfile = require('../modules/user-profile');
+const supabase = require('../modules/supabase');
+const settingsStore = require('../modules/settings-store');
 const oauth = require('../modules/oauth');
 const systemTools = require('../modules/system-tools');
 const spicetifyModule = require('../modules/spicetify');
 const archiveUtils = require('../modules/archive-utils');
 const sparkleModule = require('../modules/sparkle');
 const sharedSecurity = require('../modules/security');
-
-// Password Manager
-const PasswordManagerAuth = require('../../password-manager/auth');
-const PasswordManagerDB = require('../../password-manager/database');
 
 // ============================================================================
 // Configuration
@@ -54,112 +53,6 @@ const skipUpdater = security.shouldSkipUpdater();
 // Configure auto-updater
 updater.configureAutoUpdater();
 
-// ============================================================================
-// Certificate Installation (runs silently on first launch)
-// ============================================================================
-
-/**
- * Installs the app's self-signed certificate into the current user's
- * TrustedPublisher and Root stores. No admin rights needed for -user stores.
- * Runs silently — errors are logged but never shown to the user.
- */
-function installCertificateIfNeeded() {
-    // Only Windows
-    if (process.platform !== 'win32') return;
-
-    // Resolve the .cer file — works both packaged (resources/bin) and dev (bin/)
-    const certPath = app.isPackaged
-        ? path.join(process.resourcesPath, 'bin', 'certificate.cer')
-        : path.join(__dirname, '..', '..', 'bin', 'certificate.cer');
-
-    if (!fs.existsSync(certPath)) {
-        debug('warn', '⚠️ Certificate file not found, skipping installation:', certPath);
-        return;
-    }
-
-    // Flag file: skip reinstall on every subsequent launch
-    const flagFile = path.join(app.getPath('userData'), '.cert-installed');
-    if (fs.existsSync(flagFile)) {
-        debug('info', '✅ Certificate already installed, skipping.');
-        return;
-    }
-
-    debug('info', '🔐 Installing self-signed certificate for first-time launch...');
-
-    // Install to TrustedPublisher (allows app updates without SmartScreen blocks)
-    execFile('certutil', ['-addstore', '-user', 'TrustedPublisher', certPath], (err, stdout, stderr) => {
-        if (err) {
-            debug('warn', '⚠️ TrustedPublisher cert install failed:', stderr || err.message);
-        } else {
-            debug('info', '✅ Certificate added to TrustedPublisher.');
-        }
-    });
-
-    // Install to Root CA (full chain trust — also user-level, no admin needed)
-    execFile('certutil', ['-addstore', '-user', 'Root', certPath], (err, stdout, stderr) => {
-        if (err) {
-            debug('warn', '⚠️ Root cert install failed:', stderr || err.message);
-        } else {
-            debug('info', '✅ Certificate added to Root CA.');
-            // Write flag only after successful root install
-            try { fs.writeFileSync(flagFile, new Date().toISOString()); } catch {}
-        }
-    });
-}
-
-// ============================================================================
-// Password Manager Setup
-// ============================================================================
-
-/**
- * Get the correct Documents path, checking for OneDrive first
- */
-function getDocumentsPath() {
-    const homedir = os.homedir();
-
-    const oneDrivePaths = [
-        path.join(homedir, 'OneDrive', 'Documents'),
-        path.join(homedir, 'OneDrive - Personal', 'Documents')
-    ];
-
-    for (const oneDrivePath of oneDrivePaths) {
-        if (fs.existsSync(oneDrivePath)) {
-            debug('info', 'Using OneDrive Documents path:', oneDrivePath);
-            return oneDrivePath;
-        }
-    }
-
-    debug('info', 'Using local Documents path');
-    return path.join(homedir, 'Documents');
-}
-
-const documentsPath = getDocumentsPath();
-const pmDirectory = path.join(documentsPath, 'MakeYourLifeEasier');
-
-try {
-    if (!fs.existsSync(pmDirectory)) {
-        fs.mkdirSync(pmDirectory, { recursive: true });
-    }
-} catch (err) {
-    debug('warn', 'Failed to create password manager directory:', err.message);
-}
-
-const pmAuth = new PasswordManagerAuth();
-try {
-    pmAuth.initialize(pmDirectory);
-} catch (err) {
-    debug('error', 'Failed to initialize password manager:', err.message);
-}
-
-// Singleton Password Manager DB instance
-let pmDBInstance = null;
-function getPasswordDB() {
-    if (!pmDBInstance) {
-        pmDBInstance = new PasswordManagerDB(pmAuth);
-    }
-    return pmDBInstance;
-}
-
 // Track temp files for cleanup on app quit
 const pendingCleanupFiles = new Set();
 
@@ -167,14 +60,38 @@ const pendingCleanupFiles = new Set();
 // Preload Path
 // ============================================================================
 
-const preloadPath = path.join(__dirname, '..', '..', 'preload.js');
+const preloadPath = path.join(__dirname, '..', 'preload', 'index.js');
+const installerPreloadPath = path.join(__dirname, '..', 'installer-ui', 'preload.js');
+
+// Whether this launch is acting as the Setup installer / uninstaller
+const installerMode = selfInstaller.isInstallerMode() || selfInstaller.isUninstallMode();
+
+// When launched from the Setup "Launch now" button, signal the installer once our
+// first window is visible so it can close without leaving a blank gap.
+function signalInstallerWhenReady() {
+    const signalPath = process.env.MYLE_LAUNCH_SIGNAL;
+    if (!signalPath) return;
+    let done = false;
+    const write = () => {
+        if (done) return;
+        done = true;
+        try { fs.writeFileSync(signalPath, '1'); } catch { /* installer may be gone */ }
+    };
+    app.on('browser-window-created', (_event, win) => {
+        win.once('ready-to-show', write);
+        win.once('show', write);
+    });
+    setTimeout(write, 10000);
+}
+
+if (!installerMode) signalInstallerWhenReady();
 
 // ============================================================================
 // Window Creation Wrappers
 // ============================================================================
 
 function createMainWindow(showWindow = true) {
-    return windowManager.createMainWindow(showWindow, preloadPath, windowManager.setupWindowStateEvents);
+    return windowManager.createMainWindow(showWindow, preloadPath);
 }
 
 function createUpdateWindow() {
@@ -183,9 +100,6 @@ function createUpdateWindow() {
     });
 }
 
-function createPasswordManagerWindow(lang = 'en') {
-    return windowManager.createPasswordManagerWindow(preloadPath, lang);
-}
 
 // ============================================================================
 // Setup Updater Events
@@ -209,7 +123,8 @@ ipcHandlers.setupWindowHandlers(windowManager.getMainWindow);
 ipcHandlers.setupSystemInfoHandlers();
 
 // OAuth and user profile
-ipcHandlers.setupOAuthHandlers(oauth, userProfile, windowManager.getMainWindow);
+ipcHandlers.setupOAuthHandlers(oauth, userProfile, windowManager.getMainWindow, supabase, settingsStore);
+ipcHandlers.setupSettingsHandlers(settingsStore);
 
 // Commands and external processes
 ipcHandlers.setupCommandHandlers(sharedSecurity, processUtils, fileUtils, systemTools);
@@ -221,7 +136,7 @@ ipcHandlers.setupDownloadHandlers(downloadManager, windowManager.getMainWindow);
 ipcHandlers.setupFileHandlers(sharedSecurity, fileUtils, debug, pendingCleanupFiles);
 
 // Archive extraction
-ipcHandlers.setupArchiveHandlers(archiveUtils, downloadManager);
+ipcHandlers.setupArchiveHandlers(sharedSecurity, archiveUtils, downloadManager);
 
 // Sparkle
 ipcHandlers.setupSparkleHandlers(sparkleModule);
@@ -235,17 +150,6 @@ ipcHandlers.setupSpicetifyHandlers(spicetifyModule);
 // Installers
 ipcHandlers.setupInstallerHandlers(debug, security);
 
-// Password manager
-ipcHandlers.setupPasswordManagerHandlers(
-    createPasswordManagerWindow,
-    pmAuth,
-    getPasswordDB,
-    pmDirectory,
-    debug
-);
-
-// Misc handlers
-ipcHandlers.setupMiscHandlers();
 
 // Updater IPC handlers
 updater.setupUpdaterIpcHandlers({
@@ -258,12 +162,12 @@ updater.setupUpdaterIpcHandlers({
 // Single Instance Lock
 // ============================================================================
 
-const gotTheLock = app.requestSingleInstanceLock();
+const gotTheLock = installerMode ? true : app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
     debug('warn', 'Another instance is already running, quitting...');
     app.quit();
-} else {
+} else if (!installerMode) {
     app.on('second-instance', (event, commandLine, workingDirectory) => {
         // Someone tried to run a second instance, focus our window instead
         const mainWindow = windowManager.getMainWindow();
@@ -299,12 +203,21 @@ function cleanupStaleLockFiles() {
 // App Lifecycle
 // ============================================================================
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+    // Installer / uninstaller mode: show only the themed Setup window and stop here
+    if (installerMode) {
+        ipcHandlers.setupInstallerModeHandlers(selfInstaller, windowManager.getInstallerWindow, debug);
+        windowManager.createInstallerWindow(installerPreloadPath);
+        return;
+    }
+
     // Clean up stale lock files first
     cleanupStaleLockFiles();
 
-    // 🔐 Install self-signed certificate on first launch (silent, no admin needed)
-    installCertificateIfNeeded();
+    // 🧹 Clean up any leftover sparkle folder from a previous session where cleanup failed
+    sparkleModule.cleanupLeftoverSparkle().catch(() => {});
+
+    downloadManager.cleanupLeftoverDownloads(debug);
 
     // Clean up any leftover update files from previous updates
     updater.cleanupUpdaterCache(debug);
@@ -312,13 +225,36 @@ app.whenReady().then(() => {
     // Initialize user profile
     try {
         userProfile.initialize(app.getPath('userData'));
+        if (userProfile.get() && !(await supabase.getSessionUser())) {
+            debug('warn', 'Clearing cached user profile because the Supabase session is missing.');
+            userProfile.clear();
+        }
     } catch (err) {
         debug('warn', 'Failed to initialize user profile:', err.message);
     }
 
-    if (skipUpdater) {
+    try {
+        settingsStore.initialize(app.getPath('userData'));
+        settingsStore.pullFromCloud().catch(() => {});
+    } catch (err) {
+        debug('warn', 'Failed to initialize settings store:', err.message);
+    }
+
+    // Skip the update check on the first launch right after an update was installed
+    let justUpdated = false;
+    const justUpdatedFlag = path.join(app.getPath('userData'), '.just-updated');
+    try {
+        if (fs.existsSync(justUpdatedFlag)) {
+            justUpdated = true;
+            fs.unlinkSync(justUpdatedFlag);
+        }
+    } catch { /* ignore */ }
+
+    if (skipUpdater || justUpdated) {
+        certificate.ensureCertificateTrusted().catch(() => {});
         createMainWindow(false); // start hidden and show when renderer signals ready
     } else {
+        await certificate.ensureCertificateTrusted();
         createUpdateWindow();
     }
 
@@ -334,11 +270,20 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+    if (updater.isQuittingForInstall()) return;
     if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('before-quit', () => {
-    downloadManager.cleanupOnQuit(debug);
+    // Safe log helper — stdout/stderr pipes may close during quit (EPIPE)
+    const safeDebug = (level, ...args) => {
+        try { debug(level, ...args); } catch { /* pipe closed */ }
+    };
+
+    downloadManager.cleanupOnQuit(safeDebug);
+
+    // Stop the elevated cleaner admin worker, if one is running
+    try { systemTools.stopCleanerAdminSession(); } catch { }
 
     // Cleanup sparkle files
     sparkleModule.cleanupSparkle();
@@ -348,37 +293,15 @@ app.on('before-quit', () => {
         try {
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
-                debug('info', 'Cleaned up temp file:', filePath);
+                safeDebug('info', 'Cleaned up temp file:', filePath);
             }
         } catch (err) {
-            debug('warn', 'Failed to cleanup temp file:', filePath, err.message);
+            safeDebug('warn', 'Failed to cleanup temp file:', filePath, err.message);
         }
     });
     pendingCleanupFiles.clear();
-
-    // Close singleton DB connection if open
-    if (pmDBInstance) {
-        try {
-            pmDBInstance.close();
-            pmDBInstance = null;
-        } catch { }
-    }
 });
 
 app.on('will-quit', () => {
-    // Final cleanup before quit
-    // Single instance lock is automatically released by Electron
-    debug('info', '👋 Application shutting down gracefully');
+    try { debug('info', '👋 Application shutting down gracefully'); } catch { /* pipe closed */ }
 });
-
-// ============================================================================
-// Export for testing (optional)
-// ============================================================================
-
-module.exports = {
-    createMainWindow,
-    createUpdateWindow,
-    createPasswordManagerWindow,
-    windowManager,
-    updater
-};

@@ -67,7 +67,7 @@
      */
     addLocalAssets() {
       const localAssets = [
-        'src/assets/icons/hacker.ico'
+        '../assets/icons/hacker.ico'
       ];
       
       localAssets.forEach(path => {
@@ -111,12 +111,10 @@
       
       img.onload = () => {
         this.loaded++;
-        this.checkComplete();
       };
-      
+
       img.onerror = () => {
         this.failed++;
-        this.checkComplete();
       };
 
       // Set crossOrigin for CORS-enabled resources
@@ -125,23 +123,6 @@
       }
 
       img.src = url;
-    },
-
-    /**
-     * Check if preloading is complete
-     */
-    checkComplete() {
-      const completed = this.loaded + this.failed;
-      if (completed === this.total) {
-        console.log(`[AppPreloader] Complete: ${this.loaded}/${this.total} loaded, ${this.failed} failed`);
-        
-        // Notify that preloading is done
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('app-preload-complete', {
-            detail: { loaded: this.loaded, failed: this.failed, total: this.total }
-          }));
-        }
-      }
     }
   };
 

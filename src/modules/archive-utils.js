@@ -4,7 +4,6 @@
  */
 
 const { spawn } = require('child_process');
-const { shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { debug } = require('./debug');
@@ -21,8 +20,8 @@ async function ensure7za() {
   if (process.resourcesPath) {
     candidates.push(path.join(process.resourcesPath, 'bin', '7za.exe'));
     candidates.push(path.join(process.resourcesPath, 'bin', '7z.exe'));
-    candidates.push(path.join(__dirname, '..', 'bin', '7za.exe'));
-    candidates.push(path.join(__dirname, '..', 'bin', '7z.exe'));
+    candidates.push(path.join(__dirname, '..', 'resources', 'bin', '7za.exe'));
+    candidates.push(path.join(__dirname, '..', 'resources', 'bin', '7z.exe'));
 
     const parentDir = path.dirname(process.resourcesPath);
     candidates.push(path.join(parentDir, 'bin', '7za.exe'));
@@ -88,7 +87,7 @@ async function extractArchive(filePath, password, destDir, trackExtractedDir) {
         let pending = exes.length;
         const done = () => { if (--pending === 0) { clearTimeout(timeout); resolve(); } };
         exes.forEach(exe => {
-          const kill = sp('taskkill', ['/F', '/IM', `"${exe}"`], { windowsHide: true, stdio: 'ignore' });
+          const kill = sp('taskkill', ['/F', '/IM', exe], { windowsHide: true, stdio: 'ignore' });
           kill.on('close', done);
           kill.on('error', done);
         });
@@ -123,8 +122,7 @@ async function extractArchive(filePath, password, destDir, trackExtractedDir) {
   // Find 7za executable
   const exe = await ensure7za();
   if (!exe) {
-    shell.openPath(archive);
-    return { success: true, output: 'File opened directly (7-Zip not available)' };
+    return { success: false, error: '7-Zip executable not found — cannot extract archive.' };
   }
 
   debug('info', 'Using 7za.exe from:', exe);

@@ -29,4 +29,30 @@
             window.api?.closeWindow?.();
         });
     }
+
+    // Sidebar collapse toggle (default collapsed; persisted)
+    const sidebarToggle = document.getElementById('sidebar-collapse-toggle');
+    const applySidebarState = (expanded) => {
+        document.body.classList.toggle('sidebar-expanded', expanded);
+    };
+    let sidebarExpanded = false;
+    try { sidebarExpanded = localStorage.getItem('sidebarExpanded') === '1'; } catch { }
+    applySidebarState(sidebarExpanded);
+
+    Promise.resolve(window.api?.getSetting?.('sidebarExpanded')).then((cloudVal) => {
+        if (typeof cloudVal === 'boolean' && cloudVal !== sidebarExpanded) {
+            sidebarExpanded = cloudVal;
+            applySidebarState(sidebarExpanded);
+            try { localStorage.setItem('sidebarExpanded', sidebarExpanded ? '1' : '0'); } catch { }
+        }
+    }).catch(() => { });
+
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', () => {
+            sidebarExpanded = !sidebarExpanded;
+            applySidebarState(sidebarExpanded);
+            try { localStorage.setItem('sidebarExpanded', sidebarExpanded ? '1' : '0'); } catch { }
+            try { window.api?.setSetting?.('sidebarExpanded', sidebarExpanded); } catch { }
+        });
+    }
 })();

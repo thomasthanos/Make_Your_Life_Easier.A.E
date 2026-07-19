@@ -3,17 +3,10 @@
  * Handles OAuth authentication flows for Google and Discord
  */
 
-const { BrowserWindow, BrowserView } = require('electron');
-const { postForm, getJson } = require('./http-utils');
+const { BrowserWindow, WebContentsView } = require('electron');
+const { supabase } = require('./supabase');
 
-// OAuth credentials
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '389774067739-qnshev3gbck4firdc787iqhd44omiajs.apps.googleusercontent.com';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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';
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5252';
-
-const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1329887230482845797';
-const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || 'ZPK2i6WmbGnBhv7LmyzLwTOoKbaH8nDV';
-const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localhost:5252';
+const REDIRECT_URI = process.env.OAUTH_REDIRECT_URI || 'http://localhost:5252';
 
 /**
  * Open an OAuth authentication window
@@ -43,7 +36,7 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
     const authWindow = new BrowserWindow(windowOpts);
 
     // Create loader view
-    const loaderView = new BrowserView({
+    const loaderView = new WebContentsView({
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
 
@@ -57,16 +50,31 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
       </style></head>
       <body><div class="spinner"></div></body></html>`;
 
+    let loaderAttached = false;
     loaderView.webContents.loadURL('data:text/html;base64,' + Buffer.from(loaderHtml).toString('base64'));
-    authWindow.setBrowserView(loaderView);
+    authWindow.contentView.addChildView(loaderView);
+    loaderAttached = true;
     loaderView.setBounds({ x: 0, y: 0, width: windowOpts.width, height: windowOpts.height });
-    loaderView.setAutoResize({ width: true, height: true });
+
+    const resizeLoader = () => {
+      try {
+        if (loaderAttached && !authWindow.isDestroyed()) {
+          const [w, h] = authWindow.getContentSize();
+          loaderView.setBounds({ x: 0, y: 0, width: w, height: h });
+        }
+      } catch { }
+    };
+    authWindow.on('resize', resizeLoader);
 
     const removeLoaderView = () => {
       try {
-        if (!authWindow.isDestroyed() && authWindow.getBrowserView() === loaderView) {
-          authWindow.setBrowserView(null);
-          loaderView.destroy();
+        authWindow.removeListener('resize', resizeLoader);
+        if (loaderAttached && !authWindow.isDestroyed()) {
+          authWindow.contentView.removeChildView(loaderView);
+          loaderAttached = false;
+        }
+        if (loaderView.webContents && !loaderView.webContents.isDestroyed()) {
+          loaderView.webContents.close();
         }
       } catch { }
     };
@@ -81,7 +89,9 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
     function handleUrl(url) {
       try {
         const target = new URL(url);
-        if (!settled && url.startsWith(redirectUri)) {
+        const expected = new URL(redirectUri);
+        const isValid = target.origin === expected.origin && target.pathname === expected.pathname;
+        if (!settled && isValid) {
           handleCallback(target)
             .then((result) => {
               if (settled) return;
@@ -138,118 +148,50 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
   });
 }
 
-/**
- * Perform Google OAuth login
- * @param {BrowserWindow} parentWindow - Parent window reference
- * @returns {Promise<Object>}
- */
-async function loginGoogle(parentWindow) {
-  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-    throw new Error('Google OAuth credentials not configured');
-  }
+function toProfile(user, provider) {
+  const meta = (user && user.user_metadata) || {};
+  return {
+    name: meta.full_name || meta.name || meta.user_name || user?.email || 'User',
+    avatar: meta.avatar_url || meta.picture || null,
+    provider
+  };
+}
 
-  const state = Math.random().toString(36).substring(2);
-  const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: GOOGLE_REDIRECT_URI,
-    response_type: 'code',
-    scope: 'profile email',
-    access_type: 'offline',
-    prompt: 'consent',
-    state
+async function loginWith(provider, parentWindow) {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: REDIRECT_URI, skipBrowserRedirect: true }
   });
 
-  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  if (error) throw new Error(error.message);
+  if (!data?.url) throw new Error(`Failed to start ${provider} OAuth`);
 
-  return openAuthWindow(authUrl, GOOGLE_REDIRECT_URI, async (redirectUrl) => {
+  return openAuthWindow(data.url, REDIRECT_URI, async (redirectUrl) => {
     const code = redirectUrl.searchParams.get('code');
-    const returnedState = redirectUrl.searchParams.get('state');
+    const oauthError = redirectUrl.searchParams.get('error_description') || redirectUrl.searchParams.get('error');
 
+    if (oauthError) throw new Error(oauthError);
     if (!code) throw new Error('No authorization code received');
-    if (returnedState !== state) throw new Error('State mismatch');
 
-    const tokenResponse = await postForm('https://oauth2.googleapis.com/token', {
-      code,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: GOOGLE_REDIRECT_URI,
-      grant_type: 'authorization_code'
-    });
+    const { data: exchange, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) throw new Error(exchangeError.message);
 
-    const accessToken = tokenResponse.access_token;
-    if (!accessToken) throw new Error('Failed to obtain Google access token');
+    const user = exchange?.session?.user;
+    if (!user) throw new Error('Failed to obtain Supabase session');
 
-    const profile = await getJson('https://www.googleapis.com/oauth2/v3/userinfo', {
-      Authorization: `Bearer ${accessToken}`
-    });
-
-    return {
-      name: profile.name || profile.email || 'User',
-      avatar: profile.picture || null,
-      provider: 'google'
-    };
+    return toProfile(user, provider);
   }, parentWindow);
 }
 
-/**
- * Perform Discord OAuth login
- * @param {BrowserWindow} parentWindow - Parent window reference
- * @returns {Promise<Object>}
- */
-async function loginDiscord(parentWindow) {
-  if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET) {
-    throw new Error('Discord OAuth credentials not configured');
-  }
+function loginGoogle(parentWindow) {
+  return loginWith('google', parentWindow);
+}
 
-  const state = Math.random().toString(36).substring(2);
-  const params = new URLSearchParams({
-    client_id: DISCORD_CLIENT_ID,
-    redirect_uri: DISCORD_REDIRECT_URI,
-    response_type: 'code',
-    scope: 'identify',
-    state
-  });
-
-  const authUrl = `https://discord.com/api/oauth2/authorize?${params.toString()}`;
-
-  return openAuthWindow(authUrl, DISCORD_REDIRECT_URI, async (redirectUrl) => {
-    const code = redirectUrl.searchParams.get('code');
-    const returnedState = redirectUrl.searchParams.get('state');
-
-    if (!code) throw new Error('No authorization code received');
-    if (returnedState !== state) throw new Error('State mismatch');
-
-    const tokenResponse = await postForm('https://discord.com/api/oauth2/token', {
-      client_id: DISCORD_CLIENT_ID,
-      client_secret: DISCORD_CLIENT_SECRET,
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: DISCORD_REDIRECT_URI,
-      scope: 'identify'
-    });
-
-    const accessToken = tokenResponse.access_token;
-    if (!accessToken) throw new Error('Failed to obtain Discord access token');
-
-    const profile = await getJson('https://discord.com/api/users/@me', {
-      Authorization: `Bearer ${accessToken}`
-    });
-
-    let avatarUrl = null;
-    if (profile.avatar) {
-      avatarUrl = `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`;
-    }
-
-    return {
-      name: profile.username + (profile.discriminator ? `#${profile.discriminator}` : ''),
-      avatar: avatarUrl,
-      provider: 'discord'
-    };
-  }, parentWindow);
+function loginDiscord(parentWindow) {
+  return loginWith('discord', parentWindow);
 }
 
 module.exports = {
-  openAuthWindow,
   loginGoogle,
   loginDiscord
 };

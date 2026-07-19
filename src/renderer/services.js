@@ -3,8 +3,8 @@
  * Contains business logic for downloads, updates, and settings
  */
 
-import { debug, getAppVersionWithFallback, normalizeVersion, normalizeVersionTag } from './utils.js';
-import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay } from './components.js';
+import { debug, escapeHtml, getAppVersionWithFallback, normalizeVersion, normalizeVersionTag } from './utils.js';
+import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay, openAccountModal } from './components.js';
 import { attachTooltipHandlers } from './managers.js';
 
 // ============================================
@@ -47,6 +47,64 @@ export function applyTheme() {
     document.documentElement.setAttribute('data-theme', 'dark');
 }
 
+export function syncPref(key, value) {
+    try { window.api?.setSetting?.(key, value); } catch { }
+}
+
+export async function hydratePrefsFromCloud() {
+    try {
+        const all = await window.api?.getAllSettings?.();
+        if (!all || typeof all !== 'object') return null;
+        if (all.lang === 'en' || all.lang === 'gr') {
+            const s = loadSettings();
+            s.lang = all.lang;
+            saveSettings(s);
+        }
+        if (typeof all.sidebarExpanded === 'boolean') {
+            try { localStorage.setItem('sidebarExpanded', all.sidebarExpanded ? '1' : '0'); } catch { }
+        }
+        return all;
+    } catch {
+        return null;
+    }
+}
+
+function syncedSummary(all) {
+    const A = translations.account_ui || {};
+    const L = A.labels || {};
+    const V = A.values || {};
+    const I = translations.install_apps || {};
+    const M = translations.maintenance || {};
+    const s = all || {};
+    const queue = Array.isArray(s.selected_apps) ? s.selected_apps.length : 0;
+    const view = s.installer_view === 'grid' ? 'grid' : 'list';
+    const sort = ['default', 'az', 'za', 'status'].includes(s.installer_sort)
+        ? s.installer_sort
+        : 'default';
+    const viewLabel = view === 'grid'
+        ? (I.grid_view || 'Grid view')
+        : (I.list_view || 'List view');
+    const sortLabels = {
+        default: I.sort_default || 'Category',
+        az: I.sort_az || 'A to Z',
+        za: I.sort_za || 'Z to A',
+        status: I.sort_status || 'Status'
+    };
+    const maintenanceLayout = s.maintenance_layout === 'list'
+        ? (M.view_list || 'List')
+        : (M.view_overview || 'Overview');
+    const queueValue = queue
+        ? `${queue} ${queue === 1 ? (V.app || 'app') : (V.apps || 'apps')}`
+        : (V.empty || 'empty');
+    return [
+        { label: L.queue || 'Install queue', value: queueValue },
+        { label: L.language || 'Language', value: (s.lang || 'en').toUpperCase() },
+        { label: L.sidebar || 'Sidebar', value: s.sidebarExpanded ? (V.expanded || 'expanded') : (V.collapsed || 'collapsed') },
+        { label: L.view || 'Installer view', value: `${viewLabel} · ${sortLabels[sort]}` },
+        { label: L.maintenance_view || 'Maintenance layout', value: maintenanceLayout }
+    ];
+}
+
 // ============================================
 // TRANSLATIONS
 // ============================================
@@ -59,7 +117,7 @@ let translations = {};
  * @returns {Promise<Object>} Translations object
  */
 export async function loadTranslations(lang) {
-    const candidates = [`lang/${lang}.json`, `${lang}.json`];
+    const candidates = [`../i18n/${lang}.json`, `i18n/${lang}.json`, `${lang}.json`];
     for (const url of candidates) {
         try {
             const res = await fetch(url);
@@ -79,39 +137,11 @@ export async function loadTranslations(lang) {
 }
 
 /**
- * Get current translations object
- * @returns {Object} Translations
- */
-export function getTranslations() {
-    return translations;
-}
-
-/**
  * Set translations object (for external use)
  * @param {Object} trans - Translations object
  */
 export function setTranslations(trans) {
     translations = trans;
-}
-
-// ============================================
-// WINDOW RESIZE
-// ============================================
-
-/**
- * Smoothly resize the Electron window
- * @param {number} targetWidth - Desired final width in pixels
- * @param {number} targetHeight - Desired final height in pixels
- */
-export async function resizeWindowSmooth(targetWidth, targetHeight) {
-    try {
-        // Simple, direct resize - no animation tricks
-        if (window.api && typeof window.api.setWindowSize === 'function') {
-            await window.api.setWindowSize(targetWidth, targetHeight);
-        }
-    } catch (err) {
-        // Ignore resize errors
-    }
 }
 
 // ============================================
@@ -122,6 +152,8 @@ export async function resizeWindowSmooth(targetWidth, targetHeight) {
  * Initialize the auto-updater functionality
  * @param {Object} callbacks - Optional callbacks for update events
  */
+let autoUpdaterInitialized = false;
+
 export function initializeAutoUpdater() {
     const updateBtn = document.getElementById('title-bar-update');
 
@@ -134,6 +166,9 @@ export function initializeAutoUpdater() {
         console.warn('AutoUpdater: onUpdateStatus not available; skipping update event handlers.');
         return;
     }
+
+    if (autoUpdaterInitialized) return;
+    autoUpdaterInitialized = true;
 
     if (!updateBtn) {
         window.api.onUpdateStatus((data) => {
@@ -151,13 +186,9 @@ export function initializeAutoUpdater() {
                     });
                     break;
                 }
-                case 'downloaded':
-                    showUpdateOverlay('Update downloaded');
-                    updateUpdateOverlay(100, 'Restarting to install update...', {
-                        bytesPerSecond: 0,
-                        transferred: data.totalBytes || 0,
-                        total: data.totalBytes || 0
-                    });
+                case 'extracting':
+                    showUpdateOverlay(data.message || 'Applying update...');
+                    updateUpdateOverlay(100, data.message || 'Applying update...');
                     break;
                 case 'error':
                     hideUpdateOverlay();
@@ -171,8 +202,6 @@ export function initializeAutoUpdater() {
     updateBtn.classList.add('update-btn-hidden');
 
     let updateAvailable = false;
-    let updateDownloaded = false;
-    let currentUpdateInfo = null;
 
     attachTooltipHandlers(updateBtn);
 
@@ -196,7 +225,6 @@ export function initializeAutoUpdater() {
         switch (data.status) {
             case 'available':
                 updateAvailable = true;
-                currentUpdateInfo = data;
                 updateBtn.classList.add('available');
                 updateBtn.setAttribute('data-tooltip', `Update available`);
                 showUpdateOverlay(`Preparing download...`);
@@ -243,40 +271,12 @@ export function initializeAutoUpdater() {
                 break;
             }
 
-            case 'downloaded':
-                updateDownloaded = true;
+            case 'extracting':
                 updateBtn.classList.remove('downloading');
                 updateBtn.classList.add('ready');
-                updateBtn.setAttribute('data-tooltip', 'Restarting to install update...');
-                showUpdateOverlay('Update downloaded');
-                updateUpdateOverlay(100, 'Restarting to install update...', {
-                    bytesPerSecond: 0,
-                    transferred: data.totalBytes || 0,
-                    total: data.totalBytes || 0
-                });
-                setTimeout(async () => {
-                    try {
-                        if (currentUpdateInfo) {
-                            const info = {
-                                version: currentUpdateInfo.version,
-                                releaseName: currentUpdateInfo.releaseName,
-                                releaseNotes: currentUpdateInfo.releaseNotes,
-                                timestamp: Date.now()
-                            };
-                            try {
-                                await window.api.saveUpdateInfo(info);
-                            } catch (e) {
-                                try {
-                                    localStorage.setItem('pendingUpdateInfo', JSON.stringify(info));
-                                } catch (storageErr) {
-                                    console.error('Failed to store update info', storageErr);
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Error persisting update info:', error);
-                    }
-                }, 0);
+                updateBtn.setAttribute('data-tooltip', 'Applying update...');
+                showUpdateOverlay(data.message || 'Applying update...');
+                updateUpdateOverlay(100, data.message || 'Applying update...');
                 break;
 
             case 'error':
@@ -298,7 +298,7 @@ export function initializeAutoUpdater() {
  * @param {string} version - Version string
  * @returns {boolean}
  */
-export function shouldShowChangelog(version) {
+function shouldShowChangelog(version) {
     const key = normalizeVersionTag(version);
     if (!key) return true;
     return localStorage.getItem('changelog_shown_version') !== key;
@@ -308,7 +308,7 @@ export function shouldShowChangelog(version) {
  * Mark changelog as shown for this version
  * @param {string} version - Version string
  */
-export function markChangelogShown(version) {
+function markChangelogShown(version) {
     const key = normalizeVersionTag(version);
     if (key) {
         try {
@@ -321,7 +321,7 @@ export function markChangelogShown(version) {
  * Fetch release notes from GitHub for current version
  * @returns {Promise<Object|null>} Release info or null
  */
-export async function fetchReleaseNotesFromGithub() {
+async function fetchReleaseNotesFromGithub() {
     try {
         const rawVersion = await getAppVersionWithFallback();
         const normalizedVersion = normalizeVersion(rawVersion);
@@ -356,37 +356,17 @@ export async function fetchReleaseNotesFromGithub() {
 }
 
 /**
- * Parse markdown content (with fallback)
- * @param {string} notes - Markdown content
- * @returns {Promise<string>} HTML content
- */
-export async function parseMarkdown(notes) {
-    if (!notes) return '';
-    const text = typeof notes === 'string' ? notes : String(notes);
-
-    if (typeof window !== 'undefined' && window.marked && typeof window.marked.parse === 'function') {
-        try {
-            return window.marked.parse(text);
-        } catch (err) {
-            console.warn('Failed to parse markdown with marked, falling back', err);
-        }
-    }
-
-    return formatReleaseNotes(text);
-}
-
-/**
  * Format release notes with basic markdown support
  * @param {string} notes - Release notes text
  * @returns {string} Formatted HTML
  */
-export function formatReleaseNotes(notes) {
+function formatReleaseNotes(notes) {
     if (!notes) return '';
 
     let text = typeof notes === 'string' ? notes : String(notes);
 
     // XSS Protection
-    text = text
+    text = escapeHtml(text)
         .replace(/javascript:/gi, '')
         .replace(/data:/gi, '')
         .replace(/vbscript:/gi, '')
@@ -395,13 +375,20 @@ export function formatReleaseNotes(notes) {
         .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '');
 
     // GitHub-style alerts
-    text = text.replace(/^>\s*\[!([A-Z]+)\]\s*\n>\s*(.+?)(?=\n\s*\n|$)/gms, (match, type, content) => {
+    text = text.replace(/^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*\n((?:(?!^>\s*\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\])(?:>\s?.*|\s*)\n?)*)/gmi, (match, type, content) => {
         const map = { NOTE: 'note', TIP: 'tip', IMPORTANT: 'important', WARNING: 'warning', CAUTION: 'caution' };
         const cls = map[type] || 'note';
-        return `<div class="changelog-alert ${cls}">${content.trim()}</div>`;
+        const body = content
+            .split('\n')
+            .map((line) => line.replace(/^>\s?/, '').trim())
+            .filter((line) => line && !/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/i.test(line))
+            .join('<br>');
+
+        return `<div class="changelog-alert ${cls}">${body}</div>`;
     });
 
     text = text
+        .replace(/^>\s*$/gm, '')
         .replace(/^###### (.+)$/gm, '<h6>$1</h6>')
         .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
         .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
@@ -422,6 +409,7 @@ export function formatReleaseNotes(notes) {
         .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
         .replace(/~~~([\s\S]*?)~~~/g, '<pre><code>$1</code></pre>')
         .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="changelog-img">')
         .replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, (match, text, url) => {
             const sanitizedUrl = url.trim();
             if (sanitizedUrl.startsWith('http://') || sanitizedUrl.startsWith('https://')) {
@@ -429,6 +417,8 @@ export function formatReleaseNotes(notes) {
             }
             return text;
         })
+        .replace(/^- \[x\] (.+)$/gmi, '<li><input type="checkbox" disabled checked> $1</li>')
+        .replace(/^- \[ \] (.+)$/gm, '<li><input type="checkbox" disabled> $1</li>')
         .replace(/^\* (.+)$/gm, '<li>$1</li>')
         .replace(/^- (.+)$/gm, '<li>$1</li>')
         .replace(/^\+ (.+)$/gm, '<li>$1</li>')
@@ -436,13 +426,11 @@ export function formatReleaseNotes(notes) {
         .replace(/^---$/gm, '<hr>')
         .replace(/^___$/gm, '<hr>')
         .replace(/^\*\*\*$/gm, '<hr>')
-        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="changelog-img">')
-        .replace(/^- \[x\] (.+)$/gm, '<li><input type="checkbox" disabled checked> $1</li>')
-        .replace(/^- \[ \] (.+)$/gm, '<li><input type="checkbox" disabled> $1</li>')
         .replace(/\n\n+/g, '</p><p>')
-        .replace(/\n/g, '<br>');
+        .replace(/\n/g, '<br>')
+        .replace(/<\/li>\s*<br\s*\/?>\s*<li/g, '</li><li');
 
-    text = text.replace(/(<li>.*?<\/li>(?:\s*<li>.*?<\/li>)*)/gs, '<ul>$1</ul>');
+    text = text.replace(/(<li(?:\s[^>]*)?>.*?<\/li>(?:\s*<li(?:\s[^>]*)?>.*?<\/li>)*)/gs, '<ul>$1</ul>');
 
     if (!/^\s*<\s*(h\d|ul|pre|blockquote|hr)/i.test(text)) {
         text = '<p>' + text + '</p>';
@@ -455,7 +443,7 @@ export function formatReleaseNotes(notes) {
  * Show the changelog modal
  * @param {Object} updateInfo - Update info object with version, releaseName, releaseNotes
  */
-export async function showChangelog(updateInfo) {
+async function showChangelog(updateInfo) {
     if (!shouldShowChangelog(updateInfo?.version)) return;
     markChangelogShown(updateInfo?.version || 'unknown');
 
@@ -470,12 +458,24 @@ export async function showChangelog(updateInfo) {
 
     const title = document.createElement('h2');
     title.className = 'changelog-title';
-    title.textContent = 'Update Installed Successfully!';
+    title.textContent = 'Update Installed';
+
+    const titleGroup = document.createElement('div');
+    titleGroup.className = 'changelog-title-group';
+    titleGroup.appendChild(title);
+
+    if (updateInfo.releaseName) {
+        const patchTitle = document.createElement('span');
+        patchTitle.className = 'changelog-patch-title';
+        patchTitle.textContent = updateInfo.releaseName;
+        titleGroup.appendChild(patchTitle);
+    }
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'changelog-close';
-    closeBtn.innerHTML = '×';
-    header.appendChild(title);
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>';
+    header.appendChild(titleGroup);
     header.appendChild(closeBtn);
 
     const content = document.createElement('div');
@@ -485,30 +485,38 @@ export async function showChangelog(updateInfo) {
     versionBadge.className = 'changelog-version';
     versionBadge.textContent = `Version ${updateInfo.version || 'Unknown'}`;
 
-    if (updateInfo.releaseName) {
-        const releaseContainer = document.createElement('div');
-        releaseContainer.className = 'release-title-container';
-
-        const releaseNameEl = document.createElement('h3');
-        releaseNameEl.className = 'release-title';
-        releaseNameEl.textContent = updateInfo.releaseName;
-
-        releaseContainer.appendChild(releaseNameEl);
-        releaseContainer.appendChild(versionBadge);
-        content.appendChild(releaseContainer);
-    } else {
-        content.appendChild(versionBadge);
-    }
-
     if (updateInfo.releaseNotes) {
         const notes = document.createElement('div');
-        let formattedNotes;
-        try {
-            formattedNotes = await parseMarkdown(updateInfo.releaseNotes);
-        } catch (err) {
-            formattedNotes = formatReleaseNotes(updateInfo.releaseNotes);
-        }
-        notes.innerHTML = formattedNotes;
+        notes.className = 'changelog-notes';
+        const formattedNotes = formatReleaseNotes(updateInfo.releaseNotes);
+        notes.insertAdjacentHTML('beforeend', formattedNotes);
+        notes.querySelectorAll('blockquote').forEach((quote) => {
+            const text = quote.textContent.trim();
+            if (!text || text === '>') {
+                quote.remove();
+                return;
+            }
+            quote.textContent = text.replace(/^(?:>|&gt;)\s*/, '');
+        });
+        notes.querySelectorAll('.changelog-alert').forEach((alert) => {
+            alert.innerHTML = alert.innerHTML
+                .replace(/^(?:&gt;|>)\s*/i, '')
+                .replace(/<br\s*\/?>\s*(?:&gt;|>)\s*(?=<br\s*\/?>|$)/gi, '')
+                .replace(/<br\s*\/?>\s*$/i, '');
+        });
+        notes.querySelectorAll('p, blockquote').forEach((node) => {
+            if (/^(?:>|&gt;)\s*$/.test(node.innerHTML.trim()) || /^>\s*$/.test(node.textContent.trim())) {
+                node.remove();
+            }
+        });
+        notes.querySelectorAll('p, blockquote, div').forEach((node) => {
+            if (node.closest('pre, code, .changelog-alert')) return;
+            const text = node.textContent.trim();
+            if (/^(?:>|&gt;)\s+\S/.test(text)) {
+                node.textContent = text.replace(/^(?:>|&gt;)\s*/, '');
+            }
+        });
+        notes.querySelectorAll('ul br, ol br').forEach((br) => br.remove());
         content.appendChild(notes);
     } else {
         const defaultMessage = document.createElement('p');
@@ -516,14 +524,20 @@ export async function showChangelog(updateInfo) {
         content.appendChild(defaultMessage);
     }
 
+    const closeOverlay = () => {
+        overlay.remove();
+        document.removeEventListener('keydown', escHandler);
+    };
+
     const footer = document.createElement('div');
     footer.className = 'changelog-footer';
 
-    const okBtn = document.createElement('button');
-    okBtn.className = 'changelog-btn';
-    okBtn.textContent = 'Got it!';
+    const copyright = document.createElement('span');
+    copyright.className = 'changelog-copyright';
+    copyright.textContent = '© KOLOKITHES A.E. — ThomasT';
 
-    footer.appendChild(okBtn);
+    footer.appendChild(copyright);
+    footer.appendChild(versionBadge);
 
     modal.appendChild(header);
     modal.appendChild(content);
@@ -532,18 +546,12 @@ export async function showChangelog(updateInfo) {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    const closeOverlay = () => {
-        overlay.remove();
-        document.removeEventListener('keydown', escHandler);
-    };
-
     const escHandler = (e) => {
         if (e.key === 'Escape') closeOverlay();
     };
     document.addEventListener('keydown', escHandler);
 
     closeBtn.addEventListener('click', closeOverlay);
-    okBtn.addEventListener('click', closeOverlay);
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) closeOverlay();
     });
@@ -566,7 +574,20 @@ export async function checkForChangelog() {
             }
         }
         if (result && result.success && result.info) {
-            setTimeout(() => showChangelog(result.info), 1000);
+            let info = result.info;
+            if (!info.releaseNotes) {
+                try {
+                    const fetched = await fetchReleaseNotesFromGithub();
+                    if (fetched && fetched.releaseNotes) {
+                        info = {
+                            ...info,
+                            releaseNotes: fetched.releaseNotes,
+                            releaseName: info.releaseName || fetched.releaseName
+                        };
+                    }
+                } catch { /* fall back to default message */ }
+            }
+            setTimeout(() => showChangelog(info), 1000);
             return;
         }
 
@@ -625,7 +646,6 @@ export async function ensureSidebarVersion(_state = {}) {
         if (versionWrapper) attachTooltipHandlers(versionWrapper);
     }
 
-    const versionEl = document.getElementById('appVersion');
     const setSafe = (txt) => {
         // Re-query to avoid stale reference after DOM changes
         const el = document.getElementById('appVersion');
@@ -668,26 +688,32 @@ export async function ensureSidebarVersion(_state = {}) {
                 span.textContent = profile.name;
                 userInfoEl.appendChild(span);
 
-                const logoutMenu = document.createElement('div');
-                logoutMenu.className = 'logout-menu';
-                const logoutBtn = document.createElement('button');
-                logoutBtn.className = 'logout-btn';
-                logoutBtn.textContent = 'Logout';
-                logoutMenu.appendChild(logoutBtn);
-                userInfoEl.appendChild(logoutMenu);
-
-                const handler = async (e) => {
-                    if (e.target && e.target.classList.contains('logout-btn')) {
-                        e.stopPropagation();
-                        try {
-                            await window.api?.logout?.();
-                        } catch (err) {
-                            debug('error', 'Logout failed:', err);
-                        }
-                        updateUserInfo();
-                    } else {
-                        userInfoEl.classList.toggle('show-logout');
+                const handler = async () => {
+                    const current = await window.api?.getUserProfile?.();
+                    if (!current) {
+                        await updateUserInfo();
+                        return;
                     }
+                    const all = (await (window.api?.getAllSettings?.())) || {};
+                    openAccountModal(current, syncedSummary(all), {
+                        onSignOut: async () => {
+                            try {
+                                await window.api?.logout?.();
+                            } catch (err) {
+                                debug('error', 'Logout failed:', err);
+                            }
+                            window.location.reload();
+                        },
+                        onReset: async () => {
+                            try {
+                                await window.api?.resetSettings?.();
+                            } catch (err) {
+                                debug('error', 'Reset failed:', err);
+                            }
+                            const A = translations.account_ui || {};
+                            toast(A.reset_done || 'Synced settings reset.', { type: 'success', title: A.title || 'Account' });
+                        }
+                    }, translations.account_ui || {});
                 };
                 userInfoEl._toggleHandler = handler;
                 userInfoEl.addEventListener('click', handler);
@@ -714,12 +740,13 @@ export async function ensureSidebarVersion(_state = {}) {
 
                 googleBtn.addEventListener('click', async () => {
                     try {
-                        await window.api?.loginGoogle?.();
+                        const res = await window.api?.loginGoogle?.();
+                        if (res && res.name) { window.location.reload(); return; }
                     } catch (err) {
                         debug('error', 'Google login failed:', err);
                         const msg = String(err?.message || err);
                         if (msg && /not configured/i.test(msg)) {
-                            window.alert('Google login is not available because OAuth credentials are not configured.');
+                            toast(translations.messages?.oauth_not_configured || 'Login unavailable: OAuth credentials are not configured.', { type: 'error' });
                         }
                     }
                     updateUserInfo();
@@ -727,12 +754,13 @@ export async function ensureSidebarVersion(_state = {}) {
 
                 discordBtn.addEventListener('click', async () => {
                     try {
-                        await window.api?.loginDiscord?.();
+                        const res = await window.api?.loginDiscord?.();
+                        if (res && res.name) { window.location.reload(); return; }
                     } catch (err) {
                         debug('error', 'Discord login failed:', err);
                         const msg = String(err?.message || err);
                         if (msg && /not configured/i.test(msg)) {
-                            window.alert('Discord login is not available because OAuth credentials are not configured.');
+                            toast(translations.messages?.oauth_not_configured || 'Login unavailable: OAuth credentials are not configured.', { type: 'error' });
                         }
                     }
                     updateUserInfo();

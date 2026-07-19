@@ -1,0 +1,9 @@
+node_modules
+dist
+artifacts
+Github-Build-Release
+Pro-Installer
+src/resources/bin
+package-lock.json
+*.min.js
+*.min.css

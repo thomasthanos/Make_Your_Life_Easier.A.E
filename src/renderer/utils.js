@@ -67,29 +67,20 @@ export function escapeHtml(text) {
  * until after the specified wait time has elapsed since the last call.
  * @param {Function} func - The function to debounce
  * @param {number} wait - Milliseconds to wait (default: 300)
- * @param {boolean} immediate - Execute on leading edge instead of trailing
  * @returns {Function} Debounced function with .cancel() method
  */
-export function debounce(func, wait = 300, immediate = false) {
+export function debounce(func, wait = 300) {
     let timeoutId = null;
 
     const debounced = function (...args) {
-        const callNow = immediate && !timeoutId;
-
         if (timeoutId) {
             clearTimeout(timeoutId);
         }
 
         timeoutId = setTimeout(() => {
             timeoutId = null;
-            if (!immediate) {
-                func.apply(this, args);
-            }
-        }, wait);
-
-        if (callNow) {
             func.apply(this, args);
-        }
+        }, wait);
     };
 
     debounced.cancel = function () {
@@ -111,7 +102,7 @@ export function debounce(func, wait = 300, immediate = false) {
  * @param {string} filePath - The file path
  * @returns {string} The directory name
  */
-export function getDirectoryName(filePath) {
+function getDirectoryName(filePath) {
     if (!filePath || typeof filePath !== 'string') {
         return '';
     }
@@ -195,95 +186,23 @@ export async function getAppVersionWithFallback() {
             if (v) return `v${v}`;
         }
     } catch { }
-    try {
-        const res = await fetch('./package.json');
-        if (res.ok) {
-            const pkg = await res.json();
-            const v = normalizeVersion(pkg?.version);
-            if (v) return `v${v}`;
+    const packageCandidates = ['../../package.json', './package.json'];
+    for (const url of packageCandidates) {
+        try {
+            const res = await fetch(url);
+            if (res.ok) {
+                const pkg = await res.json();
+                const v = normalizeVersion(pkg?.version);
+                if (v) return `v${v}`;
+            }
+        } catch {
+            // Try next candidate
         }
-    } catch { }
+    }
     const envV = normalizeVersion(typeof process !== 'undefined' ? process?.env?.npm_package_version : null);
     if (envV) return `v${envV}`;
     return 'v1.0.0';
 }
 
-// ============================================
-// SVG DATA URL HELPER
-// ============================================
 
-/**
- * Convert an SVG string to a data URL
- * @param {string} svg - SVG markup
- * @returns {string} Data URL
- */
-export function svgDataUrl(svg) {
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
-
-// ============================================
-// UI HELPERS
-// ============================================
-
-/**
- * Auto-fade a status element after a delay
- * @param {HTMLElement} statusElement - The status element to fade
- * @param {number} delay - Delay in milliseconds before fading
- */
-export function autoFadeStatus(statusElement, delay = 5000) {
-    if (!statusElement || !statusElement.textContent || statusElement.textContent.trim() === '') return;
-
-    if (statusElement._autoFadeTimeout) {
-        clearTimeout(statusElement._autoFadeTimeout);
-    }
-    if (statusElement._fadeOutTimeout) {
-        clearTimeout(statusElement._fadeOutTimeout);
-    }
-
-    statusElement._autoFadeTimeout = setTimeout(() => {
-        if (!statusElement.isConnected) return;
-        statusElement.classList.add('status-element', 'fade-out');
-
-        statusElement._fadeOutTimeout = setTimeout(() => {
-            if (!statusElement.isConnected) return;
-            statusElement.classList.remove('visible');
-            statusElement.classList.add('status-element');
-            statusElement.classList.remove('fade-out');
-            statusElement.classList.add('reset');
-            statusElement.textContent = '';
-            statusElement.classList.remove('status-success', 'status-error', 'status-warning');
-        }, 500);
-    }, delay);
-}
-
-/**
- * Create a modern button element
- * @param {string} text - Button text
- * @param {Function} onClick - Click handler
- * @param {Object} options - Button options
- * @returns {HTMLButtonElement} The button element
- */
-export function createModernButton(text, onClick, options = {}) {
-    const button = document.createElement('button');
-    button.className = options.secondary ? 'button button-secondary' : 'button';
-    button.textContent = text;
-
-    if (options.icon) {
-        const iconSpan = document.createElement('span');
-        iconSpan.textContent = options.icon;
-        button.textContent = '';
-        button.appendChild(iconSpan);
-        button.appendChild(document.createTextNode(' ' + text));
-    }
-
-    if (onClick) {
-        button.addEventListener('click', onClick);
-    }
-
-    if (options.style) {
-        Object.assign(button.style, options.style);
-    }
-
-    return button;
-}
 

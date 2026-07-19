@@ -114,6 +114,7 @@ const FaviconConfig = {
     'betterdiscord': 'betterdiscord.app',
     'iobit': 'iobit.com',
     'blizzard': 'battle.net',
+    'bluestack': 'bluestacks.com',
     'ubisoft': 'ubisoft.com',
     'guru3d': 'guru3d.com'
   },

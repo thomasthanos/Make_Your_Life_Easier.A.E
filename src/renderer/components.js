@@ -4,11 +4,6 @@
  */
 
 import { escapeHtml } from './utils.js';
-import { attachTooltipHandlers } from './managers.js';
-import { resizeWindowSmooth } from './services.js';
-
-// Default window dimensions (must match window-manager.js MAIN_WINDOW)
-const DEFAULT_WINDOW_SIZE = { width: 1100, height: 750 };
 
 // ============================================
 // ICON DEFINITIONS
@@ -21,328 +16,49 @@ export const MENU_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" hei
 // MENU ICONS
 // ============================================
 
-export const MENU_ICONS = {
-    settings: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings w-5 h-5 text-primary transition-colors"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>`,
+const MENU_ICONS = {
     install_apps: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>`,
+    system_cleaner: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17h16"></path><path d="M7 17l1.2-7.2A2.2 2.2 0 0 1 10.4 8h3.2a2.2 2.2 0 0 1 2.2 1.8L17 17"></path><path d="M9 17v3"></path><path d="M15 17v3"></path><path d="M10 5h4"></path></svg>`,
     activate_autologin: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-in"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" x2="3" y1="12" y2="12"></line></svg>`,
     system_maintenance: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wrench"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>`,
     crack_installer: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path><path d="M12 22V12"></path><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"></path><path d="m7.5 4.27 9 5.15"></path></svg>`,
     spicetify: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-music"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`,
-    password_manager: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-lock"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
     christitus: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-terminal"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" x2="20" y1="19" y2="19"></line></svg>`,
     bios: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-computer"><rect width="14" height="8" x="5" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><path d="M6 18h2"></path><path d="M12 18h6"></path></svg>`,
     debloat: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-broom"><path d="m13 11 9-9"></path><path d="M14.6 12.6c.8.8.9 2.1.2 3L10 22l-8-8 6.4-4.8c.9-.7 2.2-.6 3 .2z"></path><path d="m6.8 10.4 6.8 6.8"></path><path d="m5 17 1.4-1.4"></path></svg>`
 };
 
 // ============================================
-// TOAST CONTAINER
+// NOTIFICATIONS
 // ============================================
 
-/**
- * Ensure toast container exists
- * @returns {HTMLElement} The toast container
- */
-export function ensureToastContainer() {
-    let c = document.getElementById('toast-container');
-    if (!c) {
-        c = document.createElement('div');
-        c.id = 'toast-container';
-        document.body.appendChild(c);
-    }
-    return c;
-}
+export { toast, showErrorCard } from './notifications.js';
 
 /**
- * Dismiss a toast element with animation
- * @param {HTMLElement} toastEl - The toast element
+ * Hide every finished in-app terminal except the given one
+ * @param {HTMLElement} current - The terminal that should stay open
  */
-export function dismissToast(toastEl) {
-    toastEl.classList.add('toast-exit');
-    setTimeout(() => {
-        if (toastEl.parentNode) {
-            toastEl.parentNode.removeChild(toastEl);
-        }
-    }, 300);
-}
-
-/**
- * Show a toast notification
- * @param {string} msg - Message to display
- * @param {Object} opts - Options (title, type, duration)
- * @returns {HTMLElement|null} The toast element or null
- */
-export function toast(msg, opts = {}) {
-    const { title = '', type = 'info', duration = 4000 } = opts;
-
-    if (type === 'error') {
-        showErrorCard(msg, { title: title || 'Error', duration });
-        return null;
-    }
-
-    if (type !== 'success') {
-        return null;
-    }
-
-    const container = ensureToastContainer();
-    const toastEl = document.createElement('div');
-    toastEl.className = `toast toast-${type}`;
-
-    const iconWrapper = document.createElement('div');
-    iconWrapper.className = 'toast-icon-wrapper';
-
-    let svg;
-    if (type === 'success') {
-        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('viewBox', '0 0 24 24');
-        svg.setAttribute('fill', 'none');
-        svg.setAttribute('stroke', 'currentColor');
-        svg.setAttribute('stroke-width', '1.5');
-        svg.setAttribute('class', 'toast-svg-icon');
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('stroke-linecap', 'round');
-        path.setAttribute('stroke-linejoin', 'round');
-        path.setAttribute('d', 'm4.5 12.75 6 6 9-13.5');
-        svg.appendChild(path);
-    }
-    if (svg) {
-        iconWrapper.appendChild(svg);
-    }
-
-    const content = document.createElement('div');
-    content.className = 'toast-content';
-    if (title) {
-        const titleEl = document.createElement('div');
-        titleEl.className = 'toast-title';
-        titleEl.textContent = title;
-        content.appendChild(titleEl);
-    }
-    const messageEl = document.createElement('div');
-    messageEl.className = 'toast-message';
-    messageEl.textContent = msg;
-    content.appendChild(messageEl);
-
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'toast-close';
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.textContent = '×';
-    closeBtn.onclick = () => dismissToast(toastEl);
-
-    toastEl.appendChild(iconWrapper);
-    toastEl.appendChild(content);
-    toastEl.appendChild(closeBtn);
-    container.appendChild(toastEl);
-
-    let timeout;
-    if (duration > 0) {
-        timeout = setTimeout(() => dismissToast(toastEl), duration);
-    }
-
-    toastEl.addEventListener('mouseenter', () => {
-        if (timeout) {
-            clearTimeout(timeout);
-            timeout = null;
+export function closeOtherTerminals(current) {
+    document.querySelectorAll('.winget-terminal.open').forEach((terminal) => {
+        if (terminal !== current && !terminal.classList.contains('running')) {
+            terminal.classList.remove('open');
         }
     });
-    toastEl.addEventListener('mouseleave', () => {
-        if (!timeout && duration > 0) {
-            timeout = setTimeout(() => dismissToast(toastEl), duration);
-        }
+}
+
+/**
+ * Reveal a just-opened terminal: mark it open and scroll it into view so it is
+ * never left below the fold (e.g. on short viewports or with DevTools docked).
+ * @param {HTMLElement} terminal - the .winget-terminal element to open
+ */
+export function openTerminal(terminal) {
+    if (!terminal) return;
+    terminal.classList.add('open', 'running');
+    requestAnimationFrame(() => {
+        terminal.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
-    return toastEl;
 }
 
-// ============================================
-// ERROR CARD
-// ============================================
-
-let currentErrorCard = null;
-let errorPaletteIndex = 0;
-const errorBulletColours = ['#575757', '#e34ba9', '#80b1ff', '#f59e0b', '#10b981'];
-
-/**
- * Ensure error container exists
- * @returns {HTMLElement} The error container
- */
-export function ensureErrorContainer() {
-    let c = document.getElementById('error-container');
-    if (!c) {
-        c = document.createElement('div');
-        c.id = 'error-container';
-        document.body.appendChild(c);
-    }
-    return c;
-}
-
-/**
- * Show an error card notification
- * @param {string} msg - Error message
- * @param {Object} opts - Options (title, duration)
- */
-export function showErrorCard(msg, opts = {}) {
-    const { title = 'Error', duration = 6000 } = opts;
-
-    msg = String(msg);
-    if (msg.includes('\n')) {
-        const parts = msg.split(/\n+/).filter(p => p.trim() !== '');
-        for (const part of parts) {
-            showErrorCard(part, opts);
-        }
-        return;
-    }
-
-    const container = ensureErrorContainer();
-
-    // Append to existing error card if present
-    if (currentErrorCard && currentErrorCard.isConnected) {
-        const bulletColour = errorBulletColours[errorPaletteIndex % errorBulletColours.length];
-        errorPaletteIndex++;
-
-        const line = document.createElement('div');
-        line.className = 'error-line';
-
-        const dashSpan = document.createElement('span');
-        dashSpan.textContent = '- ';
-        dashSpan.style.color = bulletColour;
-        const msgSpan = document.createElement('span');
-        msgSpan.className = 'error-msg';
-        msgSpan.textContent = msg;
-
-        line.appendChild(dashSpan);
-        line.appendChild(msgSpan);
-        currentErrorCard.bodyEl.appendChild(line);
-
-        currentErrorCard.copyBtn.onclick = () => {
-            try {
-                const text = currentErrorCard.bodyEl.innerText.replace(/\n+$/g, '');
-                navigator.clipboard.writeText(text)
-                    .then(() => toast('All error messages copied to clipboard!', { type: 'success', title: 'Clipboard' }))
-                    .catch(() => toast('Failed to copy', { type: 'error', title: 'Clipboard' }));
-            } catch (e) {
-                toast('Failed to copy', { type: 'error', title: 'Clipboard' });
-            }
-        };
-        return;
-    }
-
-    // Create new error card
-    const card = document.createElement('div');
-    card.className = 'error-card';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'error-wrap';
-
-    const terminal = document.createElement('div');
-    terminal.className = 'error-terminal';
-
-    const head = document.createElement('div');
-    head.className = 'error-head';
-    const titleEl = document.createElement('p');
-    titleEl.className = 'error-title';
-
-    const termIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    termIcon.setAttribute('viewBox', '0 0 24 24');
-    termIcon.setAttribute('width', '16px');
-    termIcon.setAttribute('height', '16px');
-    termIcon.setAttribute('stroke-linejoin', 'round');
-    termIcon.setAttribute('stroke-linecap', 'round');
-    termIcon.setAttribute('stroke-width', '2');
-    termIcon.setAttribute('stroke', 'currentColor');
-    termIcon.setAttribute('fill', 'none');
-    const tPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    tPath.setAttribute('d', 'M7 15L10 12L7 9M13 15H17M7.8 21H16.2C17.8802 21 18.7202 21 19.362 20.673C19.9265 20.3854 20.3854 19.9265 20.673 19.362C21 18.7202 21 17.8802 21 16.2V7.8C21 6.11984 21 5.27976 20.673 4.63803C20.3854 4.07354 19.9265 3.6146 19.362 3.32698C18.7202 3 17.8802 3 16.2 3H7.8C6.11984 3 5.27976 3 4.63803 3.32698C4.07354 3.6146 3.6146 4.07354 3.32698 4.63803C3 5.27976 3 6.11984 3 7.8V16.2C3 17.8802 3 18.7202 3.32698 19.362C3.6146 19.9265 4.07354 20.3854 4.63803 20.673C5.27976 21 6.11984 21 7.8 21Z');
-    termIcon.appendChild(tPath);
-    titleEl.appendChild(termIcon);
-    titleEl.appendChild(document.createTextNode(' Terminal'));
-    head.appendChild(titleEl);
-
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'error-copy';
-
-    const copySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    copySvg.setAttribute('viewBox', '0 0 24 24');
-    copySvg.setAttribute('width', '16px');
-    copySvg.setAttribute('height', '16px');
-    copySvg.setAttribute('stroke-linejoin', 'round');
-    copySvg.setAttribute('stroke-linecap', 'round');
-    copySvg.setAttribute('stroke-width', '2');
-    copySvg.setAttribute('stroke', 'currentColor');
-    copySvg.setAttribute('fill', 'none');
-    const cp1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    cp1.setAttribute('d', 'M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2');
-    const cp2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    cp2.setAttribute('d', 'M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z');
-    copySvg.appendChild(cp1);
-    copySvg.appendChild(cp2);
-    copyBtn.appendChild(copySvg);
-
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'error-close';
-
-    const closeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    closeSvg.setAttribute('viewBox', '0 0 24 24');
-    closeSvg.setAttribute('width', '16px');
-    closeSvg.setAttribute('height', '16px');
-    closeSvg.setAttribute('stroke-linejoin', 'round');
-    closeSvg.setAttribute('stroke-linecap', 'round');
-    closeSvg.setAttribute('stroke-width', '2');
-    closeSvg.setAttribute('stroke', 'currentColor');
-    closeSvg.setAttribute('fill', 'none');
-    const cPath1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    cPath1.setAttribute('d', 'M6 6L18 18');
-    const cPath2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    cPath2.setAttribute('d', 'M6 18L18 6');
-    closeSvg.appendChild(cPath1);
-    closeSvg.appendChild(cPath2);
-    closeBtn.appendChild(closeSvg);
-
-    head.appendChild(copyBtn);
-    head.appendChild(closeBtn);
-
-    const body = document.createElement('div');
-    body.className = 'error-body';
-
-    const firstColour = errorBulletColours[errorPaletteIndex % errorBulletColours.length];
-    errorPaletteIndex++;
-
-    const firstLine = document.createElement('div');
-    firstLine.className = 'error-line';
-    const firstDash = document.createElement('span');
-    firstDash.textContent = '- ';
-    firstDash.style.color = firstColour;
-    const firstMsg = document.createElement('span');
-    firstMsg.className = 'error-msg';
-    firstMsg.textContent = msg;
-    firstLine.appendChild(firstDash);
-    firstLine.appendChild(firstMsg);
-    body.appendChild(firstLine);
-
-    terminal.appendChild(head);
-    terminal.appendChild(body);
-    wrap.appendChild(terminal);
-    card.appendChild(wrap);
-    container.appendChild(card);
-
-    card.bodyEl = body;
-    card.copyBtn = copyBtn;
-
-    copyBtn.onclick = () => {
-        try {
-            const text = card.bodyEl.innerText.replace(/\n+$/g, '');
-            navigator.clipboard.writeText(text)
-                .then(() => toast('Error message copied to clipboard!', { type: 'success', title: 'Clipboard' }))
-                .catch(() => toast('Failed to copy', { type: 'error', title: 'Clipboard' }));
-        } catch (e) {
-            toast('Failed to copy', { type: 'error', title: 'Clipboard' });
-        }
-    };
-
-    closeBtn.onclick = () => {
-        card.remove();
-        currentErrorCard = null;
-    };
-
-    currentErrorCard = card;
-}
 
 // ============================================
 // UPDATE OVERLAY
@@ -460,11 +176,11 @@ export function showUpdateOverlay(initialStatus) {
         
         const stop1 = document.createElementNS(svgNS, 'stop');
         stop1.setAttribute('offset', '0%');
-        stop1.setAttribute('style', 'stop-color:#5865F2;stop-opacity:1');
+        stop1.setAttribute('style', 'stop-color:#0a84ff;stop-opacity:1');
         
         const stop2 = document.createElementNS(svgNS, 'stop');
         stop2.setAttribute('offset', '100%');
-        stop2.setAttribute('style', 'stop-color:#7289DA;stop-opacity:1');
+        stop2.setAttribute('style', 'stop-color:#3a9bff;stop-opacity:1');
         
         gradient.appendChild(stop1);
         gradient.appendChild(stop2);
@@ -591,40 +307,6 @@ export function hideUpdateOverlay() {
 // APP LOADER
 // ============================================
 
-let appLoaderInterval = null;
-
-/**
- * Show the application loader overlay
- * @param {string} statusText - Status text to display
- */
-export function showAppLoader(statusText) {
-    const loader = document.getElementById('app-loader');
-    if (!loader) return;
-    const progressBar = loader.querySelector('.progress-bar');
-    const statusEl = loader.querySelector('#loading-status');
-    loader.classList.add('visible');
-    loader.classList.remove('hidden');
-
-    if (progressBar) progressBar.style.width = '0%';
-    if (statusText && statusEl) {
-        statusEl.textContent = statusText;
-    }
-
-    // Clear any existing interval to prevent leaks from double-show
-    if (appLoaderInterval) {
-        clearInterval(appLoaderInterval);
-        appLoaderInterval = null;
-    }
-
-    let progress = 0;
-    appLoaderInterval = setInterval(() => {
-        progress = (progress + 1) % 101;
-        if (progressBar) {
-            progressBar.style.width = `${progress}%`;
-        }
-    }, 50);
-}
-
 /**
  * Hide the application loader
  */
@@ -633,64 +315,31 @@ export function hideAppLoader() {
     if (!loader) return;
     loader.classList.add('hidden');
     loader.classList.remove('visible');
-    if (appLoaderInterval) {
-        clearInterval(appLoaderInterval);
-        appLoaderInterval = null;
-    }
 }
 
 // ============================================
 // INFO MODAL
 // ============================================
 
-// Store previous window size for restoration
-let previousWindowSize = null;
-
 /**
- * Open the info modal with window resize
+ * Open the info modal
  */
 export async function openInfoModal() {
     if (document.getElementById('info-modal-overlay')) return;
-    
-    // Get current window size before resizing
-    try {
-        if (window.api && typeof window.api.getWindowSize === 'function') {
-            const size = await window.api.getWindowSize();
-            // getWindowSize returns [width, height] array
-            if (Array.isArray(size) && size.length >= 2) {
-                previousWindowSize = { width: size[0], height: size[1] };
-            } else {
-                previousWindowSize = { ...DEFAULT_WINDOW_SIZE };
-            }
-        } else {
-            // Fallback: assume current size based on window dimensions
-            previousWindowSize = { width: window.outerWidth, height: window.outerHeight };
-        }
-    } catch {
-        previousWindowSize = { ...DEFAULT_WINDOW_SIZE };
+
+    const sidebarToggle = document.getElementById('sidebar-collapse-toggle');
+    const sidebarToggleWasDisabled = sidebarToggle?.disabled === true;
+    if (sidebarToggle) {
+        sidebarToggle.disabled = true;
+        sidebarToggle.setAttribute('aria-disabled', 'true');
     }
-    
-    // Resize window to 1400px width for better info modal display
-    const targetWidth = 1400;
-    const targetHeight = DEFAULT_WINDOW_SIZE.height;
-    
-    try {
-        if (typeof resizeWindowSmooth === 'function') {
-            await resizeWindowSmooth(targetWidth, targetHeight);
-        } else if (window.api && typeof window.api.setWindowSize === 'function') {
-            await window.api.setWindowSize(targetWidth, targetHeight);
-            await new Promise(resolve => setTimeout(resolve, 150));
-        }
-    } catch {
-        // ignore resize errors
-    }
-    
+
     const overlay = document.createElement('div');
     overlay.id = 'info-modal-overlay';
     overlay.className = 'modal-overlay';
 
     const container = document.createElement('div');
-    container.className = 'modal-container';
+    container.className = 'modal-container info-modal-container';
 
     const iframe = document.createElement('iframe');
     iframe.src = 'info/info.html';
@@ -700,51 +349,146 @@ export async function openInfoModal() {
         iframe.src = 'info-final.html';
     });
 
+    let isClosing = false;
+    const closeInfoModal = () => {
+        if (isClosing) return;
+        isClosing = true;
+        window.removeEventListener('message', handleInfoFrameResize);
+        overlay.classList.add('is-closing');
+
+        const removeOverlay = () => {
+            if (overlay.parentNode) {
+                overlay.remove();
+            }
+            if (sidebarToggle) {
+                sidebarToggle.disabled = sidebarToggleWasDisabled;
+                if (!sidebarToggleWasDisabled) {
+                    sidebarToggle.removeAttribute('aria-disabled');
+                }
+            }
+        };
+
+        overlay.addEventListener('animationend', removeOverlay, { once: true });
+        window.setTimeout(removeOverlay, 220);
+    };
+
+    const handleInfoFrameResize = (event) => {
+        if (!document.contains(overlay)) {
+            window.removeEventListener('message', handleInfoFrameResize);
+            return;
+        }
+        if (event.source !== iframe.contentWindow) return;
+        if (event.data?.type === 'infoCloseRequest') {
+            closeInfoModal();
+            return;
+        }
+        if (event.data?.type !== 'infoFrameResize' || isClosing) return;
+
+        const requestedHeight = Number(event.data.height);
+        if (!Number.isFinite(requestedHeight) || requestedHeight <= 0) return;
+
+        const rootStyles = getComputedStyle(document.documentElement);
+        const titleBarHeight = parseFloat(rootStyles.getPropertyValue('--title-bar-height')) || 40;
+        const overlayStyles = getComputedStyle(overlay);
+        const overlayPaddingY = (parseFloat(overlayStyles.paddingTop) || 0) + (parseFloat(overlayStyles.paddingBottom) || 0);
+        const maxHeight = Math.max(260, window.innerHeight - titleBarHeight - overlayPaddingY);
+        const nextHeight = Math.min(Math.ceil(requestedHeight), maxHeight);
+        const heightValue = `${nextHeight}px`;
+        if (iframe.style.height === heightValue) return;
+
+        container.style.height = heightValue;
+        iframe.style.height = heightValue;
+        iframe.contentWindow?.postMessage({ type: 'infoParentResized' }, '*');
+    };
+
+    window.addEventListener('message', handleInfoFrameResize);
+
     container.appendChild(iframe);
     overlay.appendChild(container);
     document.body.appendChild(overlay);
-    
-    // Watch for overlay removal to restore window size
-    const observer = new MutationObserver((mutations) => {
-        // Fallback: check if overlay was removed from DOM by any means
-        if (!document.contains(overlay)) {
-            observer.disconnect();
-            restoreWindowSize().catch(() => {});
-            return;
-        }
-        for (const mutation of mutations) {
-            for (const removedNode of mutation.removedNodes) {
-                if (removedNode === overlay || removedNode.id === 'info-modal-overlay') {
-                    observer.disconnect();
-                    restoreWindowSize().catch(() => {});
-                    return;
-                }
-            }
-        }
-    });
-
-    observer.observe(document.body, { childList: true });
 }
 
-/**
- * Restore window to previous size after info modal closes
- */
-async function restoreWindowSize() {
-    if (!previousWindowSize) return;
-    
-    const { width, height } = previousWindowSize;
-    
-    try {
-        if (typeof resizeWindowSmooth === 'function') {
-            await resizeWindowSmooth(width, height, 220);
-        } else if (window.api && typeof window.api.setWindowSize === 'function') {
-            window.api.setWindowSize(width, height);
-        }
-    } catch {
-        // ignore resize errors
-    }
-    
-    previousWindowSize = null;
+export function openAccountModal(profile, syncedItems = [], handlers = {}, texts = {}) {
+    if (document.getElementById('account-modal-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'account-modal-overlay';
+    overlay.className = 'modal-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'account-modal';
+
+    const providerKey = profile.provider === 'google' ? 'google'
+        : profile.provider === 'discord' ? 'discord' : '';
+    const providerLabel = providerKey === 'google' ? 'Google'
+        : providerKey === 'discord' ? 'Discord' : (profile.provider || '');
+
+    const PROVIDER_ICONS = {
+        google: '<svg viewBox="-3 0 262 262" width="12" height="12" aria-hidden="true" preserveAspectRatio="xMidYMid"><path d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027" fill="#4285F4"/><path d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055-34.523 0-63.824-22.773-74.269-54.25l-1.531.13-40.298 31.187-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1" fill="#34A853"/><path d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82 0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602l42.356-32.782" fill="#FBBC05"/><path d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251" fill="#EB4335"/></svg>',
+        discord: '<svg viewBox="0 -28.5 256 256" width="13" height="13" aria-hidden="true" preserveAspectRatio="xMidYMid"><path fill="#5865F2" d="M216.856339,16.5966031 C200.285002,8.84328665 182.566144,3.2084988 164.041564,0 C161.766523,4.11318106 159.108624,9.64549908 157.276099,14.0464379 C137.583995,11.0849896 118.072967,11.0849896 98.7430163,14.0464379 C96.9108417,9.64549908 94.1925838,4.11318106 91.8971895,0 C73.3526068,3.2084988 55.6133949,8.86399117 39.0420583,16.6376612 C5.61752293,67.146514 -3.4433191,116.400813 1.08711069,164.955721 C23.2560196,181.510915 44.7403634,191.567697 65.8621325,198.148576 C71.0772151,190.971126 75.7283628,183.341335 79.7352139,175.300261 C72.104019,172.400575 64.7949724,168.822202 57.8887866,164.667963 C59.7209612,163.310589 61.5131304,161.891452 63.2445898,160.431257 C105.36741,180.133187 151.134928,180.133187 192.754523,160.431257 C194.506336,161.891452 196.298154,163.310589 198.110326,164.667963 C191.183787,168.842556 183.854737,172.420929 176.223542,175.320965 C180.230393,183.341335 184.861538,190.991831 190.096624,198.16893 C211.238746,191.588051 232.743023,181.531619 254.911949,164.955721 C260.227747,108.668201 245.831087,59.8662432 216.856339,16.5966031 Z M85.4738752,135.09489 C72.8290281,135.09489 62.4592217,123.290155 62.4592217,108.914901 C62.4592217,94.5396472 72.607595,82.7145587 85.4738752,82.7145587 C98.3405064,82.7145587 108.709962,94.5189427 108.488529,108.914901 C108.508531,123.290155 98.3405064,135.09489 85.4738752,135.09489 Z M170.525237,135.09489 C157.88039,135.09489 147.510584,123.290155 147.510584,108.914901 C147.510584,94.5396472 157.658606,82.7145587 170.525237,82.7145587 C183.391518,82.7145587 193.761324,94.5189427 193.539891,108.914901 C193.539891,123.290155 183.391518,135.09489 170.525237,135.09489 Z"/></svg>'
+    };
+    const providerIcon = PROVIDER_ICONS[providerKey] || '';
+
+    const rows = (syncedItems || []).map((item) => `
+            <li class="account-sync-row">
+                <span class="account-sync-label">${escapeHtml(item.label)}</span>
+                <span class="account-sync-value">${escapeHtml(String(item.value))}</span>
+            </li>
+        `).join('');
+    const syncedContent = rows
+        ? `<ul class="account-sync-list">${rows}</ul>`
+        : `<div class="account-sync-empty">${escapeHtml(texts.empty || 'No synced settings yet.')}</div>`;
+
+    const avatar = profile.avatar
+        ? `<img class="account-avatar" src="${escapeHtml(profile.avatar)}" alt="avatar">`
+        : `<div class="account-avatar account-avatar-fallback">${escapeHtml((profile.name || '?').slice(0, 1).toUpperCase())}</div>`;
+
+    modal.innerHTML = `
+        <button class="account-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+                <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+            </svg>
+        </button>
+        <div class="account-hero">
+            <div class="account-avatar-ring">${avatar}</div>
+            <span class="account-name">${escapeHtml(profile.name || 'User')}</span>
+            <span class="account-provider">${providerIcon}<span>${escapeHtml(texts.via || 'via')} ${escapeHtml(providerLabel || texts.title || 'Account')}</span></span>
+        </div>
+        <div class="account-synced">
+            <div class="account-section-head">
+                <h4>${escapeHtml(texts.synced || 'Synced settings')}</h4>
+                <span class="account-count">${(syncedItems || []).length}</span>
+            </div>
+            ${syncedContent}
+        </div>
+        <div class="account-actions">
+            <button class="account-reset" type="button">${escapeHtml(texts.reset || 'Reset synced settings')}</button>
+            <button class="account-signout" type="button">${escapeHtml(texts.signout || 'Sign out')}</button>
+        </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    const close = () => {
+        document.removeEventListener('keydown', onKey);
+        overlay.remove();
+    };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    modal.querySelector('.account-close').addEventListener('click', close);
+
+    modal.querySelector('.account-signout').addEventListener('click', async () => {
+        close();
+        if (handlers.onSignOut) await handlers.onSignOut();
+    });
+
+    modal.querySelector('.account-reset').addEventListener('click', async () => {
+        if (handlers.onReset) await handlers.onReset();
+        close();
+    });
 }
 
 // ============================================
@@ -763,39 +507,10 @@ export function createMenuButton(key, label) {
     btn.type = 'button';
     btn.dataset.key = key;
     btn.innerHTML = `
-    <span class="mi">${MENU_ICONS[key] || ''}</span>
+    <span class="menu-icon">${MENU_ICONS[key] || ''}</span>
     <span class="label">${escapeHtml(label)}</span>
     <span class="dot" aria-hidden="true"></span>
   `;
     li.appendChild(btn);
     return li;
-}
-
-// ============================================
-// NOTIFICATION
-// ============================================
-
-/**
- * Show a notification (simple toast alternative)
- * @param {string} message - Message to display
- * @param {string} type - Type (info, error, success)
- */
-export function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `toast status-${type}`;
-    notification.textContent = message;
-    notification.classList.add('notification');
-
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-        notification.classList.add('slide-out');
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-// Make toast available globally
-if (typeof window !== 'undefined') {
-    window.toast = toast;
-    window.showToast = toast;
 }

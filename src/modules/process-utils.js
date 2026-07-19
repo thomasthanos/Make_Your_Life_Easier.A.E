@@ -4,9 +4,7 @@
  */
 
 const { spawn } = require('child_process');
-const crypto = require('crypto');
 const path = require('path');
-const os = require('os');
 const fs = require('fs');
 
 /**
@@ -15,7 +13,7 @@ const fs = require('fs');
  * @returns {string} - The cleaned string
  */
 function stripAnsiCodes(str) {
-  return str.replace(/\u001b\[[0-?]*[ -\/]*[@-~]/g, '');
+  return str.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
 }
 
 /**
@@ -84,6 +82,38 @@ function runSpawnCommand(cmd, args = [], options = {}) {
 }
 
 /**
+ * Execute a command via spawn, streaming stdout/stderr chunks to a callback
+ * @param {string} cmd - The command to run
+ * @param {string[]} args - Command arguments
+ * @param {Object} options - Spawn options
+ * @param {Function} onOutput - Called with (stream, text) for every chunk
+ * @returns {{child: ChildProcess, done: Promise<{success: boolean, code?: number, error?: string}>}}
+ */
+function runStreamingCommand(cmd, args = [], options = {}, onOutput = () => { }) {
+  const child = spawn(cmd, args, options);
+
+  if (child.stdout) {
+    child.stdout.on('data', (data) => onOutput('stdout', data.toString()));
+  }
+  if (child.stderr) {
+    child.stderr.on('data', (data) => onOutput('stderr', data.toString()));
+  }
+
+  const done = new Promise((resolve) => {
+    let settled = false;
+    const settle = (result) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+    child.on('error', (err) => settle({ success: false, error: err.message }));
+    child.on('close', (code) => settle({ success: code === 0, code }));
+  });
+
+  return { child, done };
+}
+
+/**
  * Attach standard output handlers to a child process and resolve when it exits
  * @param {ChildProcess} child - The spawned child process
  * @param {Function} resolve - The promise resolver from the caller
@@ -136,192 +166,9 @@ function getPowerShellExe() {
   return 'powershell.exe';
 }
 
-/**
- * Run a PowerShell script with elevation and wait for it to finish
- * @param {string} psScript - The PowerShell script contents
- * @param {string} successMessage - Message returned on success
- * @param {string} failureMessage - Message returned on failure
- * @returns {Promise<Object>} - Result object with success/error
- */
-function runElevatedPowerShellScript(psScript, successMessage, failureMessage) {
-  return new Promise((resolve) => {
-    if (process.platform !== 'win32') {
-      resolve({ success: false, error: 'This feature is only available on Windows' });
-      return;
-    }
-    
-    let psFile;
-    try {
-      psFile = path.join(os.tmpdir(), `${Date.now()}_${crypto.randomBytes(4).toString('hex')}_elevated.ps1`);
-      fs.writeFileSync(psFile, psScript, 'utf8');
-
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Normal -Wait`;
-      
-      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
-      
-      child.on('error', () => {
-        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-        resolve({ 
-          success: false, 
-          error: 'Administrator privileges required. Please accept the UAC prompt.', 
-          code: 'UAC_DENIED' 
-        });
-      });
-      
-      child.on('exit', (code) => {
-        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-        if (code === 0) {
-          resolve({ success: true, message: successMessage });
-        } else {
-          resolve({ success: false, error: failureMessage, code: 'PROCESS_FAILED' });
-        }
-      });
-    } catch (error) {
-      try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-      resolve({ success: false, error: 'Failed to start process: ' + error.message });
-    }
-  });
-}
-
-/**
- * Run an elevated PowerShell script in a hidden window
- * @param {string} psScript - The PowerShell script contents
- * @param {string} successMessage - Message returned on success
- * @param {string} failureMessage - Message returned on failure
- * @returns {Promise<Object>} - Result object with success/error
- */
-function runElevatedPowerShellScriptHidden(psScript, successMessage, failureMessage) {
-  return new Promise((resolve) => {
-    if (process.platform !== 'win32') {
-      resolve({ success: false, error: 'This feature is only available on Windows' });
-      return;
-    }
-    
-    let psFile;
-    let resultFile;
-    let startedFile;
-    try {
-      const timestamp = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-      psFile = path.join(os.tmpdir(), `${timestamp}_elevated.ps1`);
-      // Write result next to the script to avoid temp-profile differences when elevated
-      resultFile = `${psFile}.result`;
-      startedFile = `${psFile}.started`;
-      
-      // Wrap the script to write markers for UAC detection
-      const wrappedScript = `
-# Write started marker immediately (proves UAC was accepted)
-"STARTED" | Out-File -FilePath "${startedFile.replace(/\\/g, '\\\\')}" -Encoding UTF8
-try {
-${psScript}
-    "SUCCESS" | Out-File -FilePath "${resultFile.replace(/\\/g, '\\\\')}" -Encoding UTF8
-    exit 0
-} catch {
-    "FAILED: $($_.Exception.Message)" | Out-File -FilePath "${resultFile.replace(/\\/g, '\\\\')}" -Encoding UTF8
-    exit 1
-}
-`;
-      
-      fs.writeFileSync(psFile, wrappedScript, 'utf8');
-      
-      const escapedPsFile = psFile.replace(/"/g, '\\"');
-      const psCommand = `Start-Process -FilePath "powershell.exe" -ArgumentList '-ExecutionPolicy Bypass -File "${escapedPsFile}"' -Verb RunAs -WindowStyle Hidden -Wait`;
-      
-      const child = spawn('powershell.exe', ['-Command', psCommand], { windowsHide: true });
-      
-      child.on('error', () => {
-        try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-        try { if (resultFile && fs.existsSync(resultFile)) fs.unlinkSync(resultFile); } catch { }
-        resolve({ 
-          success: false, 
-          error: 'Administrator privileges required. Please accept the UAC prompt.', 
-          code: 'UAC_DENIED' 
-        });
-      });
-      
-      child.on('exit', () => {
-        // Poll for result file instead of fixed delay
-        const maxWait = 60000; // 60 seconds max for long operations
-        const uacTimeout = 15000; // 15 seconds to detect UAC rejection (UAC can be slow on some systems)
-        const pollInterval = 150; // Check every 150ms
-        let waited = 0;
-        let scriptStarted = false;
-        
-        const cleanup = () => {
-          try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-          try { if (startedFile && fs.existsSync(startedFile)) fs.unlinkSync(startedFile); } catch { }
-        };
-        
-        const checkResult = () => {
-          try {
-            // Check if script started (UAC was accepted)
-            if (!scriptStarted && fs.existsSync(startedFile)) {
-              scriptStarted = true;
-            }
-            
-            // Check for completion
-            if (fs.existsSync(resultFile)) {
-              const result = fs.readFileSync(resultFile, 'utf8').trim();
-              cleanup();
-              try { fs.unlinkSync(resultFile); } catch { }
-              
-              if (result.startsWith('SUCCESS')) {
-                resolve({ success: true, message: successMessage });
-              } else {
-                resolve({ success: false, error: failureMessage, code: 'SCRIPT_FAILED' });
-              }
-              return;
-            }
-            
-            waited += pollInterval;
-            
-            // Quick UAC rejection detection
-            if (!scriptStarted && waited >= uacTimeout) {
-              cleanup();
-              resolve({
-                success: false,
-                error: 'Administrator privileges required. Please accept the UAC prompt.',
-                code: 'UAC_DENIED'
-              });
-              return;
-            }
-            
-            // Max timeout for long-running scripts
-            if (waited >= maxWait) {
-              cleanup();
-              resolve({
-                success: false,
-                error: 'Operation timed out.',
-                code: 'TIMEOUT'
-              });
-              return;
-            }
-            
-            // Keep polling
-            setTimeout(checkResult, pollInterval);
-          } catch (readError) {
-            cleanup();
-            resolve({ success: false, error: 'Could not verify operation: ' + readError.message });
-          }
-        };
-        
-        // Start polling immediately
-        setTimeout(checkResult, 100);
-      });
-    } catch (error) {
-      try { if (psFile && fs.existsSync(psFile)) fs.unlinkSync(psFile); } catch { }
-      try { if (resultFile && fs.existsSync(resultFile)) fs.unlinkSync(resultFile); } catch { }
-      try { if (startedFile && fs.existsSync(startedFile)) fs.unlinkSync(startedFile); } catch { }
-      resolve({ success: false, error: 'Failed to start process: ' + error.message });
-    }
-  });
-}
-
 module.exports = {
-  stripAnsiCodes,
   runSpawnCommand,
+  runStreamingCommand,
   attachChildProcessHandlers,
-  getPowerShellExe,
-  runElevatedPowerShellScript,
-  runElevatedPowerShellScriptHidden
+  getPowerShellExe
 };

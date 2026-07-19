@@ -11,7 +11,7 @@
  * Manages button states during async operations.
  * Prevents double-clicks and provides visual feedback.
  */
-export class ButtonStateManager {
+class ButtonStateManager {
     constructor() {
         this.buttonStates = new Map();
     }
@@ -94,127 +94,6 @@ export class ButtonStateManager {
             this.resetState(button);
         }
     }
-
-    /**
-     * Execute async function with button state management
-     * @param {HTMLButtonElement} button - The button element
-     * @param {Function} asyncFn - Async function to execute
-     * @param {string} loadingText - Optional loading text
-     * @returns {Promise} - Result of asyncFn
-     */
-    async withLoading(button, asyncFn, loadingText = null) {
-        if (!this.setLoading(button, loadingText)) {
-            return; // Button already loading
-        }
-
-        try {
-            return await asyncFn();
-        } finally {
-            this.resetState(button);
-        }
-    }
-}
-
-// ============================================
-// EVENT LISTENER MANAGER
-// ============================================
-
-/**
- * Tracks and manages event listeners for proper cleanup.
- * Prevents memory leaks by ensuring all listeners are removed.
- */
-export class EventListenerManager {
-    constructor() {
-        this.listeners = new Map();
-    }
-
-    /**
-     * Add event listener with automatic tracking
-     * @param {EventTarget} element - DOM element
-     * @param {string} event - Event type
-     * @param {Function} handler - Event handler
-     * @param {Object} options - addEventListener options
-     * @returns {Function} - Cleanup function
-     */
-    add(element, event, handler, options = {}) {
-        if (!element) return () => { };
-
-        element.addEventListener(event, handler, options);
-
-        if (!this.listeners.has(element)) {
-            this.listeners.set(element, []);
-        }
-
-        const listenerInfo = { event, handler, options };
-        this.listeners.get(element).push(listenerInfo);
-
-        // Return cleanup function
-        return () => this.remove(element, event, handler, options);
-    }
-
-    /**
-     * Remove specific event listener
-     * @param {EventTarget} element - DOM element
-     * @param {string} event - Event type
-     * @param {Function} handler - Event handler
-     * @param {Object} options - addEventListener options
-     */
-    remove(element, event, handler, options = {}) {
-        if (!element) return;
-
-        element.removeEventListener(event, handler, options);
-
-        if (this.listeners.has(element)) {
-            const elementListeners = this.listeners.get(element);
-            const index = elementListeners.findIndex(
-                l => l.event === event && l.handler === handler
-            );
-            if (index > -1) {
-                elementListeners.splice(index, 1);
-            }
-            if (elementListeners.length === 0) {
-                this.listeners.delete(element);
-            }
-        }
-    }
-
-    /**
-     * Remove all listeners from a specific element
-     * @param {EventTarget} element - DOM element
-     */
-    removeAll(element) {
-        if (!element || !this.listeners.has(element)) return;
-
-        const elementListeners = this.listeners.get(element);
-        for (const { event, handler, options } of elementListeners) {
-            element.removeEventListener(event, handler, options);
-        }
-        this.listeners.delete(element);
-    }
-
-    /**
-     * Remove all tracked listeners (cleanup)
-     */
-    cleanup() {
-        for (const [element, listeners] of this.listeners) {
-            for (const { event, handler, options } of listeners) {
-                element.removeEventListener(event, handler, options);
-            }
-        }
-        this.listeners.clear();
-    }
-
-    /**
-     * Get count of tracked listeners
-     * @returns {number}
-     */
-    get count() {
-        let total = 0;
-        for (const listeners of this.listeners.values()) {
-            total += listeners.length;
-        }
-        return total;
-    }
 }
 
 // ============================================
@@ -224,7 +103,7 @@ export class EventListenerManager {
 /**
  * Creates and manages a singleton tooltip element
  */
-export const tooltipManager = (() => {
+const tooltipManager = (() => {
     let tooltipEl;
 
     function ensure() {
@@ -257,6 +136,7 @@ export const tooltipManager = (() => {
     function show(target, text, event) {
         const tooltip = ensure();
         tooltip.textContent = text;
+        tooltip.classList.toggle('multiline', String(text).includes('\n'));
         clearTimeout(tooltip._showTimer);
         tooltip._showTimer = setTimeout(() => {
             tooltip.classList.add('visible');
@@ -356,7 +236,7 @@ export function attachTooltipHandlers(el) {
 /**
  * Tracks process states for cards (downloads, replacements, etc.)
  */
-export const processStates = new Map();
+const processStates = new Map();
 
 /**
  * Track a process for a card
@@ -480,9 +360,15 @@ export function initDownloadListener() {
                     try { dl.onUpdate(data); } catch { /* DOM may be stale, ignore */ }
                 }
 
-                // Clean up finished downloads from store after a delay
-                if (['error', 'cancelled'].includes(data.status)) {
-                    setTimeout(() => downloadStore.delete(key), 2000);
+                // Clean up finished downloads from store after a delay.
+                // Includes 'complete' so entries do not leak when a download
+                // finishes while its page (and onUpdate callback) is not active.
+                if (['complete', 'error', 'cancelled'].includes(data.status)) {
+                    const finishedId = data.id;
+                    setTimeout(() => {
+                        const cur = downloadStore.get(key);
+                        if (cur && cur.downloadId === finishedId) downloadStore.delete(key);
+                    }, 2000);
                 }
                 break;
             }

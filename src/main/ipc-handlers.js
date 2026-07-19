@@ -3,13 +3,11 @@
  * Handles all Inter-Process Communication between main and renderer
  */
 
-const { ipcMain, shell, dialog, BrowserWindow, app } = require('electron');
+const { ipcMain, shell, dialog, app } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const { spawn } = require('child_process');
-
-const DB_TIMEOUT_MS = 10000;
 
 function setupWindowHandlers(getMainWindow) {
     ipcMain.handle('window-minimize', () => {
@@ -33,19 +31,6 @@ function setupWindowHandlers(getMainWindow) {
         if (mainWindow) mainWindow.close();
     });
 
-    ipcMain.handle('password-window-close', (event) => {
-        const mainWindow = getMainWindow();
-        const senderWin = BrowserWindow.fromWebContents(event.sender);
-        if (senderWin && senderWin !== mainWindow) {
-            senderWin.close();
-        }
-    });
-
-    ipcMain.handle('window-is-maximized', () => {
-        const mainWindow = getMainWindow();
-        return mainWindow ? mainWindow.isMaximized() : false;
-    });
-
     ipcMain.handle('window-set-size', (event, size) => {
         const mainWindow = getMainWindow();
         try {
@@ -60,160 +45,259 @@ function setupWindowHandlers(getMainWindow) {
         } catch { }
         return false;
     });
-
-    ipcMain.handle('window-get-size', () => {
-        const mainWindow = getMainWindow();
-        try {
-            if (mainWindow) return mainWindow.getSize();
-        } catch { }
-        return [0, 0];
-    });
-
-    ipcMain.handle('window-set-bounds-animate', (event, size) => {
-        const mainWindow = getMainWindow();
-        try {
-            if (mainWindow && size && typeof size.width !== 'undefined') {
-                const bounds = mainWindow.getBounds();
-                const newWidth = parseInt(size.width, 10);
-                const newHeight = typeof size.height !== 'undefined' ? parseInt(size.height, 10) : bounds.height;
-                if (!Number.isNaN(newWidth) && (typeof size.height === 'undefined' || !Number.isNaN(newHeight))) {
-                    mainWindow.setBounds({ x: bounds.x, y: bounds.y, width: newWidth, height: newHeight }, true);
-                    return true;
-                }
-            }
-        } catch { }
-        return false;
-    });
-
-    ipcMain.handle('window-animate-resize', (event, { width, height }) => {
-        const mainWindow = getMainWindow();
-        return new Promise((resolve) => {
-            try {
-                if (!mainWindow || typeof width === 'undefined' || typeof height === 'undefined') {
-                    return resolve(false);
-                }
-                const wTarget = parseInt(width, 10);
-                const hTarget = parseInt(height, 10);
-                if (Number.isNaN(wTarget) || Number.isNaN(hTarget)) {
-                    return resolve(false);
-                }
-                mainWindow.setSize(wTarget, hTarget, false);
-                resolve(true);
-            } catch {
-                resolve(false);
-            }
-        });
-    });
 }
 
 function setupSystemInfoHandlers() {
-    ipcMain.handle('get-system-info', async () => {
-        return {
-            platform: os.platform(),
-            release: os.release(),
-            type: os.type(),
-            arch: os.arch(),
-            totalmem: os.totalmem(),
-            freemem: os.freemem(),
-            cpus: os.cpus().map(c => ({ model: c.model, speed: c.speed })),
-            hostname: os.hostname(),
-            user: os.userInfo(),
-            homedir: os.homedir()
-        };
-    });
-
     ipcMain.handle('get-app-version', async () => {
         return app.getVersion();
     });
 }
 
-function setupOAuthHandlers(oauth, userProfile, getMainWindow) {
+function setupOAuthHandlers(oauth, userProfile, getMainWindow, supabase, settingsStore) {
     ipcMain.handle('login-google', async () => {
         const mainWindow = getMainWindow();
         const result = await oauth.loginGoogle(mainWindow);
-        if (result) userProfile.set(result);
+        if (result) {
+            userProfile.set(result);
+            await settingsStore.pullFromCloud().catch(() => {});
+        }
         return result;
     });
 
     ipcMain.handle('login-discord', async () => {
         const mainWindow = getMainWindow();
         const result = await oauth.loginDiscord(mainWindow);
-        if (result) userProfile.set(result);
+        if (result) {
+            userProfile.set(result);
+            await settingsStore.pullFromCloud().catch(() => {});
+        }
         return result;
     });
 
     ipcMain.handle('get-user-profile', async () => {
-        return userProfile.get();
+        const profile = userProfile.get();
+        if (!profile) return null;
+
+        // A cached profile without a Supabase session cannot sync settings.
+        // Clear the stale identity so the renderer offers sign-in again.
+        const sessionUser = await supabase.getSessionUser();
+        if (!sessionUser) {
+            userProfile.clear();
+            return null;
+        }
+
+        return profile;
     });
 
     ipcMain.handle('logout', async () => {
+        await supabase.signOut();
         userProfile.clear();
         return { success: true };
     });
 }
 
+function setupSettingsHandlers(settingsStore) {
+    ipcMain.handle('settings-get', async (event, key) => {
+        return settingsStore.get(key);
+    });
+
+    ipcMain.handle('settings-set', async (event, payload) => {
+        if (!payload || typeof payload.key !== 'string') {
+            return { success: false, error: 'Invalid settings key' };
+        }
+        settingsStore.set(payload.key, payload.value);
+        return { success: true };
+    });
+
+    ipcMain.handle('settings-all', async () => {
+        return settingsStore.all();
+    });
+
+    ipcMain.handle('settings-reset', async () => {
+        settingsStore.clearAll();
+        return { success: true };
+    });
+}
+
+function splitCommandLine(command) {
+    const parts = [];
+    const re = /"([^"]*)"|(\S+)/g;
+    let match;
+    while ((match = re.exec(command)) !== null) {
+        parts.push(match[1] !== undefined ? match[1] : match[2]);
+    }
+    return parts;
+}
+
 function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
     ipcMain.handle('run-command', async (event, command) => {
         if (typeof command !== 'string' || !command.trim()) {
-            return { error: 'Invalid command' };
+            return { success: false, error: 'Invalid command' };
         }
 
         const allowedCommands = ['winget'];
-        const parts = command.trim().split(/\s+/);
+        const parts = splitCommandLine(command.trim());
         const cmd = parts[0].toLowerCase();
 
         if (!allowedCommands.includes(cmd)) {
-            return { error: `Command '${cmd}' is not allowed. Only winget is permitted.` };
+            return { success: false, error: `Command '${cmd}' is not allowed. Only winget is permitted.` };
         }
 
         const args = parts.slice(1);
         const argsValidation = security.validateCommandArgs(args);
         if (!argsValidation.valid) {
-            return { error: argsValidation.error };
+            return { success: false, error: argsValidation.error };
         }
 
         const allowedWingetSubcommands = ['install', 'upgrade', 'search', 'list', 'show', 'source', 'settings', 'uninstall', '--version'];
         const subcommand = args[0]?.toLowerCase();
         if (!subcommand || !allowedWingetSubcommands.includes(subcommand)) {
-            return { error: `Winget subcommand '${subcommand || ''}' is not allowed. Allowed: ${allowedWingetSubcommands.join(', ')}` };
+            return { success: false, error: `Winget subcommand '${subcommand || ''}' is not allowed. Allowed: ${allowedWingetSubcommands.join(', ')}` };
         }
 
         for (const arg of args) {
             if (arg.includes('..')) {
-                return { error: 'Path traversal detected in command arguments' };
+                return { success: false, error: 'Path traversal detected in command arguments' };
             }
         }
 
-        return processUtils.runSpawnCommand(parts[0], args, { shell: true, windowsHide: false });
+        return processUtils.runSpawnCommand(parts[0], args, { shell: false, windowsHide: true });
     });
 
-    ipcMain.handle('run-elevated-winget', async (event, command) => {
-        if (process.platform !== 'win32') {
-            return { error: 'Elevated commands only supported on Windows' };
+    let wingetUpgradeChild = null;
+    let wingetUpgradeCancelled = false;
+
+    // Probe winget presence + version. Returns { installed, version } where
+    // version is a { major, minor } object (null if it could not be parsed).
+    async function probeWinget() {
+        try {
+            const result = await processUtils.runSpawnCommand('winget', ['--version'], { shell: false, windowsHide: true });
+            const combined = ((result.stdout || '') + (result.stderr || '') + (result.error || '')).toLowerCase();
+            const notFound =
+                combined.includes('is not recognized') ||
+                combined.includes('was not found') ||
+                combined.includes('cannot find') ||
+                combined.includes('no such file') ||
+                combined.includes('command not found') ||
+                combined.includes('enoent');
+            if (notFound) return { installed: false, version: null };
+
+            const match = (result.stdout || '').match(/v?(\d+)\.(\d+)/);
+            const version = match ? { major: Number(match[1]), minor: Number(match[2]) } : null;
+            return { installed: true, version };
+        } catch {
+            return { installed: false, version: null };
+        }
+    }
+
+    ipcMain.handle('winget-upgrade-check', async () => probeWinget());
+
+    ipcMain.handle('winget-upgrade-all', async (event) => {
+        if (wingetUpgradeChild) {
+            return { success: false, error: 'An upgrade is already running.' };
         }
 
-        if (typeof command !== 'string' || !command.trim()) {
-            return { error: 'Invalid command' };
+        const { installed, version } = await probeWinget();
+        if (!installed) {
+            return { success: false, notInstalled: true };
         }
 
-        const allowedElevatedCommands = [
-            'winget settings --enable InstallerHashOverride'
-        ];
-
-        if (!allowedElevatedCommands.includes(command.trim())) {
-            return { error: 'This elevated command is not allowed' };
+        // --include-unknown / --disable-interactivity require winget 1.4+.
+        // Older builds reject them, so only add them when supported.
+        const supportsModernFlags = version && (version.major > 1 || (version.major === 1 && version.minor >= 4));
+        const args = ['upgrade', '--all', '--accept-source-agreements', '--accept-package-agreements'];
+        if (supportsModernFlags) {
+            args.push('--include-unknown', '--disable-interactivity');
         }
 
-        const psScript = '\ntry {\n    ' + command + '\n    exit 0\n} catch {\n    exit 1\n}\n';
-        return processUtils.runElevatedPowerShellScriptHidden(
-            psScript,
-            'Setting enabled successfully',
-            'Failed to enable setting'
-        );
+        wingetUpgradeCancelled = false;
+        const { child, done } = processUtils.runStreamingCommand('winget', args, { shell: false, windowsHide: true }, (stream, text) => {
+            try {
+                if (!event.sender.isDestroyed()) {
+                    event.sender.send('winget-upgrade-output', { stream, text });
+                }
+            } catch { }
+        });
+
+        wingetUpgradeChild = child;
+        try {
+            const result = await done;
+            if (wingetUpgradeCancelled) return { success: false, cancelled: true };
+
+            // winget `upgrade --all` exits non-zero when ANY single package fails or
+            // is blocked, even if the rest upgraded fine. Treat the known
+            // "some upgrades failed" code (0x8A15002C) as a partial success so the
+            // UI doesn't report the whole run as a hard failure.
+            const WINGET_UPDATE_ALL_HAS_FAILURE = 0x8A15002C; // 2316632108
+            if (!result.success && result.code === WINGET_UPDATE_ALL_HAS_FAILURE) {
+                return { success: true, partial: true, code: result.code };
+            }
+            return result;
+        } finally {
+            wingetUpgradeChild = null;
+        }
     });
 
-    ipcMain.handle('run-christitus', async () => {
-        return systemTools.runChrisTitus();
+    ipcMain.handle('winget-upgrade-cancel', async () => {
+        if (!wingetUpgradeChild) {
+            return { success: false, error: 'No upgrade in progress.' };
+        }
+        try {
+            wingetUpgradeCancelled = true;
+            wingetUpgradeChild.kill();
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
+    let chrisTitusTask = null;
+    let chrisTitusCancelled = false;
+
+    ipcMain.handle('run-christitus', async (event) => {
+        if (chrisTitusTask) {
+            return { success: false, error: 'The utility is already running.' };
+        }
+
+        chrisTitusCancelled = false;
+        try {
+            const task = systemTools.runChrisTitus((stream, text) => {
+                try {
+                    if (!event.sender.isDestroyed()) {
+                        event.sender.send('christitus-output', { stream, text });
+                    }
+                } catch { }
+            });
+
+            chrisTitusTask = task;
+            try {
+                const result = await task.done;
+                if (chrisTitusCancelled) return { success: false, cancelled: true };
+                return result;
+            } finally {
+                chrisTitusTask = null;
+            }
+        } catch (error) {
+            chrisTitusTask = null;
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('run-christitus-cancel', async () => {
+        if (!chrisTitusTask) {
+            return { success: false, error: 'The utility is not running.' };
+        }
+        try {
+            chrisTitusCancelled = true;
+            if (typeof chrisTitusTask.cancel === 'function') {
+                chrisTitusTask.cancel();
+            } else {
+                chrisTitusTask.child.kill();
+            }
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     });
 
     ipcMain.handle('open-external', async (event, url) => {
@@ -280,63 +364,24 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
         });
     });
 
-    ipcMain.handle('open-installer', async (event, filePath) => {
-        if (typeof filePath !== 'string' || !filePath.trim()) {
-            return { success: false, error: 'Invalid file path' };
-        }
-
-        const validation = security.validatePath(filePath);
-        if (!validation.valid) {
-            return { success: false, error: validation.error };
-        }
-
-        const downloadsDir = path.join(os.homedir(), 'Downloads').toLowerCase();
-        const tempDir = os.tmpdir().toLowerCase();
-        const normalizedPath = validation.normalized.toLowerCase();
-
-        if (!normalizedPath.startsWith(downloadsDir) && !normalizedPath.startsWith(tempDir)) {
-            return { success: false, error: 'Installers can only be run from Downloads or temp folder' };
-        }
-
-        const errStr = await shell.openPath(validation.normalized);
-        if (errStr) {
-            return { success: false, error: errStr };
-        }
-        return { success: true };
-    });
-
     ipcMain.handle('show-file-dialog', async () => {
-        const result = await dialog.showOpenDialog({
-            properties: ['openFile'],
-            filters: [{ name: 'Executables', extensions: ['exe'] }]
-        });
-        return result;
+        try {
+            return await dialog.showOpenDialog({
+                properties: ['openFile'],
+                filters: [{ name: 'Executables', extensions: ['exe'] }]
+            });
+        } catch (err) {
+            return { canceled: true, filePaths: [], error: err.message };
+        }
     });
 }
 
 function setupDownloadHandlers(downloadManager, getMainWindow) {
+    ipcMain.removeAllListeners('download-start');
     ipcMain.on('download-start', (event, { id, url, dest }) => {
         const win = getMainWindow();
         if (!win) return;
         downloadManager.startDownload(id, url, dest, win);
-    });
-
-    ipcMain.on('download-pause', (event, id) => {
-        const win = getMainWindow();
-        if (!win) return;
-        downloadManager.pauseDownload(id, win);
-    });
-
-    ipcMain.on('download-resume', (event, id) => {
-        const win = getMainWindow();
-        if (!win) return;
-        downloadManager.resumeDownload(id, win);
-    });
-
-    ipcMain.on('download-cancel', (event, id) => {
-        const win = getMainWindow();
-        if (!win) return;
-        downloadManager.cancelDownload(id, win);
     });
 }
 
@@ -347,29 +392,13 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
         if (isDev) {
             assetPath = path.join(__dirname, '..', 'assets', relativePath);
         } else {
-            assetPath = path.join(process.resourcesPath, 'src', 'assets', relativePath);
+            assetPath = path.join(app.getAppPath(), 'src', 'assets', relativePath);
         }
         const normalizedPath = assetPath.replace(/\\/g, '/');
         if (process.platform === 'win32' && normalizedPath.match(/^[A-Za-z]:/)) {
             return 'file:///' + normalizedPath;
         }
         return 'file://' + normalizedPath;
-    });
-
-    ipcMain.handle('file-exists', async (event, filePath) => {
-        try {
-            if (typeof filePath !== 'string' || !filePath.trim()) {
-                return false;
-            }
-            const expanded = fileUtils.expandEnvVars(filePath);
-            const validation = security.validatePath(expanded);
-            if (!validation.valid) {
-                return false;
-            }
-            return fs.existsSync(validation.normalized);
-        } catch {
-            return false;
-        }
     });
 
     ipcMain.handle('delete-file', async (event, filePath) => {
@@ -417,64 +446,48 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
         });
     });
 
-    ipcMain.handle('rename-directory', async (event, { src, dest }) => {
-        return new Promise((resolve) => {
+    // ─── cleanup-install-artifacts ──────────────────────────────────────────────
+    // Removes the leftover download ZIP and its extracted folder once a crack
+    // installer has been launched. The ZIP goes immediately (it is redundant
+    // after extraction); the folder is retried a few times because the freshly
+    // launched installer may still hold a handle to it for a moment.
+    ipcMain.handle('cleanup-install-artifacts', async (event, { zipPath, dir } = {}) => {
+        const allowedDirs = [os.tmpdir(), path.join(os.homedir(), 'Downloads')];
+        const removed = { zip: false, dir: false };
+
+        const safeResolve = (target) => {
+            if (typeof target !== 'string' || target.trim() === '') return null;
+            const expanded = fileUtils.expandEnvVars(target);
+            const validation = security.validateDeletePath(expanded, allowedDirs);
+            return validation.valid ? validation.normalized : null;
+        };
+
+        const zip = safeResolve(zipPath);
+        if (zip) {
             try {
-                if (typeof src !== 'string' || typeof dest !== 'string' || !src || !dest) {
-                    return resolve({ success: false, error: 'Invalid source or destination' });
-                }
-
-                const srcExpanded = fileUtils.expandEnvVars(src);
-                const destExpanded = fileUtils.expandEnvVars(dest);
-
-                const srcValidation = security.validatePath(srcExpanded);
-                if (!srcValidation.valid) {
-                    return resolve({ success: false, error: 'Invalid source path: ' + srcValidation.error, code: 'INVALID_SOURCE' });
-                }
-
-                const destValidation = security.validatePath(destExpanded);
-                if (!destValidation.valid) {
-                    return resolve({ success: false, error: 'Invalid destination path: ' + destValidation.error, code: 'INVALID_DEST' });
-                }
-
-                const srcNormalized = srcValidation.normalized;
-                const destNormalized = destValidation.normalized;
-
-                try {
-                    const srcStats = fs.statSync(srcNormalized);
-                    if (!srcStats.isDirectory()) {
-                        return resolve({ success: false, error: 'Source is not a directory', code: 'NOT_DIRECTORY' });
-                    }
-                } catch (statErr) {
-                    if (statErr.code === 'ENOENT') {
-                        return resolve({ success: false, error: 'Source directory does not exist', code: 'SRC_NOT_FOUND' });
-                    }
-                    return resolve({ success: false, error: 'Cannot access source: ' + statErr.message, code: 'SRC_ACCESS_ERROR' });
-                }
-
-                try {
-                    if (fs.existsSync(destNormalized)) {
-                        const destStats = fs.statSync(destNormalized);
-                        if (destStats.isDirectory()) {
-                            fs.rmSync(destNormalized, { recursive: true, force: true });
-                        } else {
-                            return resolve({ success: false, error: 'Destination exists and is not a directory', code: 'DEST_EXISTS' });
-                        }
-                    }
-                } catch (rmErr) {
-                    debug('warn', 'Could not remove existing destination:', rmErr.message);
-                }
-
-                fs.rename(srcNormalized, destNormalized, (err) => {
-                    if (err) {
-                        return resolve({ success: false, error: err.message, code: 'RENAME_FAILED' });
-                    }
-                    resolve({ success: true });
-                });
+                await fs.promises.rm(zip, { force: true });
+                removed.zip = true;
             } catch (err) {
-                resolve({ success: false, error: err.message, code: 'EXCEPTION' });
+                debug('warn', 'Failed to remove install ZIP:', err.message);
             }
-        });
+        }
+
+        const folder = safeResolve(dir);
+        if (folder) {
+            for (let attempt = 0; attempt < 5; attempt++) {
+                try {
+                    await fs.promises.rm(folder, { recursive: true, force: true });
+                    removed.dir = true;
+                    break;
+                } catch (err) {
+                    // Installer likely still holds the directory — wait and retry.
+                    await new Promise((r) => setTimeout(r, 2000));
+                    if (attempt === 4) debug('warn', 'Failed to remove extracted folder:', err.message);
+                }
+            }
+        }
+
+        return { success: true, removed };
     });
 
     // ─── replace-exe ────────────────────────────────────────────────────────────
@@ -492,7 +505,8 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
     //   • No broken polling (dst already existed before replacement)
     // ────────────────────────────────────────────────────────────────────────────
 ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
-    return new Promise(async (resolve) => {
+    return new Promise((resolve) => {
+        (async () => {
             try {
                 const srcExpanded = fileUtils.expandEnvVars(sourcePath);
                 const dstExpanded = fileUtils.expandEnvVars(destPath);
@@ -619,14 +633,29 @@ ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
                 debug('error', 'replace-exe exception:', err);
                 resolve({ success: false, error: 'Exception: ' + err.message });
             }
-        });
+        })();
+    });
     });
 }
 
-function setupArchiveHandlers(archiveUtils, downloadManager) {
+function setupArchiveHandlers(security, archiveUtils, downloadManager) {
     ipcMain.handle('extract-archive', async (event, { filePath, password, destDir }) => {
         try {
-            return await archiveUtils.extractArchive(filePath, password, destDir, downloadManager.trackExtractedDir);
+            const fileCheck = security.validatePath(filePath);
+            if (!fileCheck.valid) {
+                return { success: false, error: `Invalid archive path: ${fileCheck.error}` };
+            }
+
+            let safeDestDir = destDir;
+            if (destDir) {
+                const destCheck = security.validatePath(destDir);
+                if (!destCheck.valid) {
+                    return { success: false, error: `Invalid destination: ${destCheck.error}` };
+                }
+                safeDestDir = destCheck.normalized;
+            }
+
+            return await archiveUtils.extractArchive(fileCheck.normalized, password, safeDestDir, downloadManager.trackExtractedDir);
         } catch (error) {
             return { success: false, error: error.message };
         }
@@ -634,19 +663,19 @@ function setupArchiveHandlers(archiveUtils, downloadManager) {
 }
 
 function setupSparkleHandlers(sparkleModule) {
-    ipcMain.handle('ensure-sparkle', async () => {
-        try {
-            return await sparkleModule.ensureSparkle();
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
-
     ipcMain.handle('process-downloaded-sparkle', async (event, zipPath) => {
         try {
             return await sparkleModule.processDownloadedSparkle(zipPath);
         } catch (error) {
             return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('sparkle-status', async () => {
+        try {
+            return { available: sparkleModule.isSparkleAvailable() };
+        } catch (error) {
+            return { available: false, error: error.message };
         }
     });
 }
@@ -657,102 +686,201 @@ function setupSystemToolsHandlers(systemTools) {
     };
 
     ipcMain.handle('run-sparkle-debloat', safeWrap(() => systemTools.runSparkleDebloat()));
-    ipcMain.handle('run-sfc-scan', safeWrap(() => systemTools.runSfcScan()));
-    ipcMain.handle('run-dism-repair', safeWrap(() => systemTools.runDismRepair()));
-    ipcMain.handle('run-temp-cleanup', safeWrap(() => systemTools.runTempCleanup()));
+    let systemRepairTask = null;
+    let systemRepairCancelled = false;
+
+    const runSystemRepair = (runner) => async (event) => {
+        if (systemRepairTask) {
+            return { success: false, error: 'A repair task is already running.' };
+        }
+
+        systemRepairCancelled = false;
+        try {
+            const task = runner((stream, text) => {
+                try {
+                    if (!event.sender.isDestroyed()) {
+                        event.sender.send('system-repair-output', { stream, text });
+                    }
+                } catch { }
+            });
+
+            systemRepairTask = task;
+            try {
+                const result = await task.done;
+                if (systemRepairCancelled) return { success: false, cancelled: true };
+                return result;
+            } finally {
+                systemRepairTask = null;
+            }
+        } catch (error) {
+            systemRepairTask = null;
+            return { success: false, error: error.message };
+        }
+    };
+
+    ipcMain.handle('run-sfc-scan', runSystemRepair((onOutput) => systemTools.runSfcScan(onOutput)));
+    ipcMain.handle('run-dism-repair', runSystemRepair((onOutput) => systemTools.runDismRepair(onOutput)));
+
+    ipcMain.handle('system-repair-cancel', async () => {
+        if (!systemRepairTask) {
+            return { success: false, error: 'No repair task is running.' };
+        }
+        try {
+            systemRepairCancelled = true;
+            if (typeof systemRepairTask.cancel === 'function') {
+                systemRepairTask.cancel();
+            } else {
+                systemRepairTask.child.kill();
+            }
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+    ipcMain.handle('scan-cleaner-tasks', async (event, options) => {
+        try { return await systemTools.scanCleanerTasks(options); } catch (error) { return { success: false, error: error.message }; }
+    });
+    ipcMain.handle('run-cleaner-tasks', async (event, taskIds, options) => {
+        try {
+            return await systemTools.runCleanerTasks(taskIds, options, (text) => {
+                try {
+                    if (!event.sender.isDestroyed()) {
+                        event.sender.send('cleaner-progress', { text });
+                    }
+                } catch { }
+            });
+        } catch (error) { return { success: false, error: error.message }; }
+    });
+    ipcMain.handle('cleaner-admin-enable', async () => {
+        try { return await systemTools.enableCleanerAdminSession(); } catch (error) { return { success: false, error: error.message }; }
+    });
     ipcMain.handle('restart-to-bios', safeWrap(() => systemTools.restartToBios()));
+    ipcMain.handle('flush-dns-cache', runSystemRepair((onOutput) => systemTools.flushDnsCache(onOutput)));
+    ipcMain.handle('release-renew-ip', runSystemRepair((onOutput) => systemTools.releaseRenewIp(onOutput)));
+    ipcMain.handle('fix-bluetooth', runSystemRepair((onOutput) => systemTools.fixBluetooth(onOutput)));
+    ipcMain.handle('check-disk', runSystemRepair((onOutput) => systemTools.checkDisk(onOutput)));
+    ipcMain.handle('network-reset', runSystemRepair((onOutput) => systemTools.networkReset(onOutput)));
+    ipcMain.handle('restart-audio-system', runSystemRepair((onOutput) => systemTools.restartAudioSystem(onOutput)));
 }
 
 function setupSpicetifyHandlers(spicetifyModule) {
-    ipcMain.handle('install-spicetify', async () => {
-        try { return await spicetifyModule.installSpicetify(); } catch (error) { return { success: false, error: error.message }; }
+    let spicetifyTask = null;
+    let spicetifyCancelled = false;
+    let spicetifyUninstalling = false;
+
+    const runSpicetifyStreaming = (runner) => async (event) => {
+        if (spicetifyTask || spicetifyUninstalling) {
+            return { success: false, error: 'A Spicetify task is already running.' };
+        }
+
+        spicetifyCancelled = false;
+        try {
+            const task = runner((stream, text) => {
+                try {
+                    if (!event.sender.isDestroyed()) {
+                        event.sender.send('spicetify-install-output', { stream, text });
+                    }
+                } catch { }
+            });
+
+            spicetifyTask = task;
+            try {
+                const result = await task.done;
+                if (spicetifyCancelled) return { success: false, cancelled: true };
+                return result;
+            } finally {
+                spicetifyTask = null;
+            }
+        } catch (error) {
+            spicetifyTask = null;
+            return { success: false, error: error.message };
+        }
+    };
+
+    ipcMain.handle('install-spicetify', runSpicetifyStreaming((onOutput) => spicetifyModule.installSpicetify(onOutput)));
+    ipcMain.handle('full-uninstall-spotify', runSpicetifyStreaming((onOutput) => spicetifyModule.fullUninstallSpotify(onOutput)));
+
+    ipcMain.handle('install-spicetify-cancel', async () => {
+        if (!spicetifyTask) {
+            return { success: false, error: 'No Spicetify task in progress.' };
+        }
+        try {
+            spicetifyCancelled = true;
+            spicetifyTask.child.kill();
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     });
 
     ipcMain.handle('uninstall-spicetify', async () => {
-        try { return await spicetifyModule.uninstallSpicetify(); } catch (error) { return { success: false, error: error.message }; }
-    });
-
-    ipcMain.handle('full-uninstall-spotify', async () => {
-        try { return await spicetifyModule.fullUninstallSpotify(); } catch (error) { return { success: false, error: error.message }; }
+        if (spicetifyTask || spicetifyUninstalling) {
+            return { success: false, error: 'A Spicetify task is already running.' };
+        }
+        spicetifyUninstalling = true;
+        try { return await spicetifyModule.uninstallSpicetify(); }
+        catch (error) { return { success: false, error: error.message }; }
+        finally { spicetifyUninstalling = false; }
     });
 }
 
 function setupInstallerHandlers(debug, security) {
     ipcMain.handle('find-exe-files', async (event, directoryPath) => {
-        return new Promise((resolve) => {
+        try {
+            if (typeof directoryPath !== 'string' || !directoryPath.trim()) {
+                return [];
+            }
+            const validation = security.validatePath(directoryPath);
+            if (!validation.valid) {
+                return [];
+            }
+            const rootDir = validation.normalized;
+
             try {
-                if (!fs.existsSync(directoryPath)) {
-                    resolve([]);
-                    return;
-                }
+                await fs.promises.access(rootDir);
+            } catch {
+                return [];
+            }
 
-                const executableFiles = [];
+            const executableFiles = [];
+            const MAX_DEPTH = 10;
+            const MAX_FILES = 500;
 
-                const MAX_DEPTH = 10;
-                const MAX_FILES = 500;
-
-                function searchDirectory(dir, depth = 0) {
+            const queue = [{ path: rootDir, depth: 0 }];
+            
+            while (queue.length > 0 && executableFiles.length < MAX_FILES) {
+                // Process in chunks to avoid blocking the event loop
+                const currentChunk = queue.splice(0, 20);
+                
+                await Promise.all(currentChunk.map(async ({ path: dir, depth }) => {
                     if (depth > MAX_DEPTH || executableFiles.length >= MAX_FILES) return;
+                    
                     try {
-                        const items = fs.readdirSync(dir);
+                        const items = await fs.promises.readdir(dir, { withFileTypes: true });
                         for (const item of items) {
                             if (executableFiles.length >= MAX_FILES) break;
-                            const fullPath = path.join(dir, item);
-                            try {
-                                const stat = fs.lstatSync(fullPath);
-                                // Skip symlinks to avoid circular references
-                                if (stat.isSymbolicLink()) continue;
-                                if (stat.isDirectory()) {
-                                    searchDirectory(fullPath, depth + 1);
-                                } else if (stat.isFile()) {
-                                    const ext = path.extname(item).toLowerCase();
-                                    if (ext === '.exe' || ext === '.bat') {
-                                        executableFiles.push(fullPath);
-                                    }
+                            const fullPath = path.join(dir, item.name);
+                            
+                            if (item.isSymbolicLink()) continue;
+                            
+                            if (item.isDirectory()) {
+                                queue.push({ path: fullPath, depth: depth + 1 });
+                            } else if (item.isFile()) {
+                                const ext = path.extname(item.name).toLowerCase();
+                                if (ext === '.exe' || ext === '.bat') {
+                                    executableFiles.push(fullPath);
                                 }
-                            } catch (statErr) {
-                                debug('warn', 'Cannot access ' + fullPath + ': ' + (statErr.code || statErr.message));
-                                continue;
                             }
                         }
                     } catch (readErr) {
-                        debug('warn', 'Cannot read directory ' + dir + ': ' + (readErr.code || readErr.message));
+                        debug('warn', 'Cannot access ' + dir + ': ' + (readErr.code || readErr.message));
                     }
-                }
-
-                searchDirectory(directoryPath);
-                resolve(executableFiles);
-            } catch {
-                resolve([]);
+                }));
             }
-        });
-    });
-
-    ipcMain.handle('run-msi-installer', async (event, msiPath) => {
-        return new Promise((resolve) => {
-            if (process.platform !== 'win32') {
-                resolve({ success: false, error: 'MSI installers are only supported on Windows' });
-                return;
-            }
-
-            const validation = security.validatePath(msiPath);
-            if (!validation.valid) {
-                resolve({ success: false, error: validation.error });
-                return;
-            }
-            const normalized = validation.normalized;
-
-            try {
-                const child = spawn('msiexec', ['/i', normalized], { detached: true, stdio: 'ignore' });
-                child.on('error', (spawnErr) => {
-                    resolve({ success: false, error: spawnErr.message });
-                });
-                child.unref();
-                resolve({ success: true });
-            } catch (err) {
-                resolve({ success: false, error: err.message });
-            }
-        });
+            return executableFiles;
+        } catch {
+            return [];
+        }
     });
 
     ipcMain.handle('run-installer', async (event, filePath) => {
@@ -763,6 +891,14 @@ function setupInstallerHandlers(debug, security) {
                 return resolve({ success: false, error: validation.error });
             }
             const normalized = validation.normalized;
+
+            const downloadsDir = path.join(os.homedir(), 'Downloads').toLowerCase();
+            const tempDir = os.tmpdir().toLowerCase();
+            const lowerPath = normalized.toLowerCase();
+            if (!lowerPath.startsWith(downloadsDir) && !lowerPath.startsWith(tempDir)) {
+                return resolve({ success: false, error: 'Installers can only be run from Downloads or temp folder' });
+            }
+
             const ext = path.extname(normalized).toLowerCase();
 
             try {
@@ -816,345 +952,87 @@ function setupInstallerHandlers(debug, security) {
     });
 }
 
-function setupPasswordManagerHandlers(createPasswordManagerWindow, pmAuth, getPasswordDB, pmDirectory, debug) {
-    ipcMain.handle('open-password-manager', async (_event, lang = 'en') => {
-        createPasswordManagerWindow(lang);
+// ─── Installer / Uninstaller mode ───────────────────────────────────────────
+function setupInstallerModeHandlers(selfInstaller, getInstallerWindow, debug) {
+    const mode = selfInstaller.isUninstallMode() ? 'uninstall' : 'install';
+    let lastInstalledExe = null;
+
+    ipcMain.handle('installer-get-mode', () => mode);
+
+    ipcMain.handle('installer-get-info', () => selfInstaller.getInstallInfo());
+
+    ipcMain.handle('installer-install', async (event, options) => {
+        const win = getInstallerWindow();
+        const onProgress = (data) => {
+            if (win && !win.isDestroyed()) win.webContents.send('installer-progress', data);
+        };
+        try {
+            const result = await selfInstaller.install(win, options, onProgress, debug);
+            lastInstalledExe = result.targetExe;
+            return { success: true, ...result };
+        } catch (err) {
+            debug('warn', 'Install failed:', err.message);
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('installer-uninstall', async () => {
+        try {
+            const result = await selfInstaller.uninstall(debug);
+            return { success: true, ...result };
+        } catch (err) {
+            debug('warn', 'Uninstall failed:', err.message);
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('installer-launch', async () => {
+        let signalPath = null;
+        try {
+            if (lastInstalledExe) signalPath = selfInstaller.launchInstalled(lastInstalledExe);
+        } catch (err) {
+            debug('warn', 'Launch failed:', err.message);
+        }
+
+        if (signalPath) {
+            const start = Date.now();
+            await new Promise((resolve) => {
+                const timer = setInterval(() => {
+                    let ready = false;
+                    try { ready = fs.existsSync(signalPath); } catch { /* ignore */ }
+                    if (ready || Date.now() - start > 12000) {
+                        clearInterval(timer);
+                        resolve();
+                    }
+                }, 80);
+            });
+            try { fs.rmSync(signalPath, { force: true }); } catch { /* ignore */ }
+        }
+
+        const win = getInstallerWindow();
+        if (win && !win.isDestroyed()) win.hide();
+        app.quit();
         return { success: true };
     });
 
-    ipcMain.handle('password-manager-has-master-password', async () => {
-        try {
-            debug('info', 'Checking for master password...');
-            if (!pmAuth.configPath) {
-                debug('info', 'Auth manager not initialized, initializing now...');
-                pmAuth.initialize(pmDirectory);
-            }
-            const result = pmAuth.hasMasterPassword();
-            debug('info', 'Master password exists:', result);
-            return result;
-        } catch (error) {
-            debug('error', 'Error checking master password:', error);
-            return false;
-        }
+    ipcMain.handle('installer-set-height', (event, height) => {
+        const win = getInstallerWindow();
+        if (!win || win.isDestroyed()) return;
+        const h = Math.max(240, Math.min(700, Math.round(height) || 0));
+        const [w, prevH] = win.getSize();
+        const [x, y] = win.getPosition();
+        win.setBounds({ x, y: Math.round(y + (prevH - h) / 2), width: w, height: h });
     });
 
-    ipcMain.handle('password-manager-create-master-password', async (event, password) => {
-        try {
-            debug('info', 'Creating master password...');
-            if (!pmAuth.configPath) {
-                pmAuth.initialize(pmDirectory);
-            }
-            await pmAuth.createMasterPassword(password);
-            return { success: true };
-        } catch (error) {
-            debug('error', 'Error creating master password:', error);
-            return { success: false, error: error.message };
-        }
+    ipcMain.handle('installer-close', () => {
+        const win = getInstallerWindow();
+        if (win && !win.isDestroyed()) win.hide();
+        app.quit();
     });
 
-    ipcMain.handle('password-manager-authenticate', async (event, password) => {
-        try {
-            debug('info', 'Authenticating...');
-            if (!pmAuth.configPath) {
-                pmAuth.initialize(pmDirectory);
-            }
-            await pmAuth.authenticate(password);
-            return { success: true };
-        } catch (error) {
-            debug('error', 'Error authenticating:', error);
-            return { success: false, error: error.message };
-        }
-    });
-
-    ipcMain.handle('password-manager-logout', async () => {
-        pmAuth.logout();
-        return { success: true };
-    });
-
-    ipcMain.handle('password-manager-change-password', async (event, currentPassword, newPassword) => {
-        try {
-            await pmAuth.changeMasterPassword(currentPassword, newPassword);
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
-
-    ipcMain.handle('password-manager-validate-password', async (event, password) => {
-        const result = pmAuth.validatePasswordStrength(password);
-        return result;
-    });
-
-    ipcMain.handle('password-manager-get-categories', async () => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-
-            db.getCategories((err, rows) => {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    debug('error', 'Error getting categories:', err);
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, categories: rows || [] });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-add-category', async (event, name) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.addCategory(name, function (err) {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, id: this.lastID });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-update-category', async (event, id, name) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.updateCategory(id, name, function (err) {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, changes: this.changes });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-delete-category', async (event, id) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.deleteCategory(id, function (err) {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, changes: this.changes });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-get-passwords', async (event, categoryId = 'all') => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-
-            db.getPasswordsByCategory(categoryId, (err, rows) => {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    debug('error', 'Error getting passwords:', err);
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, passwords: rows || [] });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-get-password', async (event, id) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.getPasswordById(id, (err, row) => {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, password: row });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-add-password', async (event, passwordData) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-
-            db.addPassword(passwordData, function (err) {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    debug('error', 'Error adding password:', err);
-                    resolve({ success: false, error: err.message });
-                } else {
-                    debug('success', 'Password added successfully, ID:', this.lastID);
-                    resolve({ success: true, id: this.lastID });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-update-password', async (event, id, passwordData) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.updatePassword(id, passwordData, function (err) {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, changes: this.changes });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-delete-password', async (event, id) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.deletePassword(id, function (err) {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, changes: this.changes });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-search-passwords', async (event, query) => {
-        return new Promise((resolve) => {
-            const db = getPasswordDB();
-            if (!db) return resolve({ success: false, error: 'Database unavailable' });
-            let finished = false;
-            const timeout = setTimeout(() => {
-                if (finished) return;
-                finished = true;
-                resolve({ success: false, error: 'Database timeout' });
-            }, DB_TIMEOUT_MS);
-            db.searchPasswords(query, (err, rows) => {
-                if (finished) return;
-                finished = true;
-                clearTimeout(timeout);
-                if (err) {
-                    resolve({ success: false, error: err.message });
-                } else {
-                    resolve({ success: true, passwords: rows });
-                }
-            });
-        });
-    });
-
-    ipcMain.handle('password-manager-reset', async () => {
-        try {
-            const db = getPasswordDB();
-            if (db) {
-                try { db.close(); } catch { }
-            }
-
-            if (pmAuth.configPath && fs.existsSync(pmAuth.configPath)) {
-                fs.unlinkSync(pmAuth.configPath);
-            }
-            if (pmAuth.dbDirectory) {
-                const dbPath = path.join(pmAuth.dbDirectory, 'password_manager.db');
-                if (fs.existsSync(dbPath)) {
-                    fs.unlinkSync(dbPath);
-                }
-            }
-            pmAuth.logout();
-            pmAuth.initialize(pmDirectory);
-            return { success: true };
-        } catch (error) {
-            debug('error', 'Error resetting password manager:', error);
-            return { success: false, error: error.message };
-        }
-    });
-}
-
-function setupMiscHandlers() {
-    ipcMain.handle('run-activate-script', async () => {
-        return { success: true, message: 'Activation script completed' };
-    });
-
-    ipcMain.handle('run-autologin-script', async () => {
-        return { success: true, message: 'Autologin script completed' };
+    ipcMain.handle('installer-minimize', () => {
+        const win = getInstallerWindow();
+        if (win && !win.isDestroyed()) win.minimize();
     });
 }
 
@@ -1162,6 +1040,7 @@ module.exports = {
     setupWindowHandlers,
     setupSystemInfoHandlers,
     setupOAuthHandlers,
+    setupSettingsHandlers,
     setupCommandHandlers,
     setupDownloadHandlers,
     setupFileHandlers,
@@ -1170,6 +1049,5 @@ module.exports = {
     setupSystemToolsHandlers,
     setupSpicetifyHandlers,
     setupInstallerHandlers,
-    setupPasswordManagerHandlers,
-    setupMiscHandlers
+    setupInstallerModeHandlers
 };

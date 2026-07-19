@@ -1,153 +1,11 @@
 /**
  * Utilities Page
- * Contains Password Manager and ChrisTitus pages
+ * Contains the ChrisTitus page
  * CSS classes match original renderer.js structure
  */
 
-import { escapeHtml, createModernButton } from '../utils.js';
-import { toast, showNotification } from '../components.js';
-
-// ============================================
-// PASSWORD MANAGER PAGE (Original Structure)
-// ============================================
-
-export function buildPasswordManagerPage(translations, settings) {
-    const container = document.createElement('div');
-    container.className = 'card password-manager-card';
-
-    // Card Header
-    const header = document.createElement('div');
-    header.className = 'password-card-header';
-
-    const headerIcon = document.createElement('div');
-    headerIcon.className = 'password-card-icon-wrapper';
-    headerIcon.innerHTML = `
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      <rect x="9" y="11" width="6" height="5" rx="1.2"/>
-      <path d="M10 11V9.7a2 2 0 0 1 4 0V11"/>
-    </svg>
-  `;
-
-    const headerTextWrap = document.createElement('div');
-    headerTextWrap.className = 'password-card-copy';
-
-    const headerTitle = document.createElement('h3');
-    headerTitle.className = 'password-card-title';
-    headerTitle.textContent =
-        translations.pages?.password_title ||
-        translations.menu?.password_manager ||
-        'Password Manager';
-
-    const headerSubtitle = document.createElement('p');
-    headerSubtitle.className = 'password-card-subtitle';
-    headerSubtitle.textContent =
-        translations.messages?.local_storage ||
-        'Local device storage only';
-
-    const headerBadge = document.createElement('span');
-    headerBadge.className = 'password-card-badge';
-    headerBadge.textContent =
-        translations.messages?.encrypted_storage ||
-        'Encrypted storage';
-
-    headerTextWrap.appendChild(headerTitle);
-    headerTextWrap.appendChild(headerSubtitle);
-    header.appendChild(headerIcon);
-    header.appendChild(headerTextWrap);
-    header.appendChild(headerBadge);
-    container.appendChild(header);
-
-    // Warning Banner
-    const warning = document.createElement('div');
-    warning.className = 'password-warning-banner';
-
-    const warningIcon = document.createElement('div');
-    warningIcon.className = 'warning-icon';
-    warningIcon.innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-      <line x1="12" y1="9" x2="12" y2="13"/>
-      <line x1="12" y1="17" x2="12.01" y2="17"/>
-    </svg>
-  `;
-
-    const warningContent = document.createElement('div');
-    warningContent.className = 'warning-content';
-
-    const warningTitle = document.createElement('div');
-    warningTitle.className = 'warning-title';
-    warningTitle.textContent = translations.messages?.security_notice || 'Security Notice';
-
-    const warningText = document.createElement('div');
-    warningText.className = 'warning-text';
-    warningText.textContent = translations.messages?.password_warning || 'Your passwords are stored securely encrypted on your local device only.';
-
-    warningContent.appendChild(warningTitle);
-    warningContent.appendChild(warningText);
-    warning.appendChild(warningIcon);
-    warning.appendChild(warningContent);
-    container.appendChild(warning);
-
-    // Features List
-    const features = document.createElement('div');
-    features.className = 'password-features';
-
-    const featuresList = [
-        { icon: '🔐', text: translations.messages?.encrypted_storage || 'Military-grade encryption' },
-        { icon: '💾', text: translations.messages?.local_storage || 'Local storage only' },
-        { icon: '⚡', text: translations.messages?.quick_access || 'One-click autofill' },
-        { icon: '🔍', text: translations.messages?.secure_search || 'Encrypted search' }
-    ];
-
-    featuresList.forEach(feature => {
-        const featureItem = document.createElement('div');
-        featureItem.className = 'feature-item';
-
-        const featureIcon = document.createElement('span');
-        featureIcon.className = 'feature-icon';
-        featureIcon.textContent = feature.icon;
-
-        const featureText = document.createElement('span');
-        featureText.className = 'feature-text';
-        featureText.textContent = feature.text;
-
-        featureItem.appendChild(featureIcon);
-        featureItem.appendChild(featureText);
-        features.appendChild(featureItem);
-    });
-
-    container.appendChild(features);
-
-    // Action Section
-    const actionSection = document.createElement('div');
-    actionSection.className = 'password-actions';
-
-    const btn = createModernButton(
-        translations.actions?.open_password_manager || 'Open Password Manager',
-        async () => {
-            try {
-                const result = await window.api.openPasswordManager(settings.lang);
-                if (!result.success) {
-                    showNotification('Failed to open password manager', 'error');
-                }
-            } catch (error) {
-                showNotification('Error opening password manager: ' + error.message, 'error');
-            }
-        },
-        {
-            icon: '🔓',
-            variant: 'primary',
-            size: 'large'
-        }
-    );
-    btn.className = 'password-manager-btn';
-
-    actionSection.appendChild(btn);
-    container.appendChild(actionSection);
-
-    return container;
-}
+import { escapeHtml } from '../utils.js';
+import { toast, closeOtherTerminals, openTerminal } from '../components.js';
 
 // ============================================
 // CHRIS TITUS PAGE (Original Structure)
@@ -163,14 +21,14 @@ export function buildChrisTitusPage(translations, _settings) {
         return n;
     };
 
-    const card = el('section', 'ctt-card');
+    const card = el('section', 'tool-card');
 
     const style = document.createElement('style');
     card.appendChild(style);
 
     // Header
-    const header = el('div', 'ctt-header');
-    const icon = el('img', 'ctt-icon');
+    const header = el('div', 'tool-card-header');
+    const icon = el('img', 'tool-card-icon');
     const terminalSVG = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
          fill="none" stroke="#1ea8ff" stroke-width="2"
@@ -184,8 +42,8 @@ export function buildChrisTitusPage(translations, _settings) {
     const subtitleText = (translations.christitus_page && translations.christitus_page.subtitle_full) || 'COMPREHENSIVE TOOLBOX FOR WINDOWS OPTIMIZATION';
     const titleWrapper = el('div');
     titleWrapper.innerHTML = `
-    <h2 class="ctt-title">${escapeHtml(titleText)}</h2>
-    <p class="ctt-sub">${escapeHtml(subtitleText)}</p>
+    <h2 class="tool-card-title">${escapeHtml(titleText)}</h2>
+    <p class="tool-card-sub">${escapeHtml(subtitleText)}</p>
   `;
     header.appendChild(icon);
     header.appendChild(titleWrapper);
@@ -205,22 +63,22 @@ export function buildChrisTitusPage(translations, _settings) {
         .filter(item => item != null && item !== '')
         .map((item) => `<li>${escapeHtml(item)}</li>`)
         .join('');
-    card.appendChild(el('ul', 'ctt-bullets', bulletHtml));
+    card.appendChild(el('ul', 'tool-card-bullets', bulletHtml));
 
     // Action Buttons
-    const actions = el('div', 'ctt-actions');
-    const launchBtn = el('button', 'ctt-launch', `<span class="ctt-iconmono">›_</span>Launch Tool`);
-    const ghBtn = el('button', 'ctt-outline', `<span class="ctt-iconmono">↗</span>GitHub`);
+    const actions = el('div', 'tool-card-actions');
+    const launchBtn = el('button', 'tool-card-launch', `<span class="tool-card-iconmono">›_</span>Launch Tool`);
+    const ghBtn = el('button', 'tool-card-outline', `<span class="tool-card-iconmono">↗</span>GitHub`);
     actions.appendChild(launchBtn);
     actions.appendChild(ghBtn);
     card.appendChild(actions);
 
     // Status
-    const status = el('div', 'ctt-status');
+    const status = el('div', 'tool-card-status');
     card.appendChild(status);
 
     const setStatus = (msg, type = '') => {
-        status.className = 'ctt-status';
+        status.className = 'tool-card-status';
         status.textContent = '';
         if (msg) {
             const toastType = (type && type.toLowerCase().includes('error')) ? 'error' : 'success';
@@ -228,41 +86,119 @@ export function buildChrisTitusPage(translations, _settings) {
         }
     };
 
-    // PowerShell Command
-    const psCmd = [
-        'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
-        `"irm christitus.com/win | iex"`
-    ].join(' ');
+    const terminal = el('div', 'winget-terminal');
+    const termHeader = el('div', 'winget-terminal-header');
+    const dots = el('div', 'winget-terminal-dots');
+    for (let i = 0; i < 3; i++) dots.appendChild(document.createElement('span'));
+    const termTitle = el('span', 'winget-terminal-title', 'irm christitus.com/win | iex');
+    const stopBtn = el('button', 'winget-terminal-stop', 'Stop');
+    stopBtn.type = 'button';
+    termHeader.appendChild(dots);
+    termHeader.appendChild(termTitle);
+    termHeader.appendChild(stopBtn);
+    const termBody = el('div', 'winget-terminal-body');
+    terminal.appendChild(termHeader);
+    terminal.appendChild(termBody);
+    card.appendChild(terminal);
+
+    let running = false;
+    let cancelled = false;
+    let currentLine = null;
+    let replaceCurrent = false;
+    const MAX_LINES = 400;
+
+    const stripAnsiSequences = (text) => String(text)
+        .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+        .replace(/\x1b\][^\x07]*\x07/g, '')
+        .replace(/\x08/g, '');
+
+    function newLine(className) {
+        currentLine = document.createElement('div');
+        currentLine.className = 'winget-terminal-line';
+        if (className) currentLine.classList.add(className);
+        termBody.appendChild(currentLine);
+        while (termBody.childElementCount > MAX_LINES) {
+            termBody.removeChild(termBody.firstElementChild);
+        }
+    }
+
+    function appendOutput(text, className) {
+        const clean = stripAnsiSequences(text).replace(/\r\n/g, '\n');
+        for (const chunk of clean.split(/(\n|\r)/)) {
+            if (chunk === '\n') {
+                currentLine = null;
+                replaceCurrent = false;
+            } else if (chunk === '\r') {
+                replaceCurrent = true;
+            } else if (chunk) {
+                if (!currentLine) newLine(className);
+                if (replaceCurrent) {
+                    currentLine.textContent = chunk;
+                    replaceCurrent = false;
+                } else {
+                    currentLine.textContent += chunk;
+                }
+            }
+        }
+        termBody.scrollTop = termBody.scrollHeight;
+    }
+
+    function printLine(text, className) {
+        currentLine = null;
+        newLine(className);
+        currentLine.textContent = text;
+        currentLine = null;
+        termBody.scrollTop = termBody.scrollHeight;
+    }
 
     launchBtn.addEventListener('click', async () => {
-        try {
-            launchBtn.disabled = true;
-            setStatus('Downloading & launching Windows Utility...');
+        if (running) return;
+        running = true;
+        cancelled = false;
+        launchBtn.disabled = true;
 
-            if (window.api?.runChrisTitus) {
-                const result = await window.api.runChrisTitus();
-                if (result && !result.error) {
-                    setStatus('Utility launched in a new PowerShell window. Follow the on-screen prompts.', 'success');
-                } else {
-                    const errMsg = result && result.error ? result.error : 'Unknown error';
-                    setStatus('Failed to launch: ' + errMsg, 'error');
-                }
-            } else if (window.api?.runCommand) {
-                const runResult = await window.api.runCommand(psCmd);
-                if (runResult && !runResult.error) {
-                    setStatus('Utility launched in a new PowerShell window. Follow the on-screen prompts.', 'success');
-                } else {
-                    const errMsg = runResult && runResult.error ? runResult.error : 'Unknown error';
-                    setStatus('Failed to launch: ' + errMsg, 'error');
-                }
-            } else {
-                await navigator.clipboard.writeText(psCmd);
-                setStatus('Electron bridge not found. Command copied to clipboard — run in elevated PowerShell.', 'error');
+        termBody.innerHTML = '';
+        currentLine = null;
+        replaceCurrent = false;
+        closeOtherTerminals(terminal);
+        openTerminal(terminal);
+        printLine('> irm christitus.com/win | iex', 'is-cmd');
+
+        const unsubscribe = window.api.onChrisTitusOutput(({ stream, text }) => {
+            appendOutput(text, stream === 'stderr' ? 'is-stderr' : undefined);
+        });
+
+        try {
+            const result = await window.api.runChrisTitus();
+            if (result && result.success) {
+                printLine('✔ Utility finished.', 'is-ok');
+                setStatus('Windows Utility finished.', 'success');
+            } else if (!result || !result.cancelled) {
+                printLine(`✖ ${result?.error || `Utility exited with code ${result?.code ?? '?'}.`}`, 'is-err');
+                setStatus('Failed to launch: ' + (result?.error || 'Unknown error'), 'error');
             }
         } catch (e) {
-            setStatus('Failed to launch: ' + e.message, 'error');
+            if (!cancelled) {
+                printLine(`✖ ${e.message}`, 'is-err');
+                setStatus('Failed to launch: ' + e.message, 'error');
+            }
         } finally {
+            unsubscribe();
+            running = false;
+            terminal.classList.remove('running');
             launchBtn.disabled = false;
+        }
+    });
+
+    stopBtn.addEventListener('click', async () => {
+        if (!running) return;
+        cancelled = true;
+        stopBtn.disabled = true;
+        try {
+            await window.api.cancelChrisTitus();
+            printLine('■ Stopped.', 'is-warn');
+        } finally {
+            stopBtn.disabled = false;
         }
     });
 

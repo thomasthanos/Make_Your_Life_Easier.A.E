@@ -4,16 +4,16 @@
  */
 
 import { debug } from './utils.js';
-import { EventListenerManager, attachTooltipHandlers, buttonStateManager, detachAllDownloadUI, initDownloadListener } from './managers.js';
-import { INFO_ICON, MENU_ICON, MENU_ICONS, toast, openInfoModal, createMenuButton, hideAppLoader } from './components.js';
+import { attachTooltipHandlers, buttonStateManager, detachAllDownloadUI, initDownloadListener } from './managers.js';
+import { INFO_ICON, MENU_ICON, toast, openInfoModal, createMenuButton, hideAppLoader } from './components.js';
 import {
-    loadSettings, saveSettings, applyTheme, loadTranslations, getTranslations, setTranslations,
-    initializeAutoUpdater, ensureSidebarVersion, checkForChangelog
+    loadSettings, saveSettings, applyTheme, loadTranslations, setTranslations,
+    initializeAutoUpdater, ensureSidebarVersion, checkForChangelog,
+    syncPref, hydratePrefsFromCloud
 } from './services.js';
 
 // Default window dimensions (must match window-manager.js MAIN_WINDOW)
 const DEFAULT_WINDOW_WIDTH = 1100;
-const INSTALL_PAGE_WIDTH = 1400;
 const DEFAULT_WINDOW_HEIGHT = 750;
 
 // ============================================
@@ -24,20 +24,17 @@ let currentPage = null;
 let translations = {};
 let settings = {};
 
-// Page-specific event listener manager (cleaned up on page change)
-let pageEventManager = new EventListenerManager();
-
 // Use singleton buttonStateManager from managers.js (imported above)
 
 // Menu keys for sidebar navigation
 const menuKeys = [
     'install_apps',
+    'system_cleaner',
     'crack_installer',
     'system_maintenance',
     'activate_autologin',
     'bios',
     'spicetify',
-    'password_manager',
     'christitus',
     'debloat'
 ];
@@ -78,6 +75,7 @@ function updateHeader() {
             const newLang = (settings.lang === 'en') ? 'gr' : 'en';
             settings.lang = newLang;
             saveSettings(settings);
+            syncPref('lang', newLang);
             const dropdown = document.getElementById('titlebar-menu-dropdown');
             if (dropdown) dropdown.classList.add('hidden');
             translations = await loadTranslations(newLang);
@@ -149,7 +147,7 @@ function updateHeader() {
 // MENU RENDERING
 // ============================================
 
-export function renderMenu() {
+function renderMenu() {
     const menuList = document.getElementById('menu-list');
     if (!menuList) return;
 
@@ -162,7 +160,14 @@ export function renderMenu() {
 
     menuKeys.forEach((key) => {
         const label = (translations.menu && translations.menu[key]) || key;
-        const li = createMenuButton(key, label, MENU_ICONS);
+        const li = createMenuButton(key, label);
+        const btn = li.querySelector('button[data-key]');
+        if (btn) {
+            const info = translations.menu_info && translations.menu_info[key];
+            btn.setAttribute('data-tooltip', info ? `${label}\n${info}` : label);
+            btn.setAttribute('aria-label', label);
+            attachTooltipHandlers(btn);
+        }
         menuList.appendChild(li);
         const sepType = separatorsAfter[key];
         if (sepType) {
@@ -201,20 +206,14 @@ export function renderMenu() {
 // PAGE LOADING
 // ============================================
 
-function setHeader(text) {
-    const header = document.getElementById('header');
-    if (header) header.textContent = text;
-}
-
 export async function loadPage(key) {
     // Detach download UI callbacks before destroying DOM (downloads continue in background)
     detachAllDownloadUI();
 
-    // Cleanup previous page's event listeners and button states
-    if (pageEventManager) {
-        pageEventManager.cleanup();
-    }
+    // Cleanup previous page's button states
     buttonStateManager.resetAll();
+
+    document.querySelectorAll('.bios-overlay').forEach((el) => el.remove());
 
     // Cleanup any pending debounced functions from previous page
     const prevSearchInput = document.querySelector('.search-input-styled');
@@ -227,10 +226,9 @@ export async function loadPage(key) {
     const content = document.getElementById('content');
     if (!content) return;
     
-    // Determine target window size
-    const isInstall = key === 'install_apps';
-    const targetWidth = isInstall ? 1400 : 1100;
-    const targetHeight = 750;
+    // Single consistent window width (no per-page resize)
+    const targetWidth = DEFAULT_WINDOW_WIDTH;
+    const targetHeight = DEFAULT_WINDOW_HEIGHT;
     
     // Resize BEFORE changing content so old content fills the new size
     try {
@@ -243,91 +241,56 @@ export async function loadPage(key) {
 
     // Now clear and load new content
     content.innerHTML = '';
+    try {
     // Import page builders dynamically to avoid circular dependencies
     const { buildInstallPageWingetWithCategories, buildCrackInstallerPage } = await import('./pages/installers.js');
     const { buildActivateAutologinPage } = await import('./pages/activation.js');
-    const { buildMaintenancePage, buildDebloatPage, showRestartDialog } = await import('./pages/tools.js');
+    const { buildCleanerPage, buildMaintenancePage, buildDebloatPage, showRestartDialog } = await import('./pages/tools.js');
     const { buildSpicetifyPage } = await import('./pages/media.js');
-    const { buildPasswordManagerPage, buildChrisTitusPage } = await import('./pages/utilities.js');
+    const { buildChrisTitusPage } = await import('./pages/utilities.js');
 
     switch (key) {
         case 'install_apps': {
-            const headerText = (translations.pages && translations.pages.install_title) ||
-                (translations.menu && translations.menu.install_apps) ||
-                'install_apps';
-            setHeader(headerText);
             content.appendChild(await buildInstallPageWingetWithCategories(translations, settings, buttonStateManager));
             break;
         }
 
         case 'activate_autologin': {
-            const headerText = (translations.pages && (translations.pages.activate_autologin_title || translations.pages.activate_title)) ||
-                (translations.menu && translations.menu.activate_autologin) ||
-                'activate_autologin';
-            setHeader(headerText);
             content.appendChild(await buildActivateAutologinPage(translations, settings, buttonStateManager));
             break;
         }
 
         case 'system_maintenance': {
-            const headerText = (translations.pages && (translations.pages.system_maintenance_title || translations.pages.maintenance_title)) ||
-                (translations.menu && translations.menu.system_maintenance) ||
-                'system_maintenance';
-            setHeader(headerText);
             content.appendChild(await buildMaintenancePage(translations, settings, buttonStateManager));
             break;
         }
 
+        case 'system_cleaner': {
+            content.appendChild(await buildCleanerPage(translations, settings, buttonStateManager));
+            break;
+        }
+
         case 'crack_installer': {
-            const headerText = (translations.pages && (translations.pages.crack_title || translations.pages.crack_installer_title)) ||
-                (translations.menu && translations.menu.crack_installer) ||
-                'crack_installer';
-            setHeader(headerText);
             content.appendChild(await buildCrackInstallerPage(translations, settings, buttonStateManager));
             break;
         }
 
         case 'spicetify': {
-            const headerText = (translations.pages && (translations.pages.spicetify_title)) ||
-                (translations.menu && translations.menu.spicetify) ||
-                'spicetify';
-            setHeader(headerText);
             content.appendChild(await buildSpicetifyPage(translations, settings, buttonStateManager));
             break;
         }
 
         case 'debloat': {
-            const headerText = (translations.pages && (translations.pages.debloat_title)) ||
-                (translations.menu && translations.menu.debloat) ||
-                'Debloat & Windows Tweaks';
-            setHeader(headerText);
             content.appendChild(await buildDebloatPage(translations, settings, buttonStateManager));
             break;
         }
 
-        case 'password_manager': {
-            const headerText = (translations.pages && (translations.pages.password_manager_title)) ||
-                (translations.menu && translations.menu.password_manager) ||
-                'password_manager';
-            setHeader(headerText);
-            content.appendChild(await buildPasswordManagerPage(translations, settings, buttonStateManager));
-            break;
-        }
-
         case 'christitus': {
-            const headerText = (translations.pages && (translations.pages.christitus_title)) ||
-                (translations.menu && translations.menu.christitus) ||
-                'christitus';
-            setHeader(headerText);
             content.appendChild(await buildChrisTitusPage(translations, settings, buttonStateManager));
             break;
         }
 
         case 'bios': {
-            const headerText = (translations.pages && (translations.pages.bios_title)) ||
-                (translations.menu && translations.menu.bios) ||
-                'bios';
-            setHeader(headerText);
             content.innerHTML = '';
             showRestartDialog(translations, menuKeys, loadPage);
             break;
@@ -335,6 +298,10 @@ export async function loadPage(key) {
 
         default:
             content.textContent = '';
+    }
+    } catch (err) {
+        debug('error', 'Failed to load page:', err);
+        toast('Failed to load this page.', { type: 'error', title: 'Error' });
     }
 }
 
@@ -348,6 +315,8 @@ export async function init() {
         if (window.api?.updateLoadingProgress) {
             await window.api.updateLoadingProgress(20, 'Loading settings...').catch(() => {});
         }
+
+        await hydratePrefsFromCloud();
 
         // Load settings
         settings = loadSettings();
@@ -405,9 +374,7 @@ export async function init() {
         if (window.api && typeof window.api.signalAppReady === 'function') {
             try {
                 // Determine target size for the default page so main can size the window before showing it
-                const defaultKey = defaultButton?.dataset?.key;
-                const isInstallDefault = defaultKey === 'install_apps';
-                const targetWidthDefault = isInstallDefault ? INSTALL_PAGE_WIDTH : DEFAULT_WINDOW_WIDTH;
+                const targetWidthDefault = DEFAULT_WINDOW_WIDTH;
                 const targetHeightDefault = DEFAULT_WINDOW_HEIGHT;
                 await window.api.signalAppReady(targetWidthDefault, targetHeightDefault);
                 debug('info', 'Signaled app ready to main process');
@@ -439,8 +406,5 @@ export async function init() {
 export {
     translations,
     settings,
-    pageEventManager,
-    menuKeys,
-    updateHeader,
-    setHeader
+    menuKeys
 };

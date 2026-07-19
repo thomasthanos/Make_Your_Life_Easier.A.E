@@ -6,12 +6,29 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { app } = require('electron');
 const { clientFor } = require('./http-utils');
 const { sanitizeFilename, extFromUrl, removeFileIfExistsSync, cleanupExtractDirs } = require('./file-utils');
 
 const activeDownloads = new Map();
-const downloadedFiles = [];
-const extractedDirs = [];
+const downloadedFiles = new Set();
+const extractedDirs = new Set();
+
+let cleanupManifestPath = null;
+function manifestPath() {
+  if (!cleanupManifestPath) {
+    try { cleanupManifestPath = path.join(app.getPath('userData'), 'pending-cleanup.json'); } catch { cleanupManifestPath = null; }
+  }
+  return cleanupManifestPath;
+}
+
+function persistTracking() {
+  try {
+    const p = manifestPath();
+    if (!p) return;
+    fs.writeFileSync(p, JSON.stringify({ files: [...downloadedFiles], dirs: [...extractedDirs] }));
+  } catch { }
+}
 
 const STALL_TIMEOUT_MS = 120000;
 const STALL_CHECK_INTERVAL_MS = 5000;
@@ -50,19 +67,23 @@ function startDownload(id, url, dest, mainWindow) {
 
   const downloadsDir = path.join(os.homedir(), 'Downloads');
 
-  const start = (downloadUrl) => {
+  const start = (downloadUrl, redirects = 0) => {
     // Add timeout for slow connections (5 minutes)
     const DOWNLOAD_TIMEOUT = 5 * 60 * 1000;
-    let downloadTimeout;
-    
+
     const req = clientFor(downloadUrl).get(downloadUrl, (res) => {
       // Clear connection timeout once response starts
       if (downloadTimeout) clearTimeout(downloadTimeout);
       // Handle HTTP redirects (3xx)
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
+        if (redirects >= 5) {
+          activeDownloads.delete(id);
+          safeSend(mainWindow, 'download-event', { id, status: 'error', error: 'Too many redirects' });
+          return;
+        }
         const nextUrl = new URL(res.headers.location, downloadUrl).toString();
-        start(nextUrl);
+        start(nextUrl, redirects + 1);
         return;
       }
 
@@ -86,7 +107,7 @@ function startDownload(id, url, dest, mainWindow) {
       } else {
         const sanitizedDest = sanitizeFilename(dest || '');
         const cd = res.headers['content-disposition'] || '';
-        const cdMatch = cd.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i);
+        const cdMatch = cd.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i);
         const cdFile = cdMatch ? path.basename(cdMatch[1]) : '';
         const chosenExt = path.extname(sanitizedDest) || (cdFile ? path.extname(cdFile) : '') || extFromUrl(downloadUrl) || '.bin';
         const base = sanitizedDest ? path.basename(sanitizedDest, path.extname(sanitizedDest)) : (cdFile ? path.basename(cdFile, path.extname(cdFile)) : 'download');
@@ -99,11 +120,17 @@ function startDownload(id, url, dest, mainWindow) {
 
       // Cleanup existing files
       removeFileIfExistsSync(finalPath);
-      cleanupExtractDirs(finalName, destDirForCleanup);
+      // Only cleanup extracted dirs for Downloads-folder downloads.
+      // For absolute-path destinations (e.g. sparkle.zip in AppData) we skip
+      // cleanupExtractDirs because it would delete the install directory that
+      // shares the same base name (sparkle/ alongside sparkle.zip).
+      if (!isAbsolute) {
+        cleanupExtractDirs(finalName, destDirForCleanup);
+      }
 
       const total = parseInt(res.headers['content-length'] || '0', 10);
       const file = fs.createWriteStream(tempPath);
-      const d = { response: res, file, total, received: 0, paused: false, filePath: tempPath, finalPath, lastProgress: Date.now(), cleaned: false };
+      const d = { response: res, file, total, received: 0, filePath: tempPath, finalPath, lastProgress: Date.now(), cleaned: false };
       activeDownloads.set(id, d);
 
       safeSend(mainWindow, 'download-event', { id, status: 'started', total });
@@ -139,7 +166,6 @@ function startDownload(id, url, dest, mainWindow) {
       }, STALL_CHECK_INTERVAL_MS);
 
       res.on('data', (chunk) => {
-        if (d.paused) return;
         d.received += chunk.length;
         d.lastProgress = Date.now(); // Update last progress timestamp
         const percent = total > 0 ? Math.round((d.received / total) * 100) : null;
@@ -157,29 +183,37 @@ function startDownload(id, url, dest, mainWindow) {
           // Clear stall detection since download is done
           if (d.stallInterval) clearInterval(d.stallInterval);
 
-          // Retry rename with delay to handle transient file locks
-          const tryRename = (attempts) => {
-            if (d.cleaned) return;
-            fs.rename(tempPath, finalPath, (err) => {
-              if (err && attempts > 0 && (err.code === 'EBUSY' || err.code === 'EPERM' || err.code === 'ENOENT')) {
-                setTimeout(() => tryRename(attempts - 1), 500);
+          // Avoid race condition with cancellation cleanup
+          (async () => {
+            try {
+              if (d.cleaned) return;
+              await fs.promises.rename(tempPath, finalPath);
+              if (d.cleaned) {
+                // Canceled during rename
+                removeFileIfExistsSync(finalPath);
                 return;
               }
-              if (err) { cleanup(err.message); return; }
               activeDownloads.delete(id);
-
-              // ✅ Track with limit
               trackDownloadedFile(finalPath);
-
               safeSend(mainWindow, 'download-event', { id, status: 'complete', path: finalPath });
-            });
-          };
-          tryRename(3);
+            } catch (err) {
+              if (d.cleaned) return;
+              activeDownloads.delete(id);
+              removeFileIfExistsSync(tempPath);
+              removeFileIfExistsSync(finalPath);
+              safeSend(mainWindow, 'download-event', { id, status: 'error', error: 'Failed to finalize file: ' + err.message });
+            }
+          })();
         });
       });
     });
 
+    const downloadTimeout = setTimeout(() => {
+      req.destroy(new Error('Connection timed out'));
+    }, DOWNLOAD_TIMEOUT);
+
     req.on('error', (err) => {
+      if (downloadTimeout) clearTimeout(downloadTimeout);
       activeDownloads.delete(id);
       safeSend(mainWindow, 'download-event', { id, status: 'error', error: err.message });
     });
@@ -193,77 +227,18 @@ function startDownload(id, url, dest, mainWindow) {
 }
 
 /**
- * Pause a download
- * @param {string} id - Download identifier
- * @param {BrowserWindow} mainWindow - Window to send events to
- */
-function pauseDownload(id, mainWindow) {
-  const d = activeDownloads.get(id);
-  if (d && d.response) {
-    d.paused = true;
-    try { d.response.pause(); } catch { }
-    safeSend(mainWindow, 'download-event', { id, status: 'paused' });
-  }
-}
-
-/**
- * Resume a download
- * @param {string} id - Download identifier
- * @param {BrowserWindow} mainWindow - Window to send events to
- */
-function resumeDownload(id, mainWindow) {
-  const d = activeDownloads.get(id);
-  if (d && d.response) {
-    d.paused = false;
-    try { d.response.resume(); } catch { }
-    safeSend(mainWindow, 'download-event', { id, status: 'resumed' });
-  }
-}
-
-/**
- * Cancel a download
- * @param {string} id - Download identifier
- * @param {BrowserWindow} mainWindow - Window to send events to
- */
-function cancelDownload(id, mainWindow) {
-  const d = activeDownloads.get(id);
-  if (d) {
-    // Mark as cleaned first to prevent finish handler from racing
-    d.cleaned = true;
-    // Clear stall detection interval
-    if (d.stallInterval) clearInterval(d.stallInterval);
-    try {
-      if (d.response) {
-        d.response.removeAllListeners();
-        d.response.destroy();
-      }
-    } catch { }
-    try {
-      if (d.file) {
-        d.file.removeAllListeners();
-        d.file.close(() => {
-          try { d.file.destroy(); } catch { }
-        });
-      }
-    } catch { }
-    try { if (d.filePath) fs.unlink(d.filePath, () => { }); } catch { }
-    activeDownloads.delete(id);
-    safeSend(mainWindow, 'download-event', { id, status: 'cancelled' });
-  }
-}
-
-/**
  * Track a downloaded file with size limit
  * @param {string} filePath - File path to track
  */
 function trackDownloadedFile(filePath) {
-  if (!downloadedFiles.includes(filePath)) {
-    downloadedFiles.push(filePath);
+  if (!downloadedFiles.has(filePath)) {
+    downloadedFiles.add(filePath);
 
     // ✅ Remove oldest entries if over limit
-    while (downloadedFiles.length > MAX_TRACKED_ITEMS) {
-      downloadedFiles.shift();
+    while (downloadedFiles.size > MAX_TRACKED_ITEMS) {
+      downloadedFiles.delete(downloadedFiles.values().next().value);
     }
+    persistTracking();
   }
 }
 
@@ -272,13 +247,14 @@ function trackDownloadedFile(filePath) {
  * @param {string} dirPath - Directory path
  */
 function trackExtractedDir(dirPath) {
-  if (!extractedDirs.includes(dirPath)) {
-    extractedDirs.push(dirPath);
+  if (!extractedDirs.has(dirPath)) {
+    extractedDirs.add(dirPath);
 
     // ✅ Remove oldest entries if over limit
-    while (extractedDirs.length > MAX_TRACKED_ITEMS) {
-      extractedDirs.shift();
+    while (extractedDirs.size > MAX_TRACKED_ITEMS) {
+      extractedDirs.delete(extractedDirs.values().next().value);
     }
+    persistTracking();
   }
 }
 
@@ -298,34 +274,60 @@ function cleanupOnQuit(debug) {
     }
   };
 
+  const tempDir = os.tmpdir().toLowerCase();
+  const isInTemp = (target) => typeof target === 'string' && target.toLowerCase().startsWith(tempDir);
+
+  // Only remove downloaded files that live in the OS temp dir — never delete
+  // completed downloads the user intentionally saved to their Downloads folder.
   for (const filePath of downloadedFiles) {
-    tryRemovePath(filePath);
-    const altFilePath = filePath.replace(/_/g, ' ');
-    if (altFilePath !== filePath) {
-      tryRemovePath(altFilePath);
-    }
+    if (isInTemp(filePath)) tryRemovePath(filePath);
   }
 
+  // Extraction directories are app-created artifacts — safe to remove.
   for (const dirPath of extractedDirs) {
     tryRemovePath(dirPath);
-    const altDirPath = dirPath.replace(/_/g, ' ');
-    if (altDirPath !== dirPath) {
-      tryRemovePath(altDirPath);
-    }
   }
 
-  // ✅ Clear arrays after cleanup
-  downloadedFiles.length = 0;
-  extractedDirs.length = 0;
+  // ✅ Clear sets after cleanup
+  downloadedFiles.clear();
+  extractedDirs.clear();
+  try { const p = manifestPath(); if (p && fs.existsSync(p)) fs.unlinkSync(p); } catch { }
+}
+
+function cleanupLeftoverDownloads(debug) {
+  try {
+    const p = manifestPath();
+    if (!p || !fs.existsSync(p)) return;
+
+    let manifest;
+    try { manifest = JSON.parse(fs.readFileSync(p, 'utf-8')) || {}; } catch { manifest = {}; }
+
+    const tempDir = os.tmpdir().toLowerCase();
+    const isInTemp = (target) => typeof target === 'string' && target.toLowerCase().startsWith(tempDir);
+
+    // Files: only remove leftovers in temp — never the user's saved downloads.
+    // Dirs: extraction artifacts, always safe to remove.
+    const targets = [...(manifest.files || []).filter(isInTemp), ...(manifest.dirs || [])];
+
+    for (const target of targets) {
+      try {
+        if (target && fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
+      } catch (err) {
+        if (debug) debug('warn', 'Failed to remove leftover download:', target, err.message);
+      }
+    }
+
+    fs.unlinkSync(p);
+    if (debug && targets.length) debug('success', `Cleaned ${targets.length} leftover download item(s)`);
+  } catch (err) {
+    if (debug) debug('warn', 'Failed to clean leftover downloads:', err.message);
+  }
 }
 
 
 module.exports = {
   startDownload,
-  pauseDownload,
-  resumeDownload,
-  cancelDownload,
   cleanupOnQuit,
-  trackExtractedDir,
-  trackDownloadedFile
+  cleanupLeftoverDownloads,
+  trackExtractedDir
 };

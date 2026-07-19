@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Make Your Life Easier — Windows Desktop Toolkit</title>
+    <meta name="description" content="Make Your Life Easier is a modern Windows desktop toolkit: app installer hub, system maintenance, debloat tools, Spotify customization, activation helpers and automatic updates.">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --surface-0: #08090b;
+            --surface-1: #101216;
+            --surface-2: #171a20;
+            --surface-3: #20242b;
+            --accent: #0a84ff;
+            --accent-hover: #409cff;
+            --success: #30d158;
+            --text-primary: rgba(255, 255, 255, 0.94);
+            --text-secondary: rgba(235, 238, 245, 0.66);
+            --text-tertiary: rgba(235, 238, 245, 0.34);
+            --border: rgba(255, 255, 255, 0.10);
+            --border-strong: rgba(255, 255, 255, 0.18);
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --radius-pill: 999px;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+            background:
+                radial-gradient(90% 60% at 50% -10%, rgba(10, 132, 255, 0.16), transparent 60%),
+                radial-gradient(60% 40% at 90% 20%, rgba(10, 132, 255, 0.07), transparent 70%),
+                var(--surface-0);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        ::selection {
+            background: rgba(10, 132, 255, 0.35);
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: rgba(8, 9, 11, 0.78);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+
+        nav {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 0.85rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.7rem;
+            font-size: 1.05rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+
+        .logo-mark {
+            display: grid;
+            place-items: center;
+            width: 2.15rem;
+            height: 2.15rem;
+            border-radius: 9px;
+            background: linear-gradient(180deg, var(--accent-hover), var(--accent));
+            box-shadow: 0 8px 22px rgba(10, 132, 255, 0.35);
+            font-size: 1.05rem;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: color 0.18s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        .btn-primary,
+        .btn-ghost {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-height: 44px;
+            padding: 0.7rem 1.4rem;
+            border-radius: var(--radius-pill);
+            font-size: 0.92rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+        }
+
+        .btn-primary {
+            color: #fff;
+            background: linear-gradient(180deg, var(--accent-hover), var(--accent));
+            box-shadow: 0 8px 24px rgba(10, 132, 255, 0.35);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(180deg, #56a8ff, var(--accent-hover));
+            transform: translateY(-1px);
+        }
+
+        .btn-ghost {
+            color: var(--text-secondary);
+            border: 1px solid var(--border-strong);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .btn-ghost:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.09);
+        }
+
+        .hero {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 6.5rem 1.5rem 4.5rem;
+            text-align: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.95rem;
+            border-radius: var(--radius-pill);
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-bottom: 1.6rem;
+        }
+
+        .hero-badge .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 10px rgba(48, 209, 88, 0.8);
+        }
+
+        .hero h1 {
+            font-size: clamp(2.3rem, 6vw, 3.6rem);
+            font-weight: 800;
+            line-height: 1.12;
+            letter-spacing: -0.02em;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(120deg, var(--accent-hover), #7cc0ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .hero p {
+            max-width: 620px;
+            margin: 1.3rem auto 2.4rem;
+            font-size: 1.08rem;
+            color: var(--text-secondary);
+        }
+
+        .hero-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.9rem;
+            flex-wrap: wrap;
+        }
+
+        .hero-meta {
+            margin-top: 1.4rem;
+            font-size: 0.82rem;
+            color: var(--text-tertiary);
+        }
+
+        .section {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 4rem 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.9rem;
+            font-weight: 800;
+            letter-spacing: -0.015em;
+            text-align: center;
+        }
+
+        .section-subtitle {
+            max-width: 560px;
+            margin: 0.7rem auto 2.8rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.98rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .feature-card {
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(27, 30, 36, 0.85), rgba(14, 16, 20, 0.9));
+            transition: border-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .feature-card:hover {
+            border-color: rgba(10, 132, 255, 0.45);
+            transform: translateY(-3px);
+        }
+
+        .feature-icon {
+            display: grid;
+            place-items: center;
+            width: 2.6rem;
+            height: 2.6rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.02rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+        }
+
+        .feature-card p {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+        }
+
+        .download-wrap {
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-strong);
+            background:
+                radial-gradient(120% 90% at 50% -20%, rgba(10, 132, 255, 0.16), transparent 60%),
+                linear-gradient(180deg, rgba(27, 30, 36, 0.92), rgba(14, 16, 20, 0.96));
+            padding: 3rem 2rem;
+        }
+
+        .download-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1rem;
+            max-width: 820px;
+            margin: 0 auto;
+        }
+
+        .download-card {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+            padding: 1.6rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            background: var(--surface-1);
+        }
+
+        .download-card.recommended {
+            border-color: rgba(10, 132, 255, 0.55);
+            box-shadow: 0 0 0 1px rgba(10, 132, 255, 0.25), 0 18px 44px rgba(10, 132, 255, 0.12);
+        }
+
+        .download-tag {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent-hover);
+        }
+
+        .download-card h3 {
+            font-size: 1.15rem;
+            font-weight: 800;
+        }
+
+        .download-card p {
+            font-size: 0.86rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .download-card .btn-primary,
+        .download-card .btn-ghost {
+            width: 100%;
+            margin-top: auto;
+        }
+
+        .download-note {
+            max-width: 640px;
+            margin: 1.8rem auto 0;
+            text-align: center;
+            font-size: 0.82rem;
+            color: var(--text-tertiary);
+        }
+
+        .download-note a {
+            color: var(--text-secondary);
+        }
+
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 2.2rem 1.5rem 2.6rem;
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.6rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: color 0.18s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--text-primary);
+        }
+
+        footer p {
+            font-size: 0.8rem;
+            color: var(--text-tertiary);
+        }
+
+        footer p a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        @media (max-width: 640px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding: 4.5rem 1.25rem 3.5rem;
+            }
+
+            .download-wrap {
+                padding: 2rem 1.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="#" class="logo">
+                <span class="logo-mark">⚡</span>
+                Make Your Life Easier
+            </a>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#download">Download</a></li>
+                <li><a href="changelog.html">Changelog</a></li>
+                <li><a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E">GitHub</a></li>
+            </ul>
+            <a href="#download" class="btn-primary">Download</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="hero-badge"><span class="dot"></span> Free · Windows 10 / 11 · x64</div>
+            <h1>Your Windows toolkit,<br><span>all in one place</span></h1>
+            <p>Install apps, maintain and debloat your system, customize Spotify and keep everything up to date — from one modern desktop app with automatic updates.</p>
+            <div class="hero-actions">
+                <a href="https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe" class="btn-primary">⬇ Download for Windows</a>
+                <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E" class="btn-ghost">View on GitHub</a>
+            </div>
+            <p class="hero-meta">Modern custom installer · Portable version available · Auto-updates built in</p>
+        </section>
+
+        <section id="features" class="section">
+            <h2 class="section-title">Everything you need</h2>
+            <p class="section-subtitle">One app, all the tools you reach for when setting up or maintaining a Windows machine.</p>
+            <div class="features-grid">
+                <article class="feature-card">
+                    <div class="feature-icon">📦</div>
+                    <h3>App Installer Hub</h3>
+                    <p>Install and manage popular apps through winget and curated custom downloads, without hunting for setup files.</p>
+                </article>
+                <article class="feature-card">
+                    <div class="feature-icon">🧹</div>
+                    <h3>System Maintenance</h3>
+                    <p>Clean temp files, manage startup entries and keep your system responsive with one-click maintenance tools.</p>
+                </article>
+                <article class="feature-card">
+                    <div class="feature-icon">⚙️</div>
+                    <h3>Debloat &amp; Optimization</h3>
+                    <p>Launch trusted Windows debloat and optimization tooling when you need a deeper cleanup.</p>
+                </article>
+                <article class="feature-card">
+                    <div class="feature-icon">🎵</div>
+                    <h3>Spotify Customization</h3>
+                    <p>Personalize your Spotify client with themes and tweaks, applied safely in a couple of clicks.</p>
+                </article>
+                <article class="feature-card">
+                    <div class="feature-icon">🔑</div>
+                    <h3>Activation Helpers</h3>
+                    <p>Quick access to activation and licensing helper tools, gathered in one convenient place.</p>
+                </article>
+                <article class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Automatic Updates</h3>
+                    <p>The app keeps itself current — updates download in the background and apply seamlessly on restart.</p>
+                </article>
+            </div>
+        </section>
+
+        <section id="download" class="section">
+            <div class="download-wrap">
+                <h2 class="section-title">Download</h2>
+                <p class="section-subtitle">Pick the version that suits you — both are always the latest release.</p>
+                <div class="download-grid">
+                    <article class="download-card recommended">
+                        <span class="download-tag">Recommended</span>
+                        <h3>Installer</h3>
+                        <p>Modern setup with Desktop &amp; Start Menu shortcuts, uninstaller and automatic updates.</p>
+                        <a href="https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe" class="btn-primary">Download Installer</a>
+                    </article>
+                    <article class="download-card">
+                        <span class="download-tag">No install</span>
+                        <h3>Portable</h3>
+                        <p>Single executable — run it from anywhere, no installation or admin rights required.</p>
+                        <a href="https://downloads.thomast.uk/MakeYourLifeEasier-Portable.exe" class="btn-ghost">Download Portable</a>
+                    </article>
+                </div>
+                <p class="download-note">Having trouble downloading? Grab it from the <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest">latest GitHub release</a> instead.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-links">
+            <a href="changelog.html">Changelog</a>
+            <a href="readme.html">About</a>
+            <a href="copyright.html">Copyright</a>
+            <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/issues">Report Issue</a>
+            <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases">Releases</a>
+        </div>
+        <p>Made by <a href="https://github.com/thomasthanos">ThomasThanos</a> · Free &amp; open source</p>
+    </footer>
+</body>
+</html>
