@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('installer', {
     install: (options) => ipcRenderer.invoke('installer-install', options),
     launchAndClose: () => ipcRenderer.invoke('installer-launch'),
     uninstall: () => ipcRenderer.invoke('installer-uninstall'),
+    setHeight: (height) => ipcRenderer.invoke('installer-set-height', height),
     close: () => ipcRenderer.invoke('installer-close'),
     minimize: () => ipcRenderer.invoke('installer-minimize'),
     onProgress: (callback) => {

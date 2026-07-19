@@ -996,6 +996,15 @@ function setupInstallerModeHandlers(selfInstaller, getInstallerWindow, debug) {
         return { success: true };
     });
 
+    ipcMain.handle('installer-set-height', (event, height) => {
+        const win = getInstallerWindow();
+        if (!win || win.isDestroyed()) return;
+        const h = Math.max(300, Math.min(700, Math.round(height) || 0));
+        const [w, prevH] = win.getSize();
+        const [x, y] = win.getPosition();
+        win.setBounds({ x, y: Math.round(y + (prevH - h) / 2), width: w, height: h });
+    });
+
     ipcMain.handle('installer-close', () => app.quit());
 
     ipcMain.handle('installer-minimize', () => {

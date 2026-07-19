@@ -54,7 +54,7 @@ body {
   border: 1px solid var(--border-strong);
   background:
     radial-gradient(120% 80% at 50% -10%, rgba(10, 132, 255, 0.14), transparent 60%),
-    linear-gradient(180deg, rgba(27, 30, 36, 0.96), rgba(14, 16, 20, 0.98));
+    linear-gradient(180deg, rgb(27, 30, 36), rgb(14, 16, 20));
   box-shadow:
     0 24px 60px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -364,14 +364,30 @@ button:disabled {
   justify-content: center;
   align-items: center;
   text-align: center;
-  gap: 18px;
+  gap: 14px;
+  padding-bottom: 34px;
 }
 
 .progress-phase {
   margin: 0;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-primary);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.progress-percent {
+  margin: 0;
+  font-size: 52px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #fff, #9ecbff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .progress-track {

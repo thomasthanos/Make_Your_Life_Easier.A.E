@@ -8,10 +8,18 @@ const views = {
     uninstall: el('view-uninstall')
 };
 
+const viewHeights = {
+    config: 560,
+    progress: 400,
+    done: 430,
+    uninstall: 340
+};
+
 function showView(name) {
     for (const key of Object.keys(views)) {
         views[key].hidden = key !== name;
     }
+    api.setHeight(viewHeights[name] || 560);
 }
 
 function fmtCount(n) {
@@ -29,11 +37,12 @@ const phaseLabels = {
 function setProgress(data) {
     const percent = Math.max(0, Math.min(100, data.percent || 0));
     el('progress-fill').style.width = percent + '%';
+    el('progress-percent').textContent = percent + '%';
     el('progress-phase').textContent = phaseLabels[data.phase] || 'Working…';
     if (data.phase === 'copying' && data.done && data.total) {
-        el('progress-detail').textContent = `${percent}% · ${fmtCount(data.done)}/${fmtCount(data.total)} files`;
+        el('progress-detail').textContent = `${fmtCount(data.done)} / ${fmtCount(data.total)} files`;
     } else {
-        el('progress-detail').textContent = percent + '%';
+        el('progress-detail').textContent = ' ';
     }
 }
 
@@ -103,9 +112,11 @@ async function initUninstall() {
         showView('progress');
         el('progress-phase').textContent = 'Removing…';
         el('progress-fill').style.width = '60%';
+        el('progress-percent').textContent = '60%';
         el('progress-detail').textContent = 'Deleting files and shortcuts';
         const result = await api.uninstall();
         el('progress-fill').style.width = '100%';
+        el('progress-percent').textContent = '100%';
 
         el('done-badge').textContent = result && result.success ? '✓' : '✕';
         el('done-badge').classList.toggle('is-error', !(result && result.success));
