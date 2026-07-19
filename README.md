@@ -25,7 +25,7 @@
 
 ## 📥 Installation
 
-**Download:** [Installer](https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest/download/MakeYourLifeEasier-installer.exe) • [Portable](https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest/download/MakeYourLifeEasier-Portable.exe)
+**Download:** [Installer](https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe) • [Portable](https://downloads.thomast.uk/MakeYourLifeEasier-Portable.exe)
 
 **Requirements:** Windows 10/11 (64-bit) • 4GB RAM • 200MB Storage
 
