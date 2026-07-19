@@ -1,6 +1,6 @@
 {
   "name": "make-your-life-easier",
-  "version": "4.6.1",
+  "version": "4.6.2",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "homepage": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E",
@@ -53,6 +53,10 @@
         "filter": [
           "Updater.exe"
         ]
+      },
+      {
+        "from": "config/app-update.yml",
+        "to": "app-update.yml"
       }
     ],
     "asar": true,

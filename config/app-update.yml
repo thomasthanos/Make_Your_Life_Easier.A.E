@@ -1,0 +1,3 @@
+provider: generic
+url: https://downloads.thomast.uk
+updaterCacheDirName: make-your-life-easier-updater

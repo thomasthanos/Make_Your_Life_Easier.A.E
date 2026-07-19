@@ -27,6 +27,10 @@
       "filter": [
         "Updater.exe"
       ]
+    },
+    {
+      "from": "config/app-update.yml",
+      "to": "app-update.yml"
     }
   ],
   "asar": true,
@@ -51,5 +55,9 @@
   "portable": {
     "artifactName": "MakeYourLifeEasier-Setup.exe",
     "unpackDirName": "MakeYourLifeEasier-Setup"
+  },
+  "publish": {
+    "provider": "generic",
+    "url": "https://downloads.thomast.uk"
   }
 }

@@ -162,8 +162,12 @@ function configureAutoUpdater() {
         // electron-log not available
     }
 
+    const feedUrl = getFeedUrl();
+    if (feedUrl) {
+        autoUpdater.setFeedURL({ provider: 'generic', url: feedUrl });
+    }
+
     if (process.env.UPDATE_FEED_URL) {
-        autoUpdater.setFeedURL({ provider: 'generic', url: process.env.UPDATE_FEED_URL });
         try {
             autoUpdater.logger.warn(`UPDATE_FEED_URL override active: ${process.env.UPDATE_FEED_URL}`);
         } catch {
