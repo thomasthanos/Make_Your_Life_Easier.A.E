@@ -34,6 +34,7 @@ const userProfile = require('../modules/user-profile');
 const supabase = require('../modules/supabase');
 const settingsStore = require('../modules/settings-store');
 const oauth = require('../modules/oauth');
+const { profileFromUser } = require('../modules/auth-profile');
 const systemTools = require('../modules/system-tools');
 const spicetifyModule = require('../modules/spicetify');
 const archiveUtils = require('../modules/archive-utils');
@@ -222,12 +223,21 @@ app.whenReady().then(async () => {
     // Clean up any leftover update files from previous updates
     updater.cleanupUpdaterCache(debug);
 
+    try {
+        supabase.initialize(app.getPath('userData'));
+    } catch (err) {
+        debug('warn', 'Failed to initialize Supabase:', err.message);
+    }
+
     // Initialize user profile
     try {
         userProfile.initialize(app.getPath('userData'));
-        if (userProfile.get() && !(await supabase.getSessionUser())) {
+        const sessionUser = await supabase.getSessionUser();
+        if (userProfile.get() && !sessionUser) {
             debug('warn', 'Clearing cached user profile because the Supabase session is missing.');
             userProfile.clear();
+        } else if (!userProfile.get() && sessionUser) {
+            userProfile.set(profileFromUser(sessionUser));
         }
     } catch (err) {
         debug('warn', 'Failed to initialize user profile:', err.message);

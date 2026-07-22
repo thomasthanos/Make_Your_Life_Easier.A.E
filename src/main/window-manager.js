@@ -58,7 +58,6 @@ function createMainWindow(showWindow = true, preloadPath) {
             preload: preloadPath,
             nodeIntegration: false,
             contextIsolation: true,
-            backgroundThrottling: false,
             devTools: isDev
         }
     });

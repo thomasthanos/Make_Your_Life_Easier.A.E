@@ -90,9 +90,14 @@ function setupOAuthHandlers(oauth, userProfile, getMainWindow, supabase, setting
     });
 
     ipcMain.handle('logout', async () => {
-        await supabase.signOut();
-        userProfile.clear();
-        return { success: true };
+        try {
+            await supabase.signOut();
+            settingsStore.onSignedOut();
+            userProfile.clear();
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     });
 }
 

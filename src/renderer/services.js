@@ -698,11 +698,15 @@ export async function ensureSidebarVersion(_state = {}) {
                     openAccountModal(current, syncedSummary(all), {
                         onSignOut: async () => {
                             try {
-                                await window.api?.logout?.();
+                                const result = await window.api?.logout?.();
+                                if (!result?.success) {
+                                    throw new Error(result?.error || 'Sign out failed');
+                                }
+                                window.location.reload();
                             } catch (err) {
                                 debug('error', 'Logout failed:', err);
+                                toast('Could not sign out. Please try again.', { type: 'error', title: 'Account' });
                             }
-                            window.location.reload();
                         },
                         onReset: async () => {
                             try {

@@ -83,11 +83,10 @@ async function extractArchive(filePath, password, destDir, trackExtractedDir) {
         const items = fs.readdirSync(dir);
         const exes = items.filter(f => f.toLowerCase().endsWith('.exe'));
         if (exes.length === 0) { clearTimeout(timeout); return resolve(); }
-        const { spawn: sp } = require('child_process');
         let pending = exes.length;
         const done = () => { if (--pending === 0) { clearTimeout(timeout); resolve(); } };
         exes.forEach(exe => {
-          const kill = sp('taskkill', ['/F', '/IM', exe], { windowsHide: true, stdio: 'ignore' });
+          const kill = spawn('taskkill', ['/F', '/IM', exe], { windowsHide: true, stdio: 'ignore' });
           kill.on('close', done);
           kill.on('error', done);
         });

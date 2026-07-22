@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const { saveUpdateInfo, readAndClearUpdateInfo } = require('./update-info');
 const externalUpdater = require('./external-updater');
+const { acknowledgeUpdateHealth, readUpdateHealth, markerPaths } = require('./update-health');
 
 let pendingUpdateInfo = null;
 let isChecking = false;
@@ -179,17 +180,30 @@ function configureAutoUpdater() {
 async function cleanupExternalUpdaterLeftovers(debug) {
     if (!app.isPackaged) return;
 
-    // If we reached startup, the install dir is intact. Any leftover swap marker
-    // or staging dir is from an update that didn't complete; clearing them is safe.
-    await fs.promises.unlink(path.join(app.getPath('userData'), '.swap-pending')).catch(() => {});
+    const userDataPath = app.getPath('userData');
+    const health = readUpdateHealth(userDataPath);
+    const currentVersionAcknowledged = health.acknowledged && health.pendingVersion === app.getVersion();
+    await fs.promises.unlink(path.join(userDataPath, '.swap-pending')).catch(() => {});
 
     const installDir = path.dirname(process.execPath);
-    for (const suffix of ['.staging', '.backup']) {
-        const target = installDir + suffix;
+    await fs.promises.rm(installDir + '.staging', { recursive: true, force: true, maxRetries: 3, retryDelay: 1000 }).catch(() => {});
+
+    if (health.pending && !currentVersionAcknowledged) {
+        debug('info', `Keeping update backup until version ${health.pendingVersion} reports healthy startup.`);
+    } else {
+        const target = installDir + '.backup';
         try {
             await fs.promises.rm(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 1000 });
         } catch (err) {
             debug('warn', `Failed to remove leftover ${target}:`, err.message);
+        }
+
+        if (currentVersionAcknowledged) {
+            const markers = markerPaths(userDataPath);
+            await Promise.all([
+                fs.promises.unlink(markers.pendingPath).catch(() => {}),
+                fs.promises.unlink(markers.ackPath).catch(() => {})
+            ]);
         }
     }
 
@@ -460,6 +474,10 @@ function setupUpdaterIpcHandlers({ getUpdateWindow, getMainWindow, debug }) {
 
             if (mainWindow && !mainWindow.isVisible()) {
                 mainWindow.show();
+            }
+
+            if (size?.healthy !== false && acknowledgeUpdateHealth(app.getPath('userData'), app.getVersion())) {
+                debug('success', 'Acknowledged healthy startup to the external updater.');
             }
         } catch (err) {
             debug('warn', 'Error handling app-ready:', err.message);

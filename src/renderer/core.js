@@ -21,6 +21,7 @@ const DEFAULT_WINDOW_HEIGHT = 750;
 // ============================================
 
 let currentPage = null;
+let pageLoadGeneration = 0;
 let translations = {};
 let settings = {};
 
@@ -207,6 +208,8 @@ function renderMenu() {
 // ============================================
 
 export async function loadPage(key) {
+    const generation = ++pageLoadGeneration;
+
     // Detach download UI callbacks before destroying DOM (downloads continue in background)
     detachAllDownloadUI();
 
@@ -225,7 +228,13 @@ export async function loadPage(key) {
 
     const content = document.getElementById('content');
     if (!content) return;
-    
+
+    if (content.firstChild) {
+        content.classList.add('page-leaving');
+        await new Promise(resolve => setTimeout(resolve, 140));
+        if (generation !== pageLoadGeneration) return;
+    }
+
     // Single consistent window width (no per-page resize)
     const targetWidth = DEFAULT_WINDOW_WIDTH;
     const targetHeight = DEFAULT_WINDOW_HEIGHT;
@@ -239,67 +248,87 @@ export async function loadPage(key) {
         }
     } catch { }
 
+    if (generation !== pageLoadGeneration) return;
+
     // Now clear and load new content
-    content.innerHTML = '';
+    content.replaceChildren();
+    content.classList.remove('page-leaving');
     try {
-    // Import page builders dynamically to avoid circular dependencies
-    const { buildInstallPageWingetWithCategories, buildCrackInstallerPage } = await import('./pages/installers.js');
-    const { buildActivateAutologinPage } = await import('./pages/activation.js');
-    const { buildCleanerPage, buildMaintenancePage, buildDebloatPage, showRestartDialog } = await import('./pages/tools.js');
-    const { buildSpicetifyPage } = await import('./pages/media.js');
-    const { buildChrisTitusPage } = await import('./pages/utilities.js');
+        let page = null;
 
-    switch (key) {
-        case 'install_apps': {
-            content.appendChild(await buildInstallPageWingetWithCategories(translations, settings, buttonStateManager));
-            break;
+        switch (key) {
+            case 'install_apps': {
+                const { buildInstallPageWingetWithCategories } = await import('./pages/installers.js');
+                if (generation !== pageLoadGeneration) return;
+                page = await buildInstallPageWingetWithCategories(translations, settings, buttonStateManager);
+                break;
+            }
+
+            case 'activate_autologin': {
+                const { buildActivateAutologinPage } = await import('./pages/activation.js');
+                if (generation !== pageLoadGeneration) return;
+                page = await buildActivateAutologinPage(translations, settings, buttonStateManager);
+                break;
+            }
+
+            case 'system_maintenance': {
+                const { buildMaintenancePage } = await import('./pages/tools.js');
+                if (generation !== pageLoadGeneration) return;
+                page = await buildMaintenancePage(translations, settings, buttonStateManager);
+                break;
+            }
+
+            case 'system_cleaner': {
+                const { buildCleanerPage } = await import('./pages/tools.js');
+                if (generation !== pageLoadGeneration) return;
+                page = await buildCleanerPage(translations, settings, buttonStateManager);
+                break;
+            }
+
+            case 'crack_installer': {
+                const { buildCrackInstallerPage } = await import('./pages/installers.js');
+                if (generation !== pageLoadGeneration) return;
+                page = await buildCrackInstallerPage(translations, settings, buttonStateManager);
+                break;
+            }
+
+            case 'spicetify': {
+                const { buildSpicetifyPage } = await import('./pages/media.js');
+                if (generation !== pageLoadGeneration) return;
+                page = await buildSpicetifyPage(translations, settings, buttonStateManager);
+                break;
+            }
+
+            case 'debloat': {
+                const { buildDebloatPage } = await import('./pages/tools.js');
+                if (generation !== pageLoadGeneration) return;
+                page = await buildDebloatPage(translations, settings, buttonStateManager);
+                break;
+            }
+
+            case 'christitus': {
+                const { buildChrisTitusPage } = await import('./pages/utilities.js');
+                if (generation !== pageLoadGeneration) return;
+                page = await buildChrisTitusPage(translations, settings, buttonStateManager);
+                break;
+            }
+
+            case 'bios': {
+                const { showRestartDialog } = await import('./pages/tools.js');
+                if (generation !== pageLoadGeneration) return;
+                showRestartDialog(translations, menuKeys, loadPage);
+                return;
+            }
+
+            default:
+                return;
         }
 
-        case 'activate_autologin': {
-            content.appendChild(await buildActivateAutologinPage(translations, settings, buttonStateManager));
-            break;
+        if (generation === pageLoadGeneration && page) {
+            content.appendChild(page);
         }
-
-        case 'system_maintenance': {
-            content.appendChild(await buildMaintenancePage(translations, settings, buttonStateManager));
-            break;
-        }
-
-        case 'system_cleaner': {
-            content.appendChild(await buildCleanerPage(translations, settings, buttonStateManager));
-            break;
-        }
-
-        case 'crack_installer': {
-            content.appendChild(await buildCrackInstallerPage(translations, settings, buttonStateManager));
-            break;
-        }
-
-        case 'spicetify': {
-            content.appendChild(await buildSpicetifyPage(translations, settings, buttonStateManager));
-            break;
-        }
-
-        case 'debloat': {
-            content.appendChild(await buildDebloatPage(translations, settings, buttonStateManager));
-            break;
-        }
-
-        case 'christitus': {
-            content.appendChild(await buildChrisTitusPage(translations, settings, buttonStateManager));
-            break;
-        }
-
-        case 'bios': {
-            content.innerHTML = '';
-            showRestartDialog(translations, menuKeys, loadPage);
-            break;
-        }
-
-        default:
-            content.textContent = '';
-    }
     } catch (err) {
+        if (generation !== pageLoadGeneration) return;
         debug('error', 'Failed to load page:', err);
         toast('Failed to load this page.', { type: 'error', title: 'Error' });
     }
@@ -393,7 +422,7 @@ export async function init() {
         // Signal app ready even on error, to close update window
         if (window.api && typeof window.api.signalAppReady === 'function') {
             try {
-                await window.api.signalAppReady();
+                await window.api.signalAppReady(undefined, undefined, false);
             } catch { }
         }
         

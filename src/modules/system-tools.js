@@ -394,7 +394,6 @@ let _cleanerAdmin = null; // { dir, seq } | null
 
 function cleanerAdminPaths(dir) {
   return {
-    ready: path.join(dir, 'ready.flag'),
     alive: path.join(dir, 'alive.flag'),
     stop: path.join(dir, 'stop.flag')
   };
@@ -442,8 +441,6 @@ function Invoke-CleanerClean {
     $tasks = @($Tasks)
 ${CLEANER_CLEAN_BODY_PS}
 }
-
-Set-Content -LiteralPath (Join-Path $dir 'ready.flag') -Value 'ready' -Encoding UTF8
 
 while ($true) {
     if (Test-Path -LiteralPath (Join-Path $dir 'stop.flag')) { break }
@@ -527,9 +524,7 @@ async function enableCleanerAdminSession() {
     return { success: false, enabled: false, code: 'UAC_DENIED', error: 'Administrator access was not granted.' };
   }
 
-  // Wait for the worker's heartbeat (written every loop iteration) so the
-  // session is provably serving before we hand it out — ready.flag alone can
-  // race the first alive.flag write and get the session discarded immediately.
+  // Wait for the worker's heartbeat so the session is provably serving.
   const { alive } = cleanerAdminPaths(dir);
   const deadline = Date.now() + 20000;
   while (Date.now() < deadline) {

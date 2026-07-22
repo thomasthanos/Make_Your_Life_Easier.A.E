@@ -4,7 +4,8 @@
  */
 
 const { BrowserWindow, WebContentsView } = require('electron');
-const { supabase } = require('./supabase');
+const { getClient } = require('./supabase');
+const { profileFromUser } = require('./auth-profile');
 
 const REDIRECT_URI = process.env.OAUTH_REDIRECT_URI || 'http://localhost:5252';
 
@@ -92,16 +93,13 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
         const expected = new URL(redirectUri);
         const isValid = target.origin === expected.origin && target.pathname === expected.pathname;
         if (!settled && isValid) {
+          settled = true;
           handleCallback(target)
             .then((result) => {
-              if (settled) return;
-              settled = true;
               cleanup();
               resolve(result);
             })
             .catch((err) => {
-              if (settled) return;
-              settled = true;
               cleanup();
               reject(err);
             });
@@ -148,16 +146,8 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
   });
 }
 
-function toProfile(user, provider) {
-  const meta = (user && user.user_metadata) || {};
-  return {
-    name: meta.full_name || meta.name || meta.user_name || user?.email || 'User',
-    avatar: meta.avatar_url || meta.picture || null,
-    provider
-  };
-}
-
 async function loginWith(provider, parentWindow) {
+  const supabase = getClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: { redirectTo: REDIRECT_URI, skipBrowserRedirect: true }
@@ -179,7 +169,7 @@ async function loginWith(provider, parentWindow) {
     const user = exchange?.session?.user;
     if (!user) throw new Error('Failed to obtain Supabase session');
 
-    return toProfile(user, provider);
+    return profileFromUser(user, provider);
   }, parentWindow);
 }
 

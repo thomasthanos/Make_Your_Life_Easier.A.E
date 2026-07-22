@@ -14,8 +14,6 @@ const sharedSecurity = require('../modules/security');
 function configureAppSecurity() {
     // Enable dark mode for web contents
     app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
-    // Disable HTTP/2 for better compatibility
-    app.commandLine.appendSwitch('disable-http2');
 }
 
 /**

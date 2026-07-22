@@ -28,9 +28,7 @@ class ButtonStateManager {
         }
 
         const originalState = {
-            disabled: button.disabled,
-            innerHTML: button.innerHTML,
-            className: button.className
+            disabled: button.disabled
         };
 
         this.buttonStates.set(button, originalState);

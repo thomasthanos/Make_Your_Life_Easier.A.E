@@ -1,116 +1,61 @@
 require('dotenv').config({ quiet: true });
 
-const fs = require('fs');
-const path = require('path');
 const { app, safeStorage } = require('electron');
 const { createClient } = require('@supabase/supabase-js');
 const { debug } = require('./debug');
-
-function encryptionAvailable() {
-  try {
-    return safeStorage.isEncryptionAvailable();
-  } catch {
-    return false;
-  }
-}
+const { createSessionStorage } = require('./session-storage');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://oofcywdbmhmqpowmwykz.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vZmN5d2RibWhtcXBvd213eWt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDU5NTIsImV4cCI6MjA5ODU4MTk1Mn0.lu8JE-CfgcfPc3TaeDBFFu1nuwbihwtEgCr9wK0P9ps';
 
-let sessionPath = null;
-let cache = null;
+let client = null;
 
-function ensureLoaded() {
-  if (cache) return cache;
-  cache = {};
-  try {
-    if (!sessionPath) sessionPath = path.join(app.getPath('userData'), 'supabase-session.json');
-    if (fs.existsSync(sessionPath)) {
-      const raw = fs.readFileSync(sessionPath);
-      let text;
-      if (encryptionAvailable()) {
-        // Encrypted payload written by a previous run; fall back to plaintext for
-        // sessions saved before encryption was enabled (migrated on next persist).
-        try { text = safeStorage.decryptString(raw); }
-        catch { text = raw.toString('utf-8'); }
-      } else {
-        text = raw.toString('utf-8');
-      }
-      const trimmed = String(text || '').trim();
-      if (!trimmed || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) {
-        throw new Error('Stored Supabase session is not valid JSON.');
-      }
-      cache = JSON.parse(trimmed) || {};
-    }
-  } catch (err) {
-    debug('warn', 'Supabase session was invalid and has been reset:', err.message);
-    try {
-      if (sessionPath && fs.existsSync(sessionPath)) fs.unlinkSync(sessionPath);
-    } catch { }
-    cache = {};
+function initialize(userDataPath = app.getPath('userData')) {
+  if (client) return client;
+  if (!app.isReady()) {
+    throw new Error('Supabase must be initialized after Electron app.whenReady().');
   }
-  return cache;
+
+  const storage = createSessionStorage({ userDataPath, safeStorage });
+  client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      flowType: 'pkce',
+      storage
+    }
+  });
+  return client;
 }
 
-function persist() {
-  try {
-    if (!sessionPath) sessionPath = path.join(app.getPath('userData'), 'supabase-session.json');
-    const json = JSON.stringify(cache);
-    if (encryptionAvailable()) {
-      fs.writeFileSync(sessionPath, safeStorage.encryptString(json));
-    } else {
-      fs.writeFileSync(sessionPath, json, 'utf8');
-    }
-  } catch (err) {
-    debug('warn', 'Failed to persist Supabase session:', err.message);
-  }
+function getClient() {
+  if (!client) throw new Error('Supabase has not been initialized.');
+  return client;
 }
-
-const fileStorage = {
-  getItem(key) {
-    const store = ensureLoaded();
-    return Object.prototype.hasOwnProperty.call(store, key) ? store[key] : null;
-  },
-  setItem(key, value) {
-    ensureLoaded()[key] = value;
-    persist();
-  },
-  removeItem(key) {
-    delete ensureLoaded()[key];
-    persist();
-  }
-};
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
-    flowType: 'pkce',
-    storage: fileStorage
-  }
-});
 
 function isConfigured() {
   return Boolean(SUPABASE_URL) && Boolean(SUPABASE_ANON_KEY);
 }
 
 async function getSessionUser() {
-  const { data } = await supabase.auth.getSession();
+  const { data, error } = await getClient().auth.getSession();
+  if (error) throw error;
   return data?.session?.user || null;
 }
 
 async function signOut() {
-  try {
-    await supabase.auth.signOut();
-  } catch (err) {
-    debug('warn', 'Supabase signOut failed:', err.message);
+  const { error } = await getClient().auth.signOut();
+  if (error) {
+    debug('warn', 'Supabase signOut failed:', error.message);
+    throw error;
   }
 }
 
 module.exports = {
-  supabase,
+  initialize,
+  getClient,
   isConfigured,
   getSessionUser,
   signOut

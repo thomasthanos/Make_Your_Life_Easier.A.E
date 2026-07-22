@@ -1,17 +1,10 @@
 /**
  * Favicon Configuration
  * Central source of truth for all app icons/favicons
- * Used by both updater (preload) and renderer (display)
+ * Used by renderer pages when displaying application icons
  */
 
 const FaviconConfig = {
-  // External domains for DNS prefetch/preconnect
-  domains: [
-    'www.google.com',
-    'cdn.jsdelivr.net',
-    'i.postimg.cc'
-  ],
-
   // Custom icons mapped by package ID
   customIcons: {
     // IObit apps
@@ -155,29 +148,6 @@ const FaviconConfig = {
       const slug = String(appName || '').toLowerCase().replace(/\s+/g, '');
       return `https://www.google.com/s2/favicons?domain=${slug}.com&sz=64`;
     }
-  },
-
-  /**
-   * Get all URLs that should be preloaded
-   * @returns {string[]} Array of URLs to preload
-   */
-  getPreloadUrls() {
-    const urls = new Set();
-
-    // Add all custom icons
-    Object.values(this.customIcons).forEach(url => urls.add(url));
-
-    // Add all project icons
-    Object.values(this.projectIcons).forEach(url => urls.add(url));
-
-    // Add common favicon URLs from domain map
-    Object.values(this.domainMap).forEach(domain => {
-      if (!domain.startsWith('http')) {
-        urls.add(`https://www.google.com/s2/favicons?domain=${domain}&sz=64`);
-      }
-    });
-
-    return Array.from(urls);
   }
 };
 

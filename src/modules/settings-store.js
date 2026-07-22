@@ -1,14 +1,15 @@
 const fs = require('fs');
 const path = require('path');
-const { supabase, isConfigured, getSessionUser } = require('./supabase');
+const { getClient, isConfigured, getSessionUser } = require('./supabase');
 const userProfile = require('./user-profile');
 const { debug } = require('./debug');
+const { normalizeSettingsState, prepareSettingsForUser } = require('./settings-state');
 
 const TABLE = 'user_settings';
 const PUSH_DEBOUNCE_MS = 1500;
 
 let settingsPath = null;
-let local = { data: {}, updated_at: null };
+let local = normalizeSettingsState();
 let pushTimer = null;
 
 function initialize(userDataPath) {
@@ -21,12 +22,12 @@ function load() {
     if (settingsPath && fs.existsSync(settingsPath)) {
       const parsed = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
       if (parsed && typeof parsed === 'object') {
-        local = { data: parsed.data || {}, updated_at: parsed.updated_at || null };
+        local = normalizeSettingsState(parsed);
       }
     }
   } catch (err) {
     debug('warn', 'Failed to load settings:', err.message);
-    local = { data: {}, updated_at: null };
+    local = normalizeSettingsState();
   }
 }
 
@@ -62,7 +63,11 @@ function set(key, value) {
 }
 
 function clearAll() {
-  local = { data: {}, updated_at: isLoggedIn() ? new Date().toISOString() : local.updated_at };
+  local = {
+    data: {},
+    updated_at: isLoggedIn() ? new Date().toISOString() : local.updated_at,
+    owner_id: local.owner_id
+  };
   persist();
   if (isLoggedIn()) schedulePush();
 }
@@ -83,7 +88,14 @@ async function pushToCloud() {
       debug('warn', 'Settings push skipped: the cached account has no active Supabase session.');
       return;
     }
-    const { error } = await supabase
+
+    const prepared = prepareSettingsForUser(local, user.id);
+    if (prepared.changed) {
+      local = prepared.state;
+      persist();
+    }
+
+    const { error } = await getClient()
       .from(TABLE)
       .upsert({ user_id: user.id, data: local.data, updated_at: local.updated_at || new Date().toISOString() });
     if (error) debug('warn', 'Settings push failed:', error.message);
@@ -97,7 +109,17 @@ async function pullFromCloud() {
   try {
     const user = await getSessionUser();
     if (!user) return;
-    const { data: row, error } = await supabase
+
+    const prepared = prepareSettingsForUser(local, user.id);
+    if (prepared.changed) {
+      local = prepared.state;
+      persist();
+      if (prepared.reset) {
+        debug('warn', 'Local settings belonged to another account and were isolated before cloud sync.');
+      }
+    }
+
+    const { data: row, error } = await getClient()
       .from(TABLE)
       .select('data, updated_at')
       .eq('user_id', user.id)
@@ -112,13 +134,20 @@ async function pullFromCloud() {
     }
     const cloudNewer = row.updated_at && (!local.updated_at || row.updated_at > local.updated_at);
     if (cloudNewer) {
-      local = { data: row.data || {}, updated_at: row.updated_at };
+      local = normalizeSettingsState({ data: row.data, updated_at: row.updated_at, owner_id: user.id });
       persist();
     } else if (local.updated_at && (!row.updated_at || local.updated_at > row.updated_at)) {
       await pushToCloud();
     }
   } catch (err) {
     debug('warn', 'Settings pull error:', err.message);
+  }
+}
+
+function onSignedOut() {
+  if (pushTimer) {
+    clearTimeout(pushTimer);
+    pushTimer = null;
   }
 }
 
@@ -129,5 +158,6 @@ module.exports = {
   set,
   all,
   clearAll,
-  pullFromCloud
+  pullFromCloud,
+  onSignedOut
 };

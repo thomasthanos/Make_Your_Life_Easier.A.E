@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('api', {
   setWindowSize: (width, height) => ipcRenderer.invoke('window-set-size', { width, height }),
 
   // ── App Lifecycle ──
-  signalAppReady: (width, height) => ipcRenderer.invoke('app-ready', { width, height }),
+  signalAppReady: (width, height, healthy = true) => ipcRenderer.invoke('app-ready', { width, height, healthy }),
   updateLoadingProgress: (progress, message) => ipcRenderer.invoke('update-loading-progress', { progress, message }),
   getAssetPath: (relativePath) => ipcRenderer.invoke('get-asset-path', relativePath),
 

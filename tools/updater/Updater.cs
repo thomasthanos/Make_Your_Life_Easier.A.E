@@ -247,6 +247,8 @@ namespace MyleUpdater
             var backupDir = appDir + ".backup";
             var appExePath = Path.Combine(appDir, _opts.ExeName);
             var swapMarker = Path.Combine(_opts.UserData, ".swap-pending");
+            var healthPending = Path.Combine(_opts.UserData, ".update-health-pending");
+            var healthAck = Path.Combine(_opts.UserData, ".update-health-ok");
             bool installIntact = true;
 
             try
@@ -301,17 +303,45 @@ namespace MyleUpdater
 
                 Log.Write("swap complete");
                 FileOps.TryDeleteFile(swapMarker);
+                FileOps.TryDeleteFile(healthAck);
+                try
+                {
+                    File.WriteAllText(healthPending, _opts.Version);
+                }
+                catch (Exception ex)
+                {
+                    RollbackUnhealthyUpdate(null, appDir, backupDir);
+                    FileOps.TryDeleteFile(healthPending);
+                    throw new UpdateException(8, "Could not create the update recovery marker; the previous version was restored: " + ex.Message, ex);
+                }
                 WriteJustUpdatedFlag();
                 FileOps.TryDeleteFile(Path.Combine(_opts.UserData, ".update-failed"));
-                UpdateUninstallRegistry();
 
                 SetStatus("Starting application...");
-                bool relaunched = Relaunch(appExePath, appDir);
+                Process relaunched = Relaunch(appExePath, appDir);
 
-                FileOps.TryDeleteDir(backupDir, 5);
+                if (relaunched == null || !WaitForHealthAck(relaunched, healthAck))
+                {
+                    Log.Write("new version did not report a healthy startup; rolling back");
+                    SetStatus("Restoring previous version...", Color.FromArgb(230, 160, 60));
+                    Reveal();
+                    RollbackUnhealthyUpdate(relaunched, appDir, backupDir);
+                    FileOps.TryDeleteFile(healthPending);
+                    FileOps.TryDeleteFile(healthAck);
+                    FileOps.TryDeleteFile(Path.Combine(_opts.UserData, ".just-updated"));
+                    throw new UpdateException(8, "The new version did not start correctly; the previous version was restored.");
+                }
+
+                UpdateUninstallRegistry();
+                FileOps.TryDeleteFile(healthPending);
+                FileOps.TryDeleteFile(healthAck);
+                if (!FileOps.TryDeleteDir(backupDir, 5))
+                {
+                    Log.Write("healthy update completed, but backup cleanup will be retried on next start");
+                }
 
                 Log.Write("update finished successfully");
-                ExitCode = relaunched ? 0 : 8;
+                ExitCode = 0;
             }
             catch (UpdateException ex)
             {
@@ -452,23 +482,92 @@ namespace MyleUpdater
             catch (Exception ex) { Log.Write("registry update failed: " + ex.Message); }
         }
 
-        bool Relaunch(string appExePath, string appDir)
+        bool WaitForHealthAck(Process launched, string healthAck)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(90);
+            while (DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    if (File.Exists(healthAck) && string.Equals(File.ReadAllText(healthAck).Trim(), _opts.Version, StringComparison.Ordinal))
+                    {
+                        Log.Write("received healthy startup acknowledgement for v" + _opts.Version);
+                        return true;
+                    }
+                }
+                catch (Exception ex) { Log.Write("health acknowledgement read failed: " + ex.Message); }
+
+                try
+                {
+                    if (launched != null && launched.HasExited)
+                    {
+                        Log.Write("new application exited before health acknowledgement");
+                        return false;
+                    }
+                }
+                catch { return false; }
+
+                Thread.Sleep(500);
+            }
+
+            Log.Write("timed out waiting for healthy startup acknowledgement");
+            return false;
+        }
+
+        void RollbackUnhealthyUpdate(Process launched, string appDir, string backupDir)
+        {
+            if (launched != null)
+            {
+                try
+                {
+                    if (!launched.HasExited)
+                    {
+                        var kill = Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "taskkill",
+                            Arguments = "/PID " + launched.Id + " /T /F",
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        });
+                        if (kill != null) kill.WaitForExit(10000);
+                    }
+                }
+                catch (Exception ex) { Log.Write("failed to stop unhealthy version: " + ex.Message); }
+            }
+
+            Thread.Sleep(1000);
+            var failedDir = appDir + ".failed";
+            FileOps.TryDeleteDir(failedDir, 3);
+            try
+            {
+                FileOps.RetryMove(appDir, failedDir, 10);
+                FileOps.RetryMove(backupDir, appDir, 10);
+                FileOps.TryDeleteDir(failedDir, 3);
+                Log.Write("previous version restored after failed health check");
+            }
+            catch (Exception ex)
+            {
+                throw new UpdateException(7, "Health check failed and rollback failed: " + ex.Message, ex);
+            }
+        }
+
+        Process Relaunch(string appExePath, string appDir)
         {
             try
             {
-                Process.Start(new ProcessStartInfo
+                var process = Process.Start(new ProcessStartInfo
                 {
                     FileName = appExePath,
                     WorkingDirectory = appDir,
                     UseShellExecute = true
                 });
                 Log.Write("relaunched " + appExePath);
-                return true;
+                return process;
             }
             catch (Exception ex)
             {
                 Log.Write("relaunch failed: " + ex.Message);
-                return false;
+                return null;
             }
         }
     }

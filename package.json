@@ -1,12 +1,14 @@
 {
   "name": "make-your-life-easier",
-  "version": "4.6.3",
+  "version": "4.6.4",
   "description": "A modern, user-friendly desktop application with auto-updater",
   "author": "ThomasThanos <thomasthanos2@icloud.com>",
   "homepage": "https://thomasthanos.github.io/Make_Your_Life_Easier.A.E",
   "main": "src/main/index.js",
   "scripts": {
     "dev": "cls && electron . --no-updater",
+    "lint": "eslint --config config/eslint.config.js .",
+    "test": "node --test tests/*.test.js",
     "build-all": "cls && (if not exist src\\resources\\updater mkdir src\\resources\\updater) && %SystemRoot%\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /nologo /target:winexe /optimize+ /out:src\\resources\\updater\\Updater.exe /r:System.IO.Compression.FileSystem.dll /r:System.IO.Compression.dll /win32icon:src\\assets\\icons\\hacker.ico tools\\updater\\Updater.cs && electron-builder --win portable zip && node tools/patch-latest-yml.js && electron-builder --config config/electron-builder.setup.json && node tools/clean-dist.js"
   },
   "dependencies": {
