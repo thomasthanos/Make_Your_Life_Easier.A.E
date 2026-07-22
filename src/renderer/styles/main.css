@@ -1961,7 +1961,7 @@ input[type="password"],
 input[type="email"],
 select {
   width: 100%;
-  padding: 1rem 1rem;
+  padding: 1rem;
   border: 1px solid var(--gloss-rim);
   border-top-color: var(--gloss-rim-top);
   border-radius: 16px;
@@ -5063,7 +5063,7 @@ body.sidebar-expanded .installer-page {
 
 .installer-toolbar {
   flex: 0 0 auto;
-  padding: 0.625rem 0.625rem;
+  padding: 0.625rem;
   border: 1px solid rgba(255, 255, 255, 0.085);
   border-top-color: rgba(255, 255, 255, 0.15);
   border-radius: 16px;
@@ -6263,7 +6263,7 @@ body.sidebar-expanded .debloat-panel-copy > p {
   align-items: flex-start;
   gap: 0.625rem;
   min-width: 0;
-  padding: 0.875rem 0.875rem;
+  padding: 0.875rem;
 }
 
 .debloat-capability + .debloat-capability {
@@ -7446,7 +7446,7 @@ body.sidebar-expanded #menu-list {
   flex: 1 1 auto;
   gap: 0.125rem;
   margin: 0;
-  padding: 0.625rem 0.625rem 0.625rem;
+  padding: 0.625rem;
   box-sizing: border-box;
   overflow: hidden;
 }
