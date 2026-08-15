@@ -45,14 +45,21 @@ function safeSend(mainWindow, channel, data) {
 // Maximum items to track (prevent unbounded growth)
 const MAX_TRACKED_ITEMS = 50;
 
+// Some vendor CDNs (AMD, for one) bounce requests that don't look like they came
+// from a browser. Node sends no User-Agent at all by default.
+const DEFAULT_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) MakeYourLifeEasier'
+};
+
 /**
  * Start a download
  * @param {string} id - Unique download identifier
  * @param {string} url - URL to download
  * @param {string} dest - Destination filename or path
  * @param {BrowserWindow} mainWindow - Window to send events to
+ * @param {Object} [headers] - Extra request headers (e.g. a Referer the CDN requires)
  */
-function startDownload(id, url, dest, mainWindow) {
+function startDownload(id, url, dest, mainWindow, headers) {
   // Validate URL protocol - only allow http/https
   try {
     const parsed = new URL(url);
@@ -67,11 +74,13 @@ function startDownload(id, url, dest, mainWindow) {
 
   const downloadsDir = path.join(os.homedir(), 'Downloads');
 
+  const requestHeaders = { ...DEFAULT_HEADERS, ...(headers || {}) };
+
   const start = (downloadUrl, redirects = 0) => {
     // Add timeout for slow connections (5 minutes)
     const DOWNLOAD_TIMEOUT = 5 * 60 * 1000;
 
-    const req = clientFor(downloadUrl).get(downloadUrl, (res) => {
+    const req = clientFor(downloadUrl).get(downloadUrl, { headers: requestHeaders }, (res) => {
       // Clear connection timeout once response starts
       if (downloadTimeout) clearTimeout(downloadTimeout);
       // Handle HTTP redirects (3xx)

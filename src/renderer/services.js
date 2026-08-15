@@ -782,6 +782,9 @@ export async function ensureSidebarVersion(_state = {}) {
 // CUSTOM APPS DATA
 // ============================================
 
+// Entries with a `resolver` key look up their current download URL at install
+// time (see src/modules/version-resolver.js). The `url` field is the fallback
+// used when that lookup fails — keep it pointing at a known-good build.
 export const CUSTOM_APPS = [
     {
         id: 'AdvancedInstaller.Crack',
@@ -798,22 +801,25 @@ export const CUSTOM_APPS = [
         category: 'Media'
     },
     {
-        id: 'Nvidia.GeForceExperience',
-        name: 'NVIDIA GeForce Experience',
-        url: 'https://us.download.nvidia.com/GFE/GFEClient/3.28.0.417/GeForce_Experience_v3.28.0.417.exe',
+        id: 'Nvidia.App',
+        name: 'NVIDIA App',
+        resolver: 'nvidia-app',
+        url: 'https://us.download.nvidia.com/nvapp/client/11.0.8.299/NVIDIA_app_v11.0.8.299.exe',
         ext: 'exe',
         category: 'Hardware'
     },
     {
         id: 'AMD.AdrenalinSoftware',
         name: 'AMD Graphics Driver',
-        url: 'https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-24.12.1-win10-win11-dec2024-rdna.exe',
+        resolver: 'amd-adrenalin',
+        url: 'https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.7.1-minimalsetup-260724_web.exe',
         ext: 'exe',
         category: 'Hardware'
     },
     {
         id: 'BetterDiscord.Dropbox',
         name: 'BetterDiscord',
+        resolver: 'betterdiscord',
         url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&dl=1',
         ext: 'exe',
         category: 'Communication'
@@ -842,6 +848,7 @@ export const CUSTOM_APPS = [
     {
         id: 'Cursor.Dropbox',
         name: 'Cursor',
+        resolver: 'cursor',
         url: 'https://www.dropbox.com/scl/fi/bjjx57hosduostifzkjjr/Cursor.exe?rlkey=o60g8k5ct0j36bwysfk9sh53l&dl=1',
         ext: 'exe',
         category: 'Development'

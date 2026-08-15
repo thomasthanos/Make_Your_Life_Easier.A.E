@@ -29,6 +29,7 @@ function getDeveloperUrl(pkgId) {
             'Proton.ProtonMail': 'https://proton.me/mail/download',
             'Proton.ProtonAuthenticator': 'https://proton.me/authenticator/download',
             'Proton.Proton Authenticator': 'https://proton.me/authenticator/download',
+            'NordSecurity.NordPass': 'https://nordpass.com/download/',
             'Google.GoogleDrive': 'https://drive.google.com/drive/my-drive',
             'Google.Chrome': 'https://www.google.com/chrome/',
             'GitHub.GitHubDesktop': 'https://desktop.github.com/',
@@ -106,7 +107,7 @@ function getDeveloperUrl(pkgId) {
             revouninstaller: 'revouninstaller.com/products/revo-uninstaller-free/',
             stremio: 'stremio.com/downloads',
             apple: 'apple.com/itunes/',
-            nvidia: 'nvidia.com/en-us/geforce/geforce-experience/',
+            nvidia: 'nvidia.com/en-us/software/nvidia-app/',
             amd: 'amd.com/en/support/download/drivers.html'
         };
         const domain = domainMap[publisher] || `${publisher}.com`;
@@ -475,6 +476,51 @@ function matchWingetId(appId, pkgId) {
         if (aParts[0] === pParts[0] && aParts[1] === pParts[1]) return true;
     }
     return false;
+}
+
+// ============================================
+// PYTHON VERSION LINE RESOLUTION
+// ============================================
+
+// Winget treats every Python minor line as its own package (Python.Python.3.14
+// is not an upgrade path from Python.Python.3.13), so a pinned ID installs that
+// line forever. Ask winget which lines exist and use the newest stable one.
+const PYTHON_ID_PREFIX = 'Python.Python.3.';
+const PYTHON_LINE_RE = /^Python\.Python\.3\.(\d+)$/i;
+const PRERELEASE_RE = /\d+(?:a|b|rc)\d+/i;
+
+let pythonIdPromise = null;
+
+async function resolveLatestPythonId(fallbackId) {
+    const fallbackMinor = Number((String(fallbackId).match(PYTHON_LINE_RE) || [])[1] ?? -1);
+
+    try {
+        const result = await window.api.runCommand(
+            `winget search --id ${PYTHON_ID_PREFIX} --source winget --accept-source-agreements`
+        );
+        const raw = `${result.stdout || ''}\n${result.stderr || ''}`;
+
+        let best = null;
+        for (const entry of parseWingetColumns(raw)) {
+            const m = PYTHON_LINE_RE.exec(entry.id);
+            if (!m) continue;
+            // Skip lines that only ship alphas/betas/RCs — python.org stable only
+            if (entry.version && PRERELEASE_RE.test(entry.version)) continue;
+            const minor = Number(m[1]);
+            if (minor > (best ?? fallbackMinor)) best = minor;
+        }
+
+        if (best !== null) return `${PYTHON_ID_PREFIX}${best}`;
+    } catch (err) {
+        debug('warn', 'Failed to resolve latest Python line:', err);
+    }
+
+    return fallbackId;
+}
+
+function getLatestPythonId(fallbackId) {
+    if (!pythonIdPromise) pythonIdPromise = resolveLatestPythonId(fallbackId);
+    return pythonIdPromise;
 }
 
 // ============================================
@@ -882,10 +928,13 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     }
 
     function applySelectedIds(ids) {
-        const idSet = new Set((ids || []).map((x) => String(x)));
+        // Collapse every Python line to one key so a saved selection survives the
+        // catalog moving from e.g. 3.14 to 3.15.
+        const normalize = (id) => (PYTHON_LINE_RE.test(id) ? PYTHON_ID_PREFIX : id);
+        const idSet = new Set((ids || []).map((x) => normalize(String(x))));
         container.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
             const li = cb.closest('li');
-            if (li && li.dataset.appId) cb.checked = idSet.has(li.dataset.appId);
+            if (li && li.dataset.appId) cb.checked = idSet.has(normalize(li.dataset.appId));
         });
         updateActionButtonsState();
     }
@@ -921,6 +970,13 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         const ids = Array.isArray(appsData?.apps) ? appsData.apps : [];
         const categories = {};
 
+        // Swap the pinned Python line for the newest one winget offers. The JSON
+        // value stays the floor, so an offline machine keeps working.
+        const pythonIdx = ids.findIndex((id) => typeof id === 'string' && PYTHON_LINE_RE.test(id));
+        if (pythonIdx >= 0) {
+            ids[pythonIdx] = await getLatestPythonId(ids[pythonIdx]);
+        }
+
         ids.forEach((id) => {
             let name;
             if (typeof id === 'string') {
@@ -942,7 +998,8 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 name: cApp.name,
                 custom: true,
                 url: cApp.url,
-                ext: cApp.ext
+                ext: cApp.ext,
+                resolver: cApp.resolver
             });
         });
 
@@ -987,6 +1044,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     li.dataset.isCustom = 'true';
                     if (app.url) li.dataset.customUrl = app.url;
                     if (app.ext) li.dataset.customExt = app.ext;
+                    if (app.resolver) li.dataset.customResolver = app.resolver;
                 }
 
                 const checkbox = document.createElement('input');
@@ -1615,10 +1673,11 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     async function installCustomPackage(li) {
         const appName = li.dataset.appName || li.dataset.appId;
-        const url = li.dataset.customUrl;
+        const fallbackUrl = li.dataset.customUrl;
         const ext = li.dataset.customExt || 'zip';
+        const resolverKey = li.dataset.customResolver;
 
-        if (!url) {
+        if (!fallbackUrl) {
             throw new Error('Download URL missing for custom package');
         }
 
@@ -1636,6 +1695,25 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             itemProgressWrap.classList.remove('hidden');
             // Start indeterminate until we get real progress
             if (itemProgressFill) itemProgressFill.classList.remove('determinate');
+            if (itemProgressLabel) itemProgressLabel.textContent = '';
+        }
+
+        // Vendor links carry the version in the path, so ask for the current one.
+        // A failed lookup falls through to the static URL rather than the install.
+        let url = fallbackUrl;
+        let headers;
+        if (resolverKey) {
+            if (itemProgressLabel) itemProgressLabel.textContent = 'Resolving latest...';
+            try {
+                const resolved = await window.api?.resolveDownloadUrl?.(resolverKey, fallbackUrl);
+                if (resolved?.url) url = resolved.url;
+                if (resolved?.headers) headers = resolved.headers;
+                if (resolved && !resolved.resolved) {
+                    debug('warn', `Using fallback URL for ${appName}:`, resolved.error);
+                }
+            } catch (err) {
+                debug('warn', `Version lookup failed for ${appName}:`, err);
+            }
             if (itemProgressLabel) itemProgressLabel.textContent = '';
         }
 
@@ -1710,7 +1788,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             });
 
             try {
-                window.api.downloadStart(downloadId, url, dest);
+                window.api.downloadStart(downloadId, url, dest, headers);
             } catch (err) {
                 downloadStore.delete(storeKey);
                 reject(err);

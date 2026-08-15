@@ -36,8 +36,9 @@ contextBridge.exposeInMainWorld('api', {
   onUpdateStatus: (callback) => onEvent('update-status', callback),
 
   // ── Download Manager ──
-  downloadStart: (id, url, dest) => ipcRenderer.send('download-start', { id, url, dest }),
+  downloadStart: (id, url, dest, headers) => ipcRenderer.send('download-start', { id, url, dest, headers }),
   onDownloadEvent: (callback) => onEvent('download-event', callback),
+  resolveDownloadUrl: (key, fallbackUrl) => ipcRenderer.invoke('resolve-download-url', key, fallbackUrl),
 
   // ── Winget Upgrade (streaming) ──
   checkWingetUpgrade: () => ipcRenderer.invoke('winget-upgrade-check'),

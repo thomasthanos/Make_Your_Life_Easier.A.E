@@ -58,6 +58,9 @@ const FaviconConfig = {
     'Stremio.Stremio': 'https://www.google.com/s2/favicons?domain=stremio.com&sz=128',
     'Apple.iTunes': 'https://www.google.com/s2/favicons?domain=apple.com&sz=128',
     'Malwarebytes.Malwarebytes': 'https://www.google.com/s2/favicons?domain=malwarebytes.com&sz=128',
+
+    // Security - NordPass needs its own icon, the nordsecurity domainMap points at NordVPN
+    'NordSecurity.NordPass': 'https://www.google.com/s2/favicons?domain=nordpass.com&sz=128',
     
     // Google
     'Google.GoogleDrive': 'https://www.google.com/s2/favicons?domain=https://drive.google.com/drive/my-drive&sz=128',

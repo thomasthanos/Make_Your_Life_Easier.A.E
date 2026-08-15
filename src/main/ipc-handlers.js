@@ -8,6 +8,7 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const versionResolver = require('../modules/version-resolver');
 
 function setupWindowHandlers(getMainWindow) {
     ipcMain.handle('window-minimize', () => {
@@ -383,10 +384,16 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
 
 function setupDownloadHandlers(downloadManager, getMainWindow) {
     ipcMain.removeAllListeners('download-start');
-    ipcMain.on('download-start', (event, { id, url, dest }) => {
+    ipcMain.on('download-start', (event, { id, url, dest, headers }) => {
         const win = getMainWindow();
         if (!win) return;
-        downloadManager.startDownload(id, url, dest, win);
+        downloadManager.startDownload(id, url, dest, win, headers);
+    });
+
+    // Resolves the current download URL for vendor apps whose installer link
+    // carries a version in the path. Falls back to the caller's static URL.
+    ipcMain.handle('resolve-download-url', async (event, key, fallbackUrl) => {
+        return versionResolver.resolveDownloadUrl(key, fallbackUrl);
     });
 }
 
