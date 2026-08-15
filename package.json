@@ -80,7 +80,7 @@
       "artifactName": "MakeYourLifeEasier-win.${ext}",
       "icon": "src/assets/icons/hacker.ico",
       "signtoolOptions": {
-        "certificateSubjectName": "ThomasThanos",
+        "certificateFile": "config/signing/certificate.pfx",
         "publisherName": "ThomasThanos",
         "signingHashAlgorithms": [
           "sha256"
