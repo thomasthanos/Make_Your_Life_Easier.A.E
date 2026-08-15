@@ -3,7 +3,7 @@
  * Contains UI components like header, modals, toasts, error cards
  */
 
-import { escapeHtml } from './utils.js';
+import { debug, escapeHtml } from './utils.js';
 
 // ============================================
 // ICON DEFINITIONS
@@ -408,6 +408,30 @@ export async function openInfoModal() {
     document.body.appendChild(overlay);
 }
 
+/**
+ * Replace a broken avatar image with an initial-letter placeholder.
+ * Discord/Google avatar URLs change whenever the user updates their picture, so an
+ * old cached URL 404s and would otherwise leave a broken-image icon in the UI.
+ * Uses a listener instead of an inline onerror handler because the renderer CSP
+ * blocks inline event handlers.
+ * @param {HTMLImageElement|null} img - The avatar image element
+ * @param {string} name - Display name used for the initial
+ * @param {string} fallbackClass - Class applied to the placeholder element
+ */
+export function attachAvatarFallback(img, name, fallbackClass) {
+    if (!img) return;
+    const swap = () => {
+        debug('warn', 'Avatar image failed to load:', img.src);
+        const placeholder = document.createElement('div');
+        placeholder.className = fallbackClass;
+        placeholder.textContent = String(name || '?').trim().slice(0, 1).toUpperCase() || '?';
+        img.replaceWith(placeholder);
+    };
+    img.addEventListener('error', swap, { once: true });
+    // The load may already have failed before this listener was attached.
+    if (img.complete && img.naturalWidth === 0) swap();
+}
+
 export function openAccountModal(profile, syncedItems = [], handlers = {}, texts = {}) {
     if (document.getElementById('account-modal-overlay')) return;
 
@@ -469,6 +493,12 @@ export function openAccountModal(profile, syncedItems = [], handlers = {}, texts
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+
+    attachAvatarFallback(
+        modal.querySelector('img.account-avatar'),
+        profile.name,
+        'account-avatar account-avatar-fallback'
+    );
 
     const close = () => {
         document.removeEventListener('keydown', onKey);

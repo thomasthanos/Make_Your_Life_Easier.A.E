@@ -4,7 +4,7 @@
  */
 
 import { debug, escapeHtml, getAppVersionWithFallback, normalizeVersion, normalizeVersionTag } from './utils.js';
-import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay, openAccountModal } from './components.js';
+import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay, openAccountModal, attachAvatarFallback } from './components.js';
 import { attachTooltipHandlers } from './managers.js';
 
 // ============================================
@@ -683,6 +683,7 @@ export async function ensureSidebarVersion(_state = {}) {
                     img.src = profile.avatar;
                     img.alt = 'avatar';
                     userInfoEl.appendChild(img);
+                    attachAvatarFallback(img, profile.name, 'user-avatar-fallback');
                 }
                 const span = document.createElement('span');
                 span.textContent = profile.name;

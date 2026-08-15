@@ -233,11 +233,19 @@ app.whenReady().then(async () => {
     try {
         userProfile.initialize(app.getPath('userData'));
         const sessionUser = await supabase.getSessionUser();
-        if (userProfile.get() && !sessionUser) {
+        const cached = userProfile.get();
+        if (cached && !sessionUser) {
             debug('warn', 'Clearing cached user profile because the Supabase session is missing.');
             userProfile.clear();
-        } else if (!userProfile.get() && sessionUser) {
-            userProfile.set(profileFromUser(sessionUser));
+        } else if (sessionUser) {
+            // Refresh on every launch: Discord/Google avatar URLs change when the user
+            // updates their picture, so a cached URL keeps 404ing until it is renewed.
+            const fresh = profileFromUser(sessionUser);
+            if (fresh.provider === 'unknown' && cached?.provider) fresh.provider = cached.provider;
+            if (!cached || cached.id !== fresh.id || cached.name !== fresh.name
+                || cached.avatar !== fresh.avatar || cached.provider !== fresh.provider) {
+                userProfile.set(fresh);
+            }
         }
     } catch (err) {
         debug('warn', 'Failed to initialize user profile:', err.message);
