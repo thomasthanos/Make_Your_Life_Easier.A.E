@@ -45,7 +45,7 @@
     ],
     "icon": "src/assets/icons/hacker.ico",
     "signtoolOptions": {
-      "certificateFile": "config/signing/certificate.pfx",
+      "certificateSubjectName": "ThomasThanos",
       "publisherName": "ThomasThanos",
       "signingHashAlgorithms": [
         "sha256"
