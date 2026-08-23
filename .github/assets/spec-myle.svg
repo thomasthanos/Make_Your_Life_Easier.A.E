@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="90" viewBox="0 0 520 90" role="img" aria-label="At a glance">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#122034"/><stop offset="1" stop-color="#0a1220"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".26"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity=".05"/>
+    </linearGradient>
+    <radialGradient id="w" cx=".5" cy="0" r=".9">
+      <stop offset="0" stop-color="#ffb84e" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#ffb84e" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x=".7" y=".7" width="518.6" height="88.6" rx="16" fill="url(#bg)"/>
+  <rect x=".7" y=".7" width="518.6" height="88.6" rx="16" fill="url(#w)"/>
+  <rect x=".7" y=".7" width="518.6" height="88.6" rx="16" fill="none" stroke="url(#edge)" stroke-width="1.3"/>
+  <g font-family='"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif'>
+    <rect x="28" y="18" width="28" height="2.6" rx="1.2" fill="#ffb84e" opacity=".85"/>
+    <text x="28" y="48" font-size="20" font-weight="800" fill="#ffffff">Win</text>
+    <text x="28" y="69" font-size="12" font-weight="600" fill="#8296b3">Windows</text>
+    <path d="M118 26V70" stroke="#ffffff" stroke-opacity=".10" stroke-width="1"/>
+    <rect x="140" y="18" width="28" height="2.6" rx="1.2" fill="#ffb84e" opacity=".85"/>
+    <text x="140" y="48" font-size="20" font-weight="800" fill="#ffffff">39</text>
+    <text x="140" y="69" font-size="12" font-weight="600" fill="#8296b3">Electron</text>
+    <path d="M238 26V70" stroke="#ffffff" stroke-opacity=".10" stroke-width="1"/>
+    <rect x="260" y="18" width="28" height="2.6" rx="1.2" fill="#ffb84e" opacity=".85"/>
+    <text x="260" y="48" font-size="20" font-weight="800" fill="#ffffff">SHA</text>
+    <text x="260" y="69" font-size="12" font-weight="600" fill="#8296b3">Signed</text>
+    <path d="M358 26V70" stroke="#ffffff" stroke-opacity=".10" stroke-width="1"/>
+    <rect x="380" y="18" width="28" height="2.6" rx="1.2" fill="#ffb84e" opacity=".85"/>
+    <text x="380" y="48" font-size="20" font-weight="800" fill="#ffffff">EN/GR</text>
+    <text x="380" y="69" font-size="12" font-weight="600" fill="#8296b3">Languages</text>
+  </g>
+</svg>

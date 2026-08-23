@@ -1,300 +1,224 @@
 <div align="center">
 
-# 🛠️ Make Your Life Easier
+<img src=".github/assets/banner-myle.svg" alt="Make Your Life Easier">
 
-### *Simplify Your Digital World*
+[![Windows 10/11](.github/assets/badge-windows.svg)](#-install)
+[![Electron 39](.github/assets/badge-electron.svg)](https://www.electronjs.org/)
+[![English and Greek](.github/assets/badge-lang.svg)](src/i18n)
+[![Code-signed builds](.github/assets/badge-signed.svg)](#-privacy-briefly)
+<br>
+[![Install](.github/assets/btn-install.svg)](#-install)
+[![Features](.github/assets/btn-features.svg)](#-features)
+[![Settings](.github/assets/btn-settings.svg)](#-settings)
+[![Privacy](.github/assets/btn-privacy.svg)](#-privacy-briefly)
+[![Troubleshooting](.github/assets/btn-troubleshooting.svg)](#-troubleshooting)
 
-[![Version](https://img.shields.io/badge/version-4.2.8-blue.svg?style=for-the-badge)](https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases)
-[![Electron](https://img.shields.io/badge/electron-39.8.10-47848f.svg?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
-[![License](https://img.shields.io/badge/license-Proprietary-red.svg?style=for-the-badge)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows-0078d4.svg?style=for-the-badge&logo=windows)](https://www.microsoft.com/windows)
-
-**All-in-one desktop toolkit for Windows: a one-click app installer, deep system maintenance & debloat tools, Spicetify and Windows Utility integrations, optional cloud-synced preferences, and self-updating, code-signed releases.**
-
-[📥 Download](#-installation) • [✨ Features](#-features) • [🚀 Quick Start](#-quick-start) • [💻 Development](#-development)
+<img src=".github/assets/spec-myle.svg" alt="At a glance">
 
 </div>
 
----
+<img src=".github/assets/divider.svg" width="100%" alt="">
 
-## 🌟 Highlights
+## <img src=".github/assets/icon-cloud.svg" width="22" align="middle"> What it does
 
-📦 **One-Click App Installer** • 🧹 **System Maintenance & Debloat** • ☁️ **Optional Cloud-Synced Settings** • 🎨 **Modern UI** • 🌍 **Multi-Language** • 🔄 **Auto-Updates** • ✍️ **Code-Signed**
+Windows already has a package manager, a disk cleaner, a repair toolkit and a pile of
+third-party utilities — they just live in different windows, different elevation prompts
+and different websites. This app puts the ones you actually use in one place.
 
----
+Open it, pick a job from the sidebar, walk away. Install a catalog of apps through
+winget, get patched software, clean and repair the system, activate Windows, launch Sparkle or WinUtil, theme Spotify, or
+restart straight into BIOS. An account is optional: sign in only if you want those
+preferences on another PC.
 
-## 📥 Installation
+<img src=".github/assets/divider.svg" width="100%" alt="">
 
-**Download:** [Installer](https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe) • [Portable](https://downloads.thomast.uk/MakeYourLifeEasier-Portable.exe)
+## <img src=".github/assets/icon-sparkle.svg" width="22" align="middle"> Features
 
-**Requirements:** Windows 10/11 (64-bit) • 4GB RAM • 200MB Storage
+### App & software installers
 
-> Installers are signed with an Authenticode certificate, so Windows SmartScreen shows a trusted publisher.
+- Categorized **winget catalog** — browsers, communication, games, media, development,
+  security, hardware, utilities, plus your own custom entries.
+- **Crack Apps** — Download and install patched versions of professional software on-demand.
+- **Check Installed** scans what is already on the machine and what can be upgraded.
+- Bulk actions: install selected, uncheck all, export and import lists, upgrade all.
+- List or grid view, sorted by category, A→Z, Z→A or status.
 
----
+### System cleaner & maintenance
 
-## ✨ Features
+- **System Cleaner:** Scan and remove temporary files, Prefetch, Recycle Bin, Windows Update cache,
+  thumbnail cache, and error reports to free up disk space.
+- **Network:** Flush DNS, release/renew IP, fix Bluetooth, full network reset.
+- **Repair:** SFC, DISM, Check Disk, restart audio services, Winget upgrade all.
 
-<details>
-<summary><b>☁️ Account & Cloud-Synced Settings (Optional)</b></summary>
+### Windows tools & utilities
 
-- Sign in with **Google** or **Discord** via Supabase Auth
-- Syncs preferences (theme, language, selected app list, view/sort options) across devices
-- Session cache is encrypted at rest using Electron's OS-level `safeStorage` API where available
-- The app works fully **without** signing in — an account only adds cross-device sync
+- **Activate & Auto Login** — Activate Windows/Office and set up automatic login.
+- **Debloat** — Downloads and launches the open-source Sparkle utility on first use.
+- **Windows Utility** — Chris Titus Tech's WinUtil, run elevated from the official signed script.
+- **BIOS / UEFI** — One click to restart into firmware setup (admin required).
+- **Spicetify** — Install, uninstall, or fully remove Spotify + Spicetify.
 
-</details>
+### Quality of life
 
-<details>
-<summary><b>📦 App Installer Hub (winget-powered)</b></summary>
+- Dark UI with a custom Windows 11-style title bar.
+- Optional **Google or Discord** sign-in via Supabase Auth to sync theme, language,
+  and preferences.
+- Background **auto-updates** from Cloudflare R2, including portable builds.
+- Authenticode-signed installers, so SmartScreen shows a trusted publisher.
 
-- Categorized catalog (Browsers, Communication, Games, Media, Development, Security, Hardware, Utilities…)
-- **Check Installed** — scans installed & upgradable packages via `winget list` / `winget upgrade`
-- Bulk actions: Install Selected, Uncheck All, Export list, Import list
-- List/Grid view toggle and sorting (Category, A→Z, Z→A, Status)
-- Automatic retry logic for failed installs (hash mismatch, permission, silent-mode fallbacks)
-- Add your own custom app entries alongside the winget catalog
+### <img src=".github/assets/icon-globe.svg" width="20" align="middle"> Languages
 
-</details>
+English and Greek. Switch from Settings; the rest of the app follows immediately.
 
-<details>
-<summary><b>🖥️ System Maintenance Tools</b></summary>
+<img src=".github/assets/divider.svg" width="100%" alt="">
 
-**Cleanup:** Temp files, Recycle Bin, Windows Update cache, thumbnail cache, error reports, Disk Cleanup (`cleanmgr`)
+## <img src=".github/assets/icon-install.svg" width="22" align="middle"> Install
 
-**Network & Connectivity:** Flush DNS, Release/Renew IP, Fix Bluetooth, full Network Reset
+**Requirements:** Windows 10/11 (64-bit) · 4 GB RAM · 200 MB storage.
 
-**Repair & Diagnostics:** SFC scan, DISM repair, Check Disk, restart Audio services
+1. Download the [installer](https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe)
+   or the [portable build](https://downloads.thomast.uk/MakeYourLifeEasier-Portable.exe).
+2. Run it. The installer is Authenticode-signed as **ThomasThanos**.
+3. (Optional) Sign in with Google or Discord if you want settings to follow you.
+4. Use the sidebar: Install Apps, System Cleaner, Crack Apps, System Maintenance,
+   Activate & Auto Login, BIOS, Spicetify, Christitus, Debloat.
 
-**Tools:** One-click download & launch of [Patch My PC](https://patchmypc.com/) to keep third-party apps updated
+![Note](.github/assets/callout-note.svg)
+> **Some tools need administrator rights.** Cleanup of protected folders, SFC/DISM,
+> BIOS restart, Sparkle and WinUtil will prompt UAC. The rest of the app works without
+> elevation.
 
-</details>
+<img src=".github/assets/divider.svg" width="100%" alt="">
 
-<details>
-<summary><b>🧹 Windows Debloat</b></summary>
+## <img src=".github/assets/icon-settings.svg" width="22" align="middle"> Settings
 
-- Launches the open-source **Sparkle** debloat utility to remove Windows bloatware
-- Downloaded and extracted automatically on first use
+Reachable from the sidebar → **Settings**. Changes save instantly, locally first.
 
-</details>
+| Group | Settings |
+|---|---|
+| **Appearance** | Language (English / Greek) · sidebar expanded/collapsed · installer list/grid · maintenance layout |
+| **Account** | Google or Discord sign-in · synced preferences · reset synced settings · sign out |
+| **Updates** | Check for updates · progress UI for installer and portable |
 
-<details>
-<summary><b>⚙️ Windows Utility Integration</b></summary>
+The app is fully usable signed out. An account only adds cross-device sync of
+preferences — never of files, credentials or system state.
 
-- One-click launcher for [Chris Titus Tech's WinUtil](https://github.com/ChrisTitusTech/winutil)
-- System optimization, bloatware removal, privacy tweaks, and essential software installs
-- Runs in an elevated PowerShell window with the official, signed script
+<img src=".github/assets/divider.svg" width="100%" alt="">
 
-</details>
+## <img src=".github/assets/icon-key.svg" width="22" align="middle"> What it asks of Windows
 
-<details>
-<summary><b>🎵 Spicetify Integration</b></summary>
+| Access | Why it is needed |
+|---|---|
+| **Local files** | Settings JSON, encrypted session cache, downloaded tools (Sparkle, crack installers, 7-Zip helpers). |
+| **Administrator (on demand)** | Cleanup of protected paths, SFC/DISM/Check Disk, BIOS restart, Sparkle, WinUtil. |
+| **Network** | winget catalogs, optional auth/sync, auto-update feed on `downloads.thomast.uk`, first-run tool downloads. |
+| **Electron `safeStorage`** | Encrypts the local auth/session cache with the OS credential store when available. |
 
-- Install / uninstall Spicetify themes and customizations for Spotify
-- Full Spotify + Spicetify uninstall option
+That is the complete list. No telemetry, no ads, no always-on cloud.
 
-</details>
+<img src=".github/assets/divider.svg" width="100%" alt="">
 
-<details>
-<summary><b>🔄 BIOS / UEFI Quick Restart</b></summary>
+## <img src=".github/assets/icon-shield.svg" width="22" align="middle"> Privacy, briefly
 
-- One click to restart directly into BIOS/UEFI setup (requires admin rights)
+**The tools run on your computer.** Maintenance, the installer hub, debloat and
+utility launches never leave the machine. Optional account sync stores only
+preferences (theme, language, selected app list, view/sort) through Supabase Auth.
+Session cache is encrypted at rest. The renderer is locked down: strict CSP, no
+inline scripts, context isolation via a dedicated preload bridge.
 
-</details>
+No analytics. No ads. Signed-out is the default.
 
-<details>
-<summary><b>🎨 Customization</b></summary>
+<img src=".github/assets/divider.svg" width="100%" alt="">
 
-- Dark/Light theme toggle
-- Custom Windows 11-style title bar
-- Responsive layout with list/grid views
-- Language switching (EN/GR)
+## <img src=".github/assets/icon-code.svg" width="22" align="middle"> How the code is organised
 
-</details>
+![Make Your Life Easier source layout](.github/assets/tree-myle.svg)
 
-<details>
-<summary><b>🔄 Auto-Update System</b></summary>
+| Technology | Purpose |
+|---|---|
+| **Electron 39** | Desktop shell |
+| **electron-updater** | Background updates from a generic R2 feed |
+| **electron-builder** | Packaging and Authenticode signing |
+| **@supabase/supabase-js** | Optional auth and settings sync |
+| **electron-log** | Structured logs |
 
-- Background update checks via `electron-updater`
-- Update feed hosted on Cloudflare R2 (generic provider), independent of GitHub rate limits
-- Non-intrusive notifications with detailed progress UI
-- Works in portable mode too
-
-</details>
-
----
-
-## 🚀 Quick Start
-
-```
-1. Download and run the app
-2. (Optional) Sign in with Google or Discord to sync your settings
-3. Explore the sidebar: App Installer, System Maintenance, Debloat, BIOS, Spicetify, Windows Utility
-```
-
-**Common Tasks:**
-- **Install Apps:** App Installer → search/select → Install Selected (or "Check Installed" first)
-- **Clean System:** System Maintenance → Cleanup / Network / Repair & Diagnostics
-- **Debloat Windows:** Debloat → Launch Sparkle Debloat
-- **Deep Windows Tweaks:** Windows Utility → Launch Tool
-- **BIOS Access:** BIOS → Restart to BIOS/UEFI → confirm
-
----
-
-## 🏗️ Architecture
-
-<details>
-<summary><b>📂 Project Structure</b></summary>
-
-```
-Make_Your_Life_Easier.A.E/
-├── src/
-│   ├── main/                  # Electron main process
-│   │   ├── index.js           # Entry point
-│   │   ├── window-manager.js
-│   │   ├── ipc-handlers.js
-│   │   ├── updater.js         # Auto-update logic
-│   │   ├── update-info.js
-│   │   ├── security.js
-│   │   └── certificate.js
-│   ├── preload/                # IPC bridge (context isolation)
-│   ├── renderer/                # Frontend UI
-│   │   ├── index.html
-│   │   ├── index.js / core.js / components.js / managers.js / services.js / utils.js
-│   │   ├── pages/               # installers.js, tools.js, media.js, utilities.js, activation.js
-│   │   ├── styles/               # Main CSS
-│   │   ├── data/                 # installer.json (winget app catalog)
-│   │   └── info/                 # Help/info window
-│   ├── modules/                  # Shared utilities
-│   │   ├── supabase.js           # Cloud auth & settings sync client
-│   │   ├── oauth.js               # Google/Discord OAuth flow
-│   │   ├── user-profile.js        # Encrypted local session cache
-│   │   ├── settings-store.js      # Local + cloud settings persistence
-│   │   ├── system-tools.js
-│   │   ├── download-manager.js
-│   │   ├── archive-utils.js / file-utils.js / http-utils.js / process-utils.js
-│   │   ├── sparkle.js             # Windows debloat utility
-│   │   └── spicetify.js
-│   ├── updater/                   # Update window UI
-│   ├── i18n/                      # Translations (en, gr)
-│   ├── public/                    # Static docs pages (readme/changelog/copyright)
-│   ├── resources/                 # Packaged helper binaries (7-Zip, etc.)
-│   └── assets/                    # Icons & images
-├── config/                        # Tooling & build config
-│   ├── hooks/                     # Git hooks
-│   ├── signing/                   # Local certificate files (ignored)
-│   ├── eslint.config.js / prettier.config.json
-│   ├── installer.nsh              # NSIS installer customization
-│   └── setup-hooks.js
-└── package.json
-```
-
-</details>
-
-<details>
-<summary><b>🔧 Technology Stack</b></summary>
-
-| Technology | Purpose | Version |
-|-----------|---------|---------|
-| **Electron** | Desktop framework | 39.8.10 |
-| **electron-updater** | Auto-updates | 6.8.9 |
-| **electron-builder** | Packaging & code signing | 26.15.3 |
-| **@supabase/supabase-js** | Cloud auth & settings sync | 2.110.0 |
-| **electron-log** | Structured logging | 5.4.4 |
-| **dotenv** | Environment configuration | 17.4.2 |
-| **Electron safeStorage** | Local credential encryption | Native |
-
-</details>
-
----
-
-## 🔒 Security & Privacy
-
-<details>
-<summary><b>🔐 How Your Data Is Handled</b></summary>
-
-- **Optional account:** Google/Discord sign-in via Supabase Auth is only needed for cross-device settings sync — the app is fully usable signed out.
-- **Encrypted session cache:** Local auth/session data is encrypted at rest with Electron's OS-level `safeStorage` API where available, with a safe fallback for older sessions.
-- **Local-first tools:** System maintenance, the app installer, debloat, and utility integrations run entirely on your machine.
-- **Hardened renderer:** Strict Content-Security-Policy, no inline scripts, context isolation via a dedicated preload bridge.
-- **Signed releases:** Installers are Authenticode-signed in CI using a certificate stored in GitHub Secrets.
-
-</details>
-
-<details>
-<summary><b>🛡️ Privacy Overview</b></summary>
-
-| Feature | Status |
-|---------|--------|
-| Telemetry | ❌ None |
-| Analytics | ❌ None |
-| Ads | ❌ None |
-| Cloud Sync | ☁️ Optional (account settings only) |
-| Source Code | 👁️ View-only (Proprietary — see [LICENSE](LICENSE)) |
-
-</details>
-
----
-
-## 💻 Development
-
-<details>
-<summary><b>🛠️ Setup Instructions</b></summary>
-
-### Prerequisites
-- Node.js 22+
-- npm
-- Git
-- Windows 10/11
-
-### Installation
+Development:
+
 ```bash
-# Clone repository
 git clone https://github.com/thomasthanos/Make_Your_Life_Easier.A.E.git
-
-# Navigate to directory
 cd Make_Your_Life_Easier.A.E
-
-# Install dependencies
 npm install
-
-# Start development
-npm run dev
+npm run dev        # skips update checks
+npm run build-all  # portable + installer
+npm run lint
 ```
 
-### Build Commands
-```bash
-npm run dev        # Dev mode (no updater)
-npm run build-all  # Build portable + installer (Windows)
-npm run lint       # Run ESLint
-```
+`Ctrl+R` reloads, `F12` opens DevTools. Signed releases are produced by
+`.github/workflows/release.yml` on tag push.
 
-Releases (signed installer, R2 update feed, GitHub Release) are produced by the `release.yml` GitHub Actions workflow on tag push.
+<img src=".github/assets/divider.svg" width="100%" alt="">
 
-### Development Tips
-- Press `Ctrl+R` for hot reload
-- Press `F12` for DevTools
-- `npm run dev` skips update checks automatically
+## <img src=".github/assets/icon-help.svg" width="22" align="middle"> Troubleshooting
 
+<details>
+<summary><b>SmartScreen or Windows Defender warns on first run</b></summary>
+
+<br>
+
+The publisher is **ThomasThanos**. New certificates take time to build reputation;
+the installer is still Authenticode-signed. Prefer the installer over an unsigned
+copy from elsewhere.
 </details>
 
----
+<details>
+<summary><b>winget is not installed / Check Installed does nothing</b></summary>
 
-## 📄 License & Author
+<br>
 
-**License:** Proprietary — see [LICENSE](LICENSE)
+App Installer (winget) has to be present. Use **Open Microsoft Store** from the
+installer page, install *App Installer*, then try again.
+</details>
 
-<div align="center">
+<details>
+<summary><b>A cleanup or repair task asks for admin and then seems stuck</b></summary>
 
-**ThomasThanos**
+<br>
 
-[![GitHub](https://img.shields.io/badge/GitHub-thomasthanos-181717?style=for-the-badge&logo=github)](https://github.com/thomasthanos)
-[![Email](https://img.shields.io/badge/Email-thomasthanos2@icloud.com-0078D4?style=for-the-badge&logo=microsoft-outlook)](mailto:thomasthanos2@icloud.com)
+Approve the UAC prompt. Only one maintenance task runs at a time; wait for it to
+finish before starting another. Limited scans without admin skip protected folders
+until you elevate.
+</details>
 
----
+<details>
+<summary><b>Settings did not appear on another PC after sign-in</b></summary>
 
-**Made with ❤️ for simplifying your digital life**
+<br>
 
-[⬆ Back to Top](#-make-your-life-easier)
+Sync is preferences only, and it needs a configured OAuth client. Sign out and
+back in once. If the login button says credentials are missing, you are on a build
+without cloud auth — local settings still work.
+</details>
 
-</div>
+<details>
+<summary><b>Updates never show up</b></summary>
+
+<br>
+
+`npm run dev` skips the updater on purpose. Packaged builds check
+`https://downloads.thomast.uk`. Portable mode updates too; leave the app open
+long enough for the background check.
+</details>
+
+<img src=".github/assets/divider.svg" width="100%" alt="">
+
+## <img src=".github/assets/icon-license.svg" width="22" align="middle"> Licence
+
+Source-available, all rights reserved. The source is published for viewing and
+education. Compiled binaries may be used for personal, non-commercial use.
+Copying, modifying, redistributing or using the software commercially requires
+written permission.
+
+[![Read the licence](.github/assets/btn-licence-read.svg)](LICENSE)
+
+**ThomasThanos** · [GitHub](https://github.com/thomasthanos) ·
+[thomasthanos2@icloud.com](mailto:thomasthanos2@icloud.com)
