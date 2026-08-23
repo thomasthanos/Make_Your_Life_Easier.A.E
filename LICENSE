@@ -1,46 +1,88 @@
-PROPRIETARY LICENSE
+﻿Copyright (c) 2026 Thomas Thanos. All rights reserved.
 
-Copyright (c) 2025 ThomasThanos. All Rights Reserved.
+This repository contains the source code for the Windows desktop application Make Your Life Easier (the "Software").
 
-This software and associated documentation files (the "Software") are the 
-proprietary and confidential property of ThomasThanos.
+The Software is source-available, NOT open source. The source is published so that anyone
+can read and audit exactly what the application does. Publishing it does not place it in the
+public domain and does not grant permission to reuse it.
 
-VIEWING RIGHTS:
-The source code is made available for viewing and educational purposes only.
 
-RESTRICTIONS:
-The following actions are expressly PROHIBITED without prior written permission:
-- Copying, cloning, or downloading the Software
-- Modifying, merging, or creating derivative works
-- Distributing, sublicensing, or selling copies
-- Using the Software for commercial purposes
-- Incorporating the Software into other projects
-- Reverse engineering or decompiling
+1. WHAT YOU MAY DO
 
-DOWNLOADS:
-Pre-compiled binary releases (executables) are provided for end-user use only.
-Users may download and use the compiled application for personal, 
-non-commercial purposes.
+   a) Use it. You may install and use an official build of the Software, as published by
+      the copyright holder, for your own personal, non-commercial purposes, for as long as
+      you like and at no cost.
 
-NO WARRANTY:
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   b) Read it. You may view, read, and study the source code in this repository.
 
-INTELLECTUAL PROPERTY:
-All intellectual property rights in and to the Software remain the exclusive
-property of ThomasThanos.
+   c) Fork it on GitHub, for review only. Because this repository is public, GitHub's
+      Terms of Service permit other GitHub users to fork it. That is acknowledged here.
+      Such a fork may be used only to read, review, audit, or prepare a contribution.
+      Every restriction in section 2 continues to apply to the contents of any fork.
 
-TERMINATION:
-Any unauthorized use of this Software will result in immediate termination of
-any implied rights and may result in legal action.
+   d) Contribute. You may open issues and submit pull requests. See section 4.
 
-For permissions beyond the scope of this license, please contact:
-thomasthanos2@icloud.com
 
----
+2. WHAT YOU MAY NOT DO
 
-Last Updated: November 2024
+   Without prior written permission from the copyright holder, you may not:
+
+   a) Redistribute the Software, in source or built form, in whole or in part.
+
+   b) Publish the Software, or anything derived from it, to any app store, website,
+      package registry, or other distribution channel. This includes the Microsoft Store.
+
+   c) Sell, rent, license, sublicense, or otherwise commercially exploit the Software, or
+      use it in or alongside any product, service, or offering that generates revenue.
+      This applies to direct sale, paid tiers, advertising, and bundling alike.
+
+   d) Create, distribute, or publish modified or derivative versions of the Software.
+
+   e) Remove, obscure, or alter any copyright, licence, or attribution notice.
+
+
+3. NAME, ICONS, AND BRANDING
+
+   The name "Make Your Life Easier", the application icons in src/assets/icons/, and any
+   banner or artwork in .github/assets/ are excluded from all permissions above.
+
+   Nothing in this licence grants any right to use them. A fork that section 1(c) permits
+   to exist for review is not permitted to carry the name, icons, or branding.
+
+
+4. CONTRIBUTIONS
+
+   By submitting a pull request or any other contribution, you grant the copyright holder
+   a perpetual, worldwide, irrevocable, royalty-free right to use, modify, and distribute
+   your contribution as part of the Software, under this licence or any later licence the
+   copyright holder adopts. You confirm that the contribution is your own work and that
+   you are entitled to grant this.
+
+
+5. THIRD-PARTY MATERIAL
+
+   The Software embeds components and artwork from third parties, which are covered by their own
+   licences and not by this one. Nothing here claims ownership of that material.
+
+
+6. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE
+   LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+   TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE
+   USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+7. NOT AFFILIATED
+
+   Make Your Life Easier is not affiliated with, endorsed by, or connected to Microsoft,
+   Discord, Google, or any other third-party service mentioned. All product names and
+   trademarks belong to their respective owners.
+
+
+8. PERMISSION REQUESTS
+
+   Want to do something this licence does not allow? Ask:
+   thomasthanos28@gmail.com

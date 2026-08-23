@@ -80,8 +80,11 @@ English and Greek. Switch from Settings; the rest of the app follows immediately
    or the [portable build](https://downloads.thomast.uk/MakeYourLifeEasier-Portable.exe).
 2. Run it. The installer is Authenticode-signed as **ThomasThanos**.
 3. (Optional) Sign in with Google or Discord if you want settings to follow you.
-4. Use the sidebar: Install Apps, System Cleaner, Crack Apps, System Maintenance,
-   Activate & Auto Login, BIOS, Spicetify, Christitus, Debloat.
+4. **Use the sidebar** to navigate between tools:
+   - **Apps:** Install Apps, Crack Apps
+   - **System:** System Cleaner, System Maintenance
+   - **Activation:** Activate & Auto Login
+   - **Utilities:** BIOS, Spicetify, Christitus, Debloat
 
 ![Note](.github/assets/callout-note.svg)
 > **Some tools need administrator rights.** Cleanup of protected folders, SFC/DISM,
@@ -208,4 +211,4 @@ written permission.
 [![Read the licence](.github/assets/btn-licence-read.svg)](LICENSE)
 
 **ThomasThanos** · [GitHub](https://github.com/thomasthanos) ·
-[thomasthanos2@icloud.com](mailto:thomasthanos2@icloud.com)
+[thomasthanos28@gmail.com](mailto:thomasthanos28@gmail.com)
