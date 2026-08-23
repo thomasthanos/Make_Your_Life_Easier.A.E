@@ -2,16 +2,16 @@
 
 <img src=".github/assets/banner-myle.svg?v=9" alt="Make Your Life Easier">
 
-[![Windows 10/11](.github/assets/badge-windows.svg)](#-install)
-[![Electron 39](.github/assets/badge-electron.svg)](https://www.electronjs.org/)
-[![English and Greek](.github/assets/badge-lang.svg)](src/i18n)
-[![Code-signed builds](.github/assets/badge-signed.svg)](#-privacy-briefly)
+[![Windows 10/11](.github/assets/badge-windows.svg?v=10)](#-install)
+[![Electron 39](.github/assets/badge-electron.svg?v=10)](https://www.electronjs.org/)
+[![English and Greek](.github/assets/badge-lang.svg?v=10)](src/i18n)
+[![Code-signed builds](.github/assets/badge-signed.svg?v=10)](#-privacy-briefly)
 <br>
-[![Install](.github/assets/btn-install.svg)](#-install)
-[![Features](.github/assets/btn-features.svg)](#-features)
-[![Settings](.github/assets/btn-settings.svg)](#-settings)
-[![Privacy](.github/assets/btn-privacy.svg)](#-privacy-briefly)
-[![Troubleshooting](.github/assets/btn-troubleshooting.svg)](#-troubleshooting)
+[![Install](.github/assets/btn-install.svg?v=10)](#-install)
+[![Features](.github/assets/btn-features.svg?v=10)](#-features)
+[![Settings](.github/assets/btn-settings.svg?v=10)](#-settings)
+[![Privacy](.github/assets/btn-privacy.svg?v=10)](#-privacy-briefly)
+[![Troubleshooting](.github/assets/btn-troubleshooting.svg?v=10)](#-troubleshooting)
 
 <img src=".github/assets/spec-myle.svg" alt="At a glance">
 
@@ -55,7 +55,7 @@ preferences on another PC.
 - **Activate & Auto Login** — Activate Windows/Office and set up automatic login.
 - **Debloat** — Downloads and launches the open-source Sparkle utility on first use.
 - **Windows Utility** — Chris Titus Tech's WinUtil, run elevated from the official signed script.
-- **BIOS / UEFI** — One click to restart into firmware setup (admin required).
+- **BIOS / UEFI** — One click to restart into firmware setup (admin required?v=10).
 - **Spicetify** — Install, uninstall, or fully remove Spotify + Spicetify.
 
 ### Quality of life
@@ -74,7 +74,7 @@ English and Greek. Switch from Settings; the rest of the app follows immediately
 
 ## <img src=".github/assets/icon-install.svg" width="22" align="middle"> Install
 
-**Requirements:** Windows 10/11 (64-bit) · 4 GB RAM · 200 MB storage.
+**Requirements:** Windows 10/11 (64-bit?v=10) · 4 GB RAM · 200 MB storage.
 
 1. Download the [installer](https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe)
    or the [portable build](https://downloads.thomast.uk/MakeYourLifeEasier-Portable.exe).
@@ -86,7 +86,7 @@ English and Greek. Switch from Settings; the rest of the app follows immediately
    - **Activation:** Activate & Auto Login
    - **Utilities:** BIOS, Spicetify, Christitus, Debloat
 
-![Note](.github/assets/callout-note.svg)
+![Note](.github/assets/callout-note.svg?v=10)
 > **Some tools need administrator rights.** Cleanup of protected folders, SFC/DISM,
 > BIOS restart, Sparkle and WinUtil will prompt UAC. The rest of the app works without
 > elevation.
@@ -99,7 +99,7 @@ Reachable from the sidebar → **Settings**. Changes save instantly, locally fir
 
 | Group | Settings |
 |---|---|
-| **Appearance** | Language (English / Greek) · sidebar expanded/collapsed · installer list/grid · maintenance layout |
+| **Appearance** | Language (English / Greek?v=10) · sidebar expanded/collapsed · installer list/grid · maintenance layout |
 | **Account** | Google or Discord sign-in · synced preferences · reset synced settings · sign out |
 | **Updates** | Check for updates · progress UI for installer and portable |
 
@@ -112,7 +112,7 @@ preferences — never of files, credentials or system state.
 
 | Access | Why it is needed |
 |---|---|
-| **Local files** | Settings JSON, encrypted session cache, downloaded tools (Sparkle, crack installers, 7-Zip helpers). |
+| **Local files** | Settings JSON, encrypted session cache, downloaded tools (Sparkle, crack installers, 7-Zip helpers?v=10). |
 | **Administrator (on demand)** | Cleanup of protected paths, SFC/DISM/Check Disk, BIOS restart, Sparkle, WinUtil. |
 | **Network** | winget catalogs, optional auth/sync, auto-update feed on `downloads.thomast.uk`, first-run tool downloads. |
 | **Electron `safeStorage`** | Encrypts the local auth/session cache with the OS credential store when available. |
@@ -125,7 +125,7 @@ That is the complete list. No telemetry, no ads, no always-on cloud.
 
 **The tools run on your computer.** Maintenance, the installer hub, debloat and
 utility launches never leave the machine. Optional account sync stores only
-preferences (theme, language, selected app list, view/sort) through Supabase Auth.
+preferences (theme, language, selected app list, view/sort?v=10) through Supabase Auth.
 Session cache is encrypted at rest. The renderer is locked down: strict CSP, no
 inline scripts, context isolation via a dedicated preload bridge.
 
@@ -151,7 +151,7 @@ copy from elsewhere.
 
 <br>
 
-App Installer (winget) has to be present. Use **Open Microsoft Store** from the
+App Installer (winget?v=10) has to be present. Use **Open Microsoft Store** from the
 installer page, install *App Installer*, then try again.
 </details>
 
@@ -193,10 +193,10 @@ education. Compiled binaries may be used for personal, non-commercial use.
 Copying, modifying, redistributing or using the software commercially requires
 written permission.
 
-[![Read the licence](.github/assets/btn-licence-read.svg)](LICENSE)
+[![Read the licence](.github/assets/btn-licence-read.svg?v=10)](LICENSE)
 
 <div align="center">
 
-[![ThomasThanos](.github/assets/footer-author.svg?v=3)](https://github.com/thomasthanos)
+[![ThomasThanos](.github/assets/footer-author.svg?v=10)](https://github.com/thomasthanos)
 
 </div>
