@@ -19,7 +19,7 @@
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-cloud.svg" width="22" align="middle"> What it does
+## <img src=".github/assets/icon-cloud.svg" width="24" align="middle"> What it does
 
 Windows already has a package manager, a disk cleaner, a repair toolkit and a pile of
 third-party utilities — they just live in different windows, different elevation prompts
@@ -32,7 +32,7 @@ preferences on another PC.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-sparkle.svg" width="22" align="middle"> Features
+## <img src=".github/assets/icon-sparkle.svg" width="24" align="middle"> Features
 
 ### App & software installers
 
@@ -55,7 +55,7 @@ preferences on another PC.
 - **Activate & Auto Login** — Activate Windows/Office and set up automatic login.
 - **Debloat** — Downloads and launches the open-source Sparkle utility on first use.
 - **Windows Utility** — Chris Titus Tech's WinUtil, run elevated from the official signed script.
-- **BIOS / UEFI** — One click to restart into firmware setup (admin required?v=10).
+- **BIOS / UEFI** — One click to restart into firmware setup (admin required).
 - **Spicetify** — Install, uninstall, or fully remove Spotify + Spicetify.
 
 ### Quality of life
@@ -66,15 +66,15 @@ preferences on another PC.
 - Background **auto-updates** from Cloudflare R2, including portable builds.
 - Authenticode-signed installers, so SmartScreen shows a trusted publisher.
 
-### <img src=".github/assets/icon-globe.svg" width="20" align="middle"> Languages
+### <img src=".github/assets/icon-globe.svg" width="22" align="middle"> Languages
 
 English and Greek. Switch from Settings; the rest of the app follows immediately.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-install.svg" width="22" align="middle"> Install
+## <img src=".github/assets/icon-install.svg" width="24" align="middle"> Install
 
-**Requirements:** Windows 10/11 (64-bit?v=10) · 4 GB RAM · 200 MB storage.
+**Requirements:** Windows 10/11 (64-bit) · 4 GB RAM · 200 MB storage.
 
 1. Download the [installer](https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe)
    or the [portable build](https://downloads.thomast.uk/MakeYourLifeEasier-Portable.exe).
@@ -93,13 +93,13 @@ English and Greek. Switch from Settings; the rest of the app follows immediately
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-settings.svg" width="22" align="middle"> Settings
+## <img src=".github/assets/icon-settings.svg" width="24" align="middle"> Settings
 
 Reachable from the sidebar → **Settings**. Changes save instantly, locally first.
 
 | Group | Settings |
 |---|---|
-| **Appearance** | Language (English / Greek?v=10) · sidebar expanded/collapsed · installer list/grid · maintenance layout |
+| **Appearance** | Language (English / Greek) · sidebar expanded/collapsed · installer list/grid · maintenance layout |
 | **Account** | Google or Discord sign-in · synced preferences · reset synced settings · sign out |
 | **Updates** | Check for updates · progress UI for installer and portable |
 
@@ -108,11 +108,11 @@ preferences — never of files, credentials or system state.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-key.svg" width="22" align="middle"> What it asks of Windows
+## <img src=".github/assets/icon-key.svg" width="24" align="middle"> What it asks of Windows
 
 | Access | Why it is needed |
 |---|---|
-| **Local files** | Settings JSON, encrypted session cache, downloaded tools (Sparkle, crack installers, 7-Zip helpers?v=10). |
+| **Local files** | Settings JSON, encrypted session cache, downloaded tools (Sparkle, crack installers, 7-Zip helpers). |
 | **Administrator (on demand)** | Cleanup of protected paths, SFC/DISM/Check Disk, BIOS restart, Sparkle, WinUtil. |
 | **Network** | winget catalogs, optional auth/sync, auto-update feed on `downloads.thomast.uk`, first-run tool downloads. |
 | **Electron `safeStorage`** | Encrypts the local auth/session cache with the OS credential store when available. |
@@ -121,11 +121,11 @@ That is the complete list. No telemetry, no ads, no always-on cloud.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-shield.svg" width="22" align="middle"> Privacy, briefly
+## <img src=".github/assets/icon-shield.svg" width="24" align="middle"> Privacy, briefly
 
 **The tools run on your computer.** Maintenance, the installer hub, debloat and
 utility launches never leave the machine. Optional account sync stores only
-preferences (theme, language, selected app list, view/sort?v=10) through Supabase Auth.
+preferences (theme, language, selected app list, view/sort) through Supabase Auth.
 Session cache is encrypted at rest. The renderer is locked down: strict CSP, no
 inline scripts, context isolation via a dedicated preload bridge.
 
@@ -134,7 +134,7 @@ No analytics. No ads. Signed-out is the default.
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
 
-## <img src=".github/assets/icon-help.svg" width="22" align="middle"> Troubleshooting
+## <img src=".github/assets/icon-help.svg" width="24" align="middle"> Troubleshooting
 
 <details>
 <summary><b>SmartScreen or Windows Defender warns on first run</b></summary>
@@ -151,7 +151,7 @@ copy from elsewhere.
 
 <br>
 
-App Installer (winget?v=10) has to be present. Use **Open Microsoft Store** from the
+App Installer (winget) has to be present. Use **Open Microsoft Store** from the
 installer page, install *App Installer*, then try again.
 </details>
 
@@ -186,7 +186,7 @@ long enough for the background check.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-license.svg" width="22" align="middle"> Licence
+## <img src=".github/assets/icon-license.svg" width="24" align="middle"> Licence
 
 Source-available, all rights reserved. The source is published for viewing and
 education. Compiled binaries may be used for personal, non-commercial use.
