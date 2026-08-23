@@ -142,19 +142,6 @@ No analytics. No ads. Signed-out is the default.
 | **@supabase/supabase-js** | Optional auth and settings sync |
 | **electron-log** | Structured logs |
 
-Development:
-
-```bash
-git clone https://github.com/thomasthanos/Make_Your_Life_Easier.A.E.git
-cd Make_Your_Life_Easier.A.E
-npm install
-npm run dev        # skips update checks
-npm run build-all  # portable + installer
-npm run lint
-```
-
-`Ctrl+R` reloads, `F12` opens DevTools. Signed releases are produced by
-`.github/workflows/release.yml` on tag push.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 

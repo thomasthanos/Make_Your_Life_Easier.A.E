@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420" role="img" aria-label="Make Your Life Easier source layout">
+ï»¿<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420" role="img" aria-label="Make Your Life Easier source layout">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#122034"/><stop offset="1" stop-color="#0a1220"/>
@@ -20,7 +20,7 @@
     <text x="64" y="118" fill="#8fbcff">main/</text>
     <text x="200" y="118" fill="#8296b3">Electron process, updater, windows, signing</text>
     <text x="64" y="142" fill="#8fbcff">preload/</text>
-    <text x="200" y="142" fill="#8296b3">IPC bridge · context isolation</text>
+    <text x="200" y="142" fill="#8296b3">IPC bridge ï¿½ context isolation</text>
     <text x="64" y="166" fill="#8fbcff">renderer/</text>
     <text x="200" y="166" fill="#8296b3">UI, pages, styles, winget catalog</text>
     <text x="64" y="190" fill="#8fbcff">modules/</text>
@@ -38,8 +38,8 @@
     <text x="48" y="342" fill="#7bead2">.github/</text>
     <text x="200" y="342" fill="#8296b3">CI, release workflow, this README art</text>
     <text x="48" y="366" fill="#a8b6cb">package.json</text>
-    <text x="200" y="366" fill="#8296b3">App metadata · v4.6.7</text>
+    <text x="200" y="366" fill="#8296b3">App metadata ï¿½ v4.6.7</text>
     <text x="48" y="390" fill="#a8b6cb">LICENSE</text>
-    <text x="200" y="390" fill="#8296b3">Proprietary · view-only source</text>
+    <text x="200" y="390" fill="#8296b3">Proprietary ï¿½ view-only source</text>
   </g>
 </svg>
