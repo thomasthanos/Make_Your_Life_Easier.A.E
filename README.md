@@ -195,4 +195,4 @@ written permission.
 
 [![Read the licence](.github/assets/btn-licence-read.svg)](LICENSE)
 
-[![ThomasThanos](.github/assets/footer-author.svg)](https://github.com/thomasthanos)
+[![ThomasThanos](.github/assets/footer-author.svg?v=2)](https://github.com/thomasthanos)

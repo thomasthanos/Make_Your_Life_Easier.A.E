@@ -21,7 +21,7 @@
   <rect x=".8" y=".8" width="358.4" height="108.4" rx="16" fill="url(#w)"/>
   <rect x=".8" y=".8" width="358.4" height="108.4" rx="16" fill="none" stroke="url(#edge)" stroke-width="1.2"/>
   
-  <g font-family='"Comic Sans MS", cursive, sans-serif'>
+  <g font-family="Comic Sans MS, cursive, sans-serif">
     <!-- Header -->
     <text x="28" y="40" font-size="22" font-weight="800" letter-spacing="-0.5" fill="url(#textGrad)">ThomasThanos</text>
     <rect x="28" y="52" width="40" height="2" rx="1" fill="#ffb84e" opacity=".85"/>
