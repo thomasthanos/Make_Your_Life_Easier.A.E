@@ -133,20 +133,6 @@ No analytics. No ads. Signed-out is the default.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-code.svg" width="22" align="middle"> How the code is organised
-
-![Make Your Life Easier source layout](.github/assets/tree-myle.svg)
-
-| Technology | Purpose |
-|---|---|
-| **Electron 39** | Desktop shell |
-| **electron-updater** | Background updates from a generic R2 feed |
-| **electron-builder** | Packaging and Authenticode signing |
-| **@supabase/supabase-js** | Optional auth and settings sync |
-| **electron-log** | Structured logs |
-
-
-<img src=".github/assets/divider.svg" width="100%" alt="">
 
 ## <img src=".github/assets/icon-help.svg" width="22" align="middle"> Troubleshooting
 
@@ -194,8 +180,7 @@ without cloud auth — local settings still work.
 
 <br>
 
-`npm run dev` skips the updater on purpose. Packaged builds check
-`https://downloads.thomast.uk`. Portable mode updates too; leave the app open
+Packaged builds check `https://downloads.thomast.uk`. Portable mode updates too; leave the app open
 long enough for the background check.
 </details>
 
