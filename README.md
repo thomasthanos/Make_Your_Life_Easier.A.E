@@ -19,7 +19,7 @@
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-cloud.svg?v=2" width="24"> What it does
+## <img src=".github/assets/icon-cloud.svg?v=3" width="24" align="middle"> What it does
 
 Windows already has a package manager, a disk cleaner, a repair toolkit and a pile of
 third-party utilities — they just live in different windows, different elevation prompts
@@ -32,7 +32,7 @@ preferences on another PC.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-sparkle.svg?v=2" width="24"> Features
+## <img src=".github/assets/icon-sparkle.svg?v=3" width="24" align="middle"> Features
 
 ### App & software installers
 
@@ -66,13 +66,13 @@ preferences on another PC.
 - Background **auto-updates** from Cloudflare R2, including portable builds.
 - Authenticode-signed installers, so SmartScreen shows a trusted publisher.
 
-### <img src=".github/assets/icon-globe.svg?v=2" width="22"> Languages
+### <img src=".github/assets/icon-globe.svg?v=3" width="22" align="middle"> Languages
 
 English and Greek. Switch from Settings; the rest of the app follows immediately.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-install.svg?v=2" width="24"> Install
+## <img src=".github/assets/icon-install.svg?v=3" width="24" align="middle"> Install
 
 **Requirements:** Windows 10/11 (64-bit) · 4 GB RAM · 200 MB storage.
 
@@ -93,7 +93,7 @@ English and Greek. Switch from Settings; the rest of the app follows immediately
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-settings.svg?v=2" width="24"> Settings
+## <img src=".github/assets/icon-settings.svg?v=3" width="24" align="middle"> Settings
 
 Reachable from the sidebar → **Settings**. Changes save instantly, locally first.
 
@@ -108,7 +108,7 @@ preferences — never of files, credentials or system state.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-key.svg?v=2" width="24"> What it asks of Windows
+## <img src=".github/assets/icon-key.svg?v=3" width="24" align="middle"> What it asks of Windows
 
 | Access | Why it is needed |
 |---|---|
@@ -121,7 +121,7 @@ That is the complete list. No telemetry, no ads, no always-on cloud.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-shield.svg?v=2" width="24"> Privacy, briefly
+## <img src=".github/assets/icon-shield.svg?v=3" width="24" align="middle"> Privacy, briefly
 
 **The tools run on your computer.** Maintenance, the installer hub, debloat and
 utility launches never leave the machine. Optional account sync stores only
@@ -134,7 +134,7 @@ No analytics. No ads. Signed-out is the default.
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
 
-## <img src=".github/assets/icon-help.svg?v=2" width="24"> Troubleshooting
+## <img src=".github/assets/icon-help.svg?v=3" width="24" align="middle"> Troubleshooting
 
 <details>
 <summary><b>SmartScreen or Windows Defender warns on first run</b></summary>
@@ -186,7 +186,7 @@ long enough for the background check.
 
 <img src=".github/assets/divider.svg" width="100%" alt="">
 
-## <img src=".github/assets/icon-license.svg?v=2" width="24"> Licence
+## <img src=".github/assets/icon-license.svg?v=3" width="24" align="middle"> Licence
 
 Source-available, all rights reserved. The source is published for viewing and
 education. Compiled binaries may be used for personal, non-commercial use.
