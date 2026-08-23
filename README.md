@@ -195,6 +195,4 @@ written permission.
 
 [![Read the licence](.github/assets/btn-licence-read.svg)](LICENSE)
 
-[![ThomasThanos](.github/assets/badge-author.svg)](https://github.com/thomasthanos)
-[![GitHub](.github/assets/badge-github.svg)](https://github.com/thomasthanos)
-[![Email](.github/assets/badge-email.svg)](mailto:thomasthanos28@gmail.com)
+[![ThomasThanos](.github/assets/footer-author.svg)](https://github.com/thomasthanos)
