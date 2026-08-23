@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/assets/banner-myle.svg" alt="Make Your Life Easier">
+<img src=".github/assets/banner-myle.svg?v=3" alt="Make Your Life Easier">
 
 [![Windows 10/11](.github/assets/badge-windows.svg)](#-install)
 [![Electron 39](.github/assets/badge-electron.svg)](https://www.electronjs.org/)
