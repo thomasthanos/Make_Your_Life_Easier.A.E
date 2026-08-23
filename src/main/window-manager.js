@@ -5,6 +5,7 @@
 
 const { BrowserWindow, app } = require('electron');
 const path = require('path');
+const { hardenWindow } = require('./security');
 
 // Window dimension constants
 const MAIN_WINDOW = { width: 1100, height: 750, minWidth: 800, minHeight: 600 };
@@ -62,6 +63,7 @@ function createMainWindow(showWindow = true, preloadPath) {
         }
     });
 
+    hardenWindow(mainWindow);
     mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
     // Block DevTools keyboard shortcut in production
@@ -112,6 +114,7 @@ function createUpdateWindow(preloadPath, onReady) {
         }
     });
 
+    hardenWindow(updateWindow);
     updateWindow.setMenuBarVisibility(false);
     updateWindow.loadFile(path.join(__dirname, '..', 'updater', 'update.html'));
 
@@ -166,6 +169,7 @@ function createInstallerWindow(preloadPath) {
         }
     });
 
+    hardenWindow(installerWindow);
     installerWindow.setMenuBarVisibility(false);
     installerWindow.loadFile(path.join(__dirname, '..', 'installer-ui', 'installer.html'));
 

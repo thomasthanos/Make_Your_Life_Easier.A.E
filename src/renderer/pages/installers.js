@@ -4,7 +4,7 @@
  */
 
 import { debug, escapeHtml, debounce, getBaseName, getExtractedFolderPath } from '../utils.js';
-import { trackProcess, completeProcess, registerDownload, getActiveDownload, attachDownloadUI, downloadStore } from '../managers.js';
+import { trackProcess, completeProcess, registerDownload, getActiveDownload, attachDownloadUI, attachDownloadLifecycle, downloadStore } from '../managers.js';
 import { toast } from '../components.js';
 import { CUSTOM_APPS } from '../services.js';
 
@@ -16,101 +16,171 @@ function getFaviconUrl(pkgId, appName) {
     if (typeof FaviconConfig !== 'undefined') {
         return FaviconConfig.getFaviconUrl(pkgId, appName);
     }
+    // Only reached if favicon-config.js failed to load; keep it on the same
+    // endpoint so the fallback behaves like the real thing (404 on an unknown
+    // domain rather than a 200 grey globe).
     const slug = String(appName || pkgId || '').toLowerCase().replace(/\s+/g, '');
-    return `https://www.google.com/s2/favicons?domain=${slug}.com&sz=64`;
+    return 'https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL'
+        + `&url=${encodeURIComponent(`http://${slug}.com`)}&size=64`;
 }
+
+// Resolved once and shared: the list renders ~70 icons, and asking the main
+// process for the same fallback path once per broken image is a wasted IPC
+// round-trip each time.
+let fallbackIconPromise = null;
+function getFallbackIconPath() {
+    if (!fallbackIconPromise) {
+        fallbackIconPromise = Promise.resolve(window.api?.getAssetPath?.('icons/hacker.ico'))
+            .then((p) => p || '../assets/icons/hacker.ico')
+            .catch(() => '../assets/icons/hacker.ico');
+    }
+    return fallbackIconPromise;
+}
+
+/**
+ * Build the <img> for an app tile.
+ * The icon service 404s on a domain it cannot resolve, so the error handler is
+ * the real fallback path rather than a formality.
+ * @param {Object} app - App descriptor with id and name
+ * @returns {HTMLImageElement} Configured icon element
+ */
+function createAppFavicon(app) {
+    const fav = document.createElement('img');
+    fav.classList.add('app-favicon');
+    fav.alt = '';
+    // Intrinsic size matches the CSS box, so the grid does not reflow as icons
+    // arrive; the list is ~70 items and every late icon would shift the rows.
+    fav.width = 26;
+    fav.height = 26;
+    fav.loading = 'lazy';
+    fav.decoding = 'async';
+    fav.fetchPriority = 'low';
+    fav.referrerPolicy = 'no-referrer';
+    fav.addEventListener('error', () => {
+        if (fav.dataset.fallback) return;
+        fav.dataset.fallback = '1';
+        getFallbackIconPath().then((iconPath) => { fav.src = iconPath; });
+    });
+    fav.src = getFaviconUrl(app.id, app.name);
+    return fav;
+}
+
+// Hoisted to module scope on purpose. These were declared inside the functions
+// below, which run once per app tile — 70 times per page build — so every render
+// rebuilt 74 map entries and 112 keyword strings for nothing. They are constant.
+const DEVELOPER_URL_OVERRIDES = {
+    'Proton.ProtonVPN': 'https://protonvpn.com/download?srsltid=AfmBOorCqPOivQW4nu912shSaLHNK2mrKj95FqK-_apNH6nFGY8aeFiX',
+    'Proton.ProtonDrive': 'https://proton.me/drive/download',
+    'Proton.ProtonMail': 'https://proton.me/mail/download',
+    'Proton.ProtonAuthenticator': 'https://proton.me/authenticator/download',
+    'Proton.Proton Authenticator': 'https://proton.me/authenticator/download',
+    'NordSecurity.NordPass': 'https://nordpass.com/download/',
+    'Google.GoogleDrive': 'https://drive.google.com/drive/my-drive',
+    'Google.Chrome': 'https://www.google.com/chrome/',
+    'GitHub.GitHubDesktop': 'https://desktop.github.com/',
+    'Microsoft.VisualStudioCode': 'https://code.visualstudio.com/download',
+    'Guru3D.Afterburner': 'https://www.msi.com/Landing/afterburner/graphics-cards',
+    'IObit.AdvancedSystemCare': 'https://www.iobit.com/en/advancedsystemcarefree.php',
+    'IObit.DriverBooster': 'https://www.iobit.com/en/driver-booster.php',
+    'IObit.SoftwareUpdater': 'https://www.iobit.com/en/iobit-software-updater.php',
+    'IObit.IObitSysInfo': 'https://www.iobit.com/it/system-information.php',
+    'IObit.SmartDefrag': 'https://www.iobit.com/en/iobitsmartdefrag.php',
+    'IObit.Uninstaller': 'https://www.iobit.com/en/advanceduninstaller.php'
+};;
+
+const PUBLISHER_DOMAINS = {
+    google: 'google.com',
+    bitdefender: 'bitdefender.com/en-us/consumer/thank-you',
+    brave: 'brave.com',
+    discord: 'discord.com',
+    dropbox: 'dropbox.com/install',
+    electronicarts: 'ea.com/ea-app',
+    elgato: 'elgato.com/us/en/s/downloads',
+    epicgames: 'epicgames.com',
+    git: 'git-scm.com',
+    github: 'github.com',
+    nordsecurity: 'nordvpn.com/download/windows/',
+    mojang: 'minecraft.net/en-us/download',
+    vivaldi: 'vivaldi.com',
+    valve: 'steampowered.com',
+    playstation: 'remoteplay.dl.playstation.net/remoteplay/lang/en/',
+    python: 'python.org/downloads/',
+    // Note: microsoft is for Visual Studio Professional only. Visual Studio Code uses custom URL above.
+    microsoft: 'visualstudio.microsoft.com/downloads/',
+    rarlab: 'win-rar.com',
+    razerinc: 'razer.com/eu-en/synapse-4',
+    softdeluxe: 'freedownloadmanager.org',
+    spotify: 'spotify.com',
+    surfshark: 'surfshark.com/download?srsltid=AfmBOorcPsSBR-wUna4MesO5XGZpsZggzmkT15omy-h-xpnLNQsXqZ8C',
+    zwylair: 'github.com',
+    proton: 'proton.me',
+    openjs: 'nodejs.org',
+    mozilla: 'mozilla.org',
+    '7zip': '7-zip.org',
+    vencord: 'vencord.dev/download/',
+    obsproject: 'obsproject.com',
+    videolan: 'videolan.org',
+    oracle: 'virtualbox.org/wiki/Downloads',
+    logitech: 'logitech.com',
+    notepadplusplus: 'notepad-plus-plus.org',
+    cpuid: 'cpuid.com',
+    crystaldew: 'crystalmark.info',
+    crystaldewworld: 'crystalmark.info',
+    malwarebytes: 'malwarebytes.com',
+    teamviewer: 'teamviewer.com',
+    anydesk: 'anydesk.com',
+    betterdiscord: 'betterdiscord.app',
+    iobit: 'www.iobit.com/en/advancedsystemcarefree.php',
+    blizzard: 'battle.net',
+    ubisoft: 'ubisoft.com/en-gb/ubisoft-connect/download',
+    guru3d: 'guru3d.com/download/rtss-rivatuner-statistics-server-download/',
+    anthropic: 'claude.ai',
+    techpowerup: 'techpowerup.com/gpuz/',
+    realix: 'hwinfo.com',
+    blenderfoundation: 'blender.org/download/',
+    'notepad++': 'notepad-plus-plus.org/downloads/',
+    florianheidenreich: 'mp3tag.de/en/download.html',
+    rufus: 'rufus.ie',
+    ventoy: 'ventoy.net/en/download.html',
+    revouninstaller: 'revouninstaller.com/products/revo-uninstaller-free/',
+    stremio: 'stremio.com/downloads',
+    apple: 'apple.com/itunes/',
+    nvidia: 'nvidia.com/en-us/software/nvidia-app/',
+    amd: 'amd.com/en/support/download/drivers.html'
+};
+
+// Order matters! More specific categories first.
+const CATEGORY_KEYWORDS = [
+    // Hardware FIRST - to catch CPU-Z, HWMonitor etc before anything else
+    { key: 'Hardware', keywords: ['cpu-z', 'gpu-z', 'hwinfo', 'hwmonitor', 'cpuid.', 'techpowerup', 'realix', 'afterburner', 'rtss', 'guru3d', 'crystaldisk', 'razer', 'synapse', 'streamdeck', 'elgato.', 'nvidia', 'geforce', 'amd.adrenalin', 'radeon'] },
+    // Communication - Discord, Vesktop, etc
+    { key: 'Communication', keywords: ['discord', 'vesktop', 'vencord', 'betterdiscord', 'slack', 'teams', 'zoom', 'telegram', 'signal', 'skype'] },
+    // Then browsers
+    { key: 'Browsers', keywords: ['firefox', 'google.chrome', 'brave.brave', 'opera', 'edge', 'vivaldi', 'tor', 'browser'] },
+    // Games
+    { key: 'Games', keywords: ['steam', 'epicgames', 'battlenet', 'ubisoft', 'riot', 'gog', 'psremoteplay', 'playstation', 'xbox', 'minecraft', 'mojang', 'eadesktop', 'electronicarts', 'bluestack'] },
+    // Media
+    { key: 'Media', keywords: ['spotify', 'music', 'tidal', 'mp3tag', 'audio', 'vlc', 'winamp', 'itunes', 'obsstudio', 'obsproject', 'stremio', 'blender', 'video'] },
+    // Development
+    { key: 'Development', keywords: ['visualstudio', 'python', 'nodejs', 'openjs', 'git.git', 'github', 'gitlab', 'java', 'eclipse', 'intellij', 'jetbrains', 'vscode', 'docker', 'virtualbox', 'vmware', 'claude', 'anthropic', 'notepad'] },
+    // Security
+    { key: 'Security', keywords: ['vpn', 'bitdefender', 'antivirus', 'security', 'surfshark', 'nordsecurity', 'protonvpn', 'authenticator', 'password', 'malwarebytes', 'protonmail', 'protondrive', 'proton.proton'] },
+    // Utilities last
+    { key: 'Utilities', keywords: ['7zip', 'rarlab', 'winrar', 'freedownload', 'downloadmanager', 'driverbooster', 'softwareupdater', 'sysinfo', 'smartdefrag', 'uninstaller', 'iobit', 'rufus', 'ventoy', 'anydesk', 'dropbox.dropbox', 'googledrive', 'revo'] }
+];
 
 function getDeveloperUrl(pkgId) {
     try {
         // Custom URLs for specific Package IDs
-        const customUrlMap = {
-            'Proton.ProtonVPN': 'https://protonvpn.com/download?srsltid=AfmBOorCqPOivQW4nu912shSaLHNK2mrKj95FqK-_apNH6nFGY8aeFiX',
-            'Proton.ProtonDrive': 'https://proton.me/drive/download',
-            'Proton.ProtonMail': 'https://proton.me/mail/download',
-            'Proton.ProtonAuthenticator': 'https://proton.me/authenticator/download',
-            'Proton.Proton Authenticator': 'https://proton.me/authenticator/download',
-            'NordSecurity.NordPass': 'https://nordpass.com/download/',
-            'Google.GoogleDrive': 'https://drive.google.com/drive/my-drive',
-            'Google.Chrome': 'https://www.google.com/chrome/',
-            'GitHub.GitHubDesktop': 'https://desktop.github.com/',
-            'Microsoft.VisualStudioCode': 'https://code.visualstudio.com/download',
-            'Guru3D.Afterburner': 'https://www.msi.com/Landing/afterburner/graphics-cards',
-            'IObit.AdvancedSystemCare': 'https://www.iobit.com/en/advancedsystemcarefree.php',
-            'IObit.DriverBooster': 'https://www.iobit.com/en/driver-booster.php',
-            'IObit.SoftwareUpdater': 'https://www.iobit.com/en/iobit-software-updater.php',
-            'IObit.IObitSysInfo': 'https://www.iobit.com/it/system-information.php',
-            'IObit.SmartDefrag': 'https://www.iobit.com/en/iobitsmartdefrag.php',
-            'IObit.Uninstaller': 'https://www.iobit.com/en/advanceduninstaller.php'
-        };
         
         // Check custom URLs first
-        if (customUrlMap[pkgId]) {
-            return customUrlMap[pkgId];
+        if (DEVELOPER_URL_OVERRIDES[pkgId]) {
+            return DEVELOPER_URL_OVERRIDES[pkgId];
         }
         
         const parts = String(pkgId).split('.');
         const publisher = (parts[0] || '').toLowerCase();
-        const domainMap = {
-            google: 'google.com',
-            bitdefender: 'bitdefender.com/en-us/consumer/thank-you',
-            brave: 'brave.com',
-            discord: 'discord.com',
-            dropbox: 'dropbox.com/install',
-            electronicarts: 'ea.com/ea-app',
-            elgato: 'elgato.com/us/en/s/downloads',
-            epicgames: 'epicgames.com',
-            git: 'git-scm.com',
-            github: 'github.com',
-            nordsecurity: 'nordvpn.com/download/windows/',
-            mojang: 'minecraft.net/en-us/download',
-            vivaldi: 'vivaldi.com',
-            valve: 'steampowered.com',
-            playstation: 'remoteplay.dl.playstation.net/remoteplay/lang/en/',
-            python: 'python.org/downloads/',
-            // Note: microsoft is for Visual Studio Professional only. Visual Studio Code uses custom URL above.
-            microsoft: 'visualstudio.microsoft.com/downloads/',
-            rarlab: 'win-rar.com',
-            razerinc: 'razer.com/eu-en/synapse-4',
-            softdeluxe: 'freedownloadmanager.org',
-            spotify: 'spotify.com',
-            surfshark: 'surfshark.com/download?srsltid=AfmBOorcPsSBR-wUna4MesO5XGZpsZggzmkT15omy-h-xpnLNQsXqZ8C',
-            zwylair: 'github.com',
-            proton: 'proton.me',
-            openjs: 'nodejs.org',
-            mozilla: 'mozilla.org',
-            '7zip': '7-zip.org',
-            vencord: 'vencord.dev/download/',
-            obsproject: 'obsproject.com',
-            videolan: 'videolan.org',
-            oracle: 'virtualbox.org/wiki/Downloads',
-            logitech: 'logitech.com',
-            notepadplusplus: 'notepad-plus-plus.org',
-            cpuid: 'cpuid.com',
-            crystaldew: 'crystalmark.info',
-            crystaldewworld: 'crystalmark.info',
-            malwarebytes: 'malwarebytes.com',
-            teamviewer: 'teamviewer.com',
-            anydesk: 'anydesk.com',
-            betterdiscord: 'betterdiscord.app',
-            iobit: 'www.iobit.com/en/advancedsystemcarefree.php',
-            blizzard: 'battle.net',
-            ubisoft: 'ubisoft.com/en-gb/ubisoft-connect/download',
-            guru3d: 'guru3d.com/download/rtss-rivatuner-statistics-server-download/',
-            anthropic: 'claude.ai',
-            techpowerup: 'techpowerup.com/gpuz/',
-            realix: 'hwinfo.com',
-            blenderfoundation: 'blender.org/download/',
-            'notepad++': 'notepad-plus-plus.org/downloads/',
-            florianheidenreich: 'mp3tag.de/en/download.html',
-            rufus: 'rufus.ie',
-            ventoy: 'ventoy.net/en/download.html',
-            revouninstaller: 'revouninstaller.com/products/revo-uninstaller-free/',
-            stremio: 'stremio.com/downloads',
-            apple: 'apple.com/itunes/',
-            nvidia: 'nvidia.com/en-us/software/nvidia-app/',
-            amd: 'amd.com/en/support/download/drivers.html'
-        };
-        const domain = domainMap[publisher] || `${publisher}.com`;
+        const domain = PUBLISHER_DOMAINS[publisher] || `${publisher}.com`;
         return `https://${domain}`;
     } catch {
         return '';
@@ -119,26 +189,7 @@ function getDeveloperUrl(pkgId) {
 
 function getCategoryForId(pkgId) {
     const lower = String(pkgId).toLowerCase();
-    // Order matters! More specific categories first
-    const mappings = [
-        // Hardware FIRST - to catch CPU-Z, HWMonitor etc before anything else
-        { key: 'Hardware', keywords: ['cpu-z', 'gpu-z', 'hwinfo', 'hwmonitor', 'cpuid.', 'techpowerup', 'realix', 'afterburner', 'rtss', 'guru3d', 'crystaldisk', 'razer', 'synapse', 'streamdeck', 'elgato.', 'nvidia', 'geforce', 'amd.adrenalin', 'radeon'] },
-        // Communication - Discord, Vesktop, etc
-        { key: 'Communication', keywords: ['discord', 'vesktop', 'vencord', 'betterdiscord', 'slack', 'teams', 'zoom', 'telegram', 'signal', 'skype'] },
-        // Then browsers
-        { key: 'Browsers', keywords: ['firefox', 'google.chrome', 'brave.brave', 'opera', 'edge', 'vivaldi', 'tor', 'browser'] },
-        // Games
-        { key: 'Games', keywords: ['steam', 'epicgames', 'battlenet', 'ubisoft', 'riot', 'gog', 'psremoteplay', 'playstation', 'xbox', 'minecraft', 'mojang', 'eadesktop', 'electronicarts', 'bluestack'] },
-        // Media
-        { key: 'Media', keywords: ['spotify', 'music', 'tidal', 'mp3tag', 'audio', 'vlc', 'winamp', 'itunes', 'obsstudio', 'obsproject', 'stremio', 'blender', 'video'] },
-        // Development
-        { key: 'Development', keywords: ['visualstudio', 'python', 'nodejs', 'openjs', 'git.git', 'github', 'gitlab', 'java', 'eclipse', 'intellij', 'jetbrains', 'vscode', 'docker', 'virtualbox', 'vmware', 'claude', 'anthropic', 'notepad'] },
-        // Security
-        { key: 'Security', keywords: ['vpn', 'bitdefender', 'antivirus', 'security', 'surfshark', 'nordsecurity', 'protonvpn', 'authenticator', 'password', 'malwarebytes', 'protonmail', 'protondrive', 'proton.proton'] },
-        // Utilities last
-        { key: 'Utilities', keywords: ['7zip', 'rarlab', 'winrar', 'freedownload', 'downloadmanager', 'driverbooster', 'softwareupdater', 'sysinfo', 'smartdefrag', 'uninstaller', 'iobit', 'rufus', 'ventoy', 'anydesk', 'dropbox.dropbox', 'googledrive', 'revo'] }
-    ];
-    for (const { key, keywords } of mappings) {
+    for (const { key, keywords } of CATEGORY_KEYWORDS) {
         if (keywords.some((kw) => lower.includes(kw))) {
             return key;
         }
@@ -832,21 +883,21 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     });
 
     const onDocClick = (e) => {
-        if (!sortDropdown.isConnected) {
-            document.removeEventListener('click', onDocClick);
-            return;
-        }
         if (!sortDropdown.contains(e.target)) closeSortMenu();
     };
     const onDocKeydown = (e) => {
-        if (!sortDropdown.isConnected) {
-            document.removeEventListener('keydown', onDocKeydown);
-            return;
-        }
         if (e.key === 'Escape') closeSortMenu();
     };
     document.addEventListener('click', onDocClick);
     document.addEventListener('keydown', onDocKeydown);
+    // These two live on `document`, so they outlive the page's own DOM. They used
+    // to self-remove only on the next event after the dropdown was detached, which
+    // meant every visit that ended without a click or keypress left a pair behind,
+    // each holding the whole page closure alive.
+    container._pageCleanup = [() => {
+        document.removeEventListener('click', onDocClick);
+        document.removeEventListener('keydown', onDocKeydown);
+    }];
 
     setSortSelection('default');
 
@@ -891,19 +942,29 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             if (!ul) return;
             const items = Array.from(ul.querySelectorAll('li'));
             const statusOrder = { installed: 0, 'update-available': 1, failed: 2, unknown: 3, 'not-installed': 4 };
-            items.sort((a, b) => {
-                if (value === 'az') return (a.dataset.appName || '').localeCompare(b.dataset.appName || '');
-                if (value === 'za') return (b.dataset.appName || '').localeCompare(a.dataset.appName || '');
+
+            // Read each row's sort keys once. The comparator used to run two
+            // querySelector calls per comparison, so sorting 70 rows by status cost
+            // roughly 860 DOM queries for 70 values that never change mid-sort.
+            const keyed = items.map((li) => ({
+                li,
+                name: li.dataset.appName || '',
+                rank: statusOrder[li.querySelector('.app-status-badge')?.dataset?.status || 'unknown'] ?? 2
+            }));
+
+            keyed.sort((a, b) => {
+                if (value === 'za') return b.name.localeCompare(a.name);
                 if (value === 'status') {
-                    const as = a.querySelector('.app-status-badge')?.dataset?.status || 'unknown';
-                    const bs = b.querySelector('.app-status-badge')?.dataset?.status || 'unknown';
-                    const diff = (statusOrder[as] ?? 2) - (statusOrder[bs] ?? 2);
-                    return diff !== 0 ? diff : (a.dataset.appName || '').localeCompare(b.dataset.appName || '');
+                    const diff = a.rank - b.rank;
+                    if (diff !== 0) return diff;
                 }
-                // default: alphabetical (as originally built)
-                return (a.dataset.appName || '').localeCompare(b.dataset.appName || '');
+                // 'az' and the default both fall through to alphabetical
+                return a.name.localeCompare(b.name);
             });
-            items.forEach(item => ul.appendChild(item));
+
+            const fragment = document.createDocumentFragment();
+            keyed.forEach(({ li }) => fragment.appendChild(li));
+            ul.appendChild(fragment);
         });
     }
 
@@ -952,6 +1013,27 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         }
     });
 
+    // Delegated the same way the checkbox handler above is. The developer-site
+    // arrow used to get its own listener per row — 61 of them rebuilt on every
+    // render — when one listener on the container does the job. The URL rides on
+    // the element as a data attribute instead of in a closure.
+    container.addEventListener('click', (e) => {
+        const link = e.target.closest?.('.app-link');
+        if (!link || !container.contains(link)) return;
+        e.preventDefault();
+        const devUrl = link.dataset.devUrl;
+        if (!devUrl) return;
+        try {
+            if (window.api && typeof window.api.openExternal === 'function') {
+                window.api.openExternal(devUrl);
+            } else {
+                window.open(devUrl, '_blank');
+            }
+        } catch {
+            // Ignore — opening the vendor page is a convenience, not a requirement.
+        }
+    });
+
     const listContainer = document.createElement('div');
     listContainer.classList.add('list-container');
     container.appendChild(listContainer);
@@ -970,12 +1052,13 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         const ids = Array.isArray(appsData?.apps) ? appsData.apps : [];
         const categories = {};
 
-        // Swap the pinned Python line for the newest one winget offers. The JSON
-        // value stays the floor, so an offline machine keeps working.
+        // The pinned Python line gets swapped for the newest one winget offers, but
+        // that lookup spawns winget.exe and queries its source over the network.
+        // Awaiting it here held up the entire list — and the first paint of the
+        // default page — for one row's package ID. Build with the pinned value and
+        // patch that row in when the answer arrives.
         const pythonIdx = ids.findIndex((id) => typeof id === 'string' && PYTHON_LINE_RE.test(id));
-        if (pythonIdx >= 0) {
-            ids[pythonIdx] = await getLatestPythonId(ids[pythonIdx]);
-        }
+        const pinnedPythonId = pythonIdx >= 0 ? ids[pythonIdx] : null;
 
         ids.forEach((id) => {
             let name;
@@ -1053,20 +1136,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 checkbox.id = cbId;
                 checkbox.classList.add('app-checkbox');
 
-                const fav = document.createElement('img');
-                fav.classList.add('app-favicon');
-                fav.src = getFaviconUrl(app.id, app.name);
-                fav.onerror = async () => {
-                    if (!fav.dataset.fallback) {
-                        fav.dataset.fallback = '1';
-                        try {
-                            const iconPath = await window.api.getAssetPath('icons/hacker.ico');
-                            fav.src = iconPath;
-                        } catch (err) {
-                            fav.src = '../assets/icons/hacker.ico';
-                        }
-                    }
-                };
+                const fav = createAppFavicon(app);
 
                 const label = document.createElement('label');
                 label.setAttribute('for', cbId);
@@ -1116,20 +1186,9 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     linkEl.target = '_blank';
                     linkEl.rel = 'noopener noreferrer';
                     linkEl.classList.add('app-link');
+                    linkEl.dataset.devUrl = devUrl; // read by the delegated click handler
                     linkEl.setAttribute('aria-label', (translations.actions && translations.actions.open_developer_site) || 'Open developer site');
                     linkEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></svg>';
-                    linkEl.addEventListener('click', (event) => {
-                        event.preventDefault();
-                        try {
-                            if (window.api && typeof window.api.openExternal === 'function') {
-                                window.api.openExternal(devUrl);
-                            } else {
-                                window.open(devUrl, '_blank');
-                            }
-                        } catch (err) {
-                            // Ignore
-                        }
-                    });
                     li.appendChild(linkEl);
                 }
                 ul.appendChild(li);
@@ -1137,6 +1196,23 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             group.appendChild(ul);
             listContainer.appendChild(group);
         });
+
+        if (pinnedPythonId) refreshPythonRow(pinnedPythonId);
+    }
+
+    /**
+     * Replace the pinned Python package ID once winget reports a newer line.
+     * @param {string} pinnedId - The ID the row was built with
+     */
+    function refreshPythonRow(pinnedId) {
+        getLatestPythonId(pinnedId).then((latestId) => {
+            if (!latestId || latestId === pinnedId) return;
+            const row = listContainer.querySelector(`li[data-app-id="${CSS.escape(pinnedId)}"]`);
+            if (!row) return;
+            row.dataset.appId = latestId;
+            const idEl = row.querySelector('.app-id');
+            if (idEl) idEl.textContent = latestId;
+        }).catch((err) => debug('warn', 'Could not refresh the Python line:', err));
     }
 
     function applySearchFilter() {
@@ -1158,9 +1234,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     const debouncedSearch = debounce(applySearchFilter, 250);
     searchInput.addEventListener('input', debouncedSearch);
-    searchInput._searchCleanup = () => {
-        debouncedSearch.cancel();
-    };
+    container._pageCleanup.push(() => debouncedSearch.cancel());
 
     // Import button handler
     importBtn.addEventListener('click', () => {
@@ -1721,68 +1795,68 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         registerDownload(storeKey, downloadId, { appName, url, ext });
 
         return new Promise((resolve, reject) => {
-            // Use global store callback instead of direct IPC listener
-            attachDownloadUI(storeKey, async (data) => {
+            // Progress painting only. This callback is dropped the moment the user
+            // switches page, so nothing that has to happen may live in here.
+            attachDownloadUI(storeKey, (data) => {
+                if (data.status !== 'progress' || !li.isConnected) return;
+                const hasPercent = typeof data.percent === 'number' && Number.isFinite(data.percent);
+                if (itemProgressFill) {
+                    itemProgressFill.classList.toggle('determinate', hasPercent);
+                    if (hasPercent) itemProgressFill.style.setProperty('--progress', `${data.percent}%`);
+                }
+                if (itemProgressLabel) {
+                    itemProgressLabel.textContent = hasPercent
+                        ? `${data.percent}%`
+                        : (typeof data.received === 'number' && Number.isFinite(data.received))
+                            ? `${(data.received / (1024 * 1024)).toFixed(1)} MB`
+                            : '';
+                }
+            });
+
+            // Install + settle. Registered separately so it survives a page switch —
+            // otherwise navigating away mid-download strands this promise forever and
+            // the whole install batch stops without ever reaching its `finally`.
+            attachDownloadLifecycle(storeKey, async (data) => {
+                downloadStore.delete(storeKey);
+
+                if (data.status !== 'complete') {
+                    if (li.isConnected && itemProgressWrap) itemProgressWrap.classList.add('hidden');
+                    reject(new Error(data.error || (data.status === 'cancelled'
+                        ? 'Download cancelled'
+                        : 'Download failed')));
+                    return;
+                }
+
+                if (li.isConnected) {
+                    if (itemProgressFill) {
+                        itemProgressFill.classList.add('determinate');
+                        itemProgressFill.style.setProperty('--progress', '100%');
+                    }
+                    if (itemProgressLabel) itemProgressLabel.textContent = '100%';
+                }
+
                 try {
-                    if (data.status === 'progress') {
-                        if (!li.isConnected) return;
-                        const hasPercent = typeof data.percent === 'number' && Number.isFinite(data.percent);
-                        if (itemProgressFill) {
-                            itemProgressFill.classList.toggle('determinate', hasPercent);
-                            if (hasPercent) itemProgressFill.style.setProperty('--progress', `${data.percent}%`);
-                        }
-                        if (itemProgressLabel) {
-                            itemProgressLabel.textContent = hasPercent
-                                ? `${data.percent}%`
-                                : (typeof data.received === 'number' && Number.isFinite(data.received))
-                                    ? `${(data.received / (1024 * 1024)).toFixed(1)} MB`
-                                    : '';
-                        }
-                        return;
-                    }
+                    // Small delay to ensure file handles are fully released
+                    await new Promise(r => setTimeout(r, 300));
 
-                    if (data.status === 'error') {
-                        downloadStore.delete(storeKey);
-                        if (itemProgressWrap) itemProgressWrap.classList.add('hidden');
-                        reject(new Error(data.error || 'Download failed'));
-                        return;
-                    }
+                    const downloadedExt = ext.toLowerCase();
 
-                    if (data.status === 'complete') {
-                        downloadStore.delete(storeKey);
-                        if (itemProgressFill) {
-                            itemProgressFill.classList.add('determinate');
-                            itemProgressFill.style.setProperty('--progress', '100%');
-                        }
-                        if (itemProgressLabel) itemProgressLabel.textContent = '100%';
+                    if (downloadedExt === 'zip') {
+                        const statusEl = document.createElement('span');
+                        statusEl.style.display = 'none';
+                        li.appendChild(statusEl);
 
-                        try {
-                            // Small delay to ensure file handles are fully released
-                            await new Promise(r => setTimeout(r, 300));
-
-                            const downloadedExt = ext.toLowerCase();
-
-                            if (downloadedExt === 'zip') {
-                                const statusEl = document.createElement('span');
-                                statusEl.style.display = 'none';
-                                li.appendChild(statusEl);
-
-                                // Καλεί την processAdvancedInstaller που θα δημιουργήσει το activate button
-                                await processAdvancedInstaller(data.path, statusEl, appName, li);
-                            } else {
-                                const runRes = await window.api.runInstaller(data.path);
-                                if (!runRes || !runRes.success) {
-                                    throw new Error((runRes && runRes.error) || 'Failed to run installer');
-                                }
-                            }
-
-                            resolve();
-                        } catch (err) {
-                            reject(err);
+                        // Καλεί την processAdvancedInstaller που θα δημιουργήσει το activate button
+                        await processAdvancedInstaller(data.path, statusEl, appName, li);
+                    } else {
+                        const runRes = await window.api.runInstaller(data.path);
+                        if (!runRes || !runRes.success) {
+                            throw new Error((runRes && runRes.error) || 'Failed to run installer');
                         }
                     }
+
+                    resolve();
                 } catch (err) {
-                    downloadStore.delete(storeKey);
                     reject(err);
                 }
             });
@@ -1800,17 +1874,19 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     await buildList();
 
-    try {
-        const savedIds = await window.api?.getSetting?.('selected_apps');
-        if (Array.isArray(savedIds) && savedIds.length) applySelectedIds(savedIds);
-    } catch { }
-
     let savedView = 'list';
     let savedSort = 'default';
     try {
-        const v = await window.api?.getSetting?.('installer_view');
+        // One round-trip's worth of latency instead of three: these all read the
+        // same in-memory store in the main process, so there is nothing to
+        // sequence them for.
+        const [savedIds, v, s] = await Promise.all([
+            window.api?.getSetting?.('selected_apps'),
+            window.api?.getSetting?.('installer_view'),
+            window.api?.getSetting?.('installer_sort')
+        ]);
+        if (Array.isArray(savedIds) && savedIds.length) applySelectedIds(savedIds);
         if (v === 'list' || v === 'grid') savedView = v;
-        const s = await window.api?.getSetting?.('installer_sort');
         if (['default', 'az', 'za', 'status'].includes(s)) savedSort = s;
     } catch { }
 
@@ -1947,9 +2023,12 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
         header.className = 'crack-app-header';
 
         const img = document.createElement('img');
-        img.src = icon;
-        img.alt = name;
         img.className = 'crack-app-icon';
+        img.alt = name;
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        img.src = icon;
         header.appendChild(img);
 
         const appCopy = document.createElement('div');

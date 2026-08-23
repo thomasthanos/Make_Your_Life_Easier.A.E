@@ -9,6 +9,34 @@ const os = require('os');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const versionResolver = require('../modules/version-resolver');
+const { psFileArgumentList, getAuthenticodeStatus } = require('../modules/process-utils');
+const sharedSecurity = require('../modules/security');
+const { debug: log } = require('../modules/debug');
+
+/**
+ * Refuse a file whose Authenticode signature does not match its contents.
+ *
+ * Deliberately narrow. Most of what this app downloads is unsigned, and plenty of
+ * it is signed by publishers Windows does not trust, so neither of those may block
+ * a launch. 'HashMismatch' is different: it means the binary carries a signature
+ * that no longer matches its bytes — the file was modified after it was signed.
+ * @param {string} filePath - Executable about to be launched
+ * @returns {Promise<string|null>} An error message when the launch must be refused
+ */
+async function blockIfTampered(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    if (!['.exe', '.msi'].includes(ext)) return null;
+
+    const status = await getAuthenticodeStatus(filePath);
+    if (status === 'HashMismatch') {
+        log('warn', 'Refusing to launch a file whose signature does not match its contents:', filePath);
+        return 'This file has been modified since it was signed and will not be run.';
+    }
+    if (status && status !== 'Valid') {
+        log('info', `Launching ${path.basename(filePath)} with signature status: ${status}`);
+    }
+    return null;
+}
 
 function setupWindowHandlers(getMainWindow) {
     ipcMain.handle('window-minimize', () => {
@@ -91,14 +119,25 @@ function setupOAuthHandlers(oauth, userProfile, getMainWindow, supabase, setting
     });
 
     ipcMain.handle('logout', async () => {
+        // Clear local state no matter what the server said. signOut() throws on a
+        // network failure, and the old code returned early from the catch — leaving
+        // the refresh token and the cached profile on disk, so a sign-out attempted
+        // offline left the account fully usable on next launch.
+        let error = null;
         try {
             await supabase.signOut();
-            settingsStore.onSignedOut();
-            userProfile.clear();
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: error.message };
+        } catch (err) {
+            error = err;
         }
+
+        settingsStore.onSignedOut();
+        userProfile.clear();
+
+        if (error) {
+            log('warn', 'Supabase sign-out failed; local session cleared anyway:', error.message);
+            return { success: true, warning: error.message };
+        }
+        return { success: true };
     });
 }
 
@@ -339,30 +378,48 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
 
                 const normalized = validation.normalized;
 
+                // Same restriction run-installer enforces. Without it this handler
+                // is a second, unguarded way to launch any executable on disk — and
+                // it is the one the crack-installer flow actually uses.
+                if (!sharedSecurity.isWritableTarget(normalized, app.getPath('userData'))) {
+                    return resolve({ success: false, error: 'Files can only be opened from Downloads, temp or app data' });
+                }
+
                 if (!fs.existsSync(normalized)) {
                     return resolve({ success: false, error: 'File does not exist' });
                 }
 
-                if (process.platform === 'win32') {
-                    shell.openPath(normalized)
-                        .then((errStr) => {
-                            if (errStr) {
-                                resolve({ success: false, error: errStr });
-                            } else {
-                                resolve({ success: true });
-                            }
-                        })
-                        .catch((err) => {
+                blockIfTampered(normalized)
+                    .then((refusal) => {
+                        if (refusal) return resolve({ success: false, error: refusal });
+                        openIt();
+                    })
+                    .catch(() => openIt());
+                return;
+
+                // Deferred so the signature check above can gate it.
+                function openIt() {
+                    if (process.platform === 'win32') {
+                        shell.openPath(normalized)
+                            .then((errStr) => {
+                                if (errStr) {
+                                    resolve({ success: false, error: errStr });
+                                } else {
+                                    resolve({ success: true });
+                                }
+                            })
+                            .catch((err) => {
+                                resolve({ success: false, error: err.message });
+                            });
+                    } else {
+                        const cmd = process.platform === 'darwin' ? 'open' : 'xdg-open';
+                        const child = spawn(cmd, [normalized], { detached: true, stdio: 'ignore' });
+                        child.on('error', (err) => {
                             resolve({ success: false, error: err.message });
                         });
-                } else {
-                    const cmd = process.platform === 'darwin' ? 'open' : 'xdg-open';
-                    const child = spawn(cmd, [normalized], { detached: true, stdio: 'ignore' });
-                    child.on('error', (err) => {
-                        resolve({ success: false, error: err.message });
-                    });
-                    child.unref();
-                    resolve({ success: true });
+                        child.unref();
+                        resolve({ success: true });
+                    }
                 }
             } catch (err) {
                 resolve({ success: false, error: err.message });
@@ -387,6 +444,23 @@ function setupDownloadHandlers(downloadManager, getMainWindow) {
     ipcMain.on('download-start', (event, { id, url, dest, headers }) => {
         const win = getMainWindow();
         if (!win) return;
+
+        // A relative dest is sanitised into the Downloads folder by the download
+        // manager, but an absolute one is used verbatim — so it has to be pinned
+        // to a directory this app actually writes to. Every real caller passes
+        // either a bare filename or a path under userData (the Sparkle zip).
+        if (typeof dest === 'string' && path.isAbsolute(dest)) {
+            const check = sharedSecurity.validatePath(dest);
+            if (!check.valid || !sharedSecurity.isWritableTarget(check.normalized, app.getPath('userData'))) {
+                win.webContents.send('download-event', {
+                    id,
+                    status: 'error',
+                    error: 'Download destination is not allowed'
+                });
+                return;
+            }
+        }
+
         downloadManager.startDownload(id, url, dest, win, headers);
     });
 
@@ -582,11 +656,13 @@ ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
                 fs.writeFileSync(psFile, psLines.join('\r\n'), 'utf8');
 
                 // 3. Launcher PS1 — calls elevated PS1 via Start-Process -Verb RunAs -Wait
-                //    Uses -ArgumentList with array syntax to avoid quoting issues with spaces in path
-                const psFilePS = psFile.replace(/'/g, "''");
+                //    The -ArgumentList value has to be one pre-quoted string: the array
+                //    form joins its elements with plain spaces and quotes nothing, so a
+                //    %TEMP% path containing a space (any "First Last" account) splits in
+                //    two and powershell -File never receives the script.
                 const launcherLines = [
                     // Use $proc to capture the elevated process, then forward its exit code
-                    "$proc = Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '" + psFilePS + "') -Verb RunAs -Wait -PassThru",
+                    '$proc = Start-Process powershell.exe -ArgumentList ' + psFileArgumentList(psFile) + ' -Verb RunAs -Wait -PassThru',
                     "exit $proc.ExitCode"
                 ];
                 const launcherFile = path.join(tmpDir, 'replace_launcher_' + stamp + '.ps1');
@@ -658,11 +734,22 @@ function setupArchiveHandlers(security, archiveUtils, downloadManager) {
                 return { success: false, error: `Invalid archive path: ${fileCheck.error}` };
             }
 
+            // Extraction wipes its output directory before unpacking, and with no
+            // destDir that directory is derived from the archive's own location —
+            // so the archive path needs the same containment as the destination.
+            const userDataPath = app.getPath('userData');
+            if (!sharedSecurity.isWritableTarget(fileCheck.normalized, userDataPath)) {
+                return { success: false, error: 'Archive is outside the allowed extraction area' };
+            }
+
             let safeDestDir = destDir;
             if (destDir) {
                 const destCheck = security.validatePath(destDir);
                 if (!destCheck.valid) {
                     return { success: false, error: `Invalid destination: ${destCheck.error}` };
+                }
+                if (!sharedSecurity.isWritableTarget(destCheck.normalized, userDataPath)) {
+                    return { success: false, error: 'Destination is outside the allowed extraction area' };
                 }
                 safeDestDir = destCheck.normalized;
             }
@@ -904,10 +991,10 @@ function setupInstallerHandlers(debug, security) {
             }
             const normalized = validation.normalized;
 
-            const downloadsDir = path.join(os.homedir(), 'Downloads').toLowerCase();
-            const tempDir = os.tmpdir().toLowerCase();
-            const lowerPath = normalized.toLowerCase();
-            if (!lowerPath.startsWith(downloadsDir) && !lowerPath.startsWith(tempDir)) {
+            // Containment, not a prefix match: a bare startsWith also accepts
+            // C:\Users\me\Downloads-evil\x.exe, because nothing requires a
+            // separator after the prefix.
+            if (!sharedSecurity.isWritableTarget(normalized, app.getPath('userData'))) {
                 return resolve({ success: false, error: 'Installers can only be run from Downloads or temp folder' });
             }
 
@@ -921,44 +1008,52 @@ function setupInstallerHandlers(debug, security) {
                 return resolve({ success: false, error: fsErr.message });
             }
 
-            if (process.platform === 'win32') {
-                if (ext === '.msi') {
-                    try {
-                        const child = spawn('msiexec', ['/i', normalized], { detached: true, stdio: 'ignore' });
-                        child.on('error', (spawnErr) => {
-                            resolve({ success: false, error: spawnErr.message });
-                        });
-                        child.unref();
-                        return resolve({ success: true });
-                    } catch (spawnErr) {
-                        return resolve({ success: false, error: spawnErr.message });
-                    }
-                }
+            blockIfTampered(normalized).then((refusal) => {
+                if (refusal) return resolve({ success: false, error: refusal });
+                launch();
+            }).catch(() => launch());
 
-                shell.openPath(normalized)
-                    .then((errStr) => {
-                        if (!errStr) {
-                            resolve({ success: true });
-                        } else {
-                            debug('warn', 'shell.openPath failed:', errStr);
-                            resolve({ success: false, error: errStr });
+            // Deferred so the signature check above can gate it.
+            function launch() {
+                if (process.platform === 'win32') {
+                    if (ext === '.msi') {
+                        try {
+                            const child = spawn('msiexec', ['/i', normalized], { detached: true, stdio: 'ignore' });
+                            child.on('error', (spawnErr) => {
+                                resolve({ success: false, error: spawnErr.message });
+                            });
+                            child.unref();
+                            return resolve({ success: true });
+                        } catch (spawnErr) {
+                            return resolve({ success: false, error: spawnErr.message });
                         }
-                    })
-                    .catch((err) => {
-                        resolve({ success: false, error: err.message });
-                    });
-            } else {
-                shell.openPath(normalized)
-                    .then((errStr) => {
-                        if (!errStr) {
-                            resolve({ success: true });
-                        } else {
-                            resolve({ success: false, error: errStr });
-                        }
-                    })
-                    .catch((err) => {
-                        resolve({ success: false, error: err.message });
-                    });
+                    }
+
+                    shell.openPath(normalized)
+                        .then((errStr) => {
+                            if (!errStr) {
+                                resolve({ success: true });
+                            } else {
+                                debug('warn', 'shell.openPath failed:', errStr);
+                                resolve({ success: false, error: errStr });
+                            }
+                        })
+                        .catch((err) => {
+                            resolve({ success: false, error: err.message });
+                        });
+                } else {
+                    shell.openPath(normalized)
+                        .then((errStr) => {
+                            if (!errStr) {
+                                resolve({ success: true });
+                            } else {
+                                resolve({ success: false, error: errStr });
+                            }
+                        })
+                        .catch((err) => {
+                            resolve({ success: false, error: err.message });
+                        });
+                }
             }
         });
     });

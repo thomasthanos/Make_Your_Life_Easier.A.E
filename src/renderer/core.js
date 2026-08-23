@@ -5,7 +5,7 @@
 
 import { debug } from './utils.js';
 import { attachTooltipHandlers, buttonStateManager, detachAllDownloadUI, initDownloadListener } from './managers.js';
-import { INFO_ICON, MENU_ICON, toast, openInfoModal, createMenuButton, hideAppLoader } from './components.js';
+import { INFO_ICON, MENU_ICON, toast, openInfoModal, createMenuButton } from './components.js';
 import {
     loadSettings, saveSettings, applyTheme, loadTranslations, setTranslations,
     initializeAutoUpdater, ensureSidebarVersion, checkForChangelog,
@@ -207,6 +207,19 @@ function renderMenu() {
 // PAGE LOADING
 // ============================================
 
+/**
+ * Run and clear the teardown callbacks a page registered on its root element.
+ * @param {Element|null} pageRoot - The outgoing page's root element
+ */
+function runPageCleanup(pageRoot) {
+    const callbacks = pageRoot && pageRoot._pageCleanup;
+    if (!Array.isArray(callbacks)) return;
+    pageRoot._pageCleanup = null;
+    for (const fn of callbacks) {
+        try { fn(); } catch (err) { debug('warn', 'Page cleanup failed:', err); }
+    }
+}
+
 export async function loadPage(key) {
     const generation = ++pageLoadGeneration;
 
@@ -216,13 +229,12 @@ export async function loadPage(key) {
     // Cleanup previous page's button states
     buttonStateManager.resetAll();
 
-    document.querySelectorAll('.bios-overlay').forEach((el) => el.remove());
-
-    // Cleanup any pending debounced functions from previous page
-    const prevSearchInput = document.querySelector('.search-input-styled');
-    if (prevSearchInput && typeof prevSearchInput._searchCleanup === 'function') {
-        prevSearchInput._searchCleanup();
-    }
+    document.querySelectorAll('.bios-overlay').forEach((el) => {
+        if (typeof el._cleanup === 'function') {
+            try { el._cleanup(); } catch { /* already torn down */ }
+        }
+        el.remove();
+    });
 
     currentPage = key;
 
@@ -243,12 +255,15 @@ export async function loadPage(key) {
     try {
         if (window.api && typeof window.api.setWindowSize === 'function') {
             await window.api.setWindowSize(targetWidth, targetHeight);
-            // Small delay to let window resize complete
-            await new Promise(resolve => setTimeout(resolve, 16));
         }
     } catch { }
 
     if (generation !== pageLoadGeneration) return;
+
+    // Run the outgoing page's teardown. Builders register anything that outlives
+    // their own DOM here — document-level listeners, pending debounces — because
+    // replaceChildren() only collects listeners attached to the nodes it removes.
+    runPageCleanup(content.firstElementChild);
 
     // Now clear and load new content
     content.replaceChildren();
@@ -338,12 +353,24 @@ export async function loadPage(key) {
 // INITIALIZATION
 // ============================================
 
+/**
+ * Push a splash-screen progress step without waiting for it.
+ *
+ * These five calls only paint a percentage in the updater window, and when the app
+ * starts with --no-updater that window does not exist at all — so awaiting them
+ * added five sequential IPC round-trips to boot in exchange for nothing.
+ * @param {number} percent - Progress percentage
+ * @param {string} message - Status line for the splash
+ */
+function reportBootProgress(percent, message) {
+    try {
+        window.api?.updateLoadingProgress?.(percent, message)?.catch?.(() => {});
+    } catch { /* no splash window, nothing to report to */ }
+}
+
 export async function init() {
     try {
-        // Report progress: Loading settings
-        if (window.api?.updateLoadingProgress) {
-            await window.api.updateLoadingProgress(20, 'Loading settings...').catch(() => {});
-        }
+        reportBootProgress(20, 'Loading settings...');
 
         await hydratePrefsFromCloud();
 
@@ -356,19 +383,13 @@ export async function init() {
         // Apply theme
         applyTheme();
         
-        // Report progress: Loading translations
-        if (window.api?.updateLoadingProgress) {
-            await window.api.updateLoadingProgress(40, 'Loading translations...').catch(() => {});
-        }
+        reportBootProgress(40, 'Loading translations...');
 
         // Load translations
         translations = await loadTranslations(settings.lang);
         setTranslations(translations);
         
-        // Report progress: Building UI
-        if (window.api?.updateLoadingProgress) {
-            await window.api.updateLoadingProgress(60, 'Building interface...').catch(() => {});
-        }
+        reportBootProgress(60, 'Building interface...');
 
         // Render menu
         renderMenu();
@@ -376,10 +397,7 @@ export async function init() {
         // Ensure sidebar version is displayed
         await ensureSidebarVersion({ settings });
         
-        // Report progress: Initializing
-        if (window.api?.updateLoadingProgress) {
-            await window.api.updateLoadingProgress(80, 'Initializing...').catch(() => {});
-        }
+        reportBootProgress(80, 'Initializing...');
 
         // Initialize auto-updater
         initializeAutoUpdater();
@@ -391,13 +409,9 @@ export async function init() {
             await loadPage(defaultButton.dataset.key);
         }
         
-        // Report progress: Almost ready
-        if (window.api?.updateLoadingProgress) {
-            await window.api.updateLoadingProgress(95, 'Almost ready...').catch(() => {});
-
-            // Small delay to allow 95% to render before jumping to 100%
-            await new Promise(resolve => setTimeout(resolve, 150));
-        }
+        // The 150 ms pause that used to sit here existed only so the splash could
+        // paint 95% before it jumped to 100% — dead time on every single launch.
+        reportBootProgress(95, 'Almost ready...');
 
         // Signal to main process that app is ready FIRST (for updater window transition)
         if (window.api && typeof window.api.signalAppReady === 'function') {
@@ -425,8 +439,7 @@ export async function init() {
                 await window.api.signalAppReady(undefined, undefined, false);
             } catch { }
         }
-        
-        hideAppLoader();
+
         toast('Failed to initialize application', { type: 'error', title: 'Error' });
     }
 }

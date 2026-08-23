@@ -100,6 +100,8 @@ contextBridge.exposeInMainWorld('api', {
   loginGoogle: () => ipcRenderer.invoke('login-google'),
   loginDiscord: () => ipcRenderer.invoke('login-discord'),
   getUserProfile: () => ipcRenderer.invoke('get-user-profile'),
+  // Fires when the main process renews the profile from the auth server after launch.
+  onUserProfileUpdated: (callback) => onEvent('user-profile-updated', callback),
   logout: () => ipcRenderer.invoke('logout'),
 
   // ── Settings (local-first + Supabase sync) ──

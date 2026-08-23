@@ -304,20 +304,6 @@ export function hideUpdateOverlay() {
 }
 
 // ============================================
-// APP LOADER
-// ============================================
-
-/**
- * Hide the application loader
- */
-export function hideAppLoader() {
-    const loader = document.getElementById('app-loader');
-    if (!loader) return;
-    loader.classList.add('hidden');
-    loader.classList.remove('visible');
-}
-
-// ============================================
 // INFO MODAL
 // ============================================
 
@@ -409,27 +395,63 @@ export async function openInfoModal() {
 }
 
 /**
- * Replace a broken avatar image with an initial-letter placeholder.
- * Discord/Google avatar URLs change whenever the user updates their picture, so an
- * old cached URL 404s and would otherwise leave a broken-image icon in the UI.
- * Uses a listener instead of an inline onerror handler because the renderer CSP
- * blocks inline event handlers.
+ * Whether a value is safe to drop into an <img src>.
+ * The profile arrives over IPC already normalised, but this is the last stop
+ * before it reaches the DOM, so re-check the scheme here rather than trust it.
+ * @param {unknown} value - Candidate URL
+ * @returns {boolean} True for absolute http(s) URLs only
+ */
+export function isHttpUrl(value) {
+    if (typeof value !== 'string' || !value) return false;
+    try {
+        const { protocol } = new URL(value);
+        return protocol === 'https:' || protocol === 'http:';
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Recover a broken avatar image, and fall back to an initial-letter placeholder.
+ *
+ * Two things go wrong with provider avatars. Their URLs change whenever the user
+ * updates their picture, so an old cached URL 404s and would leave a broken-image
+ * icon in the UI. And an animated Discord avatar is served as `.gif` only while
+ * the account still has it — otherwise the CDN answers 415 and only the still
+ * rendition loads, which is what `altSrc` carries.
+ *
+ * So: try `altSrc` once, then show the initial. Uses a listener instead of an
+ * inline onerror handler because the renderer CSP blocks inline event handlers.
  * @param {HTMLImageElement|null} img - The avatar image element
  * @param {string} name - Display name used for the initial
  * @param {string} fallbackClass - Class applied to the placeholder element
+ * @param {string|null} [altSrc] - Alternate source to try before giving up
  */
-export function attachAvatarFallback(img, name, fallbackClass) {
+export function attachAvatarFallback(img, name, fallbackClass, altSrc = null) {
     if (!img) return;
-    const swap = () => {
-        debug('warn', 'Avatar image failed to load:', img.src);
+
+    const showPlaceholder = () => {
         const placeholder = document.createElement('div');
         placeholder.className = fallbackClass;
         placeholder.textContent = String(name || '?').trim().slice(0, 1).toUpperCase() || '?';
         img.replaceWith(placeholder);
     };
-    img.addEventListener('error', swap, { once: true });
+
+    const onError = () => {
+        if (altSrc && isHttpUrl(altSrc) && img.src !== altSrc && !img.dataset.triedAlt) {
+            debug('warn', 'Avatar failed, trying the still rendition:', img.src);
+            img.dataset.triedAlt = '1';
+            img.addEventListener('error', showPlaceholder, { once: true });
+            img.src = altSrc;
+            return;
+        }
+        debug('warn', 'Avatar image failed to load:', img.src);
+        showPlaceholder();
+    };
+
+    img.addEventListener('error', onError, { once: true });
     // The load may already have failed before this listener was attached.
-    if (img.complete && img.naturalWidth === 0) swap();
+    if (img.complete && img.naturalWidth === 0) onError();
 }
 
 export function openAccountModal(profile, syncedItems = [], handlers = {}, texts = {}) {
@@ -463,8 +485,8 @@ export function openAccountModal(profile, syncedItems = [], handlers = {}, texts
         ? `<ul class="account-sync-list">${rows}</ul>`
         : `<div class="account-sync-empty">${escapeHtml(texts.empty || 'No synced settings yet.')}</div>`;
 
-    const avatar = profile.avatar
-        ? `<img class="account-avatar" src="${escapeHtml(profile.avatar)}" alt="avatar">`
+    const avatar = isHttpUrl(profile.avatar)
+        ? `<img class="account-avatar" src="${escapeHtml(profile.avatar)}" alt="" width="72" height="72" decoding="async" referrerpolicy="no-referrer">`
         : `<div class="account-avatar account-avatar-fallback">${escapeHtml((profile.name || '?').slice(0, 1).toUpperCase())}</div>`;
 
     modal.innerHTML = `
@@ -497,7 +519,8 @@ export function openAccountModal(profile, syncedItems = [], handlers = {}, texts
     attachAvatarFallback(
         modal.querySelector('img.account-avatar'),
         profile.name,
-        'account-avatar account-avatar-fallback'
+        'account-avatar account-avatar-fallback',
+        profile.avatarFallback
     );
 
     const close = () => {

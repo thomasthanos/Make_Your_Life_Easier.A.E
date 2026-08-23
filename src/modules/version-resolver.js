@@ -140,6 +140,42 @@ const RESOLVERS = {
   }
 };
 
+/**
+ * Hosts each resolver is allowed to hand back a download URL for.
+ *
+ * The nvidia and amd resolvers pin their host in the scraping regex already; the
+ * two API-driven ones did not, so whatever `downloadUrl` the vendor's JSON
+ * contained was downloaded and run. Anything not on this list falls back to the
+ * pinned URL rather than being fetched.
+ */
+const ALLOWED_DOWNLOAD_HOSTS = {
+  'nvidia-app': ['nvidia.com'],
+  'amd-adrenalin': ['amd.com'],
+  'betterdiscord': ['github.com', 'githubusercontent.com'],
+  'cursor': ['cursor.com', 'cursor.sh', 'cloudfront.net']
+};
+
+/**
+ * Whether a resolved URL is one this resolver is permitted to return.
+ * Matches the registrable domain or any subdomain of it — never a bare substring,
+ * so `evil-cursor.com.attacker.net` does not pass as `cursor.com`.
+ * @param {string} key - Resolver key
+ * @param {string} url - URL the resolver produced
+ * @returns {boolean} True when the URL is https and sits on an allowed host
+ */
+function isAllowedDownloadUrl(key, url) {
+  const allowed = ALLOWED_DOWNLOAD_HOSTS[key];
+  if (!allowed) return true;
+  try {
+    const { protocol, hostname } = new URL(url);
+    if (protocol !== 'https:') return false;
+    const host = hostname.toLowerCase();
+    return allowed.some((domain) => host === domain || host.endsWith(`.${domain}`));
+  } catch {
+    return false;
+  }
+}
+
 const cache = new Map();
 
 /**
@@ -165,6 +201,9 @@ async function resolveDownloadUrl(key, fallbackUrl) {
   try {
     const found = await resolver();
     if (!found || !found.url) throw new Error('No download URL found in vendor response');
+    if (!isAllowedDownloadUrl(key, found.url)) {
+      throw new Error(`Resolver returned a URL outside its allowed hosts: ${found.url}`);
+    }
     cache.set(key, { url: found.url, headers: found.headers, at: Date.now() });
     return { url: found.url, headers: found.headers, resolved: true };
   } catch (err) {

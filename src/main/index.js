@@ -201,6 +201,34 @@ function cleanupStaleLockFiles() {
 }
 
 // ============================================================================
+// User Profile
+// ============================================================================
+
+/**
+ * Recompute the stored profile from a Supabase user and persist it if it changed.
+ * @param {Object} user - Supabase user object
+ * @param {Object|null} cached - Currently stored profile, used to keep the provider stable
+ * @returns {boolean} True when the stored profile was replaced
+ */
+function applyProfile(user, cached) {
+    // Resolve against the provider the user actually signed in with: a Supabase
+    // account can have Google and Discord linked to the same e-mail, and picking
+    // the wrong identity shows the other account's picture and provider badge.
+    const preferred = cached?.provider && cached.provider !== 'unknown' ? cached.provider : null;
+    const fresh = profileFromUser(user, preferred);
+    if (!fresh) return false;
+    if (fresh.provider === 'unknown' && cached?.provider) fresh.provider = cached.provider;
+
+    if (cached && cached.id === fresh.id && cached.name === fresh.name
+        && cached.avatar === fresh.avatar && cached.avatarFallback === fresh.avatarFallback
+        && cached.provider === fresh.provider) {
+        return false;
+    }
+    userProfile.set(fresh);
+    return true;
+}
+
+// ============================================================================
 // App Lifecycle
 // ============================================================================
 
@@ -232,20 +260,30 @@ app.whenReady().then(async () => {
     // Initialize user profile
     try {
         userProfile.initialize(app.getPath('userData'));
-        const sessionUser = await supabase.getSessionUser();
         const cached = userProfile.get();
+        const sessionUser = await supabase.getSessionUser();
         if (cached && !sessionUser) {
             debug('warn', 'Clearing cached user profile because the Supabase session is missing.');
             userProfile.clear();
         } else if (sessionUser) {
-            // Refresh on every launch: Discord/Google avatar URLs change when the user
-            // updates their picture, so a cached URL keeps 404ing until it is renewed.
-            const fresh = profileFromUser(sessionUser);
-            if (fresh.provider === 'unknown' && cached?.provider) fresh.provider = cached.provider;
-            if (!cached || cached.id !== fresh.id || cached.name !== fresh.name
-                || cached.avatar !== fresh.avatar || cached.provider !== fresh.provider) {
-                userProfile.set(fresh);
-            }
+            applyProfile(sessionUser, cached);
+            // Then renew from the auth server in the background. Discord/Google
+            // avatar URLs change when the user updates their picture, and the
+            // persisted session only carries the metadata snapshot from when its
+            // token was issued — so a stale URL keeps 404ing until we ask the
+            // server. Deliberately not awaited: this is a network round-trip and
+            // the window must not wait on it.
+            supabase.getFreshUser()
+                .then((freshUser) => {
+                    if (!freshUser) return;
+                    if (applyProfile(freshUser, userProfile.get())) {
+                        const win = windowManager.getMainWindow();
+                        if (win && !win.isDestroyed()) {
+                            win.webContents.send('user-profile-updated', userProfile.get());
+                        }
+                    }
+                })
+                .catch((err) => debug('warn', 'Background profile refresh failed:', err?.message || err));
         }
     } catch (err) {
         debug('warn', 'Failed to initialize user profile:', err.message);
@@ -268,11 +306,15 @@ app.whenReady().then(async () => {
         }
     } catch { /* ignore */ }
 
+    // Certificate trust spawns certutil once or twice, and awaiting it here held up
+    // the very first window on every launch. Nothing on screen depends on it — it
+    // only has to be in place before an update's installer runs, which is many
+    // seconds of downloading away — so let it settle in the background.
+    certificate.ensureCertificateTrusted().catch(() => {});
+
     if (skipUpdater || justUpdated) {
-        certificate.ensureCertificateTrusted().catch(() => {});
         createMainWindow(false); // start hidden and show when renderer signals ready
     } else {
-        await certificate.ensureCertificateTrusted();
         createUpdateWindow();
     }
 

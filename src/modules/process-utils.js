@@ -166,9 +166,73 @@ function getPowerShellExe() {
   return 'powershell.exe';
 }
 
+/**
+ * Build the `-ArgumentList` value for launching a .ps1 through Start-Process.
+ *
+ * Start-Process joins an `-ArgumentList` *array* with plain spaces and adds no
+ * quoting of its own, so an element holding a path with a space reaches the child
+ * as two separate arguments. `powershell.exe -File` accepts exactly one token, so
+ * the script never runs and the process exits -196608. Every script here is
+ * written under %TEMP%, which contains a space for any account whose user name
+ * does ("C:\Users\John Doe\AppData\Local\Temp"), so the array form breaks these
+ * tasks outright for a large share of users. Passing a single pre-quoted string
+ * puts the quoting under our control instead.
+ *
+ * (`-Command` happens to survive the array form because it swallows every
+ * remaining argument, which is why only the `-File` launches are affected.)
+ * @param {string} scriptPath - Path to the .ps1 to run
+ * @param {string[]} extraSwitches - powershell.exe switches to place before -File
+ * @returns {string} A PowerShell single-quoted literal ready to follow -ArgumentList
+ */
+function psFileArgumentList(scriptPath, extraSwitches = []) {
+  const switches = ['-NoProfile', '-ExecutionPolicy', 'Bypass', ...extraSwitches, '-File'].join(' ');
+  // Outer single quotes make it one PowerShell string; the inner double quotes
+  // keep the path together once Start-Process hands it to the child. Windows
+  // paths cannot contain a double quote, so only ' needs escaping.
+  return `'${switches} "${String(scriptPath).replace(/'/g, "''")}"'`;
+}
+
+/**
+ * Ask Windows what it thinks of an executable's Authenticode signature.
+ *
+ * Returns the raw status string (`Valid`, `NotSigned`, `HashMismatch`,
+ * `NotTrusted`, …) or null when the check could not be performed at all. The
+ * caller decides what to do with it: most of what this app downloads is
+ * unsigned, so `NotSigned` is normal and must not block — `HashMismatch` is the
+ * one that means the file was altered after it was signed.
+ * @param {string} filePath - Absolute path to the file to inspect
+ * @returns {Promise<string|null>} Signature status, or null if unavailable
+ */
+function getAuthenticodeStatus(filePath) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve(null);
+
+    const psExe = getPowerShellExe() || 'powershell.exe';
+    // -LiteralPath so nothing in the name is treated as a wildcard, and the path
+    // inside a single-quoted PowerShell string with its own quotes doubled.
+    const escaped = String(filePath).replace(/'/g, "''");
+    const script = `(Get-AuthenticodeSignature -LiteralPath '${escaped}').Status.ToString()`;
+    const child = spawn(psExe, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      { windowsHide: true });
+
+    let out = '';
+    const timer = setTimeout(() => { try { child.kill(); } catch { } resolve(null); }, 15000);
+
+    if (child.stdout) child.stdout.on('data', (d) => { out += d.toString(); });
+    child.on('error', () => { clearTimeout(timer); resolve(null); });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      const status = out.trim();
+      resolve(code === 0 && status ? status : null);
+    });
+  });
+}
+
 module.exports = {
   runSpawnCommand,
+  getAuthenticodeStatus,
   runStreamingCommand,
   attachChildProcessHandlers,
-  getPowerShellExe
+  getPowerShellExe,
+  psFileArgumentList
 };

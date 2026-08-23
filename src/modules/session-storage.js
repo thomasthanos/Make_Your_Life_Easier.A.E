@@ -69,6 +69,19 @@ function createSessionStorage({ userDataPath, safeStorage }) {
     }
   }
 
+  /**
+   * Drop the persisted session entirely. Used when the store cannot be read or
+   * rewritten but the caller still needs it gone.
+   */
+  function discardSessionFile() {
+    cache = {};
+    try {
+      if (fs.existsSync(sessionPath)) fs.unlinkSync(sessionPath);
+    } catch (error) {
+      throw new Error(`Could not delete the stored Supabase session: ${error.message}`);
+    }
+  }
+
   return {
     getItem(key) {
       const store = load();
@@ -78,9 +91,28 @@ function createSessionStorage({ userDataPath, safeStorage }) {
       write({ ...load(), [key]: value });
     },
     removeItem(key) {
-      const next = { ...load() };
-      delete next[key];
-      write(next);
+      // Removing a key is how sign-out happens, so it has to work even when the
+      // store cannot be read or rewritten. Both load() and write() refuse to run
+      // without OS encryption; without this fallback a machine where safeStorage
+      // is unavailable could never sign out, and the refresh token would stay on
+      // disk with the account fully usable on next launch. Deleting the file
+      // needs no encryption, and discarding an unreadable session is exactly the
+      // outcome sign-out wants anyway.
+      let next;
+      try {
+        next = { ...load() };
+        delete next[key];
+      } catch {
+        return discardSessionFile();
+      }
+
+      if (Object.keys(next).length === 0) return discardSessionFile();
+
+      try {
+        write(next);
+      } catch {
+        discardSessionFile();
+      }
     }
   };
 }

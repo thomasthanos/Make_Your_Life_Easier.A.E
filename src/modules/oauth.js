@@ -3,11 +3,22 @@
  * Handles OAuth authentication flows for Google and Discord
  */
 
-const { BrowserWindow, WebContentsView } = require('electron');
+const { BrowserWindow, WebContentsView, session } = require('electron');
 const { getClient } = require('./supabase');
 const { profileFromUser } = require('./auth-profile');
 
 const REDIRECT_URI = process.env.OAUTH_REDIRECT_URI || 'http://localhost:5252';
+
+/**
+ * Partition the sign-in window runs in.
+ *
+ * No 'persist:' prefix, so it is an in-memory session that never touches the
+ * default one. The auth window used to share the app's default session, which
+ * meant Google's and Discord's cookies outlived sign-out: clicking "Sign in with
+ * Discord" again silently reused the previous identity and there was no way to
+ * switch accounts short of clearing app data by hand.
+ */
+const OAUTH_PARTITION = 'oauth';
 
 /**
  * Open an OAuth authentication window
@@ -30,7 +41,8 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
       autoHideMenuBar: true,
       webPreferences: {
         nodeIntegration: false,
-        contextIsolation: true
+        contextIsolation: true,
+        partition: OAUTH_PARTITION
       }
     };
 
@@ -146,7 +158,22 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
   });
 }
 
+/**
+ * Wipe the sign-in partition so the provider asks which account to use.
+ * The in-memory session is shared by every auth window for the lifetime of the
+ * process, so without this a second sign-in in the same run would still reuse the
+ * first one's cookies.
+ */
+async function resetAuthSession() {
+  try {
+    await session.fromPartition(OAUTH_PARTITION).clearStorageData();
+  } catch {
+    // Worst case the provider skips the account picker; not worth failing login.
+  }
+}
+
 async function loginWith(provider, parentWindow) {
+  await resetAuthSession();
   const supabase = getClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,

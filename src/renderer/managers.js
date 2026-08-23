@@ -284,7 +284,13 @@ export function completeProcess(cardId, processType, success = true, resetFuncti
 /**
  * Persists download state across page switches so progress survives tab changes.
  * Key: logical identifier (e.g., 'crack-clip_studio_paint', 'custom-appName')
- * Value: { downloadId, status, percent, path, error, meta, onUpdate }
+ * Value: { downloadId, status, percent, path, error, meta, onUpdate, onLifecycle }
+ *
+ * Two callbacks, on purpose. `onUpdate` paints the page's progress UI and is
+ * dropped when that page is torn down. `onLifecycle` is how a caller learns the
+ * download actually finished — it settles their promise, so it has to survive a
+ * page switch. Having only one callback is what used to strand an install batch
+ * forever when the user navigated away mid-download.
  */
 export const downloadStore = new Map();
 
@@ -302,7 +308,8 @@ export function registerDownload(key, downloadId, meta = {}) {
         path: null,
         error: null,
         meta,
-        onUpdate: null // UI callback, attached by page builder
+        onUpdate: null,   // UI callback, attached by the page builder, dropped on page switch
+        onLifecycle: null // terminal-state callback, survives page switches
     });
 }
 
@@ -317,7 +324,22 @@ export function attachDownloadUI(key, callback) {
 }
 
 /**
- * Detach all UI callbacks (called before page switch destroys DOM)
+ * Attach a terminal-state callback that outlives page switches.
+ * Fires once, with the event that ends the download ('complete', 'error' or
+ * 'cancelled'), so a caller's promise settles even if its page is long gone.
+ * @param {string} key - Logical key
+ * @param {Function} callback - Called with the terminal download event data
+ */
+export function attachDownloadLifecycle(key, callback) {
+    const dl = downloadStore.get(key);
+    if (dl) dl.onLifecycle = callback;
+}
+
+/**
+ * Detach all UI callbacks (called before page switch destroys DOM).
+ * Deliberately leaves `onLifecycle` alone — that is what settles a caller's
+ * promise, and dropping it is how a download finishing on another page ends up
+ * never being reported at all.
  */
 export function detachAllDownloadUI() {
     for (const dl of downloadStore.values()) {
@@ -356,6 +378,13 @@ export function initDownloadListener() {
                 // Forward to UI callback if attached
                 if (dl.onUpdate) {
                     try { dl.onUpdate(data); } catch { /* DOM may be stale, ignore */ }
+                }
+
+                const terminal = ['complete', 'error', 'cancelled'].includes(data.status);
+                if (terminal && dl.onLifecycle) {
+                    const settle = dl.onLifecycle;
+                    dl.onLifecycle = null; // fire once
+                    try { settle(data); } catch { /* caller already gone, ignore */ }
                 }
 
                 // Clean up finished downloads from store after a delay.

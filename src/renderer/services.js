@@ -4,7 +4,7 @@
  */
 
 import { debug, escapeHtml, getAppVersionWithFallback, normalizeVersion, normalizeVersionTag } from './utils.js';
-import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay, openAccountModal, attachAvatarFallback } from './components.js';
+import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay, openAccountModal, attachAvatarFallback, isHttpUrl } from './components.js';
 import { attachTooltipHandlers } from './managers.js';
 
 // ============================================
@@ -116,13 +116,26 @@ let translations = {};
  * @param {string} lang - Language code
  * @returns {Promise<Object>} Translations object
  */
+// Parsed language files, kept for the session. The bundle ships with the app and
+// cannot change while it runs, but loadTranslations() is called again on every
+// language toggle — and each call re-fetched and re-parsed ~18-26 KB of JSON.
+const translationCache = new Map();
+
 export async function loadTranslations(lang) {
+    const cached = translationCache.get(lang);
+    if (cached) {
+        translations = cached;
+        document.documentElement.setAttribute('lang', lang || 'en');
+        return translations;
+    }
+
     const candidates = [`../i18n/${lang}.json`, `i18n/${lang}.json`, `${lang}.json`];
     for (const url of candidates) {
         try {
             const res = await fetch(url);
             if (res.ok) {
                 translations = await res.json();
+                translationCache.set(lang, translations);
                 document.documentElement.setAttribute('lang', lang || 'en');
                 return translations;
             }
@@ -622,6 +635,13 @@ export async function checkForChangelog() {
 // SIDEBAR VERSION
 // ============================================
 
+// The main process renews the signed-in profile from the auth server shortly after
+// launch and pushes the result here. `ensureSidebarVersion` can run more than once,
+// so keep a single IPC listener and repoint it at the current renderer instead of
+// stacking a new listener on every call.
+let refreshUserInfo = null;
+let profileListenerAttached = false;
+
 /**
  * Ensure the sidebar version badge is present and updated
  * @param {Object} state - App state with settings
@@ -678,12 +698,20 @@ export async function ensureSidebarVersion(_state = {}) {
             if (!userInfoEl.isConnected) return;
             userInfoEl.innerHTML = '';
             if (profile && profile.name) {
-                if (profile.avatar) {
+                if (isHttpUrl(profile.avatar)) {
                     const img = document.createElement('img');
+                    img.width = 20;
+                    img.height = 20;
+                    img.decoding = 'async';
+                    // Provider CDNs do not need to know which app is asking, and a
+                    // referrer header on a file:// page is meaningless anyway.
+                    img.referrerPolicy = 'no-referrer';
+                    img.alt = '';
+                    // src last: the load only starts once it is set, so every
+                    // attribute above is already in place when it does.
                     img.src = profile.avatar;
-                    img.alt = 'avatar';
                     userInfoEl.appendChild(img);
-                    attachAvatarFallback(img, profile.name, 'user-avatar-fallback');
+                    attachAvatarFallback(img, profile.name, 'user-avatar-fallback', profile.avatarFallback);
                 }
                 const span = document.createElement('span');
                 span.textContent = profile.name;
@@ -774,6 +802,12 @@ export async function ensureSidebarVersion(_state = {}) {
         } catch (err) {
             debug('warn', 'Failed to update user info:', err);
         }
+    }
+
+    refreshUserInfo = updateUserInfo;
+    if (!profileListenerAttached) {
+        profileListenerAttached = true;
+        window.api?.onUserProfileUpdated?.(() => { refreshUserInfo?.(); });
     }
 
     updateUserInfo();
