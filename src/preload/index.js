@@ -109,4 +109,21 @@ contextBridge.exposeInMainWorld('api', {
   setSetting: (key, value) => ipcRenderer.invoke('settings-set', { key, value }),
   getAllSettings: () => ipcRenderer.invoke('settings-all'),
   resetSettings: () => ipcRenderer.invoke('settings-reset'),
+
+  // ── Game Saves ──
+  gameSavesState: () => ipcRenderer.invoke('game-saves-state'),
+  gameSavesScan: (options) => ipcRenderer.invoke('game-saves-scan', options),
+  gameSavesBackup: (ids) => ipcRenderer.invoke('game-saves-backup', ids),
+  gameSavesRestore: (ids) => ipcRenderer.invoke('game-saves-restore', ids),
+  gameSavesCancel: () => ipcRenderer.invoke('game-saves-cancel'),
+  gameSavesPickFolder: () => ipcRenderer.invoke('game-saves-pick-folder'),
+  gameSavesUseCloud: (cloudId) => ipcRenderer.invoke('game-saves-use-cloud', cloudId),
+  gameSavesAddRoot: () => ipcRenderer.invoke('game-saves-add-root'),
+  gameSavesRemoveRoot: (rootPath) => ipcRenderer.invoke('game-saves-remove-root', rootPath),
+  gameSavesSetSchedule: (schedule) => ipcRenderer.invoke('game-saves-set-schedule', schedule),
+  gameSavesSetExcluded: (id, excluded) => ipcRenderer.invoke('game-saves-set-excluded', { id, excluded }),
+  gameSavesSuggestion: (id, action) => ipcRenderer.invoke('game-saves-suggestion', { id, action }),
+  gameSavesOpen: (target, id) => ipcRenderer.invoke('game-saves-open', { target, id }),
+  gameSavesRunNow: () => ipcRenderer.invoke('game-saves-run-now'),
+  onGameSavesProgress: (callback) => onEvent('game-saves-progress', callback),
 });

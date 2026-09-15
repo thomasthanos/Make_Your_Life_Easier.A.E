@@ -40,6 +40,7 @@ const spicetifyModule = require('../modules/spicetify');
 const archiveUtils = require('../modules/archive-utils');
 const sparkleModule = require('../modules/sparkle');
 const sharedSecurity = require('../modules/security');
+const gameSaves = require('../modules/game-saves');
 
 // ============================================================================
 // Configuration
@@ -84,6 +85,9 @@ function signalInstallerWhenReady() {
     });
     setTimeout(write, 10000);
 }
+
+// Launched by the scheduled task: back up game saves and exit, with no window.
+const backupSavesMode = !installerMode && gameSaves.isBackupSavesLaunch(process.argv);
 
 if (!installerMode) signalInstallerWhenReady();
 
@@ -151,6 +155,13 @@ ipcHandlers.setupSpicetifyHandlers(spicetifyModule);
 // Installers
 ipcHandlers.setupInstallerHandlers(debug, security);
 
+// Game saves
+const gameSavesService = gameSaves.createGameSavesService({
+    getMainWindow: windowManager.getMainWindow,
+    settingsStore
+});
+ipcHandlers.setupGameSavesHandlers(gameSavesService);
+
 
 // Updater IPC handlers
 updater.setupUpdaterIpcHandlers({
@@ -170,6 +181,16 @@ if (!gotTheLock) {
     app.quit();
 } else if (!installerMode) {
     app.on('second-instance', (event, commandLine, workingDirectory) => {
+        // The scheduled task fired while the app is open: back up in this instance.
+        if (gameSaves.isBackupSavesLaunch(commandLine)) {
+            gameSavesService.runScheduledBackup({ headless: true }).catch(() => {});
+            return;
+        }
+        // This instance is a windowless scheduled backup and the user opened the app.
+        if (backupSavesMode && !windowManager.getMainWindow()) {
+            createMainWindow(false);
+            return;
+        }
         // Someone tried to run a second instance, focus our window instead
         const mainWindow = windowManager.getMainWindow();
         if (mainWindow) {
@@ -232,11 +253,39 @@ function applyProfile(user, cached) {
 // App Lifecycle
 // ============================================================================
 
+/**
+ * The scheduled task's launch: back up game saves, then quit unless the user
+ * opened a window in the meantime.
+ */
+async function runHeadlessBackup() {
+    try {
+        settingsStore.initialize(app.getPath('userData'));
+    } catch (err) {
+        debug('warn', 'Failed to initialize settings store:', err.message);
+    }
+    // Windows shows toast notifications only for an app with a user model id.
+    app.setAppUserModelId('com.kolokithes.makeyourlifeeasier');
+
+    const result = await gameSavesService.runScheduledBackup({ headless: true });
+    debug(result.success ? 'info' : 'warn', 'Scheduled game saves backup finished:', JSON.stringify(result.lastRun || result));
+
+    // Give the notification a moment to register before the process goes away.
+    setTimeout(() => {
+        if (BrowserWindow.getAllWindows().length === 0) app.quit();
+    }, 3000);
+}
+
 app.whenReady().then(async () => {
     // Installer / uninstaller mode: show only the themed Setup window and stop here
     if (installerMode) {
         ipcHandlers.setupInstallerModeHandlers(selfInstaller, windowManager.getInstallerWindow, debug);
         windowManager.createInstallerWindow(installerPreloadPath);
+        return;
+    }
+
+    // Scheduled backup: no window and no updater, just the backup.
+    if (backupSavesMode) {
+        if (gotTheLock) await runHeadlessBackup();
         return;
     }
 
@@ -331,6 +380,8 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
     if (updater.isQuittingForInstall()) return;
+    // A scheduled backup outlives a window opened during it, and quits by itself.
+    if (backupSavesMode && gameSavesService.isRunningScheduled()) return;
     if (process.platform !== 'darwin') app.quit();
 });
 
@@ -339,6 +390,8 @@ app.on('before-quit', () => {
     const safeDebug = (level, ...args) => {
         try { debug(level, ...args); } catch { /* pipe closed */ }
     };
+
+    gameSavesService.dispose();
 
     downloadManager.cleanupOnQuit(safeDebug);
 

@@ -26,7 +26,7 @@ third-party utilities — they just live in different windows, different elevati
 and different websites. This app puts the ones you actually use in one place.
 
 Open it, pick a job from the sidebar, walk away. Install a catalog of apps through
-winget, get patched software, clean and repair the system, activate Windows, launch Sparkle or WinUtil, theme Spotify, or
+winget, get patched software, clean and repair the system, activate Windows, launch Sparkle or WinUtil, theme Spotify, back up your game saves, or
 restart straight into BIOS. An account is optional: sign in only if you want those
 preferences on another PC.
 
@@ -58,6 +58,19 @@ preferences on another PC.
 - **BIOS / UEFI** — One click to restart into firmware setup (admin required).
 - **Spicetify** — Install, uninstall, or fully remove Spotify + Spicetify.
 
+### Game saves
+
+- **Game Saves** finds the save files of the games on this PC with the
+  [Ludusavi manifest](https://github.com/mtkennerly/ludusavi-manifest): save locations for over
+  20,000 games, compiled from [PCGamingWiki](https://www.pcgamingwiki.com) (CC BY-NC-SA). Steam, Epic,
+  GOG and Ubisoft installs are detected automatically, and saves are found in AppData, Documents (also
+  when it is redirected to OneDrive), game folders and the registry.
+- Backs up to one folder per game and copies only what changed. Pick a OneDrive, Google Drive or
+  Dropbox folder to keep the backup off the PC.
+- **Restore** puts saves back, on the same PC or a new one, and first keeps a copy of whatever it replaces.
+- **Automatic backup** through the Windows Task Scheduler, daily or weekly, even when the app is closed.
+- Folders that look like saves of games the manifest does not know are offered as suggestions.
+
 ### Quality of life
 
 - Dark UI with a custom Windows 11-style title bar.
@@ -84,7 +97,7 @@ English and Greek. Switch from Settings; the rest of the app follows immediately
    - **Apps:** Install Apps, Crack Apps
    - **System:** System Cleaner, System Maintenance
    - **Activation:** Activate & Auto Login
-   - **Utilities:** BIOS, Spicetify, Christitus, Debloat
+   - **Utilities:** BIOS, Spicetify, Christitus, Debloat, Game Saves
 
 ![Note](.github/assets/callout-note.svg?v=10)
 > **Some tools need administrator rights.** Cleanup of protected folders, SFC/DISM,
@@ -113,8 +126,10 @@ preferences — never of files, credentials or system state.
 | Access | Why it is needed |
 |---|---|
 | **Local files** | Settings JSON, encrypted session cache, downloaded tools (Sparkle, crack installers, 7-Zip helpers). |
+| **Game save folders** | Game Saves reads save folders and the games' registry keys, and restores only into each game's own save locations. |
+| **Task Scheduler** | Only when automatic backup is on: one task that starts the app with `--backup-saves`. |
 | **Administrator (on demand)** | Cleanup of protected paths, SFC/DISM/Check Disk, BIOS restart, Sparkle, WinUtil. |
-| **Network** | winget catalogs, optional auth/sync, auto-update feed on `downloads.thomast.uk`, first-run tool downloads. |
+| **Network** | winget catalogs, optional auth/sync, auto-update feed on `downloads.thomast.uk`, first-run tool downloads, the Game Saves database from GitHub. |
 | **Electron `safeStorage`** | Encrypts the local auth/session cache with the OS credential store when available. |
 
 That is the complete list. No telemetry, no ads, no always-on cloud.

@@ -37,7 +37,8 @@ const menuKeys = [
     'bios',
     'spicetify',
     'christitus',
-    'debloat'
+    'debloat',
+    'game_saves'
 ];
 
 // ============================================
@@ -325,6 +326,13 @@ export async function loadPage(key) {
                 const { buildChrisTitusPage } = await import('./pages/utilities.js');
                 if (generation !== pageLoadGeneration) return;
                 page = await buildChrisTitusPage(translations, settings, buttonStateManager);
+                break;
+            }
+
+            case 'game_saves': {
+                const { buildGameSavesPage } = await import('./pages/game-saves.js');
+                if (generation !== pageLoadGeneration) return;
+                page = await buildGameSavesPage(translations, settings, buttonStateManager);
                 break;
             }
 

@@ -1143,6 +1143,37 @@ function setupInstallerModeHandlers(selfInstaller, getInstallerWindow, debug) {
     });
 }
 
+/**
+ * Game saves. Every handler resolves to { success, ... }: the service catches its
+ * own errors, and it takes game ids from the renderer, never paths.
+ * @param {Object} gameSaves - Service from modules/game-saves
+ */
+function setupGameSavesHandlers(gameSaves) {
+    ipcMain.handle('game-saves-state', () => gameSaves.getState());
+    ipcMain.handle('game-saves-scan', (event, options) => gameSaves.scan(options));
+    ipcMain.handle('game-saves-backup', (event, ids) => gameSaves.backup(ids));
+    ipcMain.handle('game-saves-restore', (event, ids) => gameSaves.restore(ids));
+    ipcMain.handle('game-saves-cancel', () => gameSaves.cancel());
+    ipcMain.handle('game-saves-pick-folder', () => gameSaves.pickBackupFolder());
+    ipcMain.handle('game-saves-use-cloud', (event, cloudId) => gameSaves.useCloudFolder(cloudId));
+    ipcMain.handle('game-saves-add-root', () => gameSaves.addCustomRoot());
+    ipcMain.handle('game-saves-remove-root', (event, rootPath) => gameSaves.removeCustomRoot(rootPath));
+    ipcMain.handle('game-saves-set-schedule', (event, schedule) => gameSaves.setSchedule(schedule));
+    ipcMain.handle('game-saves-set-excluded', (event, payload) => {
+        const { id, excluded } = payload || {};
+        return gameSaves.setExcluded(id, Boolean(excluded));
+    });
+    ipcMain.handle('game-saves-suggestion', (event, payload) => {
+        const { id, action } = payload || {};
+        return gameSaves.resolveSuggestion(id, action);
+    });
+    ipcMain.handle('game-saves-open', (event, payload) => {
+        const { target, id } = payload || {};
+        return gameSaves.open(target, id);
+    });
+    ipcMain.handle('game-saves-run-now', () => gameSaves.runNow());
+}
+
 module.exports = {
     setupWindowHandlers,
     setupSystemInfoHandlers,
@@ -1156,5 +1187,6 @@ module.exports = {
     setupSystemToolsHandlers,
     setupSpicetifyHandlers,
     setupInstallerHandlers,
-    setupInstallerModeHandlers
+    setupInstallerModeHandlers,
+    setupGameSavesHandlers
 };
