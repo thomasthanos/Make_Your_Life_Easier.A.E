@@ -200,7 +200,9 @@ export function attachTooltipHandlers(el) {
     el._tooltipAttached = true;
 
     el.addEventListener('mouseenter', (e) => {
-        tooltipManager.show(el, tip, e);
+        // Read the text on every hover: pages update data-tooltip on elements they keep.
+        const text = el.getAttribute('data-tooltip');
+        if (text) tooltipManager.show(el, text, e);
     });
 
     el.addEventListener('mousemove', (e) => {
@@ -215,7 +217,8 @@ export function attachTooltipHandlers(el) {
     el.addEventListener('focus', () => {
         if (!lastInteractionWasKeyboard) return;
         const rect = el.getBoundingClientRect();
-        tooltipManager.show(el, tip, { clientX: rect.right, clientY: rect.bottom });
+        const text = el.getAttribute('data-tooltip');
+        if (text) tooltipManager.show(el, text, { clientX: rect.right, clientY: rect.bottom });
     });
 
     el.addEventListener('blur', () => {

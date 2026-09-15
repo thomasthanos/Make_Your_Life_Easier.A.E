@@ -8803,8 +8803,7 @@ body.sidebar-expanded .maintenance-page {
   text-transform: uppercase;
 }
 
-.gs-input,
-.gs-select {
+.gs-input {
   width: auto;
   height: 34px;
   margin: 0;
@@ -8819,16 +8818,59 @@ body.sidebar-expanded .maintenance-page {
   color-scheme: dark;
 }
 
-.gs-input:focus,
-.gs-select:focus {
+.gs-input:focus {
   outline: none;
   border-color: rgba(100, 210, 255, 0.55);
   box-shadow: 0 0 0 3px rgba(100, 210, 255, 0.14);
 }
 
-.gs-input:disabled,
-.gs-select:disabled {
+.gs-input:disabled {
   opacity: 0.55;
+}
+
+/* Dropdowns reuse the Install Apps sort menu (.sort-dropdown*), sized like the inputs here. */
+.gs-dropdown {
+  margin-left: 0;
+}
+
+.gs-dropdown .sort-dropdown-trigger {
+  justify-content: space-between;
+  min-width: 130px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 0.7rem;
+  color: var(--text-primary);
+  border-color: var(--stroke-12);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.8rem;
+}
+
+.gs-dropdown--time .sort-dropdown-trigger {
+  min-width: 88px;
+}
+
+.gs-dropdown .sort-dropdown-trigger:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+
+.gs-dropdown .sort-dropdown-menu {
+  right: auto;
+  left: 0;
+  min-width: 100%;
+  transform-origin: top left;
+  /* Opaque: the cards here have text right under the menu. */
+  background: var(--surface-2);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.gs-dropdown--scroll .sort-dropdown-menu {
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .gs-roots {

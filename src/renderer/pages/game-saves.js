@@ -6,6 +6,7 @@
 
 import { debug } from '../utils.js';
 import { toast } from '../components.js';
+import { attachTooltipHandlers } from '../managers.js';
 
 const svg = (body) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 
@@ -27,6 +28,16 @@ const STORE_NAMES = { steam: 'Steam', gog: 'GOG', epic: 'Epic', origin: 'EA', up
 const ROW_LIMIT = 300;
 const MANIFEST_URL = 'https://github.com/mtkennerly/ludusavi-manifest';
 const PCGAMINGWIKI_URL = 'https://www.pcgamingwiki.com';
+const CHEVRON_ICON = '<svg class="sort-dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+const CHECK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+// Half-hour steps for the backup time.
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`);
+
+/** Time choices, keeping a saved time that falls between the half-hour steps. */
+function timeOptions(extra) {
+    const times = extra && !TIME_OPTIONS.includes(extra) ? [...TIME_OPTIONS, extra].sort() : TIME_OPTIONS;
+    return times.map((time) => [time, time]);
+}
 
 // Module scope, so results and a running task survive leaving the page.
 const state = {
@@ -95,27 +106,113 @@ function setLabel(node, label) {
     if (span) span.textContent = label;
 }
 
+/**
+ * Use the app's own tooltip, as the sidebar does, instead of the native title
+ * popup. An empty text removes it.
+ */
+function setTooltip(node, text) {
+    if (text) {
+        node.setAttribute('data-tooltip', text);
+        attachTooltipHandlers(node);
+    } else {
+        node.removeAttribute('data-tooltip');
+    }
+}
+
 function iconButton(icon, label) {
     const node = el('button', 'gs-icon-btn');
     node.type = 'button';
     node.innerHTML = ICONS[icon];
-    node.title = label;
     node.setAttribute('aria-label', label);
+    setTooltip(node, label);
     return node;
 }
 
-function select(options) {
-    const node = el('select', 'gs-select');
-    for (const [value, label] of options) {
-        const option = el('option', null, label);
-        option.value = value;
-        node.appendChild(option);
-    }
-    return node;
+function closeDropdown(node) {
+    node.classList.remove('open');
+    const trigger = node.querySelector('.sort-dropdown-trigger');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+}
+
+/**
+ * A dropdown built like the Install Apps sort menu. A native <select> opens a
+ * system popup that ignores the app's dark theme.
+ * @param {Array<[string, string]>} options - [value, label] pairs
+ * @param {{label?: string, onChange?: Function, className?: string}} [config]
+ * @returns {{root: HTMLElement, value: string, setValue: Function, setOptions: Function, setDisabled: Function}}
+ */
+function dropdown(options, { label, onChange, className = '' } = {}) {
+    const root = el('div', `sort-dropdown gs-dropdown ${className}`.trim());
+    const trigger = el('button', 'sort-dropdown-trigger');
+    trigger.type = 'button';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+    if (label) trigger.setAttribute('aria-label', label);
+    const current = el('span', 'sort-dropdown-label');
+    trigger.appendChild(current);
+    trigger.insertAdjacentHTML('beforeend', CHEVRON_ICON);
+    const menu = el('div', 'sort-dropdown-menu');
+    menu.setAttribute('role', 'listbox');
+    root.append(trigger, menu);
+
+    let value = null;
+    const api = {
+        root,
+        get value() {
+            return value;
+        },
+        setValue(next) {
+            value = next;
+            current.textContent = '';
+            for (const option of menu.children) {
+                const active = option.dataset.value === next;
+                option.classList.toggle('active', active);
+                option.setAttribute('aria-selected', String(active));
+                if (active) current.textContent = option.textContent;
+            }
+        },
+        setOptions(list) {
+            menu.replaceChildren();
+            for (const [optionValue, optionLabel] of list) {
+                const option = el('button', 'sort-dropdown-option');
+                option.type = 'button';
+                option.dataset.value = optionValue;
+                option.setAttribute('role', 'option');
+                const check = el('span', 'sort-dropdown-check');
+                check.innerHTML = CHECK_ICON;
+                option.append(el('span', 'sort-dropdown-option-label', optionLabel), check);
+                option.addEventListener('click', () => {
+                    closeDropdown(root);
+                    if (optionValue === value) return;
+                    api.setValue(optionValue);
+                    if (onChange) onChange(optionValue);
+                });
+                menu.appendChild(option);
+            }
+            api.setValue(value);
+        },
+        setDisabled(disabled) {
+            trigger.disabled = disabled;
+            if (disabled) closeDropdown(root);
+        }
+    };
+
+    trigger.addEventListener('click', () => {
+        const opening = !root.classList.contains('open');
+        document.querySelectorAll('.gs-dropdown.open').forEach((node) => closeDropdown(node));
+        if (!opening) return;
+        root.classList.add('open');
+        trigger.setAttribute('aria-expanded', 'true');
+        const active = menu.querySelector('.active');
+        if (active) menu.scrollTop = active.offsetTop - menu.clientHeight / 2;
+    });
+
+    api.setOptions(options);
+    return api;
 }
 
 function field(label, control) {
-    const wrap = el('label', 'gs-field');
+    const wrap = el('div', 'gs-field');
     wrap.append(el('span', null, label), control);
     return wrap;
 }
@@ -361,19 +458,29 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
 
     // ── Automatic backup ──
     const scheduleCard = el('section', 'gs-card');
-    const modeSelect = select([
+    const markScheduleDirty = () => {
+        scheduleDirty = true;
+        renderSchedule();
+    };
+    const modeDropdown = dropdown([
         ['off', tr('mode_off', 'Off')],
         ['daily', tr('mode_daily', 'Every day')],
         ['weekly', tr('mode_weekly', 'Every week')]
-    ]);
-    const daySelect = select(WEEK_DAYS.map((day) => [day, dayName(day)]));
-    const timeInput = el('input', 'gs-input');
-    timeInput.type = 'time';
-    const dayField = field(tr('day_label', 'Day'), daySelect);
-    const timeField = field(tr('time_label', 'Time'), timeInput);
+    ], { label: tr('frequency_label', 'Frequency'), onChange: markScheduleDirty });
+    const dayDropdown = dropdown(WEEK_DAYS.map((day) => [day, dayName(day)]), {
+        label: tr('day_label', 'Day'),
+        onChange: markScheduleDirty
+    });
+    const timeDropdown = dropdown(timeOptions(), {
+        label: tr('time_label', 'Time'),
+        onChange: markScheduleDirty,
+        className: 'gs-dropdown--time gs-dropdown--scroll'
+    });
+    const dayField = field(tr('day_label', 'Day'), dayDropdown.root);
+    const timeField = field(tr('time_label', 'Time'), timeDropdown.root);
     const saveScheduleBtn = textButton('button gs-btn', tr('save_schedule', 'Save'));
     const scheduleForm = el('div', 'gs-schedule-form');
-    scheduleForm.append(field(tr('frequency_label', 'Frequency'), modeSelect), dayField, timeField, saveScheduleBtn);
+    scheduleForm.append(field(tr('frequency_label', 'Frequency'), modeDropdown.root), dayField, timeField, saveScheduleBtn);
     const scheduleStatus = el('p', 'gs-note');
     const scheduleWarning = el('p', 'gs-warning');
     const lastRunLine = el('p', 'gs-note');
@@ -408,17 +515,23 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     const searchInput = el('input', 'gs-input gs-search');
     searchInput.type = 'search';
     searchInput.placeholder = tr('search_placeholder', 'Search games…');
-    const filterSelect = select([
+    const filterDropdown = dropdown([
         ['all', tr('filter_all', 'All games')],
         ['pending', tr('filter_pending', 'Needs backup')],
         ['ok', tr('filter_ok', 'Backed up')],
         ['backup-only', tr('filter_backup_only', 'Only in backup')]
-    ]);
+    ], {
+        onChange: (value) => {
+            state.filter = value;
+            renderList();
+            renderToolbar();
+        }
+    });
     const selectAllBtn = textButton('button-secondary gs-btn', tr('select_all', 'Select all'));
     const backupBtn = textButton('button gs-btn', tr('backup_selected', 'Back up'), 'upload');
     const restoreBtn = textButton('button-secondary gs-btn', tr('restore_selected', 'Restore'), 'restore');
     const updateDbBtn = textButton('button-secondary gs-btn gs-btn--ghost', tr('update_database', 'Update database'));
-    toolbar.append(scanBtn, searchInput, filterSelect, selectAllBtn, backupBtn, restoreBtn, updateDbBtn);
+    toolbar.append(scanBtn, searchInput, filterDropdown.root, selectAllBtn, backupBtn, restoreBtn, updateDbBtn);
 
     // ── Progress ──
     const progressBox = el('section', 'gs-progress is-hidden');
@@ -501,14 +614,14 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         databaseChip.classList.toggle('is-hidden', !databaseChip.textContent);
         const offline = Boolean(scanData && scanData.manifest && scanData.manifest.offline);
         databaseChip.classList.toggle('is-warning', offline);
-        databaseChip.title = offline ? tr('database_offline', 'Could not check for a newer database; using the saved copy.') : '';
+        setTooltip(databaseChip, offline ? tr('database_offline', 'Could not check for a newer database; using the saved copy.') : '');
     }
 
     function renderFolder() {
         const locked = isLocked();
         const config = state.data ? state.data.config : { backupRoot: '' };
         folderPath.textContent = config.backupRoot || tr('not_set', 'No backup folder yet');
-        folderPath.title = config.backupRoot || '';
+        setTooltip(folderPath, config.backupRoot || '');
         folderPath.classList.toggle('is-empty', !config.backupRoot);
         const unavailable = Boolean(config.backupRoot) && !state.data.backupRootAvailable;
         folderWarning.textContent = unavailable ? tr('folder_unavailable', 'This folder cannot be reached right now. Is its drive connected?') : '';
@@ -524,7 +637,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         for (const folder of clouds) {
             const active = Boolean(config.backupRoot) && config.backupRoot.toLowerCase().startsWith(folder.path.toLowerCase());
             const chip = textButton(`gs-cloud-chip${active ? ' is-active' : ''}`, folder.label, 'cloud');
-            chip.title = folder.path;
+            setTooltip(chip, folder.path);
             chip.disabled = locked;
             chip.addEventListener('click', async () => {
                 const result = await runTask('folder', () => window.api.gameSavesUseCloud(folder.id), { progress: false });
@@ -538,12 +651,13 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         const locked = isLocked();
         const schedule = state.data ? state.data.config.schedule : { mode: 'off', time: '20:00', day: 'SUN' };
         if (!scheduleDirty) {
-            modeSelect.value = schedule.mode;
-            timeInput.value = schedule.time;
-            daySelect.value = schedule.day;
+            modeDropdown.setValue(schedule.mode);
+            if (!TIME_OPTIONS.includes(schedule.time)) timeDropdown.setOptions(timeOptions(schedule.time));
+            timeDropdown.setValue(schedule.time);
+            dayDropdown.setValue(schedule.day);
         }
-        dayField.classList.toggle('is-hidden', modeSelect.value !== 'weekly');
-        timeField.classList.toggle('is-hidden', modeSelect.value === 'off');
+        dayField.classList.toggle('is-hidden', modeDropdown.value !== 'weekly');
+        timeField.classList.toggle('is-hidden', modeDropdown.value === 'off');
 
         const info = (state.data && state.data.schedule) || {};
         let status;
@@ -566,9 +680,9 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         scheduleWarning.classList.toggle('is-hidden', warnings.length === 0);
 
         lastRunLine.textContent = lastRunText(state.data && state.data.lastRun);
-        modeSelect.disabled = locked;
-        timeInput.disabled = locked;
-        daySelect.disabled = locked;
+        modeDropdown.setDisabled(locked);
+        timeDropdown.setDisabled(locked);
+        dayDropdown.setDisabled(locked);
         saveScheduleBtn.disabled = locked || !scheduleDirty;
         runNowBtn.disabled = locked || !(state.data && state.data.config.backupRoot);
     }
@@ -581,7 +695,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         for (const root of roots) {
             const item = el('span', 'gs-root');
             const label = el('span', 'gs-root-path', root);
-            label.title = root;
+            setTooltip(label, root);
             const remove = iconButton('close', tr('remove', 'Remove'));
             remove.disabled = locked;
             remove.addEventListener('click', async () => {
@@ -621,7 +735,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
             : scanData ? tr('rescan', 'Scan again') : tr('scan', 'Scan'));
         updateDbBtn.disabled = locked || !supported;
         searchInput.disabled = !scanData;
-        filterSelect.disabled = !scanData;
+        filterDropdown.setDisabled(!scanData);
 
         const selected = selectedGames();
         const backupCount = selected.filter((game) => game.status !== 'backup-only').length;
@@ -670,7 +784,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         main.append(titleLine, el('div', 'gs-row-meta', parts.join(' · ')));
         if (game.locations && game.locations[0]) {
             const location = el('div', 'gs-path', game.locations[0]);
-            location.title = game.locations.join('\n');
+            setTooltip(location, game.locations.join('\n'));
             main.appendChild(location);
         }
         // The row itself toggles selection, like the checkbox.
@@ -682,7 +796,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
 
         const actions = el('div', 'gs-row-actions');
         const auto = el('label', 'gs-auto');
-        auto.title = tr('auto_toggle_hint', 'Include in automatic backups');
+        setTooltip(auto, tr('auto_toggle_hint', 'Include in automatic backups'));
         const autoInput = el('input');
         autoInput.type = 'checkbox';
         autoInput.checked = !game.excluded;
@@ -755,7 +869,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
             const parts = [tr('files_count', '{count} files', { count: item.fileCount }), formatBytes(item.totalSize)];
             if (item.lastModified) parts.push(tr('last_saved', 'saved {when}', { when: formatDate(item.lastModified) }));
             const location = el('div', 'gs-path', item.path);
-            location.title = item.path;
+            setTooltip(location, item.path);
             main.append(el('h4', null, item.name), el('div', 'gs-row-meta', parts.join(' · ')), location);
 
             const actions = el('div', 'gs-row-actions');
@@ -799,18 +913,24 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     });
     openRootBtn.addEventListener('click', () => openFolder('backup-root'));
 
-    [modeSelect, daySelect, timeInput].forEach((control) => {
-        control.addEventListener('change', () => {
-            scheduleDirty = true;
-            renderSchedule();
+    // Menus close on an outside click or Escape. These listeners live on
+    // document, so the page cleanup below removes them.
+    const onDocumentClick = (event) => {
+        container.querySelectorAll('.gs-dropdown.open').forEach((node) => {
+            if (!node.contains(event.target)) closeDropdown(node);
         });
-    });
+    };
+    const onDocumentKeydown = (event) => {
+        if (event.key === 'Escape') container.querySelectorAll('.gs-dropdown.open').forEach((node) => closeDropdown(node));
+    };
+    document.addEventListener('click', onDocumentClick);
+    document.addEventListener('keydown', onDocumentKeydown);
     saveScheduleBtn.addEventListener('click', async () => {
-        const mode = modeSelect.value;
+        const mode = modeDropdown.value;
         const result = await runTask('schedule', () => window.api.gameSavesSetSchedule({
             mode,
-            time: timeInput.value,
-            day: daySelect.value
+            time: timeDropdown.value,
+            day: dayDropdown.value
         }), { progress: false });
         if (result && result.success) {
             scheduleDirty = false;
@@ -838,12 +958,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         renderList();
         renderToolbar();
     });
-    filterSelect.value = state.filter;
-    filterSelect.addEventListener('change', () => {
-        state.filter = filterSelect.value;
-        renderList();
-        renderToolbar();
-    });
+    filterDropdown.setValue(state.filter);
     selectAllBtn.addEventListener('click', () => {
         const visible = visibleGames();
         const allSelected = visible.length > 0 && visible.every((game) => state.selected.has(game.id));
@@ -875,6 +990,8 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     activeRender = renderPage;
     container._pageCleanup = [() => {
         if (activeRender === renderPage) activeRender = null;
+        document.removeEventListener('click', onDocumentClick);
+        document.removeEventListener('keydown', onDocumentKeydown);
     }];
     renderPage();
 
