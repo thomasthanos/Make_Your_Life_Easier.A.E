@@ -7281,7 +7281,6 @@ body:not(.sidebar-expanded) #sidebar .dot {
 }
 #menu-list {
   list-style: none;
-  overflow-y: auto;
   scrollbar-width: none;
   display: flex;
   flex-direction: column;
