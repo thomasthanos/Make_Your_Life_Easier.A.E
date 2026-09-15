@@ -63,6 +63,10 @@ function tr(key, fallback, values) {
 
 const pageTitle = () => tr('title', 'Game Saves');
 
+// Copy errors with a known cause carry a code, so their advice can be translated.
+const ERROR_KEYS = { 'cloud-unavailable': 'error_cloud_unavailable', 'in-use': 'error_in_use' };
+const errorText = (item) => (item.code && ERROR_KEYS[item.code] ? tr(ERROR_KEYS[item.code], item.error) : item.error);
+
 function formatBytes(bytes) {
     const value = Number(bytes || 0);
     if (value <= 0) return '0 B';
@@ -362,7 +366,7 @@ function reportBackup(result) {
         toast(tr('backup_partial', '{count} game(s) had problems. {name}: {error}', {
             count: failed.length,
             name: failed[0].name,
-            error: failed[0].errors[0].error
+            error: errorText(failed[0].errors[0])
         }), { type: 'error', title: pageTitle(), duration: 9000 });
     } else {
         toast(tr('backup_done', 'Backed up {games} game(s), {files} file(s) copied.', { games: results.length, files: copied }), {
@@ -382,7 +386,7 @@ function reportRestore(result) {
             files: restored,
             count: failed.length,
             name: failed[0].name,
-            error: failed[0].errors[0].error
+            error: errorText(failed[0].errors[0])
         }), { type: 'error', title: pageTitle(), duration: 9000 });
     } else if (results.some((item) => item.safetyDir)) {
         toast(tr('restore_done_safety', 'Restored {files} item(s). The saves that were replaced are kept in _before-restore.', { files: restored }), {

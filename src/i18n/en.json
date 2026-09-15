@@ -511,6 +511,8 @@
     "nothing_selected": "Select at least one game.",
     "nothing_to_restore": "None of the selected games has a backup.",
     "busy": "Another game saves task is already running.",
+    "error_cloud_unavailable": "OneDrive could not provide or store this file. It may be online-only while OneDrive is paused, signed out or closed. Start OneDrive, or set the folder to “Always keep on this device”, and try again.",
+    "error_in_use": "The file is in use. Close the game and try again.",
     "backup_done": "Backed up {games} game(s), {files} file(s) copied.",
     "backup_partial": "{count} game(s) had problems. {name}: {error}",
     "restore_done": "Restored {files} item(s).",

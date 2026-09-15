@@ -32,6 +32,39 @@ const FILES_DIR = 'files';
 const REGISTRY_DIR = 'registry';
 const BEFORE_RESTORE_DIR = '_before-restore';
 const PART_SUFFIX = '.myle-part';
+// Errors after which copying the bytes directly is worth a second try.
+const COPY_RETRY_CODES = new Set(['UNKNOWN', 'EPERM', 'EACCES', 'EINVAL', 'ENOTSUP', 'EIO']);
+
+/** Folders the OneDrive client keeps in sync, from its environment variables. */
+function oneDriveRoots(env = process.env) {
+  return [...new Set([env.OneDrive, env.OneDriveConsumer, env.OneDriveCommercial].filter(Boolean))];
+}
+
+/**
+ * The error entry for a file that could not be copied.
+ *
+ * An online-only OneDrive file that cannot be fetched (OneDrive paused, signed
+ * out or closed, or downloads blocked for the app) fails with Cloud Files
+ * errors libuv has no name for, so they arrive as UNKNOWN. Inside a OneDrive
+ * folder that is the likely cause, and one the user can fix.
+ * @param {Error} err - The copy error
+ * @param {string[]} paths - Source and destination of the copy
+ * @param {string[]} cloudRoots - OneDrive folders
+ * @returns {{error: string, code?: string}}
+ */
+function copyFailure(err, paths, cloudRoots) {
+  const code = err && err.code;
+  if (code === 'EBUSY') {
+    return { code: 'in-use', error: 'The file is in use. Close the game and try again.' };
+  }
+  if (code === 'UNKNOWN' && paths.some((file) => cloudRoots.some((root) => isWithin(file, root)))) {
+    return {
+      code: 'cloud-unavailable',
+      error: 'OneDrive could not provide or store this file. It may be online-only while OneDrive is paused, signed out or closed.'
+    };
+  }
+  return { error: (err && err.message) || String(err) };
+}
 
 // Save data is never executable. Refusing these on restore means a tampered
 // backup cannot plant a program or script, even inside a genuine save folder.
@@ -148,11 +181,39 @@ function backupStatus(game, mapping, vars) {
   return 'up-to-date';
 }
 
+/** Copy only a file's bytes: the fallback for when CopyFile refuses. */
+function copyBytes(source, destination) {
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  const input = fs.openSync(source, 'r');
+  try {
+    const output = fs.openSync(destination, 'w');
+    try {
+      let read;
+      while ((read = fs.readSync(input, buffer, 0, buffer.length, null)) > 0) {
+        let written = 0;
+        while (written < read) written += fs.writeSync(output, buffer, written, read - written);
+      }
+    } finally {
+      fs.closeSync(output);
+    }
+  } finally {
+    fs.closeSync(input);
+  }
+}
+
 function copyFileAtomic(source, destination, mtimeMs) {
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   const temp = destination + PART_SUFFIX;
   try {
-    fs.copyFileSync(source, temp);
+    try {
+      fs.copyFileSync(source, temp);
+    } catch (err) {
+      // CopyFile also carries attributes and alternate data streams across,
+      // which a sync folder such as OneDrive can refuse. Plain reads and writes
+      // move only the bytes; a file that truly cannot be read still throws.
+      if (!COPY_RETRY_CODES.has(err.code)) throw err;
+      copyBytes(source, temp);
+    }
     if (Number.isFinite(mtimeMs)) {
       const time = new Date(mtimeMs);
       fs.utimesSync(temp, time, time);
@@ -249,9 +310,10 @@ async function exportRegistry(game, gameDir, registry, summary) {
  * @param {string} options.backupRoot - Backup root
  * @param {Object} options.vars - Machine placeholder values used for the scan
  * @param {Object} options.registry - { exportKey } (see system.js)
+ * @param {string[]} [options.cloudRoots] - OneDrive folders, for clearer copy errors
  * @returns {Promise<{name: string, copied: number, unchanged: number, removed: number, bytes: number, errors: Array}>}
  */
-async function backupGame(game, { backupRoot, vars, registry }) {
+async function backupGame(game, { backupRoot, vars, registry, cloudRoots = oneDriveRoots() }) {
   const gameDir = gameBackupDir(backupRoot, game.name, game.kind || 'manifest');
   const filesDir = path.join(gameDir, FILES_DIR);
   const previous = readMappingAt(gameDir);
@@ -287,7 +349,7 @@ async function backupGame(game, { backupRoot, vars, registry }) {
       summary.copied++;
       summary.bytes += file.size;
     } catch (err) {
-      summary.errors.push({ path: file.path, error: err.message });
+      summary.errors.push({ path: file.path, ...copyFailure(err, [file.path, destination], cloudRoots) });
       // A locked save keeps the copy from the last run, and it stays restorable.
       if (before && copy) {
         entries.push(before);
@@ -353,7 +415,7 @@ function resolveRestoreTarget(collapsed, allowed) {
  * @param {Object} options.registry - { exportKey, importFile, readFileKeys } (see system.js)
  * @returns {Promise<{name: string, restored: number, errors: Array, safetyDir: string|null}>}
  */
-async function restoreGame({ name, kind = 'manifest', backupRoot, game, variants, registry, now = new Date() }) {
+async function restoreGame({ name, kind = 'manifest', backupRoot, game, variants, registry, cloudRoots = oneDriveRoots(), now = new Date() }) {
   const gameDir = gameBackupDir(backupRoot, name, kind);
   const mapping = readMappingAt(gameDir);
   if (!mapping) throw new Error('There is no backup of this game.');
@@ -392,7 +454,7 @@ async function restoreGame({ name, kind = 'manifest', backupRoot, game, variants
       copyFileAtomic(source, target, entry.mtimeMs);
       summary.restored++;
     } catch (err) {
-      summary.errors.push({ path: target, error: err.message });
+      summary.errors.push({ path: target, ...copyFailure(err, [source, target], cloudRoots) });
     }
   }
 
