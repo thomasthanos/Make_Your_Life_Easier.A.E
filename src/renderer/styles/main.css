@@ -7286,12 +7286,15 @@ body:not(.sidebar-expanded) #sidebar .dot {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: center;
+  /* safe: when the items do not fit, start at the top and scroll instead of
+     spilling under the header and into the account card. */
+  justify-content: safe center;
   flex: 1 1 auto;
   margin: 0;
   min-height: 0;
   padding: 0.5rem 0.625rem 0.625rem;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 #menu-list .menu-separator {
   height: 0;
@@ -7456,13 +7459,14 @@ body.sidebar-expanded #menu-list {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: center;
+  justify-content: safe center;
   flex: 1 1 auto;
   gap: 0.125rem;
   margin: 0;
   padding: 0.625rem;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 body.sidebar-expanded #menu-list .menu-separator {
   margin-top: 0.375rem;
@@ -7471,6 +7475,36 @@ body.sidebar-expanded #menu-list .menu-separator {
 body.sidebar-expanded #menu-list .menu-separator-large {
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
+}
+
+/* Ten menu items need about 770px of window height at full spacing. In a
+   shorter window, tighten the gaps rather than scroll the menu. */
+@media (max-height: 800px) {
+  #menu-list li,
+  body.sidebar-expanded #menu-list li {
+    margin-top: 3px;
+    margin-bottom: 3px;
+  }
+
+  #menu-list .menu-separator {
+    margin-top: 5px;
+    margin-bottom: 5px;
+  }
+
+  #menu-list .menu-separator-large {
+    margin-top: 7px;
+    margin-bottom: 7px;
+  }
+
+  body.sidebar-expanded #menu-list .menu-separator {
+    margin-top: 4px;
+    margin-bottom: 4px;
+  }
+
+  body.sidebar-expanded #menu-list .menu-separator-large {
+    margin-top: 6px;
+    margin-bottom: 6px;
+  }
 }
 body.sidebar-expanded .sidebar-header {
   justify-content: flex-start;
