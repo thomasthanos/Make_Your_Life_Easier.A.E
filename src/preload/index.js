@@ -115,6 +115,7 @@ contextBridge.exposeInMainWorld('api', {
   gameSavesScan: (options) => ipcRenderer.invoke('game-saves-scan', options),
   gameSavesBackup: (ids) => ipcRenderer.invoke('game-saves-backup', ids),
   gameSavesRestore: (ids) => ipcRenderer.invoke('game-saves-restore', ids),
+  gameSavesFiles: (id, source) => ipcRenderer.invoke('game-saves-files', { id, source }),
   gameSavesCancel: () => ipcRenderer.invoke('game-saves-cancel'),
   gameSavesPickFolder: () => ipcRenderer.invoke('game-saves-pick-folder'),
   gameSavesUseCloud: (cloudId) => ipcRenderer.invoke('game-saves-use-cloud', cloudId),

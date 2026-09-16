@@ -7,7 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { backupGame, backupStatus, listBackups, readMapping, restoreGame, restoreLocations } = require('./backup');
+const { backupGame, backupStatus, listBackups, mappingSummary, readMapping, restoreGame, restoreLocations } = require('./backup');
 const { escapeGlob, toSlash } = require('./glob');
 const { detectLaunchers } = require('./launchers');
 const { ensureManifest, loadCachedManifest } = require('./manifest');
@@ -69,7 +69,8 @@ async function scan({ userDataPath, config, refreshManifest = false, withSuggest
   for (const game of games) {
     const mapping = readMapping(config.backupRoot, game.name, game.kind);
     game.status = backupStatus(game, mapping, vars);
-    game.backedUpAt = mapping ? mapping.backedUpAt || null : null;
+    game.backup = mappingSummary(mapping);
+    game.backedUpAt = game.backup ? game.backup.backedUpAt : null;
   }
 
   // Backed-up games whose saves are not on this PC (a new PC, a reinstall).
@@ -84,6 +85,7 @@ async function scan({ userDataPath, config, refreshManifest = false, withSuggest
       kind,
       status: 'backup-only',
       backedUpAt: mapping.backedUpAt || null,
+      backup: mappingSummary(mapping),
       customPath: kind === 'custom' ? mapping.customPath : undefined,
       customPathCollapsed: kind === 'custom' ? mapping.customPathCollapsed : undefined,
       files: [],

@@ -11,7 +11,17 @@ const fs = require('fs');
 const path = require('path');
 const { debug } = require('../debug');
 const { isWithin, validatePath } = require('../security');
-const { DEFAULT_ROOT_NAME, describeBackupRoot, gameBackupDir, resolveBackupRootChoice } = require('./backup');
+const {
+  DEFAULT_ROOT_NAME,
+  backupStatus,
+  compareWithBackup,
+  describeBackupRoot,
+  gameBackupDir,
+  mappingSummary,
+  readMapping,
+  resolveBackupRootChoice,
+  restoreLocations
+} = require('./backup');
 const { detectCloudFolders } = require('./cloud-folders');
 const { createConfigStore, normalizeSchedule } = require('./config');
 const { readJson, writeJsonAtomic } = require('./io');
@@ -21,7 +31,7 @@ const scheduler = require('./schedule');
 
 const PROGRESS_CHANNEL = 'game-saves-progress';
 const RESTORE_LIST_LIMIT = 12;
-const SAMPLE_FILES = 12;
+const FILE_LIST_LIMIT = 2000;
 const DEFAULT_LANG = 'en';
 const ICON_PATH = path.join(__dirname, '..', '..', 'assets', 'icons', 'hacker.ico');
 
@@ -45,12 +55,25 @@ function isDirectory(dir) {
   }
 }
 
-// A few file names for the row tooltip, relative to the game's first save folder.
-function sampleFiles(game) {
-  const base = game.locations[0];
-  return game.files.slice(0, SAMPLE_FILES).map((file) => (
-    base && isWithin(file.path, base) ? path.relative(base, file.path) : file.path
-  ));
+const byPath = (a, b) => a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: 'base' });
+
+/**
+ * Files grouped under the save folders the row shows, with paths relative to
+ * the outermost folder that holds them. Anything outside those folders, or not
+ * an absolute path, goes in a last group with no folder.
+ */
+function groupByLocation(files, locations) {
+  const roots = [...new Map(locations.filter(Boolean).map((dir) => [dir.toLowerCase(), dir])).values()];
+  const groups = new Map(roots.map((dir) => [dir.toLowerCase(), { location: dir, files: [] }]));
+  const other = { location: '', files: [] };
+  for (const file of files) {
+    const root = path.isAbsolute(file.path)
+      ? roots.filter((dir) => isWithin(file.path, dir)).sort((a, b) => a.length - b.length)[0]
+      : null;
+    if (root) groups.get(root.toLowerCase()).files.push({ ...file, path: path.relative(root, file.path) });
+    else other.files.push(file);
+  }
+  return [...groups.values(), other].filter((group) => group.files.length > 0);
 }
 
 function summarizeScan(scan, config) {
@@ -74,7 +97,7 @@ function summarizeScan(scan, config) {
       cloud: game.cloud,
       steamCloud: Boolean(game.steamCloud),
       locations: game.locations,
-      sampleFiles: sampleFiles(game),
+      backup: game.backup || null,
       excluded: excluded.has(game.id)
     })),
     suggestions: scan.suggestions.map(({ id, name, path: dir, fileCount, totalSize, lastModified }) => (
@@ -215,14 +238,17 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     return lastScan.games.filter((game) => wanted.has(game.id));
   }
 
-  function markBackedUp(results) {
+  // Read back what the backup now holds, so both tabs are right without a new scan.
+  function refreshBackups(results) {
     if (!lastScan) return;
-    const stamp = new Date().toISOString();
+    const { backupRoot } = configStore.get();
     for (const summary of results) {
       const game = lastScan.games.find((item) => item.name === summary.name && item.status !== 'backup-only');
-      if (!game || summary.copied + summary.unchanged === 0) continue;
-      game.backedUpAt = stamp;
-      if (summary.errors.length === 0) game.status = 'up-to-date';
+      if (!game) continue;
+      const mapping = readMapping(backupRoot, game.name, game.kind);
+      game.backup = mappingSummary(mapping);
+      game.backedUpAt = game.backup ? game.backup.backedUpAt : null;
+      game.status = backupStatus(game, mapping, lastScan.vars);
     }
   }
 
@@ -248,7 +274,7 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     const games = pickGames(ids).filter((game) => game.status !== 'backup-only');
     if (games.length === 0) return { success: false, error: t.nothing_selected || 'Select at least one game.' };
     const result = await runWorker('backup', { config, games, vars: lastScan.vars });
-    markBackedUp(result.results);
+    refreshBackups(result.results);
     return { success: true, results: result.results, state: await buildState() };
   });
 
@@ -260,11 +286,15 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     if (items.length > RESTORE_LIST_LIMIT) {
       lines.push(format(t.restore_confirm_more || '…and {count} more', { count: items.length - RESTORE_LIST_LIMIT }));
     }
-    const detail = [
-      lines.join('\n'),
-      '',
-      t.restore_confirm_detail || 'Close these games first. The saves currently on this PC are copied to _before-restore in the backup folder before anything is overwritten.'
-    ];
+    const detail = [lines.join('\n')];
+    // Restoring these goes back in time, which is worth saying before it happens.
+    const newer = games.filter((game) => game.status === 'changed' && game.backup && game.lastModified > game.backup.newestMtime);
+    if (newer.length) {
+      detail.push('', format(t.restore_confirm_newer || 'This PC has newer saves than the backup for: {games}.', {
+        games: newer.slice(0, 5).map((game) => game.name).join(', ')
+      }));
+    }
+    detail.push('', t.restore_confirm_detail || 'Close these games first. The saves currently on this PC are copied to _before-restore in the backup folder before anything is overwritten.');
     const cloudGames = games.filter((game) => game.cloud && game.cloud.length).map((game) => game.name);
     if (cloudGames.length) {
       detail.push('', format(t.restore_confirm_cloud || 'Cloud saves are on for: {games}. The launcher may replace the restored files with its own cloud copy.', {
@@ -288,7 +318,7 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     const t = strings();
     const config = configStore.get();
     if (!config.backupRoot) return { success: false, error: t.need_backup_root || 'Choose a backup folder first.' };
-    const games = pickGames(ids).filter((game) => game.backedUpAt);
+    const games = pickGames(ids).filter((game) => game.backup);
     if (games.length === 0) return { success: false, error: t.nothing_to_restore || 'None of the selected games has a backup.' };
 
     const items = games.map((game) => {
@@ -303,6 +333,34 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
 
     const result = await runWorker('restore', { userDataPath: app.getPath('userData'), config, items });
     return { success: true, results: result.results, state: await buildState(), rescan: true };
+  });
+
+  /**
+   * One game's files, on this PC or in its backup, each marked against the other side.
+   * @param {string} id - Game id
+   * @param {'pc'|'backup'} source - Which side to list
+   */
+  const listFiles = (id, source) => guarded(async () => {
+    const game = pickGames([id])[0];
+    if (!game) return { success: false, error: strings().game_gone || 'This game is no longer in the list. Scan again.' };
+    const inBackup = source === 'backup';
+    const mapping = readMapping(configStore.get().backupRoot, game.name, game.kind);
+    const compared = compareWithBackup(game, mapping, lastScan.vars);
+    const files = (inBackup ? compared.backup : compared.pc).sort(byPath);
+    const counts = {};
+    for (const file of files) counts[file.state] = (counts[file.state] || 0) + 1;
+    const locations = inBackup && mapping ? [...game.locations, ...restoreLocations(mapping, lastScan.vars)] : game.locations;
+    const registry = inBackup ? (mapping && Array.isArray(mapping.registry) ? mapping.registry : []) : game.registry;
+    return {
+      success: true,
+      total: files.length,
+      totalSize: files.reduce((sum, file) => sum + file.size, 0),
+      counts,
+      // Files on the PC that a restore leaves as they are.
+      pcOnly: inBackup ? compared.pc.filter((file) => file.state === 'new').length : 0,
+      groups: groupByLocation(files.slice(0, FILE_LIST_LIMIT), locations),
+      registry: registry.map((item) => String(item.key))
+    };
   });
 
   const cancel = () => guarded(async () => {
@@ -474,7 +532,7 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
       if (!config.backupRoot) throw new Error(t.need_backup_root || 'Choose a backup folder first.');
       const result = await runWorker('scheduled', { userDataPath: app.getPath('userData'), config });
       lastScan = { ...result.scan, suggestions: lastScan ? lastScan.suggestions : [] };
-      markBackedUp(result.results);
+      refreshBackups(result.results);
       record = {
         trigger,
         finishedAt: result.finishedAt,
@@ -508,6 +566,7 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     scan,
     backup,
     restore,
+    listFiles,
     cancel,
     pickBackupFolder,
     useCloudFolder,

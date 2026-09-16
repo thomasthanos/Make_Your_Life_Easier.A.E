@@ -160,6 +160,24 @@ function fileVars(vars, file) {
 }
 
 /**
+ * Recorded files by the key a file on this PC collapses to. Collapsing again
+ * here turns an older spelling of the same place into today's: backups made
+ * before LocalLow had its own root recorded <home>/AppData/LocalLow/...
+ */
+function recordedByKey(entries, vars) {
+  return new Map(entries.map((entry) => {
+    const expanded = expandCollapsed(entry.path, vars);
+    const key = (expanded && collapsePath(expanded, vars)) || String(entry.path);
+    return [key.toLowerCase(), entry];
+  }));
+}
+
+// A recorded copy matches a file on the PC when size and whole-millisecond mtime agree.
+function sameVersion(entry, file) {
+  return entry.size === file.size && Math.floor(entry.mtimeMs) === Math.floor(file.mtimeMs);
+}
+
+/**
  * Where a recorded file's copy is inside the game's backup folder. Entries from
  * before the readable layout have no `file` and live under files/.
  * @param {Object} entry - A mapping.json file entry
@@ -194,6 +212,23 @@ function describeBackupRoot(dir) {
     games: mappings.length,
     lastBackup: latest ? latest.backedUpAt : null,
     computer: latest && latest.computer ? latest.computer : null
+  };
+}
+
+/**
+ * What the list shows about a game's backup.
+ * @param {Object|null} mapping - The game's mapping.json
+ * @returns {{backedUpAt: string|null, computer: string|null, fileCount: number, totalSize: number, registryCount: number, newestMtime: number}|null}
+ */
+function mappingSummary(mapping) {
+  if (!mapping) return null;
+  return {
+    backedUpAt: mapping.backedUpAt || null,
+    computer: typeof mapping.computer === 'string' ? mapping.computer : null,
+    fileCount: mapping.files.length,
+    totalSize: Number(mapping.totalSize) || 0,
+    registryCount: Array.isArray(mapping.registry) ? mapping.registry.length : 0,
+    newestMtime: mapping.files.reduce((latest, entry) => Math.max(latest, Number(entry.mtimeMs) || 0), 0)
   };
 }
 
@@ -247,16 +282,58 @@ function statOrNull(file) {
  */
 function backupStatus(game, mapping, vars) {
   if (!mapping) return 'new';
-  const recorded = new Map(mapping.files.map((entry) => [String(entry.path).toLowerCase(), entry]));
+  const recorded = recordedByKey(mapping.files, vars);
   if (recorded.size !== game.files.length) return 'changed';
   for (const file of game.files) {
     const collapsed = collapsePath(file.path, fileVars(vars, file));
     const entry = collapsed && recorded.get(collapsed.toLowerCase());
-    if (!entry || entry.size !== file.size || Math.floor(entry.mtimeMs) !== Math.floor(file.mtimeMs)) return 'changed';
+    if (!entry || !sameVersion(entry, file)) return 'changed';
   }
   const keys = new Set((mapping.registry || []).map((item) => String(item.key).toLowerCase()));
   if (keys.size !== game.registry.length || game.registry.some((item) => !keys.has(item.key.toLowerCase()))) return 'changed';
   return 'up-to-date';
+}
+
+function pcFileState(entry, file) {
+  if (!entry) return 'new';
+  return sameVersion(entry, file) ? 'same' : 'changed';
+}
+
+function backupFileState(entry, file) {
+  if (!file) return 'missing';
+  if (sameVersion(entry, file)) return 'same';
+  return file.mtimeMs > entry.mtimeMs ? 'pc-newer' : 'different';
+}
+
+/**
+ * A game's files on this PC and in its backup, each marked against the other side.
+ * @param {Object} game - A game from scanGames(); a game only in the backup has no files
+ * @param {Object|null} mapping - Its mapping.json
+ * @param {Object} vars - Machine placeholder values used for the scan
+ * @returns {{pc: Array<Object>, backup: Array<Object>}} Files with path, size, mtimeMs and
+ *   state: on the PC 'same', 'changed' or 'new'; in the backup 'same', 'pc-newer',
+ *   'different' or 'missing'
+ */
+function compareWithBackup(game, mapping, vars) {
+  const recorded = recordedByKey(mapping ? mapping.files : [], vars);
+  const onPc = new Map();
+  const pc = (game.files || []).map((file) => {
+    const collapsed = collapsePath(file.path, fileVars(vars, file));
+    const key = collapsed ? collapsed.toLowerCase() : null;
+    if (key) onPc.set(key, file);
+    return { path: file.path, size: file.size, mtimeMs: file.mtimeMs, state: pcFileState(key && recorded.get(key), file) };
+  });
+  const backup = [...recorded.entries()].map(([key, entry]) => {
+    const file = onPc.get(key);
+    return {
+      // A file only in the backup is shown where a restore would put it.
+      path: file ? file.path : expandCollapsed(entry.path, vars) || backupFilePath(entry.path) || String(entry.path),
+      size: Number(entry.size) || 0,
+      mtimeMs: Number(entry.mtimeMs) || 0,
+      state: backupFileState(entry, file)
+    };
+  });
+  return { pc, backup };
 }
 
 /** Copy only a file's bytes: the fallback for when CopyFile refuses. */
@@ -400,7 +477,7 @@ async function exportRegistry(game, gameDir, registry, summary) {
 async function backupGame(game, { backupRoot, vars, registry, cloudRoots = oneDriveRoots() }) {
   const gameDir = gameBackupDir(backupRoot, game.name, game.kind || 'manifest');
   const previous = readMappingAt(gameDir);
-  const previousByPath = new Map((previous ? previous.files : []).map((entry) => [String(entry.path).toLowerCase(), entry]));
+  const previousByPath = recordedByKey(previous ? previous.files : [], vars);
   const summary = { name: game.name, copied: 0, unchanged: 0, removed: 0, bytes: 0, errors: [] };
   const entries = [];
   const keep = new Set();
@@ -572,10 +649,12 @@ module.exports = {
   DEFAULT_ROOT_NAME,
   backupGame,
   backupStatus,
+  compareWithBackup,
   describeBackupRoot,
   gameBackupDir,
   gameFolderName,
   listBackups,
+  mappingSummary,
   readMapping,
   resolveBackupRootChoice,
   restoreGame,

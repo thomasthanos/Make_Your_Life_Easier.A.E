@@ -1153,6 +1153,10 @@ function setupGameSavesHandlers(gameSaves) {
     ipcMain.handle('game-saves-scan', (event, options) => gameSaves.scan(options));
     ipcMain.handle('game-saves-backup', (event, ids) => gameSaves.backup(ids));
     ipcMain.handle('game-saves-restore', (event, ids) => gameSaves.restore(ids));
+    ipcMain.handle('game-saves-files', (event, payload) => {
+        const { id, source } = payload || {};
+        return gameSaves.listFiles(id, source);
+    });
     ipcMain.handle('game-saves-cancel', () => gameSaves.cancel());
     ipcMain.handle('game-saves-pick-folder', () => gameSaves.pickBackupFolder());
     ipcMain.handle('game-saves-use-cloud', (event, cloudId) => gameSaves.useCloudFolder(cloudId));

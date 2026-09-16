@@ -39,15 +39,55 @@ function timeOptions(extra) {
     return times.map((time) => [time, time]);
 }
 
+// The list has two tabs: what is on this PC (to back up) and what is in the
+// backup (to restore).
+const VIEWS = ['pc', 'backup'];
+
+// A backed-up game compared with this PC: [translation key, fallback].
+const BACKUP_STATES = {
+    missing: ['state_missing', 'Not on this PC'],
+    'pc-newer': ['state_pc_newer', 'This PC has newer saves'],
+    different: ['state_different', 'Different from this PC'],
+    same: ['state_same', 'Same as this PC']
+};
+
+// One file compared with the other side: [translation key, fallback, style].
+const FILE_STATES = {
+    new: ['file_new', 'Not backed up', 'is-new'],
+    changed: ['file_changed', 'Changed', 'is-changed'],
+    missing: ['file_missing', 'Not on this PC', 'is-missing'],
+    'pc-newer': ['file_pc_newer', 'Newer on this PC', 'is-changed'],
+    different: ['file_different', 'Different on this PC', 'is-new']
+};
+
+// The per-state counts above a file list, in this order: [state, key, fallback].
+const FILE_SUMMARY = {
+    pc: [
+        ['new', 'files_sum_new', '{count} not backed up yet'],
+        ['changed', 'files_sum_changed', '{count} changed since the backup'],
+        ['same', 'files_sum_same_pc', '{count} same as the backup']
+    ],
+    backup: [
+        ['missing', 'files_sum_missing', '{count} not on this PC'],
+        ['pc-newer', 'files_sum_pc_newer', '{count} newer on this PC'],
+        ['different', 'files_sum_different', '{count} different on this PC'],
+        ['same', 'files_sum_same_backup', '{count} same as this PC']
+    ]
+};
+
 // Module scope, so results and a running task survive leaving the page.
 const state = {
     data: null,         // last state from the main process
     task: null,         // task this page started
     external: false,    // a task someone else started (the scheduled backup) is running
     progress: null,
-    selected: new Set(),
-    filter: 'all',
-    query: ''
+    view: 'pc',
+    selected: { pc: new Set(), backup: new Set() },
+    filter: { pc: 'all', backup: 'all' },
+    query: '',
+    expanded: new Set(),    // "<view>:<id>" rows showing their files
+    files: new Map(),       // loaded file lists, by row and data version
+    filesScan: null         // the scan those lists belong to
 };
 
 let T = {};
@@ -155,15 +195,6 @@ function switchToggle(checked, disabled, label) {
     input.disabled = disabled;
     wrap.append(input, el('span', 'gs-switch-track'), el('span', 'gs-switch-label', label));
     return { wrap, input };
-}
-
-function filesTooltip(game) {
-    const files = game.sampleFiles || [];
-    if (files.length === 0) return '';
-    const lines = [tr('files_tooltip_title', 'Files included:'), ...files];
-    const more = (game.fileCount || 0) - files.length;
-    if (more > 0) lines.push(tr('files_list_more', '…and {count} more', { count: more }));
-    return lines.join('\n');
 }
 
 function closeDropdown(node) {
@@ -276,10 +307,55 @@ function statusText(status) {
     switch (status) {
         case 'up-to-date': return tr('status_ok', 'Backed up');
         case 'changed': return tr('status_changed', 'Changed since backup');
-        case 'backup-only': return tr('status_backup_only', 'Only in backup');
         default: return tr('status_new', 'Not backed up');
     }
 }
+
+const isOnPc = (game) => game.status !== 'backup-only';
+const hasBackup = (game) => Boolean(game.backup);
+
+/** How a backed-up game compares with this PC: a key of BACKUP_STATES. */
+function backupState(game) {
+    if (!isOnPc(game)) return 'missing';
+    if (game.status === 'up-to-date') return 'same';
+    return game.lastModified > game.backup.newestMtime ? 'pc-newer' : 'different';
+}
+
+function scanGamesList() {
+    return (state.data && state.data.scan && state.data.scan.games) || [];
+}
+
+function viewGames(view) {
+    return scanGamesList().filter(view === 'pc' ? isOnPc : hasBackup);
+}
+
+function filterOptions(view) {
+    if (view === 'pc') {
+        return [
+            ['all', tr('filter_all', 'All games')],
+            ['pending', tr('filter_pending', 'Needs backup')],
+            ['ok', tr('filter_ok', 'Backed up')]
+        ];
+    }
+    return [
+        ['all', tr('filter_all', 'All games')],
+        ['missing', tr('filter_missing', 'Not on this PC')],
+        ['different', tr('filter_different', 'Different from this PC')],
+        ['same', tr('filter_same', 'Same as this PC')]
+    ];
+}
+
+function matchesFilter(game, view, filter) {
+    if (filter === 'all') return true;
+    if (view === 'pc') {
+        return filter === 'pending' ? game.status === 'new' || game.status === 'changed' : game.status === 'up-to-date';
+    }
+    const compared = backupState(game);
+    return filter === 'different' ? compared === 'different' || compared === 'pc-newer' : compared === filter;
+}
+
+// Changes whenever the list a row would show changes.
+const filesKey = (game, view) => `${view}:${game.id}:${game.status}:${game.backedUpAt || ''}`;
 
 function progressText(progress) {
     const values = {
@@ -322,9 +398,16 @@ function render(scope) {
 function applyState(next) {
     if (!next) return;
     state.data = next;
-    const ids = new Set(next.scan ? next.scan.games.map((game) => game.id) : []);
-    for (const id of [...state.selected]) {
-        if (!ids.has(id)) state.selected.delete(id);
+    const scannedAt = next.scan ? next.scan.scannedAt : null;
+    if (scannedAt !== state.filesScan) {
+        state.files.clear();
+        state.filesScan = scannedAt;
+    }
+    for (const view of VIEWS) {
+        const ids = new Set(viewGames(view).map((game) => game.id));
+        for (const id of [...state.selected[view]]) {
+            if (!ids.has(id)) state.selected[view].delete(id);
+        }
     }
 }
 
@@ -549,29 +632,46 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     rootsCard.lastElementChild.appendChild(addRootBtn);
     settingsGrid.append(folderCard, scheduleCard, rootsCard);
 
-    // ── Toolbar ──
+    // ── Toolbar: tabs, then the tools for the open tab ──
     const toolbar = el('section', 'gs-toolbar');
-    const scanBtn = textButton('button gs-btn', tr('scan', 'Scan'), 'scan');
+    const tabs = el('div', 'gs-tabs');
+    tabs.setAttribute('role', 'tablist');
+    const tabButtons = {};
+    for (const [view, label, icon] of [
+        ['pc', tr('tab_pc', 'On this PC'), 'gamepad'],
+        ['backup', tr('tab_backup', 'In the backup'), 'archive']
+    ]) {
+        const tab = el('button', 'gs-tab');
+        tab.type = 'button';
+        tab.setAttribute('role', 'tab');
+        const iconSpan = el('span', 'gs-tab-icon');
+        iconSpan.innerHTML = ICONS[icon];
+        tab.append(iconSpan, el('span', null, label), el('span', 'gs-tab-count'));
+        tab.addEventListener('click', () => switchView(view));
+        tabButtons[view] = tab;
+        tabs.appendChild(tab);
+    }
+    const scanBtn = textButton('button-secondary gs-btn', tr('scan', 'Scan'), 'scan');
+    const updateDbBtn = textButton('button-secondary gs-btn gs-btn--ghost', tr('update_database', 'Update database'));
+    const topRow = el('div', 'gs-toolbar-row');
+    topRow.append(tabs, el('span', 'gs-toolbar-spacer'), scanBtn, updateDbBtn);
+
     const searchInput = el('input', 'gs-input gs-search');
     searchInput.type = 'search';
     searchInput.placeholder = tr('search_placeholder', 'Search games…');
-    const filterDropdown = dropdown([
-        ['all', tr('filter_all', 'All games')],
-        ['pending', tr('filter_pending', 'Needs backup')],
-        ['ok', tr('filter_ok', 'Backed up')],
-        ['backup-only', tr('filter_backup_only', 'Only in backup')]
-    ], {
+    const filterDropdown = dropdown(filterOptions(state.view), {
         onChange: (value) => {
-            state.filter = value;
+            state.filter[state.view] = value;
             renderList();
             renderToolbar();
         }
     });
     const selectAllBtn = textButton('button-secondary gs-btn', tr('select_all', 'Select all'));
     const backupBtn = textButton('button gs-btn', tr('backup_selected', 'Back up'), 'upload');
-    const restoreBtn = textButton('button-secondary gs-btn', tr('restore_selected', 'Restore'), 'restore');
-    const updateDbBtn = textButton('button-secondary gs-btn gs-btn--ghost', tr('update_database', 'Update database'));
-    toolbar.append(scanBtn, searchInput, filterDropdown.root, selectAllBtn, backupBtn, restoreBtn, updateDbBtn);
+    const restoreBtn = textButton('button gs-btn', tr('restore_selected', 'Restore'), 'restore');
+    const toolRow = el('div', 'gs-toolbar-row');
+    toolRow.append(searchInput, filterDropdown.root, selectAllBtn, backupBtn, restoreBtn);
+    toolbar.append(topRow, toolRow);
 
     // ── Progress ──
     const progressBox = el('section', 'gs-progress is-hidden');
@@ -586,8 +686,9 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
 
     // ── Lists ──
     const listHeader = el('div', 'gs-list-header');
-    const listCount = el('span', 'gs-note');
-    listHeader.append(el('h3', null, tr('games_title', 'Games with saves')), listCount);
+    const viewNote = el('p', 'gs-note');
+    const listCount = el('span', 'gs-note gs-list-count');
+    listHeader.append(viewNote, listCount);
     const list = el('div', 'gs-list');
     const suggestionsSection = el('section', 'gs-suggestions is-hidden');
 
@@ -609,21 +710,27 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     let scheduleDirty = false;
 
     function visibleGames() {
-        const games = (state.data && state.data.scan && state.data.scan.games) || [];
+        const view = state.view;
         const query = state.query.trim().toLowerCase();
-        return games.filter((game) => {
-            if (state.filter === 'pending' && game.status !== 'new' && game.status !== 'changed') return false;
-            if (state.filter === 'ok' && game.status !== 'up-to-date') return false;
-            if (state.filter === 'backup-only' && game.status !== 'backup-only') return false;
+        return viewGames(view).filter((game) => {
+            if (!matchesFilter(game, view, state.filter[view])) return false;
             if (!query) return true;
             return game.name.toLowerCase().includes(query)
                 || (game.locations || []).some((location) => location.toLowerCase().includes(query));
         });
     }
 
-    function selectedGames() {
-        const games = (state.data && state.data.scan && state.data.scan.games) || [];
-        return games.filter((game) => state.selected.has(game.id));
+    function selectedGames(view) {
+        return viewGames(view).filter((game) => state.selected[view].has(game.id));
+    }
+
+    function switchView(view) {
+        if (state.view === view) return;
+        state.view = view;
+        filterDropdown.setOptions(filterOptions(view));
+        filterDropdown.setValue(state.filter[view]);
+        renderToolbar();
+        renderList();
     }
 
     function renderProgress() {
@@ -712,6 +819,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
             use.disabled = locked;
             use.addEventListener('click', async () => {
                 const result = await runTask('folder', () => window.api.gameSavesUseBackup(item.path), { progress: false });
+                if (result && result.success) switchView('backup');
                 await rescanIfNeeded(result);
             });
             row.append(text, use);
@@ -809,16 +917,31 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         searchInput.disabled = !scanData;
         filterDropdown.setDisabled(!scanData);
 
-        const selected = selectedGames();
-        const backupCount = selected.filter((game) => game.status !== 'backup-only').length;
-        const restoreCount = selected.filter((game) => game.backedUpAt).length;
-        setLabel(backupBtn, backupCount ? tr('backup_selected_count', 'Back up ({count})', { count: backupCount }) : tr('backup_selected', 'Back up'));
-        setLabel(restoreBtn, restoreCount ? tr('restore_selected_count', 'Restore ({count})', { count: restoreCount }) : tr('restore_selected', 'Restore'));
-        backupBtn.disabled = locked || backupCount === 0;
-        restoreBtn.disabled = locked || restoreCount === 0;
+        for (const view of VIEWS) {
+            const tab = tabButtons[view];
+            const active = state.view === view;
+            tab.classList.toggle('is-active', active);
+            tab.setAttribute('aria-selected', String(active));
+            const count = tab.querySelector('.gs-tab-count');
+            count.textContent = scanData ? String(viewGames(view).length) : '';
+            count.classList.toggle('is-hidden', !scanData);
+        }
+
+        // Each tab has one action: back up from the PC, or restore from the backup.
+        const onPc = state.view === 'pc';
+        backupBtn.classList.toggle('is-hidden', !onPc);
+        restoreBtn.classList.toggle('is-hidden', onPc);
+        const count = selectedGames(state.view).length;
+        if (onPc) {
+            setLabel(backupBtn, count ? tr('backup_selected_count', 'Back up ({count})', { count }) : tr('backup_selected', 'Back up'));
+            backupBtn.disabled = locked || count === 0;
+        } else {
+            setLabel(restoreBtn, count ? tr('restore_selected_count', 'Restore ({count})', { count }) : tr('restore_selected', 'Restore'));
+            restoreBtn.disabled = locked || count === 0 || !(data && data.backupRootAvailable);
+        }
 
         const visible = visibleGames();
-        const allSelected = visible.length > 0 && visible.every((game) => state.selected.has(game.id));
+        const allSelected = visible.length > 0 && visible.every((game) => state.selected[state.view].has(game.id));
         setLabel(selectAllBtn, allSelected ? tr('unselect_all', 'Unselect all') : tr('select_all', 'Select all'));
         selectAllBtn.disabled = locked || visible.length === 0;
     }
@@ -829,9 +952,10 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         const head = el('div', 'gs-group-head');
         const copy = el('div', 'gs-group-copy');
         const actions = el('div', 'gs-group-actions');
+        const heading = (key, fallback) => el('h3', null, `${tr(key, fallback)} (${count})`);
         if (group.key === 'steam') {
             copy.append(
-                el('h3', null, `${tr('group_steam_cloud_title', 'Synced by Steam Cloud')} (${count})`),
+                heading('group_steam_cloud_title', 'Synced by Steam Cloud'),
                 el('p', 'gs-note', tr('group_steam_cloud_desc', 'Steam already keeps these saves in its cloud, so a backup here is optional.'))
             );
             const allExcluded = group.items.every((game) => game.excluded);
@@ -843,15 +967,25 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
                 runTask('exclude', () => window.api.gameSavesSetExcluded(group.items.map((game) => game.id), !allExcluded), { progress: false });
             });
             actions.appendChild(toggle);
-        } else {
+        } else if (group.key === 'missing') {
             copy.append(
-                el('h3', null, `${tr('group_backup_only_title', 'In your backup, not on this PC')} (${count})`),
+                heading('group_backup_only_title', 'Not on this PC'),
                 el('p', 'gs-note', tr('group_backup_only_desc', "Restore them to put each game's saves back where the game looks for them."))
             );
             const restoreAll = textButton('button gs-btn gs-btn--small', tr('restore_all', 'Restore all ({count})', { count }), 'restore');
             restoreAll.disabled = locked || !(state.data && state.data.backupRootAvailable);
             restoreAll.addEventListener('click', () => restoreGames(group.items.map((game) => game.id)));
             actions.appendChild(restoreAll);
+        } else if (group.key === 'different') {
+            copy.append(
+                heading('group_different_title', 'Different from this PC'),
+                el('p', 'gs-note', tr('group_different_desc', 'Restoring replaces the saves on this PC with the backup. The replaced saves are kept in _before-restore first.'))
+            );
+        } else {
+            copy.append(
+                heading('group_same_title', 'Same as this PC'),
+                el('p', 'gs-note', tr('group_same_desc', 'These saves match the backup, so there is nothing to restore.'))
+            );
         }
         head.append(copy, actions);
         return head;
@@ -864,21 +998,138 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         if (result && result.success && result.rescan) await scan();
     }
 
-    function gameRow(game) {
+    // ── File lists, loaded when a row is opened ──
+    async function loadFiles(game, view, key) {
+        const scannedAt = state.filesScan;
+        let result;
+        try {
+            result = await window.api.gameSavesFiles(game.id, view);
+        } catch (err) {
+            result = { success: false, error: (err && err.message) || String(err) };
+        }
+        // A scan finished meanwhile: this list may be out of date, and the rows are new.
+        if (scannedAt !== state.filesScan) return;
+        state.files.set(key, result || { success: false, error: tr('game_gone', 'This game is no longer in the list. Scan again.') });
+        for (const panel of list.querySelectorAll('.gs-files')) {
+            if (panel.dataset.key === key) fillFiles(panel, view, state.files.get(key));
+        }
+    }
+
+    function fileLine(file, view) {
+        const line = el('div', 'gs-file');
+        const name = el('span', 'gs-file-name');
+        const cut = Math.max(file.path.lastIndexOf('\\'), file.path.lastIndexOf('/')) + 1;
+        if (cut > 0) name.appendChild(el('span', 'gs-file-dir', file.path.slice(0, cut)));
+        name.appendChild(document.createTextNode(file.path.slice(cut)));
+        const [key, fallback, style] = FILE_STATES[file.state] || [];
+        const mark = el('span', `gs-file-state ${style || ''}`.trim(), key ? tr(key, fallback) : '');
+        line.append(name, mark, el('span', 'gs-file-size', formatBytes(file.size)), el('span', 'gs-file-date', formatDate(file.mtimeMs)));
+        if (view === 'backup' && file.state === 'pc-newer') setTooltip(mark, tr('file_pc_newer_hint', 'Restoring replaces this newer file. The current one is kept in _before-restore.'));
+        return line;
+    }
+
+    function fillFiles(panel, view, result) {
+        panel.replaceChildren();
+        if (!result.success) {
+            panel.appendChild(el('p', 'gs-warning', result.error));
+            return;
+        }
+        const summary = el('div', 'gs-files-summary');
+        summary.appendChild(el('strong', null, `${tr('files_count', '{count} files', { count: result.total })} · ${formatBytes(result.totalSize)}`));
+        for (const [fileState, key, fallback] of FILE_SUMMARY[view]) {
+            const count = result.counts[fileState];
+            if (!count) continue;
+            const [, , style] = FILE_STATES[fileState] || [];
+            summary.appendChild(el('span', `gs-file-state ${style || 'is-same'}`, tr(key, fallback, { count })));
+        }
+        panel.appendChild(summary);
+        if (result.pcOnly) {
+            panel.appendChild(el('p', 'gs-note', tr('files_pc_only', '{count} file(s) on this PC are not in the backup. Restoring leaves them as they are.', { count: result.pcOnly })));
+        }
+
+        const body = el('div', 'gs-files-body');
+        for (const group of result.groups) {
+            const location = el('div', 'gs-files-location', group.location || tr('files_other_places', 'Other locations'));
+            if (group.location) setTooltip(location, group.location);
+            body.appendChild(location);
+            for (const file of group.files) body.appendChild(fileLine(file, view));
+        }
+        const shown = result.groups.reduce((sum, group) => sum + group.files.length, 0);
+        if (result.total > shown) {
+            body.appendChild(el('p', 'gs-note gs-files-more', tr('files_list_more', '…and {count} more', { count: result.total - shown })));
+        }
+        if (result.registry.length) {
+            body.appendChild(el('div', 'gs-files-location', tr('files_registry', 'Registry keys')));
+            for (const key of result.registry) {
+                const line = el('div', 'gs-file');
+                line.appendChild(el('span', 'gs-file-name', key));
+                body.appendChild(line);
+            }
+        }
+        if (result.total === 0 && result.registry.length === 0) body.appendChild(el('p', 'gs-note', tr('files_none', 'No files.')));
+        panel.appendChild(body);
+    }
+
+    function filesPanel(game, view) {
+        const key = filesKey(game, view);
+        const panel = el('div', 'gs-files');
+        panel.dataset.key = key;
+        const cached = state.files.get(key);
+        if (cached) {
+            fillFiles(panel, view, cached);
+            return panel;
+        }
+        panel.appendChild(el('p', 'gs-note', tr('files_loading', 'Loading the file list…')));
+        // null marks a list that is already on its way.
+        if (cached === undefined) {
+            state.files.set(key, null);
+            loadFiles(game, view, key);
+        }
+        return panel;
+    }
+
+    function rowFacts(game, view) {
+        const parts = [];
+        if (view === 'pc') {
+            parts.push(formatBytes(game.totalSize));
+            if (game.registryCount) parts.push(tr('registry_count', '{count} registry key(s)', { count: game.registryCount }));
+            if (game.lastModified) parts.push(tr('last_saved', 'saved {when}', { when: formatDate(game.lastModified) }));
+            if (game.backedUpAt) parts.push(tr('last_backup', 'backup {when}', { when: formatDate(game.backedUpAt) }));
+            return { count: game.fileCount, registry: game.registryCount, parts };
+        }
+        const backup = game.backup;
+        parts.push(formatBytes(backup.totalSize));
+        if (backup.registryCount) parts.push(tr('registry_count', '{count} registry key(s)', { count: backup.registryCount }));
+        if (backup.backedUpAt) parts.push(tr('last_backup', 'backup {when}', { when: formatDate(backup.backedUpAt) }));
+        if (backup.computer) parts.push(tr('backup_computer', 'from {name}', { name: backup.computer }));
+        if (game.lastModified) parts.push(tr('pc_saved', 'on this PC {when}', { when: formatDate(game.lastModified) }));
+        return { count: backup.fileCount, registry: backup.registryCount, parts };
+    }
+
+    function gameRow(game, view) {
         const locked = isLocked();
+        const selection = state.selected[view];
+        const rowKey = `${view}:${game.id}`;
         const row = el('article', 'gs-row');
-        const { wrap: checkWrap, input: check } = checkBox(state.selected.has(game.id), locked, game.name);
+        const { wrap: checkWrap, input: check } = checkBox(selection.has(game.id), locked, game.name);
         row.classList.toggle('is-selected', check.checked);
         check.addEventListener('change', () => {
-            if (check.checked) state.selected.add(game.id);
-            else state.selected.delete(game.id);
+            if (check.checked) selection.add(game.id);
+            else selection.delete(game.id);
             row.classList.toggle('is-selected', check.checked);
             renderToolbar();
         });
 
         const main = el('div', 'gs-row-main');
         const titleLine = el('div', 'gs-row-title');
-        titleLine.append(el('h4', null, game.name), el('span', `gs-status is-${game.status}`, statusText(game.status)));
+        titleLine.appendChild(el('h4', null, game.name));
+        if (view === 'pc') {
+            titleLine.appendChild(el('span', `gs-status is-${game.status}`, statusText(game.status)));
+        } else {
+            const compared = backupState(game);
+            const [key, fallback] = BACKUP_STATES[compared];
+            titleLine.appendChild(el('span', `gs-status is-${compared}`, tr(key, fallback)));
+        }
         if (game.steamCloud) {
             const synced = el('span', 'gs-badge is-cloud-active', tr('badge_steam_cloud_active', 'Steam Cloud ✓'));
             setTooltip(synced, tr('steam_cloud_active_hint', 'Steam syncs this save folder (steam_autocloud.vdf is in it).'));
@@ -887,23 +1138,36 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         for (const store of game.cloud || []) {
             if (store !== 'steam' || !game.steamCloud) titleLine.appendChild(el('span', 'gs-badge', `${STORE_NAMES[store] || store} Cloud`));
         }
-        if (game.registryCount) titleLine.appendChild(el('span', 'gs-badge', tr('badge_registry', 'Registry')));
         if (game.kind === 'custom') titleLine.appendChild(el('span', 'gs-badge', tr('badge_custom', 'Added by you')));
 
-        const parts = [];
-        if (game.fileCount || !game.registryCount) {
-            parts.push(tr('files_count', '{count} files', { count: game.fileCount }), formatBytes(game.totalSize));
+        // The file count opens the row's file list.
+        const facts = rowFacts(game, view);
+        const meta = el('div', 'gs-row-meta');
+        const expanded = state.expanded.has(rowKey);
+        if (facts.count || facts.registry) {
+            const toggle = el('button', `gs-files-toggle${expanded ? ' is-open' : ''}`);
+            toggle.type = 'button';
+            toggle.setAttribute('aria-expanded', String(expanded));
+            toggle.append(el('span', null, tr('files_count', '{count} files', { count: facts.count })));
+            toggle.insertAdjacentHTML('beforeend', CHEVRON_ICON);
+            setTooltip(toggle, expanded ? tr('files_hide', 'Hide the files') : tr('files_show', 'Show the files'));
+            toggle.addEventListener('click', (event) => {
+                event.stopPropagation();
+                if (state.expanded.has(rowKey)) state.expanded.delete(rowKey);
+                else state.expanded.add(rowKey);
+                row.replaceWith(gameRow(game, view));
+            });
+            meta.appendChild(toggle);
+        } else {
+            meta.appendChild(el('span', null, tr('files_count', '{count} files', { count: 0 })));
         }
-        if (game.registryCount) parts.push(tr('registry_count', '{count} registry key(s)', { count: game.registryCount }));
-        if (game.lastModified) parts.push(tr('last_saved', 'saved {when}', { when: formatDate(game.lastModified) }));
-        if (game.backedUpAt) parts.push(tr('last_backup', 'backup {when}', { when: formatDate(game.backedUpAt) }));
-        const meta = el('div', 'gs-row-meta', parts.join(' · '));
-        setTooltip(meta, filesTooltip(game));
+        meta.appendChild(el('span', null, ` · ${facts.parts.join(' · ')}`));
         main.append(titleLine, meta);
+
         if (game.locations && game.locations[0]) {
-            const onlyInBackup = game.status === 'backup-only';
-            const location = el('div', 'gs-path', onlyInBackup ? `→ ${game.locations[0]}` : game.locations[0]);
-            setTooltip(location, onlyInBackup
+            const restoring = view === 'backup';
+            const location = el('div', 'gs-path', restoring ? `→ ${game.locations[0]}` : game.locations[0]);
+            setTooltip(location, restoring
                 ? [tr('restore_to_hint', 'Restoring puts the saves here:'), ...game.locations].join('\n')
                 : game.locations.join('\n'));
             main.appendChild(location);
@@ -916,30 +1180,62 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         });
 
         const actions = el('div', 'gs-row-actions');
-        if (game.status !== 'backup-only') {
+        if (view === 'pc') {
             const auto = switchToggle(!game.excluded, locked, tr('auto_toggle', 'Auto'));
             setTooltip(auto.wrap, tr('auto_toggle_hint', 'Include in automatic backups'));
             auto.input.addEventListener('change', () => {
                 runTask('exclude', () => window.api.gameSavesSetExcluded(game.id, !auto.input.checked), { progress: false });
             });
             actions.appendChild(auto.wrap);
+        } else {
+            const restoreOne = textButton('button-secondary gs-btn gs-btn--small', tr('restore_one', 'Restore'), 'restore');
+            restoreOne.disabled = locked || !(state.data && state.data.backupRootAvailable);
+            restoreOne.addEventListener('click', () => restoreGames([game.id]));
+            actions.appendChild(restoreOne);
         }
         const openLocation = iconButton('folder', tr('open_location', 'Open save folder'));
-        openLocation.disabled = game.status === 'backup-only' || !(game.locations && game.locations.length);
+        openLocation.disabled = !isOnPc(game) || !(game.locations && game.locations.length);
         openLocation.addEventListener('click', () => openFolder('game-location', game.id));
         const openBackup = iconButton('archive', tr('open_backup', 'Open backup'));
-        openBackup.disabled = !game.backedUpAt;
+        openBackup.disabled = !hasBackup(game);
         openBackup.addEventListener('click', () => openFolder('game-backup', game.id));
         actions.append(openLocation, openBackup);
 
         row.append(checkWrap, main, actions);
+        if (expanded) row.appendChild(filesPanel(game, view));
         return row;
+    }
+
+    function listGroups(view, games) {
+        if (view === 'pc') {
+            return [
+                { key: 'local', items: games.filter((game) => !game.steamCloud) },
+                { key: 'steam', items: games.filter((game) => game.steamCloud) }
+            ];
+        }
+        const byState = (...states) => games.filter((game) => states.includes(backupState(game)));
+        return [
+            { key: 'missing', items: byState('missing') },
+            { key: 'different', items: byState('pc-newer', 'different') },
+            { key: 'same', items: byState('same') }
+        ];
+    }
+
+    function listEmptyText(view, data) {
+        if (view === 'pc') return tr('empty_none', 'No game saves were found on this PC.');
+        if (!data.config.backupRoot) return tr('backup_view_no_folder', 'Choose a backup folder above to see what it holds.');
+        if (!data.backupRootAvailable) return tr('folder_unavailable', 'This folder cannot be reached right now. Is its drive connected?');
+        return tr('backup_view_empty', 'Nothing is backed up yet. Select games in the "On this PC" tab and press Back up.');
     }
 
     function renderList() {
         const data = state.data;
         const scanData = data && data.scan;
+        const view = state.view;
         list.replaceChildren();
+        viewNote.textContent = view === 'pc'
+            ? tr('view_pc_desc', 'Saves found on this PC. Select games and press Back up.')
+            : tr('view_backup_desc', 'What your backup folder holds. Select games and press Restore to put their saves back on this PC.');
         if (data && !data.supported) {
             listCount.textContent = '';
             list.appendChild(emptyState(tr('unsupported', 'Game Saves works on Windows only.')));
@@ -952,28 +1248,20 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
                 : tr('empty_not_scanned', 'Press Scan to look for game saves on this PC.')));
             return;
         }
+        const all = viewGames(view);
         const games = visibleGames();
-        listCount.textContent = tr('list_count', '{shown} of {total}', { shown: games.length, total: scanData.games.length });
+        listCount.textContent = tr('list_count', '{shown} of {total}', { shown: games.length, total: all.length });
         if (games.length === 0) {
-            list.appendChild(emptyState(scanData.games.length
-                ? tr('empty_filtered', 'No games match.')
-                : tr('empty_none', 'No game saves were found on this PC.')));
+            list.appendChild(emptyState(all.length ? tr('empty_filtered', 'No games match.') : listEmptyText(view, data)));
             return;
         }
-        // Steam Cloud games, and games that exist only in the backup, get their
-        // own sections below the rest.
-        const groups = [
-            { key: 'local', items: games.filter((game) => game.status !== 'backup-only' && !game.steamCloud) },
-            { key: 'steam', items: games.filter((game) => game.status !== 'backup-only' && game.steamCloud) },
-            { key: 'backup', items: games.filter((game) => game.status === 'backup-only') }
-        ];
         const fragment = document.createDocumentFragment();
         let shown = 0;
-        for (const group of groups) {
+        for (const group of listGroups(view, games)) {
             if (group.items.length === 0 || shown >= ROW_LIMIT) continue;
             if (group.key !== 'local') fragment.appendChild(groupHeader(group));
             for (const game of group.items.slice(0, ROW_LIMIT - shown)) {
-                fragment.appendChild(gameRow(game));
+                fragment.appendChild(gameRow(game, view));
                 shown++;
             }
         }
@@ -1092,23 +1380,24 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         renderList();
         renderToolbar();
     });
-    filterDropdown.setValue(state.filter);
+    filterDropdown.setValue(state.filter[state.view]);
     selectAllBtn.addEventListener('click', () => {
+        const selection = state.selected[state.view];
         const visible = visibleGames();
-        const allSelected = visible.length > 0 && visible.every((game) => state.selected.has(game.id));
+        const allSelected = visible.length > 0 && visible.every((game) => selection.has(game.id));
         for (const game of visible) {
-            if (allSelected) state.selected.delete(game.id);
-            else state.selected.add(game.id);
+            if (allSelected) selection.delete(game.id);
+            else selection.add(game.id);
         }
         renderList();
         renderToolbar();
     });
     backupBtn.addEventListener('click', async () => {
-        const ids = selectedGames().filter((game) => game.status !== 'backup-only').map((game) => game.id);
+        const ids = selectedGames('pc').map((game) => game.id);
         reportBackup(await runTask('backup', () => window.api.gameSavesBackup(ids)));
     });
     restoreBtn.addEventListener('click', () => {
-        restoreGames(selectedGames().filter((game) => game.backedUpAt).map((game) => game.id));
+        restoreGames(selectedGames('backup').map((game) => game.id));
     });
     cancelBtn.addEventListener('click', () => {
         cancelBtn.disabled = true;
