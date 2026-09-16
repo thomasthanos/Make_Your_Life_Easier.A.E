@@ -1159,9 +1159,10 @@ function setupGameSavesHandlers(gameSaves) {
     ipcMain.handle('game-saves-add-root', () => gameSaves.addCustomRoot());
     ipcMain.handle('game-saves-remove-root', (event, rootPath) => gameSaves.removeCustomRoot(rootPath));
     ipcMain.handle('game-saves-set-schedule', (event, schedule) => gameSaves.setSchedule(schedule));
+    ipcMain.handle('game-saves-use-backup', (event, dir) => gameSaves.useFoundBackup(dir));
     ipcMain.handle('game-saves-set-excluded', (event, payload) => {
-        const { id, excluded } = payload || {};
-        return gameSaves.setExcluded(id, Boolean(excluded));
+        const { ids, excluded } = payload || {};
+        return gameSaves.setExcluded(ids, Boolean(excluded));
     });
     ipcMain.handle('game-saves-suggestion', (event, payload) => {
         const { id, action } = payload || {};

@@ -13,6 +13,8 @@ const { isWithin } = require('../security');
 const MAX_FILES_PER_GAME = 5000;
 const MAX_WALK_DEPTH = 12;
 const PROGRESS_EVERY = 250;
+// Steam leaves this file in every folder its cloud sync manages.
+const STEAM_CLOUD_MARKER = 'steam_autocloud.vdf';
 
 const SAVE_DIR_NAME = /^(saves?|save[ _-]?games?|saved[ _-]?games?|save[ _-]?data|save[ _-]?files?)$/i;
 const SAVE_FILE_NAME = /(^save|\.(sav|save|savegame|sl2|ess|fos)$)/i;
@@ -35,6 +37,11 @@ function childDirs(fsImpl, dir) {
   } catch {
     return [];
   }
+}
+
+function hasEntry(walker, dir, name) {
+  const listing = walker.list(dir);
+  return Boolean(listing && listing.has(name));
 }
 
 function addFile(files, filePath, stat, context) {
@@ -201,6 +208,7 @@ function scanManifestGame(game, context) {
   const bases = basesForGame(game, context.index);
   const files = new Map();
   const locations = new Map();
+  let steamCloud = false;
 
   for (const entry of game.files) {
     for (const variant of templateVariants(entry, bases, context.roots)) {
@@ -216,21 +224,23 @@ function scanManifestGame(game, context) {
           root: variant.root,
           excludedRoots: context.excludedRoots
         }, context.fsImpl);
-        if (files.size > before && locations.size < 5) {
-          const location = kind === 'file' ? path.dirname(hit) : hit;
-          locations.set(location.toLowerCase(), location);
-        }
+        if (!kind) continue;
+        const location = kind === 'file' ? path.dirname(hit) : hit;
+        if (!steamCloud && hasEntry(context.walker, location, STEAM_CLOUD_MARKER)) steamCloud = true;
+        if (files.size > before && locations.size < 5) locations.set(location.toLowerCase(), location);
       }
     }
   }
 
   const registry = (game.registry || []).filter((item) => context.registryKeys.has(item.key.toLowerCase()));
   if (files.size === 0 && registry.length === 0) return null;
+  if (!steamCloud) steamCloud = [...files.values()].some((file) => path.basename(file.path).toLowerCase() === STEAM_CLOUD_MARKER);
   return finishGame({
     id: game.name,
     name: game.name,
     kind: 'manifest',
     registry,
+    steamCloud: steamCloud && files.size > 0,
     installed: bases.length > 0,
     cloud: game.cloud || [],
     locations: [...locations.values()]
@@ -247,6 +257,7 @@ function scanCustomGame(custom, context) {
     name: custom.name,
     kind: 'custom',
     customPath: custom.path,
+    steamCloud: hasEntry(context.walker, custom.path, STEAM_CLOUD_MARKER),
     registry: [],
     installed: false,
     cloud: [],

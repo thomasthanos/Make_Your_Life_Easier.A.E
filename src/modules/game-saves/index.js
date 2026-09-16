@@ -10,8 +10,8 @@ const { app, dialog, Notification, shell, utilityProcess } = require('electron')
 const fs = require('fs');
 const path = require('path');
 const { debug } = require('../debug');
-const { validatePath } = require('../security');
-const { gameBackupDir } = require('./backup');
+const { isWithin, validatePath } = require('../security');
+const { DEFAULT_ROOT_NAME, describeBackupRoot, gameBackupDir, resolveBackupRootChoice } = require('./backup');
 const { detectCloudFolders } = require('./cloud-folders');
 const { createConfigStore, normalizeSchedule } = require('./config');
 const { readJson, writeJsonAtomic } = require('./io');
@@ -20,8 +20,8 @@ const { expandCollapsed } = require('./paths');
 const scheduler = require('./schedule');
 
 const PROGRESS_CHANNEL = 'game-saves-progress';
-const CLOUD_SUBFOLDER = 'MYLE Game Saves';
 const RESTORE_LIST_LIMIT = 12;
+const SAMPLE_FILES = 12;
 const DEFAULT_LANG = 'en';
 const ICON_PATH = path.join(__dirname, '..', '..', 'assets', 'icons', 'hacker.ico');
 
@@ -45,6 +45,14 @@ function isDirectory(dir) {
   }
 }
 
+// A few file names for the row tooltip, relative to the game's first save folder.
+function sampleFiles(game) {
+  const base = game.locations[0];
+  return game.files.slice(0, SAMPLE_FILES).map((file) => (
+    base && isWithin(file.path, base) ? path.relative(base, file.path) : file.path
+  ));
+}
+
 function summarizeScan(scan, config) {
   if (!scan) return null;
   const excluded = new Set(config.excludedGames);
@@ -64,7 +72,9 @@ function summarizeScan(scan, config) {
       registryCount: game.registry.length,
       installed: game.installed,
       cloud: game.cloud,
+      steamCloud: Boolean(game.steamCloud),
       locations: game.locations,
+      sampleFiles: sampleFiles(game),
       excluded: excluded.has(game.id)
     })),
     suggestions: scan.suggestions.map(({ id, name, path: dir, fileCount, totalSize, lastModified }) => (
@@ -153,6 +163,26 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     }
   }
 
+  // Where a backup from before a reinstall is likely to be: a cloud folder, the
+  // Documents folder or a drive root, under the folder name this app suggests.
+  function findExistingBackups() {
+    const candidates = [
+      ...detectCloudFolders().map((folder) => ({ label: folder.label, path: path.join(folder.path, DEFAULT_ROOT_NAME) })),
+      { label: 'Documents', path: path.join(app.getPath('documents'), DEFAULT_ROOT_NAME) },
+      ...'CDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letter) => ({ label: `${letter}:`, path: path.join(`${letter}:/`, DEFAULT_ROOT_NAME) }))
+    ];
+    const seen = new Set();
+    const found = [];
+    for (const candidate of candidates) {
+      const key = candidate.path.toLowerCase();
+      if (seen.has(key) || !isDirectory(candidate.path)) continue;
+      seen.add(key);
+      const summary = describeBackupRoot(candidate.path);
+      if (summary.games > 0) found.push({ ...candidate, ...summary });
+    }
+    return found;
+  }
+
   async function buildState() {
     const config = configStore.get();
     const executable = scheduler.resolveTaskExecutable({ isPackaged: app.isPackaged });
@@ -166,6 +196,7 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
       },
       backupRootAvailable: isDirectory(config.backupRoot),
       cloudFolders: detectCloudFolders(),
+      foundBackups: config.backupRoot ? [] : findExistingBackups(),
       schedule: {
         canSchedule: !executable.error,
         portable: executable.portable,
@@ -222,9 +253,10 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
   });
 
   async function confirmRestore(items, games, t) {
-    const lines = items.slice(0, RESTORE_LIST_LIMIT).map((item) => (
-      item.kind === 'custom' && item.customPath ? `• ${item.name}  →  ${item.customPath}` : `• ${item.name}`
-    ));
+    const lines = items.slice(0, RESTORE_LIST_LIMIT).map((item) => {
+      const destination = item.kind === 'custom' ? item.customPath : item.location;
+      return destination ? `• ${item.name}  →  ${destination}` : `• ${item.name}`;
+    });
     if (items.length > RESTORE_LIST_LIMIT) {
       lines.push(format(t.restore_confirm_more || '…and {count} more', { count: items.length - RESTORE_LIST_LIMIT }));
     }
@@ -260,7 +292,7 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     if (games.length === 0) return { success: false, error: t.nothing_to_restore || 'None of the selected games has a backup.' };
 
     const items = games.map((game) => {
-      if (game.kind !== 'custom') return { name: game.name, kind: 'manifest' };
+      if (game.kind !== 'custom') return { name: game.name, kind: 'manifest', location: game.locations[0] };
       const known = config.customGames.find((custom) => custom.name === game.name);
       const customPath = known
         ? known.path
@@ -286,11 +318,12 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
   async function setBackupRoot(dir) {
     const check = validatePath(dir);
     if (!check.valid) return { success: false, error: check.error };
-    fs.mkdirSync(check.normalized, { recursive: true });
+    const root = resolveBackupRootChoice(check.normalized);
+    fs.mkdirSync(root, { recursive: true });
     const previous = configStore.get().backupRoot;
-    configStore.update({ backupRoot: check.normalized });
+    configStore.update({ backupRoot: root });
     // Every status was measured against the old folder.
-    if (previous.toLowerCase() !== check.normalized.toLowerCase()) lastScan = null;
+    if (previous.toLowerCase() !== root.toLowerCase()) lastScan = null;
     return { success: true, state: await buildState() };
   }
 
@@ -307,7 +340,14 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
   const useCloudFolder = (id) => guarded(async () => {
     const folder = detectCloudFolders().find((item) => item.id === id);
     if (!folder) return { success: false, error: strings().cloud_missing || 'That cloud folder was not found.' };
-    return setBackupRoot(path.join(folder.path, CLOUD_SUBFOLDER));
+    return setBackupRoot(path.join(folder.path, DEFAULT_ROOT_NAME));
+  });
+
+  const useFoundBackup = (dir) => guarded(async () => {
+    const wanted = String(dir || '').toLowerCase();
+    const match = findExistingBackups().find((item) => item.path.toLowerCase() === wanted);
+    if (!match) return { success: false, error: strings().folder_missing || 'The folder does not exist.' };
+    return setBackupRoot(match.path);
   });
 
   const addCustomRoot = () => guarded(async () => {
@@ -349,10 +389,12 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     return { success: true, state: await buildState() };
   });
 
-  const setExcluded = (id, excluded) => guarded(async () => {
-    if (typeof id !== 'string' || !id) return { success: false, error: 'Invalid game.' };
-    const rest = configStore.get().excludedGames.filter((item) => item !== id);
-    configStore.update({ excludedGames: excluded ? [...rest, id] : rest });
+  const setExcluded = (ids, excluded) => guarded(async () => {
+    const list = (Array.isArray(ids) ? ids : [ids]).filter((id) => typeof id === 'string' && id);
+    if (list.length === 0) return { success: false, error: 'Invalid game.' };
+    const changing = new Set(list);
+    const rest = configStore.get().excludedGames.filter((item) => !changing.has(item));
+    configStore.update({ excludedGames: excluded ? [...rest, ...list] : rest });
     return { success: true, state: await buildState() };
   });
 
@@ -469,6 +511,7 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     cancel,
     pickBackupFolder,
     useCloudFolder,
+    useFoundBackup,
     addCustomRoot,
     removeCustomRoot,
     setSchedule,

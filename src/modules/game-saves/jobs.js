@@ -7,11 +7,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { backupGame, backupStatus, listBackups, readMapping, restoreGame } = require('./backup');
+const { backupGame, backupStatus, listBackups, readMapping, restoreGame, restoreLocations } = require('./backup');
 const { escapeGlob, toSlash } = require('./glob');
 const { detectLaunchers } = require('./launchers');
 const { ensureManifest, loadCachedManifest } = require('./manifest');
-const { machineVariables } = require('./paths');
+const { expandCollapsed, machineVariables } = require('./paths');
 const { basesForGame, buildInstallIndex, findSuggestions, scanGames, storeRoots } = require('./scanner');
 const system = require('./system');
 const { isWithin } = require('../security');
@@ -92,8 +92,12 @@ async function scan({ userDataPath, config, refreshManifest = false, withSuggest
       totalSize: Number(mapping.totalSize) || 0,
       lastModified: 0,
       installed: false,
+      steamCloud: false,
       cloud: cloudByName.get(mapping.name) || [],
-      locations: []
+      // Where the saves will go, so the list can say so before restoring.
+      locations: kind === 'custom'
+        ? [expandCollapsed(mapping.customPathCollapsed, vars) || mapping.customPath].filter(Boolean)
+        : restoreLocations(mapping, vars)
     });
   }
 

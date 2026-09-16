@@ -13,7 +13,21 @@ const { escapeGlob, toSlash } = require('./glob');
 
 // Roots a collapsed path may start with. The longest match wins; on equal
 // length the earlier name does.
-const COLLAPSE_ROOTS = ['base', 'root', 'winDocuments', 'winLocalAppData', 'winAppData', 'winProgramData', 'winPublic', 'home', 'winDir'];
+const COLLAPSE_ROOTS = ['base', 'root', 'winDocuments', 'winLocalAppDataLow', 'winLocalAppData', 'winAppData', 'winProgramData', 'winPublic', 'home', 'winDir'];
+
+// The folder each root's files go under inside a game's backup.
+const BACKUP_FOLDERS = {
+  base: 'Game folder',
+  root: 'Launcher folder',
+  winDocuments: 'Documents',
+  winLocalAppDataLow: 'AppData LocalLow',
+  winLocalAppData: 'AppData Local',
+  winAppData: 'AppData Roaming',
+  winProgramData: 'ProgramData',
+  winPublic: 'Public',
+  home: 'User folder',
+  winDir: 'Windows'
+};
 
 // Steam and Ubisoft keep one folder per account; any account on this PC counts.
 const WILDCARD_PLACEHOLDERS = new Set(['storeUserId', 'storeGameId']);
@@ -119,7 +133,20 @@ function expandCollapsed(collapsed, vars) {
 }
 
 /**
- * Where a file lives inside a game's backup folder: `winAppData/Game/slot1.sav`.
+ * Where a file is kept inside a game's backup folder, under a readable folder
+ * per root: `Documents/The Witcher 3/input.settings`.
+ * @param {string} collapsed - Path produced by collapsePath()
+ * @returns {string|null} `/`-separated relative path, or null when malformed
+ */
+function backupFilePath(collapsed) {
+  const parts = collapsedParts(collapsed);
+  if (!parts || parts.segments.length === 0) return null;
+  return [BACKUP_FOLDERS[parts.root], ...parts.segments].join('/');
+}
+
+/**
+ * The layout of backups made before the readable one, `winAppData/Game/slot1.sav`
+ * under the game's files/ folder. Still read so those backups restore.
  * @param {string} collapsed - Path produced by collapsePath()
  * @returns {string|null} `/`-separated relative path, or null when malformed
  */
@@ -130,6 +157,8 @@ function backupRelativePath(collapsed) {
 }
 
 module.exports = {
+  BACKUP_FOLDERS,
+  backupFilePath,
   backupRelativePath,
   collapsePath,
   expandCollapsed,

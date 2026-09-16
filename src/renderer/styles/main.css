@@ -9123,23 +9123,51 @@ body.sidebar-expanded .maintenance-page {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-/* #content hides checkboxes behind label-drawn boxes; these rows use the native control. */
-#content .gs-page input[type="checkbox"].gs-check,
-#content .gs-page .gs-auto input[type="checkbox"] {
-  position: static;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  opacity: 1;
-  pointer-events: auto;
+/* Row selection. #content already hides the native checkbox; this draws the box. */
+.gs-box {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  cursor: pointer;
 }
 
-.gs-check {
-  width: 17px;
-  height: 17px;
-  margin: 0;
-  accent-color: #0a84ff;
-  cursor: pointer;
+.gs-box-mark {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: transparent;
+  border: 2px solid var(--stroke-14);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.045);
+  transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.gs-box-mark svg {
+  width: 12px;
+  height: 12px;
+}
+
+.gs-box:hover .gs-box-mark {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.gs-box input:checked + .gs-box-mark {
+  color: #fff;
+  border-color: rgba(10, 132, 255, 0.75);
+  background: rgba(10, 132, 255, 0.9);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.12);
+}
+
+.gs-box input:focus-visible + .gs-box-mark,
+.gs-switch input:focus-visible + .gs-switch-track {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.gs-box input:disabled + .gs-box-mark {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .gs-row-main {
@@ -9229,19 +9257,125 @@ body.sidebar-expanded .maintenance-page {
   gap: 0.25rem;
 }
 
-.gs-auto {
+/* Automatic-backup switch: a different shape from the selection box on purpose. */
+.gs-switch {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  margin-right: 0.25rem;
+  gap: 0.4rem;
+  margin-right: 0.35rem;
   color: var(--text-muted);
   font-size: 0.72rem;
   cursor: pointer;
 }
 
-.gs-auto input {
+.gs-switch-track {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: var(--radius-pill);
+  background: var(--stroke-09);
+  transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+
+.gs-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  transition: left var(--motion-fast);
+}
+
+.gs-switch input:checked + .gs-switch-track {
+  border-color: rgba(48, 209, 88, 0.5);
+  background: linear-gradient(180deg, rgba(48, 209, 88, 0.6), rgba(48, 209, 88, 0.38));
+}
+
+.gs-switch input:checked + .gs-switch-track::after {
+  left: 16px;
+}
+
+.gs-switch input:checked ~ .gs-switch-label {
+  color: var(--text-secondary);
+}
+
+.gs-switch input:disabled + .gs-switch-track {
+  opacity: 0.45;
+}
+
+.gs-badge.is-cloud-active {
+  color: #9fe8b4;
+  border-color: rgba(48, 209, 88, 0.3);
+  background: rgba(48, 209, 88, 0.08);
+}
+
+/* Separated sections below the main list: Steam Cloud games, backup-only games. */
+.gs-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.55rem;
+  padding: 0.75rem 0.2rem 0.1rem;
+  border-top: 1px solid var(--stroke-12);
+}
+
+.gs-group-copy {
+  min-width: 0;
+}
+
+.gs-group-copy h3 {
   margin: 0;
-  accent-color: #30d158;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.gs-group-copy .gs-note {
+  margin-top: 0.15rem;
+}
+
+.gs-group-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.gs-found {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.gs-found-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(48, 209, 88, 0.28);
+  border-radius: 10px;
+  background: rgba(48, 209, 88, 0.06);
+}
+
+.gs-found-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+}
+
+.gs-found-text strong {
+  color: #9fe8b4;
+  font-size: 0.8rem;
 }
 
 .gs-list-more {
