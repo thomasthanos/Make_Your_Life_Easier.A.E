@@ -1,3 +1,4 @@
+import { setUiTranslations, uiText } from './ui-text.js';
 /**
  * Renderer Services
  * Contains business logic for downloads, updates, and settings
@@ -125,7 +126,8 @@ export async function loadTranslations(lang) {
     const cached = translationCache.get(lang);
     if (cached) {
         translations = cached;
-        document.documentElement.setAttribute('lang', lang || 'en');
+        setUiTranslations(translations);
+        document.documentElement.setAttribute('lang', lang === 'gr' ? 'el' : 'en');
         return translations;
     }
 
@@ -136,7 +138,8 @@ export async function loadTranslations(lang) {
             if (res.ok) {
                 translations = await res.json();
                 translationCache.set(lang, translations);
-                document.documentElement.setAttribute('lang', lang || 'en');
+                setUiTranslations(translations);
+                document.documentElement.setAttribute('lang', lang === 'gr' ? 'el' : 'en');
                 return translations;
             }
         } catch (e) {
@@ -145,7 +148,8 @@ export async function loadTranslations(lang) {
     }
 
     translations = {};
-    document.documentElement.setAttribute('lang', lang || 'en');
+    setUiTranslations(translations);
+    document.documentElement.setAttribute('lang', lang === 'gr' ? 'el' : 'en');
     return translations;
 }
 
@@ -155,6 +159,7 @@ export async function loadTranslations(lang) {
  */
 export function setTranslations(trans) {
     translations = trans;
+    setUiTranslations(trans);
 }
 
 // ============================================
@@ -187,12 +192,12 @@ export function initializeAutoUpdater() {
         window.api.onUpdateStatus((data) => {
             switch (data.status) {
                 case 'available':
-                    showUpdateOverlay(`Preparing download...`);
+                    showUpdateOverlay(uiText("update_prepare", "Preparing download..."));
                     break;
                 case 'downloading': {
                     const percent = Math.round(data.percent || 0);
                     showUpdateOverlay();
-                    updateUpdateOverlay(percent, 'Downloading update...', {
+                    updateUpdateOverlay(percent, uiText("update_download", "Downloading update..."), {
                         bytesPerSecond: data.bytesPerSecond,
                         transferred: data.transferred,
                         total: data.totalBytes
@@ -200,12 +205,12 @@ export function initializeAutoUpdater() {
                     break;
                 }
                 case 'extracting':
-                    showUpdateOverlay(data.message || 'Applying update...');
-                    updateUpdateOverlay(100, data.message || 'Applying update...');
+                    showUpdateOverlay(uiText('update_apply', 'Applying update…'));
+                    updateUpdateOverlay(100, uiText('update_apply', 'Applying update…'));
                     break;
                 case 'error':
                     hideUpdateOverlay();
-                    toast('Update error', { type: 'error', title: 'Update' });
+                    toast(uiText("update_error", "Update error"), { type: 'error', title: uiText("update_title", "Update") });
                     break;
             }
         });
@@ -223,14 +228,14 @@ export function initializeAutoUpdater() {
         if (!updateAvailable) return;
 
         updateBtn.classList.add('downloading');
-        updateBtn.setAttribute('data-tooltip', 'Downloading update...');
+        updateBtn.setAttribute('data-tooltip', uiText("update_download", "Downloading update..."));
 
         try {
             await window.api.downloadUpdate();
         } catch (error) {
             updateBtn.classList.remove('downloading');
-            updateBtn.setAttribute('data-tooltip', 'Update available');
-            toast('Failed to download update', { type: 'error', title: 'Update' });
+            updateBtn.setAttribute('data-tooltip', uiText("update_available", "Update available"));
+            toast(uiText("update_download_error", "Failed to download update"), { type: 'error', title: uiText("update_title", "Update") });
         }
     });
 
@@ -239,8 +244,8 @@ export function initializeAutoUpdater() {
             case 'available':
                 updateAvailable = true;
                 updateBtn.classList.add('available');
-                updateBtn.setAttribute('data-tooltip', `Update available`);
-                showUpdateOverlay(`Preparing download...`);
+                updateBtn.setAttribute('data-tooltip', uiText("update_available", "Update available"));
+                showUpdateOverlay(uiText("update_prepare", "Preparing download..."));
                 break;
 
             case 'downloading': {
@@ -256,7 +261,7 @@ export function initializeAutoUpdater() {
                 const totalMB = (total / (1024 * 1024)).toFixed(2);
                 const speedMB = (speed / (1024 * 1024)).toFixed(2);
                 
-                let tooltipText = `Downloading: ${percent}%`;
+                let tooltipText = uiText('downloading_percent', '', { percent });
                 if (total > 0) {
                     tooltipText += ` (${transferredMB}/${totalMB} MB)`;
                 }
@@ -276,7 +281,7 @@ export function initializeAutoUpdater() {
                 
                 // Show overlay with detailed information
                 showUpdateOverlay();
-                updateUpdateOverlay(percent, 'Downloading update...', {
+                updateUpdateOverlay(percent, uiText("update_download", "Downloading update..."), {
                     bytesPerSecond: data.bytesPerSecond,
                     transferred: data.transferred,
                     total: data.totalBytes
@@ -287,16 +292,16 @@ export function initializeAutoUpdater() {
             case 'extracting':
                 updateBtn.classList.remove('downloading');
                 updateBtn.classList.add('ready');
-                updateBtn.setAttribute('data-tooltip', 'Applying update...');
-                showUpdateOverlay(data.message || 'Applying update...');
-                updateUpdateOverlay(100, data.message || 'Applying update...');
+                updateBtn.setAttribute('data-tooltip', uiText("update_apply", "Applying update..."));
+                showUpdateOverlay(uiText('update_apply', 'Applying update…'));
+                updateUpdateOverlay(100, uiText('update_apply', 'Applying update…'));
                 break;
 
             case 'error':
                 updateBtn.classList.remove('downloading');
-                updateBtn.setAttribute('data-tooltip', 'Update failed');
+                updateBtn.setAttribute('data-tooltip', uiText("update_failed", "Update failed"));
                 hideUpdateOverlay();
-                toast('Update error', { type: 'error', title: 'Update' });
+                toast(uiText("update_error", "Update error"), { type: 'error', title: uiText("update_title", "Update") });
                 break;
         }
     });
@@ -471,7 +476,7 @@ async function showChangelog(updateInfo) {
 
     const title = document.createElement('h2');
     title.className = 'changelog-title';
-    title.textContent = 'Update Installed';
+    title.textContent = uiText("update_installed", "Update Installed");
 
     const titleGroup = document.createElement('div');
     titleGroup.className = 'changelog-title-group';
@@ -486,7 +491,7 @@ async function showChangelog(updateInfo) {
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'changelog-close';
-    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.setAttribute('aria-label', uiText("close", "Close"));
     closeBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>';
     header.appendChild(titleGroup);
     header.appendChild(closeBtn);
@@ -496,7 +501,7 @@ async function showChangelog(updateInfo) {
 
     const versionBadge = document.createElement('div');
     versionBadge.className = 'changelog-version';
-    versionBadge.textContent = `Version ${updateInfo.version || 'Unknown'}`;
+    versionBadge.textContent = uiText('version_label', '', { version: updateInfo.version || '—' });
 
     if (updateInfo.releaseNotes) {
         const notes = document.createElement('div');
@@ -533,7 +538,7 @@ async function showChangelog(updateInfo) {
         content.appendChild(notes);
     } else {
         const defaultMessage = document.createElement('p');
-        defaultMessage.textContent = 'This update includes bug fixes and performance improvements.';
+        defaultMessage.textContent = uiText("release_default", "This update includes bug fixes and performance improvements.");
         content.appendChild(defaultMessage);
     }
 
@@ -666,6 +671,7 @@ export async function ensureSidebarVersion(_state = {}) {
         if (versionWrapper) attachTooltipHandlers(versionWrapper);
     }
 
+    sidebar.querySelector('.version-wrap')?.setAttribute('data-tooltip', uiText('app_version'));
     const setSafe = (txt) => {
         // Re-query to avoid stale reference after DOM changes
         const el = document.getElementById('appVersion');
@@ -734,7 +740,7 @@ export async function ensureSidebarVersion(_state = {}) {
                                 window.location.reload();
                             } catch (err) {
                                 debug('error', 'Logout failed:', err);
-                                toast('Could not sign out. Please try again.', { type: 'error', title: 'Account' });
+                                toast(uiText("signout_error", "Could not sign out. Please try again."), { type: 'error', title: uiText("account", "Account") });
                             }
                         },
                         onReset: async () => {
@@ -756,13 +762,13 @@ export async function ensureSidebarVersion(_state = {}) {
 
                 const discordBtn = document.createElement('button');
                 discordBtn.className = 'login-discord';
-                discordBtn.setAttribute('data-tooltip', 'Sign in with Discord');
+                discordBtn.setAttribute('data-tooltip', uiText("discord_signin", "Sign in with Discord"));
                 discordBtn.innerHTML = `<svg fill="#000000" preserveAspectRatio="xMidYMid" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 -28.5 256 256"><g id="SVGRepo_iconCarrier"><g><path fill-rule="nonzero" fill="#5865F2" d="M216.856339,16.5966031 C200.285002,8.84328665 182.566144,3.2084988 164.041564,0 C161.766523,4.11318106 159.108624,9.64549908 157.276099,14.0464379 C137.583995,11.0849896 118.072967,11.0849896 98.7430163,14.0464379 C96.9108417,9.64549908 94.1925838,4.11318106 91.8971895,0 C73.3526068,3.2084988 55.6133949,8.86399117 39.0420583,16.6376612 C5.61752293,67.146514 -3.4433191,116.400813 1.08711069,164.955721 C23.2560196,181.510915 44.7403634,191.567697 65.8621325,198.148576 C71.0772151,190.971126 75.7283628,183.341335 79.7352139,175.300261 C72.104019,172.400575 64.7949724,168.822202 57.8887866,164.667963 C59.7209612,163.310589 61.5131304,161.891452 63.2445898,160.431257 C105.36741,180.133187 151.134928,180.133187 192.754523,160.431257 C194.506336,161.891452 196.298154,163.310589 198.110326,164.667963 C191.183787,168.842556 183.854737,172.420929 176.223542,175.320965 C180.230393,183.341335 184.861538,190.991831 190.096624,198.16893 C211.238746,191.588051 232.743023,181.531619 254.911949,164.955721 C260.227747,108.668201 245.831087,59.8662432 216.856339,16.5966031 Z M85.4738752,135.09489 C72.8290281,135.09489 62.4592217,123.290155 62.4592217,108.914901 C62.4592217,94.5396472 72.607595,82.7145587 85.4738752,82.7145587 C98.3405064,82.7145587 108.709962,94.5189427 108.488529,108.914901 C108.508531,123.290155 98.3405064,135.09489 85.4738752,135.09489 Z M170.525237,135.09489 C157.88039,135.09489 147.510584,123.290155 147.510584,108.914901 C147.510584,94.5396472 157.658606,82.7145587 170.525237,82.7145587 C183.391518,82.7145587 193.761324,94.5189427 193.539891,108.914901 C193.539891,123.290155 183.391518,135.09489 170.525237,135.09489 Z"></path></g></g></svg>`;
                 card.appendChild(discordBtn);
 
                 const googleBtn = document.createElement('button');
                 googleBtn.className = 'login-google';
-                googleBtn.setAttribute('data-tooltip', 'Sign in with Google');
+                googleBtn.setAttribute('data-tooltip', uiText("google_signin", "Sign in with Google"));
                 googleBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 0 262 262" preserveAspectRatio="xMidYMid"><path d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027" fill="#4285F4"/><path d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055-34.523 0-63.824-22.773-74.269-54.25l-1.531.13-40.298 31.187-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1" fill="#34A853"/><path d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82 0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602l42.356-32.782" fill="#FBBC05"/><path d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251" fill="#EB4335"/></svg>`;
                 card.appendChild(googleBtn);
 

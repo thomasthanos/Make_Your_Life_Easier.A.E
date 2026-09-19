@@ -1,3 +1,5 @@
+import { uiText } from './ui-text.js';
+import { initTooltips, hideTooltips } from './tooltips.js';
 /**
  * Renderer Core
  * Contains page loading, initialization, and main application state
@@ -28,24 +30,33 @@ let settings = {};
 // Use singleton buttonStateManager from managers.js (imported above)
 
 // Menu keys for sidebar navigation
-const menuKeys = [
-    'install_apps',
-    'system_cleaner',
-    'crack_installer',
-    'system_maintenance',
-    'activate_autologin',
-    'bios',
-    'spicetify',
-    'christitus',
-    'debloat',
-    'game_saves'
+const menuGroups = [
+    { key: 'nav_apps', label: 'Applications', pages: ['install_apps', 'crack_installer'] },
+    { key: 'nav_system', label: 'System', pages: ['system_cleaner', 'system_maintenance', 'activate_autologin', 'bios'] },
+    { key: 'nav_tools', label: 'Tools', pages: ['spicetify', 'christitus', 'debloat', 'game_saves'] }
 ];
+const menuKeys = menuGroups.flatMap(group => group.pages);
 
 // ============================================
 // HEADER UPDATE
 // ============================================
 
 function updateHeader() {
+    const labels = {
+        'sidebar-collapse-toggle': ['toggle_sidebar', 'Expand or collapse navigation'],
+        'title-bar-minimize': ['minimize', 'Minimize'],
+        'title-bar-maximize': ['maximize', 'Maximize or restore'],
+        'title-bar-close': ['close', 'Close'],
+        'info-toggle': ['help', 'Help']
+    };
+    for (const [id, [key, fallback]] of Object.entries(labels)) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.setAttribute('aria-label', uiText(key, fallback));
+            element.setAttribute('data-tooltip', uiText(key, fallback));
+        }
+    }
+    document.getElementById('sidebar')?.setAttribute('aria-label', uiText('navigation', 'Navigation'));
     const titleEl = document.querySelector('.app-title');
     const subtitleEl = document.querySelector('.app-subtitle');
 
@@ -84,6 +95,7 @@ function updateHeader() {
             setTranslations(translations);
             applyTheme();
             renderMenu();
+            await ensureSidebarVersion({ settings });
             if (typeof currentPage === 'string' && currentPage) {
                 loadPage(currentPage);
             }
@@ -95,7 +107,7 @@ function updateHeader() {
     let infoToggle = document.getElementById('info-toggle');
     if (infoToggle) {
         infoToggle.innerHTML = INFO_ICON;
-        infoToggle.removeAttribute('data-tooltip');
+        infoToggle.setAttribute('data-tooltip', uiText('help', 'Help'));
         if (infoToggle._tooltipAttached) {
             const clone = infoToggle.cloneNode(true);
             infoToggle.parentNode.replaceChild(clone, infoToggle);
@@ -154,39 +166,30 @@ function renderMenu() {
     if (!menuList) return;
 
     menuList.innerHTML = '';
-    const separatorsAfter = {
-        crack_installer: 'large',
-        bios: 'small',
-        debloat: 'small'
-    };
-
-    menuKeys.forEach((key) => {
-        const label = (translations.menu && translations.menu[key]) || key;
-        const li = createMenuButton(key, label);
-        const btn = li.querySelector('button[data-key]');
-        if (btn) {
-            const info = translations.menu_info && translations.menu_info[key];
-            btn.setAttribute('data-tooltip', info ? `${label}\n${info}` : label);
-            btn.setAttribute('aria-label', label);
-            attachTooltipHandlers(btn);
-        }
-        menuList.appendChild(li);
-        const sepType = separatorsAfter[key];
-        if (sepType) {
-            const sepLi = document.createElement('li');
-            sepLi.className = 'menu-separator';
-            if (sepType === 'large') sepLi.classList.add('menu-separator-large');
-            menuList.appendChild(sepLi);
-        }
+    menuGroups.forEach((group) => {
+        const heading = document.createElement('li');
+        heading.className = 'menu-group-label';
+        heading.textContent = uiText(group.key, group.label);
+        heading.setAttribute('role', 'presentation');
+        menuList.appendChild(heading);
+        group.pages.forEach((key) => {
+            const label = (translations.menu && translations.menu[key]) || key;
+            const li = createMenuButton(key, label);
+            const btn = li.querySelector('button[data-key]');
+            if (btn) {
+                const info = translations.menu_info && translations.menu_info[key];
+                btn.setAttribute('data-tooltip', info ? `${label}\n${info}` : label);
+                btn.setAttribute('aria-label', label);
+                attachTooltipHandlers(btn);
+            }
+            menuList.appendChild(li);
+        });
     });
 
     if (!menuList._boundClick) {
         menuList.addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-key]');
             if (!btn) return;
-            document.querySelectorAll('#menu-list button.active')
-                .forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
             loadPage(btn.dataset.key);
         });
         menuList._boundClick = true;
@@ -198,6 +201,7 @@ function renderMenu() {
         const btnToActivate = menuList.querySelector(`button[data-key="${keyToActivate}"]`);
         if (btnToActivate) {
             btnToActivate.classList.add('active');
+            btnToActivate.setAttribute('aria-current', 'page');
         }
     }
 
@@ -222,6 +226,13 @@ function runPageCleanup(pageRoot) {
 }
 
 export async function loadPage(key) {
+    hideTooltips();
+    document.querySelectorAll('#menu-list button[data-key]').forEach(button => {
+        const active = button.dataset.key === key;
+        button.classList.toggle('active', active);
+        if (active) button.setAttribute('aria-current', 'page');
+        else button.removeAttribute('aria-current');
+    });
     const generation = ++pageLoadGeneration;
 
     // Detach download UI callbacks before destroying DOM (downloads continue in background)
@@ -349,11 +360,14 @@ export async function loadPage(key) {
 
         if (generation === pageLoadGeneration && page) {
             content.appendChild(page);
+        } else if (page) {
+            // A later navigation can finish while this builder is awaiting data.
+            runPageCleanup(page);
         }
     } catch (err) {
         if (generation !== pageLoadGeneration) return;
         debug('error', 'Failed to load page:', err);
-        toast('Failed to load this page.', { type: 'error', title: 'Error' });
+        toast(uiText("page_failed", "Failed to load this page."), { type: 'error', title: uiText("error", "Error") });
     }
 }
 
@@ -400,6 +414,7 @@ export async function init() {
         reportBootProgress(60, 'Building interface...');
 
         // Render menu
+        initTooltips();
         renderMenu();
 
         // Ensure sidebar version is displayed
@@ -448,7 +463,7 @@ export async function init() {
             } catch { }
         }
 
-        toast('Failed to initialize application', { type: 'error', title: 'Error' });
+        toast(uiText("init_failed", "Failed to initialize application"), { type: 'error', title: uiText("error", "Error") });
     }
 }
 

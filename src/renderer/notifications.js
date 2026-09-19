@@ -1,3 +1,4 @@
+import { uiText } from './ui-text.js';
 const MAX_TOASTS = 3;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -76,7 +77,7 @@ export function toast(msg, opts = {}) {
     const { title = '', type = 'info', duration = 4000 } = opts;
 
     if (type === 'error') {
-        showErrorCard(msg, { title: title || 'Error' });
+        showErrorCard(msg, { title: title || uiText('error', 'Error') });
         return null;
     }
 
@@ -106,7 +107,7 @@ export function toast(msg, opts = {}) {
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'toast-close';
-    closeBtn.setAttribute('aria-label', 'Dismiss notification');
+    closeBtn.setAttribute('aria-label', uiText('dismiss', 'Dismiss notification'));
     closeBtn.textContent = '×';
     closeBtn.onclick = () => dismissToast(toastEl);
 
@@ -189,11 +190,11 @@ export function showErrorCard(msg, opts = {}) {
         'M7 15L10 12L7 9M13 15H17M7.8 21H16.2C17.8802 21 18.7202 21 19.362 20.673C19.9265 20.3854 20.3854 19.9265 20.673 19.362C21 18.7202 21 17.8802 21 16.2V7.8C21 6.11984 21 5.27976 20.673 4.63803C20.3854 4.07354 19.9265 3.6146 19.362 3.32698C18.7202 3 17.8802 3 16.2 3H7.8C6.11984 3 5.27976 3 4.63803 3.32698C4.07354 3.6146 3.6146 4.07354 3.32698 4.63803C3 5.27976 3 6.11984 3 7.8V16.2C3 17.8802 3 18.7202 3.32698 19.362C3.6146 19.9265 4.07354 20.3854 4.63803 20.673C5.27976 21 6.11984 21 7.8 21Z',
         { strokeWidth: '2' }
     ));
-    titleEl.appendChild(document.createTextNode(' Terminal'));
+    titleEl.appendChild(document.createTextNode(' ' + (opts.title || uiText('error', 'Error'))));
 
     const copyBtn = document.createElement('button');
     copyBtn.className = 'error-copy';
-    copyBtn.setAttribute('aria-label', 'Copy error messages');
+    copyBtn.setAttribute('aria-label', uiText("copy_errors", "Copy error messages"));
     copyBtn.appendChild(createIcon([
         'M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2',
         'M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z'
@@ -201,7 +202,7 @@ export function showErrorCard(msg, opts = {}) {
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'error-close';
-    closeBtn.setAttribute('aria-label', 'Close error card');
+    closeBtn.setAttribute('aria-label', uiText("close_error", "Close error card"));
     closeBtn.appendChild(createIcon(['M6 6L18 18', 'M6 18L18 6'], { strokeWidth: '2' }));
 
     head.appendChild(titleEl);
@@ -225,10 +226,10 @@ export function showErrorCard(msg, opts = {}) {
         try {
             const text = body.innerText.replace(/\n+$/g, '');
             navigator.clipboard.writeText(text)
-                .then(() => toast('Error messages copied to clipboard!', { type: 'success', title: 'Clipboard' }))
-                .catch(() => toast('Failed to copy', { type: 'error', title: 'Clipboard' }));
+                .then(() => toast(uiText("copied_errors", "Error messages copied to clipboard!"), { type: 'success', title: uiText("clipboard", "Clipboard") }))
+                .catch(() => toast(uiText("copy_failed", "Failed to copy"), { type: 'error', title: uiText("clipboard", "Clipboard") }));
         } catch {
-            toast('Failed to copy', { type: 'error', title: 'Clipboard' });
+            toast(uiText("copy_failed", "Failed to copy"), { type: 'error', title: uiText("clipboard", "Clipboard") });
         }
     };
 

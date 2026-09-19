@@ -1,3 +1,6 @@
+import { uiText } from '../ui-text.js';
+import { createHelpButton } from '../tooltips.js';
+import { installerActivity } from '../installer-activity.js';
 /**
  * Installers Page
  * Contains Winget Install Page and Crack Installer Page
@@ -282,7 +285,7 @@ async function findProjectInstaller(extractedDir, projectName) {
 }
 
 async function processAdvancedInstaller(zipPath, statusElement, appName, li) {
-    statusElement.textContent = 'Extracting Advanced Installer...';
+    statusElement.textContent = uiText("advanced_extract", "Extracting Advanced Installer...");
 
     try {
         const extractResult = await window.api.extractArchive(zipPath, '');
@@ -291,13 +294,13 @@ async function processAdvancedInstaller(zipPath, statusElement, appName, li) {
             throw new Error(`Extraction failed: ${extractResult.error}`);
         }
 
-        statusElement.textContent = 'Extraction complete!';
+        statusElement.textContent = uiText("extraction_complete", "Extraction complete!");
 
         const extractedDir = getExtractedFolderPath(zipPath);
         const msiPath = `${extractedDir}\\advinst.msi`;
         const activatorPath = `${extractedDir}\\Advanced Installer Activator.exe`;
 
-        statusElement.textContent = 'Starting Advanced Installer setup...';
+        statusElement.textContent = uiText("advanced_start", "Starting Advanced Installer setup...");
 
         const installResult = await window.api.runInstaller(msiPath);
 
@@ -305,7 +308,7 @@ async function processAdvancedInstaller(zipPath, statusElement, appName, li) {
             throw new Error(`Failed to run MSI installer: ${installResult.error}`);
         }
 
-        statusElement.textContent = '✅ Advanced Installer setup started! Complete the installation.';
+        statusElement.textContent = uiText("advanced_started", "✅ Advanced Installer setup started! Complete the installation.");
         statusElement.classList.add('status-success');
 
         // Δημιουργία activate button μετά την εγκατάσταση
@@ -313,7 +316,7 @@ async function processAdvancedInstaller(zipPath, statusElement, appName, li) {
             createActivateButtonForAdvancedInstaller(li, activatorPath, appName);
         }
 
-        toast('Advanced Installer setup started! Complete the installation then click "Activate".', {
+        toast(uiText("advanced_next", "Advanced Installer setup started! Complete the installation then click \"Activate\"."), {
             type: 'info',
             title: 'Advanced Installer',
             duration: 5000
@@ -362,7 +365,7 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
     
     activateBtn = document.createElement('button');
     activateBtn.className = 'activate-btn';
-    activateBtn.textContent = 'Activate';
+    activateBtn.textContent = uiText("activate", "Activate");
     activateBtn.dataset.activatorPath = activatorPath;
     activateBtn.dataset.appName = appName;
     activateBtn.title = `Activate ${appName}`;
@@ -373,14 +376,14 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
         try {
             // Απλά απενεργοποίησε το κουμπί και άλλαξε το κείμενο
             activateBtn.disabled = true;
-            activateBtn.textContent = 'Activating...';
+            activateBtn.textContent = uiText("activating", "Activating...");
             
             const runResult = await window.api.runInstaller(activatorPath);
             
             if (runResult.success) {
                 // Success state
                 activateBtn.classList.add('success');
-                activateBtn.textContent = 'Activated';
+                activateBtn.textContent = uiText("activated", "Activated");
                 activateBtn.disabled = true;
                 
                 // Προσπάθεια cleanup μετά από 2 δευτερόλεπτα
@@ -392,7 +395,7 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
                     }
                 }, 2000);
                 
-                toast('Advanced Installer activated successfully!', {
+                toast(uiText("advanced_activated", "Advanced Installer activated successfully!"), {
                     type: 'success',
                     title: 'Advanced Installer',
                     duration: 3000
@@ -403,10 +406,10 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
         } catch (error) {
             // Error state
             activateBtn.classList.add('error');
-            activateBtn.textContent = 'Retry';
+            activateBtn.textContent = uiText("retry", "Retry");
             activateBtn.disabled = false;
             
-            toast(`Activation failed: ${error.message}`, {
+            toast(uiText('activation_failed_detail', '', { error: error.message }), {
                 type: 'error',
                 title: 'Advanced Installer'
             });
@@ -655,6 +658,8 @@ function showWingetMissingUI(container, translations) {
 // ============================================
 
 export async function buildInstallPageWingetWithCategories(translations, settings, buttonStateManager) {
+    const initialActivity = installerActivity.snapshot();
+    let observedInstall = initialActivity.busy && initialActivity.kind === 'install';
     const container = document.createElement('div');
     container.className = 'installer-page';
 
@@ -664,28 +669,19 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     const heroMain = document.createElement('div');
     heroMain.className = 'installer-hero-main';
 
-    const heroIcon = document.createElement('div');
-    heroIcon.className = 'installer-hero-icon';
-    heroIcon.setAttribute('aria-hidden', 'true');
-    heroIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 13.5v7M14 17h7"/></svg>';
-
     const heroCopy = document.createElement('div');
     heroCopy.className = 'installer-hero-copy';
 
     const heroTitle = document.createElement('h2');
-    heroTitle.textContent = translations.pages?.install_title || 'Install Popular Applications';
-
-    const heroDescription = document.createElement('p');
-    heroDescription.textContent = translations.pages?.install_desc || 'Browse, select, and install your favorite applications.';
+    heroTitle.textContent = translations.menu?.install_apps || 'Install Apps';
 
     const installerCount = document.createElement('span');
     installerCount.className = 'installer-count-badge';
     installerCount.textContent = settings?.lang === 'gr' ? 'Φόρτωση εφαρμογών...' : 'Loading apps...';
 
     heroCopy.appendChild(heroTitle);
-    heroCopy.appendChild(heroDescription);
-    heroMain.appendChild(heroIcon);
     heroMain.appendChild(heroCopy);
+    heroMain.appendChild(createHelpButton(uiText('selection_help')));
     hero.appendChild(heroMain);
     hero.appendChild(installerCount);
     container.appendChild(hero);
@@ -715,9 +711,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     searchContainer.appendChild(searchInput);
     searchWrapper.appendChild(searchContainer);
     toolbar.appendChild(searchWrapper);
-
-    const actionsCluster = document.createElement('div');
-    actionsCluster.className = 'actions-cluster';
 
     function makeButton(text) {
         const btn = document.createElement('button');
@@ -757,24 +750,43 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     checkInstalledBtn.classList.add('bulk-check-installed');
     uncheckAllBtn.classList.add('bulk-uncheck-all');
 
-    const primaryGroup = document.createElement('div');
-    primaryGroup.className = 'actions-group actions-group-primary';
-    primaryGroup.appendChild(installBtn);
+    checkInstalledBtn.setAttribute('data-tooltip', uiText('check_help'));
+    importBtn.setAttribute('data-tooltip', uiText('import_help'));
+    exportBtn.setAttribute('data-tooltip', uiText('export_help'));
+    const moreActions = document.createElement('details');
+    moreActions.className = 'installer-more';
+    const moreSummary = document.createElement('summary');
+    moreSummary.textContent = uiText('more_actions', 'More');
+    const morePanel = document.createElement('div');
+    morePanel.className = 'installer-more-panel';
+    morePanel.append(checkInstalledBtn, importBtn, exportBtn);
+    moreActions.append(moreSummary, morePanel);
+    for (const button of [checkInstalledBtn, importBtn, exportBtn]) {
+        button.addEventListener('click', () => {
+            if (button.disabled) return;
+            moreActions.open = false;
+            moreSummary.focus();
+        });
+    }
 
-    const selectionGroup = document.createElement('div');
-    selectionGroup.className = 'actions-group actions-group-selection';
-    selectionGroup.appendChild(checkInstalledBtn);
-    selectionGroup.appendChild(uncheckAllBtn);
-
-    const ioGroup = document.createElement('div');
-    ioGroup.className = 'actions-group actions-group-io';
-    ioGroup.appendChild(exportBtn);
-    ioGroup.appendChild(importBtn);
-
-    actionsCluster.appendChild(primaryGroup);
-    actionsCluster.appendChild(selectionGroup);
-    actionsCluster.appendChild(ioGroup);
-    toolbar.appendChild(actionsCluster);
+    const selectionBar = document.createElement('section');
+    selectionBar.className = 'installer-selection-bar';
+    const selectionCopy = document.createElement('div');
+    selectionCopy.className = 'installer-selection-copy';
+    const selectionCount = document.createElement('strong');
+    selectionCount.setAttribute('role', 'status');
+    selectionCount.setAttribute('aria-live', 'polite');
+    const activityText = document.createElement('span');
+    activityText.className = 'installer-activity-text';
+    activityText.setAttribute('role', 'status');
+    activityText.setAttribute('aria-live', 'polite');
+    const activityDetail = document.createElement('span');
+    activityDetail.className = 'installer-activity-detail';
+    selectionCopy.append(selectionCount, activityText, activityDetail);
+    const selectionActions = document.createElement('div');
+    selectionActions.className = 'installer-selection-actions';
+    selectionActions.append(uncheckAllBtn, installBtn);
+    selectionBar.append(selectionCopy, selectionActions);
 
     // ── Controls bar: view toggle + sort ──────────────────────────
     const controlsBar = document.createElement('div');
@@ -878,15 +890,20 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     sortTrigger.addEventListener('click', (e) => {
         e.stopPropagation();
+        moreActions.open = false;
         const open = sortDropdown.classList.toggle('open');
         sortTrigger.setAttribute('aria-expanded', String(open));
     });
 
     const onDocClick = (e) => {
         if (!sortDropdown.contains(e.target)) closeSortMenu();
+        if (!moreActions.contains(e.target)) moreActions.open = false;
     };
     const onDocKeydown = (e) => {
-        if (e.key === 'Escape') closeSortMenu();
+        if (e.key === 'Escape') {
+            closeSortMenu();
+            if (moreActions.open) { moreActions.open = false; moreSummary.focus(); }
+        }
     };
     document.addEventListener('click', onDocClick);
     document.addEventListener('keydown', onDocKeydown);
@@ -906,6 +923,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     controlsBar.appendChild(viewToggleGroup);
     controlsBar.appendChild(sortDropdown);
+    controlsBar.appendChild(moreActions);
     searchWrapper.appendChild(controlsBar);
 
     // View + sort helpers
@@ -915,6 +933,8 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         listContainer.dataset.view = view;
         listViewBtn.classList.toggle('active', view === 'list');
         gridViewBtn.classList.toggle('active', view === 'grid');
+        listViewBtn.setAttribute('aria-pressed', String(view === 'list'));
+        gridViewBtn.setAttribute('aria-pressed', String(view === 'grid'));
     }
 
     async function selectInstallerView(view) {
@@ -973,10 +993,66 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     // ─────────────────────────────────────────────────────────────
 
     function updateActionButtonsState() {
-        const anyChecked = container.querySelectorAll('input[type="checkbox"]:checked').length > 0;
-        installBtn.disabled = !anyChecked;
-        exportBtn.disabled = !anyChecked;
-        uncheckAllBtn.disabled = !anyChecked;
+        const state = installerActivity.snapshot();
+        const count = container.querySelectorAll('input[type="checkbox"]:checked').length;
+        installBtn.disabled = state.busy || count === 0;
+        exportBtn.disabled = state.busy || count === 0;
+        uncheckAllBtn.disabled = state.busy || count === 0;
+        checkInstalledBtn.disabled = state.busy;
+        importBtn.disabled = state.busy;
+        container.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.disabled = state.busy; });
+        const hasResult = (state.kind === 'install' && state.total > 0 && state.current > 0)
+            || (state.kind === 'check' && state.checked !== undefined);
+        selectionBar.hidden = count === 0 && !state.busy && !hasResult;
+        selectionCount.hidden = count === 0;
+        selectionActions.hidden = count === 0 && !(state.busy && state.kind === 'install');
+        if ((selectionBar.hidden && selectionBar.contains(document.activeElement))
+            || (selectionActions.hidden && selectionActions.contains(document.activeElement))) {
+            searchInput.focus();
+        }
+        selectionCount.textContent = uiText('selected_count', 'Selected: {count}', { count });
+        installBtn.querySelector('.btn-label').textContent = state.busy && state.kind === 'install'
+            ? uiText('installing', 'Installing…') : uiText('install_count', 'Install ({count})', { count });
+        installBtn.setAttribute('aria-busy', String(state.busy && state.kind === 'install'));
+    }
+
+    function renderActivity(state) {
+        for (const [id, outcome] of Object.entries(state.outcomes)) {
+            const row = container.querySelector('li[data-app-id="' + CSS.escape(id) + '"]');
+            if (!row) continue;
+            const badge = row.querySelector('.app-status-badge');
+            if (badge) {
+                badge.dataset.status = outcome;
+                badge.textContent = getStatusLabel(outcome, translations);
+            }
+            // Clear this batch's successes, but preserve a later deliberate reinstall selection.
+            if (outcome === 'installed' && state.kind === 'install' && (state.busy || observedInstall)) {
+                row.querySelector('input[type="checkbox"]').checked = false;
+            }
+        }
+        observedInstall = state.busy && state.kind === 'install';
+        updateActionButtonsState();
+        activityText.removeAttribute('data-tooltip');
+        activityText.removeAttribute('tabindex');
+        if (state.busy) {
+            activityText.textContent = state.kind === 'check' ? uiText('checking')
+                : state.current ? uiText('batch_progress', '', state) : uiText('preparing');
+            activityDetail.textContent = '';
+            if (state.kind === 'install' && state.current) {
+                activityText.setAttribute('data-tooltip', uiText('progress_unknown'));
+                activityText.tabIndex = 0;
+            }
+        } else if (state.kind === 'install' && state.total && state.current) {
+            activityText.textContent = uiText('batch_result', '', state);
+            activityDetail.textContent = state.failedNames?.length
+                ? uiText('batch_failed', '', { names: state.failedNames.join(', ') }) : '';
+        } else if (state.kind === 'check' && state.checked !== undefined) {
+            activityText.textContent = uiText('check_result', '', { installed: state.checked, updates: state.updates });
+            activityDetail.textContent = '';
+        } else {
+            activityText.textContent = '';
+            activityDetail.textContent = '';
+        }
     }
 
     function collectSelectedIds() {
@@ -1037,6 +1113,17 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     const listContainer = document.createElement('div');
     listContainer.classList.add('list-container');
     container.appendChild(listContainer);
+    const searchEmpty = document.createElement('div');
+    searchEmpty.className = 'installer-empty hidden';
+    const emptyText = document.createElement('span');
+    emptyText.textContent = uiText('no_results');
+    const clearSearch = document.createElement('button');
+    clearSearch.type = 'button';
+    clearSearch.className = 'button-secondary';
+    clearSearch.textContent = uiText('clear_search');
+    clearSearch.addEventListener('click', () => { searchInput.value = ''; applySearchFilter(); searchInput.focus(); });
+    searchEmpty.append(emptyText, clearSearch);
+    container.append(searchEmpty, selectionBar);
 
     async function buildList() {
         let appsData;
@@ -1045,7 +1132,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             appsData = await response.json();
         } catch (err) {
             debug('error', 'Failed to load installer.json:', err);
-            toast('Failed to load app list.', { type: 'error', title: 'Install' });
+            toast(uiText("load_apps_error", "Failed to load app list."), { type: 'error', title: uiText("install_title", "Install") });
             return;
         }
 
@@ -1218,6 +1305,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     function applySearchFilter() {
         const query = searchInput.value.trim().toLowerCase();
         const groups = listContainer.children;
+        let matches = 0;
         Array.from(groups).forEach((group) => {
             let visible = false;
             const items = group.querySelectorAll('li');
@@ -1226,10 +1314,11 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 const id = li.dataset.appId.toLowerCase();
                 const match = !query || name.includes(query) || id.includes(query);
                 li.classList.toggle('hidden', !match);
-                if (match) visible = true;
+                if (match) { visible = true; matches++; }
             });
             group.classList.toggle('hidden', !visible);
         });
+        searchEmpty.classList.toggle('hidden', matches > 0 || !query);
     }
 
     const debouncedSearch = debounce(applySearchFilter, 250);
@@ -1243,11 +1332,13 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         fileInput.accept = '.json,application/json';
         fileInput.classList.add('file-input-hidden');
         document.body.appendChild(fileInput);
+        fileInput.addEventListener('cancel', () => fileInput.remove(), { once: true });
+        container._pageCleanup.push(() => fileInput.remove());
 
         fileInput.addEventListener('change', () => {
             const file = fileInput.files && fileInput.files[0];
             if (!file) {
-                document.body.removeChild(fileInput);
+                fileInput.remove();
                 return;
             }
             const reader = new FileReader();
@@ -1255,22 +1346,23 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 try {
                     const ids = JSON.parse(reader.result);
                     if (!Array.isArray(ids)) {
-                        throw new Error('Invalid file format');
+                        throw new Error(uiText("invalid_list", "Invalid file format"));
                     }
+                    if (installerActivity.snapshot().busy || !container.isConnected) return;
                     applySelectedIds(ids);
                     saveSelectedApps();
-                    toast('List imported.', { type: 'success', title: 'Import' });
+                    toast(uiText("import_done", "List imported."), { type: 'success', title: uiText("import_title", "Import") });
                 } catch (err) {
                     debug('error', 'Failed to import list:', err);
-                    toast('Failed to import list.', { type: 'error', title: 'Import' });
+                    toast(uiText("import_error", "Failed to import list."), { type: 'error', title: uiText("import_title", "Import") });
                 } finally {
-                    document.body.removeChild(fileInput);
+                    fileInput.remove();
                 }
             };
             reader.onerror = () => {
                 debug('error', 'File read error');
-                toast('Failed to read file.', { type: 'error', title: 'Import' });
-                document.body.removeChild(fileInput);
+                toast(uiText("file_error", "Failed to read file."), { type: 'error', title: uiText("import_title", "Import") });
+                fileInput.remove();
             };
             reader.readAsText(file);
         });
@@ -1279,11 +1371,9 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     // Check Installed button handler
     checkInstalledBtn.addEventListener('click', async () => {
-        if (buttonStateManager.isLoading(checkInstalledBtn)) {
-            return;
-        }
+        if (!installerActivity.begin('check')) return;
 
-        buttonStateManager.setLoading(checkInstalledBtn, 'Checking...');
+        buttonStateManager.setLoading(checkInstalledBtn, uiText('checking'));
 
         // Disable other buttons during check
         [installBtn, uncheckAllBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = true));
@@ -1293,7 +1383,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             const wingetCheck = await checkWingetAvailable();
             if (!wingetCheck.available) {
                 showWingetMissingUI(container, translations);
-                throw new Error('Winget is not installed on this PC. Click "Open Microsoft Store" to install App Installer.');
+                throw new Error(uiText("winget_missing_check", "Winget is not installed on this PC. Click \"Open Microsoft Store\" to install App Installer."));
             }
 
             // Run winget list and winget upgrade in parallel
@@ -1303,7 +1393,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             ]);
 
             if (listResult.error && !listResult.stdout && !listResult.stderr) {
-                throw new Error('Winget command failed to execute. Make sure Winget is installed.');
+                throw new Error(uiText("winget_command_error", "Winget command failed to execute. Make sure Winget is installed."));
             }
 
             const listOutput = (listResult.stdout || '') + (listResult.stderr || '');
@@ -1350,10 +1440,10 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
             updateActionButtonsState();
 
-            const updateMsg = updateCount > 0 ? `, ${updateCount} update${updateCount !== 1 ? 's' : ''} available` : '';
-            toast(`Found ${checkedCount} installed application${checkedCount !== 1 ? 's' : ''}${updateMsg}.`, {
+            installerActivity.update({ checked: checkedCount, updates: updateCount });
+            toast(uiText('check_result', '', { installed: checkedCount, updates: updateCount }), {
                 type: 'success',
-                title: 'Check Installed',
+                title: uiText("checking_title", "Check Installed"),
                 duration: 4000
             });
 
@@ -1362,13 +1452,15 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
         } catch (error) {
             debug('error', 'Failed to check installed packages:', error);
-            toast(`Failed to check installed applications: ${error.message}`, {
+            toast(uiText('check_failed', '', { error: error.message }), {
                 type: 'error',
-                title: 'Check Installed'
+                title: uiText("checking_title", "Check Installed")
             });
         } finally {
             buttonStateManager.resetState(checkInstalledBtn);
             [installBtn, uncheckAllBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = false));
+            installerActivity.finish();
+            updateActionButtonsState();
         }
     });
 
@@ -1388,9 +1480,9 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         saveSelectedApps();
 
         if (uncheckedCount > 0) {
-            toast(`Unchecked ${uncheckedCount} application${uncheckedCount !== 1 ? 's' : ''}.`, {
+            toast(uiText('unchecked_count', '', { count: uncheckedCount }), {
                 type: 'success',
-                title: 'Uncheck All'
+                title: uiText("uncheck_title", "Uncheck All")
             });
         }
     });
@@ -1419,24 +1511,24 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             a.click();
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(url), 0);
-            toast('List exported.', { type: 'success', title: 'Export' });
+            toast(uiText("export_done", "List exported."), { type: 'success', title: uiText("export_title", "Export") });
         } catch (err) {
             debug('error', 'Failed to export list:', err);
-            toast('Failed to export list.', { type: 'error', title: 'Export' });
+            toast(uiText("export_error", "Failed to export list."), { type: 'error', title: uiText("export_title", "Export") });
         }
     });
     // Install handler (simple and install-only)
     async function runWingetInstallSelected() {
         const actionBtn = installBtn;
 
-        if (buttonStateManager.isLoading(actionBtn)) return;
-
+        if (!installerActivity.begin('install')) return;
+        try {
         const wingetCheck = await checkWingetAvailable();
         if (!wingetCheck.available) {
             showWingetMissingUI(container, translations);
-            toast('Winget is not installed. Install App Installer from the Microsoft Store.', {
+            toast(uiText("winget_missing", "Winget is not installed. Install App Installer from the Microsoft Store."), {
                 type: 'error',
-                title: 'Winget Not Found',
+                title: uiText("winget_missing_title", "Winget Not Found"),
                 duration: 6000
             });
             return;
@@ -1452,11 +1544,11 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         });
 
         if (selectedItems.length === 0) {
-            toast('No applications selected.', { type: 'info', title: 'Install' });
+            toast(uiText("no_selection", "No applications selected."), { type: 'info', title: uiText("install_title", "Install") });
             return;
         }
 
-        buttonStateManager.setLoading(actionBtn, 'Installing...');
+        buttonStateManager.setLoading(actionBtn, uiText('installing'));
         [checkInstalledBtn, uncheckAllBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = true));
 
         let successCount = 0;
@@ -1464,11 +1556,8 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         const totalItems = selectedItems.length;
         const failedApps = [];
 
-        const updateProgress = (current) => {
-            const labelEl = actionBtn.querySelector('.btn-label');
-            const progressText = `Installing ${current}/${totalItems}...`;
-            if (labelEl) labelEl.textContent = progressText;
-            else actionBtn.textContent = progressText;
+        const updateProgress = (current, name) => {
+            installerActivity.update({ current, total: totalItems, name, success: successCount, failed: errorCount });
         };
 
         const setItemProgress = (fillEl, labelEl, value, labelText = null) => {
@@ -1480,6 +1569,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         };
 
         const setBadge = (li, state) => {
+            installerActivity.record(li.dataset.appId, state);
             if (state === 'installed') {
                 const cb = li.querySelector('input[type="checkbox"]');
                 if (cb) cb.checked = false;
@@ -1583,28 +1673,18 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             return false;
         };
 
-        const runInstallAttempt = async (commandText, itemProgressFill, itemProgressLabel, phaseLabel = 'Installing') => {
-            let visualProgress = 20;
-            setItemProgress(itemProgressFill, itemProgressLabel, visualProgress, `${phaseLabel}... ${visualProgress}%`);
-
-            const heartbeat = setInterval(() => {
-                visualProgress = Math.min(visualProgress + 2, 90);
-                setItemProgress(itemProgressFill, itemProgressLabel, visualProgress, `${phaseLabel}... ${visualProgress}%`);
-            }, 4000);
-
-            try {
-                const result = await window.api.runCommand(commandText);
-                return result;
-            } finally {
-                clearInterval(heartbeat);
-            }
+        const runInstallAttempt = async (commandText, itemProgressFill, itemProgressLabel, phaseLabel) => {
+            // Winget does not report a percentage through runCommand. Show the phase honestly.
+            itemProgressFill?.classList.remove('determinate');
+            if (itemProgressLabel) itemProgressLabel.textContent = phaseLabel;
+            return window.api.runCommand(commandText);
         };
 
         let currentIndex = 0;
         try { // Outer try-finally ensures buttons are always re-enabled
             for (const li of selectedItems) {
             currentIndex++;
-            updateProgress(currentIndex);
+            updateProgress(currentIndex, li.dataset.appName || li.dataset.appId);
 
             const id = li.dataset.appId;
             const appName = li.dataset.appName || id;
@@ -1624,9 +1704,9 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     errorCount++;
                     failedApps.push(appName);
                     setBadge(li, 'failed');
-                    setItemProgress(itemProgressFill, itemProgressLabel, 100, 'Failed');
+                    setItemProgress(itemProgressFill, itemProgressLabel, 100, uiText("failed", "Failed"));
                     // The batch summary only lists names; this is the only place the reason shows
-                    toast(err?.message || 'Download failed', { type: 'error', title: appName });
+                    toast(err?.message || uiText("download_failed", "Download failed"), { type: 'error', title: appName });
                 } finally {
                     if (itemProgressWrap) itemProgressWrap.classList.add('hidden');
                 }
@@ -1659,29 +1739,29 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
                 const shouldRetry = (r) => r.hasError && !r.alreadyInstalled && !r.cancelled;
 
-                let result = await runInstallAttempt(command, itemProgressFill, itemProgressLabel, 'Installing');
+                let result = await runInstallAttempt(command, itemProgressFill, itemProgressLabel, uiText('installing'));
                 let r = parseResult(result);
 
                 // Retry chain: hash failure → no-silent → user-scope
                 if (shouldRetry(r) && isLikelyHashFailure(r.text, r.exitCode)) {
                     const cmd = buildInstallCommand(id, pythonOverride, { silent: true, ignoreHash: true });
-                    result = await runInstallAttempt(cmd, itemProgressFill, itemProgressLabel, 'Retrying');
+                    result = await runInstallAttempt(cmd, itemProgressFill, itemProgressLabel, uiText('retrying'));
                     r = parseResult(result);
                 }
                 if (shouldRetry(r)) {
                     const cmd = buildInstallCommand(id, pythonOverride, { silent: false });
-                    result = await runInstallAttempt(cmd, itemProgressFill, itemProgressLabel, 'Retrying');
+                    result = await runInstallAttempt(cmd, itemProgressFill, itemProgressLabel, uiText('retrying'));
                     r = parseResult(result);
                 }
                 if (shouldRetry(r) && isPermissionFailure(r.text)) {
                     const cmd = buildInstallCommand(id, pythonOverride, { silent: false, userScope: true });
-                    result = await runInstallAttempt(cmd, itemProgressFill, itemProgressLabel, 'Retrying');
+                    result = await runInstallAttempt(cmd, itemProgressFill, itemProgressLabel, uiText('retrying'));
                     r = parseResult(result);
                 }
 
                 // Epic Games special case: bootstrapper may exit with error but install anyway
                 if (isEpicLauncher && (r.hasError || r.hardFail) && !r.alreadyInstalled && !r.cancelled) {
-                    if (itemProgressLabel) itemProgressLabel.textContent = 'Verifying Epic install...';
+                    if (itemProgressLabel) itemProgressLabel.textContent = uiText("verify_epic", "Verifying Epic install...");
                     if (await waitForInstalled(id, 18, 10000)) {
                         successCount++;
                         setBadge(li, 'installed');
@@ -1695,13 +1775,13 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     errorCount++;
                     failedApps.push(appName);
                     setBadge(li, 'failed');
-                    setItemProgress(itemProgressFill, itemProgressLabel, 100, 'Failed');
+                    setItemProgress(itemProgressFill, itemProgressLabel, 100, uiText("failed", "Failed"));
                 } else if (r.succeeded || r.alreadyInstalled || !r.hasError) {
                     successCount++;
                     setBadge(li, 'installed');
                     setItemProgress(itemProgressFill, itemProgressLabel, 100, '100%');
                 } else {
-                    if (itemProgressLabel) itemProgressLabel.textContent = 'Verifying...';
+                    if (itemProgressLabel) itemProgressLabel.textContent = uiText("verify_install", "Verifying...");
                     if (await waitForInstalled(id)) {
                         successCount++;
                         setBadge(li, 'installed');
@@ -1710,33 +1790,34 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                         errorCount++;
                         failedApps.push(appName);
                         setBadge(li, 'failed');
-                        setItemProgress(itemProgressFill, itemProgressLabel, 100, 'Failed');
+                        setItemProgress(itemProgressFill, itemProgressLabel, 100, uiText("failed", "Failed"));
                     }
                 }
             } catch {
                 errorCount++;
                 failedApps.push(appName);
                 setBadge(li, 'failed');
-                setItemProgress(itemProgressFill, itemProgressLabel, 100, 'Failed');
+                setItemProgress(itemProgressFill, itemProgressLabel, 100, uiText("failed", "Failed"));
             } finally {
                 if (itemProgressWrap) itemProgressWrap.classList.add('hidden');
             }
         }
 
+        installerActivity.update({ success: successCount, failed: errorCount, failedNames: failedApps });
         if (successCount > 0 && errorCount === 0) {
-            toast(`All ${selectedItems.length} applications installed successfully!`, {
+            toast(uiText('batch_result', '', { success: successCount, failed: errorCount }), {
                 type: 'success',
-                title: 'Completed'
+                title: uiText("completed", "Completed")
             });
         } else if (successCount > 0 && errorCount > 0) {
-            toast(`Completed: ${successCount} successful, ${errorCount} failed. Failed: ${failedApps.join(', ')}`, {
+            toast(uiText('batch_result', '', { success: successCount, failed: errorCount }) + ' ' + uiText('batch_failed', '', { names: failedApps.join(', ') }), {
                 type: 'warning',
-                title: 'Partial Completion'
+                title: uiText("partial", "Partial Completion")
             });
         } else if (errorCount > 0) {
-            toast(`All ${errorCount} installations failed: ${failedApps.join(', ')}`, {
+            toast(uiText('batch_failed', '', { names: failedApps.join(', ') }), {
                 type: 'error',
-                title: 'Failed'
+                title: uiText("failed", "Failed")
             });
         }
         } finally {
@@ -1744,6 +1825,12 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             [checkInstalledBtn, uncheckAllBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = false));
             updateActionButtonsState();
             saveSelectedApps();
+        }
+        } catch (error) {
+            toast(error.message || uiText('task_failed', '', { name: installText }), { type: 'error', title: installText });
+        } finally {
+            installerActivity.finish();
+            updateActionButtonsState();
         }
     }
 
@@ -1754,7 +1841,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         const resolverKey = li.dataset.customResolver;
 
         if (!fallbackUrl) {
-            throw new Error('Download URL missing for custom package');
+            throw new Error(uiText("download_url_missing", "Download URL missing for custom package"));
         }
 
         const safeName = String(appName).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
@@ -1779,7 +1866,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         let url = fallbackUrl;
         let headers;
         if (resolverKey) {
-            if (itemProgressLabel) itemProgressLabel.textContent = 'Resolving latest...';
+            if (itemProgressLabel) itemProgressLabel.textContent = uiText("resolve_latest", "Resolving latest...");
             try {
                 const resolved = await window.api?.resolveDownloadUrl?.(resolverKey, fallbackUrl);
                 if (resolved?.url) url = resolved.url;
@@ -1824,8 +1911,8 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 if (data.status !== 'complete') {
                     if (li.isConnected && itemProgressWrap) itemProgressWrap.classList.add('hidden');
                     reject(new Error(data.error || (data.status === 'cancelled'
-                        ? 'Download cancelled'
-                        : 'Download failed')));
+                        ? uiText("download_cancelled", "Download cancelled")
+                        : uiText("download_failed", "Download failed"))));
                     return;
                 }
 
@@ -1853,7 +1940,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     } else {
                         const runRes = await window.api.runInstaller(data.path);
                         if (!runRes || !runRes.success) {
-                            throw new Error((runRes && runRes.error) || 'Failed to run installer');
+                            throw new Error((runRes && runRes.error) || uiText("installer_failed", "Failed to run installer"));
                         }
                     }
 
@@ -1892,6 +1979,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         if (['default', 'az', 'za', 'status'].includes(s)) savedSort = s;
     } catch { }
 
+    container._pageCleanup.push(installerActivity.subscribe(renderActivity));
     applyView(savedView);
     setSortSelection(savedSort);
     applySort(savedSort);
@@ -2085,7 +2173,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                 const sourceDir = replaceBtn.dataset.sourceDir;
 
                 if (!sourceDir) {
-                    toast('Missing source directory.', { type: 'error', title: 'Replace EXE' });
+                    toast(uiText("source_missing", "Missing source directory."), { type: 'error', title: 'Replace EXE' });
                     return;
                 }
 
@@ -2108,7 +2196,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                 }
 
                 if (!crackExe) {
-                    toast('No EXE found in extracted folder.', { type: 'error', title: 'Replace EXE' });
+                    toast(uiText("exe_missing", "No EXE found in extracted folder."), { type: 'error', title: 'Replace EXE' });
                     return;
                 }
 
@@ -2336,7 +2424,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                         btn.disabled = false;
                         downloadStore.delete(cardId);
 
-                        toast(data.error || 'Download cancelled', {
+                        toast(data.error || uiText("download_cancelled", "Download cancelled"), {
                             type: 'error',
                             title: name
                         });
@@ -2401,7 +2489,7 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                 completeProcess(cardId, 'download', false);
                 btn.disabled = false;
                 btn.textContent = originalLabel;
-                toast('Download failed', { type: 'error', title: name });
+                toast(uiText("download_failed", "Download failed"), { type: 'error', title: name });
             }
         });
 

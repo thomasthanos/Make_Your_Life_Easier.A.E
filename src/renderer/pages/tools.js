@@ -1,3 +1,5 @@
+import { uiText } from '../ui-text.js';
+import { createHelpButton } from '../tooltips.js';
 /**
  * Tools Page
  * Contains System Maintenance, Debloat, and BIOS pages
@@ -113,16 +115,21 @@ function createMaintenanceCard(name, description, iconKey, buttonText, task, req
         card.appendChild(createMaintenanceBadge(createMaintenanceCard.adminBadgeText || 'Admin'));
     }
 
-    text.appendChild(nameEl);
+    const titleRow = document.createElement('div');
+    titleRow.className = 'maintenance-card-title-row';
+    titleRow.appendChild(nameEl);
+    const help = uiText(iconKey + '_help', '');
+    if (help) titleRow.appendChild(createHelpButton(help));
+    text.appendChild(titleRow);
     text.appendChild(descEl);
     header.appendChild(text);
 
     const button = document.createElement('button');
-    button.className = 'button maintenance-card-action';
+    button.className = 'button-secondary maintenance-card-action';
     button.textContent = buttonText;
     button.dataset.loadingText = createMaintenanceCard.runningText || 'Running...';
 
-    const term = createStreamTerminal('Stop');
+    const term = createStreamTerminal(uiText("stop", "Stop"));
     term.title.textContent = task.cmd;
 
     let running = false;
@@ -157,16 +164,16 @@ function createMaintenanceCard(name, description, iconKey, buttonText, task, req
         try {
             const result = await task.api();
             if (result && result.success) {
-                term.print(`✔ ${task.success}`, 'is-ok');
-                toast(task.success, { type: 'success', title: createMaintenanceCard.toastTitle || 'Maintenance' });
+                term.print('✔ ' + uiText('task_done', '', { name }), 'is-ok');
+                toast(uiText('task_done', '{name} completed.', { name }), { type: 'success', title: createMaintenanceCard.toastTitle || 'Maintenance' });
             } else if (!result || !result.cancelled) {
                 term.print(`✖ ${result?.error || `${name} exited with code ${result?.code ?? '?'}.`}`, 'is-err');
-                toast(result?.error || task.error, { type: 'error', title: createMaintenanceCard.toastTitle || 'Maintenance' });
+                toast(result?.error || uiText('task_failed', '{name} failed.', { name }), { type: 'error', title: createMaintenanceCard.toastTitle || 'Maintenance' });
             }
         } catch (error) {
             if (!cancelled) {
                 term.print(`✖ ${error.message}`, 'is-err');
-                toast(error.message || task.error, { type: 'error', title: createMaintenanceCard.toastTitle || 'Maintenance' });
+                toast(error.message || uiText('task_failed', '{name} failed.', { name }), { type: 'error', title: createMaintenanceCard.toastTitle || 'Maintenance' });
             }
         } finally {
             unsubscribe();
@@ -185,13 +192,21 @@ function createMaintenanceCard(name, description, iconKey, buttonText, task, req
         term.stopBtn.disabled = true;
         try {
             await window.api.cancelSystemRepair();
-            term.print('■ Task cancelled.', 'is-warn');
+            term.print(uiText("task_cancelled", "■ Task cancelled."), 'is-warn');
         } finally {
             term.stopBtn.disabled = false;
         }
     });
 
     card.appendChild(header);
+    const consequenceKeys = { ip: 'connection_warning', bluetooth: 'bluetooth_warning', reset: 'reset_warning', audio: 'audio_warning' };
+    if (consequenceKeys[iconKey]) {
+        const notice = document.createElement('p');
+        notice.className = 'maintenance-consequence';
+        notice.textContent = uiText(consequenceKeys[iconKey]);
+        if (iconKey === 'reset') notice.textContent = uiText('connection_warning') + ' ' + notice.textContent;
+        card.appendChild(notice);
+    }
     card.appendChild(button);
     card.appendChild(term.terminal);
 
@@ -476,11 +491,11 @@ function buildWingetUpdaterCard(translations) {
         try {
             const result = await window.api.wingetUpgradeAll();
             if (result && result.success && result.partial) {
-                printLine('⚠ Some packages could not be upgraded (see output above).', 'is-warn');
-                toast('Upgrades finished — some packages were skipped or blocked.', { type: 'warning', title: 'Winget' });
+                printLine(uiText("upgrade_partial_log", "⚠ Some packages could not be upgraded (see output above)."), 'is-warn');
+                toast(uiText("upgrade_partial", "Upgrades finished — some packages were skipped or blocked."), { type: 'warning', title: 'Winget' });
             } else if (result && result.success) {
-                printLine('✔ All upgrades completed.', 'is-ok');
-                toast('All apps upgraded successfully!', { type: 'success', title: 'Winget' });
+                printLine(uiText("upgrade_done_log", "✔ All upgrades completed."), 'is-ok');
+                toast(uiText("upgrade_done", "All apps upgraded successfully!"), { type: 'success', title: 'Winget' });
             } else if (result && result.cancelled) {
                 // User stopped it — already reported by the stop handler, stay quiet.
             } else if (result && result.notInstalled) {
@@ -489,12 +504,12 @@ function buildWingetUpdaterCard(translations) {
                 toast(translations.messages?.winget_not_installed || 'Winget is not installed.', { type: 'error', title: 'Winget' });
             } else {
                 printLine(`✖ ${result?.error || `Winget exited with code ${result?.code ?? '?'}.`}`, 'is-err');
-                toast(result?.error || 'Winget upgrade finished with errors.', { type: 'error', title: 'Winget' });
+                toast(result?.error || uiText("upgrade_errors", "Winget upgrade finished with errors."), { type: 'error', title: 'Winget' });
             }
         } catch (error) {
             if (!cancelled) {
                 printLine(`✖ ${error.message}`, 'is-err');
-                toast(error.message || 'Winget upgrade failed.', { type: 'error', title: 'Winget' });
+                toast(error.message || uiText("upgrade_failed", "Winget upgrade failed."), { type: 'error', title: 'Winget' });
             }
         } finally {
             unsubscribe();
@@ -514,7 +529,7 @@ function buildWingetUpdaterCard(translations) {
         stopBtn.disabled = true;
         try {
             await window.api.cancelWingetUpgrade();
-            printLine('■ Upgrade cancelled.', 'is-warn');
+            printLine(uiText("upgrade_cancelled", "■ Upgrade cancelled."), 'is-warn');
         } finally {
             stopBtn.disabled = false;
         }
@@ -900,6 +915,7 @@ export async function buildCleanerPage(translations = {}) {
     scanMode.textContent = cleanerT.scanning || 'Scanning...';
 
     summaryText.appendChild(title);
+    summaryText.appendChild(createHelpButton(uiText('cleaner_help')));
     summaryText.appendChild(lastCleaned);
     summaryText.appendChild(totalLine);
     summaryText.appendChild(scanMode);
@@ -935,7 +951,7 @@ export async function buildCleanerPage(translations = {}) {
     list.className = 'cleaner-list';
     container.appendChild(list);
 
-    const cleanTerm = createStreamTerminal('Stop');
+    const cleanTerm = createStreamTerminal(uiText("stop", "Stop"));
     cleanTerm.stopBtn.remove();
     cleanTerm.title.textContent = 'cleaner';
     container.appendChild(cleanTerm.terminal);
@@ -1306,7 +1322,10 @@ export async function buildMaintenancePage(translations, _settings) {
     const sfcDismDesc = document.createElement('p');
     sfcDismDesc.textContent = translations.maintenance?.system_file_desc || 'SFC Scan & DISM Repair system tools (Admin required)';
     sfcDismDesc.className = 'maintenance-card-description';
-    sfcDismText.appendChild(sfcDismName);
+    const sfcDismTitleRow = document.createElement('div');
+    sfcDismTitleRow.className = 'maintenance-card-title-row';
+    sfcDismTitleRow.append(sfcDismName, createHelpButton(uiText('sfc_help') + '\n\n' + uiText('dism_help')));
+    sfcDismText.appendChild(sfcDismTitleRow);
     sfcDismText.appendChild(sfcDismDesc);
     sfcDismHeader.appendChild(sfcDismText);
     sfcDismCard.appendChild(sfcDismHeader);
@@ -1319,7 +1338,7 @@ export async function buildMaintenancePage(translations, _settings) {
     sfcButton.textContent = translations.actions?.run_sfc || 'Run SFC';
 
     const dismButton = document.createElement('button');
-    dismButton.className = 'button maintenance-card-action';
+    dismButton.className = 'button-secondary maintenance-card-action';
     dismButton.textContent = translations.actions?.run_dism || 'Run DISM';
 
     const repairTerminal = document.createElement('div');
@@ -1429,15 +1448,15 @@ export async function buildMaintenancePage(translations, _settings) {
             const result = await apiFn();
             if (result && result.success) {
                 repairPrint(`✔ ${taskName} completed.`, 'is-ok');
-                toast(`${taskName} completed!`, { type: 'success', title: T.toast_title || 'Maintenance' });
+                toast(uiText('task_done', '{name} completed.', { name: taskName }), { type: 'success', title: T.toast_title || 'Maintenance' });
             } else if (!result || !result.cancelled) {
                 repairPrint(`✖ ${result?.error || `${taskName} exited with code ${result?.code ?? '?'}.`}`, 'is-err');
-                toast(result?.error || `${taskName} failed.`, { type: 'error', title: T.toast_title || 'Maintenance' });
+                toast(result?.error || uiText('task_failed', '{name} failed.', { name: taskName }), { type: 'error', title: T.toast_title || 'Maintenance' });
             }
         } catch (error) {
             if (!repairCancelled) {
                 repairPrint(`✖ ${error.message}`, 'is-err');
-                toast(error.message || `${taskName} failed.`, { type: 'error', title: T.toast_title || 'Maintenance' });
+                toast(error.message || uiText('task_failed', '{name} failed.', { name: taskName }), { type: 'error', title: T.toast_title || 'Maintenance' });
             }
         } finally {
             unsubscribe();
@@ -1465,12 +1484,14 @@ export async function buildMaintenancePage(translations, _settings) {
         repairStopBtn.disabled = true;
         try {
             await window.api.cancelSystemRepair();
-            repairPrint('■ Task cancelled.', 'is-warn');
+            repairPrint(uiText("task_cancelled", "■ Task cancelled."), 'is-warn');
         } finally {
             repairStopBtn.disabled = false;
         }
     });
 
+    sfcButton.setAttribute('data-tooltip', uiText('sfc_help'));
+    dismButton.setAttribute('data-tooltip', uiText('dism_help'));
     sfcDismButtons.appendChild(sfcButton);
     sfcDismButtons.appendChild(dismButton);
     sfcDismCard.appendChild(sfcDismButtons);
@@ -1702,7 +1723,7 @@ export async function buildDebloatPage(translations, _settings) {
                                 runBtn.disabled = false;
                                 runBtn.textContent = original;
                                 refreshStatus();
-                                toast('Sparkle is taking too long to extract/launch. Please try again.', {
+                                toast(uiText("sparkle_timeout", "Sparkle is taking too long to extract/launch. Please try again."), {
                                     type: 'error',
                                     title: 'Debloat Error',
                                     duration: 8000
@@ -1723,12 +1744,12 @@ export async function buildDebloatPage(translations, _settings) {
                                 })
                                 .then(launchResult => {
                                     if (launchResult && launchResult.success && !launchResult.needsDownload) {
-                                        toast('Sparkle Debloat launched successfully!', {
+                                        toast(uiText("sparkle_done", "Sparkle Debloat launched successfully!"), {
                                             type: 'success',
                                             title: 'Debloat',
                                             duration: 5000
                                         });
-                                        runBtn.textContent = '✅ Launched!';
+                                        runBtn.textContent = uiText("launched", "✅ Launched!");
                                         runBtn.disabled = true;
                                         refreshStatus();
                                         setTimeout(() => {
@@ -1740,7 +1761,7 @@ export async function buildDebloatPage(translations, _settings) {
                                     }
                                 })
                                 .catch(err => {
-                                    toast(err.message || 'Failed to extract or launch Sparkle', {
+                                    toast(err.message || uiText("sparkle_extract_error", "Failed to extract or launch Sparkle"), {
                                         type: 'error',
                                         title: 'Debloat Error',
                                         duration: 8000
@@ -1753,7 +1774,7 @@ export async function buildDebloatPage(translations, _settings) {
                             break;
                         }
                         case 'error':
-                            toast(data.error || 'Download failed', {
+                            toast(data.error || uiText("download_failed", "Download failed"), {
                                 type: 'error',
                                 title: 'Debloat Error',
                                 duration: 8000
@@ -1774,22 +1795,22 @@ export async function buildDebloatPage(translations, _settings) {
 
             // Case 2: Sparkle is already available and launched
             if (result.success) {
-                toast(result.message || 'Sparkle Debloat launched successfully!', {
+                toast(uiText("sparkle_done", "Sparkle Debloat launched successfully!"), {
                     type: 'success',
                     title: 'Debloat',
                     duration: 5000
                 });
-                runBtn.textContent = '✅ Launched!';
+                runBtn.textContent = uiText("launched", "✅ Launched!");
                 refreshStatus();
                 setTimeout(() => {
                     runBtn.textContent = original;
                     runBtn.disabled = false;
                 }, 2000);
             } else {
-                throw new Error(result.error || 'Failed to launch Sparkle Debloat');
+                throw new Error(result.error || uiText("sparkle_launch_error", "Failed to launch Sparkle Debloat"));
             }
         } catch (err) {
-            toast(err.message || 'Failed to launch Sparkle Debloat', {
+            toast(err.message || uiText("sparkle_launch_error", "Failed to launch Sparkle Debloat"), {
                 type: 'error',
                 title: 'Debloat Error',
                 duration: 8000
@@ -1914,7 +1935,7 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
     restartBtn.addEventListener('click', async () => {
         restartBtn.disabled = true;
-        restartBtn.textContent = '⏳ Processing...';
+        restartBtn.textContent = uiText("processing", "⏳ Processing...");
         restartBtn.classList.add('btn-opacity-low');
 
         try {
@@ -1922,10 +1943,10 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
 
             if (result && result.success) {
                 restartBtn.classList.remove('btn-opacity-low');
-                restartBtn.textContent = '✅ Success!';
+                restartBtn.textContent = uiText("success", "✅ Success!");
                 restartBtn.classList.add('btn-success-gradient');
 
-                toast('BIOS restart initiated! Computer will restart shortly.', { type: 'success', duration: 5000 });
+                toast(uiText("bios_started", "BIOS restart initiated! Computer will restart shortly."), { type: 'success', duration: 5000 });
 
                 document.removeEventListener('keydown', escapeHandler);
                 setTimeout(() => {
@@ -1942,7 +1963,7 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
             }
         } catch (error) {
             restartBtn.classList.remove('btn-opacity-low');
-            restartBtn.textContent = '❌ Failed';
+            restartBtn.textContent = uiText("failed_icon", "❌ Failed");
             restartBtn.classList.add('btn-error-gradient');
 
             setTimeout(() => {
@@ -1952,7 +1973,7 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
             }, 2000);
 
             if (error.message && error.message.includes('Administrator')) {
-                toast('🔒 Administrator Privileges Required\n\nPlease run the application as Administrator to access BIOS settings.', { type: 'error' });
+                toast(uiText("bios_admin", "🔒 Administrator Privileges Required\n\nPlease run the application as Administrator to access BIOS settings."), { type: 'error' });
             } else {
                 toast('❌ ' + error.message, { type: 'error' });
             }

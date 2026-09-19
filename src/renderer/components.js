@@ -1,3 +1,4 @@
+import { uiText } from './ui-text.js';
 /**
  * Renderer Components
  * Contains UI components like header, modals, toasts, error cards
@@ -54,9 +55,18 @@ export function closeOtherTerminals(current) {
  */
 export function openTerminal(terminal) {
     if (!terminal) return;
+    const body = terminal.querySelector('.winget-terminal-body');
+    if (body && !body.closest('.terminal-details')) {
+        const details = document.createElement('details');
+        details.className = 'terminal-details';
+        const summary = document.createElement('summary');
+        summary.textContent = uiText('details', 'Technical details');
+        body.before(details);
+        details.append(summary, body);
+    }
     terminal.classList.add('open', 'running');
     requestAnimationFrame(() => {
-        terminal.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (terminal.isConnected) terminal.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'nearest' });
     });
 }
 
@@ -131,7 +141,7 @@ export function showUpdateOverlay(initialStatus) {
         // Main title
         const title = document.createElement('h2');
         title.className = 'update-title';
-        title.textContent = 'Downloading Update';
+        title.textContent = uiText("update_download_title", "Downloading Update");
         container.appendChild(title);
 
         // Progress ring container
@@ -208,7 +218,7 @@ export function showUpdateOverlay(initialStatus) {
         const downloadInfo = document.createElement('div');
         downloadInfo.className = 'update-info-item';
         downloadInfo.innerHTML = `
-            <div class="update-info-label">Downloaded</div>
+            <div class="update-info-label">${escapeHtml(uiText('downloaded'))}</div>
             <div class="update-info-value" id="update-downloaded">0 MB / 0 MB</div>
         `;
 
@@ -216,7 +226,7 @@ export function showUpdateOverlay(initialStatus) {
         const speedInfo = document.createElement('div');
         speedInfo.className = 'update-info-item';
         speedInfo.innerHTML = `
-            <div class="update-info-label">Speed</div>
+            <div class="update-info-label">${escapeHtml(uiText('speed'))}</div>
             <div class="update-info-value" id="update-speed">0 MB/s</div>
         `;
 
@@ -224,8 +234,8 @@ export function showUpdateOverlay(initialStatus) {
         const etaInfo = document.createElement('div');
         etaInfo.className = 'update-info-item';
         etaInfo.innerHTML = `
-            <div class="update-info-label">Time Remaining</div>
-            <div class="update-info-value" id="update-eta">Calculating...</div>
+            <div class="update-info-label">${escapeHtml(uiText('remaining'))}</div>
+            <div class="update-info-value" id="update-eta">${escapeHtml(uiText('calculating'))}</div>
         `;
 
         infoGrid.appendChild(downloadInfo);
@@ -236,7 +246,7 @@ export function showUpdateOverlay(initialStatus) {
         // Status text
         const statusText = document.createElement('p');
         statusText.className = 'update-status-text';
-        statusText.textContent = initialStatus || 'Preparing download...';
+        statusText.textContent = initialStatus || uiText("update_prepare", "Preparing download...");
         container.appendChild(statusText);
 
         updateOverlay._progressCircle = progress;
@@ -499,7 +509,7 @@ export function openAccountModal(profile, syncedItems = [], handlers = {}, texts
         <div class="account-hero">
             <div class="account-avatar-ring">${avatar}</div>
             <span class="account-name">${escapeHtml(profile.name || 'User')}</span>
-            <span class="account-provider">${providerIcon}<span>${escapeHtml(texts.via || 'via')} ${escapeHtml(providerLabel || texts.title || 'Account')}</span></span>
+            <span class="account-provider">${providerIcon}<span>${escapeHtml(texts.via || 'via')} ${escapeHtml(providerLabel || texts.title || uiText("account", "Account"))}</span></span>
         </div>
         <div class="account-synced">
             <div class="account-section-head">

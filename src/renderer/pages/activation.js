@@ -1,3 +1,4 @@
+import { uiText as translateUI } from '../ui-text.js';
 /**
  * Activation Page
  * Contains Windows Activation and Auto Login functionality
@@ -121,7 +122,7 @@ async function downloadAndRun(button, config) {
                 }
                 case 'error':
                     downloadStore.delete(storeKey);
-                    fail('Download failed');
+                    fail(translateUI("download_failed", "Download failed"));
                     resolve();
                     break;
             }
@@ -131,7 +132,7 @@ async function downloadAndRun(button, config) {
             window.api.downloadStart(downloadId, config.url, config.fileName);
         } catch (e) {
             downloadStore.delete(storeKey);
-            fail('Download failed');
+            fail(translateUI("download_failed", "Download failed"));
             resolve();
         }
     });
@@ -145,13 +146,13 @@ function downloadAndRunActivate(button, ui, idleText) {
         url: 'https://www.dropbox.com/scl/fi/oqgye14tmcg97mxbphorp/activate.bat?rlkey=307wz4bzkzejip3os7iztt54l&st=oz6nh4pf&dl=1',
         fileName: 'activate.bat',
         storeKey: 'activate-script',
-        name: 'Activation',
-        preparingText: 'Preparing activation...',
-        downloadingText: 'Downloading activation script...',
-        runningText: 'Running activation script...',
-        startedText: 'Activation Started',
-        runFailMsg: 'Failed to run activation script',
-        runErrorMsg: 'Error running activation script'
+        name: translateUI("activation", "Activation"),
+        preparingText: translateUI("preparing_activation", "Preparing activation..."),
+        downloadingText: translateUI("downloading_activation", "Downloading activation script..."),
+        runningText: translateUI("running_activation", "Running activation script..."),
+        startedText: translateUI("activation_started", "Activation Started"),
+        runFailMsg: translateUI("activation_failed", "Failed to run activation script"),
+        runErrorMsg: translateUI("activation_error", "Error running activation script")
     });
 }
 
@@ -163,13 +164,13 @@ function downloadAndRunAutologin(button, ui, idleText) {
         url: 'https://www.dropbox.com/scl/fi/a0bphjru0qfnbsokk751h/auto-login.exe?rlkey=b3ogyjelioq49jyty1odi58x9&st=4o2oq4sc&dl=1',
         fileName: 'auto_login.exe',
         storeKey: 'autologin-tool',
-        name: 'Auto Login',
-        preparingText: 'Preparing auto login...',
-        downloadingText: 'Downloading auto login tool...',
-        runningText: 'Running auto login setup...',
-        startedText: 'Auto Login Started',
-        runFailMsg: 'Failed to run auto login tool',
-        runErrorMsg: 'Error running auto login tool'
+        name: translateUI("autologin", "Auto Login"),
+        preparingText: translateUI("preparing_autologin", "Preparing auto login..."),
+        downloadingText: translateUI("downloading_autologin", "Downloading auto login tool..."),
+        runningText: translateUI("running_autologin", "Running auto login setup..."),
+        startedText: translateUI("autologin_started", "Auto Login Started"),
+        runFailMsg: translateUI("autologin_failed", "Failed to run auto login tool"),
+        runErrorMsg: translateUI("autologin_error", "Error running auto login tool")
     });
 }
 

@@ -1,3 +1,4 @@
+import { uiText } from '../ui-text.js';
 /**
  * Utilities Page
  * Contains the ChrisTitus page
@@ -91,7 +92,7 @@ export function buildChrisTitusPage(translations, _settings) {
     const dots = el('div', 'winget-terminal-dots');
     for (let i = 0; i < 3; i++) dots.appendChild(document.createElement('span'));
     const termTitle = el('span', 'winget-terminal-title', 'irm christitus.com/win | iex');
-    const stopBtn = el('button', 'winget-terminal-stop', 'Stop');
+    const stopBtn = el('button', 'winget-terminal-stop', uiText("stop", "Stop"));
     stopBtn.type = 'button';
     termHeader.appendChild(dots);
     termHeader.appendChild(termTitle);
@@ -171,11 +172,11 @@ export function buildChrisTitusPage(translations, _settings) {
         try {
             const result = await window.api.runChrisTitus();
             if (result && result.success) {
-                printLine('✔ Utility finished.', 'is-ok');
-                setStatus('Windows Utility finished.', 'success');
+                printLine(uiText("utility_done_log", "✔ Utility finished."), 'is-ok');
+                setStatus(uiText("utility_done", "Windows Utility finished."), 'success');
             } else if (!result || !result.cancelled) {
                 printLine(`✖ ${result?.error || `Utility exited with code ${result?.code ?? '?'}.`}`, 'is-err');
-                setStatus('Failed to launch: ' + (result?.error || 'Unknown error'), 'error');
+                setStatus('Failed to launch: ' + (result?.error || uiText("unknown_error", "Unknown error")), 'error');
             }
         } catch (e) {
             if (!cancelled) {
@@ -196,7 +197,7 @@ export function buildChrisTitusPage(translations, _settings) {
         stopBtn.disabled = true;
         try {
             await window.api.cancelChrisTitus();
-            printLine('■ Stopped.', 'is-warn');
+            printLine(uiText("stopped", "■ Stopped."), 'is-warn');
         } finally {
             stopBtn.disabled = false;
         }

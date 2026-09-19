@@ -34,6 +34,8 @@
     const sidebarToggle = document.getElementById('sidebar-collapse-toggle');
     const applySidebarState = (expanded) => {
         document.body.classList.toggle('sidebar-expanded', expanded);
+        sidebarToggle?.setAttribute('aria-expanded', String(expanded));
+        sidebarToggle?.setAttribute('aria-controls', 'sidebar');
     };
     let sidebarExpanded = false;
     try { sidebarExpanded = localStorage.getItem('sidebarExpanded') === '1'; } catch { }
