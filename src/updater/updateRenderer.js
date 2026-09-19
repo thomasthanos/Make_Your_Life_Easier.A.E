@@ -9,19 +9,23 @@ window.addEventListener('DOMContentLoaded', () => {
   const progressSizeEl = document.getElementById('progress-size');
   const progressSpeedEl = document.getElementById('progress-speed');
   const progressEtaEl = document.getElementById('progress-eta');
+  const progressLabelEl = document.getElementById('progress-label');
   const cancelBtn = document.getElementById('cancel-btn');
 
   let lastProgress = 0;
   let currentPhase = 'init';
   let cancelling = false;
 
+  // 'message': status pill only. 'downloading': bar with size, speed and ETA.
+  // 'installing': the bar stays full and names the step, so the hand-over to
+  // the installer does not look like the window emptied out.
   function setMode(mode) {
     if (!cardEl) return;
-    const isDownloading = mode === 'downloading';
-    cardEl.classList.toggle('is-downloading', isDownloading);
-    cardEl.classList.toggle('is-message', !isDownloading);
+    cardEl.classList.toggle('is-downloading', mode === 'downloading');
+    cardEl.classList.toggle('is-installing', mode === 'installing');
+    cardEl.classList.toggle('is-message', mode === 'message');
     if (cancelBtn && !cancelling) {
-      cancelBtn.hidden = !isDownloading;
+      cancelBtn.hidden = mode !== 'downloading';
     }
   }
 
@@ -134,10 +138,13 @@ window.addEventListener('DOMContentLoaded', () => {
         break;
       }
 
-      case 'extracting':
-        setMode('message');
-        updateProgress(100, data.message || 'Extracting update...', 'update-install');
+      case 'extracting': {
+        const text = data.message || 'Installing update...';
+        setMode('installing');
+        updateProgress(100, text, 'update-install');
+        if (progressLabelEl) progressLabelEl.textContent = text;
         break;
+      }
 
       case 'error': {
         setMode('message');

@@ -2,6 +2,9 @@ const { autoUpdater } = require('electron-updater');
 const { ipcMain, app } = require('electron');
 const path = require('path');
 const fs = require('fs');
+// Staged and backed-up installs contain app.asar, which the patched fs opens and
+// locks instead of deleting (see external-updater.js)
+const originalFs = require('original-fs');
 const os = require('os');
 const { saveUpdateInfo, readAndClearUpdateInfo } = require('./update-info');
 const externalUpdater = require('./external-updater');
@@ -15,6 +18,15 @@ let updateCancelled = false;
 let retryCount = 0;
 let eventCtx = null;
 const MAX_RETRIES = 3;
+
+// An app-only update can finish in a second or two. Keep its steps on screen
+// long enough to be read instead of letting them flash past.
+const AVAILABLE_HOLD_MS = 900;
+const INSTALL_HOLD_MS = 900;
+
+function holdUntil(time) {
+    return new Promise((resolve) => setTimeout(resolve, Math.max(0, time - Date.now())));
+}
 
 function getFeedUrl() {
     if (process.env.UPDATE_FEED_URL) return process.env.UPDATE_FEED_URL;
@@ -74,6 +86,7 @@ async function performInAppUpdate(info, ctx) {
     if (updateInProgress || quittingForInstall) return;
     updateInProgress = true;
     updateCancelled = false;
+    const startedAt = Date.now();
 
     try {
         await saveUpdateInfo(pendingUpdateInfo || {
@@ -81,6 +94,9 @@ async function performInAppUpdate(info, ctx) {
             releaseName: info.releaseName,
             releaseNotes: info.releaseNotes
         });
+
+        // Let "update available" be read before the download replaces it
+        await holdUntil(startedAt + AVAILABLE_HOLD_MS);
 
         const { stagingDir } = await externalUpdater.runInAppUpdate({
             info,
@@ -95,16 +111,19 @@ async function performInAppUpdate(info, ctx) {
 
         if (updateCancelled) {
             updateInProgress = false;
-            await fs.promises.rm(stagingDir, { recursive: true, force: true }).catch(() => {});
+            await originalFs.promises.rm(stagingDir, { recursive: true, force: true }).catch(() => {});
             abortToApp(ctx, 'Launching application...');
             return;
         }
 
+        // Same words the installer window opens with, so the hand-over to it
+        // reads as one step
         sendUpdateStatus(ctx.getUpdateWindow(), {
             status: 'extracting',
-            message: 'Applying update...',
+            message: `Installing update v${info.version}...`,
             percent: 100
         });
+        await holdUntil(Date.now() + INSTALL_HOLD_MS);
 
         externalUpdater.launchSwapper({ stagingDir, version: info.version, debug: ctx.debug });
         quittingForInstall = true;
@@ -186,14 +205,14 @@ async function cleanupExternalUpdaterLeftovers(debug) {
     await fs.promises.unlink(path.join(userDataPath, '.swap-pending')).catch(() => {});
 
     const installDir = path.dirname(process.execPath);
-    await fs.promises.rm(installDir + '.staging', { recursive: true, force: true, maxRetries: 3, retryDelay: 1000 }).catch(() => {});
+    await originalFs.promises.rm(installDir + '.staging', { recursive: true, force: true, maxRetries: 3, retryDelay: 1000 }).catch(() => {});
 
     if (health.pending && !currentVersionAcknowledged) {
         debug('info', `Keeping update backup until version ${health.pendingVersion} reports healthy startup.`);
     } else {
         const target = installDir + '.backup';
         try {
-            await fs.promises.rm(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 1000 });
+            await originalFs.promises.rm(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 1000 });
         } catch (err) {
             debug('warn', `Failed to remove leftover ${target}:`, err.message);
         }
@@ -310,15 +329,20 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             releaseName: info.releaseName,
             releaseNotes: info.releaseNotes,
             releaseDate: info.releaseDate,
-            files: info.files
+            files: info.files,
+            // Kept so a retry through 'download-update' can still take the app-only package
+            electronVersion: info.electronVersion,
+            updateShellVersion: info.updateShellVersion,
+            appUpdate: info.appUpdate
         };
 
         const title = info.releaseName || '';
         const version = info.version || '';
         const message = title ? `${title} (v${version})` : `New version available: v${version}`;
 
-        let totalSize = 0;
-        if (Array.isArray(info.files)) {
+        const appUpdate = externalUpdater.appOnlyUpdateOf(info);
+        let totalSize = appUpdate ? appUpdate.size : 0;
+        if (!totalSize && Array.isArray(info.files)) {
             totalSize = info.files.reduce((sum, file) => sum + (file.size || 0), 0);
         }
         const sizeMB = (totalSize / (1024 * 1024)).toFixed(2);

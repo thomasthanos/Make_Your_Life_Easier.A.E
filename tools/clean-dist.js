@@ -1,5 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const { appPackageName } = require('../src/modules/app-update-package');
+const pkg = require('../package.json');
 
 const distDir = path.join(__dirname, '..', 'artifacts', 'dist');
 
@@ -7,6 +9,7 @@ const keep = new Set([
     'MakeYourLifeEasier-Setup.exe',
     'MakeYourLifeEasier-Portable.exe',
     'MakeYourLifeEasier-win.zip',
+    appPackageName(pkg.build.productName, pkg.version),
     'latest.yml'
 ]);
 

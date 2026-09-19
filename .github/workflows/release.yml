@@ -72,20 +72,52 @@ jobs:
         R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         R2_BUCKET: ${{ secrets.R2_BUCKET }}
       run: |
+        $ErrorActionPreference = 'Stop'
         $endpoint = "https://$env:R2_ACCOUNT_ID.r2.cloudflarestorage.com"
-        aws s3 cp artifacts/dist/latest.yml "s3://$env:R2_BUCKET/latest.yml" --endpoint-url $endpoint --content-type "text/yaml" --cache-control "no-cache"
-        aws s3 cp artifacts/dist/MakeYourLifeEasier-Setup.exe "s3://$env:R2_BUCKET/MakeYourLifeEasier-installer.exe" --endpoint-url $endpoint
-        aws s3 cp artifacts/dist/MakeYourLifeEasier-Portable.exe "s3://$env:R2_BUCKET/MakeYourLifeEasier-Portable.exe" --endpoint-url $endpoint
-        $zip = Get-ChildItem artifacts/dist/*-win.zip | Select-Object -First 1
-        aws s3 cp $zip.FullName "s3://$env:R2_BUCKET/$($zip.Name)" --endpoint-url $endpoint --content-type "application/zip" --cache-control "no-cache"
+        $dist = 'artifacts/dist'
+        $feedUrl = (Select-String -Path config/app-update.yml -Pattern '^url:\s*(\S+)').Matches[0].Groups[1].Value.TrimEnd('/')
+
+        function Publish([string]$File, [string]$Key, [string[]]$Extra = @()) {
+          aws s3 cp $File "s3://$env:R2_BUCKET/$Key" --endpoint-url $endpoint @Extra
+          if ($LASTEXITCODE -ne 0) { throw "Upload failed: $Key" }
+        }
+
+        $zip = Get-ChildItem "$dist/*-win.zip" | Select-Object -First 1
+        $appZip = Get-ChildItem "$dist/*-app-*.zip" | Select-Object -First 1
+        if (-not $zip -or -not $appZip) { throw 'Update zips are missing from artifacts/dist' }
+        $zipArgs = @('--content-type', 'application/zip', '--cache-control', 'no-cache')
+
+        # Everything latest.yml names goes up first: running apps start
+        # downloading those files the moment latest.yml changes.
+        Publish $zip.FullName $zip.Name $zipArgs
+        Publish $appZip.FullName $appZip.Name $zipArgs
+
+        # Users must be served exactly what latest.yml describes
+        foreach ($file in @($zip, $appZip)) {
+          $served = Join-Path $env:RUNNER_TEMP $file.Name
+          Invoke-WebRequest -Uri "$feedUrl/$($file.Name)" -OutFile $served -Headers @{ 'Cache-Control' = 'no-cache' }
+          if ((Get-FileHash $served -Algorithm SHA512).Hash -ne (Get-FileHash $file.FullName -Algorithm SHA512).Hash) {
+            throw "$($file.Name) served by $feedUrl does not match the build"
+          }
+          Remove-Item $served
+          Write-Host "Verified $feedUrl/$($file.Name)"
+        }
+
+        Publish "$dist/latest.yml" 'latest.yml' @('--content-type', 'text/yaml', '--cache-control', 'no-cache')
+
+        # The installers are not part of the update feed. Publishing them last
+        # leaves R2 untouched when anything above fails.
+        Publish "$dist/MakeYourLifeEasier-Setup.exe" 'MakeYourLifeEasier-installer.exe'
+        Publish "$dist/MakeYourLifeEasier-Portable.exe" 'MakeYourLifeEasier-Portable.exe'
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
+        # The app-only update package is published to R2 only
         files: |
           artifacts/dist/*.exe
-          artifacts/dist/*.zip
+          artifacts/dist/MakeYourLifeEasier-win.zip
           artifacts/dist/latest.yml
         generate_release_notes: true
       env:

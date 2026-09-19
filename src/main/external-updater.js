@@ -2,13 +2,33 @@ const { app } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+// Everything that reads, copies or deletes a staged install goes through
+// original-fs. Electron's patched fs treats app.asar as a folder, opens it and
+// keeps it open: deleting the folder then fails with EBUSY, and the swapper can
+// no longer move it into place.
+const originalFs = require('original-fs');
 const os = require('os');
 const crypto = require('crypto');
 const { clientFor } = require('../modules/http-utils');
 const { ensure7za } = require('../modules/archive-utils');
+const {
+    RUNTIME_MANIFEST,
+    pickAppUpdate,
+    validateManifest,
+    verifyPackageLayout,
+    assembleStaging
+} = require('../modules/app-update-package');
 
 function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
+}
+
+// A 3 MB download can end before the progress bar has visibly moved. Keep the
+// download step on screen at least this long so it can be seen filling.
+const MIN_DOWNLOAD_VISIBLE_MS = 1100;
+
+function holdDownloadStep(startedAt) {
+    return sleep(Math.max(0, startedAt + MIN_DOWNLOAD_VISIBLE_MS - Date.now()));
 }
 
 function safeUnlink(filePath) {
@@ -144,10 +164,10 @@ function downloadOnce(url, destPath, onProgress, isCancelled) {
     });
 }
 
-async function downloadAndVerify({ url, sha512, version, onProgress, isCancelled, debug }) {
+async function downloadAndVerify({ url, sha512, fileName, onProgress, isCancelled, debug }) {
     const downloadDir = path.join(neutralUpdaterDir(), 'download');
     fs.mkdirSync(downloadDir, { recursive: true });
-    const zipPath = path.join(downloadDir, `update-${version}.zip`);
+    const zipPath = path.join(downloadDir, fileName);
 
     const delays = [2000, 5000, 10000];
     let lastErr = null;
@@ -172,15 +192,16 @@ async function downloadAndVerify({ url, sha512, version, onProgress, isCancelled
     throw lastErr || new Error('Download failed');
 }
 
-async function extractToStaging(zipPath, stagingDir, exeName) {
-    await fs.promises.rm(stagingDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 500 }).catch(() => {});
-    fs.mkdirSync(stagingDir, { recursive: true });
+function removeDir(dir) {
+    return originalFs.promises.rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 500 });
+}
 
+async function extractZip(zipPath, destDir) {
     const sevenZip = await ensure7za();
     if (!sevenZip) throw new Error('7za.exe not found for extraction');
 
     await new Promise((resolve, reject) => {
-        const child = spawn(sevenZip, ['x', zipPath, `-o${stagingDir}`, '-y'], { windowsHide: true });
+        const child = spawn(sevenZip, ['x', zipPath, `-o${destDir}`, '-y'], { windowsHide: true });
         let stderr = '';
         child.stderr.on('data', (b) => { stderr += b.toString(); });
         child.on('error', reject);
@@ -189,10 +210,19 @@ async function extractToStaging(zipPath, stagingDir, exeName) {
             else reject(new Error(stderr.trim() || `7za exited with code ${code}`));
         });
     });
+}
 
-    if (!fs.existsSync(path.join(stagingDir, exeName)) || !fs.existsSync(path.join(stagingDir, 'resources'))) {
+function checkStaging(stagingDir, exeName) {
+    if (!originalFs.existsSync(path.join(stagingDir, exeName)) || !originalFs.existsSync(path.join(stagingDir, 'resources'))) {
         throw new Error('Staging sanity check failed: missing ' + exeName + ' or resources');
     }
+}
+
+async function extractToStaging(zipPath, stagingDir, exeName) {
+    await removeDir(stagingDir).catch(() => {});
+    originalFs.mkdirSync(stagingDir, { recursive: true });
+    await extractZip(zipPath, stagingDir);
+    checkStaging(stagingDir, exeName);
 }
 
 function preserveFiles(installDir, stagingDir) {
@@ -201,11 +231,82 @@ function preserveFiles(installDir, stagingDir) {
         try {
             const src = path.join(installDir, rel);
             const dst = path.join(stagingDir, rel);
-            if (fs.existsSync(src) && !fs.existsSync(dst)) {
-                fs.mkdirSync(path.dirname(dst), { recursive: true });
-                fs.copyFileSync(src, dst);
+            if (originalFs.existsSync(src) && !originalFs.existsSync(dst)) {
+                originalFs.mkdirSync(path.dirname(dst), { recursive: true });
+                originalFs.copyFileSync(src, dst);
             }
         } catch { /* best effort */ }
+    }
+}
+
+function localUpdateShellVersion() {
+    try {
+        return require('../../package.json').updateShellVersion;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * The app-only update package in a feed, when this install can take it instead
+ * of the full zip: it runs the same Electron and shell version as the release.
+ * @param {Object} info - Parsed latest.yml
+ * @returns {{url: string, sha512: string, size: number}|null} The package, or null for a full update
+ */
+function appOnlyUpdateOf(info) {
+    return pickAppUpdate(info, {
+        electron: process.versions.electron,
+        updateShellVersion: localUpdateShellVersion()
+    });
+}
+
+/**
+ * Stage an update from the app-only package: its resources/ plus this
+ * install's own runtime files, each checked against the package's manifest.
+ * The result is the same complete folder a full update extracts, so the
+ * swapper, health check and rollback treat it no differently.
+ */
+async function stageAppOnlyUpdate({ info, appUpdate, feedUrl, installDir, stagingDir, exeName, onStatus, isCancelled, debug }) {
+    const downloadStartedAt = Date.now();
+    onStatus({ status: 'downloading', message: 'Downloading update... 0%', percent: 0 });
+    const zipPath = await downloadAndVerify({
+        url: resolveAbsoluteUrl(appUpdate.url, feedUrl),
+        sha512: appUpdate.sha512,
+        fileName: `update-app-${info.version}.zip`,
+        isCancelled,
+        debug,
+        onProgress: reportDownload(onStatus)
+    });
+
+    try {
+        await holdDownloadStep(downloadStartedAt);
+        if (isCancelled && isCancelled()) throw cancelledError();
+        onStatus({ status: 'extracting', message: 'Preparing update...', percent: 100 });
+
+        // Unlike the full update, a staging folder that cannot be cleared is a
+        // reason to fall back: leftovers would end up in the new install
+        await removeDir(stagingDir);
+        originalFs.mkdirSync(stagingDir, { recursive: true });
+        await extractZip(zipPath, stagingDir);
+        verifyPackageLayout(originalFs, stagingDir);
+
+        const manifestPath = path.join(stagingDir, RUNTIME_MANIFEST);
+        const manifest = JSON.parse(await originalFs.promises.readFile(manifestPath, 'utf8'));
+        validateManifest(manifest, {
+            version: info.version,
+            exeName,
+            electron: process.versions.electron,
+            updateShellVersion: localUpdateShellVersion()
+        });
+        await originalFs.promises.rm(manifestPath);
+
+        await assembleStaging({ fs: originalFs, installDir, stagingDir, manifest, exeName });
+        if (isCancelled && isCancelled()) throw cancelledError();
+
+        preserveFiles(installDir, stagingDir);
+        checkStaging(stagingDir, exeName);
+    } finally {
+        safeUnlink(zipPath);
     }
 }
 
@@ -237,6 +338,25 @@ function formatEta(seconds) {
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
+function reportDownload(onStatus) {
+    return ({ received, total, speed }) => {
+        const percent = total > 0 ? Math.round(received * 100 / total) : 0;
+        const eta = speed > 0 && total > 0 ? formatEta((total - received) / speed) : 'Calculating';
+        onStatus({
+            status: 'downloading',
+            message: `Downloading update... ${percent}%`,
+            percent,
+            transferred: received,
+            totalBytes: total,
+            bytesPerSecond: speed,
+            downloaded: (received / 1048576).toFixed(2),
+            total: (total / 1048576).toFixed(2),
+            speed: (speed / 1048576).toFixed(2),
+            eta
+        });
+    };
+}
+
 async function runInAppUpdate({ info, feedUrl, onStatus, isCancelled, debug }) {
     if (!app.isPackaged) throw new Error('In-app update requires a packaged app');
 
@@ -245,34 +365,34 @@ async function runInAppUpdate({ info, feedUrl, onStatus, isCancelled, debug }) {
     const exeName = path.basename(process.execPath);
 
     const zip = resolveZipFile(info);
-    const url = resolveAbsoluteUrl(zip.url, feedUrl);
 
+    // Same Electron and shell as the new release: only resources/ changed, so
+    // fetch that instead of the whole app. Anything off falls back to the full zip.
+    const appUpdate = appOnlyUpdateOf(info);
+    if (appUpdate) {
+        try {
+            await stageAppOnlyUpdate({ info, appUpdate, feedUrl, installDir, stagingDir, exeName, onStatus, isCancelled, debug });
+            debug('info', `App-only update staged for v${info.version}: ${(appUpdate.size / 1048576).toFixed(1)} MB instead of ${((zip.size || 0) / 1048576).toFixed(1)} MB`);
+            return { stagingDir };
+        } catch (err) {
+            if (err.cancelled) throw err;
+            debug('warn', `App-only update not usable, downloading the full update instead: ${err.message}`);
+        }
+    }
+
+    const downloadStartedAt = Date.now();
     onStatus({ status: 'downloading', message: 'Downloading update... 0%', percent: 0 });
 
     const zipPath = await downloadAndVerify({
-        url,
+        url: resolveAbsoluteUrl(zip.url, feedUrl),
         sha512: zip.sha512,
-        version: info.version,
+        fileName: `update-${info.version}.zip`,
         isCancelled,
         debug,
-        onProgress: ({ received, total, speed }) => {
-            const percent = total > 0 ? Math.round(received * 100 / total) : 0;
-            const eta = speed > 0 && total > 0 ? formatEta((total - received) / speed) : 'Calculating';
-            onStatus({
-                status: 'downloading',
-                message: `Downloading update... ${percent}%`,
-                percent,
-                transferred: received,
-                totalBytes: total,
-                bytesPerSecond: speed,
-                downloaded: (received / 1048576).toFixed(2),
-                total: (total / 1048576).toFixed(2),
-                speed: (speed / 1048576).toFixed(2),
-                eta
-            });
-        }
+        onProgress: reportDownload(onStatus)
     });
 
+    await holdDownloadStep(downloadStartedAt);
     if (isCancelled && isCancelled()) throw cancelledError();
 
     onStatus({ status: 'extracting', message: 'Extracting update...', percent: 100 });
@@ -283,4 +403,4 @@ async function runInAppUpdate({ info, feedUrl, onStatus, isCancelled, debug }) {
     return { stagingDir };
 }
 
-module.exports = { runInAppUpdate, launchSwapper };
+module.exports = { runInAppUpdate, launchSwapper, appOnlyUpdateOf };
