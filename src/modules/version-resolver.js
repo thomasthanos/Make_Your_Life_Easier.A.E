@@ -128,9 +128,11 @@ const RESOLVERS = {
     return url ? { url, headers: { Referer: 'https://www.amd.com/' } } : null;
   },
 
+  // Matched loosely: v2.0.0 renamed BetterDiscord-Windows.exe to
+  // BetterDiscord-Installer-Windows.exe, and an exact name silently fell back.
   'betterdiscord': async () => {
     const release = await httpGetJson('https://api.github.com/repos/BetterDiscord/Installer/releases/latest');
-    const asset = (release && release.assets || []).find((a) => a.name === 'BetterDiscord-Windows.exe');
+    const asset = (release && release.assets || []).find((a) => /windows.*\.exe$/i.test(a.name || ''));
     return asset ? { url: asset.browser_download_url } : null;
   },
 

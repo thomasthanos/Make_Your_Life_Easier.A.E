@@ -1620,11 +1620,13 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     successCount++;
                     setBadge(li, 'installed');
                     setItemProgress(itemProgressFill, itemProgressLabel, 100, '100%');
-                } catch {
+                } catch (err) {
                     errorCount++;
                     failedApps.push(appName);
                     setBadge(li, 'failed');
                     setItemProgress(itemProgressFill, itemProgressLabel, 100, 'Failed');
+                    // The batch summary only lists names; this is the only place the reason shows
+                    toast(err?.message || 'Download failed', { type: 'error', title: appName });
                 } finally {
                     if (itemProgressWrap) itemProgressWrap.classList.add('hidden');
                 }

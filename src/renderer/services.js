@@ -855,7 +855,7 @@ export const CUSTOM_APPS = [
         id: 'BetterDiscord.Dropbox',
         name: 'BetterDiscord',
         resolver: 'betterdiscord',
-        url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&dl=1',
+        url: 'https://www.dropbox.com/scl/fi/sjzh1xoiv87a20wvvesk4/BetterDiscord-Windows.exe?rlkey=bej8or99jo19189a7h2v6553e&dl=1',
         ext: 'exe',
         category: 'Communication'
     },

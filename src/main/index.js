@@ -295,7 +295,7 @@ app.whenReady().then(async () => {
     // 🧹 Clean up any leftover sparkle folder from a previous session where cleanup failed
     sparkleModule.cleanupLeftoverSparkle().catch(() => {});
 
-    downloadManager.cleanupLeftoverDownloads(debug);
+    if (gotTheLock) downloadManager.cleanupLeftoverDownloads(debug).catch(() => {});
 
     // Clean up any leftover update files from previous updates
     updater.cleanupUpdaterCache(debug);
@@ -393,7 +393,9 @@ app.on('before-quit', () => {
 
     gameSavesService.dispose();
 
-    downloadManager.cleanupOnQuit(safeDebug);
+    // Only the running app owns its downloads: a second launch that quits
+    // straight away, or the Setup window, must not delete them from under it
+    if (gotTheLock && !installerMode) downloadManager.cleanupOnQuit(safeDebug);
 
     // Stop the elevated cleaner admin worker, if one is running
     try { systemTools.stopCleanerAdminSession(); } catch { }
