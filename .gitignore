@@ -26,6 +26,11 @@ oauth_config.json
 *.p12
 *.key
 
+# Tests — kept locally, not shipped. They are already outside the build
+# (build.files only takes package.json and src/**), so this is purely about
+# keeping them out of the repo.
+/tests/
+
 # IDE
 /.vscode
 

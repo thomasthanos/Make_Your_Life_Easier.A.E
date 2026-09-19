@@ -305,7 +305,14 @@ export function buildSpicetifyPage(translations, settings) {
         installing = true;
         setSpotifyCardState(button, 'busy');
         button.disabled = true;
-        const originalText = button.textContent;
+        // Remember the pristine label on the element, not from its current text.
+        // The result states prefix it with '✓ ' / '✗ ' for two seconds, so a re-run
+        // that started inside that window used the decorated text as the "original"
+        // and the ticks stacked up: '✓ ✓ Install'.
+        if (button.dataset.originalText === undefined) {
+            button.dataset.originalText = button.textContent;
+        }
+        const originalText = button.dataset.originalText;
         button.textContent = (translations.general?.run || 'Run') + '...';
         try {
             const result = await action();

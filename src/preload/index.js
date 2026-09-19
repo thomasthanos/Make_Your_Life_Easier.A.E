@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('api', {
   setWindowSize: (width, height) => ipcRenderer.invoke('window-set-size', { width, height }),
 
   // ── App Lifecycle ──
-  signalAppReady: (width, height) => ipcRenderer.invoke('app-ready', { width, height }),
+  signalAppReady: (width, height, healthy = true) => ipcRenderer.invoke('app-ready', { width, height, healthy }),
   updateLoadingProgress: (progress, message) => ipcRenderer.invoke('update-loading-progress', { progress, message }),
   getAssetPath: (relativePath) => ipcRenderer.invoke('get-asset-path', relativePath),
 
@@ -36,8 +36,9 @@ contextBridge.exposeInMainWorld('api', {
   onUpdateStatus: (callback) => onEvent('update-status', callback),
 
   // ── Download Manager ──
-  downloadStart: (id, url, dest) => ipcRenderer.send('download-start', { id, url, dest }),
+  downloadStart: (id, url, dest, headers) => ipcRenderer.send('download-start', { id, url, dest, headers }),
   onDownloadEvent: (callback) => onEvent('download-event', callback),
+  resolveDownloadUrl: (key, fallbackUrl) => ipcRenderer.invoke('resolve-download-url', key, fallbackUrl),
 
   // ── Winget Upgrade (streaming) ──
   checkWingetUpgrade: () => ipcRenderer.invoke('winget-upgrade-check'),
@@ -99,6 +100,8 @@ contextBridge.exposeInMainWorld('api', {
   loginGoogle: () => ipcRenderer.invoke('login-google'),
   loginDiscord: () => ipcRenderer.invoke('login-discord'),
   getUserProfile: () => ipcRenderer.invoke('get-user-profile'),
+  // Fires when the main process renews the profile from the auth server after launch.
+  onUserProfileUpdated: (callback) => onEvent('user-profile-updated', callback),
   logout: () => ipcRenderer.invoke('logout'),
 
   // ── Settings (local-first + Supabase sync) ──
@@ -106,4 +109,23 @@ contextBridge.exposeInMainWorld('api', {
   setSetting: (key, value) => ipcRenderer.invoke('settings-set', { key, value }),
   getAllSettings: () => ipcRenderer.invoke('settings-all'),
   resetSettings: () => ipcRenderer.invoke('settings-reset'),
+
+  // ── Game Saves ──
+  gameSavesState: () => ipcRenderer.invoke('game-saves-state'),
+  gameSavesScan: (options) => ipcRenderer.invoke('game-saves-scan', options),
+  gameSavesBackup: (ids) => ipcRenderer.invoke('game-saves-backup', ids),
+  gameSavesRestore: (ids) => ipcRenderer.invoke('game-saves-restore', ids),
+  gameSavesFiles: (id, source) => ipcRenderer.invoke('game-saves-files', { id, source }),
+  gameSavesCancel: () => ipcRenderer.invoke('game-saves-cancel'),
+  gameSavesPickFolder: () => ipcRenderer.invoke('game-saves-pick-folder'),
+  gameSavesUseCloud: (cloudId) => ipcRenderer.invoke('game-saves-use-cloud', cloudId),
+  gameSavesAddRoot: () => ipcRenderer.invoke('game-saves-add-root'),
+  gameSavesRemoveRoot: (rootPath) => ipcRenderer.invoke('game-saves-remove-root', rootPath),
+  gameSavesSetSchedule: (schedule) => ipcRenderer.invoke('game-saves-set-schedule', schedule),
+  gameSavesUseBackup: (dir) => ipcRenderer.invoke('game-saves-use-backup', dir),
+  gameSavesSetExcluded: (ids, excluded) => ipcRenderer.invoke('game-saves-set-excluded', { ids, excluded }),
+  gameSavesSuggestion: (id, action) => ipcRenderer.invoke('game-saves-suggestion', { id, action }),
+  gameSavesOpen: (target, id) => ipcRenderer.invoke('game-saves-open', { target, id }),
+  gameSavesRunNow: () => ipcRenderer.invoke('game-saves-run-now'),
+  onGameSavesProgress: (callback) => onEvent('game-saves-progress', callback),
 });

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="143" height="32" viewBox="0 0 168 38" role="img" aria-label="Read the licence">
+  <defs>
+    <linearGradient id="pill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#18253c"/><stop offset="1" stop-color="#0b1422"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".36"/>
+      <stop offset=".5" stop-color="#ffffff" stop-opacity=".10"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity=".04"/>
+    </linearGradient>
+    <linearGradient id="ink" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="24">
+      <stop offset="0" stop-color="#7bead2"/><stop offset="1" stop-color="#7fb2ff"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".075"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x=".7" y=".7" width="166.6" height="36.6" rx="18.3" fill="url(#pill)"/>
+  <rect x=".7" y=".7" width="166.6" height="36.6" rx="18.3" fill="url(#top)"/>
+  <rect x=".7" y=".7" width="166.6" height="36.6" rx="18.3" fill="none" stroke="url(#edge)" stroke-width="1.3"/>
+  <g transform="translate(16,10.5) scale(0.7083)" fill="none" stroke="url(#ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="4.6" r="1.3"/>
+    <path d="M12 5.9v13.9"/><path d="M8.3 19.8h7.4"/><path d="M6.4 7.7h11.2"/>
+    <path d="M6.4 7.7L3.5 13.8h5.8z"/><path d="M17.6 7.7l-2.9 6.1h5.8z"/>
+  </g>
+  <text x="42.5" y="24.5" font-family='"Segoe UI",system-ui,sans-serif' font-size="14" font-weight="700" fill="#e2ebf8">Read the licence</text>
+</svg>

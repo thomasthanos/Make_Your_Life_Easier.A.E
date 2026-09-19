@@ -4,7 +4,7 @@
  */
 
 import { debug, escapeHtml, getAppVersionWithFallback, normalizeVersion, normalizeVersionTag } from './utils.js';
-import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay, openAccountModal } from './components.js';
+import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay, openAccountModal, attachAvatarFallback, isHttpUrl } from './components.js';
 import { attachTooltipHandlers } from './managers.js';
 
 // ============================================
@@ -116,13 +116,26 @@ let translations = {};
  * @param {string} lang - Language code
  * @returns {Promise<Object>} Translations object
  */
+// Parsed language files, kept for the session. The bundle ships with the app and
+// cannot change while it runs, but loadTranslations() is called again on every
+// language toggle — and each call re-fetched and re-parsed ~18-26 KB of JSON.
+const translationCache = new Map();
+
 export async function loadTranslations(lang) {
+    const cached = translationCache.get(lang);
+    if (cached) {
+        translations = cached;
+        document.documentElement.setAttribute('lang', lang || 'en');
+        return translations;
+    }
+
     const candidates = [`../i18n/${lang}.json`, `i18n/${lang}.json`, `${lang}.json`];
     for (const url of candidates) {
         try {
             const res = await fetch(url);
             if (res.ok) {
                 translations = await res.json();
+                translationCache.set(lang, translations);
                 document.documentElement.setAttribute('lang', lang || 'en');
                 return translations;
             }
@@ -622,6 +635,13 @@ export async function checkForChangelog() {
 // SIDEBAR VERSION
 // ============================================
 
+// The main process renews the signed-in profile from the auth server shortly after
+// launch and pushes the result here. `ensureSidebarVersion` can run more than once,
+// so keep a single IPC listener and repoint it at the current renderer instead of
+// stacking a new listener on every call.
+let refreshUserInfo = null;
+let profileListenerAttached = false;
+
 /**
  * Ensure the sidebar version badge is present and updated
  * @param {Object} state - App state with settings
@@ -678,11 +698,20 @@ export async function ensureSidebarVersion(_state = {}) {
             if (!userInfoEl.isConnected) return;
             userInfoEl.innerHTML = '';
             if (profile && profile.name) {
-                if (profile.avatar) {
+                if (isHttpUrl(profile.avatar)) {
                     const img = document.createElement('img');
+                    img.width = 20;
+                    img.height = 20;
+                    img.decoding = 'async';
+                    // Provider CDNs do not need to know which app is asking, and a
+                    // referrer header on a file:// page is meaningless anyway.
+                    img.referrerPolicy = 'no-referrer';
+                    img.alt = '';
+                    // src last: the load only starts once it is set, so every
+                    // attribute above is already in place when it does.
                     img.src = profile.avatar;
-                    img.alt = 'avatar';
                     userInfoEl.appendChild(img);
+                    attachAvatarFallback(img, profile.name, 'user-avatar-fallback', profile.avatarFallback);
                 }
                 const span = document.createElement('span');
                 span.textContent = profile.name;
@@ -698,11 +727,15 @@ export async function ensureSidebarVersion(_state = {}) {
                     openAccountModal(current, syncedSummary(all), {
                         onSignOut: async () => {
                             try {
-                                await window.api?.logout?.();
+                                const result = await window.api?.logout?.();
+                                if (!result?.success) {
+                                    throw new Error(result?.error || 'Sign out failed');
+                                }
+                                window.location.reload();
                             } catch (err) {
                                 debug('error', 'Logout failed:', err);
+                                toast('Could not sign out. Please try again.', { type: 'error', title: 'Account' });
                             }
-                            window.location.reload();
                         },
                         onReset: async () => {
                             try {
@@ -771,6 +804,12 @@ export async function ensureSidebarVersion(_state = {}) {
         }
     }
 
+    refreshUserInfo = updateUserInfo;
+    if (!profileListenerAttached) {
+        profileListenerAttached = true;
+        window.api?.onUserProfileUpdated?.(() => { refreshUserInfo?.(); });
+    }
+
     updateUserInfo();
 }
 
@@ -778,6 +817,9 @@ export async function ensureSidebarVersion(_state = {}) {
 // CUSTOM APPS DATA
 // ============================================
 
+// Entries with a `resolver` key look up their current download URL at install
+// time (see src/modules/version-resolver.js). The `url` field is the fallback
+// used when that lookup fails — keep it pointing at a known-good build.
 export const CUSTOM_APPS = [
     {
         id: 'AdvancedInstaller.Crack',
@@ -794,23 +836,26 @@ export const CUSTOM_APPS = [
         category: 'Media'
     },
     {
-        id: 'Nvidia.GeForceExperience',
-        name: 'NVIDIA GeForce Experience',
-        url: 'https://us.download.nvidia.com/GFE/GFEClient/3.28.0.417/GeForce_Experience_v3.28.0.417.exe',
+        id: 'Nvidia.App',
+        name: 'NVIDIA App',
+        resolver: 'nvidia-app',
+        url: 'https://us.download.nvidia.com/nvapp/client/11.0.8.299/NVIDIA_app_v11.0.8.299.exe',
         ext: 'exe',
         category: 'Hardware'
     },
     {
         id: 'AMD.AdrenalinSoftware',
         name: 'AMD Graphics Driver',
-        url: 'https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-24.12.1-win10-win11-dec2024-rdna.exe',
+        resolver: 'amd-adrenalin',
+        url: 'https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.7.1-minimalsetup-260724_web.exe',
         ext: 'exe',
         category: 'Hardware'
     },
     {
         id: 'BetterDiscord.Dropbox',
         name: 'BetterDiscord',
-        url: 'https://www.dropbox.com/scl/fi/qdw73ry6cyqcn4d71aw5n/BetterDiscord-Windows.exe?rlkey=he0pheyexqjk42kwhdxv1cyry&dl=1',
+        resolver: 'betterdiscord',
+        url: 'https://www.dropbox.com/scl/fi/sjzh1xoiv87a20wvvesk4/BetterDiscord-Windows.exe?rlkey=bej8or99jo19189a7h2v6553e&dl=1',
         ext: 'exe',
         category: 'Communication'
     },
@@ -838,6 +883,7 @@ export const CUSTOM_APPS = [
     {
         id: 'Cursor.Dropbox',
         name: 'Cursor',
+        resolver: 'cursor',
         url: 'https://www.dropbox.com/scl/fi/bjjx57hosduostifzkjjr/Cursor.exe?rlkey=o60g8k5ct0j36bwysfk9sh53l&dl=1',
         ext: 'exe',
         category: 'Development'

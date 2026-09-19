@@ -70,11 +70,22 @@ async function downloadAndRun(button, config) {
                     ui.setStatus(`${config.downloadingText} 0%`);
                     ui.setProgress(0);
                     break;
-                case 'progress':
-                    button.textContent = `${config.downloadingText} ${data.percent}%`;
-                    ui.setStatus(`${config.downloadingText} ${data.percent}%`);
-                    ui.setProgress(data.percent);
+                case 'progress': {
+                    // A server that sends no Content-Length gives us no percentage.
+                    // Rendering it anyway produced the literal text "null%" and a
+                    // progress bar stuck at zero; fall back to bytes received and an
+                    // indeterminate bar.
+                    const hasPercent = typeof data.percent === 'number' && Number.isFinite(data.percent);
+                    const label = hasPercent
+                        ? `${config.downloadingText} ${data.percent}%`
+                        : (typeof data.received === 'number' && Number.isFinite(data.received))
+                            ? `${config.downloadingText} ${(data.received / (1024 * 1024)).toFixed(1)} MB`
+                            : `${config.downloadingText}…`;
+                    button.textContent = label;
+                    ui.setStatus(label);
+                    ui.setProgress(hasPercent ? data.percent : null);
                     break;
+                }
                 case 'complete': {
                     button.textContent = config.runningText;
                     ui.setStatus(config.runningText);

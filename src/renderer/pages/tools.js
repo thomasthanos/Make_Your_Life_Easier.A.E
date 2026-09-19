@@ -957,14 +957,59 @@ export async function buildCleanerPage(translations = {}) {
         setCleanerButtonContent(selectAllBtn, 'selectAll', checkedCount === rowControls.size && checkedCount > 0 ? (cleanerT.unselect_all || 'Unselect All') : (cleanerT.select_all || 'Select All'));
     }
 
+    /**
+     * Push the current task state onto an already-built row.
+     * A single scan changes phase four times, and rebuilding six rows from scratch
+     * each time threw away 60 elements, six SVG parses and six listeners per pass
+     * for what is really a handful of text and class changes.
+     * @param {Object} task - The cleaner task descriptor
+     * @param {Object} refs - Cached row elements from renderRows()
+     */
+    function applyRowState(task, refs) {
+        const data = taskState.get(task.id) || task;
+        // With the admin session active, protected items are selectable (the
+        // session cleans them silently). If the user declined admin, they lock.
+        const accessibleEmpty = !data.inaccessible && Number(data.sizeBytes || 0) <= 0;
+        const adminBlocked = data.inaccessible && !cleanerState.adminEnabled;
+        const isLocked = scanning || cleaning || accessibleEmpty || adminBlocked;
+
+        refs.row.classList.toggle('is-locked', isLocked && !scanning);
+        refs.row.classList.toggle('is-admin', Boolean(data.inaccessible));
+        refs.toggle.classList.toggle('is-disabled', isLocked);
+
+        refs.size.classList.remove('is-scanning', 'is-warning');
+        if (scanning) {
+            refs.size.textContent = cleanerT.scanning || 'Scanning...';
+            refs.size.classList.add('is-scanning');
+        } else if (data.inaccessible) {
+            refs.size.textContent = cleanerT.admin_needed || 'Admin needed';
+            refs.size.classList.add('is-warning');
+        } else {
+            refs.size.textContent = formatCleanerBytes(data.sizeBytes);
+        }
+
+        refs.detail.textContent = data.path || task.detail;
+        refs.checkbox.disabled = isLocked;
+        refs.checkbox.checked = !isLocked
+            && ((data.inaccessible && cleanerState.adminEnabled) || Number(data.sizeBytes || 0) > 0);
+    }
+
     function renderRows() {
+        // Already built — just refresh what changed.
+        if (rowControls.size === CLEANER_TASKS.length) {
+            CLEANER_TASKS.forEach((task) => {
+                const refs = rowControls.get(task.id);
+                if (refs) applyRowState(task, refs);
+            });
+            updateTotals();
+            return;
+        }
+
         list.innerHTML = '';
         rowControls.clear();
 
         CLEANER_TASKS.forEach((task) => {
             const data = taskState.get(task.id) || task;
-            // With the admin session active, protected items are selectable (the
-            // session cleans them silently). If the user declined admin, they lock.
             const accessibleEmpty = !data.inaccessible && Number(data.sizeBytes || 0) <= 0;
             const adminBlocked = data.inaccessible && !cleanerState.adminEnabled;
             const isLocked = scanning || cleaning || accessibleEmpty || adminBlocked;
@@ -1030,7 +1075,7 @@ export async function buildCleanerPage(translations = {}) {
             row.appendChild(content);
             row.appendChild(toggle);
             list.appendChild(row);
-            rowControls.set(task.id, { id: task.id, checkbox, size, row });
+            rowControls.set(task.id, { id: task.id, checkbox, size, row, detail, toggle });
         });
 
         updateTotals();
@@ -1922,5 +1967,11 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
     document.body.appendChild(overlay);
 
     document.addEventListener('keydown', escapeHandler);
+    // The dialog can also disappear without either button being pressed: loadPage()
+    // rips every .bios-overlay out of the DOM on navigation. That path removed the
+    // overlay but not this listener, so a later Escape still fired cancelBtn.click()
+    // and dragged the user back to the first page. Hang the teardown on the overlay
+    // so whoever removes it can run it.
+    overlay._cleanup = () => document.removeEventListener('keydown', escapeHandler);
     cancelBtn.focus();
 }

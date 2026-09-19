@@ -3,7 +3,7 @@
  * Contains UI components like header, modals, toasts, error cards
  */
 
-import { escapeHtml } from './utils.js';
+import { debug, escapeHtml } from './utils.js';
 
 // ============================================
 // ICON DEFINITIONS
@@ -25,7 +25,8 @@ const MENU_ICONS = {
     spicetify: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-music"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`,
     christitus: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-terminal"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" x2="20" y1="19" y2="19"></line></svg>`,
     bios: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-computer"><rect width="14" height="8" x="5" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><path d="M6 18h2"></path><path d="M12 18h6"></path></svg>`,
-    debloat: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-broom"><path d="m13 11 9-9"></path><path d="M14.6 12.6c.8.8.9 2.1.2 3L10 22l-8-8 6.4-4.8c.9-.7 2.2-.6 3 .2z"></path><path d="m6.8 10.4 6.8 6.8"></path><path d="m5 17 1.4-1.4"></path></svg>`
+    debloat: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-broom"><path d="m13 11 9-9"></path><path d="M14.6 12.6c.8.8.9 2.1.2 3L10 22l-8-8 6.4-4.8c.9-.7 2.2-.6 3 .2z"></path><path d="m6.8 10.4 6.8 6.8"></path><path d="m5 17 1.4-1.4"></path></svg>`,
+    game_saves: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-gamepad-2"><line x1="6" x2="10" y1="11" y2="11"></line><line x1="8" x2="8" y1="9" y2="13"></line><line x1="15" x2="15.01" y1="12" y2="12"></line><line x1="18" x2="18.01" y1="10" y2="10"></line><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"></path></svg>`
 };
 
 // ============================================
@@ -304,20 +305,6 @@ export function hideUpdateOverlay() {
 }
 
 // ============================================
-// APP LOADER
-// ============================================
-
-/**
- * Hide the application loader
- */
-export function hideAppLoader() {
-    const loader = document.getElementById('app-loader');
-    if (!loader) return;
-    loader.classList.add('hidden');
-    loader.classList.remove('visible');
-}
-
-// ============================================
 // INFO MODAL
 // ============================================
 
@@ -408,6 +395,66 @@ export async function openInfoModal() {
     document.body.appendChild(overlay);
 }
 
+/**
+ * Whether a value is safe to drop into an <img src>.
+ * The profile arrives over IPC already normalised, but this is the last stop
+ * before it reaches the DOM, so re-check the scheme here rather than trust it.
+ * @param {unknown} value - Candidate URL
+ * @returns {boolean} True for absolute http(s) URLs only
+ */
+export function isHttpUrl(value) {
+    if (typeof value !== 'string' || !value) return false;
+    try {
+        const { protocol } = new URL(value);
+        return protocol === 'https:' || protocol === 'http:';
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Recover a broken avatar image, and fall back to an initial-letter placeholder.
+ *
+ * Two things go wrong with provider avatars. Their URLs change whenever the user
+ * updates their picture, so an old cached URL 404s and would leave a broken-image
+ * icon in the UI. And an animated Discord avatar is served as `.gif` only while
+ * the account still has it — otherwise the CDN answers 415 and only the still
+ * rendition loads, which is what `altSrc` carries.
+ *
+ * So: try `altSrc` once, then show the initial. Uses a listener instead of an
+ * inline onerror handler because the renderer CSP blocks inline event handlers.
+ * @param {HTMLImageElement|null} img - The avatar image element
+ * @param {string} name - Display name used for the initial
+ * @param {string} fallbackClass - Class applied to the placeholder element
+ * @param {string|null} [altSrc] - Alternate source to try before giving up
+ */
+export function attachAvatarFallback(img, name, fallbackClass, altSrc = null) {
+    if (!img) return;
+
+    const showPlaceholder = () => {
+        const placeholder = document.createElement('div');
+        placeholder.className = fallbackClass;
+        placeholder.textContent = String(name || '?').trim().slice(0, 1).toUpperCase() || '?';
+        img.replaceWith(placeholder);
+    };
+
+    const onError = () => {
+        if (altSrc && isHttpUrl(altSrc) && img.src !== altSrc && !img.dataset.triedAlt) {
+            debug('warn', 'Avatar failed, trying the still rendition:', img.src);
+            img.dataset.triedAlt = '1';
+            img.addEventListener('error', showPlaceholder, { once: true });
+            img.src = altSrc;
+            return;
+        }
+        debug('warn', 'Avatar image failed to load:', img.src);
+        showPlaceholder();
+    };
+
+    img.addEventListener('error', onError, { once: true });
+    // The load may already have failed before this listener was attached.
+    if (img.complete && img.naturalWidth === 0) onError();
+}
+
 export function openAccountModal(profile, syncedItems = [], handlers = {}, texts = {}) {
     if (document.getElementById('account-modal-overlay')) return;
 
@@ -439,8 +486,8 @@ export function openAccountModal(profile, syncedItems = [], handlers = {}, texts
         ? `<ul class="account-sync-list">${rows}</ul>`
         : `<div class="account-sync-empty">${escapeHtml(texts.empty || 'No synced settings yet.')}</div>`;
 
-    const avatar = profile.avatar
-        ? `<img class="account-avatar" src="${escapeHtml(profile.avatar)}" alt="avatar">`
+    const avatar = isHttpUrl(profile.avatar)
+        ? `<img class="account-avatar" src="${escapeHtml(profile.avatar)}" alt="" width="72" height="72" decoding="async" referrerpolicy="no-referrer">`
         : `<div class="account-avatar account-avatar-fallback">${escapeHtml((profile.name || '?').slice(0, 1).toUpperCase())}</div>`;
 
     modal.innerHTML = `
@@ -469,6 +516,13 @@ export function openAccountModal(profile, syncedItems = [], handlers = {}, texts
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+
+    attachAvatarFallback(
+        modal.querySelector('img.account-avatar'),
+        profile.name,
+        'account-avatar account-avatar-fallback',
+        profile.avatarFallback
+    );
 
     const close = () => {
         document.removeEventListener('keydown', onKey);

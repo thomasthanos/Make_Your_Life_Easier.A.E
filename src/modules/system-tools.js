@@ -7,7 +7,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { getPowerShellExe } = require('./process-utils');
+const { getPowerShellExe, psFileArgumentList } = require('./process-utils');
 const { debug } = require('./debug');
 
 function runPowerShellJson(script) {
@@ -45,6 +45,7 @@ function psSingleQuote(value) {
   return String(value).replace(/'/g, "''");
 }
 
+
 function runElevatedPowerShellJson(script) {
   return new Promise((resolve) => {
     if (process.platform !== 'win32') {
@@ -78,8 +79,7 @@ ${script}
 `;
 
       fs.writeFileSync(psFile, wrappedScript, 'utf8');
-      const psFileArg = psFile.replace(/'/g, "''");
-      const command = `Start-Process powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','${psFileArg}') -Verb RunAs -WindowStyle Hidden -Wait`;
+      const command = `Start-Process powershell.exe -ArgumentList ${psFileArgumentList(psFile)} -Verb RunAs -WindowStyle Hidden -Wait`;
       const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command], { windowsHide: true });
 
       child.on('error', (error) => {
@@ -394,7 +394,6 @@ let _cleanerAdmin = null; // { dir, seq } | null
 
 function cleanerAdminPaths(dir) {
   return {
-    ready: path.join(dir, 'ready.flag'),
     alive: path.join(dir, 'alive.flag'),
     stop: path.join(dir, 'stop.flag')
   };
@@ -442,8 +441,6 @@ function Invoke-CleanerClean {
     $tasks = @($Tasks)
 ${CLEANER_CLEAN_BODY_PS}
 }
-
-Set-Content -LiteralPath (Join-Path $dir 'ready.flag') -Value 'ready' -Encoding UTF8
 
 while ($true) {
     if (Test-Path -LiteralPath (Join-Path $dir 'stop.flag')) { break }
@@ -511,11 +508,10 @@ async function enableCleanerAdminSession() {
     return { success: false, error: error.message };
   }
 
-  const workerPS = workerPath.replace(/'/g, "''");
   const launched = await new Promise((resolve) => {
     const launcher = spawn('powershell.exe', [
       '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
-      `Start-Process powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File','${workerPS}') -Verb RunAs -WindowStyle Hidden`
+      `Start-Process powershell.exe -ArgumentList ${psFileArgumentList(workerPath, ['-WindowStyle', 'Hidden'])} -Verb RunAs -WindowStyle Hidden`
     ], { windowsHide: true });
     launcher.on('error', () => resolve(false));
     // Exit code is non-zero when the user cancels the UAC dialog.
@@ -527,9 +523,7 @@ async function enableCleanerAdminSession() {
     return { success: false, enabled: false, code: 'UAC_DENIED', error: 'Administrator access was not granted.' };
   }
 
-  // Wait for the worker's heartbeat (written every loop iteration) so the
-  // session is provably serving before we hand it out — ready.flag alone can
-  // race the first alive.flag write and get the session discarded immediately.
+  // Wait for the worker's heartbeat so the session is provably serving.
   const { alive } = cleanerAdminPaths(dir);
   const deadline = Date.now() + 20000;
   while (Date.now() < deadline) {
@@ -770,8 +764,7 @@ try {
 `;
 
     // Elevate via PowerShell Start-Process -Verb RunAs (VBScript is disabled on Win11 24H2+)
-    const psPathPS = psPath.replace(/'/g, "''");
-    const launcherScript = `Start-Process powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','${psPathPS}') -Verb RunAs -WindowStyle Hidden -Wait`;
+    const launcherScript = `Start-Process powershell.exe -ArgumentList ${psFileArgumentList(psPath)} -Verb RunAs -WindowStyle Hidden -Wait`;
 
     try {
       fs.writeFileSync(psPath, psScript, 'utf8');
@@ -1038,7 +1031,10 @@ function runElevatedStreaming(name, innerBody, propagateExitCode, onOutput = () 
 function runChrisTitus(onOutput = () => { }) {
   return runElevatedStreaming(
     'christitus',
-    "`$ProgressPreference='SilentlyContinue'; irm christitus.com/win | iex",
+    // Scheme spelled out on purpose: without it Invoke-RestMethod defaults to
+    // http:// and relies on the server redirecting, so the first hop of a script
+    // that is about to run elevated travels in the clear.
+    "`$ProgressPreference='SilentlyContinue'; irm https://christitus.com/win | iex",
     false,
     onOutput
   );
@@ -1113,7 +1109,7 @@ function runElevatedConsoleTask(name, exe, exeArgs, onOutput = () => { }, extraC
     'Remove-Item $log -Force -ErrorAction SilentlyContinue',
     'New-Item -ItemType File -Path $log -Force | Out-Null',
     'try {',
-    ` $p = Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','${workerPath.replace(/'/g, "''")}') -PassThru`,
+    ` $p = Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList ${psFileArgumentList(workerPath)} -PassThru`,
     '} catch {',
     " Write-Output 'Administrator permission was denied.'",
     ' exit 1',

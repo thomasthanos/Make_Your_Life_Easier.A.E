@@ -34,11 +34,13 @@ const userProfile = require('../modules/user-profile');
 const supabase = require('../modules/supabase');
 const settingsStore = require('../modules/settings-store');
 const oauth = require('../modules/oauth');
+const { profileFromUser } = require('../modules/auth-profile');
 const systemTools = require('../modules/system-tools');
 const spicetifyModule = require('../modules/spicetify');
 const archiveUtils = require('../modules/archive-utils');
 const sparkleModule = require('../modules/sparkle');
 const sharedSecurity = require('../modules/security');
+const gameSaves = require('../modules/game-saves');
 
 // ============================================================================
 // Configuration
@@ -83,6 +85,9 @@ function signalInstallerWhenReady() {
     });
     setTimeout(write, 10000);
 }
+
+// Launched by the scheduled task: back up game saves and exit, with no window.
+const backupSavesMode = !installerMode && gameSaves.isBackupSavesLaunch(process.argv);
 
 if (!installerMode) signalInstallerWhenReady();
 
@@ -150,6 +155,13 @@ ipcHandlers.setupSpicetifyHandlers(spicetifyModule);
 // Installers
 ipcHandlers.setupInstallerHandlers(debug, security);
 
+// Game saves
+const gameSavesService = gameSaves.createGameSavesService({
+    getMainWindow: windowManager.getMainWindow,
+    settingsStore
+});
+ipcHandlers.setupGameSavesHandlers(gameSavesService);
+
 
 // Updater IPC handlers
 updater.setupUpdaterIpcHandlers({
@@ -169,6 +181,16 @@ if (!gotTheLock) {
     app.quit();
 } else if (!installerMode) {
     app.on('second-instance', (event, commandLine, workingDirectory) => {
+        // The scheduled task fired while the app is open: back up in this instance.
+        if (gameSaves.isBackupSavesLaunch(commandLine)) {
+            gameSavesService.runScheduledBackup({ headless: true }).catch(() => {});
+            return;
+        }
+        // This instance is a windowless scheduled backup and the user opened the app.
+        if (backupSavesMode && !windowManager.getMainWindow()) {
+            createMainWindow(false);
+            return;
+        }
         // Someone tried to run a second instance, focus our window instead
         const mainWindow = windowManager.getMainWindow();
         if (mainWindow) {
@@ -200,8 +222,58 @@ function cleanupStaleLockFiles() {
 }
 
 // ============================================================================
+// User Profile
+// ============================================================================
+
+/**
+ * Recompute the stored profile from a Supabase user and persist it if it changed.
+ * @param {Object} user - Supabase user object
+ * @param {Object|null} cached - Currently stored profile, used to keep the provider stable
+ * @returns {boolean} True when the stored profile was replaced
+ */
+function applyProfile(user, cached) {
+    // Resolve against the provider the user actually signed in with: a Supabase
+    // account can have Google and Discord linked to the same e-mail, and picking
+    // the wrong identity shows the other account's picture and provider badge.
+    const preferred = cached?.provider && cached.provider !== 'unknown' ? cached.provider : null;
+    const fresh = profileFromUser(user, preferred);
+    if (!fresh) return false;
+    if (fresh.provider === 'unknown' && cached?.provider) fresh.provider = cached.provider;
+
+    if (cached && cached.id === fresh.id && cached.name === fresh.name
+        && cached.avatar === fresh.avatar && cached.avatarFallback === fresh.avatarFallback
+        && cached.provider === fresh.provider) {
+        return false;
+    }
+    userProfile.set(fresh);
+    return true;
+}
+
+// ============================================================================
 // App Lifecycle
 // ============================================================================
+
+/**
+ * The scheduled task's launch: back up game saves, then quit unless the user
+ * opened a window in the meantime.
+ */
+async function runHeadlessBackup() {
+    try {
+        settingsStore.initialize(app.getPath('userData'));
+    } catch (err) {
+        debug('warn', 'Failed to initialize settings store:', err.message);
+    }
+    // Windows shows toast notifications only for an app with a user model id.
+    app.setAppUserModelId('com.kolokithes.makeyourlifeeasier');
+
+    const result = await gameSavesService.runScheduledBackup({ headless: true });
+    debug(result.success ? 'info' : 'warn', 'Scheduled game saves backup finished:', JSON.stringify(result.lastRun || result));
+
+    // Give the notification a moment to register before the process goes away.
+    setTimeout(() => {
+        if (BrowserWindow.getAllWindows().length === 0) app.quit();
+    }, 3000);
+}
 
 app.whenReady().then(async () => {
     // Installer / uninstaller mode: show only the themed Setup window and stop here
@@ -211,23 +283,56 @@ app.whenReady().then(async () => {
         return;
     }
 
+    // Scheduled backup: no window and no updater, just the backup.
+    if (backupSavesMode) {
+        if (gotTheLock) await runHeadlessBackup();
+        return;
+    }
+
     // Clean up stale lock files first
     cleanupStaleLockFiles();
 
     // 🧹 Clean up any leftover sparkle folder from a previous session where cleanup failed
     sparkleModule.cleanupLeftoverSparkle().catch(() => {});
 
-    downloadManager.cleanupLeftoverDownloads(debug);
+    if (gotTheLock) downloadManager.cleanupLeftoverDownloads(debug).catch(() => {});
 
     // Clean up any leftover update files from previous updates
     updater.cleanupUpdaterCache(debug);
 
+    try {
+        supabase.initialize(app.getPath('userData'));
+    } catch (err) {
+        debug('warn', 'Failed to initialize Supabase:', err.message);
+    }
+
     // Initialize user profile
     try {
         userProfile.initialize(app.getPath('userData'));
-        if (userProfile.get() && !(await supabase.getSessionUser())) {
+        const cached = userProfile.get();
+        const sessionUser = await supabase.getSessionUser();
+        if (cached && !sessionUser) {
             debug('warn', 'Clearing cached user profile because the Supabase session is missing.');
             userProfile.clear();
+        } else if (sessionUser) {
+            applyProfile(sessionUser, cached);
+            // Then renew from the auth server in the background. Discord/Google
+            // avatar URLs change when the user updates their picture, and the
+            // persisted session only carries the metadata snapshot from when its
+            // token was issued — so a stale URL keeps 404ing until we ask the
+            // server. Deliberately not awaited: this is a network round-trip and
+            // the window must not wait on it.
+            supabase.getFreshUser()
+                .then((freshUser) => {
+                    if (!freshUser) return;
+                    if (applyProfile(freshUser, userProfile.get())) {
+                        const win = windowManager.getMainWindow();
+                        if (win && !win.isDestroyed()) {
+                            win.webContents.send('user-profile-updated', userProfile.get());
+                        }
+                    }
+                })
+                .catch((err) => debug('warn', 'Background profile refresh failed:', err?.message || err));
         }
     } catch (err) {
         debug('warn', 'Failed to initialize user profile:', err.message);
@@ -250,11 +355,15 @@ app.whenReady().then(async () => {
         }
     } catch { /* ignore */ }
 
+    // Certificate trust spawns certutil once or twice, and awaiting it here held up
+    // the very first window on every launch. Nothing on screen depends on it — it
+    // only has to be in place before an update's installer runs, which is many
+    // seconds of downloading away — so let it settle in the background.
+    certificate.ensureCertificateTrusted().catch(() => {});
+
     if (skipUpdater || justUpdated) {
-        certificate.ensureCertificateTrusted().catch(() => {});
         createMainWindow(false); // start hidden and show when renderer signals ready
     } else {
-        await certificate.ensureCertificateTrusted();
         createUpdateWindow();
     }
 
@@ -271,6 +380,8 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
     if (updater.isQuittingForInstall()) return;
+    // A scheduled backup outlives a window opened during it, and quits by itself.
+    if (backupSavesMode && gameSavesService.isRunningScheduled()) return;
     if (process.platform !== 'darwin') app.quit();
 });
 
@@ -280,7 +391,11 @@ app.on('before-quit', () => {
         try { debug(level, ...args); } catch { /* pipe closed */ }
     };
 
-    downloadManager.cleanupOnQuit(safeDebug);
+    gameSavesService.dispose();
+
+    // Only the running app owns its downloads: a second launch that quits
+    // straight away, or the Setup window, must not delete them from under it
+    if (gotTheLock && !installerMode) downloadManager.cleanupOnQuit(safeDebug);
 
     // Stop the elevated cleaner admin worker, if one is running
     try { systemTools.stopCleanerAdminSession(); } catch { }

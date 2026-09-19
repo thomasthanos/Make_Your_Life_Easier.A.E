@@ -8,6 +8,30 @@ const os = require('os');
 const fs = require('fs');
 
 /**
+ * Whether `target` is inside `dir` (or is `dir` itself).
+ *
+ * A bare `startsWith` is not a containment test: with `dir` = C:\Users\me\Downloads
+ * it also accepts C:\Users\me\Downloads-old and C:\Users\me\DownloadsEvil, because
+ * the prefix matches without a separator behind it. Every boundary check in this
+ * module goes through here so the separator is never forgotten.
+ * @param {string} target - Absolute path being checked
+ * @param {string} dir - Absolute directory that should contain it
+ * @returns {boolean} True when target is dir or lives under it
+ */
+function isWithin(target, dir) {
+  try {
+    const resolvedDir = path.resolve(dir);
+    const relative = path.relative(resolvedDir, path.resolve(target));
+    // '' means the two are the same path; a leading '..' means target escaped it.
+    return relative === '' || (!relative.startsWith('..' + path.sep)
+      && relative !== '..'
+      && !path.isAbsolute(relative));
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Validate that a path is safe and doesn't contain injection patterns
  * @param {string} filePath - The path to validate
  * @returns {{valid: boolean, error?: string, normalized?: string}}
@@ -63,12 +87,40 @@ function validatePath(filePath) {
   ];
 
   for (const blocked of blockedPaths) {
-    if (resolved.toLowerCase().startsWith(blocked.toLowerCase())) {
+    if (isWithin(resolved, blocked)) {
       return { valid: false, error: 'Access to system directories is not allowed' };
     }
   }
 
   return { valid: true, normalized: resolved };
+}
+
+/**
+ * The directories this app legitimately writes into.
+ *
+ * Downloads and extraction targets arrive from the renderer, and the download
+ * manager writes an absolute `dest` verbatim while the extractor recursively
+ * removes its output directory before unpacking. Anchoring both to this list
+ * means a compromised renderer cannot drop a file into Startup or wipe a folder
+ * in the user's profile — the paths the app actually uses (its Downloads folder,
+ * %TEMP%, and its own userData directory) all live here.
+ * @param {string} [userDataPath] - app.getPath('userData'), when available
+ * @returns {string[]} Absolute directories that may be written to
+ */
+function writableRoots(userDataPath) {
+  const roots = [path.join(os.homedir(), 'Downloads'), os.tmpdir()];
+  if (userDataPath) roots.push(userDataPath);
+  return roots;
+}
+
+/**
+ * Whether a path sits inside one of the app's writable roots.
+ * @param {string} target - Absolute path to test
+ * @param {string} [userDataPath] - app.getPath('userData'), when available
+ * @returns {boolean} True when the path is an allowed write target
+ */
+function isWritableTarget(target, userDataPath) {
+  return writableRoots(userDataPath).some((root) => isWithin(target, root));
 }
 
 /**
@@ -88,14 +140,7 @@ function validateDeletePath(filePath, allowedDirs = []) {
 
   // If whitelist is provided, enforce it
   if (allowedDirs.length > 0) {
-    const isAllowed = allowedDirs.some(dir => {
-      try {
-        const resolvedDir = path.resolve(dir);
-        return resolved.toLowerCase().startsWith(resolvedDir.toLowerCase());
-      } catch {
-        return false;
-      }
-    });
+    const isAllowed = allowedDirs.some(dir => isWithin(resolved, dir));
 
     if (!isAllowed) {
       return { valid: false, error: 'File deletion is not allowed in this directory' };
@@ -113,8 +158,7 @@ function validateDeletePath(filePath, allowedDirs = []) {
     const tempDir = os.tmpdir();
     const downloadsDir = path.join(os.homedir(), 'Downloads');
     
-    const isInSafeDir = resolved.toLowerCase().startsWith(tempDir.toLowerCase()) ||
-                        resolved.toLowerCase().startsWith(downloadsDir.toLowerCase());
+    const isInSafeDir = isWithin(resolved, tempDir) || isWithin(resolved, downloadsDir);
     
     if (!isInSafeDir) {
       return { valid: false, error: 'Deletion of system executables is restricted' };
@@ -177,6 +221,9 @@ async function validateFileExists(filePath) {
 }
 
 module.exports = {
+  isWithin,
+  writableRoots,
+  isWritableTarget,
   validatePath,
   validateDeletePath,
   validateCommandArgs,
