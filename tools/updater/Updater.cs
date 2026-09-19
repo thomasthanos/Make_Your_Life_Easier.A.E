@@ -338,7 +338,7 @@ namespace MyleUpdater
             }
 
             float chipSize = 46f * _scale;
-            var chip = new RectangleF(track.X + 6f * _scale, track.Y + (track.Height - chipSize) / 2f, chipSize, chipSize);
+            var chip = new RectangleF(track.X + (6f * _scale), track.Y + ((track.Height - chipSize) / 2f), chipSize, chipSize);
             using (var chipBrush = new SolidBrush(Color.FromArgb(28, 255, 255, 255)))
             {
                 g.FillEllipse(chipBrush, chip);
@@ -346,7 +346,7 @@ namespace MyleUpdater
 
             // A 25 px spinner with a 4 px border, measured at the stroke centre
             float ringSize = 21f * _scale;
-            var ring = new RectangleF(chip.X + (chipSize - ringSize) / 2f, chip.Y + (chipSize - ringSize) / 2f, ringSize, ringSize);
+            var ring = new RectangleF(chip.X + ((chipSize - ringSize) / 2f), chip.Y + ((chipSize - ringSize) / 2f), ringSize, ringSize);
             using (var ringPen = new Pen(Color.FromArgb(56, 235, 244, 255), 4f * _scale))
             {
                 g.DrawEllipse(ringPen, ring);
@@ -359,7 +359,7 @@ namespace MyleUpdater
                 g.DrawArc(arcPen, ring, angle - 90f, 90f);
             }
 
-            var label = new RectangleF(chip.Right + 12f * _scale, track.Y, track.Right - chip.Right - 30f * _scale, track.Height);
+            var label = new RectangleF(chip.Right + (12f * _scale), track.Y, track.Right - chip.Right - (30f * _scale), track.Height);
             using (var brush = new SolidBrush(_statusColor))
             using (var format = new StringFormat(StringFormatFlags.NoWrap) { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter })
             {
@@ -425,13 +425,13 @@ namespace MyleUpdater
                         int bestSize = 0;
                         for (int i = 0; i < count; i++)
                         {
-                            int size = data[6 + i * 16] == 0 ? 256 : data[6 + i * 16];
+                            int size = data[6 + (i * 16)] == 0 ? 256 : data[6 + (i * 16)];
                             if (size > bestSize) { bestSize = size; best = i; }
                         }
                         if (best >= 0)
                         {
-                            int length = BitConverter.ToInt32(data, 6 + best * 16 + 8);
-                            int offset = BitConverter.ToInt32(data, 6 + best * 16 + 12);
+                            int length = BitConverter.ToInt32(data, 6 + (best * 16) + 8);
+                            int offset = BitConverter.ToInt32(data, 6 + (best * 16) + 12);
                             using (var frame = new MemoryStream(data, offset, length))
                             using (var image = Image.FromStream(frame))
                             {
