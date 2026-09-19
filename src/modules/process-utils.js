@@ -167,6 +167,28 @@ function getPowerShellExe() {
 }
 
 /**
+ * Environment for a Windows PowerShell 5.1 child process.
+ *
+ * PowerShell 7 puts its own module folders first in PSModulePath, and every
+ * process started under it inherits that: a pwsh terminal, or a CI step running
+ * in pwsh. Windows PowerShell 5.1 then finds 7's copies of its core modules
+ * first, cannot load them, and fails with "The 'Get-AuthenticodeSignature'
+ * command was found in the module 'Microsoft.PowerShell.Security', but the
+ * module could not be loaded". Without the variable, 5.1 builds its own
+ * default module path.
+ * @param {Object} [env] - Environment to start from
+ * @returns {Object} A copy of it without PSModulePath
+ */
+function windowsPowerShellEnv(env = process.env) {
+  const clean = { ...env };
+  for (const key of Object.keys(clean)) {
+    // Windows variable names are case-insensitive
+    if (key.toLowerCase() === 'psmodulepath') delete clean[key];
+  }
+  return clean;
+}
+
+/**
  * Build the `-ArgumentList` value for launching a .ps1 through Start-Process.
  *
  * Start-Process joins an `-ArgumentList` *array* with plain spaces and adds no
@@ -213,7 +235,7 @@ function getAuthenticodeStatus(filePath) {
     const escaped = String(filePath).replace(/'/g, "''");
     const script = `(Get-AuthenticodeSignature -LiteralPath '${escaped}').Status.ToString()`;
     const child = spawn(psExe, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script],
-      { windowsHide: true });
+      { windowsHide: true, env: windowsPowerShellEnv() });
 
     let out = '';
     const timer = setTimeout(() => { try { child.kill(); } catch { } resolve(null); }, 15000);
@@ -234,5 +256,6 @@ module.exports = {
   runStreamingCommand,
   attachChildProcessHandlers,
   getPowerShellExe,
+  windowsPowerShellEnv,
   psFileArgumentList
 };
