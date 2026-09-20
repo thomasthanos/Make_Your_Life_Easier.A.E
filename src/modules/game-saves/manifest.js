@@ -1,13 +1,3 @@
-/**
- * The Ludusavi manifest: where tens of thousands of games keep their saves.
- *
- * Upstream is ~17 MB of YAML covering every OS. It is fetched with the previous
- * ETag so an unchanged manifest costs one 304, reduced to what matters on
- * Windows, and cached as JSON so later scans skip the YAML parse entirely.
- *
- * Data: https://github.com/mtkennerly/ludusavi-manifest (MIT), compiled from
- * PCGamingWiki (CC BY-NC-SA) and the Steam API.
- */
 
 const path = require('path');
 const { readJson, writeJsonAtomic } = require('./io');
@@ -17,8 +7,6 @@ const CACHE_VERSION = 1;
 const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 
-// DOS titles run through DOSBox builds that ship for Windows, so their paths
-// apply here as well.
 const WINDOWS_OS = new Set(['windows', 'dos']);
 const LINUX_ONLY_PLACEHOLDER = /<xdg(Data|Config)>/;
 const ROOTED_TEMPLATE = /^(<[a-zA-Z]+>|[a-zA-Z]:[\\/])/;
@@ -31,11 +19,6 @@ function cacheFiles(cacheDir) {
   };
 }
 
-/**
- * Whether a `when` list lets an entry apply on Windows, and for which stores.
- * @param {Array|undefined} when - The entry's conditions
- * @returns {{applies: boolean, stores: string[]|null}} stores is null when any store qualifies
- */
 function windowsConditions(when) {
   if (!Array.isArray(when) || when.length === 0) return { applies: true, stores: null };
   let applies = false;
@@ -76,8 +59,6 @@ function compactRegistry(registry) {
   const out = [];
   for (const [rawKey, info] of Object.entries(registry)) {
     const key = String(rawKey).replace(/\//g, '\\').replace(/\\+$/, '');
-    // Only the current user's hive. Restoring HKLM needs elevation and writes
-    // machine-wide state on behalf of one user's save.
     if (!key.toUpperCase().startsWith(HKCU_PREFIX) || key.length <= HKCU_PREFIX.length) continue;
     if (!windowsConditions(info && info.when).applies) continue;
     const item = { key: HKCU_PREFIX + key.slice(HKCU_PREFIX.length) };
@@ -95,16 +76,10 @@ function idList(primary, extra) {
     .map(String))];
 }
 
-/**
- * Reduce the parsed manifest to Windows-relevant games with save data.
- * @param {Object} raw - Parsed manifest (game name → entry)
- * @returns {Array<Object>} Compact game records
- */
 function compactManifest(raw) {
   const games = [];
   if (!raw || typeof raw !== 'object') return games;
   for (const [name, entry] of Object.entries(raw)) {
-    // An alias only points at another entry, which is scanned in its own right.
     if (!entry || typeof entry !== 'object' || entry.alias) continue;
     const files = compactFiles(entry.files);
     const registry = compactRegistry(entry.registry);
@@ -134,11 +109,6 @@ function parseManifestYaml(text) {
   return yaml.load(text, { schema: yaml.CORE_SCHEMA, json: true });
 }
 
-/**
- * The cached compact manifest, or null when there is none or it is outdated.
- * @param {string} cacheDir - Directory holding the cache
- * @returns {{games: Array<Object>, meta: Object}|null}
- */
 function loadCachedManifest(cacheDir) {
   const files = cacheFiles(cacheDir);
   const meta = readJson(files.meta);
@@ -148,25 +118,11 @@ function loadCachedManifest(cacheDir) {
   return { games: data.games, meta };
 }
 
-/**
- * Only the cache metadata (game count, last update), without loading the games.
- * @param {string} cacheDir - Directory holding the cache
- * @returns {Object|null}
- */
 function readManifestMeta(cacheDir) {
   const meta = readJson(cacheFiles(cacheDir).meta);
   return meta && meta.version === CACHE_VERSION ? meta : null;
 }
 
-/**
- * Return the manifest, refreshing the cache when it is a day old or when forced.
- * An unreachable network falls back to the cache; without one it is an error.
- * @param {Object} options
- * @param {string} options.cacheDir - Directory holding the cache
- * @param {boolean} [options.force=false] - Check upstream even if the cache is fresh
- * @param {Function} [options.onProgress] - Receives {phase}
- * @returns {Promise<{games: Array<Object>, meta: Object, source: string, offline?: boolean}>}
- */
 async function ensureManifest({ cacheDir, force = false, now = Date.now(), fetchImpl = globalThis.fetch, parse = parseManifestYaml, onProgress } = {}) {
   const files = cacheFiles(cacheDir);
   const cached = loadCachedManifest(cacheDir);

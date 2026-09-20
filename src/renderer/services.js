@@ -1,25 +1,14 @@
 import { setUiTranslations, uiText } from './ui-text.js';
-/**
- * Renderer Services
- * Contains business logic for downloads, updates, and settings
- */
 
 import { debug, escapeHtml, getAppVersionWithFallback, normalizeVersion, normalizeVersionTag } from './utils.js';
 import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay, openAccountModal, attachAvatarFallback, isHttpUrl } from './components.js';
 import { attachTooltipHandlers } from './managers.js';
 
-// ============================================
-// SETTINGS MANAGEMENT
-// ============================================
 
 const defaultSettings = {
     lang: 'en'
 };
 
-/**
- * Load settings from localStorage with defaults
- * @returns {Object} Settings object
- */
 export function loadSettings() {
     try {
         const saved = JSON.parse(localStorage.getItem('myAppSettings'));
@@ -31,19 +20,12 @@ export function loadSettings() {
     }
 }
 
-/**
- * Save settings to localStorage
- * @param {Object} settings - Settings object to save
- */
 export function saveSettings(settings) {
     const normalized = { ...(settings || {}) };
     delete normalized.theme;
     localStorage.setItem('myAppSettings', JSON.stringify(normalized));
 }
 
-/**
- * Apply theme to document
- */
 export function applyTheme() {
     document.documentElement.setAttribute('data-theme', 'dark');
 }
@@ -106,20 +88,9 @@ function syncedSummary(all) {
     ];
 }
 
-// ============================================
-// TRANSLATIONS
-// ============================================
 
 let translations = {};
 
-/**
- * Load translations for the specified language
- * @param {string} lang - Language code
- * @returns {Promise<Object>} Translations object
- */
-// Parsed language files, kept for the session. The bundle ships with the app and
-// cannot change while it runs, but loadTranslations() is called again on every
-// language toggle — and each call re-fetched and re-parsed ~18-26 KB of JSON.
 const translationCache = new Map();
 
 export async function loadTranslations(lang) {
@@ -143,7 +114,6 @@ export async function loadTranslations(lang) {
                 return translations;
             }
         } catch (e) {
-            // Try next candidate
         }
     }
 
@@ -153,23 +123,12 @@ export async function loadTranslations(lang) {
     return translations;
 }
 
-/**
- * Set translations object (for external use)
- * @param {Object} trans - Translations object
- */
 export function setTranslations(trans) {
     translations = trans;
     setUiTranslations(trans);
 }
 
-// ============================================
-// AUTO-UPDATER
-// ============================================
 
-/**
- * Initialize the auto-updater functionality
- * @param {Object} callbacks - Optional callbacks for update events
- */
 let autoUpdaterInitialized = false;
 
 export function initializeAutoUpdater() {
@@ -251,16 +210,15 @@ export function initializeAutoUpdater() {
             case 'downloading': {
                 updateBtn.classList.add('downloading');
                 const percent = Math.round(data.percent || 0);
-                
-                // Format detailed tooltip for title bar button
+
                 const transferred = data.transferred || 0;
                 const total = data.totalBytes || 0;
                 const speed = data.bytesPerSecond || 0;
-                
+
                 const transferredMB = (transferred / (1024 * 1024)).toFixed(2);
                 const totalMB = (total / (1024 * 1024)).toFixed(2);
                 const speedMB = (speed / (1024 * 1024)).toFixed(2);
-                
+
                 let tooltipText = uiText('downloading_percent', '', { percent });
                 if (total > 0) {
                     tooltipText += ` (${transferredMB}/${totalMB} MB)`;
@@ -268,18 +226,16 @@ export function initializeAutoUpdater() {
                 if (speed > 0) {
                     tooltipText += ` • ${speedMB} MB/s`;
                 }
-                
+
                 updateBtn.setAttribute('data-tooltip', tooltipText);
-                
-                // Update progress ring in title bar
+
                 const circle = updateBtn.querySelector('.progress-ring circle');
                 if (circle) {
                     const circumference = 2 * Math.PI * 10;
                     const offset = circumference - (percent / 100) * circumference;
                     circle.style.strokeDashoffset = offset;
                 }
-                
-                // Show overlay with detailed information
+
                 showUpdateOverlay();
                 updateUpdateOverlay(percent, uiText("update_download", "Downloading update..."), {
                     bytesPerSecond: data.bytesPerSecond,
@@ -307,25 +263,13 @@ export function initializeAutoUpdater() {
     });
 }
 
-// ============================================
-// CHANGELOG
-// ============================================
 
-/**
- * Check if changelog should be shown for this version
- * @param {string} version - Version string
- * @returns {boolean}
- */
 function shouldShowChangelog(version) {
     const key = normalizeVersionTag(version);
     if (!key) return true;
     return localStorage.getItem('changelog_shown_version') !== key;
 }
 
-/**
- * Mark changelog as shown for this version
- * @param {string} version - Version string
- */
 function markChangelogShown(version) {
     const key = normalizeVersionTag(version);
     if (key) {
@@ -335,10 +279,6 @@ function markChangelogShown(version) {
     }
 }
 
-/**
- * Fetch release notes from GitHub for current version
- * @returns {Promise<Object|null>} Release info or null
- */
 async function fetchReleaseNotesFromGithub() {
     try {
         const rawVersion = await getAppVersionWithFallback();
@@ -373,17 +313,11 @@ async function fetchReleaseNotesFromGithub() {
     }
 }
 
-/**
- * Format release notes with basic markdown support
- * @param {string} notes - Release notes text
- * @returns {string} Formatted HTML
- */
 function formatReleaseNotes(notes) {
     if (!notes) return '';
 
     let text = typeof notes === 'string' ? notes : String(notes);
 
-    // XSS Protection
     text = escapeHtml(text)
         .replace(/javascript:/gi, '')
         .replace(/data:/gi, '')
@@ -392,7 +326,6 @@ function formatReleaseNotes(notes) {
         .replace(/<script[^>]*>.*?<\/script>/gis, '')
         .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '');
 
-    // GitHub-style alerts
     text = text.replace(/^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*\n((?:(?!^>\s*\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\])(?:>\s?.*|\s*)\n?)*)/gmi, (match, type, content) => {
         const map = { NOTE: 'note', TIP: 'tip', IMPORTANT: 'important', WARNING: 'warning', CAUTION: 'caution' };
         const cls = map[type] || 'note';
@@ -457,10 +390,6 @@ function formatReleaseNotes(notes) {
     return text;
 }
 
-/**
- * Show the changelog modal
- * @param {Object} updateInfo - Update info object with version, releaseName, releaseNotes
- */
 async function showChangelog(updateInfo) {
     if (!shouldShowChangelog(updateInfo?.version)) return;
     markChangelogShown(updateInfo?.version || 'unknown');
@@ -575,13 +504,10 @@ async function showChangelog(updateInfo) {
     });
 }
 
-/**
- * Check for changelog after app update
- */
 let changelogShown = false;
 export async function checkForChangelog() {
     if (changelogShown) return;
-    changelogShown = true; // Set immediately to prevent re-entry
+    changelogShown = true;
     try {
         let result;
         if (window.api && typeof window.api.getUpdateInfo === 'function') {
@@ -603,7 +529,7 @@ export async function checkForChangelog() {
                             releaseName: info.releaseName || fetched.releaseName
                         };
                     }
-                } catch { /* fall back to default message */ }
+                } catch {  }
             }
             setTimeout(() => showChangelog(info), 1000);
             return;
@@ -628,29 +554,18 @@ export async function checkForChangelog() {
         if (fetched) {
             setTimeout(() => showChangelog(fetched), 1000);
         } else {
-            changelogShown = false; // No changelog found — allow retry
+            changelogShown = false;
         }
     } catch (error) {
-        changelogShown = false; // Allow retry on error
+        changelogShown = false;
         console.error('Error checking changelog:', error);
     }
 }
 
-// ============================================
-// SIDEBAR VERSION
-// ============================================
 
-// The main process renews the signed-in profile from the auth server shortly after
-// launch and pushes the result here. `ensureSidebarVersion` can run more than once,
-// so keep a single IPC listener and repoint it at the current renderer instead of
-// stacking a new listener on every call.
 let refreshUserInfo = null;
 let profileListenerAttached = false;
 
-/**
- * Ensure the sidebar version badge is present and updated
- * @param {Object} state - App state with settings
- */
 export async function ensureSidebarVersion(_state = {}) {
     const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
     if (!sidebar) return;
@@ -673,7 +588,6 @@ export async function ensureSidebarVersion(_state = {}) {
 
     sidebar.querySelector('.version-wrap')?.setAttribute('data-tooltip', uiText('app_version'));
     const setSafe = (txt) => {
-        // Re-query to avoid stale reference after DOM changes
         const el = document.getElementById('appVersion');
         if (el) el.textContent = txt;
     };
@@ -691,7 +605,6 @@ export async function ensureSidebarVersion(_state = {}) {
         }
     }, 800);
 
-    // User info update function
     async function updateUserInfo() {
         const userInfoEl = document.getElementById('userInfo');
         if (!userInfoEl) return;
@@ -709,12 +622,8 @@ export async function ensureSidebarVersion(_state = {}) {
                     img.width = 20;
                     img.height = 20;
                     img.decoding = 'async';
-                    // Provider CDNs do not need to know which app is asking, and a
-                    // referrer header on a file:// page is meaningless anyway.
                     img.referrerPolicy = 'no-referrer';
                     img.alt = '';
-                    // src last: the load only starts once it is set, so every
-                    // attribute above is already in place when it does.
                     img.src = profile.avatar;
                     userInfoEl.appendChild(img);
                     attachAvatarFallback(img, profile.name, 'user-avatar-fallback', profile.avatarFallback);
@@ -819,13 +728,7 @@ export async function ensureSidebarVersion(_state = {}) {
     updateUserInfo();
 }
 
-// ============================================
-// CUSTOM APPS DATA
-// ============================================
 
-// Entries with a `resolver` key look up their current download URL at install
-// time (see src/modules/version-resolver.js). The `url` field is the fallback
-// used when that lookup fails — keep it pointing at a known-good build.
 export const CUSTOM_APPS = [
     {
         id: 'AdvancedInstaller.Crack',

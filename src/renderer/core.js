@@ -1,9 +1,5 @@
 import { uiText } from './ui-text.js';
 import { initTooltips, hideTooltips } from './tooltips.js';
-/**
- * Renderer Core
- * Contains page loading, initialization, and main application state
- */
 
 import { debug } from './utils.js';
 import { attachTooltipHandlers, buttonStateManager, detachAllDownloadUI, initDownloadListener } from './managers.js';
@@ -14,22 +10,16 @@ import {
     syncPref, hydratePrefsFromCloud
 } from './services.js';
 
-// Default window dimensions (must match window-manager.js MAIN_WINDOW)
 const DEFAULT_WINDOW_WIDTH = 1100;
 const DEFAULT_WINDOW_HEIGHT = 750;
 
-// ============================================
-// APPLICATION STATE
-// ============================================
 
 let currentPage = null;
 let pageLoadGeneration = 0;
 let translations = {};
 let settings = {};
 
-// Use singleton buttonStateManager from managers.js (imported above)
 
-// Menu keys for sidebar navigation
 const menuGroups = [
     { key: 'nav_apps', label: 'Applications', pages: ['install_apps', 'crack_installer'] },
     { key: 'nav_system', label: 'System', pages: ['system_cleaner', 'system_maintenance', 'activate_autologin', 'bios'] },
@@ -37,9 +27,6 @@ const menuGroups = [
 ];
 const menuKeys = menuGroups.flatMap(group => group.pages);
 
-// ============================================
-// HEADER UPDATE
-// ============================================
 
 function updateHeader() {
     const labels = {
@@ -157,9 +144,6 @@ function updateHeader() {
     }
 }
 
-// ============================================
-// MENU RENDERING
-// ============================================
 
 function renderMenu() {
     const menuList = document.getElementById('menu-list');
@@ -208,14 +192,7 @@ function renderMenu() {
     updateHeader();
 }
 
-// ============================================
-// PAGE LOADING
-// ============================================
 
-/**
- * Run and clear the teardown callbacks a page registered on its root element.
- * @param {Element|null} pageRoot - The outgoing page's root element
- */
 function runPageCleanup(pageRoot) {
     const callbacks = pageRoot && pageRoot._pageCleanup;
     if (!Array.isArray(callbacks)) return;
@@ -235,15 +212,13 @@ export async function loadPage(key) {
     });
     const generation = ++pageLoadGeneration;
 
-    // Detach download UI callbacks before destroying DOM (downloads continue in background)
     detachAllDownloadUI();
 
-    // Cleanup previous page's button states
     buttonStateManager.resetAll();
 
     document.querySelectorAll('.bios-overlay').forEach((el) => {
         if (typeof el._cleanup === 'function') {
-            try { el._cleanup(); } catch { /* already torn down */ }
+            try { el._cleanup(); } catch {  }
         }
         el.remove();
     });
@@ -259,11 +234,9 @@ export async function loadPage(key) {
         if (generation !== pageLoadGeneration) return;
     }
 
-    // Single consistent window width (no per-page resize)
     const targetWidth = DEFAULT_WINDOW_WIDTH;
     const targetHeight = DEFAULT_WINDOW_HEIGHT;
-    
-    // Resize BEFORE changing content so old content fills the new size
+
     try {
         if (window.api && typeof window.api.setWindowSize === 'function') {
             await window.api.setWindowSize(targetWidth, targetHeight);
@@ -272,12 +245,8 @@ export async function loadPage(key) {
 
     if (generation !== pageLoadGeneration) return;
 
-    // Run the outgoing page's teardown. Builders register anything that outlives
-    // their own DOM here — document-level listeners, pending debounces — because
-    // replaceChildren() only collects listeners attached to the nodes it removes.
     runPageCleanup(content.firstElementChild);
 
-    // Now clear and load new content
     content.replaceChildren();
     content.classList.remove('page-leaving');
     try {
@@ -361,7 +330,6 @@ export async function loadPage(key) {
         if (generation === pageLoadGeneration && page) {
             content.appendChild(page);
         } else if (page) {
-            // A later navigation can finish while this builder is awaiting data.
             runPageCleanup(page);
         }
     } catch (err) {
@@ -371,23 +339,11 @@ export async function loadPage(key) {
     }
 }
 
-// ============================================
-// INITIALIZATION
-// ============================================
 
-/**
- * Push a splash-screen progress step without waiting for it.
- *
- * These five calls only paint a percentage in the updater window, and when the app
- * starts with --no-updater that window does not exist at all — so awaiting them
- * added five sequential IPC round-trips to boot in exchange for nothing.
- * @param {number} percent - Progress percentage
- * @param {string} message - Status line for the splash
- */
 function reportBootProgress(percent, message) {
     try {
         window.api?.updateLoadingProgress?.(percent, message)?.catch?.(() => {});
-    } catch { /* no splash window, nothing to report to */ }
+    } catch {  }
 }
 
 export async function init() {
@@ -396,50 +352,38 @@ export async function init() {
 
         await hydratePrefsFromCloud();
 
-        // Load settings
         settings = loadSettings();
 
-        // Initialize persistent download event listener (survives page switches)
         initDownloadListener();
 
-        // Apply theme
         applyTheme();
-        
+
         reportBootProgress(40, 'Loading translations...');
 
-        // Load translations
         translations = await loadTranslations(settings.lang);
         setTranslations(translations);
-        
+
         reportBootProgress(60, 'Building interface...');
 
-        // Render menu
         initTooltips();
         renderMenu();
 
-        // Ensure sidebar version is displayed
         await ensureSidebarVersion({ settings });
-        
+
         reportBootProgress(80, 'Initializing...');
 
-        // Initialize auto-updater
         initializeAutoUpdater();
 
-        // Load default page
         const menuList = document.getElementById('menu-list');
         const defaultButton = menuList?.querySelector('button[data-key]');
         if (defaultButton) {
             await loadPage(defaultButton.dataset.key);
         }
-        
-        // The 150 ms pause that used to sit here existed only so the splash could
-        // paint 95% before it jumped to 100% — dead time on every single launch.
+
         reportBootProgress(95, 'Almost ready...');
 
-        // Signal to main process that app is ready FIRST (for updater window transition)
         if (window.api && typeof window.api.signalAppReady === 'function') {
             try {
-                // Determine target size for the default page so main can size the window before showing it
                 const targetWidthDefault = DEFAULT_WINDOW_WIDTH;
                 const targetHeightDefault = DEFAULT_WINDOW_HEIGHT;
                 await window.api.signalAppReady(targetWidthDefault, targetHeightDefault);
@@ -448,15 +392,13 @@ export async function init() {
                 debug('warn', 'Failed to signal app ready:', err);
             }
         }
-        
-        // Check for changelog after everything is ready
+
         setTimeout(() => {
             checkForChangelog();
         }, 1500);
     } catch (error) {
         debug('error', 'Initialization error:', error);
-        
-        // Signal app ready even on error, to close update window
+
         if (window.api && typeof window.api.signalAppReady === 'function') {
             try {
                 await window.api.signalAppReady(undefined, undefined, false);
@@ -467,7 +409,6 @@ export async function init() {
     }
 }
 
-// Export for global access
 export {
     translations,
     settings,

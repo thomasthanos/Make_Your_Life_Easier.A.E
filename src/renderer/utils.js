@@ -1,17 +1,5 @@
-/**
- * Renderer Utilities
- * Contains debug logging, debounce, UI helpers and common utility functions
- */
 
-// ============================================
-// DEBUG LOGGING
-// ============================================
 
-/**
- * Log a debug message with colored output
- * @param {'info'|'warn'|'error'|'success'} level - Log level
- * @param  {...any} args - Arguments to log
- */
 export function debug(level, ...args) {
     const emojiMap = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
     const colorMap = {
@@ -36,15 +24,7 @@ export function debug(level, ...args) {
     }
 }
 
-// ============================================
-// HTML ESCAPE
-// ============================================
 
-/**
- * Escapes HTML special characters to prevent XSS attacks
- * @param {string} text - The text to escape
- * @returns {string} The escaped text safe for innerHTML
- */
 export function escapeHtml(text) {
     if (text == null) return '';
     const str = String(text);
@@ -58,17 +38,7 @@ export function escapeHtml(text) {
     return str.replace(/[&<>"']/g, (char) => htmlEscapeMap[char]);
 }
 
-// ============================================
-// DEBOUNCE
-// ============================================
 
-/**
- * Creates a debounced version of a function that delays execution
- * until after the specified wait time has elapsed since the last call.
- * @param {Function} func - The function to debounce
- * @param {number} wait - Milliseconds to wait (default: 300)
- * @returns {Function} Debounced function with .cancel() method
- */
 export function debounce(func, wait = 300) {
     let timeoutId = null;
 
@@ -93,15 +63,7 @@ export function debounce(func, wait = 300) {
     return debounced;
 }
 
-// ============================================
-// PATH UTILITIES
-// ============================================
 
-/**
- * Get the directory name from a file path
- * @param {string} filePath - The file path
- * @returns {string} The directory name
- */
 function getDirectoryName(filePath) {
     if (!filePath || typeof filePath !== 'string') {
         return '';
@@ -110,12 +72,6 @@ function getDirectoryName(filePath) {
     return idx === -1 ? '' : filePath.substring(0, idx);
 }
 
-/**
- * Get the base name from a file path
- * @param {string} filePath - The file path
- * @param {string} ext - Extension to remove (optional)
- * @returns {string} The base name
- */
 export function getBaseName(filePath, ext = '') {
     if (!filePath || typeof filePath !== 'string') {
         return '';
@@ -133,11 +89,6 @@ export function getBaseName(filePath, ext = '') {
     return fileName;
 }
 
-/**
- * Get the extracted folder path from a zip path
- * @param {string} zipPath - The zip file path
- * @returns {string} The expected extracted folder path
- */
 export function getExtractedFolderPath(zipPath) {
     const parentDir = getDirectoryName(zipPath);
     const baseName = getBaseName(zipPath, '.zip');
@@ -145,15 +96,7 @@ export function getExtractedFolderPath(zipPath) {
     return `${parentDir}${sep}${baseName}`;
 }
 
-// ============================================
-// VERSION UTILITIES
-// ============================================
 
-/**
- * Normalize a version string (remove 'v' prefix, validate format)
- * @param {string} v - Version string
- * @returns {string|null} Normalized version or null if invalid
- */
 export function normalizeVersion(v) {
     if (!v) return null;
     v = String(v).trim().replace(/^v/i, '');
@@ -164,20 +107,11 @@ export function normalizeVersion(v) {
     return v;
 }
 
-/**
- * Normalize version and add 'v' prefix
- * @param {string} v - Version string
- * @returns {string|null} Normalized version with 'v' prefix or null
- */
 export function normalizeVersionTag(v) {
     const normalized = normalizeVersion(v);
     return normalized ? `v${normalized}` : null;
 }
 
-/**
- * Get the app version with fallback options
- * @returns {Promise<string>} Version string with 'v' prefix
- */
 export async function getAppVersionWithFallback() {
     try {
         if (window.api?.getAppVersion) {
@@ -196,7 +130,6 @@ export async function getAppVersionWithFallback() {
                 if (v) return `v${v}`;
             }
         } catch {
-            // Try next candidate
         }
     }
     const envV = normalizeVersion(typeof process !== 'undefined' ? process?.env?.npm_package_version : null);

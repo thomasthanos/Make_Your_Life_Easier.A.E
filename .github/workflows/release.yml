@@ -39,8 +39,6 @@ jobs:
         if ([string]::IsNullOrWhiteSpace($env:CERT_B64))  { throw "Secret WIN_CSC_LINK is empty" }
         if ([string]::IsNullOrWhiteSpace($env:CERT_PASS)) { throw "Secret WIN_CSC_KEY_PASSWORD is empty" }
 
-        # A secret pasted with surrounding quotes is a silent killer here: signtool
-        # only ever reports "The specified PFX password is not correct".
         $pass = $env:CERT_PASS.Trim().Trim('"').Trim("'")
         Write-Host "::add-mask::$pass"
 
@@ -48,11 +46,9 @@ jobs:
         $pfx = Join-Path $PWD 'config/signing/certificate.pfx'
         [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT_B64.Trim()))
 
-        # Fail here with a readable message instead of deep inside electron-builder
         $cert = (Get-PfxData -FilePath $pfx -Password (ConvertTo-SecureString $pass -AsPlainText -Force)).EndEntityCertificates[0]
         Write-Host "Signing certificate: $($cert.Subject) — expires $($cert.NotAfter)"
 
-        # Hand the normalised values to the build step
         "CSC_LINK=$pfx"           | Out-File $env:GITHUB_ENV -Append -Encoding utf8
         "CSC_KEY_PASSWORD=$pass"  | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -87,12 +83,9 @@ jobs:
         if (-not $zip -or -not $appZip) { throw 'Update zips are missing from artifacts/dist' }
         $zipArgs = @('--content-type', 'application/zip', '--cache-control', 'no-cache')
 
-        # Everything latest.yml names goes up first: running apps start
-        # downloading those files the moment latest.yml changes.
         Publish $zip.FullName $zip.Name $zipArgs
         Publish $appZip.FullName $appZip.Name $zipArgs
 
-        # Users must be served exactly what latest.yml describes
         foreach ($file in @($zip, $appZip)) {
           $served = Join-Path $env:RUNNER_TEMP $file.Name
           Invoke-WebRequest -Uri "$feedUrl/$($file.Name)" -OutFile $served -Headers @{ 'Cache-Control' = 'no-cache' }
@@ -105,8 +98,6 @@ jobs:
 
         Publish "$dist/latest.yml" 'latest.yml' @('--content-type', 'text/yaml', '--cache-control', 'no-cache')
 
-        # The installers are not part of the update feed. Publishing them last
-        # leaves R2 untouched when anything above fails.
         Publish "$dist/MakeYourLifeEasier-Setup.exe" 'MakeYourLifeEasier-installer.exe'
         Publish "$dist/MakeYourLifeEasier-Portable.exe" 'MakeYourLifeEasier-Portable.exe'
 
@@ -114,7 +105,6 @@ jobs:
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        # The app-only update package is published to R2 only
         files: |
           artifacts/dist/*.exe
           artifacts/dist/MakeYourLifeEasier-win.zip

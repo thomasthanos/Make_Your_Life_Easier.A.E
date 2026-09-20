@@ -59,7 +59,6 @@ body {
   transform: scale(0.96);
 }
 
-/* ── Titlebar ── */
 .titlebar {
   height: 36px;
   flex: 0 0 auto;
@@ -113,7 +112,6 @@ body {
   color: #fff;
 }
 
-/* ── Hero ── */
 .hero {
   flex: 0 0 auto;
   display: flex;
@@ -142,7 +140,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Views ── */
 .view {
   flex: 1 1 auto;
   display: flex;
@@ -155,7 +152,6 @@ body {
   display: none;
 }
 
-/* ── Grouped lists ── */
 .group {
   border-radius: var(--radius-md);
   background: var(--surface-1);
@@ -227,7 +223,6 @@ body {
   color: var(--accent-hover);
 }
 
-/* ── Toggle rows / switches ── */
 .row--toggle {
   cursor: pointer;
 }
@@ -273,7 +268,6 @@ body {
   box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.35);
 }
 
-/* ── Inline error ── */
 .inline-error {
   margin-bottom: 10px;
   padding: 8px 12px;
@@ -289,7 +283,6 @@ body {
   display: none;
 }
 
-/* ── Actions ── */
 .actions {
   margin-top: auto;
   display: flex;
@@ -355,7 +348,6 @@ button:disabled {
   cursor: default;
 }
 
-/* ── Progress view ── */
 #view-progress {
   justify-content: center;
   align-items: center;
@@ -405,7 +397,6 @@ button:disabled {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Done view ── */
 #view-done {
   justify-content: center;
   align-items: center;
@@ -493,7 +484,6 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-/* ── Launching view ── */
 #view-launching {
   justify-content: center;
   align-items: center;
@@ -523,7 +513,6 @@ button:disabled {
   color: var(--text-secondary);
 }
 
-/* ── Uninstall view ── */
 #view-uninstall {
   justify-content: center;
   gap: 18px;

@@ -1,13 +1,6 @@
-/**
- * Media Page
- * Contains Spicetify page
- */
 
 import { toast, closeOtherTerminals, openTerminal } from '../components.js';
 
-// ============================================
-// SPICETIFY ICONS
-// ============================================
 
 const ICON_INSTALL_SPICETIFY = `
 <svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="56" height="56" viewBox="0 0 320.000000 400.000000" preserveAspectRatio="xMidYMid meet">
@@ -54,9 +47,6 @@ const ICON_FULL_UNINSTALL_SPOTIFY = `
 </svg>
 `;
 
-// ============================================
-// SPICETIFY PAGE
-// ============================================
 
 export function buildSpicetifyPage(translations, settings) {
     const container = document.createElement('div');
@@ -299,16 +289,11 @@ export function buildSpicetifyPage(translations, settings) {
         }
     });
 
-    // Helper function for running Spicetify actions
     async function runAction(action, successMsg, errorMsg, button) {
         if (installing) return;
         installing = true;
         setSpotifyCardState(button, 'busy');
         button.disabled = true;
-        // Remember the pristine label on the element, not from its current text.
-        // The result states prefix it with '✓ ' / '✗ ' for two seconds, so a re-run
-        // that started inside that window used the decorated text as the "original"
-        // and the ticks stacked up: '✓ ✓ Install'.
         if (button.dataset.originalText === undefined) {
             button.dataset.originalText = button.textContent;
         }
@@ -345,7 +330,6 @@ export function buildSpicetifyPage(translations, settings) {
         }
     }
 
-    // Helper to build card header
     function buildHeader(svgHTML, titleTxt, descTxt) {
         const header = document.createElement('div');
         header.className = 'spotify-action-header';
@@ -369,7 +353,6 @@ export function buildSpicetifyPage(translations, settings) {
         return header;
     }
 
-    // Helper to create action cards
     const makeCard = (svg, title, desc, btnLabel, tone, onClick) => {
         const card = document.createElement('div');
         card.className = `spotify-action-card is-${tone}`;
@@ -403,7 +386,6 @@ export function buildSpicetifyPage(translations, settings) {
         return card;
     };
 
-    // Install Spicetify Card
     const installCard = makeCard(
         ICON_INSTALL_SPICETIFY,
         translations.actions?.install_spicetify || 'Install Spicetify',
@@ -413,7 +395,6 @@ export function buildSpicetifyPage(translations, settings) {
         (btn) => runInstall(btn)
     );
 
-    // Uninstall Spicetify Card
     const uninstallCard = makeCard(
         ICON_UNINSTALL_SPICETIFY,
         translations.actions?.uninstall_spicetify || 'Uninstall Spicetify',
@@ -428,7 +409,6 @@ export function buildSpicetifyPage(translations, settings) {
         )
     );
 
-    // Full Uninstall Spotify Card
     const fullUninstallCard = makeCard(
         ICON_FULL_UNINSTALL_SPOTIFY,
         translations.actions?.full_uninstall_spotify || 'Full Uninstall Spotify',

@@ -34,17 +34,12 @@ function load() {
 function persist() {
   try {
     if (!settingsPath) return;
-    // Write to a sibling temp file and rename over the target. A plain
-    // writeFileSync truncates first, so a crash or power loss mid-write leaves
-    // half a JSON document — and load() treats a parse error as "no settings",
-    // silently resetting everything the user had synced. rename() is atomic on
-    // the same volume. Same approach as session-storage.js.
     const tempPath = `${settingsPath}.${process.pid}.tmp`;
     try {
       fs.writeFileSync(tempPath, JSON.stringify(local, null, 2));
       fs.renameSync(tempPath, settingsPath);
     } catch (err) {
-      try { fs.unlinkSync(tempPath); } catch { /* nothing to clean up */ }
+      try { fs.unlinkSync(tempPath); } catch {  }
       throw err;
     }
   } catch (err) {
@@ -66,9 +61,6 @@ function isLoggedIn() {
 
 function set(key, value) {
   local.data[key] = value;
-  // Stamp the change even while signed out. The timestamp is what pullFromCloud
-  // compares against, so leaving it at its old value made offline edits look
-  // older than the cloud copy and get silently overwritten on the next sign-in.
   local.updated_at = new Date().toISOString();
   if (isLoggedIn()) schedulePush();
   persist();

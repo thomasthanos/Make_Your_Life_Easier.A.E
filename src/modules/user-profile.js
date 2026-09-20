@@ -1,7 +1,3 @@
-/**
- * User Profile Module
- * Manages user authentication and profile storage
- */
 
 const fs = require('fs');
 const path = require('path');
@@ -19,25 +15,17 @@ function encryptionAvailable() {
   }
 }
 
-/**
- * Initialize the profile module with the user data path
- * @param {string} userDataPath - Path to the user data directory
- */
 function initialize(userDataPath) {
   profilePath = path.join(userDataPath, 'userProfile.json');
   load();
 }
 
-/**
- * Load user profile from disk
- */
 function load() {
   try {
     if (profilePath && fs.existsSync(profilePath)) {
       const raw = fs.readFileSync(profilePath);
       let text;
       if (encryptionAvailable()) {
-        // Fall back to plaintext for profiles saved before encryption was enabled.
         try { text = safeStorage.decryptString(raw); }
         catch { text = raw.toString('utf-8'); }
       } else {
@@ -51,9 +39,6 @@ function load() {
   }
 }
 
-/**
- * Save user profile to disk
- */
 function save() {
   try {
     if (!profilePath) return;
@@ -75,26 +60,15 @@ function save() {
   }
 }
 
-/**
- * Get the current user profile
- * @returns {Object|null}
- */
 function get() {
   return userProfile;
 }
 
-/**
- * Set the user profile
- * @param {Object} profile - The profile to set
- */
 function set(profile) {
   userProfile = profile;
   save();
 }
 
-/**
- * Clear the user profile (logout)
- */
 function clear() {
   userProfile = null;
   save();

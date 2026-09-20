@@ -1,19 +1,3 @@
-/**
- * Build the app-only update package next to the full zip:
- *
- *   MakeYourLifeEasier-app-<version>.zip
- *     resources/**            exactly as in MakeYourLifeEasier-win.zip
- *     runtime-manifest.json   the Electron runtime this build was made with
- *
- * Installs whose runtime matches the manifest download this (~3 MB) instead of
- * the full zip (see src/modules/app-update-package.js).
- *
- * Everything is taken from the full zip itself, not from win-unpacked:
- * electron-builder keeps changing win-unpacked after the zip is written (the
- * portable target adds resources/elevate.exe, the Setup build re-signs every
- * exe), and the package must hold exactly what a full update installs. The
- * comparison with the full zip at the end fails the build if it ever does not.
- */
 
 const fs = require('fs');
 const path = require('path');
@@ -36,11 +20,6 @@ function fail(message) {
     process.exit(1);
 }
 
-/**
- * Files in a zip as path -> "crc:size", from 7za's technical listing
- * @param {string} zipPath - Archive to list
- * @returns {Map<string, string>} Entries keyed by forward-slash path
- */
 function zipEntries(zipPath) {
     const listing = execFileSync(sevenZip, ['l', '-slt', zipPath], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     const entries = new Map();
@@ -52,12 +31,6 @@ function zipEntries(zipPath) {
     return entries;
 }
 
-/**
- * With a certificate configured, every exe in the build must carry a signature.
- * The self-signed certificate is not trusted on the CI runner, so anything but
- * NotSigned or HashMismatch is accepted.
- * @param {string} appDir - Extracted full zip
- */
 async function checkSigned(appDir) {
     const certFile = pkg.build.win?.signtoolOptions?.certificateFile;
     if (!certFile || !fs.existsSync(path.join(root, certFile))) {
@@ -74,12 +47,6 @@ async function checkSigned(appDir) {
     console.log(`make-app-update: ${exes.length} executables signed (${exes.join(', ')})`);
 }
 
-/**
- * The package's resources/ must be byte-identical to the full zip's, and it may
- * hold nothing else besides the manifest
- * @param {string} fullZipPath - The full update zip of this build
- * @returns {number} Number of resource files in the package
- */
 function checkMatchesFullZip(fullZipPath) {
     const full = zipEntries(fullZipPath);
     const app = zipEntries(appZipPath);

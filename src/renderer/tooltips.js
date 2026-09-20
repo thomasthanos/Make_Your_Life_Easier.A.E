@@ -79,7 +79,6 @@ function getTrigger(node) {
     return element.getAttribute('data-tooltip') ? element : null;
 }
 
-// Delegation covers lazy pages and controls whose help text changes at runtime.
 export function initTooltips() {
     if (initialized) return;
     initialized = true;

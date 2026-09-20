@@ -1,16 +1,8 @@
 import { uiText } from '../ui-text.js';
-/**
- * Utilities Page
- * Contains the ChrisTitus page
- * CSS classes match original renderer.js structure
- */
 
 import { escapeHtml } from '../utils.js';
 import { toast, closeOtherTerminals, openTerminal } from '../components.js';
 
-// ============================================
-// CHRIS TITUS PAGE (Original Structure)
-// ============================================
 
 const svgDataUrl = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
@@ -27,7 +19,6 @@ export function buildChrisTitusPage(translations, _settings) {
     const style = document.createElement('style');
     card.appendChild(style);
 
-    // Header
     const header = el('div', 'tool-card-header');
     const icon = el('img', 'tool-card-icon');
     const terminalSVG = `
@@ -50,7 +41,6 @@ export function buildChrisTitusPage(translations, _settings) {
     header.appendChild(titleWrapper);
     card.appendChild(header);
 
-    // Features List
     const features = (translations.christitus_page && Array.isArray(translations.christitus_page.features))
         ? translations.christitus_page.features
         : [
@@ -66,7 +56,6 @@ export function buildChrisTitusPage(translations, _settings) {
         .join('');
     card.appendChild(el('ul', 'tool-card-bullets', bulletHtml));
 
-    // Action Buttons
     const actions = el('div', 'tool-card-actions');
     const launchBtn = el('button', 'tool-card-launch', `<span class="tool-card-iconmono">›_</span>Launch Tool`);
     const ghBtn = el('button', 'tool-card-outline', `<span class="tool-card-iconmono">↗</span>GitHub`);
@@ -74,7 +63,6 @@ export function buildChrisTitusPage(translations, _settings) {
     actions.appendChild(ghBtn);
     card.appendChild(actions);
 
-    // Status
     const status = el('div', 'tool-card-status');
     card.appendChild(status);
 
@@ -207,7 +195,7 @@ export function buildChrisTitusPage(translations, _settings) {
         try {
             if (window.api?.openExternal) await window.api.openExternal('https://github.com/ChrisTitusTech/winutil');
             else window.open('https://github.com/ChrisTitusTech/winutil', '_blank');
-        } catch { /* ignore – best-effort external link */ }
+        } catch {  }
     });
 
     return card;

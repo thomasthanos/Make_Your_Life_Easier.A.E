@@ -7,7 +7,6 @@
         document.documentElement.style.setProperty('--title-bar-height', '0px');
     }
 
-    // Attach event listeners to title bar buttons
     const minimizeBtn = document.getElementById('title-bar-minimize');
     const maximizeBtn = document.getElementById('title-bar-maximize');
     const closeBtn = document.getElementById('title-bar-close');
@@ -30,7 +29,6 @@
         });
     }
 
-    // Sidebar collapse toggle (default collapsed; persisted)
     const sidebarToggle = document.getElementById('sidebar-collapse-toggle');
     const applySidebarState = (expanded) => {
         document.body.classList.toggle('sidebar-expanded', expanded);

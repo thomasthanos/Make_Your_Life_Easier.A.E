@@ -28,7 +28,6 @@ async function saveUpdateInfo(info) {
         try {
             await writeAtomic(secondaryPath, payload);
         } catch {
-            // secondary mirror is best-effort (ProgramData may be read-only)
         }
     }
 }
@@ -42,7 +41,6 @@ async function readAndClearUpdateInfo() {
             try {
                 content = await fs.promises.readFile(p, 'utf-8');
             } catch {
-                // not present at this location
             }
         }
     }

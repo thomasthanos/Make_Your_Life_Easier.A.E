@@ -1,19 +1,11 @@
 import { uiText } from '../ui-text.js';
 import { createHelpButton } from '../tooltips.js';
-/**
- * Tools Page
- * Contains System Maintenance, Debloat, and BIOS pages
- * Maintenance uses dedicated component classes and synced layout settings.
- */
 
 import { registerDownload, attachDownloadUI, downloadStore } from '../managers.js';
 import { toast, closeOtherTerminals, openTerminal } from '../components.js';
 
 let maintenanceBusy = false;
 
-// ============================================
-// MAINTENANCE HELPER FUNCTIONS
-// ============================================
 
 const maintenanceIcon = (body) => `
     <svg class="maintenance-svg-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
@@ -80,15 +72,6 @@ function createMaintenanceBadge(text, tone = 'admin') {
     return badge;
 }
 
-/**
- * Creates a self-contained maintenance action card.
- * @param {string} name - Card title
- * @param {string} description - Card description
- * @param {string} iconKey - Icon identifier
- * @param {string} buttonText - Button label
- * @param {Object} task - Streaming task descriptor { api, cmd, success, error }
- * @param {boolean} requiresAdmin - Show admin warning
- */
 function createMaintenanceCard(name, description, iconKey, buttonText, task, requiresAdmin = false) {
     const card = document.createElement('div');
     card.className = 'maintenance-action-card';
@@ -213,9 +196,6 @@ function createMaintenanceCard(name, description, iconKey, buttonText, task, req
     return card;
 }
 
-// ============================================
-// MAINTENANCE TASK FUNCTIONS
-// ============================================
 
 function createStreamTerminal(stopLabel) {
     const terminal = document.createElement('div');
@@ -343,7 +323,6 @@ function buildWingetUpdaterCard(translations) {
     runBtn.textContent = translations.actions?.upgrade_all || 'Upgrade All';
     card.appendChild(runBtn);
 
-    // Shown when winget (App Installer) is missing — offers a Store shortcut.
     const missing = document.createElement('div');
     missing.className = 'winget-missing';
     const missingText = document.createElement('span');
@@ -458,7 +437,6 @@ function buildWingetUpdaterCard(translations) {
         runBtn.classList.add('btn-loading');
         runBtn.textContent = translations.actions?.checking || 'Checking winget...';
 
-        // Verify winget is present (and modern enough) before opening the terminal.
         try {
             const status = await window.api.checkWingetUpgrade();
             if (!status || !status.installed) {
@@ -472,7 +450,7 @@ function buildWingetUpdaterCard(translations) {
                 runBtn.textContent = originalText;
                 return;
             }
-        } catch { /* fall through and let the run attempt surface the error */ }
+        } catch {  }
 
         showMissing(false);
         runBtn.textContent = translations.actions?.upgrading || 'Upgrading...';
@@ -497,7 +475,7 @@ function buildWingetUpdaterCard(translations) {
                 printLine(uiText("upgrade_done_log", "✔ All upgrades completed."), 'is-ok');
                 toast(uiText("upgrade_done", "All apps upgraded successfully!"), { type: 'success', title: 'Winget' });
             } else if (result && result.cancelled) {
-                // User stopped it — already reported by the stop handler, stay quiet.
+                cancelled = true;
             } else if (result && result.notInstalled) {
                 showMissing(true);
                 terminal.classList.remove('open');
@@ -538,17 +516,12 @@ function buildWingetUpdaterCard(translations) {
     return card;
 }
 
-// ============================================
-// SYSTEM MAINTENANCE PAGE
-// ============================================
 
 const MAINTENANCE_LAYOUT_SETTING_KEY = 'maintenance_layout';
 const MAINTENANCE_LAYOUTS = ['overview', 'list'];
 
 function syncMaintenanceLayout(layout) {
     if (!MAINTENANCE_LAYOUTS.includes(layout)) return;
-    // The main-process settings store persists locally now and coalesces
-    // rapid changes into one Supabase upsert after its 1.5 s quiet period.
     try {
         const request = window.api?.setSetting?.(MAINTENANCE_LAYOUT_SETTING_KEY, layout);
         if (request && typeof request.catch === 'function') request.catch(() => { });
@@ -802,18 +775,15 @@ function setCleanerButtonContent(button, iconKey, label) {
     button.appendChild(text);
 }
 
-// Cleaner scan state lives at module scope so it survives tab switches:
-// results are cached and a single scan is shared/deduped across page rebuilds.
 const cleanerState = {
-    results: null,       // normalized items from the last completed scan, or null
-    scanMode: '',        // current status text
-    scanning: false,     // is a scan currently in flight
-    scanPromise: null,   // the in-flight scan promise (dedupe handle)
-    adminEnabled: false, // persistent elevated session is active
-    adminDeclined: false // user declined UAC — don't ask again this session
+    results: null,
+    scanMode: '',
+    scanning: false,
+    scanPromise: null,
+    adminEnabled: false,
+    adminDeclined: false
 };
 
-// The render fn of the currently-mounted cleaner page (only one exists at a time).
 let cleanerActiveRender = null;
 
 function notifyCleaner() {
@@ -822,10 +792,6 @@ function notifyCleaner() {
     }
 }
 
-// On the first run this asks for admin ONCE (UAC). Accepting starts a persistent
-// elevated session: this scan and every later scan/clean go through it with no
-// further prompts. Declining locks the session to limited mode — protected
-// folders show "Admin needed" and it never asks again.
 function runCleanerScan() {
     if (cleanerState.scanPromise) return cleanerState.scanPromise;
 
@@ -973,18 +939,8 @@ export async function buildCleanerPage(translations = {}) {
         setCleanerButtonContent(selectAllBtn, 'selectAll', checkedCount === rowControls.size && checkedCount > 0 ? (cleanerT.unselect_all || 'Unselect All') : (cleanerT.select_all || 'Select All'));
     }
 
-    /**
-     * Push the current task state onto an already-built row.
-     * A single scan changes phase four times, and rebuilding six rows from scratch
-     * each time threw away 60 elements, six SVG parses and six listeners per pass
-     * for what is really a handful of text and class changes.
-     * @param {Object} task - The cleaner task descriptor
-     * @param {Object} refs - Cached row elements from renderRows()
-     */
     function applyRowState(task, refs) {
         const data = taskState.get(task.id) || task;
-        // With the admin session active, protected items are selectable (the
-        // session cleans them silently). If the user declined admin, they lock.
         const accessibleEmpty = !data.inaccessible && Number(data.sizeBytes || 0) <= 0;
         const adminBlocked = data.inaccessible && !cleanerState.adminEnabled;
         const isLocked = scanning || cleaning || accessibleEmpty || adminBlocked;
@@ -1011,7 +967,6 @@ export async function buildCleanerPage(translations = {}) {
     }
 
     function renderRows() {
-        // Already built — just refresh what changed.
         if (rowControls.size === CLEANER_TASKS.length) {
             CLEANER_TASKS.forEach((task) => {
                 const refs = rowControls.get(task.id);
@@ -1097,8 +1052,6 @@ export async function buildCleanerPage(translations = {}) {
         updateTotals();
     }
 
-    // Pull the shared module state into this instance's DOM. Called on mount and
-    // whenever the shared scan changes phase (start / mode change / done).
     let wasMounted = false;
     function renderFromState() {
         if (container.isConnected) {
@@ -1179,8 +1132,6 @@ export async function buildCleanerPage(translations = {}) {
         });
 
         try {
-            // With the admin session: silent elevated clean + fresh sizes, no UAC.
-            // Declined admin: non-elevated clean of the accessible items only.
             const result = await window.api.runCleanerTasks(selectedIds, { elevated: cleanerState.adminEnabled });
             if (result && result.success) {
                 const now = new Date().toISOString();
@@ -1220,13 +1171,10 @@ export async function buildCleanerPage(translations = {}) {
         }
     });
 
-    // Become the live instance so an in-flight or future scan updates this DOM.
     cleanerActiveRender = renderFromState;
 
     renderFromState();
 
-    // Only kick off a fresh scan if nothing is cached and none is already running.
-    // Preserves results across navigation and avoids redundant re-scans.
     if (!cleanerState.scanning && !Array.isArray(cleanerState.results)) {
         runCleanerScan();
     }
@@ -1246,7 +1194,6 @@ export async function buildMaintenancePage(translations, _settings) {
     container.className = 'maintenance-page';
     container.appendChild(createMaintenanceHero(translations, container, initialLayout));
 
-    // Network & Connectivity
     const networkSection = createMaintenanceSection(
         T.network_section || 'Network & Connectivity',
         T.network_section_desc || 'Quick fixes for connection, DNS, Bluetooth, and Windows networking.',
@@ -1293,7 +1240,6 @@ export async function buildMaintenancePage(translations, _settings) {
     networkRow.appendChild(netResetCard);
     container.appendChild(networkSection.section);
 
-    // ── SECTION 3: System Repair & Diagnostics ──
     const repairSection = createMaintenanceSection(
         T.repair_section || 'System Repair & Diagnostics',
         T.repair_section_desc || 'Check Windows integrity, disk health, and essential system services.',
@@ -1301,7 +1247,6 @@ export async function buildMaintenancePage(translations, _settings) {
     );
     const repairRow = repairSection.grid;
 
-    // SFC/DISM Card (special dual-button card)
     const sfcDismCard = document.createElement('div');
     sfcDismCard.className = 'maintenance-action-card maintenance-action-card--admin maintenance-action-card--primary';
     sfcDismCard.appendChild(createMaintenanceBadge(T.admin_badge || 'Admin'));
@@ -1519,7 +1464,6 @@ export async function buildMaintenancePage(translations, _settings) {
     repairRow.appendChild(audioCard);
     container.appendChild(repairSection.section);
 
-    // ── SECTION 4: Tools ──
     const toolsSection = createMaintenanceSection(
         T.tools_section || 'Application Updates',
         T.tools_section_desc || 'Keep installed applications current through Windows Package Manager.',
@@ -1535,9 +1479,6 @@ export async function buildMaintenancePage(translations, _settings) {
     return container;
 }
 
-// ============================================
-// DEBLOAT PAGE
-// ============================================
 
 export async function buildDebloatPage(translations, _settings) {
     const T = translations.debloat_ui || {};
@@ -1689,12 +1630,11 @@ export async function buildDebloatPage(translations, _settings) {
 
         try {
             const result = await window.api.runSparkleDebloat();
-            
+
             if (!result) {
                 throw new Error('No response from Sparkle handler');
             }
 
-            // Case 1: Sparkle needs to be downloaded
             if (result.needsDownload) {
                 runBtn.textContent = T.downloading || 'Downloading Sparkle from GitHub...';
                 setStatus(T.downloading || 'Downloading Sparkle from GitHub...');
@@ -1730,13 +1670,11 @@ export async function buildDebloatPage(translations, _settings) {
                                 });
                             }, 120000);
 
-                            // Extract the downloaded zip
                             window.api.processDownloadedSparkle(downloadDest)
                                 .then(extractResult => {
                                     if (extractResult && extractResult.success) {
                                         runBtn.textContent = T.launching || 'Launching Sparkle...';
                                         setStatus(T.launching || 'Launching Sparkle...');
-                                        // Now run it
                                         return window.api.runSparkleDebloat();
                                     } else {
                                         throw new Error(extractResult?.error || 'Extraction failed');
@@ -1788,12 +1726,10 @@ export async function buildDebloatPage(translations, _settings) {
                     }
                 });
 
-                // Start the download
                 window.api.downloadStart(downloadId, result.downloadUrl, downloadDest);
                 return;
             }
 
-            // Case 2: Sparkle is already available and launched
             if (result.success) {
                 toast(uiText("sparkle_done", "Sparkle Debloat launched successfully!"), {
                     type: 'success',
@@ -1825,9 +1761,6 @@ export async function buildDebloatPage(translations, _settings) {
     return container;
 }
 
-// ============================================
-// BIOS RESTART DIALOG
-// ============================================
 
 export function showRestartDialog(translations, menuKeys, loadPage) {
     const overlay = document.createElement('div');
@@ -1913,7 +1846,6 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
     restartBtn.className = 'bios-restart-btn';
     restartBtn.textContent = translations.messages?.restart_to_bios || 'Restart to BIOS';
 
-    // Escape key handler — cleaned up when dialog closes via cancel or success
     const escapeHandler = (e) => {
         if (e.key === 'Escape') {
             cancelBtn.click();
@@ -1988,11 +1920,6 @@ export function showRestartDialog(translations, menuKeys, loadPage) {
     document.body.appendChild(overlay);
 
     document.addEventListener('keydown', escapeHandler);
-    // The dialog can also disappear without either button being pressed: loadPage()
-    // rips every .bios-overlay out of the DOM on navigation. That path removed the
-    // overlay but not this listener, so a later Escape still fired cancelBtn.click()
-    // and dragged the user back to the first page. Hang the teardown on the overlay
-    // so whoever removes it can run it.
     overlay._cleanup = () => document.removeEventListener('keydown', escapeHandler);
     cancelBtn.focus();
 }

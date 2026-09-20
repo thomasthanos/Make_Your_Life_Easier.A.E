@@ -1,7 +1,3 @@
-/**
- * OAuth Module
- * Handles OAuth authentication flows for Google and Discord
- */
 
 const { BrowserWindow, WebContentsView, session } = require('electron');
 const { getClient } = require('./supabase');
@@ -9,28 +5,11 @@ const { profileFromUser } = require('./auth-profile');
 
 const REDIRECT_URI = process.env.OAUTH_REDIRECT_URI || 'http://localhost:5252';
 
-/**
- * Partition the sign-in window runs in.
- *
- * No 'persist:' prefix, so it is an in-memory session that never touches the
- * default one. The auth window used to share the app's default session, which
- * meant Google's and Discord's cookies outlived sign-out: clicking "Sign in with
- * Discord" again silently reused the previous identity and there was no way to
- * switch accounts short of clearing app data by hand.
- */
 const OAUTH_PARTITION = 'oauth';
 
-/**
- * Open an OAuth authentication window
- * @param {string} authUrl - The OAuth authorization URL
- * @param {string} redirectUri - The redirect URI to watch for
- * @param {Function} handleCallback - Callback to handle the redirect
- * @param {BrowserWindow} parentWindow - Parent window reference
- * @returns {Promise<Object|null>}
- */
 function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
   return new Promise((resolve, reject) => {
-    let settled = false;  // Prevent double resolution race condition
+    let settled = false;
 
     const windowOpts = {
       width: 600,
@@ -48,7 +27,6 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
 
     const authWindow = new BrowserWindow(windowOpts);
 
-    // Create loader view
     const loaderView = new WebContentsView({
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
@@ -117,11 +95,9 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
             });
         }
       } catch {
-        // Ignore malformed URLs
       }
     }
 
-    // Apply Discord accessibility fix
     const applyDiscordAccessibilityFix = () => {
       try {
         const current = authWindow.webContents.getURL() || '';
@@ -158,17 +134,10 @@ function openAuthWindow(authUrl, redirectUri, handleCallback, parentWindow) {
   });
 }
 
-/**
- * Wipe the sign-in partition so the provider asks which account to use.
- * The in-memory session is shared by every auth window for the lifetime of the
- * process, so without this a second sign-in in the same run would still reuse the
- * first one's cookies.
- */
 async function resetAuthSession() {
   try {
     await session.fromPartition(OAUTH_PARTITION).clearStorageData();
   } catch {
-    // Worst case the provider skips the account picker; not worth failing login.
   }
 }
 

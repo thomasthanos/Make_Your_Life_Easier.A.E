@@ -1,7 +1,3 @@
-/**
- * Archive Utils Module
- * Handles archive extraction using 7za
- */
 
 const { spawn } = require('child_process');
 const path = require('path');
@@ -9,10 +5,6 @@ const fs = require('fs');
 const { debug } = require('./debug');
 const { isWithin } = require('./security');
 
-/**
- * Find 7za executable
- * @returns {Promise<string|null>}
- */
 async function ensure7za() {
   const candidates = [];
 
@@ -53,23 +45,6 @@ async function ensure7za() {
   return null;
 }
 
-/**
- * List an archive and return the first entry that would land outside `outDir`.
- *
- * Nothing downstream constrains where entries go — the paths inside the archive
- * are simply handed to 7za, which writes them wherever they point. An entry like
- * `..\..\Startup\evil.exe` therefore escapes the extraction directory entirely.
- * `l -slt` prints one `Path = ...` line per entry, which is enough to check every
- * destination against the directory we intend to fill before writing anything.
- *
- * A listing that fails (wrong password, corrupt file) is not treated as unsafe —
- * the extraction that follows will fail on its own and report the real reason.
- * @param {string} exe - Path to 7za
- * @param {string} archive - Archive to inspect
- * @param {string} pwd - Archive password, if any
- * @param {string} outDir - Directory the archive will be extracted into
- * @returns {Promise<string|null>} The offending entry path, or null when all are safe
- */
 function findEscapingEntry(exe, archive, pwd, outDir) {
   return new Promise((resolve) => {
     const args = ['l', '-slt', archive];
@@ -89,7 +64,6 @@ function findEscapingEntry(exe, archive, pwd, outDir) {
         const match = /^Path = (.+)$/.exec(line);
         if (!match) continue;
         const entry = match[1].trim();
-        // 7-Zip echoes the archive's own path as the first "Path =" line.
         if (!entry || path.resolve(entry) === path.resolve(archive)) continue;
         if (path.isAbsolute(entry) || !isWithin(path.resolve(outDir, entry), outDir)) {
           return resolve(entry);
@@ -100,14 +74,6 @@ function findEscapingEntry(exe, archive, pwd, outDir) {
   });
 }
 
-/**
- * Extract an archive
- * @param {string} filePath - Path to the archive
- * @param {string} password - Optional password
- * @param {string} destDir - Optional destination directory
- * @param {Function} trackExtractedDir - Function to track extracted directories
- * @returns {Promise<Object>}
- */
 async function extractArchive(filePath, password, destDir, trackExtractedDir) {
   const archive = String(filePath);
   const pwd = String(password || '');
@@ -121,18 +87,12 @@ async function extractArchive(filePath, password, destDir, trackExtractedDir) {
     outDir = path.join(parent, base);
   }
 
-  // Directory setup — kill any locked exes inside before removing
   const killLockedExes = (dir) => {
     return new Promise((resolve) => {
       if (!fs.existsSync(dir)) return resolve();
-      // Safety timeout — don't hang if taskkill never returns
       const timeout = setTimeout(() => resolve(), 5000);
       try {
         const items = fs.readdirSync(dir);
-        // The image name handed to `taskkill /F /IM` comes out of a previously
-        // extracted archive, so the archive gets to choose which process dies.
-        // Restrict it to a plain filename: no path separators, no wildcards, no
-        // PID-looking values, nothing that could name a process we did not put here.
         const exes = items.filter((f) => /^[\w.-]+\.exe$/i.test(f));
         if (exes.length === 0) { clearTimeout(timeout); return resolve(); }
         let pending = exes.length;
@@ -149,18 +109,11 @@ async function extractArchive(filePath, password, destDir, trackExtractedDir) {
   try {
     if (fs.existsSync(outDir)) {
       await killLockedExes(outDir);
-      // Small delay to let Windows release file handles
       await new Promise(r => setTimeout(r, 500));
       try { fs.rmSync(outDir, { recursive: true, force: true }); } catch (e) {
         debug('warn', 'Could not fully remove outDir:', e.message);
       }
     }
-    // There used to be a second pass here that also deleted
-    // `outDir.replace(/_/g, ' ')`. Because sanitizeFilename() turns every
-    // non-alphanumeric character into '_', extracting Clip_Studio_Paint.zip
-    // recursively removed ~/Downloads/Clip Studio Paint — a folder this app never
-    // created and has no business touching. Only the directory we are about to
-    // extract into gets cleared.
     fs.mkdirSync(outDir, { recursive: true });
 
     if (trackExtractedDir) {
@@ -170,7 +123,6 @@ async function extractArchive(filePath, password, destDir, trackExtractedDir) {
     debug('warn', 'Directory setup error:', e.message);
   }
 
-  // Find 7za executable
   const exe = await ensure7za();
   if (!exe) {
     return { success: false, error: '7-Zip executable not found — cannot extract archive.' };
@@ -184,13 +136,11 @@ async function extractArchive(filePath, password, destDir, trackExtractedDir) {
     return { success: false, error: `Archive contains an unsafe path and was not extracted: ${slip}` };
   }
 
-  // Build arguments
   const args = ['x', archive];
   if (pwd) args.push(`-p${pwd}`);
   args.push(`-o${outDir}`);
   args.push('-y');
 
-  // ✅ Wrap only the spawn part in Promise (no async executor!)
   return new Promise((resolve) => {
     const child = spawn(exe, args, { windowsHide: true });
     let stderr = '';

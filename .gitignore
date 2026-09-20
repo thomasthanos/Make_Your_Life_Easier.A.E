@@ -1,45 +1,33 @@
-# Dependencies
 /node_modules/
 
-# Build output
 /dist/
 /artifacts/
 
-# Executables and archives
 *.exe
 *.zip
 *.7z
 
-# Logs
 logs/npm-build-all.log
 logs/npm-install.log
 
-# Temporary files
 task.bat
 temp_release_notes.md
 release_notes_2.0.4.md
 
-# Config files with secrets
 oauth_config.json
 /src/config/oauth_config.json
 *.pfx
 *.p12
 *.key
 
-# Tests — kept locally, not shipped. They are already outside the build
-# (build.files only takes package.json and src/**), so this is purely about
-# keeping them out of the repo.
 /tests/
 
-# IDE
 /.vscode
 
-# Misc
 adobe_blockfirewall.bat
 55README.md
 Make_Your_Life_Easier.A.E.rar
 
-# Exceptions - keep packaged helper binaries
 !/src/resources/bin/
 !/src/resources/bin/7za.exe
 !/src/resources/bin/7za.dll
@@ -53,6 +41,5 @@ Make_Your_Life_Easier.A.E.rar
 check_apps.bat
 .backup-info.json
 
-# Environment variables
 .env
 electron-builder.env

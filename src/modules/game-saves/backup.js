@@ -1,24 +1,3 @@
-/**
- * Copy a game's saves into its backup folder, and put them back.
- *
- * Each game gets one folder under the backup root:
- *
- *   <Game>/mapping.json               what was copied, with collapsed paths
- *   <Game>/AppData Roaming/...        the files, under a readable folder per root
- *   <Game>/registry/0.reg             exported registry keys
- *
- * Backups made before that layout keep their files under <Game>/files/winAppData/...
- * They still restore, and the next backup moves them to the new layout.
- *
- * The folder mirrors the saves' current state; it is not a history. Restoring
- * first copies whatever it is about to overwrite into _before-restore, so a
- * mistaken restore can still be undone by hand.
- *
- * The backup root may live in a synced cloud folder that other people or
- * devices can write to, so a restore trusts nothing it reads there: every
- * destination must fall inside one of the game's own manifest save locations on
- * this PC, and a registry file may only touch the game's own keys.
- */
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -33,32 +12,17 @@ const MAPPING_FILE = 'mapping.json';
 const MAPPING_VERSION = 1;
 const LEGACY_FILES_DIR = 'files';
 const DEFAULT_ROOT_NAME = 'MYLE Game Saves';
-// Top-level folders of a game's backup that hold copied files.
 const FILE_FOLDER_NAMES = [...Object.values(BACKUP_FOLDERS), LEGACY_FILES_DIR];
 const FILE_FOLDERS = new Set(FILE_FOLDER_NAMES.map((name) => name.toLowerCase()));
 const REGISTRY_DIR = 'registry';
 const BEFORE_RESTORE_DIR = '_before-restore';
 const PART_SUFFIX = '.myle-part';
-// Errors after which copying the bytes directly is worth a second try.
 const COPY_RETRY_CODES = new Set(['UNKNOWN', 'EPERM', 'EACCES', 'EINVAL', 'ENOTSUP', 'EIO']);
 
-/** Folders the OneDrive client keeps in sync, from its environment variables. */
 function oneDriveRoots(env = process.env) {
   return [...new Set([env.OneDrive, env.OneDriveConsumer, env.OneDriveCommercial].filter(Boolean))];
 }
 
-/**
- * The error entry for a file that could not be copied.
- *
- * An online-only OneDrive file that cannot be fetched (OneDrive paused, signed
- * out or closed, or downloads blocked for the app) fails with Cloud Files
- * errors libuv has no name for, so they arrive as UNKNOWN. Inside a OneDrive
- * folder that is the likely cause, and one the user can fix.
- * @param {Error} err - The copy error
- * @param {string[]} paths - Source and destination of the copy
- * @param {string[]} cloudRoots - OneDrive folders
- * @returns {{error: string, code?: string}}
- */
 function copyFailure(err, paths, cloudRoots) {
   const code = err && err.code;
   if (code === 'EBUSY') {
@@ -73,19 +37,12 @@ function copyFailure(err, paths, cloudRoots) {
   return { error: (err && err.message) || String(err) };
 }
 
-// Save data is never executable. Refusing these on restore means a tampered
-// backup cannot plant a program or script, even inside a genuine save folder.
 const BLOCKED_RESTORE_EXTENSIONS = new Set([
   '.exe', '.dll', '.sys', '.com', '.scr', '.cpl', '.msi', '.msp', '.bat', '.cmd', '.ps1', '.psm1',
   '.vbs', '.vbe', '.js', '.jse', '.wsf', '.wsh', '.hta', '.lnk', '.url', '.reg', '.jar'
 ]);
 const RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
-/**
- * A Windows-safe folder name for a game.
- * @param {string} name - Game name
- * @returns {string} Folder name
- */
 function gameFolderName(name) {
   let folder = String(name)
     .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
@@ -102,15 +59,6 @@ function readMappingAt(dir) {
   return mapping && mapping.version === MAPPING_VERSION && Array.isArray(mapping.files) ? mapping : null;
 }
 
-/**
- * The backup folder of a game. Two names that sanitise to the same folder, or a
- * confirmed folder named like a manifest game, are told apart by the name and
- * kind recorded in mapping.json.
- * @param {string} backupRoot - Backup root
- * @param {string} name - Game name
- * @param {'manifest'|'custom'} [kind='manifest'] - Where the game came from
- * @returns {string} Absolute folder path
- */
 function gameBackupDir(backupRoot, name, kind = 'manifest') {
   const root = path.resolve(backupRoot);
   const primary = path.join(root, gameFolderName(name));
@@ -123,9 +71,6 @@ function gameBackupDir(backupRoot, name, kind = 'manifest') {
   return dir;
 }
 
-/**
- * @returns {Object|null} The game's mapping.json, or null when never backed up
- */
 function readMapping(backupRoot, name, kind = 'manifest') {
   if (!backupRoot) return null;
   try {
@@ -135,12 +80,6 @@ function readMapping(backupRoot, name, kind = 'manifest') {
   }
 }
 
-/**
- * Every game with a backup under the root, including games whose saves are
- * gone from this PC — the case restoring exists for.
- * @param {string} backupRoot - Backup root
- * @returns {Array<Object>} The mapping.json of each backed-up game
- */
 function listBackups(backupRoot) {
   if (!backupRoot) return [];
   let entries;
@@ -159,11 +98,6 @@ function fileVars(vars, file) {
   return { ...vars, base: file.base, root: file.root };
 }
 
-/**
- * Recorded files by the key a file on this PC collapses to. Collapsing again
- * here turns an older spelling of the same place into today's: backups made
- * before LocalLow had its own root recorded <home>/AppData/LocalLow/...
- */
 function recordedByKey(entries, vars) {
   return new Map(entries.map((entry) => {
     const expanded = expandCollapsed(entry.path, vars);
@@ -172,24 +106,16 @@ function recordedByKey(entries, vars) {
   }));
 }
 
-// A recorded copy matches a file on the PC when size and whole-millisecond mtime agree.
 function sameVersion(entry, file) {
   return entry.size === file.size && Math.floor(entry.mtimeMs) === Math.floor(file.mtimeMs);
 }
 
-/**
- * Where a recorded file's copy is inside the game's backup folder. Entries from
- * before the readable layout have no `file` and live under files/.
- * @param {Object} entry - A mapping.json file entry
- * @returns {string|null} Relative `/` path, or null when the entry is malformed
- */
 function recordedFile(entry) {
   if (!entry) return null;
   if (typeof entry.file !== 'string') {
     const legacy = backupRelativePath(entry.path);
     return legacy ? `${LEGACY_FILES_DIR}/${legacy}` : null;
   }
-  // mapping.json comes from a folder others may write to: stay inside our folders.
   const segments = entry.file.split('/');
   const valid = segments.length > 1
     && FILE_FOLDERS.has(segments[0].toLowerCase())
@@ -197,11 +123,6 @@ function recordedFile(entry) {
   return valid ? entry.file : null;
 }
 
-/**
- * A summary of the backups under a folder.
- * @param {string} dir - Candidate backup root
- * @returns {{games: number, lastBackup: string|null, computer: string|null}}
- */
 function describeBackupRoot(dir) {
   let latest = null;
   const mappings = listBackups(dir);
@@ -215,11 +136,6 @@ function describeBackupRoot(dir) {
   };
 }
 
-/**
- * What the list shows about a game's backup.
- * @param {Object|null} mapping - The game's mapping.json
- * @returns {{backedUpAt: string|null, computer: string|null, fileCount: number, totalSize: number, registryCount: number, newestMtime: number}|null}
- */
 function mappingSummary(mapping) {
   if (!mapping) return null;
   return {
@@ -232,12 +148,6 @@ function mappingSummary(mapping) {
   };
 }
 
-/**
- * The backup root a picked folder stands for. Picking one game's backup folder,
- * or the folder that contains the backup root, still lands on the root.
- * @param {string} dir - Folder the user picked
- * @returns {string} Backup root to use
- */
 function resolveBackupRootChoice(dir) {
   if (readMappingAt(dir)) return path.dirname(dir);
   const nested = path.join(dir, DEFAULT_ROOT_NAME);
@@ -245,12 +155,6 @@ function resolveBackupRootChoice(dir) {
   return dir;
 }
 
-/**
- * The folders a backed-up game restores into on this PC, for display.
- * @param {Object} mapping - The game's mapping.json
- * @param {Object} vars - Machine placeholder values
- * @returns {string[]} Up to three folders, outermost first
- */
 function restoreLocations(mapping, vars) {
   const dirs = new Map();
   for (const entry of mapping.files.slice(0, 500)) {
@@ -273,13 +177,6 @@ function statOrNull(file) {
   }
 }
 
-/**
- * How a scanned game compares with its backup.
- * @param {Object} game - A game from scanGames()
- * @param {Object|null} mapping - Its mapping.json
- * @param {Object} vars - Machine placeholder values used for the scan
- * @returns {'new'|'changed'|'up-to-date'}
- */
 function backupStatus(game, mapping, vars) {
   if (!mapping) return 'new';
   const recorded = recordedByKey(mapping.files, vars);
@@ -305,15 +202,6 @@ function backupFileState(entry, file) {
   return file.mtimeMs > entry.mtimeMs ? 'pc-newer' : 'different';
 }
 
-/**
- * A game's files on this PC and in its backup, each marked against the other side.
- * @param {Object} game - A game from scanGames(); a game only in the backup has no files
- * @param {Object|null} mapping - Its mapping.json
- * @param {Object} vars - Machine placeholder values used for the scan
- * @returns {{pc: Array<Object>, backup: Array<Object>}} Files with path, size, mtimeMs and
- *   state: on the PC 'same', 'changed' or 'new'; in the backup 'same', 'pc-newer',
- *   'different' or 'missing'
- */
 function compareWithBackup(game, mapping, vars) {
   const recorded = recordedByKey(mapping ? mapping.files : [], vars);
   const onPc = new Map();
@@ -326,7 +214,6 @@ function compareWithBackup(game, mapping, vars) {
   const backup = [...recorded.entries()].map(([key, entry]) => {
     const file = onPc.get(key);
     return {
-      // A file only in the backup is shown where a restore would put it.
       path: file ? file.path : expandCollapsed(entry.path, vars) || backupFilePath(entry.path) || String(entry.path),
       size: Number(entry.size) || 0,
       mtimeMs: Number(entry.mtimeMs) || 0,
@@ -336,7 +223,6 @@ function compareWithBackup(game, mapping, vars) {
   return { pc, backup };
 }
 
-/** Copy only a file's bytes: the fallback for when CopyFile refuses. */
 function copyBytes(source, destination) {
   const buffer = Buffer.allocUnsafe(1024 * 1024);
   const input = fs.openSync(source, 'r');
@@ -363,9 +249,6 @@ function copyFileAtomic(source, destination, mtimeMs) {
     try {
       fs.copyFileSync(source, temp);
     } catch (err) {
-      // CopyFile also carries attributes and alternate data streams across,
-      // which a sync folder such as OneDrive can refuse. Plain reads and writes
-      // move only the bytes; a file that truly cannot be read still throws.
       if (!COPY_RETRY_CODES.has(err.code)) throw err;
       copyBytes(source, temp);
     }
@@ -375,7 +258,7 @@ function copyFileAtomic(source, destination, mtimeMs) {
     }
     fs.renameSync(temp, destination);
   } catch (err) {
-    try { fs.unlinkSync(temp); } catch { /* never created */ }
+    try { fs.unlinkSync(temp); } catch {  }
     throw err;
   }
 }
@@ -411,15 +294,10 @@ function removeEmptyDirs(dir, keepRoot = true) {
     if (entry.isDirectory()) removeEmptyDirs(path.join(dir, entry.name), false);
   }
   if (!keepRoot) {
-    try { fs.rmdirSync(dir); } catch { /* not empty */ }
+    try { fs.rmdirSync(dir); } catch {  }
   }
 }
 
-/**
- * Delete copies that are no longer part of the backup, including an old-layout
- * files/ folder once its contents have moved. Only the folders this module
- * writes are touched; anything else in the game's folder is left alone.
- */
 function removeStaleFiles(gameDir, keep) {
   let removed = 0;
   for (const relative of listFilesRelative(gameDir)) {
@@ -428,7 +306,7 @@ function removeStaleFiles(gameDir, keep) {
     try {
       fs.unlinkSync(path.join(gameDir, ...relative.split('/')));
       if (!relative.endsWith(PART_SUFFIX)) removed++;
-    } catch { /* locked; next run tries again */ }
+    } catch {  }
   }
   for (const name of FILE_FOLDER_NAMES) removeEmptyDirs(path.join(gameDir, name), false);
   return removed;
@@ -449,31 +327,21 @@ async function exportRegistry(game, gameDir, registry, summary) {
       fs.renameSync(temp, file);
       entries.push({ key: keys[i].key, file: `${REGISTRY_DIR}/${name}` });
     } else {
-      try { fs.unlinkSync(temp); } catch { /* never created */ }
+      try { fs.unlinkSync(temp); } catch {  }
       summary.errors.push({ path: keys[i].key, error: result.error || 'Registry export failed.' });
     }
   }
 
   let names = [];
-  try { names = fs.readdirSync(registryDir); } catch { /* no registry folder */ }
+  try { names = fs.readdirSync(registryDir); } catch {  }
   for (const name of names) {
     if (!entries.some((entry) => entry.file === `${REGISTRY_DIR}/${name}`)) {
-      try { fs.unlinkSync(path.join(registryDir, name)); } catch { /* locked */ }
+      try { fs.unlinkSync(path.join(registryDir, name)); } catch {  }
     }
   }
   return entries;
 }
 
-/**
- * Mirror one game's saves into its backup folder, copying only what changed.
- * @param {Object} game - A game from scanGames()
- * @param {Object} options
- * @param {string} options.backupRoot - Backup root
- * @param {Object} options.vars - Machine placeholder values used for the scan
- * @param {Object} options.registry - { exportKey } (see system.js)
- * @param {string[]} [options.cloudRoots] - OneDrive folders, for clearer copy errors
- * @returns {Promise<{name: string, copied: number, unchanged: number, removed: number, bytes: number, errors: Array}>}
- */
 async function backupGame(game, { backupRoot, vars, registry, cloudRoots = oneDriveRoots() }) {
   const gameDir = gameBackupDir(backupRoot, game.name, game.kind || 'manifest');
   const previous = readMappingAt(gameDir);
@@ -510,7 +378,6 @@ async function backupGame(game, { backupRoot, vars, registry, cloudRoots = oneDr
       summary.bytes += file.size;
     } catch (err) {
       summary.errors.push({ path: file.path, ...copyFailure(err, [file.path, destination], cloudRoots) });
-      // A locked save keeps the copy from the last run, and it stays restorable.
       const previousFile = before && recordedFile(before);
       if (previousFile && statOrNull(path.join(gameDir, ...previousFile.split('/')))) {
         entries.push(before);
@@ -520,7 +387,6 @@ async function backupGame(game, { backupRoot, vars, registry, cloudRoots = oneDr
   }
 
   const registryEntries = await exportRegistry(game, gameDir, registry, summary);
-  // Nothing usable this time: leave the previous backup exactly as it was.
   if (entries.length === 0 && registryEntries.length === 0) return summary;
 
   summary.removed = removeStaleFiles(gameDir, keep);
@@ -536,7 +402,6 @@ async function backupGame(game, { backupRoot, vars, registry, cloudRoots = oneDr
   };
   if (game.customPath) {
     mapping.customPath = game.customPath;
-    // The collapsed form lets another PC, or another user name, find the folder.
     mapping.customPathCollapsed = collapsePath(game.customPath, vars);
   }
   writeJsonAtomic(path.join(gameDir, MAPPING_FILE), mapping);
@@ -564,18 +429,6 @@ function resolveRestoreTarget(collapsed, allowed) {
   return null;
 }
 
-/**
- * Put a game's backed-up saves back where the game looks for them.
- * @param {Object} options
- * @param {string} options.name - Game name
- * @param {'manifest'|'custom'} [options.kind='manifest'] - Where the game came from
- * @param {string} options.backupRoot - Backup root
- * @param {{files: Array<{path: string}>, registry?: Array<{key: string}>}} options.game -
- *   The game's manifest locations (for a custom game, its folder as a literal pattern)
- * @param {Array<Object>} options.variants - Placeholder value sets to try, machine variables first
- * @param {Object} options.registry - { exportKey, importFile, readFileKeys } (see system.js)
- * @returns {Promise<{name: string, restored: number, errors: Array, safetyDir: string|null}>}
- */
 async function restoreGame({ name, kind = 'manifest', backupRoot, game, variants, registry, cloudRoots = oneDriveRoots(), now = new Date() }) {
   const gameDir = gameBackupDir(backupRoot, name, kind);
   const mapping = readMappingAt(gameDir);
@@ -624,14 +477,13 @@ async function restoreGame({ name, kind = 'manifest', backupRoot, game, variants
     let keys = null;
     try {
       if (isWithin(file, path.join(gameDir, REGISTRY_DIR))) keys = registry.readFileKeys(file);
-    } catch { /* unreadable */ }
+    } catch {  }
     if (!keys || keys.length === 0 || !keys.every((key) => allowedKeys.some((allowedKey) => registryKeyWithin(key, allowedKey)))) {
       summary.errors.push({ path: String(item.key), error: "The registry file touches keys outside this game's own." });
       continue;
     }
     const safetyFile = path.join(safetyDir, REGISTRY_DIR, path.basename(file));
     fs.mkdirSync(path.dirname(safetyFile), { recursive: true });
-    // Exporting a key that does not exist yet fails, and that is fine.
     if ((await registry.exportKey(item.key, safetyFile)).success) summary.safetyDir = safetyDir;
     const result = await registry.importFile(file);
     if (result.success) summary.restored++;
@@ -639,7 +491,7 @@ async function restoreGame({ name, kind = 'manifest', backupRoot, game, variants
   }
 
   if (!summary.safetyDir) {
-    try { fs.rmSync(safetyDir, { recursive: true, force: true }); } catch { /* nothing was created */ }
+    try { fs.rmSync(safetyDir, { recursive: true, force: true }); } catch {  }
   }
   return summary;
 }

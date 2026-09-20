@@ -1,27 +1,10 @@
-/**
- * Renderer Managers
- * Contains UI management classes for buttons, events, and tooltips
- */
 
-// ============================================
-// BUTTON STATE MANAGER
-// ============================================
 
-/**
- * Manages button states during async operations.
- * Prevents double-clicks and provides visual feedback.
- */
 class ButtonStateManager {
     constructor() {
         this.buttonStates = new Map();
     }
 
-    /**
-     * Set button to loading state
-     * @param {HTMLButtonElement} button - The button element
-     * @param {string} loadingText - Optional text to show while loading
-     * @returns {boolean} - Returns false if button is already loading
-     */
     setLoading(button, loadingText = null) {
         if (!button || this.buttonStates.has(button)) {
             return false;
@@ -49,10 +32,6 @@ class ButtonStateManager {
         return true;
     }
 
-    /**
-     * Reset button to original state
-     * @param {HTMLButtonElement} button - The button element
-     */
     resetState(button) {
         if (!button || !this.buttonStates.has(button)) {
             return;
@@ -75,18 +54,10 @@ class ButtonStateManager {
         this.buttonStates.delete(button);
     }
 
-    /**
-     * Check if button is currently loading
-     * @param {HTMLButtonElement} button - The button element
-     * @returns {boolean}
-     */
     isLoading(button) {
         return this.buttonStates.has(button);
     }
 
-    /**
-     * Reset all buttons to original state
-     */
     resetAll() {
         for (const button of this.buttonStates.keys()) {
             this.resetState(button);
@@ -96,22 +67,9 @@ class ButtonStateManager {
 
 export { attachTooltipHandlers } from './tooltips.js';
 
-// ============================================
-// PROCESS STATE MANAGER
-// ============================================
 
-/**
- * Tracks process states for cards (downloads, replacements, etc.)
- */
 const processStates = new Map();
 
-/**
- * Track a process for a card
- * @param {string} cardId - The card identifier
- * @param {string} processType - Type of process (download, replace)
- * @param {HTMLButtonElement} button - The button element
- * @param {HTMLElement} statusElement - The status element
- */
 export function trackProcess(cardId, processType, button, statusElement) {
     const processId = `${cardId}-${processType}`;
     processStates.set(processId, {
@@ -123,13 +81,6 @@ export function trackProcess(cardId, processType, button, statusElement) {
     });
 }
 
-/**
- * Complete a tracked process
- * @param {string} cardId - The card identifier
- * @param {string} processType - Type of process
- * @param {boolean} success - Whether the process was successful
- * @param {Object} resetFunctions - Object containing reset functions for different types
- */
 export function completeProcess(cardId, processType, success = true, resetFunctions = {}) {
     const processId = `${cardId}-${processType}`;
     const process = processStates.get(processId);
@@ -146,29 +97,9 @@ export function completeProcess(cardId, processType, success = true, resetFuncti
     }
 }
 
-// ============================================
-// GLOBAL DOWNLOAD STATE STORE
-// ============================================
 
-/**
- * Persists download state across page switches so progress survives tab changes.
- * Key: logical identifier (e.g., 'crack-clip_studio_paint', 'custom-appName')
- * Value: { downloadId, status, percent, path, error, meta, onUpdate, onLifecycle }
- *
- * Two callbacks, on purpose. `onUpdate` paints the page's progress UI and is
- * dropped when that page is torn down. `onLifecycle` is how a caller learns the
- * download actually finished — it settles their promise, so it has to survive a
- * page switch. Having only one callback is what used to strand an install batch
- * forever when the user navigated away mid-download.
- */
 export const downloadStore = new Map();
 
-/**
- * Register a download in the global store
- * @param {string} key - Logical key for the download
- * @param {string} downloadId - The IPC download ID
- * @param {Object} meta - Extra metadata (appName, url, etc.)
- */
 export function registerDownload(key, downloadId, meta = {}) {
     downloadStore.set(key, {
         downloadId,
@@ -177,59 +108,33 @@ export function registerDownload(key, downloadId, meta = {}) {
         path: null,
         error: null,
         meta,
-        onUpdate: null,   // UI callback, attached by the page builder, dropped on page switch
-        onLifecycle: null // terminal-state callback, survives page switches
+        onUpdate: null,
+        onLifecycle: null
     });
 }
 
-/**
- * Attach a UI update callback to an active download (called from page builder)
- * @param {string} key - Logical key
- * @param {Function} callback - Called with download event data
- */
 export function attachDownloadUI(key, callback) {
     const dl = downloadStore.get(key);
     if (dl) dl.onUpdate = callback;
 }
 
-/**
- * Attach a terminal-state callback that outlives page switches.
- * Fires once, with the event that ends the download ('complete', 'error' or
- * 'cancelled'), so a caller's promise settles even if its page is long gone.
- * @param {string} key - Logical key
- * @param {Function} callback - Called with the terminal download event data
- */
 export function attachDownloadLifecycle(key, callback) {
     const dl = downloadStore.get(key);
     if (dl) dl.onLifecycle = callback;
 }
 
-/**
- * Detach all UI callbacks (called before page switch destroys DOM).
- * Deliberately leaves `onLifecycle` alone — that is what settles a caller's
- * promise, and dropping it is how a download finishing on another page ends up
- * never being reported at all.
- */
 export function detachAllDownloadUI() {
     for (const dl of downloadStore.values()) {
         dl.onUpdate = null;
     }
 }
 
-/**
- * Get active download state for a key
- * @param {string} key - Logical key
- * @returns {Object|null}
- */
 export function getActiveDownload(key) {
     const dl = downloadStore.get(key);
     if (dl && !['error', 'cancelled'].includes(dl.status)) return dl;
     return null;
 }
 
-/**
- * Initialize the persistent download event listener (call once during app init)
- */
 let downloadListenerInitialized = false;
 export function initDownloadListener() {
     if (downloadListenerInitialized || !window.api?.onDownloadEvent) return;
@@ -244,21 +149,17 @@ export function initDownloadListener() {
                 if (data.error) dl.error = data.error;
                 if (data.total) dl.total = data.total;
 
-                // Forward to UI callback if attached
                 if (dl.onUpdate) {
-                    try { dl.onUpdate(data); } catch { /* DOM may be stale, ignore */ }
+                    try { dl.onUpdate(data); } catch {  }
                 }
 
                 const terminal = ['complete', 'error', 'cancelled'].includes(data.status);
                 if (terminal && dl.onLifecycle) {
                     const settle = dl.onLifecycle;
-                    dl.onLifecycle = null; // fire once
-                    try { settle(data); } catch { /* caller already gone, ignore */ }
+                    dl.onLifecycle = null;
+                    try { settle(data); } catch {  }
                 }
 
-                // Clean up finished downloads from store after a delay.
-                // Includes 'complete' so entries do not leak when a download
-                // finishes while its page (and onUpdate callback) is not active.
                 if (['complete', 'error', 'cancelled'].includes(data.status)) {
                     const finishedId = data.id;
                     setTimeout(() => {
@@ -272,5 +173,4 @@ export function initDownloadListener() {
     });
 }
 
-// Global singleton instances
 export const buttonStateManager = new ButtonStateManager();

@@ -1,7 +1,3 @@
-/**
- * System Tools Module
- * Windows system maintenance tools (SFC, DISM, Temp cleanup, etc.)
- */
 
 const { spawn } = require('child_process');
 const path = require('path');
@@ -89,10 +85,6 @@ ${script}
       });
 
       child.on('close', () => {
-        // With `Start-Process -Wait`, this child stays alive for the whole time the
-        // UAC dialog is on screen AND while the elevated script runs, so we only get
-        // here after the user answered. resultFile is normally already present; the
-        // timeouts below are just short safety nets (denial grace / flush wait).
         const maxWait = 30000;
         const uacTimeout = 5000;
         const pollInterval = 150;
@@ -160,9 +152,6 @@ ${script}
 
 const CLEANER_TASK_IDS = ['temp', 'prefetch', 'recycle_bin', 'windows_update', 'thumbnail_cache', 'error_reports'];
 
-// SID of the desktop (non-elevated) user. Passed into elevated cleaner scripts
-// so the Recycle Bin stays scoped to this user even when UAC elevates through
-// a different administrator account.
 let _userSidPromise = null;
 function getCurrentUserSid() {
   if (!_userSidPromise) {
@@ -187,9 +176,6 @@ function getCurrentUserSid() {
   return _userSidPromise;
 }
 
-// PowerShell that measures each cleaner target and emits the sizes as JSON.
-// Shared by scanCleanerTasks() and by runCleanerTasks() (which appends it after
-// the delete step so a single elevated run cleans AND returns fresh sizes).
 const CLEANER_SCAN_PS = `
 $ErrorActionPreference = 'SilentlyContinue'
 
@@ -286,9 +272,6 @@ function normalizeCleanerItems(data) {
   })).filter((item) => CLEANER_TASK_IDS.includes(item.id));
 }
 
-// Delete logic for the selected cleaner tasks. Expects a $tasks string array to
-// be defined in scope. Shared by the one-shot elevated clean and by the
-// persistent admin worker.
 const CLEANER_CLEAN_BODY_PS = `
 if (-not (Get-Command Write-CleanerProgress -ErrorAction SilentlyContinue)) {
     function Write-CleanerProgress([string]$m) { }
@@ -386,11 +369,7 @@ if ($script:myleSkippedFiles -gt 0) {
 Write-CleanerProgress 'Selected items cleaned.'
 `;
 
-// ── Persistent cleaner admin session ─────────────────────────────────────────
-// One UAC acceptance starts a hidden elevated PowerShell worker that serves
-// scan/clean requests over file-based IPC for the rest of the app session,
-// so the user is never prompted again. The worker exits when the app dies.
-let _cleanerAdmin = null; // { dir, seq } | null
+let _cleanerAdmin = null;
 
 function cleanerAdminPaths(dir) {
   return {
@@ -402,8 +381,6 @@ function cleanerAdminPaths(dir) {
 async function isCleanerAdminAlive() {
   if (!_cleanerAdmin) return false;
   const { alive } = cleanerAdminPaths(_cleanerAdmin.dir);
-  // The worker refreshes alive.flag every ~300ms. Retry a few times before
-  // declaring the session dead so a momentary gap doesn't discard it.
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const stat = fs.statSync(alive);
@@ -482,14 +459,10 @@ async function enableCleanerAdminSession() {
     return { success: true, enabled: true };
   }
 
-  // The IPC directory must live OUTSIDE %TEMP% — the 'temp' cleaner task wipes
-  // %TEMP% and would destroy the session's own command/response files mid-clean.
   const ipcRoot = process.env.LOCALAPPDATA
     ? path.join(process.env.LOCALAPPDATA, 'MakeYourLifeEasier')
     : path.join(os.homedir(), '.myle');
 
-  // Stale dirs survive a crash (the worker only removes its own dir on a
-  // graceful stop). Orphaned workers exit on their own via the parent-PID check.
   try {
     for (const entry of fs.readdirSync(ipcRoot)) {
       if (entry.startsWith('cleaner-admin-')) {
@@ -514,7 +487,6 @@ async function enableCleanerAdminSession() {
       `Start-Process powershell.exe -ArgumentList ${psFileArgumentList(workerPath, ['-WindowStyle', 'Hidden'])} -Verb RunAs -WindowStyle Hidden`
     ], { windowsHide: true });
     launcher.on('error', () => resolve(false));
-    // Exit code is non-zero when the user cancels the UAC dialog.
     launcher.on('close', (code) => resolve(code === 0));
   });
 
@@ -523,7 +495,6 @@ async function enableCleanerAdminSession() {
     return { success: false, enabled: false, code: 'UAC_DENIED', error: 'Administrator access was not granted.' };
   }
 
-  // Wait for the worker's heartbeat so the session is provably serving.
   const { alive } = cleanerAdminPaths(dir);
   const deadline = Date.now() + 20000;
   while (Date.now() < deadline) {
@@ -646,7 +617,6 @@ async function runCleanerTasks(taskIds, options = {}, onProgress = null) {
     return { success: false, error: 'No cleaner tasks selected.' };
   }
 
-  // If the persistent admin session is active, clean through it — no extra UAC.
   if (await isCleanerAdminAlive()) {
     const result = await cleanerAdminExec({ action: 'clean', tasks: selected }, 300000, onProgress);
     if (result.success) {
@@ -661,9 +631,6 @@ async function runCleanerTasks(taskIds, options = {}, onProgress = null) {
         elevated: true
       };
     }
-    // The session is elevated and already ran the clean. If it is still alive,
-    // the failure was inside the clean itself — surface it rather than firing a
-    // second UAC one-shot, which would re-prompt and duplicate the same error.
     if (await isCleanerAdminAlive()) {
       return {
         success: false,
@@ -678,9 +645,6 @@ async function runCleanerTasks(taskIds, options = {}, onProgress = null) {
   const oneShotSid = await getCurrentUserSid();
   const sidLine = oneShotSid ? `$myleUserSid = '${oneShotSid}'` : '';
 
-  // Clean AND rescan inside a single process so sizes come back fresh with no
-  // extra round-trip. Elevated one-shot (one UAC) by default; when the caller
-  // explicitly declined admin, run non-elevated and skip protected items.
   const combinedScript = `${sidLine}
 & {
 $ErrorActionPreference = 'SilentlyContinue'
@@ -718,10 +682,6 @@ ${CLEANER_SCAN_PS}`;
   };
 }
 
-/**
- * Restart computer to BIOS/UEFI
- * @returns {Promise<Object>}
- */
 async function restartToBios() {
   return new Promise((resolve) => {
     const tempDir = os.tmpdir();
@@ -737,7 +697,6 @@ async function restartToBios() {
     };
 
     const psScript = `
-# Check if running as Administrator
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $isAdmin) {
@@ -763,7 +722,6 @@ try {
 }
 `;
 
-    // Elevate via PowerShell Start-Process -Verb RunAs (VBScript is disabled on Win11 24H2+)
     const launcherScript = `Start-Process powershell.exe -ArgumentList ${psFileArgumentList(psPath)} -Verb RunAs -WindowStyle Hidden -Wait`;
 
     try {
@@ -809,11 +767,6 @@ try {
   });
 }
 
-/**
- * Run Sparkle Debloat utility
- * Downloads, extracts and runs Sparkle from Dropbox
- * @returns {Promise<Object>}
- */
 async function runSparkleDebloat() {
   if (process.platform !== 'win32') {
     return { success: false, error: 'Sparkle Debloat is only supported on Windows.' };
@@ -821,10 +774,9 @@ async function runSparkleDebloat() {
 
   try {
     const sparkleModule = require('./sparkle');
-    
+
     debug('info', '🔍 Checking for Sparkle...');
-    
-    // First ensure Sparkle is available
+
     const ensureResult = await sparkleModule.ensureSparkle();
     if (!ensureResult.success) {
       debug('error', '❌ Failed to ensure Sparkle:', ensureResult.error);
@@ -833,10 +785,9 @@ async function runSparkleDebloat() {
         error: ensureResult.error || 'Failed to ensure Sparkle is available'
       };
     }
-    
+
     debug('info', '✅ Sparkle check completed:', ensureResult.message);
-    
-    // If download is needed, return download info to renderer
+
     if (ensureResult.needsDownload) {
       debug('info', '📥 Sparkle needs to be downloaded, returning download info');
       return {
@@ -848,15 +799,12 @@ async function runSparkleDebloat() {
         message: 'Sparkle needs to be downloaded'
       };
     }
-    
-    // Get the final executable path
+
     let exeToRun = ensureResult.sparkleExePath || sparkleModule.getSparkleExePath();
-    
-    // Verify the executable exists
+
     if (!exeToRun || !fs.existsSync(exeToRun)) {
       debug('error', '❌ Sparkle executable not found at:', exeToRun);
-      
-      // Try to find it in any location
+
       const available = sparkleModule.isSparkleAvailable();
       if (available) {
         exeToRun = sparkleModule.getSparkleExePath();
@@ -869,11 +817,10 @@ async function runSparkleDebloat() {
         };
       }
     }
-    
-    // Verify file size is reasonable
+
     try {
       const stats = fs.statSync(exeToRun);
-      const minSize = 5 * 1024 * 1024; // 5MB minimum
+      const minSize = 5 * 1024 * 1024;
       if (stats.size < minSize) {
         debug('warn', `⚠️ Sparkle file seems too small: ${stats.size} bytes`);
         return {
@@ -894,13 +841,11 @@ async function runSparkleDebloat() {
 
     debug('info', '🚀 Launching Sparkle Debloat from:', exeToRun);
 
-    // Use shell.openPath for better compatibility on Windows
     const { shell } = require('electron');
-    
+
     try {
-      // Wait for shell.openPath to complete
       const error = await shell.openPath(exeToRun);
-      
+
       if (error) {
         debug('error', '❌ Failed to launch Sparkle:', error);
         return {
@@ -909,7 +854,7 @@ async function runSparkleDebloat() {
           code: 'LAUNCH_FAILED'
         };
       }
-      
+
       debug('success', '✅ Sparkle Debloat launched successfully');
       return {
         success: true,
@@ -924,22 +869,18 @@ async function runSparkleDebloat() {
         code: 'LAUNCH_ERROR'
       };
     }
-    
+
   } catch (err) {
     debug('error', '❌ Error in runSparkleDebloat:', err);
     debug('error', err.stack);
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: err.message,
-      code: 'UNEXPECTED_ERROR' 
+      code: 'UNEXPECTED_ERROR'
     };
   }
 }
 
-/**
- * Run an elevated command hidden, streaming its output via a tailed log file
- * @returns {{ child: ChildProcess, done: Promise<Object> }}
- */
 function runElevatedStreaming(name, innerBody, propagateExitCode, onOutput = () => { }, heartbeat = false) {
   const psExe = getPowerShellExe() || 'powershell';
   const rawLogPath = path.join(os.tmpdir(), `${name}_${Date.now()}.log`);
@@ -1031,9 +972,6 @@ function runElevatedStreaming(name, innerBody, propagateExitCode, onOutput = () 
 function runChrisTitus(onOutput = () => { }) {
   return runElevatedStreaming(
     'christitus',
-    // Scheme spelled out on purpose: without it Invoke-RestMethod defaults to
-    // http:// and relies on the server redirecting, so the first hop of a script
-    // that is about to run elevated travels in the clear.
     "`$ProgressPreference='SilentlyContinue'; irm https://christitus.com/win | iex",
     false,
     onOutput
@@ -1199,10 +1137,6 @@ function runDismRepair(onOutput = () => { }) {
   return runElevatedConsoleTask('dism_repair', 'DISM', ['/Online', '/Cleanup-Image', '/RestoreHealth'], onOutput);
 }
 
-/**
- * Flush DNS cache
- * @returns {Promise<Object>}
- */
 function flushDnsCache(onOutput = () => { }) {
   return runMaintenanceScript('flush_dns', `
 Write-Host "=== FLUSH DNS CACHE ===" -ForegroundColor Cyan
@@ -1211,10 +1145,6 @@ exit $LASTEXITCODE
 `, onOutput);
 }
 
-/**
- * Release and renew IP address
- * @returns {Promise<Object>}
- */
 function releaseRenewIp(onOutput = () => { }) {
   return runMaintenanceScript('release_renew_ip', `
 Write-Host "=== IP RELEASE & RENEW ===" -ForegroundColor Cyan
@@ -1228,10 +1158,6 @@ exit $LASTEXITCODE
 `, onOutput);
 }
 
-/**
- * Fix Bluetooth by restarting the Bluetooth service
- * @returns {Promise<Object>}
- */
 function fixBluetooth(onOutput = () => { }) {
   return runMaintenanceScript('fix_bluetooth', `
 Write-Host "=== FIX BLUETOOTH ===" -ForegroundColor Cyan
@@ -1243,7 +1169,6 @@ Write-Host "Starting Bluetooth services..." -ForegroundColor Yellow
 Start-Service -Name bthserv -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 
-# Reset Bluetooth adapter
 $btAdapter = Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'OK' -or $_.Status -eq 'Error' }
 if ($btAdapter) {
     foreach ($adapter in $btAdapter) {
@@ -1257,10 +1182,6 @@ Write-Host "Bluetooth fix completed!" -ForegroundColor Green
 `, onOutput);
 }
 
-/**
- * Check disk for errors
- * @returns {Promise<Object>}
- */
 function checkDisk(onOutput = () => { }) {
   return runMaintenanceScript('check_disk', `
 Write-Host "=== CHECK DISK ===" -ForegroundColor Cyan
@@ -1272,10 +1193,6 @@ exit $LASTEXITCODE
 `, onOutput);
 }
 
-/**
- * Network reset (Winsock + IP stack)
- * @returns {Promise<Object>}
- */
 function networkReset(onOutput = () => { }) {
   return runMaintenanceScript('network_reset', `
 Write-Host "=== NETWORK RESET ===" -ForegroundColor Cyan
@@ -1290,10 +1207,6 @@ Write-Host "Network reset complete! A restart may be required for full effect." 
 `, onOutput);
 }
 
-/**
- * Restart the Windows Audio system
- * @returns {Promise<Object>}
- */
 function restartAudioSystem(onOutput = () => { }) {
   return runMaintenanceScript('restart_audio', `
 Write-Host "=== RESTART AUDIO SYSTEM ===" -ForegroundColor Cyan

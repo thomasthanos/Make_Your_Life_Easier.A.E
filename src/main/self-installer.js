@@ -61,7 +61,7 @@ async function computeSize(dir) {
                 const stat = await fs.promises.stat(file);
                 bytes += stat.size;
                 count += 1;
-            } catch { /* skip unreadable */ }
+            } catch {  }
         }
         return { bytes, count, sizeMB: Math.max(1, Math.round(bytes / (1024 * 1024))) };
     });
@@ -72,7 +72,7 @@ async function getInstallInfo() {
     let size = { bytes: 0, count: 0, sizeMB: 0 };
     try {
         size = await computeSize(src);
-    } catch { /* best effort */ }
+    } catch {  }
     return {
         appName: APP_DISPLAY_NAME,
         version: app.getVersion(),
@@ -287,7 +287,7 @@ async function install(win, options, onProgress, debug) {
 
     onProgress({ phase: 'registry', percent: 100 });
     let sizeMB = 0;
-    try { sizeMB = (await computeSize(targetDir)).sizeMB; } catch { /* best effort */ }
+    try { sizeMB = (await computeSize(targetDir)).sizeMB; } catch {  }
     await writeUninstallRegistry(targetExe, targetDir, version, sizeMB)
         .catch((err) => debug('warn', 'Registry write failed:', err.message));
 
@@ -302,7 +302,7 @@ function launchInstalled(targetExe) {
     delete env.PORTABLE_EXECUTABLE_APP_FILENAME;
 
     const signalPath = path.join(os.tmpdir(), `myle-launch-${process.pid}-${Date.now()}.ready`);
-    try { fs.rmSync(signalPath, { force: true }); } catch { /* ignore */ }
+    try { fs.rmSync(signalPath, { force: true }); } catch {  }
     env.MYLE_LAUNCH_SIGNAL = signalPath;
 
     const child = spawn(targetExe, [], {

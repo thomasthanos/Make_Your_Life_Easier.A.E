@@ -1,0 +1,59 @@
+{
+  "packs": [
+    {
+      "id": "basics",
+      "apps": [
+        "7zip.7zip",
+        "Google.Chrome",
+        "Notepad++.Notepad++",
+        "RevoUninstaller.RevoUninstaller",
+        "SoftDeluxe.FreeDownloadManager",
+        "Malwarebytes.Malwarebytes"
+      ]
+    },
+    {
+      "id": "gaming",
+      "apps": [
+        "Valve.Steam",
+        "EpicGames.EpicGamesLauncher",
+        "Blizzard.BattleNet",
+        "ElectronicArts.EADesktop",
+        "Ubisoft.Connect",
+        "Discord.Discord",
+        "Guru3D.Afterburner",
+        "Guru3D.RTSS"
+      ]
+    },
+    {
+      "id": "development",
+      "apps": [
+        "Microsoft.VisualStudioCode",
+        "Git.Git",
+        "GitHub.GitHubDesktop",
+        "OpenJS.NodeJS",
+        "Python.Python.3.14",
+        "Oracle.VirtualBox"
+      ]
+    },
+    {
+      "id": "media",
+      "apps": [
+        "OBSProject.OBSStudio",
+        "Stremio.Stremio",
+        "BlenderFoundation.Blender",
+        "FlorianHeidenreich.Mp3tag",
+        "Elgato.StreamDeck"
+      ]
+    },
+    {
+      "id": "hardware",
+      "apps": [
+        "CPUID.CPU-Z",
+        "CPUID.HWMonitor",
+        "TechPowerUp.GPU-Z",
+        "REALiX.HWiNFO",
+        "CrystalDewWorld.CrystalDiskInfo"
+      ]
+    }
+  ]
+}

@@ -1,11 +1,9 @@
-// The operation owns its lock; navigating away must not release it.
 export function createInstallerActivity() {
     let state = { busy: false, kind: null, outcomes: {} };
     const listeners = new Set();
     const snapshot = () => ({ ...state, outcomes: { ...state.outcomes } });
     const publish = () => {
         for (const listener of listeners) {
-            // A stale UI must never interrupt the installer or retain its lock.
             try { listener(snapshot()); } catch (error) { console.error('Installer activity view:', error); }
         }
     };

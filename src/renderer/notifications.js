@@ -121,8 +121,6 @@ export function toast(msg, opts = {}) {
         progress.style.animationDuration = `${duration}ms`;
         progress.addEventListener('animationend', () => dismissToast(toastEl), { once: true });
         toastEl.appendChild(progress);
-        // Fallback: the progress bar's animationend is throttled/paused while the
-        // window is minimized, so a timer guarantees the toast still auto-dismisses.
         toastEl._dismissTimer = setTimeout(() => dismissToast(toastEl), duration + 150);
     }
 

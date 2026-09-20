@@ -1,23 +1,13 @@
-/**
- * Make Your Life Easier - Main Process Entry Point
- * Refactored version using modular architecture
- */
 
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-// Set userData path to AppData\Roaming\ThomasThanos\MakeYourLifeEasier
-// Must be done before any module imports that call app.getPath('userData')
 const _roamingBase = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
 app.setPath('userData', path.join(_roamingBase, 'ThomasThanos', 'MakeYourLifeEasier'));
 
-// ============================================================================
-// Module Imports
-// ============================================================================
 
-// Main process modules
 const windowManager = require('./window-manager');
 const ipcHandlers = require('./ipc-handlers');
 const updater = require('./updater');
@@ -25,7 +15,6 @@ const security = require('./security');
 const certificate = require('./certificate');
 const selfInstaller = require('./self-installer');
 
-// Shared modules
 const { debug } = require('../modules/debug');
 const fileUtils = require('../modules/file-utils');
 const processUtils = require('../modules/process-utils');
@@ -42,34 +31,21 @@ const sparkleModule = require('../modules/sparkle');
 const sharedSecurity = require('../modules/security');
 const gameSaves = require('../modules/game-saves');
 
-// ============================================================================
-// Configuration
-// ============================================================================
 
-// Configure app security settings
 security.configureAppSecurity();
 
-// Determine whether the updater should be bypassed
 const skipUpdater = security.shouldSkipUpdater();
 
-// Configure auto-updater
 updater.configureAutoUpdater();
 
-// Track temp files for cleanup on app quit
 const pendingCleanupFiles = new Set();
 
-// ============================================================================
-// Preload Path
-// ============================================================================
 
 const preloadPath = path.join(__dirname, '..', 'preload', 'index.js');
 const installerPreloadPath = path.join(__dirname, '..', 'installer-ui', 'preload.js');
 
-// Whether this launch is acting as the Setup installer / uninstaller
 const installerMode = selfInstaller.isInstallerMode() || selfInstaller.isUninstallMode();
 
-// When launched from the Setup "Launch now" button, signal the installer once our
-// first window is visible so it can close without leaving a blank gap.
 function signalInstallerWhenReady() {
     const signalPath = process.env.MYLE_LAUNCH_SIGNAL;
     if (!signalPath) return;
@@ -77,7 +53,7 @@ function signalInstallerWhenReady() {
     const write = () => {
         if (done) return;
         done = true;
-        try { fs.writeFileSync(signalPath, '1'); } catch { /* installer may be gone */ }
+        try { fs.writeFileSync(signalPath, '1'); } catch {  }
     };
     app.on('browser-window-created', (_event, win) => {
         win.once('ready-to-show', write);
@@ -86,14 +62,10 @@ function signalInstallerWhenReady() {
     setTimeout(write, 10000);
 }
 
-// Launched by the scheduled task: back up game saves and exit, with no window.
 const backupSavesMode = !installerMode && gameSaves.isBackupSavesLaunch(process.argv);
 
 if (!installerMode) signalInstallerWhenReady();
 
-// ============================================================================
-// Window Creation Wrappers
-// ============================================================================
 
 function createMainWindow(showWindow = true) {
     return windowManager.createMainWindow(showWindow, preloadPath);
@@ -106,9 +78,6 @@ function createUpdateWindow() {
 }
 
 
-// ============================================================================
-// Setup Updater Events
-// ============================================================================
 
 updater.setupUpdaterEvents({
     getUpdateWindow: windowManager.getUpdateWindow,
@@ -117,45 +86,30 @@ updater.setupUpdaterEvents({
     debug
 });
 
-// ============================================================================
-// Setup IPC Handlers
-// ============================================================================
 
-// Window controls
 ipcHandlers.setupWindowHandlers(windowManager.getMainWindow);
 
-// System info
 ipcHandlers.setupSystemInfoHandlers();
 
-// OAuth and user profile
 ipcHandlers.setupOAuthHandlers(oauth, userProfile, windowManager.getMainWindow, supabase, settingsStore);
 ipcHandlers.setupSettingsHandlers(settingsStore);
 
-// Commands and external processes
 ipcHandlers.setupCommandHandlers(sharedSecurity, processUtils, fileUtils, systemTools);
 
-// Downloads
 ipcHandlers.setupDownloadHandlers(downloadManager, windowManager.getMainWindow);
 
-// File operations
 ipcHandlers.setupFileHandlers(sharedSecurity, fileUtils, debug, pendingCleanupFiles);
 
-// Archive extraction
 ipcHandlers.setupArchiveHandlers(sharedSecurity, archiveUtils, downloadManager);
 
-// Sparkle
 ipcHandlers.setupSparkleHandlers(sparkleModule);
 
-// System tools
 ipcHandlers.setupSystemToolsHandlers(systemTools);
 
-// Spicetify
 ipcHandlers.setupSpicetifyHandlers(spicetifyModule);
 
-// Installers
 ipcHandlers.setupInstallerHandlers(debug, security);
 
-// Game saves
 const gameSavesService = gameSaves.createGameSavesService({
     getMainWindow: windowManager.getMainWindow,
     settingsStore
@@ -163,16 +117,12 @@ const gameSavesService = gameSaves.createGameSavesService({
 ipcHandlers.setupGameSavesHandlers(gameSavesService);
 
 
-// Updater IPC handlers
 updater.setupUpdaterIpcHandlers({
     getUpdateWindow: windowManager.getUpdateWindow,
     getMainWindow: windowManager.getMainWindow,
     debug
 });
 
-// ============================================================================
-// Single Instance Lock
-// ============================================================================
 
 const gotTheLock = installerMode ? true : app.requestSingleInstanceLock();
 
@@ -181,17 +131,14 @@ if (!gotTheLock) {
     app.quit();
 } else if (!installerMode) {
     app.on('second-instance', (event, commandLine, workingDirectory) => {
-        // The scheduled task fired while the app is open: back up in this instance.
         if (gameSaves.isBackupSavesLaunch(commandLine)) {
             gameSavesService.runScheduledBackup({ headless: true }).catch(() => {});
             return;
         }
-        // This instance is a windowless scheduled backup and the user opened the app.
         if (backupSavesMode && !windowManager.getMainWindow()) {
             createMainWindow(false);
             return;
         }
-        // Someone tried to run a second instance, focus our window instead
         const mainWindow = windowManager.getMainWindow();
         if (mainWindow) {
             if (mainWindow.isMinimized()) mainWindow.restore();
@@ -200,9 +147,6 @@ if (!gotTheLock) {
     });
 }
 
-// ============================================================================
-// Cleanup Stale Lock Files on Startup
-// ============================================================================
 
 function cleanupStaleLockFiles() {
     try {
@@ -221,20 +165,8 @@ function cleanupStaleLockFiles() {
     }
 }
 
-// ============================================================================
-// User Profile
-// ============================================================================
 
-/**
- * Recompute the stored profile from a Supabase user and persist it if it changed.
- * @param {Object} user - Supabase user object
- * @param {Object|null} cached - Currently stored profile, used to keep the provider stable
- * @returns {boolean} True when the stored profile was replaced
- */
 function applyProfile(user, cached) {
-    // Resolve against the provider the user actually signed in with: a Supabase
-    // account can have Google and Discord linked to the same e-mail, and picking
-    // the wrong identity shows the other account's picture and provider badge.
     const preferred = cached?.provider && cached.provider !== 'unknown' ? cached.provider : null;
     const fresh = profileFromUser(user, preferred);
     if (!fresh) return false;
@@ -249,55 +181,41 @@ function applyProfile(user, cached) {
     return true;
 }
 
-// ============================================================================
-// App Lifecycle
-// ============================================================================
 
-/**
- * The scheduled task's launch: back up game saves, then quit unless the user
- * opened a window in the meantime.
- */
 async function runHeadlessBackup() {
     try {
         settingsStore.initialize(app.getPath('userData'));
     } catch (err) {
         debug('warn', 'Failed to initialize settings store:', err.message);
     }
-    // Windows shows toast notifications only for an app with a user model id.
     app.setAppUserModelId('com.kolokithes.makeyourlifeeasier');
 
     const result = await gameSavesService.runScheduledBackup({ headless: true });
     debug(result.success ? 'info' : 'warn', 'Scheduled game saves backup finished:', JSON.stringify(result.lastRun || result));
 
-    // Give the notification a moment to register before the process goes away.
     setTimeout(() => {
         if (BrowserWindow.getAllWindows().length === 0) app.quit();
     }, 3000);
 }
 
 app.whenReady().then(async () => {
-    // Installer / uninstaller mode: show only the themed Setup window and stop here
     if (installerMode) {
         ipcHandlers.setupInstallerModeHandlers(selfInstaller, windowManager.getInstallerWindow, debug);
         windowManager.createInstallerWindow(installerPreloadPath);
         return;
     }
 
-    // Scheduled backup: no window and no updater, just the backup.
     if (backupSavesMode) {
         if (gotTheLock) await runHeadlessBackup();
         return;
     }
 
-    // Clean up stale lock files first
     cleanupStaleLockFiles();
 
-    // 🧹 Clean up any leftover sparkle folder from a previous session where cleanup failed
     sparkleModule.cleanupLeftoverSparkle().catch(() => {});
 
     if (gotTheLock) downloadManager.cleanupLeftoverDownloads(debug).catch(() => {});
 
-    // Clean up any leftover update files from previous updates
     updater.cleanupUpdaterCache(debug);
 
     try {
@@ -306,7 +224,6 @@ app.whenReady().then(async () => {
         debug('warn', 'Failed to initialize Supabase:', err.message);
     }
 
-    // Initialize user profile
     try {
         userProfile.initialize(app.getPath('userData'));
         const cached = userProfile.get();
@@ -316,12 +233,6 @@ app.whenReady().then(async () => {
             userProfile.clear();
         } else if (sessionUser) {
             applyProfile(sessionUser, cached);
-            // Then renew from the auth server in the background. Discord/Google
-            // avatar URLs change when the user updates their picture, and the
-            // persisted session only carries the metadata snapshot from when its
-            // token was issued — so a stale URL keeps 404ing until we ask the
-            // server. Deliberately not awaited: this is a network round-trip and
-            // the window must not wait on it.
             supabase.getFreshUser()
                 .then((freshUser) => {
                     if (!freshUser) return;
@@ -345,7 +256,6 @@ app.whenReady().then(async () => {
         debug('warn', 'Failed to initialize settings store:', err.message);
     }
 
-    // Skip the update check on the first launch right after an update was installed
     let justUpdated = false;
     const justUpdatedFlag = path.join(app.getPath('userData'), '.just-updated');
     try {
@@ -353,16 +263,12 @@ app.whenReady().then(async () => {
             justUpdated = true;
             fs.unlinkSync(justUpdatedFlag);
         }
-    } catch { /* ignore */ }
+    } catch {  }
 
-    // Certificate trust spawns certutil once or twice, and awaiting it here held up
-    // the very first window on every launch. Nothing on screen depends on it — it
-    // only has to be in place before an update's installer runs, which is many
-    // seconds of downloading away — so let it settle in the background.
     certificate.ensureCertificateTrusted().catch(() => {});
 
     if (skipUpdater || justUpdated) {
-        createMainWindow(false); // start hidden and show when renderer signals ready
+        createMainWindow(false);
     } else {
         createUpdateWindow();
     }
@@ -370,7 +276,7 @@ app.whenReady().then(async () => {
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             if (skipUpdater) {
-                createMainWindow(false); // start hidden on activate too
+                createMainWindow(false);
             } else {
                 createUpdateWindow();
             }
@@ -380,30 +286,23 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
     if (updater.isQuittingForInstall()) return;
-    // A scheduled backup outlives a window opened during it, and quits by itself.
     if (backupSavesMode && gameSavesService.isRunningScheduled()) return;
     if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('before-quit', () => {
-    // Safe log helper — stdout/stderr pipes may close during quit (EPIPE)
     const safeDebug = (level, ...args) => {
-        try { debug(level, ...args); } catch { /* pipe closed */ }
+        try { debug(level, ...args); } catch {  }
     };
 
     gameSavesService.dispose();
 
-    // Only the running app owns its downloads: a second launch that quits
-    // straight away, or the Setup window, must not delete them from under it
     if (gotTheLock && !installerMode) downloadManager.cleanupOnQuit(safeDebug);
 
-    // Stop the elevated cleaner admin worker, if one is running
     try { systemTools.stopCleanerAdminSession(); } catch { }
 
-    // Cleanup sparkle files
     sparkleModule.cleanupSparkle();
 
-    // Cleanup any pending temp files
     pendingCleanupFiles.forEach(filePath => {
         try {
             if (fs.existsSync(filePath)) {
@@ -418,5 +317,5 @@ app.on('before-quit', () => {
 });
 
 app.on('will-quit', () => {
-    try { debug('info', '👋 Application shutting down gracefully'); } catch { /* pipe closed */ }
+    try { debug('info', '👋 Application shutting down gracefully'); } catch {  }
 });

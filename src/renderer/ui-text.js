@@ -1,4 +1,3 @@
-// Shared UI copy without importing services (which also imports UI components).
 let catalog = {};
 
 export function setUiTranslations(translations) {

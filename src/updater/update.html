@@ -153,8 +153,6 @@
           linear-gradient(90deg, rgba(73, 112, 219, 0.78), rgba(83, 166, 238, 0.62), rgba(73, 112, 219, 0.3));
         background-size: 200% 100%;
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
-        /* Slow enough that a download finishing in a fraction of a second
-           still visibly fills the bar */
         transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
         animation: shimmer 2s infinite linear;
       }
@@ -229,7 +227,6 @@
         display: none;
       }
 
-      /* After the download the bar stays, full, and names the step instead */
       .is-installing .progress-metrics {
         display: none;
       }

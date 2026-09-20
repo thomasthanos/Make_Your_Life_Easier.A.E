@@ -1,8 +1,4 @@
 import { uiText as translateUI } from '../ui-text.js';
-/**
- * Activation Page
- * Contains Windows Activation and Auto Login functionality
- */
 
 import { buttonStateManager, registerDownload, attachDownloadUI, downloadStore } from '../managers.js';
 import { toast } from '../components.js';
@@ -32,9 +28,6 @@ const ACTIVATION_ICONS = {
     local: activationSvg('<path d="M4 5h16v11H4z"/><path d="M8 20h8"/><path d="M12 16v4"/>', { stroke: true })
 };
 
-// ============================================
-// DOWNLOAD AND RUN HELPERS
-// ============================================
 
 async function downloadAndRun(button, config) {
     if (buttonStateManager && buttonStateManager.isLoading && buttonStateManager.isLoading(button)) return;
@@ -72,10 +65,6 @@ async function downloadAndRun(button, config) {
                     ui.setProgress(0);
                     break;
                 case 'progress': {
-                    // A server that sends no Content-Length gives us no percentage.
-                    // Rendering it anyway produced the literal text "null%" and a
-                    // progress bar stuck at zero; fall back to bytes received and an
-                    // indeterminate bar.
                     const hasPercent = typeof data.percent === 'number' && Number.isFinite(data.percent);
                     const label = hasPercent
                         ? `${config.downloadingText} ${data.percent}%`
@@ -174,9 +163,6 @@ function downloadAndRunAutologin(button, ui, idleText) {
     });
 }
 
-// ============================================
-// PAGE BUILDER
-// ============================================
 
 function createActivationBadge(text, tone = 'admin') {
     const badge = document.createElement('span');

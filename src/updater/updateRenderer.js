@@ -1,5 +1,3 @@
-// Renderer script for the update window. It listens for update status
-// messages from the main process and keeps the splash UI in sync.
 
 window.addEventListener('DOMContentLoaded', () => {
   const cardEl = document.querySelector('.update-card');
@@ -16,9 +14,6 @@ window.addEventListener('DOMContentLoaded', () => {
   let currentPhase = 'init';
   let cancelling = false;
 
-  // 'message': status pill only. 'downloading': bar with size, speed and ETA.
-  // 'installing': the bar stays full and names the step, so the hand-over to
-  // the installer does not look like the window emptied out.
   function setMode(mode) {
     if (!cardEl) return;
     cardEl.classList.toggle('is-downloading', mode === 'downloading');

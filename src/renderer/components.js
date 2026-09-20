@@ -1,21 +1,11 @@
 import { uiText } from './ui-text.js';
-/**
- * Renderer Components
- * Contains UI components like header, modals, toasts, error cards
- */
 
 import { debug, escapeHtml } from './utils.js';
 
-// ============================================
-// ICON DEFINITIONS
-// ============================================
 
 export const INFO_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="11" y="10" width="2" height="10"/><rect x="11" y="6" width="2" height="2"/></svg>`;
 export const MENU_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="6" width="16" height="2"/><rect x="4" y="11" width="16" height="2"/><rect x="4" y="16" width="16" height="2"/></svg>`;
 
-// ============================================
-// MENU ICONS
-// ============================================
 
 const MENU_ICONS = {
     install_apps: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>`,
@@ -30,16 +20,9 @@ const MENU_ICONS = {
     game_saves: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-gamepad-2"><line x1="6" x2="10" y1="11" y2="11"></line><line x1="8" x2="8" y1="9" y2="13"></line><line x1="15" x2="15.01" y1="12" y2="12"></line><line x1="18" x2="18.01" y1="10" y2="10"></line><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"></path></svg>`
 };
 
-// ============================================
-// NOTIFICATIONS
-// ============================================
 
 export { toast, showErrorCard } from './notifications.js';
 
-/**
- * Hide every finished in-app terminal except the given one
- * @param {HTMLElement} current - The terminal that should stay open
- */
 export function closeOtherTerminals(current) {
     document.querySelectorAll('.winget-terminal.open').forEach((terminal) => {
         if (terminal !== current && !terminal.classList.contains('running')) {
@@ -48,11 +31,6 @@ export function closeOtherTerminals(current) {
     });
 }
 
-/**
- * Reveal a just-opened terminal: mark it open and scroll it into view so it is
- * never left below the fold (e.g. on short viewports or with DevTools docked).
- * @param {HTMLElement} terminal - the .winget-terminal element to open
- */
 export function openTerminal(terminal) {
     if (!terminal) return;
     const body = terminal.querySelector('.winget-terminal-body');
@@ -71,39 +49,21 @@ export function openTerminal(terminal) {
 }
 
 
-// ============================================
-// UPDATE OVERLAY
-// ============================================
 
 let updateOverlay = null;
 
-/**
- * Format bytes to human-readable size
- * @param {number} bytes - Size in bytes
- * @returns {string} Formatted size
- */
 function formatBytes(bytes) {
     if (!bytes || bytes === 0) return '0 MB';
     const mb = bytes / (1024 * 1024);
     return mb.toFixed(2) + ' MB';
 }
 
-/**
- * Format speed in bytes/sec to MB/s
- * @param {number} bytesPerSec - Speed in bytes per second
- * @returns {string} Formatted speed
- */
 function formatSpeed(bytesPerSec) {
     if (!bytesPerSec || bytesPerSec === 0) return '0 MB/s';
     const mbps = bytesPerSec / (1024 * 1024);
     return mbps.toFixed(2) + ' MB/s';
 }
 
-/**
- * Format seconds to human-readable time
- * @param {number} seconds - Time in seconds
- * @returns {string} Formatted time
- */
 function formatTime(seconds) {
     if (!seconds || seconds <= 0 || !isFinite(seconds)) return '0s';
     if (seconds < 60) return Math.round(seconds) + 's';
@@ -112,10 +72,6 @@ function formatTime(seconds) {
     return `${mins}m ${secs}s`;
 }
 
-/**
- * Show the update overlay with progress ring
- * @param {string} initialStatus - Initial status text
- */
 export function showUpdateOverlay(initialStatus) {
     if (!updateOverlay) {
         updateOverlay = document.createElement('div');
@@ -126,7 +82,6 @@ export function showUpdateOverlay(initialStatus) {
         container.className = 'update-overlay-container';
         updateOverlay.appendChild(container);
 
-        // Create download icon
         const iconWrapper = document.createElement('div');
         iconWrapper.className = 'update-icon-wrapper';
         iconWrapper.innerHTML = `
@@ -138,17 +93,14 @@ export function showUpdateOverlay(initialStatus) {
         `;
         container.appendChild(iconWrapper);
 
-        // Main title
         const title = document.createElement('h2');
         title.className = 'update-title';
         title.textContent = uiText("update_download_title", "Downloading Update");
         container.appendChild(title);
 
-        // Progress ring container
         const ringContainer = document.createElement('div');
         ringContainer.className = 'update-ring-container';
 
-        // Create SVG progress ring
         const svgNS = 'http://www.w3.org/2000/svg';
         const svg = document.createElementNS(svgNS, 'svg');
         svg.setAttribute('viewBox', '0 0 120 120');
@@ -176,7 +128,6 @@ export function showUpdateOverlay(initialStatus) {
         progress.style.transform = 'rotate(-90deg)';
         progress.style.transformOrigin = '60px 60px';
 
-        // Add gradient definition
         const defs = document.createElementNS(svgNS, 'defs');
         const gradient = document.createElementNS(svgNS, 'linearGradient');
         gradient.setAttribute('id', 'progressGradient');
@@ -184,15 +135,15 @@ export function showUpdateOverlay(initialStatus) {
         gradient.setAttribute('y1', '0%');
         gradient.setAttribute('x2', '100%');
         gradient.setAttribute('y2', '100%');
-        
+
         const stop1 = document.createElementNS(svgNS, 'stop');
         stop1.setAttribute('offset', '0%');
         stop1.setAttribute('style', 'stop-color:#0a84ff;stop-opacity:1');
-        
+
         const stop2 = document.createElementNS(svgNS, 'stop');
         stop2.setAttribute('offset', '100%');
         stop2.setAttribute('style', 'stop-color:#3a9bff;stop-opacity:1');
-        
+
         gradient.appendChild(stop1);
         gradient.appendChild(stop2);
         defs.appendChild(gradient);
@@ -201,7 +152,6 @@ export function showUpdateOverlay(initialStatus) {
         svg.appendChild(bg);
         svg.appendChild(progress);
 
-        // Percentage text in center
         const percentText = document.createElement('div');
         percentText.className = 'update-percent';
         percentText.textContent = '0%';
@@ -210,11 +160,9 @@ export function showUpdateOverlay(initialStatus) {
         ringContainer.appendChild(percentText);
         container.appendChild(ringContainer);
 
-        // Info grid for details
         const infoGrid = document.createElement('div');
         infoGrid.className = 'update-info-grid';
 
-        // Download info
         const downloadInfo = document.createElement('div');
         downloadInfo.className = 'update-info-item';
         downloadInfo.innerHTML = `
@@ -222,7 +170,6 @@ export function showUpdateOverlay(initialStatus) {
             <div class="update-info-value" id="update-downloaded">0 MB / 0 MB</div>
         `;
 
-        // Speed info
         const speedInfo = document.createElement('div');
         speedInfo.className = 'update-info-item';
         speedInfo.innerHTML = `
@@ -230,7 +177,6 @@ export function showUpdateOverlay(initialStatus) {
             <div class="update-info-value" id="update-speed">0 MB/s</div>
         `;
 
-        // ETA info
         const etaInfo = document.createElement('div');
         etaInfo.className = 'update-info-item';
         etaInfo.innerHTML = `
@@ -243,7 +189,6 @@ export function showUpdateOverlay(initialStatus) {
         infoGrid.appendChild(etaInfo);
         container.appendChild(infoGrid);
 
-        // Status text
         const statusText = document.createElement('p');
         statusText.className = 'update-status-text';
         statusText.textContent = initialStatus || uiText("update_prepare", "Preparing download...");
@@ -253,7 +198,6 @@ export function showUpdateOverlay(initialStatus) {
         updateOverlay._percentEl = percentText;
         updateOverlay._statusEl = statusText;
         document.body.appendChild(updateOverlay);
-        // BUGFIX: getElementById calls MUST happen after appendChild so elements exist in DOM
         updateOverlay._downloadedEl = document.getElementById('update-downloaded');
         updateOverlay._speedEl = document.getElementById('update-speed');
         updateOverlay._etaEl = document.getElementById('update-eta');
@@ -267,35 +211,27 @@ export function showUpdateOverlay(initialStatus) {
     }
 }
 
-/**
- * Update the update overlay progress
- * @param {number} percent - Progress percentage (0-100)
- * @param {string} statusText - Status text
- * @param {Object} details - Additional details (bytesPerSecond, transferred, total)
- */
 export function updateUpdateOverlay(percent, statusText, details = {}) {
     if (!updateOverlay) return;
-    
+
     const circumference = 2 * Math.PI * 54;
     if (typeof percent === 'number') {
         const offset = circumference - (percent / 100) * circumference;
         updateOverlay._progressCircle.style.strokeDashoffset = offset;
         updateOverlay._percentEl.textContent = Math.round(percent) + '%';
     }
-    
+
     if (statusText) {
         updateOverlay._statusEl.textContent = statusText;
     }
 
-    // Update detailed information
     if (details.transferred !== undefined && details.total !== undefined) {
         updateOverlay._downloadedEl.textContent = `${formatBytes(details.transferred)} / ${formatBytes(details.total)}`;
     }
 
     if (details.bytesPerSecond !== undefined) {
         updateOverlay._speedEl.textContent = formatSpeed(details.bytesPerSecond);
-        
-        // Calculate ETA
+
         if (details.transferred && details.total && details.bytesPerSecond > 0) {
             const remaining = details.total - details.transferred;
             const eta = remaining / details.bytesPerSecond;
@@ -304,9 +240,6 @@ export function updateUpdateOverlay(percent, statusText, details = {}) {
     }
 }
 
-/**
- * Hide the update overlay
- */
 export function hideUpdateOverlay() {
     if (updateOverlay) {
         updateOverlay.classList.add('hidden');
@@ -314,13 +247,7 @@ export function hideUpdateOverlay() {
     }
 }
 
-// ============================================
-// INFO MODAL
-// ============================================
 
-/**
- * Open the info modal
- */
 export async function openInfoModal() {
     if (document.getElementById('info-modal-overlay')) return;
 
@@ -405,13 +332,6 @@ export async function openInfoModal() {
     document.body.appendChild(overlay);
 }
 
-/**
- * Whether a value is safe to drop into an <img src>.
- * The profile arrives over IPC already normalised, but this is the last stop
- * before it reaches the DOM, so re-check the scheme here rather than trust it.
- * @param {unknown} value - Candidate URL
- * @returns {boolean} True for absolute http(s) URLs only
- */
 export function isHttpUrl(value) {
     if (typeof value !== 'string' || !value) return false;
     try {
@@ -422,22 +342,6 @@ export function isHttpUrl(value) {
     }
 }
 
-/**
- * Recover a broken avatar image, and fall back to an initial-letter placeholder.
- *
- * Two things go wrong with provider avatars. Their URLs change whenever the user
- * updates their picture, so an old cached URL 404s and would leave a broken-image
- * icon in the UI. And an animated Discord avatar is served as `.gif` only while
- * the account still has it — otherwise the CDN answers 415 and only the still
- * rendition loads, which is what `altSrc` carries.
- *
- * So: try `altSrc` once, then show the initial. Uses a listener instead of an
- * inline onerror handler because the renderer CSP blocks inline event handlers.
- * @param {HTMLImageElement|null} img - The avatar image element
- * @param {string} name - Display name used for the initial
- * @param {string} fallbackClass - Class applied to the placeholder element
- * @param {string|null} [altSrc] - Alternate source to try before giving up
- */
 export function attachAvatarFallback(img, name, fallbackClass, altSrc = null) {
     if (!img) return;
 
@@ -461,7 +365,6 @@ export function attachAvatarFallback(img, name, fallbackClass, altSrc = null) {
     };
 
     img.addEventListener('error', onError, { once: true });
-    // The load may already have failed before this listener was attached.
     if (img.complete && img.naturalWidth === 0) onError();
 }
 
@@ -555,16 +458,7 @@ export function openAccountModal(profile, syncedItems = [], handlers = {}, texts
     });
 }
 
-// ============================================
-// MENU BUTTON CREATION
-// ============================================
 
-/**
- * Create a menu button element
- * @param {string} key - Menu key identifier
- * @param {string} label - Button label
- * @returns {HTMLLIElement} The list item containing the button
- */
 export function createMenuButton(key, label) {
     const li = document.createElement('li');
     const btn = document.createElement('button');

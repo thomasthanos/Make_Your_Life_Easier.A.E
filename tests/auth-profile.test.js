@@ -21,8 +21,6 @@ test('cached renderer profile can be reconstructed from the Supabase session use
 });
 
 test('the identity matching the provider wins over the merged user_metadata blob', () => {
-  // Google and Discord linked to one Supabase account: user_metadata is a single
-  // merged object, so reading the avatar from there shows the wrong provider.
   const user = {
     id: 'user-b',
     email: 'user@example.com',
@@ -59,8 +57,6 @@ test('the identity matching the provider wins over the merged user_metadata blob
     provider: 'discord'
   });
 
-  // With no hint, follow the identity that signed in most recently rather than
-  // app_metadata.provider, which is frozen at the provider the account was made with.
   assert.equal(profileFromUser(user).provider, 'discord');
 });
 
@@ -101,9 +97,6 @@ test('avatar URLs are upsized and non-http schemes are rejected', () => {
 });
 
 test('an animated Discord avatar carries a still rendition to fall back on', () => {
-  // Discord only serves the .gif while the account still has an animated avatar.
-  // Once it does not, the CDN answers 415 for the .gif and only .png/.webp load —
-  // so the profile has to ship the still URL alongside it.
   const user = {
     id: 'user-e',
     app_metadata: { provider: 'discord' },

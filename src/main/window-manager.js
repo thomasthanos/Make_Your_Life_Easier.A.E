@@ -1,48 +1,27 @@
-/**
- * Window Manager Module
- * Handles creation and management of all application windows
- */
 
 const { BrowserWindow, app } = require('electron');
 const path = require('path');
 const { hardenWindow } = require('./security');
 
-// Window dimension constants
 const MAIN_WINDOW = { width: 1100, height: 750, minWidth: 800, minHeight: 600 };
 const UPDATE_WINDOW = { width: 650, height: 440 };
 const INSTALLER_WINDOW = { width: 560, height: 462 };
 const WINDOW_BG_COLOR = '#171717';
 
-// Whether the app is running in development mode
 const isDev = !app.isPackaged;
 
-// Window references
 let mainWindow = null;
 let updateWindow = null;
 let installerWindow = null;
 
-/**
- * Get the main window instance
- * @returns {BrowserWindow|null}
- */
 function getMainWindow() {
     return mainWindow;
 }
 
-/**
- * Get the update window instance
- * @returns {BrowserWindow|null}
- */
 function getUpdateWindow() {
     return updateWindow;
 }
 
-/**
- * Create the main application window
- * @param {boolean} showWindow - Whether to show the window when ready
- * @param {string} preloadPath - Path to preload script
- * @returns {BrowserWindow}
- */
 function createMainWindow(showWindow = true, preloadPath) {
     mainWindow = new BrowserWindow({
         width: MAIN_WINDOW.width,
@@ -66,10 +45,8 @@ function createMainWindow(showWindow = true, preloadPath) {
     hardenWindow(mainWindow);
     mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
-    // Block DevTools keyboard shortcut in production
     if (!isDev) {
         mainWindow.webContents.on('before-input-event', (event, input) => {
-            // Block Ctrl+Shift+I, Ctrl+Shift+J, F12
             if (
                 (input.control && input.shift && (input.key === 'I' || input.key === 'J' || input.key === 'C')) ||
                 input.key === 'F12'
@@ -79,7 +56,6 @@ function createMainWindow(showWindow = true, preloadPath) {
         });
     }
 
-    // Cleanup reference when window is closed
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
@@ -87,12 +63,6 @@ function createMainWindow(showWindow = true, preloadPath) {
     return mainWindow;
 }
 
-/**
- * Create the update/splash window
- * @param {string} preloadPath - Path to preload script
- * @param {Function} onReady - Callback when window is ready
- * @returns {BrowserWindow}
- */
 function createUpdateWindow(preloadPath, onReady) {
     updateWindow = new BrowserWindow({
         width: UPDATE_WINDOW.width,
@@ -134,19 +104,10 @@ function createUpdateWindow(preloadPath, onReady) {
     return updateWindow;
 }
 
-/**
- * Get the installer window instance
- * @returns {BrowserWindow|null}
- */
 function getInstallerWindow() {
     return installerWindow;
 }
 
-/**
- * Create the themed installer/uninstaller window
- * @param {string} preloadPath - Path to the installer preload script
- * @returns {BrowserWindow}
- */
 function createInstallerWindow(preloadPath) {
     installerWindow = new BrowserWindow({
         width: INSTALLER_WINDOW.width,

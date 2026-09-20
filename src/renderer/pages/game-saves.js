@@ -1,8 +1,3 @@
-/**
- * Game Saves Page
- * Finds the saves of every game on this PC, backs them up and restores them.
- * All file work happens in the main process; this page only ever sends game ids.
- */
 
 import { debug } from '../utils.js';
 import { toast } from '../components.js';
@@ -30,20 +25,15 @@ const MANIFEST_URL = 'https://github.com/mtkennerly/ludusavi-manifest';
 const PCGAMINGWIKI_URL = 'https://www.pcgamingwiki.com';
 const CHEVRON_ICON = '<svg class="sort-dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
 const CHECK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
-// Half-hour steps for the backup time.
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`);
 
-/** Time choices, keeping a saved time that falls between the half-hour steps. */
 function timeOptions(extra) {
     const times = extra && !TIME_OPTIONS.includes(extra) ? [...TIME_OPTIONS, extra].sort() : TIME_OPTIONS;
     return times.map((time) => [time, time]);
 }
 
-// The list has two tabs: what is on this PC (to back up) and what is in the
-// backup (to restore).
 const VIEWS = ['pc', 'backup'];
 
-// A backed-up game compared with this PC: [translation key, fallback].
 const BACKUP_STATES = {
     missing: ['state_missing', 'Not on this PC'],
     'pc-newer': ['state_pc_newer', 'This PC has newer saves'],
@@ -51,7 +41,6 @@ const BACKUP_STATES = {
     same: ['state_same', 'Same as this PC']
 };
 
-// One file compared with the other side: [translation key, fallback, style].
 const FILE_STATES = {
     new: ['file_new', 'Not backed up', 'is-new'],
     changed: ['file_changed', 'Changed', 'is-changed'],
@@ -60,7 +49,6 @@ const FILE_STATES = {
     different: ['file_different', 'Different on this PC', 'is-new']
 };
 
-// The per-state counts above a file list, in this order: [state, key, fallback].
 const FILE_SUMMARY = {
     pc: [
         ['new', 'files_sum_new', '{count} not backed up yet'],
@@ -75,19 +63,18 @@ const FILE_SUMMARY = {
     ]
 };
 
-// Module scope, so results and a running task survive leaving the page.
 const state = {
-    data: null,         // last state from the main process
-    task: null,         // task this page started
-    external: false,    // a task someone else started (the scheduled backup) is running
+    data: null,
+    task: null,
+    external: false,
     progress: null,
     view: 'pc',
     selected: { pc: new Set(), backup: new Set() },
     filter: { pc: 'all', backup: 'all' },
     query: '',
-    expanded: new Set(),    // "<view>:<id>" rows showing their files
-    files: new Map(),       // loaded file lists, by row and data version
-    filesScan: null         // the scan those lists belong to
+    expanded: new Set(),
+    files: new Map(),
+    filesScan: null
 };
 
 let T = {};
@@ -103,7 +90,6 @@ function tr(key, fallback, values) {
 
 const pageTitle = () => tr('title', 'Game Saves');
 
-// Copy errors with a known cause carry a code, so their advice can be translated.
 const ERROR_KEYS = { 'cloud-unavailable': 'error_cloud_unavailable', 'in-use': 'error_in_use' };
 const errorText = (item) => (item.code && ERROR_KEYS[item.code] ? tr(ERROR_KEYS[item.code], item.error) : item.error);
 
@@ -150,10 +136,6 @@ function setLabel(node, label) {
     if (span) span.textContent = label;
 }
 
-/**
- * Use the app's own tooltip, as the sidebar does, instead of the native title
- * popup. An empty text removes it.
- */
 function setTooltip(node, text) {
     if (text) {
         node.setAttribute('data-tooltip', text);
@@ -172,7 +154,6 @@ function iconButton(icon, label) {
     return node;
 }
 
-/** A checkbox in the app's style; the input stays for keyboard and screen readers. */
 function checkBox(checked, disabled, label) {
     const wrap = el('label', 'gs-box');
     const input = el('input');
@@ -186,7 +167,6 @@ function checkBox(checked, disabled, label) {
     return { wrap, input };
 }
 
-/** An on/off switch, so it cannot be mistaken for the row's selection box. */
 function switchToggle(checked, disabled, label) {
     const wrap = el('label', 'gs-switch');
     const input = el('input');
@@ -203,13 +183,6 @@ function closeDropdown(node) {
     if (trigger) trigger.setAttribute('aria-expanded', 'false');
 }
 
-/**
- * A dropdown built like the Install Apps sort menu. A native <select> opens a
- * system popup that ignores the app's dark theme.
- * @param {Array<[string, string]>} options - [value, label] pairs
- * @param {{label?: string, onChange?: Function, className?: string}} [config]
- * @returns {{root: HTMLElement, value: string, setValue: Function, setOptions: Function, setDisabled: Function}}
- */
 function dropdown(options, { label, onChange, className = '' } = {}) {
     const root = el('div', `sort-dropdown gs-dropdown ${className}`.trim());
     const trigger = el('button', 'sort-dropdown-trigger');
@@ -314,7 +287,6 @@ function statusText(status) {
 const isOnPc = (game) => game.status !== 'backup-only';
 const hasBackup = (game) => Boolean(game.backup);
 
-/** How a backed-up game compares with this PC: a key of BACKUP_STATES. */
 function backupState(game) {
     if (!isOnPc(game)) return 'missing';
     if (game.status === 'up-to-date') return 'same';
@@ -354,7 +326,6 @@ function matchesFilter(game, view, filter) {
     return filter === 'different' ? compared === 'different' || compared === 'pc-newer' : compared === filter;
 }
 
-// Changes whenever the list a row would show changes.
 const filesKey = (game, view) => `${view}:${game.id}:${game.status}:${game.backedUpAt || ''}`;
 
 function progressText(progress) {
@@ -429,7 +400,6 @@ function ensureProgressListener() {
         if (progress.phase === 'done') {
             state.progress = null;
             if (!state.task) {
-                // A task this page did not start, like the scheduled backup, finished.
                 state.external = false;
                 refreshState();
                 return;
@@ -541,7 +511,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
 
     const container = el('div', 'gs-page');
 
-    // ── Hero ──
     const hero = el('section', 'gs-hero');
     const heroMain = el('div', 'gs-hero-main');
     const heroIcon = el('div', 'gs-hero-icon');
@@ -559,7 +528,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     heroMeta.append(gamesChip, sizeChip, databaseChip);
     hero.append(heroMain, heroMeta);
 
-    // ── Backup folder ──
     const settingsGrid = el('div', 'gs-settings');
     const folderCard = el('section', 'gs-card');
     const folderPath = el('div', 'gs-path-box');
@@ -579,7 +547,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         cloudRow
     );
 
-    // ── Automatic backup ──
     const scheduleCard = el('section', 'gs-card');
     const markScheduleDirty = () => {
         scheduleDirty = true;
@@ -618,7 +585,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     );
     scheduleCard.lastElementChild.appendChild(runNowBtn);
 
-    // ── Extra game folders ──
     const rootsCard = el('section', 'gs-card gs-card--wide');
     const rootsList = el('div', 'gs-roots');
     const launchersLine = el('p', 'gs-note');
@@ -632,7 +598,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     rootsCard.lastElementChild.appendChild(addRootBtn);
     settingsGrid.append(folderCard, scheduleCard, rootsCard);
 
-    // ── Toolbar: tabs, then the tools for the open tab ──
     const toolbar = el('section', 'gs-toolbar');
     const tabs = el('div', 'gs-tabs');
     tabs.setAttribute('role', 'tablist');
@@ -673,7 +638,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     toolRow.append(searchInput, filterDropdown.root, selectAllBtn, backupBtn, restoreBtn);
     toolbar.append(topRow, toolRow);
 
-    // ── Progress ──
     const progressBox = el('section', 'gs-progress is-hidden');
     const progressHead = el('div', 'gs-progress-head');
     const progressLabel = el('span', 'gs-progress-label');
@@ -684,7 +648,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     progressTrack.appendChild(progressFill);
     progressBox.append(progressHead, progressTrack);
 
-    // ── Lists ──
     const listHeader = el('div', 'gs-list-header');
     const viewNote = el('p', 'gs-note');
     const listCount = el('span', 'gs-note gs-list-count');
@@ -795,7 +758,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         }
     }
 
-    // After a reinstall no backup folder is set yet: offer the backups found on this PC.
     function renderFoundBackups(config, locked) {
         foundBox.replaceChildren();
         const found = (!config.backupRoot && state.data && state.data.foundBackups) || [];
@@ -927,7 +889,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
             count.classList.toggle('is-hidden', !scanData);
         }
 
-        // Each tab has one action: back up from the PC, or restore from the backup.
         const onPc = state.view === 'pc';
         backupBtn.classList.toggle('is-hidden', !onPc);
         restoreBtn.classList.toggle('is-hidden', onPc);
@@ -992,13 +953,11 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     }
 
     async function restoreGames(ids) {
-        // No progress bar up front: the main process asks for confirmation first.
         const result = await runTask('restore', () => window.api.gameSavesRestore(ids), { progress: false });
         reportRestore(result);
         if (result && result.success && result.rescan) await scan();
     }
 
-    // ── File lists, loaded when a row is opened ──
     async function loadFiles(game, view, key) {
         const scannedAt = state.filesScan;
         let result;
@@ -1007,7 +966,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         } catch (err) {
             result = { success: false, error: (err && err.message) || String(err) };
         }
-        // A scan finished meanwhile: this list may be out of date, and the rows are new.
         if (scannedAt !== state.filesScan) return;
         state.files.set(key, result || { success: false, error: tr('game_gone', 'This game is no longer in the list. Scan again.') });
         for (const panel of list.querySelectorAll('.gs-files')) {
@@ -1080,7 +1038,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
             return panel;
         }
         panel.appendChild(el('p', 'gs-note', tr('files_loading', 'Loading the file list…')));
-        // null marks a list that is already on its way.
         if (cached === undefined) {
             state.files.set(key, null);
             loadFiles(game, view, key);
@@ -1140,7 +1097,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         }
         if (game.kind === 'custom') titleLine.appendChild(el('span', 'gs-badge', tr('badge_custom', 'Added by you')));
 
-        // The file count opens the row's file list.
         const facts = rowFacts(game, view);
         const meta = el('div', 'gs-row-meta');
         const expanded = state.expanded.has(rowKey);
@@ -1172,7 +1128,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
                 : game.locations.join('\n'));
             main.appendChild(location);
         }
-        // The row itself toggles selection, like the checkbox.
         main.addEventListener('click', () => {
             if (check.disabled) return;
             check.checked = !check.checked;
@@ -1328,15 +1283,12 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         renderSuggestions();
     }
 
-    // ── Events ──
     chooseBtn.addEventListener('click', async () => {
         const result = await runTask('folder', () => window.api.gameSavesPickFolder(), { progress: false });
         await rescanIfNeeded(result);
     });
     openRootBtn.addEventListener('click', () => openFolder('backup-root'));
 
-    // Menus close on an outside click or Escape. These listeners live on
-    // document, so the page cleanup below removes them.
     const onDocumentClick = (event) => {
         container.querySelectorAll('.gs-dropdown.open').forEach((node) => {
             if (!node.contains(event.target)) closeDropdown(node);

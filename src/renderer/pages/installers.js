@@ -1,35 +1,29 @@
 import { uiText } from '../ui-text.js';
 import { createHelpButton } from '../tooltips.js';
 import { installerActivity } from '../installer-activity.js';
-/**
- * Installers Page
- * Contains Winget Install Page and Crack Installer Page
- */
 
 import { debug, escapeHtml, debounce, getBaseName, getExtractedFolderPath } from '../utils.js';
 import { trackProcess, completeProcess, registerDownload, getActiveDownload, attachDownloadUI, attachDownloadLifecycle, downloadStore } from '../managers.js';
 import { toast } from '../components.js';
 import { CUSTOM_APPS } from '../services.js';
+import { parseWingetColumns, parseWingetSearch, matchWingetId, sanitizeSearchQuery } from '../winget-parse.js';
 
-// ============================================
-// FAVICON CONFIG
-// ============================================
+const INSTALLED_TTL_MS = 5 * 60 * 1000;
+const installedState = { at: 0, installed: new Map(), upgradable: new Map() };
+let installedCheckInFlight = null;
+const catalogCache = new Map();
+const CATALOG_RESULT_LIMIT = 40;
+
 
 function getFaviconUrl(pkgId, appName) {
     if (typeof FaviconConfig !== 'undefined') {
         return FaviconConfig.getFaviconUrl(pkgId, appName);
     }
-    // Only reached if favicon-config.js failed to load; keep it on the same
-    // endpoint so the fallback behaves like the real thing (404 on an unknown
-    // domain rather than a 200 grey globe).
     const slug = String(appName || pkgId || '').toLowerCase().replace(/\s+/g, '');
     return 'https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL'
         + `&url=${encodeURIComponent(`http://${slug}.com`)}&size=64`;
 }
 
-// Resolved once and shared: the list renders ~70 icons, and asking the main
-// process for the same fallback path once per broken image is a wasted IPC
-// round-trip each time.
 let fallbackIconPromise = null;
 function getFallbackIconPath() {
     if (!fallbackIconPromise) {
@@ -40,19 +34,10 @@ function getFallbackIconPath() {
     return fallbackIconPromise;
 }
 
-/**
- * Build the <img> for an app tile.
- * The icon service 404s on a domain it cannot resolve, so the error handler is
- * the real fallback path rather than a formality.
- * @param {Object} app - App descriptor with id and name
- * @returns {HTMLImageElement} Configured icon element
- */
 function createAppFavicon(app) {
     const fav = document.createElement('img');
     fav.classList.add('app-favicon');
     fav.alt = '';
-    // Intrinsic size matches the CSS box, so the grid does not reflow as icons
-    // arrive; the list is ~70 items and every late icon would shift the rows.
     fav.width = 26;
     fav.height = 26;
     fav.loading = 'lazy';
@@ -68,9 +53,6 @@ function createAppFavicon(app) {
     return fav;
 }
 
-// Hoisted to module scope on purpose. These were declared inside the functions
-// below, which run once per app tile — 70 times per page build — so every render
-// rebuilt 74 map entries and 112 keyword strings for nothing. They are constant.
 const DEVELOPER_URL_OVERRIDES = {
     'Proton.ProtonVPN': 'https://protonvpn.com/download?srsltid=AfmBOorCqPOivQW4nu912shSaLHNK2mrKj95FqK-_apNH6nFGY8aeFiX',
     'Proton.ProtonDrive': 'https://proton.me/drive/download',
@@ -108,7 +90,6 @@ const PUBLISHER_DOMAINS = {
     valve: 'steampowered.com',
     playstation: 'remoteplay.dl.playstation.net/remoteplay/lang/en/',
     python: 'python.org/downloads/',
-    // Note: microsoft is for Visual Studio Professional only. Visual Studio Code uses custom URL above.
     microsoft: 'visualstudio.microsoft.com/downloads/',
     rarlab: 'win-rar.com',
     razerinc: 'razer.com/eu-en/synapse-4',
@@ -152,35 +133,24 @@ const PUBLISHER_DOMAINS = {
     amd: 'amd.com/en/support/download/drivers.html'
 };
 
-// Order matters! More specific categories first.
 const CATEGORY_KEYWORDS = [
-    // Hardware FIRST - to catch CPU-Z, HWMonitor etc before anything else
     { key: 'Hardware', keywords: ['cpu-z', 'gpu-z', 'hwinfo', 'hwmonitor', 'cpuid.', 'techpowerup', 'realix', 'afterburner', 'rtss', 'guru3d', 'crystaldisk', 'razer', 'synapse', 'streamdeck', 'elgato.', 'nvidia', 'geforce', 'amd.adrenalin', 'radeon'] },
-    // Communication - Discord, Vesktop, etc
     { key: 'Communication', keywords: ['discord', 'vesktop', 'vencord', 'betterdiscord', 'slack', 'teams', 'zoom', 'telegram', 'signal', 'skype'] },
-    // Then browsers
     { key: 'Browsers', keywords: ['firefox', 'google.chrome', 'brave.brave', 'opera', 'edge', 'vivaldi', 'tor', 'browser'] },
-    // Games
     { key: 'Games', keywords: ['steam', 'epicgames', 'battlenet', 'ubisoft', 'riot', 'gog', 'psremoteplay', 'playstation', 'xbox', 'minecraft', 'mojang', 'eadesktop', 'electronicarts', 'bluestack'] },
-    // Media
     { key: 'Media', keywords: ['spotify', 'music', 'tidal', 'mp3tag', 'audio', 'vlc', 'winamp', 'itunes', 'obsstudio', 'obsproject', 'stremio', 'blender', 'video'] },
-    // Development
     { key: 'Development', keywords: ['visualstudio', 'python', 'nodejs', 'openjs', 'git.git', 'github', 'gitlab', 'java', 'eclipse', 'intellij', 'jetbrains', 'vscode', 'docker', 'virtualbox', 'vmware', 'claude', 'anthropic', 'notepad'] },
-    // Security
     { key: 'Security', keywords: ['vpn', 'bitdefender', 'antivirus', 'security', 'surfshark', 'nordsecurity', 'protonvpn', 'authenticator', 'password', 'malwarebytes', 'protonmail', 'protondrive', 'proton.proton'] },
-    // Utilities last
     { key: 'Utilities', keywords: ['7zip', 'rarlab', 'winrar', 'freedownload', 'downloadmanager', 'driverbooster', 'softwareupdater', 'sysinfo', 'smartdefrag', 'uninstaller', 'iobit', 'rufus', 'ventoy', 'anydesk', 'dropbox.dropbox', 'googledrive', 'revo'] }
 ];
 
 function getDeveloperUrl(pkgId) {
     try {
-        // Custom URLs for specific Package IDs
-        
-        // Check custom URLs first
+
         if (DEVELOPER_URL_OVERRIDES[pkgId]) {
             return DEVELOPER_URL_OVERRIDES[pkgId];
         }
-        
+
         const parts = String(pkgId).split('.');
         const publisher = (parts[0] || '').toLowerCase();
         const domain = PUBLISHER_DOMAINS[publisher] || `${publisher}.com`;
@@ -208,9 +178,6 @@ function getStatusLabel(statusKey, translations) {
     return (translations.statuses && translations.statuses[statusKey]) || statusKey;
 }
 
-// ============================================
-// CRACK INSTALLER HELPERS
-// ============================================
 
 async function findClipStudioInstaller(extractedDir) {
     return new Promise((resolve) => {
@@ -311,7 +278,6 @@ async function processAdvancedInstaller(zipPath, statusElement, appName, li) {
         statusElement.textContent = uiText("advanced_started", "✅ Advanced Installer setup started! Complete the installation.");
         statusElement.classList.add('status-success');
 
-        // Δημιουργία activate button μετά την εγκατάσταση
         if (li) {
             createActivateButtonForAdvancedInstaller(li, activatorPath, appName);
         }
@@ -322,7 +288,6 @@ async function processAdvancedInstaller(zipPath, statusElement, appName, li) {
             duration: 5000
         });
 
-        // Επιστροφή του activatorPath για να χρησιμοποιηθεί αργότερα
         return { activatorPath };
 
     } catch (error) {
@@ -332,29 +297,23 @@ async function processAdvancedInstaller(zipPath, statusElement, appName, li) {
     }
 }
 
-// Βοηθητική συνάρτηση για δημιουργία activate button για Advanced Installer
 function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
-    // Ψάξε για υπάρχον activate button
     let activateBtn = li.querySelector('.activate-btn');
-    
+
     if (activateBtn) {
-        // Αν υπάρχει ήδη, ενημέρωσε το path
         activateBtn.dataset.activatorPath = activatorPath;
         activateBtn.style.display = 'inline-flex';
         return;
     }
-    
-    // Δημιούργησε νέο activate button
+
     const label = li.querySelector('label.app-label');
     if (!label) return;
-    
-    // Δημιούργησε ένα container για τα κουμπιά
+
     let buttonContainer = li.querySelector('.app-actions');
     if (!buttonContainer) {
         buttonContainer = document.createElement('div');
         buttonContainer.className = 'app-actions';
-        
-        // Βάλε το container μετά το label
+
         const labelContainer = li.querySelector('.label-container');
         if (labelContainer) {
             labelContainer.appendChild(buttonContainer);
@@ -362,39 +321,35 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
             li.appendChild(buttonContainer);
         }
     }
-    
+
     activateBtn = document.createElement('button');
     activateBtn.className = 'activate-btn';
     activateBtn.textContent = uiText("activate", "Activate");
     activateBtn.dataset.activatorPath = activatorPath;
     activateBtn.dataset.appName = appName;
     activateBtn.title = `Activate ${appName}`;
-    
+
     activateBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        
+
         try {
-            // Απλά απενεργοποίησε το κουμπί και άλλαξε το κείμενο
             activateBtn.disabled = true;
             activateBtn.textContent = uiText("activating", "Activating...");
-            
+
             const runResult = await window.api.runInstaller(activatorPath);
-            
+
             if (runResult.success) {
-                // Success state
                 activateBtn.classList.add('success');
                 activateBtn.textContent = uiText("activated", "Activated");
                 activateBtn.disabled = true;
-                
-                // Προσπάθεια cleanup μετά από 2 δευτερόλεπτα
+
                 setTimeout(() => {
                     try {
                         window.api.deleteFile(activatorPath);
                     } catch {
-                        // optional cleanup; ignore failures
                     }
                 }, 2000);
-                
+
                 toast(uiText("advanced_activated", "Advanced Installer activated successfully!"), {
                     type: 'success',
                     title: 'Advanced Installer',
@@ -404,141 +359,23 @@ function createActivateButtonForAdvancedInstaller(li, activatorPath, appName) {
                 throw new Error(runResult.error || 'Activation failed');
             }
         } catch (error) {
-            // Error state
             activateBtn.classList.add('error');
             activateBtn.textContent = uiText("retry", "Retry");
             activateBtn.disabled = false;
-            
+
             toast(uiText('activation_failed_detail', '', { error: error.message }), {
                 type: 'error',
                 title: 'Advanced Installer'
             });
         }
     });
-    
+
     buttonContainer.appendChild(activateBtn);
 }
 
 
-// Parse winget list output to extract installed package IDs
-function parseWingetColumns(rawOutput) {
-    // Strip ANSI escape sequences, then handle \r correctly.
-    // Winget uses bare \r (no \n) for progress spinners — overwriting the same line.
-    // Split on \r\n first (real line endings), then for each chunk keep only the
-    // last \r-segment (the final overwrite wins), replicating terminal behaviour.
-    const cleaned = rawOutput
-        .replace(/\x1b\[[0-9;]*m/g, '')
-        .split('\r\n')
-        .map(chunk => { const parts = chunk.split('\r'); return parts[parts.length - 1]; })
-        .join('\n');
-    const lines = cleaned.split('\n');
 
-    let headerIdx = -1;
-    let cols = null;
 
-    // Find header: a line containing 'version' and a standalone 'id' word
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const lc = line.toLowerCase();
-        if (!lc.includes('version')) continue;
-
-        // Match standalone 'id' surrounded by spaces (handles multiple spaces)
-        const idMatch = /\s+(id)\s+/i.exec(line);
-        if (!idMatch) continue;
-
-        const idIdx = idMatch.index + idMatch[0].indexOf(idMatch[1]);
-        const versionIdx = lc.indexOf('version');
-        if (versionIdx <= idIdx) continue;
-
-        const availIdx = lc.indexOf('available');
-        const sourceIdx = lc.indexOf('source');
-
-        cols = {
-            id: idIdx,
-            version: versionIdx,
-            available: availIdx > versionIdx ? availIdx : -1,
-            source: sourceIdx > versionIdx ? sourceIdx : -1
-        };
-        headerIdx = i;
-        break;
-    }
-
-    if (!cols || headerIdx < 0) {
-        // Regex fallback: match lines that contain a package ID pattern (e.g., Publisher.Package)
-        const entries = [];
-        const idRegex = /(?:^|\s)((?:[A-Za-z0-9_-]+\.){1,}[A-Za-z0-9_-]+)\s+([\d][^\s]*)/;
-        for (const line of lines) {
-            const m = idRegex.exec(line);
-            if (m) {
-                const id = m[1].trim();
-                const version = m[2].trim();
-                if (id.length >= 4) {
-                    entries.push({ id, version, available: null });
-                }
-            }
-        }
-        return entries;
-    }
-
-    const entries = [];
-
-    // Find separator line (dashes) after header — data starts after it
-    let dataStart = headerIdx + 1;
-    if (dataStart < lines.length && /^[\s\-─═]+$/.test(lines[dataStart]) && lines[dataStart].trim().length > 5) {
-        dataStart = headerIdx + 2;
-    }
-
-    for (let i = dataStart; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.trim()) continue;
-        // Skip separator lines (dashes or box-drawing chars)
-        if (/^[\s\-─═]+$/.test(line) && line.trim().length > 5) continue;
-
-        const colEnd = (start, ...nexts) => {
-            const valid = nexts.filter(n => n > start && n >= 0).sort((a, b) => a - b);
-            return valid.length ? Math.min(valid[0], line.length) : line.length;
-        };
-        const extract = (start, ...nexts) => {
-            if (start < 0 || line.length <= start) return '';
-            return line.substring(start, colEnd(start, ...nexts)).trim().replace(/[….]+$/, '').trim();
-        };
-
-        const endPoints = [cols.version, cols.available, cols.source].filter(n => n >= 0);
-        const id = extract(cols.id, ...endPoints);
-        const versionEnd = [cols.available, cols.source].filter(n => n >= 0);
-        const version = extract(cols.version, ...versionEnd);
-        const available = cols.available >= 0
-            ? extract(cols.available, ...[cols.source].filter(n => n >= 0))
-            : '';
-
-        if (id && id.length >= 2 && (id.includes('.') || id.startsWith('{') || id.startsWith('ARP'))) {
-            entries.push({ id, version, available: available || null });
-        }
-    }
-
-    return entries;
-}
-
-function matchWingetId(appId, pkgId) {
-    const a = appId.toLowerCase();
-    const p = pkgId.toLowerCase();
-    if (a === p) return true;
-    if (p.startsWith(a) || a.startsWith(p)) return true;
-    const aParts = a.split('.');
-    const pParts = p.split('.');
-    if (aParts.length >= 2 && pParts.length >= 2) {
-        if (aParts[0] === pParts[0] && aParts[1] === pParts[1]) return true;
-    }
-    return false;
-}
-
-// ============================================
-// PYTHON VERSION LINE RESOLUTION
-// ============================================
-
-// Winget treats every Python minor line as its own package (Python.Python.3.14
-// is not an upgrade path from Python.Python.3.13), so a pinned ID installs that
-// line forever. Ask winget which lines exist and use the newest stable one.
 const PYTHON_ID_PREFIX = 'Python.Python.3.';
 const PYTHON_LINE_RE = /^Python\.Python\.3\.(\d+)$/i;
 const PRERELEASE_RE = /\d+(?:a|b|rc)\d+/i;
@@ -558,7 +395,6 @@ async function resolveLatestPythonId(fallbackId) {
         for (const entry of parseWingetColumns(raw)) {
             const m = PYTHON_LINE_RE.exec(entry.id);
             if (!m) continue;
-            // Skip lines that only ship alphas/betas/RCs — python.org stable only
             if (entry.version && PRERELEASE_RE.test(entry.version)) continue;
             const minor = Number(m[1]);
             if (minor > (best ?? fallbackMinor)) best = minor;
@@ -577,15 +413,11 @@ function getLatestPythonId(fallbackId) {
     return pythonIdPromise;
 }
 
-// ============================================
-// WINGET AVAILABILITY CHECK
-// ============================================
 
 async function checkWingetAvailable() {
     try {
         const result = await window.api.runCommand('winget --version');
 
-        // Explicit "not found" signals — winget is genuinely missing
         const combined = ((result.stdout || '') + (result.stderr || '') + (result.error || '')).toLowerCase();
         const notFound =
             combined.includes('is not recognized') ||
@@ -596,17 +428,13 @@ async function checkWingetAvailable() {
 
         if (notFound) return { available: false };
 
-        // Any other response (stdout present, no error, or just a non-zero exit
-        // for unrelated reasons) → treat winget as available
         return { available: true };
     } catch {
-        // spawn itself failed — winget not on PATH
         return { available: false };
     }
 }
 
 function showWingetMissingUI(container, translations) {
-    // Remove any existing warning
     const existing = container.querySelector('.winget-missing-banner');
     if (existing) existing.remove();
 
@@ -642,7 +470,6 @@ function showWingetMissingUI(container, translations) {
     banner.appendChild(icon);
     banner.appendChild(textWrap);
 
-    // Insert after search wrapper, inside whichever toolbar owns it.
     const searchWrapper = container.querySelector('.search-wrapper');
     if (searchWrapper?.parentNode && searchWrapper.nextSibling) {
         searchWrapper.parentNode.insertBefore(banner, searchWrapper.nextSibling);
@@ -653,9 +480,6 @@ function showWingetMissingUI(container, translations) {
     }
 }
 
-// ============================================
-// WINGET INSTALL PAGE
-// ============================================
 
 export async function buildInstallPageWingetWithCategories(translations, settings, buttonStateManager) {
     const initialActivity = installerActivity.snapshot();
@@ -783,16 +607,23 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     const activityDetail = document.createElement('span');
     activityDetail.className = 'installer-activity-detail';
     selectionCopy.append(selectionCount, activityText, activityDetail);
+    const updateAllIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="action-icon"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>`;
+    const updateAllBtn = makeButton('');
+    updateAllBtn.className = 'bulk-action-btn bulk-update-all hidden';
+    updateAllBtn.innerHTML = `${updateAllIcon}<span class="btn-label"></span>`;
+    updateAllBtn.addEventListener('click', () => {
+        if (updateAllBtn.disabled) return;
+        upgradeRows(rowsWithUpdates());
+    });
+
     const selectionActions = document.createElement('div');
     selectionActions.className = 'installer-selection-actions';
-    selectionActions.append(uncheckAllBtn, installBtn);
+    selectionActions.append(uncheckAllBtn, updateAllBtn, installBtn);
     selectionBar.append(selectionCopy, selectionActions);
 
-    // ── Controls bar: view toggle + sort ──────────────────────────
     const controlsBar = document.createElement('div');
     controlsBar.className = 'install-controls-bar';
 
-    // View toggle
     const viewToggleGroup = document.createElement('div');
     viewToggleGroup.className = 'view-toggle-group';
 
@@ -813,7 +644,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     viewToggleGroup.appendChild(listViewBtn);
     viewToggleGroup.appendChild(gridViewBtn);
 
-    // Sort dropdown (Apple-style liquid glass menu)
     const sortOptions = [
         {
             value: 'default',
@@ -907,10 +737,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     };
     document.addEventListener('click', onDocClick);
     document.addEventListener('keydown', onDocKeydown);
-    // These two live on `document`, so they outlive the page's own DOM. They used
-    // to self-remove only on the next event after the dropdown was detached, which
-    // meant every visit that ended without a click or keypress left a pair behind,
-    // each holding the whole page closure alive.
     container._pageCleanup = [() => {
         document.removeEventListener('click', onDocClick);
         document.removeEventListener('keydown', onDocKeydown);
@@ -926,7 +752,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     controlsBar.appendChild(moreActions);
     searchWrapper.appendChild(controlsBar);
 
-    // View + sort helpers
     let currentSort = 'default';
 
     function applyView(view) {
@@ -956,16 +781,13 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     function applySort(value) {
         currentSort = value;
-        const groups = listContainer.querySelectorAll(':scope > div');
+        const groups = listContainer.querySelectorAll(':scope > div:not(.catalog-results)');
         groups.forEach(group => {
             const ul = group.querySelector('.category-list');
             if (!ul) return;
             const items = Array.from(ul.querySelectorAll('li'));
             const statusOrder = { installed: 0, 'update-available': 1, failed: 2, unknown: 3, 'not-installed': 4 };
 
-            // Read each row's sort keys once. The comparator used to run two
-            // querySelector calls per comparison, so sorting 70 rows by status cost
-            // roughly 860 DOM queries for 70 values that never change mid-sort.
             const keyed = items.map((li) => ({
                 li,
                 name: li.dataset.appName || '',
@@ -978,7 +800,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     const diff = a.rank - b.rank;
                     if (diff !== 0) return diff;
                 }
-                // 'az' and the default both fall through to alphabetical
                 return a.name.localeCompare(b.name);
             });
 
@@ -990,7 +811,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     listViewBtn.addEventListener('click', () => { void selectInstallerView('list'); });
     gridViewBtn.addEventListener('click', () => { void selectInstallerView('grid'); });
-    // ─────────────────────────────────────────────────────────────
 
     function updateActionButtonsState() {
         const state = installerActivity.snapshot();
@@ -1000,6 +820,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         uncheckAllBtn.disabled = state.busy || count === 0;
         checkInstalledBtn.disabled = state.busy;
         importBtn.disabled = state.busy;
+        updateAllBtn.disabled = state.busy;
         container.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.disabled = state.busy; });
         const hasResult = (state.kind === 'install' && state.total > 0 && state.current > 0)
             || (state.kind === 'check' && state.checked !== undefined);
@@ -1025,8 +846,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 badge.dataset.status = outcome;
                 badge.textContent = getStatusLabel(outcome, translations);
             }
-            // Clear this batch's successes, but preserve a later deliberate reinstall selection.
-            if (outcome === 'installed' && state.kind === 'install' && (state.busy || observedInstall)) {
+            if (outcome === 'installed' && (state.kind === 'install' || state.kind === 'update') && (state.busy || observedInstall)) {
                 row.querySelector('input[type="checkbox"]').checked = false;
             }
         }
@@ -1042,7 +862,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 activityText.setAttribute('data-tooltip', uiText('progress_unknown'));
                 activityText.tabIndex = 0;
             }
-        } else if (state.kind === 'install' && state.total && state.current) {
+        } else if ((state.kind === 'install' || state.kind === 'update') && state.total && state.current) {
             activityText.textContent = uiText('batch_result', '', state);
             activityDetail.textContent = state.failedNames?.length
                 ? uiText('batch_failed', '', { names: state.failedNames.join(', ') }) : '';
@@ -1065,8 +885,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     }
 
     function applySelectedIds(ids) {
-        // Collapse every Python line to one key so a saved selection survives the
-        // catalog moving from e.g. 3.14 to 3.15.
         const normalize = (id) => (PYTHON_LINE_RE.test(id) ? PYTHON_ID_PREFIX : id);
         const idSet = new Set((ids || []).map((x) => normalize(String(x))));
         container.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
@@ -1089,10 +907,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         }
     });
 
-    // Delegated the same way the checkbox handler above is. The developer-site
-    // arrow used to get its own listener per row — 61 of them rebuilt on every
-    // render — when one listener on the container does the job. The URL rides on
-    // the element as a data attribute instead of in a closure.
     container.addEventListener('click', (e) => {
         const link = e.target.closest?.('.app-link');
         if (!link || !container.contains(link)) return;
@@ -1106,13 +920,63 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 window.open(devUrl, '_blank');
             }
         } catch {
-            // Ignore — opening the vendor page is a convenience, not a requirement.
         }
     });
+
+    const chipsBar = document.createElement('div');
+    chipsBar.className = 'installer-chips';
+
+    const statusFilters = [
+        { value: 'all', label: uiText('filter_all', 'All') },
+        { value: 'installed', label: uiText('filter_installed', 'Installed') },
+        { value: 'update-available', label: uiText('filter_updates', 'Updates') },
+        { value: 'not-installed', label: uiText('filter_not_installed', 'Not installed') }
+    ];
+    let currentStatusFilter = 'all';
+    const filterGroup = document.createElement('div');
+    filterGroup.className = 'installer-chip-group';
+    filterGroup.setAttribute('role', 'group');
+    filterGroup.setAttribute('aria-label', uiText('filter_group', 'Filter by status'));
+    statusFilters.forEach(({ value, label }) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'installer-chip';
+        chip.classList.toggle('active', value === 'all');
+        chip.dataset.filter = value;
+        chip.textContent = label;
+        chip.addEventListener('click', () => {
+            currentStatusFilter = value;
+            filterGroup.querySelectorAll('.installer-chip').forEach((el) => el.classList.toggle('active', el === chip));
+            applySearchFilter();
+            if (value !== 'all' && !installedState.at) scheduleAutoCheck();
+        });
+        filterGroup.appendChild(chip);
+    });
+
+    const packGroup = document.createElement('div');
+    packGroup.className = 'installer-chip-group installer-packs';
+    chipsBar.append(filterGroup, packGroup);
+    container.appendChild(chipsBar);
 
     const listContainer = document.createElement('div');
     listContainer.classList.add('list-container');
     container.appendChild(listContainer);
+
+    let catalogToken = 0;
+    const catalogGroup = document.createElement('div');
+    catalogGroup.className = 'catalog-results hidden';
+    const catalogHeading = document.createElement('h3');
+    catalogHeading.className = 'category-heading';
+    catalogHeading.textContent = uiText('catalog_heading', 'More from winget');
+    const catalogCount = document.createElement('span');
+    catalogCount.className = 'catalog-count';
+    catalogHeading.appendChild(catalogCount);
+    const catalogStatus = document.createElement('p');
+    catalogStatus.className = 'catalog-status';
+    const catalogList = document.createElement('ul');
+    catalogList.className = 'install-grid category-list';
+    catalogGroup.append(catalogHeading, catalogStatus, catalogList);
+    listContainer.appendChild(catalogGroup);
     const searchEmpty = document.createElement('div');
     searchEmpty.className = 'installer-empty hidden';
     const emptyText = document.createElement('span');
@@ -1124,6 +988,361 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     clearSearch.addEventListener('click', () => { searchInput.value = ''; applySearchFilter(); searchInput.focus(); });
     searchEmpty.append(emptyText, clearSearch);
     container.append(searchEmpty, selectionBar);
+
+
+    const toPackageMap = (entries) => new Map(entries.map((entry) => [entry.id.toLowerCase(), entry]));
+
+    function findPackage(packages, appId) {
+        const exact = packages.get(String(appId).toLowerCase());
+        if (exact) return exact;
+        for (const entry of packages.values()) {
+            if (matchWingetId(appId, entry.id)) return entry;
+        }
+        return null;
+    }
+
+    function applyRowStatus(li) {
+        const badge = li.querySelector('.app-status-badge');
+        if (!badge || !installedState.at || li.dataset.isCustom === 'true') return;
+
+        const upgrade = findPackage(installedState.upgradable, li.dataset.appId);
+        const installed = findPackage(installedState.installed, li.dataset.appId);
+
+        if (upgrade && upgrade.available) {
+            badge.dataset.status = 'update-available';
+            badge.textContent = getStatusLabel('update_available', translations);
+            li.dataset.availableVersion = upgrade.available;
+        } else if (installed) {
+            badge.dataset.status = 'installed';
+            badge.textContent = getStatusLabel('installed', translations);
+            delete li.dataset.availableVersion;
+        } else {
+            badge.dataset.status = 'not-installed';
+            badge.textContent = getStatusLabel('not_installed', translations);
+            delete li.dataset.availableVersion;
+        }
+        syncUpdateButton(li);
+    }
+
+    function applyAllStatuses() {
+        container.querySelectorAll('li.app-list-item').forEach(applyRowStatus);
+        updateUpdateAllButton();
+        if (currentSort === 'status') applySort('status');
+        applySearchFilter();
+    }
+
+    async function refreshInstalledState({ silent = false } = {}) {
+        const wingetCheck = await checkWingetAvailable();
+        if (!wingetCheck.available) {
+            if (!silent) showWingetMissingUI(container, translations);
+            throw new Error(uiText('winget_missing_check', 'Winget is not installed on this PC. Click "Open Microsoft Store" to install App Installer.'));
+        }
+
+        const listResult = await window.api.runCommand('winget list --accept-source-agreements');
+        if (listResult.error && !listResult.stdout && !listResult.stderr) {
+            throw new Error(uiText('winget_command_error', 'Winget command failed to execute. Make sure Winget is installed.'));
+        }
+        installedState.installed = toPackageMap(parseWingetColumns(`${listResult.stdout || ''}${listResult.stderr || ''}`));
+        installedState.at = Date.now();
+        if (!container.isConnected) return { installed: 0, updates: 0 };
+        applyAllStatuses();
+
+        const upgradeResult = await window.api.runCommand('winget upgrade --include-unknown --accept-source-agreements --source winget');
+        installedState.upgradable = toPackageMap(
+            parseWingetColumns(`${upgradeResult.stdout || ''}${upgradeResult.stderr || ''}`).filter((entry) => entry.available)
+        );
+        if (!container.isConnected) return { installed: 0, updates: 0 };
+        applyAllStatuses();
+
+        const badges = [...container.querySelectorAll('.app-status-badge')];
+        return {
+            installed: badges.filter((b) => b.dataset.status === 'installed' || b.dataset.status === 'update-available').length,
+            updates: badges.filter((b) => b.dataset.status === 'update-available').length
+        };
+    }
+
+    function scheduleAutoCheck() {
+        if (Date.now() - installedState.at < INSTALLED_TTL_MS) {
+            applyAllStatuses();
+            return;
+        }
+        setTimeout(() => {
+            if (!container.isConnected || installerActivity.snapshot().busy) return;
+            checkInstalledBtn.classList.add('is-checking');
+            if (!installedCheckInFlight) {
+                installedCheckInFlight = refreshInstalledState({ silent: true })
+                    .catch((err) => debug('warn', 'Background check for installed apps failed:', err?.message || err))
+                    .finally(() => { installedCheckInFlight = null; });
+            }
+            installedCheckInFlight.finally(() => {
+                if (container.isConnected) applyAllStatuses();
+                checkInstalledBtn.classList.remove('is-checking');
+            });
+        }, 400);
+    }
+
+
+    async function searchCatalog(query) {
+        if (catalogCache.has(query)) return catalogCache.get(query);
+
+        const command = `winget search --query "${query}" --count ${CATALOG_RESULT_LIMIT} --disable-interactivity --accept-source-agreements`;
+        const result = await Promise.race([
+            window.api.runCommand(command),
+            new Promise((resolve) => setTimeout(() => resolve({ error: 'timeout' }), 15000))
+        ]);
+        if (result.error === 'timeout') throw new Error('winget search timed out');
+
+        const rows = parseWingetSearch(`${result.stdout || ''}${result.stderr || ''}`);
+        catalogCache.set(query, rows);
+        return rows;
+    }
+
+    const builtInRows = () => [...listContainer.querySelectorAll(':scope > div:not(.catalog-results) li.app-list-item')];
+
+    function renderCatalogResults(rows) {
+        const listed = builtInRows();
+        const known = new Set(listed.map((li) => li.dataset.appId.toLowerCase()));
+        const knownNames = new Set(listed.map((li) => li.dataset.appName.toLowerCase()));
+        const pinned = [...catalogList.querySelectorAll('li.app-list-item')].filter((li) => li.querySelector('input:checked'));
+        const pinnedIds = new Set(pinned.map((li) => li.dataset.appId.toLowerCase()));
+
+        catalogList.innerHTML = '';
+        pinned.forEach((li) => catalogList.appendChild(li));
+
+        let shown = pinned.length;
+        rows.forEach((row, index) => {
+            const id = row.id.toLowerCase();
+            if (pinnedIds.has(id) || known.has(id) || knownNames.has(row.name.toLowerCase())) return;
+            if ([...known].some((appId) => matchWingetId(appId, row.id))) return;
+            catalogList.appendChild(createAppRow(row, `catalog-${index}-${id}`));
+            shown++;
+        });
+
+        catalogGroup.classList.toggle('hidden', shown === 0);
+        catalogCount.textContent = shown ? String(shown) : '';
+    }
+
+    async function runCatalogSearch() {
+        const query = sanitizeSearchQuery(searchInput.value);
+        catalogToken += 1;
+        const token = catalogToken;
+
+        if (query.length < 2) {
+            catalogList.innerHTML = '';
+            catalogGroup.classList.add('hidden');
+            catalogStatus.textContent = '';
+            return;
+        }
+
+        catalogGroup.classList.remove('hidden');
+        catalogStatus.textContent = uiText('catalog_searching', 'Searching winget…');
+        try {
+            const rows = await searchCatalog(query);
+            if (token !== catalogToken || !container.isConnected) return;
+            catalogStatus.textContent = rows.length ? '' : uiText('catalog_no_results', 'Nothing in the winget catalog matches.');
+            renderCatalogResults(rows);
+            applySearchFilter();
+        } catch (err) {
+            if (token !== catalogToken) return;
+            debug('warn', 'Catalog search failed:', err?.message || err);
+            catalogStatus.textContent = uiText('catalog_failed', 'Could not search the winget catalog.');
+            catalogList.innerHTML = '';
+        }
+    }
+
+
+    async function buildPacks() {
+        let packs;
+        try {
+            const response = await fetch('data/packs.json');
+            packs = (await response.json()).packs;
+        } catch (err) {
+            debug('warn', 'Failed to load packs.json:', err);
+            return;
+        }
+        if (!Array.isArray(packs) || !container.isConnected) return;
+
+        packs.forEach((pack) => {
+            const rows = pack.apps
+                .map((id) => listContainer.querySelector(`li[data-app-id="${CSS.escape(id)}"]`))
+                .filter(Boolean);
+            if (!rows.length) return;
+
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'installer-chip installer-pack-chip';
+            chip.textContent = `${uiText(`pack_${pack.id}`, pack.id)} (${rows.length})`;
+            chip.addEventListener('click', () => {
+                const boxes = rows.map((li) => li.querySelector('input[type="checkbox"]')).filter((cb) => cb && !cb.disabled);
+                const selecting = boxes.some((cb) => !cb.checked);
+                boxes.forEach((cb) => { cb.checked = selecting; });
+                chip.classList.toggle('active', selecting);
+                updateActionButtonsState();
+                saveSelectedApps();
+                toast(
+                    selecting
+                        ? uiText('pack_selected', '{count} apps selected', { count: boxes.length })
+                        : uiText('pack_cleared', 'Selection cleared'),
+                    { type: 'success', title: uiText(`pack_${pack.id}`, pack.id) }
+                );
+            });
+            packGroup.appendChild(chip);
+        });
+    }
+
+
+    function syncUpdateButton(li) {
+        const badge = li.querySelector('.app-status-badge');
+        const canUpdate = badge?.dataset.status === 'update-available';
+        const existing = li.querySelector('.app-update-btn');
+
+        if (!canUpdate) {
+            existing?.remove();
+            return;
+        }
+        if (existing) return;
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'app-update-btn';
+        button.textContent = uiText('update_action', 'Update');
+        if (li.dataset.availableVersion) {
+            button.title = uiText('update_to', 'Update to {version}', { version: li.dataset.availableVersion });
+        }
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            upgradeRows([li]);
+        });
+        li.appendChild(button);
+    }
+
+    function updateUpdateAllButton() {
+        const count = rowsWithUpdates().length;
+        updateAllBtn.classList.toggle('hidden', count === 0);
+        updateAllBtn.querySelector('.btn-label').textContent = uiText('update_all', 'Update all ({count})', { count });
+    }
+
+    const rowsWithUpdates = () => [...container.querySelectorAll('li.app-list-item')]
+        .filter((li) => li.querySelector('.app-status-badge')?.dataset.status === 'update-available');
+
+    async function upgradeRows(rows) {
+        if (!rows.length || !installerActivity.begin('update')) return;
+
+        let done = 0;
+        let failed = 0;
+        try {
+            for (const [index, li] of rows.entries()) {
+                const name = li.dataset.appName || li.dataset.appId;
+                installerActivity.update({ current: index + 1, total: rows.length, name, success: done, failed });
+
+                const progressWrap = li.querySelector('.app-progress-wrap');
+                const progressLabel = li.querySelector('.app-progress-label');
+                progressWrap?.classList.remove('hidden');
+                if (progressLabel) progressLabel.textContent = uiText('updating', 'Updating…');
+
+                const source = li.dataset.source === 'msstore' ? 'msstore' : 'winget';
+                const command = `winget upgrade --id ${li.dataset.appId} -e --silent --accept-source-agreements --accept-package-agreements --source ${source}`;
+                const result = await window.api.runCommand(command);
+                const output = `${result.stdout || ''}${result.stderr || ''}`.toLowerCase();
+                const ok = !result.error && !output.includes('failed') && !output.includes('no applicable upgrade');
+
+                if (ok) {
+                    done++;
+                    installedState.upgradable.delete(li.dataset.appId.toLowerCase());
+                    installerActivity.record(li.dataset.appId, 'installed');
+                } else {
+                    failed++;
+                    debug('warn', `Update failed for ${li.dataset.appId}:`, output.slice(0, 200));
+                    installerActivity.record(li.dataset.appId, 'failed');
+                }
+                progressWrap?.classList.add('hidden');
+            }
+        } finally {
+            installerActivity.finish({ success: done, failed });
+            applyAllStatuses();
+            toast(
+                failed
+                    ? uiText('update_done_with_errors', '{done} updated, {failed} failed', { done, failed })
+                    : uiText('update_done', '{done} updated', { done }),
+                { type: failed ? 'warning' : 'success', title: uiText('update_title', 'Update') }
+            );
+        }
+    }
+
+    function createAppRow(app, checkboxId) {
+        const li = document.createElement('li');
+        li.classList.add('app-list-item');
+        li.dataset.appId = app.id;
+        li.dataset.appName = app.name;
+        li.dataset.source = app.source || 'winget';
+        if (app.custom) {
+            li.dataset.isCustom = 'true';
+            if (app.url) li.dataset.customUrl = app.url;
+            if (app.ext) li.dataset.customExt = app.ext;
+            if (app.resolver) li.dataset.customResolver = app.resolver;
+        }
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = checkboxId;
+        checkbox.classList.add('app-checkbox');
+
+        const label = document.createElement('label');
+        label.setAttribute('for', checkboxId);
+        label.classList.add('app-label');
+
+        const textContainer = document.createElement('div');
+        textContainer.classList.add('app-text-container');
+
+        const nameEl = document.createElement('span');
+        nameEl.textContent = app.name;
+        nameEl.classList.add('app-name');
+
+        const idEl = document.createElement('span');
+        idEl.textContent = app.version && app.version !== 'Unknown' ? `${app.id} · ${app.version}` : app.id;
+        idEl.classList.add('app-id');
+
+        textContainer.append(nameEl, idEl);
+        label.append(createAppFavicon(app), textContainer);
+
+        const statusBadge = document.createElement('span');
+        statusBadge.className = 'app-status-badge';
+        statusBadge.dataset.status = 'unknown';
+
+        const progressWrap = document.createElement('div');
+        progressWrap.className = 'app-progress-wrap hidden';
+        const progressFill = document.createElement('div');
+        progressFill.className = 'app-progress-fill';
+        const progressLabel = document.createElement('span');
+        progressLabel.className = 'app-progress-label';
+        progressWrap.append(progressFill, progressLabel);
+
+        li.append(checkbox, label, statusBadge, progressWrap);
+
+        if (li.dataset.source === 'msstore') {
+            const sourceChip = document.createElement('span');
+            sourceChip.className = 'app-source-chip';
+            sourceChip.textContent = uiText('source_store', 'Store');
+            label.appendChild(sourceChip);
+        }
+
+        const devUrl = app.custom ? '' : getDeveloperUrl(app.id);
+        if (devUrl) {
+            const linkEl = document.createElement('a');
+            linkEl.href = '#';
+            linkEl.target = '_blank';
+            linkEl.rel = 'noopener noreferrer';
+            linkEl.classList.add('app-link');
+            linkEl.dataset.devUrl = devUrl;
+            linkEl.setAttribute('aria-label', (translations.actions && translations.actions.open_developer_site) || 'Open developer site');
+            linkEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></svg>';
+            li.appendChild(linkEl);
+        }
+
+        applyRowStatus(li);
+        return li;
+    }
 
     async function buildList() {
         let appsData;
@@ -1139,11 +1358,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         const ids = Array.isArray(appsData?.apps) ? appsData.apps : [];
         const categories = {};
 
-        // The pinned Python line gets swapped for the newest one winget offers, but
-        // that lookup spawns winget.exe and queries its source over the network.
-        // Awaiting it here held up the entire list — and the first paint of the
-        // default page — for one row's package ID. Build with the pinned value and
-        // patch that row in when the answer arrives.
         const pythonIdx = ids.findIndex((id) => typeof id === 'string' && PYTHON_LINE_RE.test(id));
         const pinnedPythonId = pythonIdx >= 0 ? ids[pythonIdx] : null;
 
@@ -1188,7 +1402,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             .replace('{suffix}', suffix);
         searchInput.setAttribute('aria-label', searchInput.placeholder);
 
-        listContainer.innerHTML = '';
+        [...listContainer.children].forEach((child) => { if (child !== catalogGroup) child.remove(); });
         const orderedCats = ['Browsers', 'Communication', 'Games', 'Media', 'Development', 'Security', 'Hardware', 'Utilities', 'Others'];
 
         orderedCats.forEach((cat) => {
@@ -1206,91 +1420,15 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             ul.classList.add('category-list');
 
             items.sort((a, b) => a.name.localeCompare(b.name)).forEach((app, index) => {
-                const li = document.createElement('li');
-                li.classList.add('app-list-item');
-                li.dataset.appId = app.id;
-                li.dataset.appName = app.name;
-                if (app.custom) {
-                    li.dataset.isCustom = 'true';
-                    if (app.url) li.dataset.customUrl = app.url;
-                    if (app.ext) li.dataset.customExt = app.ext;
-                    if (app.resolver) li.dataset.customResolver = app.resolver;
-                }
-
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                const cbId = `pkg-${cat}-${index}`;
-                checkbox.id = cbId;
-                checkbox.classList.add('app-checkbox');
-
-                const fav = createAppFavicon(app);
-
-                const label = document.createElement('label');
-                label.setAttribute('for', cbId);
-                label.classList.add('app-label');
-
-                const textContainer = document.createElement('div');
-                textContainer.classList.add('app-text-container');
-
-                const nameEl = document.createElement('span');
-                nameEl.textContent = app.name;
-                nameEl.classList.add('app-name');
-
-                const idEl = document.createElement('span');
-                idEl.textContent = app.id;
-                idEl.classList.add('app-id');
-
-                textContainer.appendChild(nameEl);
-                textContainer.appendChild(idEl);
-
-                label.appendChild(fav);
-                label.appendChild(textContainer);
-
-                // Status badge
-                const statusBadge = document.createElement('span');
-                statusBadge.className = 'app-status-badge';
-                statusBadge.dataset.status = 'unknown';
-
-                // Progress bar with percentage label
-                const progressWrap = document.createElement('div');
-                progressWrap.className = 'app-progress-wrap hidden';
-                const progressFill = document.createElement('div');
-                progressFill.className = 'app-progress-fill';
-                const progressLabel = document.createElement('span');
-                progressLabel.className = 'app-progress-label';
-                progressWrap.appendChild(progressFill);
-                progressWrap.appendChild(progressLabel);
-
-                li.appendChild(checkbox);
-                li.appendChild(label);
-                li.appendChild(statusBadge);
-                li.appendChild(progressWrap);
-
-                const devUrl = app.custom ? '' : getDeveloperUrl(app.id);
-                if (devUrl) {
-                    const linkEl = document.createElement('a');
-                    linkEl.href = '#';
-                    linkEl.target = '_blank';
-                    linkEl.rel = 'noopener noreferrer';
-                    linkEl.classList.add('app-link');
-                    linkEl.dataset.devUrl = devUrl; // read by the delegated click handler
-                    linkEl.setAttribute('aria-label', (translations.actions && translations.actions.open_developer_site) || 'Open developer site');
-                    linkEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="13 6 19 12 13 18"></polyline></svg>';
-                    li.appendChild(linkEl);
-                }
-                ul.appendChild(li);
+                ul.appendChild(createAppRow(app, `pkg-${cat}-${index}`));
             });
             group.appendChild(ul);
-            listContainer.appendChild(group);
+            listContainer.insertBefore(group, catalogGroup);
         });
 
         if (pinnedPythonId) refreshPythonRow(pinnedPythonId);
     }
 
-    /**
-     * Replace the pinned Python package ID once winget reports a newer line.
-     * @param {string} pinnedId - The ID the row was built with
-     */
     function refreshPythonRow(pinnedId) {
         getLatestPythonId(pinnedId).then((latestId) => {
             if (!latestId || latestId === pinnedId) return;
@@ -1302,30 +1440,51 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         }).catch((err) => debug('warn', 'Could not refresh the Python line:', err));
     }
 
+    function passesStatusFilter(li) {
+        if (currentStatusFilter === 'all') return true;
+        const status = li.querySelector('.app-status-badge')?.dataset.status;
+        return status === currentStatusFilter;
+    }
+
     function applySearchFilter() {
         const query = searchInput.value.trim().toLowerCase();
-        const groups = listContainer.children;
+        const groups = [...listContainer.children].filter((group) => group !== catalogGroup);
         let matches = 0;
-        Array.from(groups).forEach((group) => {
+        groups.forEach((group) => {
             let visible = false;
             const items = group.querySelectorAll('li');
             items.forEach((li) => {
                 const name = li.dataset.appName.toLowerCase();
                 const id = li.dataset.appId.toLowerCase();
-                const match = !query || name.includes(query) || id.includes(query);
+                const match = (!query || name.includes(query) || id.includes(query)) && passesStatusFilter(li);
                 li.classList.toggle('hidden', !match);
                 if (match) { visible = true; matches++; }
             });
             group.classList.toggle('hidden', !visible);
         });
+
+        let catalogMatches = 0;
+        catalogList.querySelectorAll('li').forEach((li) => {
+            const match = passesStatusFilter(li);
+            li.classList.toggle('hidden', !match);
+            if (match) catalogMatches++;
+        });
+        if (!catalogGroup.classList.contains('hidden')) matches += catalogMatches;
+
         searchEmpty.classList.toggle('hidden', matches > 0 || !query);
     }
 
     const debouncedSearch = debounce(applySearchFilter, 250);
-    searchInput.addEventListener('input', debouncedSearch);
-    container._pageCleanup.push(() => debouncedSearch.cancel());
+    const debouncedCatalogSearch = debounce(runCatalogSearch, 450);
+    searchInput.addEventListener('input', () => {
+        debouncedSearch();
+        debouncedCatalogSearch();
+    });
+    container._pageCleanup.push(() => {
+        debouncedSearch.cancel();
+        debouncedCatalogSearch.cancel();
+    });
 
-    // Import button handler
     importBtn.addEventListener('click', () => {
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
@@ -1369,87 +1528,23 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         fileInput.click();
     });
 
-    // Check Installed button handler
     checkInstalledBtn.addEventListener('click', async () => {
         if (!installerActivity.begin('check')) return;
 
         buttonStateManager.setLoading(checkInstalledBtn, uiText('checking'));
 
-        // Disable other buttons during check
         [installBtn, uncheckAllBtn, exportBtn, importBtn, searchInput].forEach((el) => (el.disabled = true));
 
         try {
-            // Check winget availability first
-            const wingetCheck = await checkWingetAvailable();
-            if (!wingetCheck.available) {
-                showWingetMissingUI(container, translations);
-                throw new Error(uiText("winget_missing_check", "Winget is not installed on this PC. Click \"Open Microsoft Store\" to install App Installer."));
-            }
+            installedState.at = 0;
+            const { installed, updates } = await refreshInstalledState({ silent: false });
 
-            // Run winget list and winget upgrade in parallel
-            const [listResult, upgradeResult] = await Promise.all([
-                window.api.runCommand('winget list --accept-source-agreements --source winget'),
-                window.api.runCommand('winget upgrade --include-unknown --accept-source-agreements --source winget')
-            ]);
-
-            if (listResult.error && !listResult.stdout && !listResult.stderr) {
-                throw new Error(uiText("winget_command_error", "Winget command failed to execute. Make sure Winget is installed."));
-            }
-
-            const listOutput = (listResult.stdout || '') + (listResult.stderr || '');
-            const upgradeOutput = (upgradeResult.stdout || '') + (upgradeResult.stderr || '');
-
-            const installedPackages = parseWingetColumns(listOutput);
-            const upgradablePackages = parseWingetColumns(upgradeOutput);
-
-            // Update checkboxes for installed packages
-            const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-            let checkedCount = 0;
-            let updateCount = 0;
-
-            checkboxes.forEach((cb) => {
-                const li = cb.closest('li');
-                if (!li || !li.dataset.appId) return;
-                const appId = li.dataset.appId;
-                const badge = li.querySelector('.app-status-badge');
-
-                const installedEntry = installedPackages.find(e => matchWingetId(appId, e.id));
-                const upgradeEntry = upgradablePackages.find(e => matchWingetId(appId, e.id));
-
-                if (installedEntry) {
-                    checkedCount++;
-                    if (upgradeEntry && upgradeEntry.available) {
-                        updateCount++;
-                        if (badge) {
-                            badge.dataset.status = 'update-available';
-                            badge.textContent = getStatusLabel('update_available', translations);
-                        }
-                    } else {
-                        if (badge) {
-                            badge.dataset.status = 'installed';
-                            badge.textContent = getStatusLabel('installed', translations);
-                        }
-                    }
-                } else {
-                    if (badge) {
-                        badge.dataset.status = 'not-installed';
-                        badge.textContent = getStatusLabel('not_installed', translations);
-                    }
-                }
-            });
-
-            updateActionButtonsState();
-
-            installerActivity.update({ checked: checkedCount, updates: updateCount });
-            toast(uiText('check_result', '', { installed: checkedCount, updates: updateCount }), {
+            installerActivity.update({ checked: installed, updates });
+            toast(uiText('check_result', '', { installed, updates }), {
                 type: 'success',
                 title: uiText("checking_title", "Check Installed"),
                 duration: 4000
             });
-
-            // Re-apply sort so status sort works immediately
-            if (currentSort === 'status') applySort('status');
-
         } catch (error) {
             debug('error', 'Failed to check installed packages:', error);
             toast(uiText('check_failed', '', { error: error.message }), {
@@ -1464,11 +1559,10 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         }
     });
 
-    // Uncheck All button handler
     uncheckAllBtn.addEventListener('click', () => {
         const checkboxes = container.querySelectorAll('input[type="checkbox"]');
         let uncheckedCount = 0;
-        
+
         checkboxes.forEach((cb) => {
             if (cb.checked) {
                 cb.checked = false;
@@ -1487,7 +1581,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         }
     });
 
-    // Export button handler
     exportBtn.addEventListener('click', () => {
         const selectedIds = [];
         const checkboxes = container.querySelectorAll('input[type="checkbox"]');
@@ -1517,7 +1610,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             toast(uiText("export_error", "Failed to export list."), { type: 'error', title: uiText("export_title", "Export") });
         }
     });
-    // Install handler (simple and install-only)
     async function runWingetInstallSelected() {
         const actionBtn = installBtn;
 
@@ -1573,6 +1665,9 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             if (state === 'installed') {
                 const cb = li.querySelector('input[type="checkbox"]');
                 if (cb) cb.checked = false;
+                const id = li.dataset.appId.toLowerCase();
+                installedState.installed.set(id, { id: li.dataset.appId, version: '', available: null, source: li.dataset.source || 'winget' });
+                installedState.upgradable.delete(id);
             }
             const badge = li.querySelector('.app-status-badge');
             if (!badge) return;
@@ -1586,11 +1681,11 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         };
 
         const buildInstallCommand = (pkgId, pythonArgs, options = {}) => {
-            const { silent = false, userScope = false, ignoreHash = false } = options;
+            const { silent = false, userScope = false, ignoreHash = false, source = 'winget' } = options;
             const silentArg = silent ? ' --silent' : '';
             const scopeArg = userScope ? ' --scope user' : '';
             const hashArg = ignoreHash ? ' --ignore-security-hash' : '';
-            return `winget install --id ${pkgId} -e${silentArg}${scopeArg}${hashArg} --accept-source-agreements --accept-package-agreements --source winget${pythonArgs}`;
+            return `winget install --id ${pkgId} -e${silentArg}${scopeArg}${hashArg} --accept-source-agreements --accept-package-agreements --source ${source}${pythonArgs}`;
         };
 
         const isNoInstalledResult = (rawOutput = '') => {
@@ -1615,7 +1710,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         const isLikelyHashFailure = (outputText = '', exitCode = null) => {
             const text = String(outputText).toLowerCase();
             return (
-                exitCode === 2316632081 || // 0x8A150011
+                exitCode === 2316632081 ||
                 text.includes('hash') ||
                 text.includes('installer hash does not match') ||
                 text.includes('hash mismatch')
@@ -1664,7 +1759,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                         return true;
                     }
                 } catch {
-                    // ignore and retry
                 }
                 if (i < attempts - 1) {
                     await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -1674,14 +1768,13 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         };
 
         const runInstallAttempt = async (commandText, itemProgressFill, itemProgressLabel, phaseLabel) => {
-            // Winget does not report a percentage through runCommand. Show the phase honestly.
             itemProgressFill?.classList.remove('determinate');
             if (itemProgressLabel) itemProgressLabel.textContent = phaseLabel;
             return window.api.runCommand(commandText);
         };
 
         let currentIndex = 0;
-        try { // Outer try-finally ensures buttons are always re-enabled
+        try {
             for (const li of selectedItems) {
             currentIndex++;
             updateProgress(currentIndex, li.dataset.appName || li.dataset.appId);
@@ -1705,7 +1798,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     failedApps.push(appName);
                     setBadge(li, 'failed');
                     setItemProgress(itemProgressFill, itemProgressLabel, 100, uiText("failed", "Failed"));
-                    // The batch summary only lists names; this is the only place the reason shows
                     toast(err?.message || uiText("download_failed", "Download failed"), { type: 'error', title: appName });
                 } finally {
                     if (itemProgressWrap) itemProgressWrap.classList.add('hidden');
@@ -1715,7 +1807,8 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
             const isPython = id.toLowerCase().includes('python.python');
             const pythonOverride = isPython ? ' --override "/quiet InstallAllUsers=1 PrependPath=1"' : '';
-            const command = buildInstallCommand(id, pythonOverride, { silent: true });
+            const source = li.dataset.source === 'msstore' ? 'msstore' : 'winget';
+            const command = buildInstallCommand(id, pythonOverride, { silent: true, source });
 
             try {
                 const parseResult = (res) => {
@@ -1742,24 +1835,22 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 let result = await runInstallAttempt(command, itemProgressFill, itemProgressLabel, uiText('installing'));
                 let r = parseResult(result);
 
-                // Retry chain: hash failure → no-silent → user-scope
                 if (shouldRetry(r) && isLikelyHashFailure(r.text, r.exitCode)) {
-                    const cmd = buildInstallCommand(id, pythonOverride, { silent: true, ignoreHash: true });
+                    const cmd = buildInstallCommand(id, pythonOverride, { silent: true, ignoreHash: true, source });
                     result = await runInstallAttempt(cmd, itemProgressFill, itemProgressLabel, uiText('retrying'));
                     r = parseResult(result);
                 }
                 if (shouldRetry(r)) {
-                    const cmd = buildInstallCommand(id, pythonOverride, { silent: false });
+                    const cmd = buildInstallCommand(id, pythonOverride, { silent: false, source });
                     result = await runInstallAttempt(cmd, itemProgressFill, itemProgressLabel, uiText('retrying'));
                     r = parseResult(result);
                 }
                 if (shouldRetry(r) && isPermissionFailure(r.text)) {
-                    const cmd = buildInstallCommand(id, pythonOverride, { silent: false, userScope: true });
+                    const cmd = buildInstallCommand(id, pythonOverride, { silent: false, userScope: true, source });
                     result = await runInstallAttempt(cmd, itemProgressFill, itemProgressLabel, uiText('retrying'));
                     r = parseResult(result);
                 }
 
-                // Epic Games special case: bootstrapper may exit with error but install anyway
                 if (isEpicLauncher && (r.hasError || r.hardFail) && !r.alreadyInstalled && !r.cancelled) {
                     if (itemProgressLabel) itemProgressLabel.textContent = uiText("verify_epic", "Verifying Epic install...");
                     if (await waitForInstalled(id, 18, 10000)) {
@@ -1770,7 +1861,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                     }
                 }
 
-                // Determine final outcome
                 if (r.hardFail || r.cancelled) {
                     errorCount++;
                     failedApps.push(appName);
@@ -1849,20 +1939,16 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         const downloadId = `custom-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
         const storeKey = `custom-${safeName}`;
 
-        // Grab the progress elements from the li
         const itemProgressWrap = li.querySelector('.app-progress-wrap');
         const itemProgressFill = li.querySelector('.app-progress-fill');
         const itemProgressLabel = li.querySelector('.app-progress-label');
 
         if (itemProgressWrap) {
             itemProgressWrap.classList.remove('hidden');
-            // Start indeterminate until we get real progress
             if (itemProgressFill) itemProgressFill.classList.remove('determinate');
             if (itemProgressLabel) itemProgressLabel.textContent = '';
         }
 
-        // Vendor links carry the version in the path, so ask for the current one.
-        // A failed lookup falls through to the static URL rather than the install.
         let url = fallbackUrl;
         let headers;
         if (resolverKey) {
@@ -1880,12 +1966,9 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             if (itemProgressLabel) itemProgressLabel.textContent = '';
         }
 
-        // Register in global store so the download survives page switches
         registerDownload(storeKey, downloadId, { appName, url, ext });
 
         return new Promise((resolve, reject) => {
-            // Progress painting only. This callback is dropped the moment the user
-            // switches page, so nothing that has to happen may live in here.
             attachDownloadUI(storeKey, (data) => {
                 if (data.status !== 'progress' || !li.isConnected) return;
                 const hasPercent = typeof data.percent === 'number' && Number.isFinite(data.percent);
@@ -1902,9 +1985,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 }
             });
 
-            // Install + settle. Registered separately so it survives a page switch —
-            // otherwise navigating away mid-download strands this promise forever and
-            // the whole install batch stops without ever reaching its `finally`.
             attachDownloadLifecycle(storeKey, async (data) => {
                 downloadStore.delete(storeKey);
 
@@ -1925,7 +2005,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 }
 
                 try {
-                    // Small delay to ensure file handles are fully released
                     await new Promise(r => setTimeout(r, 300));
 
                     const downloadedExt = ext.toLowerCase();
@@ -1935,7 +2014,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                         statusEl.style.display = 'none';
                         li.appendChild(statusEl);
 
-                        // Καλεί την processAdvancedInstaller που θα δημιουργήσει το activate button
                         await processAdvancedInstaller(data.path, statusEl, appName, li);
                     } else {
                         const runRes = await window.api.runInstaller(data.path);
@@ -1966,9 +2044,6 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     let savedView = 'list';
     let savedSort = 'default';
     try {
-        // One round-trip's worth of latency instead of three: these all read the
-        // same in-memory store in the main process, so there is nothing to
-        // sequence them for.
         const [savedIds, v, s] = await Promise.all([
             window.api?.getSetting?.('selected_apps'),
             window.api?.getSetting?.('installer_view'),
@@ -1984,19 +2059,18 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     setSortSelection(savedSort);
     applySort(savedSort);
 
-    // Check winget on page load and show banner if missing
     checkWingetAvailable().then(({ available }) => {
         if (!available) showWingetMissingUI(container, translations);
     }).catch((err) => {
         debug('error', 'Winget availability check failed:', err);
     });
 
+    buildPacks();
+    scheduleAutoCheck();
+
     return container;
 }
 
-// ============================================
-// CRACK INSTALLER PAGE
-// ============================================
 
 export async function buildCrackInstallerPage(translations, settings, buttonStateManager) {
     const container = document.createElement('div');
@@ -2177,7 +2251,6 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                     return;
                 }
 
-                // Βρες το crack EXE μέσα στο extracted dir
                 let crackExe = null;
                 try {
                     const exeFiles = await window.api.findExeFiles(sourceDir);
@@ -2200,14 +2273,11 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                     return;
                 }
 
-                // Βρες δυναμικά το installed path του Clip Studio
-                // C:\Program Files\CELSYS\CLIP STUDIO X.X\CLIP STUDIO PAINT\CLIPStudioPaint.exe
                 let targetPath = null;
                 try {
                     const celsysBase = 'C:\\Program Files\\CELSYS';
                     const celsysExes = await window.api.findExeFiles(celsysBase);
                     if (celsysExes && celsysExes.length > 0) {
-                        // Ψάχνουμε για CLIPStudioPaint.exe μέσα στο CLIP STUDIO PAINT subfolder
                         const found = celsysExes.find(f => {
                             const normalized = f.replace(/\\/g, '/');
                             return normalized.toLowerCase().includes('clip studio paint/clipstudiopaint.exe');
@@ -2229,7 +2299,6 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                 replaceBtn.disabled = true;
                 replaceBtn.textContent = 'Replacing...';
 
-                // Safety timeout - always unfreeze the button after 30s
                 const replaceTimeout = setTimeout(() => {
                     if (replaceBtn.disabled && replaceBtn.textContent === 'Replacing...') {
                         replaceBtn.disabled = false;
@@ -2252,7 +2321,6 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                             duration: 5000
                         });
 
-                        // Επιστροφή στο download button μετά από 3 δευτερόλεπτα
                         setTimeout(() => {
                             replaceBtn.style.display = 'none';
                             replaceBtn.classList.remove('visible');
@@ -2271,7 +2339,6 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                     toast(`Replace failed: ${err.message}`, { type: 'error', title: 'Replace EXE' });
                 } finally {
                     clearTimeout(replaceTimeout);
-                    // Ensure button is never permanently stuck (covers 'Replacing...' state)
                     if (replaceBtn.textContent === 'Replacing...') {
                         replaceBtn.disabled = false;
                         replaceBtn.textContent = 'Replace EXE';
@@ -2285,9 +2352,6 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
         const cardId = `crack-${key}`;
         const crackBtnOriginalText = btn.textContent;
 
-        // Detailed phase text lives on the availability line so the narrow
-        // download button can stay short (a percentage or one-word label)
-        // instead of clipping long strings like "Installation Running".
         function setCrackCardState(state = 'ready') {
             const busyStates = ['busy', 'extracting', 'opening', 'cleaning'];
             const isBusy = busyStates.includes(state);
@@ -2305,10 +2369,8 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
             availabilityText.textContent = stateText[state] || stateText.ready;
         }
 
-        // UI update callback for download events (used by global download store)
         function makeCrackDownloadUI() {
             return async (data) => {
-                // Guard: skip DOM updates if elements are no longer in the document (user switched pages)
                 if (!btn.isConnected) return;
                 const workingLabel = crackUi.working || 'Working…';
 
@@ -2328,7 +2390,6 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                         btn.textContent = workingLabel;
 
                         try {
-                            // Small delay to ensure file handles are fully released
                             await new Promise(r => setTimeout(r, 300));
 
                             const extractResult = await window.api.extractArchive(data.path, '123');
@@ -2348,13 +2409,10 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                                     const openResult = await window.api.openFile(installerExe);
                                     if (openResult.success) {
                                         if (isClipStudio) {
-                                            // Clip Studio needs the extracted folder for the
-                                            // Replace EXE step, so it is intentionally NOT cleaned.
                                             setCrackCardState('complete');
                                             completeProcess(cardId, 'download', true);
                                             downloadStore.delete(cardId);
 
-                                            // Hide download btn, show only Replace EXE
                                             btn.style.display = 'none';
                                             replaceBtn.classList.add('visible');
                                             replaceBtn.style.display = '';
@@ -2374,8 +2432,6 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                                                 title: name
                                             });
 
-                                            // Installer launched — remove the leftover ZIP and
-                                            // extracted folder so nothing piles up in Downloads.
                                             setCrackCardState('cleaning');
                                             try {
                                                 await window.api.cleanupInstallArtifacts(data.path, extractedDir);
@@ -2384,7 +2440,6 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
                                             }
 
                                             setCrackCardState('complete');
-                                            // Return the card to a reusable ready state shortly after.
                                             setTimeout(() => {
                                                 if (!btn.isConnected) return;
                                                 setCrackCardState('ready');
@@ -2441,7 +2496,6 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
             };
         }
 
-        // Check if there's an active download for this card (e.g., user switched tabs and came back)
         const existingDownload = getActiveDownload(cardId);
         if (existingDownload) {
             setCrackCardState('busy');
@@ -2451,14 +2505,12 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
             } else if (existingDownload.status === 'pending') {
                 btn.textContent = crackUi.working || 'Working…';
             }
-            // Re-attach UI callback so future events update this card's button
             attachDownloadUI(cardId, makeCrackDownloadUI());
         }
 
         btn.addEventListener('click', async () => {
             if (btn.disabled || buttonStateManager.isLoading(btn)) return;
 
-            // Prevent starting if download already active
             if (getActiveDownload(cardId)) return;
 
             const originalLabel = btn.textContent;
@@ -2477,7 +2529,6 @@ export async function buildCrackInstallerPage(translations, settings, buttonStat
 
             const downloadId = `${cardId}-${Date.now()}`;
 
-            // Register in global store and attach UI callback
             registerDownload(cardId, downloadId, { key, name, url });
             attachDownloadUI(cardId, makeCrackDownloadUI());
 

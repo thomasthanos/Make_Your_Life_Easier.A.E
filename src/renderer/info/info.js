@@ -43,7 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Navigation functionality
   navItems.forEach(item => {
     item.addEventListener('click', () => {
       navItems.forEach(i => i.classList.remove('active'));
@@ -57,7 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Close button functionality
   const closeBtn = document.querySelector('.info-close-btn');
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {
@@ -67,7 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Language application
   function applyLanguage() {
     let lang = 'en';
     try {
@@ -79,7 +76,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('Could not load language settings, defaulting to English');
     }
 
-    // Update navigation labels
     document.querySelectorAll('.nav-item').forEach(item => {
       const labelSpan = item.querySelector('.nav-label');
       if (!labelSpan) return;
@@ -92,22 +88,18 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Update section content
     document.querySelectorAll('.info-section').forEach(section => {
       const id = section.id;
       const data = translations[lang]?.sections[id];
       if (!data) return;
 
-      // Update title
       const titleTextEl = section.querySelector('.section-title-text');
       if (titleTextEl) {
         titleTextEl.textContent = data.title;
       }
 
-      // Update content cards
       const cards = section.querySelectorAll('.column-card');
 
-      // First card - What it does
       if (cards[0]) {
         const whatTitleEl = cards[0].querySelector('.column-title');
         const whatDescEl = cards[0].querySelector('p');
@@ -116,13 +108,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (whatTitleEl) whatTitleEl.textContent = data.whatTitle;
         if (whatDescEl) whatDescEl.textContent = data.whatDesc;
 
-        // Update feature lists
         if (featureList && data.features) {
           featureList.innerHTML = data.features;
         }
       }
 
-      // Second card - How to use
       if (cards[1]) {
         const howTitleEl = cards[1].querySelector('.column-title');
         const stepsList = cards[1].querySelector('.usage-list');
@@ -140,13 +130,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Update close button aria-label
     const closeBtn = document.querySelector('.info-close-btn');
     if (closeBtn) {
       closeBtn.setAttribute('aria-label', lang === 'en' ? 'Close' : 'Κλείσιμο');
     }
 
-    // Update page title
     document.title = lang === 'en' ? 'Help - Make Your Life Easier' : 'Βοήθεια - Make Your Life Easier';
     requestFrameResize();
   }
@@ -161,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Listen for language changes from parent window
   window.addEventListener('storage', (e) => {
     if (e.key === 'myAppSettings') {
       applyLanguage();
@@ -169,7 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Also listen for message events in case the parent window communicates via postMessage
   window.addEventListener('message', (event) => {
     if (event.data?.type === 'infoParentResized') {
       requestFrameResize();

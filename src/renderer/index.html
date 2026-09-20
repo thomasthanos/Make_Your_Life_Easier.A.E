@@ -8,34 +8,19 @@
   <meta name="theme-color" content="#07080c" />
   <meta name="description"
     content="Make Your Life Easier - A comprehensive tool for system management and productivity" />
-  <!-- Content Security Policy to prevent XSS attacks -->
-  <!-- img-src allows: self, data URIs, file:// URLs, and all HTTPS image sources -->
-  <!-- Note: In Electron, we allow all HTTPS for images since we control the app content -->
-  <!-- Removed 'unsafe-inline' from script-src for better XSS protection -->
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https:; font-src 'self'; connect-src 'self' https:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';" />
   <title>Make Your Life Easier</title>
-  
+
   <style>
     html, body {
-      background-color: #07080c !important; /* Match window background to prevent gray flash */
+      background-color: #07080c !important;
       height: 100%;
       margin: 0;
       overflow: hidden;
     }
   </style>
 
-  <!--
-    Preload critical assets for faster loading.
-
-    ES modules are discovered one hop at a time: index.js is not parsed until it
-    has been fetched, and only then does the loader learn it needs core.js, which
-    in turn pulls services.js, and so on. Declaring the whole static graph here
-    lets all of it download in parallel with the stylesheet instead of in a chain.
-    pages/installers.js is a dynamic import, so it is normally not requested until
-    the default page starts building — but install_apps *is* the default page, so
-    it belongs on this list too.
-  -->
   <link rel="preload" href="styles/main.css" as="style" />
   <link rel="modulepreload" href="index.js" />
   <link rel="modulepreload" href="utils.js" />
@@ -49,12 +34,6 @@
   <link rel="preload" href="../config/titlebar-init.js" as="script" />
   <link rel="preload" href="../assets/icons/hacker.ico" as="image" type="image/x-icon" />
 
-  <!--
-    The landing page renders ~70 app icons, all from t2.gstatic.com. Opening that
-    connection now overlaps the TCP+TLS handshake with CSS and module parsing
-    instead of paying for it after the first <img src> is set. The rest are used by
-    a handful of icons and the signed-in avatar, so they only get DNS resolution.
-  -->
   <link rel="preconnect" href="https://t2.gstatic.com" crossorigin />
   <link rel="dns-prefetch" href="https://t2.gstatic.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
