@@ -140,6 +140,12 @@ const FaviconConfig = {
     'premiere': 'https://i.postimg.cc/g2JjVX1j/premiere-pro.png'
   },
 
+  hasKnownIcon(pkgId) {
+    if (this.customIcons[pkgId]) return true;
+    const publisher = String(pkgId || '').split('.')[0].toLowerCase();
+    return Boolean(publisher && this.domainMap[publisher]);
+  },
+
   getFaviconUrl(pkgId, appName) {
     try {
       if (this.customIcons[pkgId]) {

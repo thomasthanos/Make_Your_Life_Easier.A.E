@@ -865,6 +865,10 @@ export async function buildCleanerPage(translations = {}) {
     const title = document.createElement('h2');
     title.textContent = cleanerT.title || 'System Cleaner';
 
+    const titleRow = document.createElement('div');
+    titleRow.className = 'cleaner-title-row';
+    titleRow.append(title, createHelpButton(uiText('cleaner_help')));
+
     const lastCleaned = document.createElement('p');
     lastCleaned.className = 'cleaner-last-cleaned';
     lastCleaned.textContent = `${cleanerT.last_cleaned || 'Last cleaned:'} ${formatCleanerDate(localStorage.getItem('cleanerLastCleaned'))}`;
@@ -880,8 +884,7 @@ export async function buildCleanerPage(translations = {}) {
     scanMode.className = 'cleaner-scan-mode';
     scanMode.textContent = cleanerT.scanning || 'Scanning...';
 
-    summaryText.appendChild(title);
-    summaryText.appendChild(createHelpButton(uiText('cleaner_help')));
+    summaryText.appendChild(titleRow);
     summaryText.appendChild(lastCleaned);
     summaryText.appendChild(totalLine);
     summaryText.appendChild(scanMode);

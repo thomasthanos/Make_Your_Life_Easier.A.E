@@ -24,6 +24,10 @@ function getFaviconUrl(pkgId, appName) {
         + `&url=${encodeURIComponent(`http://${slug}.com`)}&size=64`;
 }
 
+function hasKnownIcon(pkgId) {
+    return typeof FaviconConfig !== 'undefined' && FaviconConfig.hasKnownIcon(pkgId);
+}
+
 let fallbackIconPromise = null;
 function getFallbackIconPath() {
     if (!fallbackIconPromise) {
@@ -49,7 +53,12 @@ function createAppFavicon(app) {
         fav.dataset.fallback = '1';
         getFallbackIconPath().then((iconPath) => { fav.src = iconPath; });
     });
-    fav.src = getFaviconUrl(app.id, app.name);
+    if (app.catalog && !hasKnownIcon(app.id)) {
+        fav.dataset.fallback = '1';
+        getFallbackIconPath().then((iconPath) => { fav.src = iconPath; });
+    } else {
+        fav.src = getFaviconUrl(app.id, app.name);
+    }
     return fav;
 }
 
@@ -176,6 +185,14 @@ function getCategoryLabel(categoryKey, translations) {
 
 function getStatusLabel(statusKey, translations) {
     return (translations.statuses && translations.statuses[statusKey]) || statusKey;
+}
+
+function setStatusDot(dot, status, translations, detail) {
+    if (!dot) return;
+    const label = getStatusLabel(status.replace(/-/g, '_'), translations);
+    dot.dataset.status = status;
+    dot.title = detail ? `${label} · ${detail}` : label;
+    dot.setAttribute('aria-label', dot.title);
 }
 
 
@@ -508,7 +525,9 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     heroMain.appendChild(createHelpButton(uiText('selection_help')));
     hero.appendChild(heroMain);
     hero.appendChild(installerCount);
-    container.appendChild(hero);
+    const titleBarSlot = document.getElementById('title-bar-page');
+    if (titleBarSlot) titleBarSlot.appendChild(hero);
+    else container.appendChild(hero);
 
     const toolbar = document.createElement('section');
     toolbar.className = 'installer-toolbar';
@@ -527,7 +546,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
-    searchInput.placeholder = (translations.messages && translations.messages.search_apps) || 'Search apps...';
+    searchInput.placeholder = (translations.messages && translations.messages.search_catalog) || 'Search apps or the winget catalog...';
     searchInput.setAttribute('aria-label', searchInput.placeholder);
     searchInput.className = 'search-input-styled';
 
@@ -618,7 +637,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     const selectionActions = document.createElement('div');
     selectionActions.className = 'installer-selection-actions';
-    selectionActions.append(uncheckAllBtn, updateAllBtn, installBtn);
+    selectionActions.append(uncheckAllBtn, installBtn);
     selectionBar.append(selectionCopy, selectionActions);
 
     const controlsBar = document.createElement('div');
@@ -740,6 +759,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     container._pageCleanup = [() => {
         document.removeEventListener('click', onDocClick);
         document.removeEventListener('keydown', onDocKeydown);
+        hero.remove();
     }];
 
     setSortSelection('default');
@@ -747,6 +767,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     sortDropdown.appendChild(sortTrigger);
     sortDropdown.appendChild(sortMenu);
 
+    controlsBar.appendChild(updateAllBtn);
     controlsBar.appendChild(viewToggleGroup);
     controlsBar.appendChild(sortDropdown);
     controlsBar.appendChild(moreActions);
@@ -791,7 +812,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             const keyed = items.map((li) => ({
                 li,
                 name: li.dataset.appName || '',
-                rank: statusOrder[li.querySelector('.app-status-badge')?.dataset?.status || 'unknown'] ?? 2
+                rank: statusOrder[li.querySelector('.app-status-dot')?.dataset?.status || 'unknown'] ?? 2
             }));
 
             keyed.sort((a, b) => {
@@ -822,8 +843,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         importBtn.disabled = state.busy;
         updateAllBtn.disabled = state.busy;
         container.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.disabled = state.busy; });
-        const hasResult = (state.kind === 'install' && state.total > 0 && state.current > 0)
-            || (state.kind === 'check' && state.checked !== undefined);
+        const hasResult = state.kind === 'install' && state.total > 0 && state.current > 0;
         selectionBar.hidden = count === 0 && !state.busy && !hasResult;
         selectionCount.hidden = count === 0;
         selectionActions.hidden = count === 0 && !(state.busy && state.kind === 'install');
@@ -841,11 +861,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         for (const [id, outcome] of Object.entries(state.outcomes)) {
             const row = container.querySelector('li[data-app-id="' + CSS.escape(id) + '"]');
             if (!row) continue;
-            const badge = row.querySelector('.app-status-badge');
-            if (badge) {
-                badge.dataset.status = outcome;
-                badge.textContent = getStatusLabel(outcome, translations);
-            }
+            setStatusDot(row.querySelector('.app-status-dot'), outcome, translations);
             if (outcome === 'installed' && (state.kind === 'install' || state.kind === 'update') && (state.busy || observedInstall)) {
                 row.querySelector('input[type="checkbox"]').checked = false;
             }
@@ -933,6 +949,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         { value: 'not-installed', label: uiText('filter_not_installed', 'Not installed') }
     ];
     let currentStatusFilter = 'all';
+    let currentPackRows = null;
     const filterGroup = document.createElement('div');
     filterGroup.className = 'installer-chip-group';
     filterGroup.setAttribute('role', 'group');
@@ -943,7 +960,13 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         chip.className = 'installer-chip';
         chip.classList.toggle('active', value === 'all');
         chip.dataset.filter = value;
-        chip.textContent = label;
+        if (value !== 'all') {
+            const chipDot = document.createElement('span');
+            chipDot.className = 'app-status-dot chip-dot';
+            chipDot.dataset.status = value;
+            chip.appendChild(chipDot);
+        }
+        chip.appendChild(document.createTextNode(label));
         chip.addEventListener('click', () => {
             currentStatusFilter = value;
             filterGroup.querySelectorAll('.installer-chip').forEach((el) => el.classList.toggle('active', el === chip));
@@ -961,6 +984,9 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     const listContainer = document.createElement('div');
     listContainer.classList.add('list-container');
     container.appendChild(listContainer);
+
+    const syncListFade = () => listContainer.classList.toggle('is-scrolled', listContainer.scrollTop > 4);
+    listContainer.addEventListener('scroll', syncListFade, { passive: true });
 
     let catalogToken = 0;
     const catalogGroup = document.createElement('div');
@@ -1002,23 +1028,20 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     }
 
     function applyRowStatus(li) {
-        const badge = li.querySelector('.app-status-badge');
+        const badge = li.querySelector('.app-status-dot');
         if (!badge || !installedState.at || li.dataset.isCustom === 'true') return;
 
         const upgrade = findPackage(installedState.upgradable, li.dataset.appId);
         const installed = findPackage(installedState.installed, li.dataset.appId);
 
         if (upgrade && upgrade.available) {
-            badge.dataset.status = 'update-available';
-            badge.textContent = getStatusLabel('update_available', translations);
+            setStatusDot(badge, 'update-available', translations, upgrade.available);
             li.dataset.availableVersion = upgrade.available;
         } else if (installed) {
-            badge.dataset.status = 'installed';
-            badge.textContent = getStatusLabel('installed', translations);
+            setStatusDot(badge, 'installed', translations, installed.version || '');
             delete li.dataset.availableVersion;
         } else {
-            badge.dataset.status = 'not-installed';
-            badge.textContent = getStatusLabel('not_installed', translations);
+            setStatusDot(badge, 'not-installed', translations);
             delete li.dataset.availableVersion;
         }
         syncUpdateButton(li);
@@ -1054,7 +1077,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         if (!container.isConnected) return { installed: 0, updates: 0 };
         applyAllStatuses();
 
-        const badges = [...container.querySelectorAll('.app-status-badge')];
+        const badges = [...container.querySelectorAll('li.app-list-item .app-status-dot')];
         return {
             installed: badges.filter((b) => b.dataset.status === 'installed' || b.dataset.status === 'update-available').length,
             updates: badges.filter((b) => b.dataset.status === 'update-available').length
@@ -1114,7 +1137,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             const id = row.id.toLowerCase();
             if (pinnedIds.has(id) || known.has(id) || knownNames.has(row.name.toLowerCase())) return;
             if ([...known].some((appId) => matchWingetId(appId, row.id))) return;
-            catalogList.appendChild(createAppRow(row, `catalog-${index}-${id}`));
+            catalogList.appendChild(createAppRow({ ...row, catalog: true }, `catalog-${index}-${id}`));
             shown++;
         });
 
@@ -1131,6 +1154,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             catalogList.innerHTML = '';
             catalogGroup.classList.add('hidden');
             catalogStatus.textContent = '';
+            applySearchFilter();
             return;
         }
 
@@ -1173,15 +1197,34 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             chip.className = 'installer-chip installer-pack-chip';
             chip.textContent = `${uiText(`pack_${pack.id}`, pack.id)} (${rows.length})`;
             chip.addEventListener('click', () => {
-                const boxes = rows.map((li) => li.querySelector('input[type="checkbox"]')).filter((cb) => cb && !cb.disabled);
-                const selecting = boxes.some((cb) => !cb.checked);
-                boxes.forEach((cb) => { cb.checked = selecting; });
-                chip.classList.toggle('active', selecting);
+                const selecting = !chip.classList.contains('active');
+                packGroup.querySelectorAll('.installer-pack-chip').forEach((el) => el.classList.toggle('active', selecting && el === chip));
+
+                if (selecting) {
+                    debouncedSearch.cancel();
+                    debouncedCatalogSearch.cancel();
+                    searchInput.value = '';
+                    currentStatusFilter = 'all';
+                    filterGroup.querySelectorAll('.installer-chip').forEach((el) => el.classList.toggle('active', el.dataset.filter === 'all'));
+                    void runCatalogSearch();
+                }
+
+                container.querySelectorAll('li.app-list-item input[type="checkbox"]:checked')
+                    .forEach((cb) => { cb.checked = false; });
+                currentPackRows = selecting ? new Set(rows) : null;
+                if (selecting) {
+                    rows.forEach((li) => {
+                        const cb = li.querySelector('input[type="checkbox"]');
+                        if (cb && !cb.disabled) cb.checked = true;
+                    });
+                }
+
+                applySearchFilter();
                 updateActionButtonsState();
                 saveSelectedApps();
                 toast(
                     selecting
-                        ? uiText('pack_selected', '{count} apps selected', { count: boxes.length })
+                        ? uiText('pack_selected', '{count} apps selected', { count: rows.length })
                         : uiText('pack_cleared', 'Selection cleared'),
                     { type: 'success', title: uiText(`pack_${pack.id}`, pack.id) }
                 );
@@ -1192,7 +1235,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
 
     function syncUpdateButton(li) {
-        const badge = li.querySelector('.app-status-badge');
+        const badge = li.querySelector('.app-status-dot');
         const canUpdate = badge?.dataset.status === 'update-available';
         const existing = li.querySelector('.app-update-btn');
 
@@ -1205,16 +1248,21 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'app-update-btn';
-        button.textContent = uiText('update_action', 'Update');
-        if (li.dataset.availableVersion) {
-            button.title = uiText('update_to', 'Update to {version}', { version: li.dataset.availableVersion });
-        }
+        button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="6"></line><polyline points="5 13 12 6 19 13"></polyline></svg>';
+        const updateLabel = document.createElement('span');
+        updateLabel.className = 'app-update-label';
+        updateLabel.textContent = uiText('update_action', 'Update');
+        button.appendChild(updateLabel);
+        button.title = li.dataset.availableVersion
+            ? uiText('update_to', 'Update to {version}', { version: li.dataset.availableVersion })
+            : uiText('update_action', 'Update');
+        button.setAttribute('aria-label', `${uiText('update_action', 'Update')} ${li.dataset.appName || ''}`.trim());
         button.addEventListener('click', (event) => {
             event.preventDefault();
             event.stopPropagation();
             upgradeRows([li]);
         });
-        li.appendChild(button);
+        li.insertBefore(button, li.querySelector('.app-link'));
     }
 
     function updateUpdateAllButton() {
@@ -1224,7 +1272,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     }
 
     const rowsWithUpdates = () => [...container.querySelectorAll('li.app-list-item')]
-        .filter((li) => li.querySelector('.app-status-badge')?.dataset.status === 'update-available');
+        .filter((li) => li.querySelector('.app-status-dot')?.dataset.status === 'update-available');
 
     async function upgradeRows(rows) {
         if (!rows.length || !installerActivity.begin('update')) return;
@@ -1304,11 +1352,15 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         idEl.classList.add('app-id');
 
         textContainer.append(nameEl, idEl);
-        label.append(createAppFavicon(app), textContainer);
 
-        const statusBadge = document.createElement('span');
-        statusBadge.className = 'app-status-badge';
-        statusBadge.dataset.status = 'unknown';
+        const iconWrap = document.createElement('span');
+        iconWrap.className = 'app-icon-wrap';
+        const statusDot = document.createElement('span');
+        statusDot.className = 'app-status-dot';
+        statusDot.dataset.status = 'unknown';
+        statusDot.setAttribute('role', 'img');
+        iconWrap.append(createAppFavicon(app), statusDot);
+        label.append(iconWrap, textContainer);
 
         const progressWrap = document.createElement('div');
         progressWrap.className = 'app-progress-wrap hidden';
@@ -1318,7 +1370,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         progressLabel.className = 'app-progress-label';
         progressWrap.append(progressFill, progressLabel);
 
-        li.append(checkbox, label, statusBadge, progressWrap);
+        li.append(checkbox, label, progressWrap);
 
         if (li.dataset.source === 'msstore') {
             const sourceChip = document.createElement('span');
@@ -1387,19 +1439,8 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             });
         });
 
-        const total = ids.length + (CUSTOM_APPS ? CUSTOM_APPS.length : 0);
-        installerCount.textContent = settings?.lang === 'gr'
-            ? `${total} εφαρμογές`
-            : `${total} app${total === 1 ? '' : 's'}`;
-        const plural = total !== 1 ? 's' : '';
-        const suffix = settings?.lang === 'gr'
-            ? (total !== 1 ? 'ές' : 'ή')
-            : plural;
-        const template = (translations.messages && translations.messages.search_for_total) || 'Search for {total} app{plural}...';
-        searchInput.placeholder = template
-            .replace('{total}', total)
-            .replace('{plural}', plural)
-            .replace('{suffix}', suffix);
+        setCountBadge(ids.length + (CUSTOM_APPS ? CUSTOM_APPS.length : 0));
+        searchInput.placeholder = (translations.messages && translations.messages.search_catalog) || 'Search apps or the winget catalog...';
         searchInput.setAttribute('aria-label', searchInput.placeholder);
 
         [...listContainer.children].forEach((child) => { if (child !== catalogGroup) child.remove(); });
@@ -1441,9 +1482,16 @@ export async function buildInstallPageWingetWithCategories(translations, setting
     }
 
     function passesStatusFilter(li) {
+        if (currentPackRows && !currentPackRows.has(li)) return false;
         if (currentStatusFilter === 'all') return true;
-        const status = li.querySelector('.app-status-badge')?.dataset.status;
+        const status = li.querySelector('.app-status-dot')?.dataset.status;
         return status === currentStatusFilter;
+    }
+
+    function setCountBadge(shown) {
+        installerCount.textContent = settings?.lang === 'gr'
+            ? `${shown} εφαρμογές`
+            : `${shown} app${shown === 1 ? '' : 's'}`;
     }
 
     function applySearchFilter() {
@@ -1472,17 +1520,23 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         if (!catalogGroup.classList.contains('hidden')) matches += catalogMatches;
 
         searchEmpty.classList.toggle('hidden', matches > 0 || !query);
+        setCountBadge(matches);
     }
 
     const debouncedSearch = debounce(applySearchFilter, 250);
     const debouncedCatalogSearch = debounce(runCatalogSearch, 450);
     searchInput.addEventListener('input', () => {
+        if (currentPackRows) {
+            currentPackRows = null;
+            packGroup.querySelectorAll('.installer-pack-chip.active').forEach((el) => el.classList.remove('active'));
+        }
         debouncedSearch();
         debouncedCatalogSearch();
     });
     container._pageCleanup.push(() => {
         debouncedSearch.cancel();
         debouncedCatalogSearch.cancel();
+        listContainer.removeEventListener('scroll', syncListFade);
     });
 
     importBtn.addEventListener('click', () => {
@@ -1669,15 +1723,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 installedState.installed.set(id, { id: li.dataset.appId, version: '', available: null, source: li.dataset.source || 'winget' });
                 installedState.upgradable.delete(id);
             }
-            const badge = li.querySelector('.app-status-badge');
-            if (!badge) return;
-            if (state === 'installed') {
-                badge.dataset.status = 'installed';
-                badge.textContent = getStatusLabel('installed', translations);
-            } else {
-                badge.dataset.status = 'failed';
-                badge.textContent = getStatusLabel('failed', translations);
-            }
+            setStatusDot(li.querySelector('.app-status-dot'), state === 'installed' ? 'installed' : 'failed', translations);
         };
 
         const buildInstallCommand = (pkgId, pythonArgs, options = {}) => {
@@ -2041,7 +2087,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
     await buildList();
 
-    let savedView = 'list';
+    let savedView = 'grid';
     let savedSort = 'default';
     try {
         const [savedIds, v, s] = await Promise.all([

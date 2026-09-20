@@ -283,7 +283,7 @@
     "could_not_open": "Could not open automatically",
     "download_timed_out": "Download timed out",
     "search_apps": "Search apps...",
-    "search_for_total": "Search for {total} app{plural}...",
+    "search_catalog": "Search apps or the winget catalog...",
     "winget_not_installed": "Winget is not installed",
     "open_store": "Open Microsoft Store",
     "oauth_not_configured": "Login unavailable: OAuth credentials are not configured."

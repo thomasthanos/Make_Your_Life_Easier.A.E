@@ -283,6 +283,45 @@ textarea {
   align-items: center;
   margin-left: 10px;
 }
+
+.title-bar-page {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--stroke-10);
+  -webkit-app-region: no-drag;
+}
+.title-bar-page:empty {
+  display: none;
+}
+.title-bar-page .installer-hero {
+  gap: 0.6rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.title-bar-page .installer-hero-main {
+  gap: 0.4rem;
+}
+.title-bar-page .installer-hero-copy h2 {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.title-bar-page .help-button {
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+}
+.title-bar-page .installer-count-badge {
+  min-height: 20px;
+  padding: 0 0.5rem;
+  font-size: 0.66rem;
+}
 .title-bar-controls {
   -webkit-app-region: no-drag;
   display: flex;
@@ -4100,40 +4139,53 @@ select:focus-visible {
   opacity: 1;
 }
 
-.app-status-badge {
+.app-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  padding: 2px 8px;
-  border-radius: 20px;
-  white-space: nowrap;
-  border: 1px solid transparent;
-  transition: opacity var(--motion-base);
-  margin-left: 0.5rem;
+  margin-right: 0.75rem;
 }
-.app-status-badge[data-status="unknown"] {
+.app-icon-wrap > .app-favicon {
+  margin-right: 0;
+}
+
+.app-status-dot {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  box-sizing: border-box;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #1b1e23;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.app-status-dot[data-status="unknown"],
+.app-status-dot[data-status="not-installed"] {
   display: none;
 }
-.app-status-badge[data-status="installed"] {
-  background: rgba(16, 185, 129, 0.12);
-  color: #5be17e;
-  border-color: rgba(16, 185, 129, 0.3);
+.app-status-dot[data-status="installed"] {
+  background: #34d399;
 }
-.app-status-badge[data-status="not-installed"] {
-  background: var(--stroke-06);
-  color: rgba(255, 255, 255, 0.65);
-  border-color: rgba(255, 255, 255, 0.18);
+.app-status-dot[data-status="update-available"] {
+  background: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.22);
 }
-.app-status-badge[data-status="update-available"] {
-  background: rgba(10, 132, 255, 0.12);
-  color: var(--color-accent);
-  border-color: rgba(10, 132, 255, 0.3);
+.app-status-dot[data-status="failed"] {
+  background: #ff6961;
 }
-.app-status-badge[data-status="failed"] {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ff6961;
-  border-color: rgba(239, 68, 68, 0.3);
+
+.installer-chip .app-status-dot {
+  position: static;
+  display: inline-block;
+  margin-right: 0.4rem;
+  border-color: transparent;
+}
+.installer-chip .app-status-dot[data-status="not-installed"] {
+  display: inline-block;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.45);
 }
 
 .app-progress-wrap {
@@ -4287,16 +4339,8 @@ select:focus-visible {
   white-space: nowrap;
 }
 
-.installer-page .list-container[data-view="grid"] .app-status-badge {
-  align-self: flex-start;
-  margin: 0.42rem 1.5rem 0 calc(var(--installer-grid-icon-size) + 0.68rem);
-  padding: 1px 6px;
-  font-size: 0.58rem;
-  line-height: 1.5;
-}
-
-.installer-page .list-container[data-view="grid"] .app-status-badge[data-status="unknown"] {
-  display: none;
+.installer-page .list-container[data-view="grid"] .app-icon-wrap {
+  margin-right: 0;
 }
 
 .installer-page .list-container[data-view="grid"] .app-link {
@@ -5065,9 +5109,17 @@ body.sidebar-expanded .installer-page {
   min-height: 0;
   gap: 0.5rem;
   padding-right: 2px;
+  padding-bottom: 6px;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 52px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 52px), transparent 100%);
+}
+
+.installer-page .list-container.is-scrolled {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 30px, #000 calc(100% - 52px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 30px, #000 calc(100% - 52px), transparent 100%);
 }
 
 .installer-page .list-container::-webkit-scrollbar {
@@ -5561,6 +5613,7 @@ body.sidebar-expanded .installer-page {
   flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-start;
+  align-content: flex-start;
   gap: 0.75rem;
 }
 
@@ -5731,6 +5784,11 @@ body.sidebar-expanded .cleaner-page {
   height: 26px;
 }
 
+.cleaner-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
 .cleaner-summary-text h2 {
   margin: 0 0 0.125rem;
   color: var(--text-primary);
@@ -7076,6 +7134,17 @@ body:not(.sidebar-expanded) .app-card .button {
 body:not(.sidebar-expanded) #sidebar .dot {
   max-width: 0;
   margin: 0;
+  overflow: hidden;
+}
+body:not(.sidebar-expanded) #menu-list button {
+  justify-content: center;
+  gap: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+body:not(.sidebar-expanded) #menu-list button .label {
+  flex: 0 0 0;
+  width: 0;
   overflow: hidden;
 }
 #menu-list button {
@@ -9556,7 +9625,21 @@ body.sidebar-expanded .maintenance-page {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin: 0 0 0.85rem;
+  margin: 0;
+}
+
+.install-controls-bar .bulk-update-all {
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 0.85rem;
+  font-size: 0.8rem;
+  color: #f4faff;
+  border-color: rgba(100, 210, 255, 0.34);
+  background: linear-gradient(180deg, rgba(10, 132, 255, 0.3), rgba(10, 132, 255, 0.14));
+}
+.install-controls-bar .bulk-update-all .action-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .installer-chip-group {
@@ -9570,6 +9653,9 @@ body.sidebar-expanded .maintenance-page {
 }
 
 .installer-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 30px;
   padding: 0 0.75rem;
   border: 1px solid var(--stroke-06);
@@ -9627,6 +9713,9 @@ body.sidebar-expanded .maintenance-page {
 }
 
 .app-update-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   flex-shrink: 0;
   height: 26px;
   margin-left: 0.5rem;
@@ -9643,6 +9732,30 @@ body.sidebar-expanded .maintenance-page {
 
 .app-update-btn:hover {
   filter: brightness(1.12);
+}
+
+.installer-page .list-container[data-view="grid"] .app-update-btn {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  z-index: 2;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+}
+
+.installer-page .list-container[data-view="grid"] .app-update-label {
+  display: none;
+}
+
+.installer-page .list-container[data-view="grid"] .app-list-item:has(.app-update-btn) .app-link {
+  display: none;
+}
+
+.installer-page .app-list-item:has(.app-status-dot[data-status="update-available"]) {
+  border-color: rgba(100, 210, 255, 0.26);
 }
 
 .bulk-check-installed.is-checking .action-icon {

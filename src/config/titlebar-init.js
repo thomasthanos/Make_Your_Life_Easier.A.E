@@ -36,16 +36,8 @@
         sidebarToggle?.setAttribute('aria-controls', 'sidebar');
     };
     let sidebarExpanded = false;
-    try { sidebarExpanded = localStorage.getItem('sidebarExpanded') === '1'; } catch { }
     applySidebarState(sidebarExpanded);
-
-    Promise.resolve(window.api?.getSetting?.('sidebarExpanded')).then((cloudVal) => {
-        if (typeof cloudVal === 'boolean' && cloudVal !== sidebarExpanded) {
-            sidebarExpanded = cloudVal;
-            applySidebarState(sidebarExpanded);
-            try { localStorage.setItem('sidebarExpanded', sidebarExpanded ? '1' : '0'); } catch { }
-        }
-    }).catch(() => { });
+    try { localStorage.setItem('sidebarExpanded', '0'); } catch { }
 
     if (sidebarToggle) {
         sidebarToggle.addEventListener('click', () => {
