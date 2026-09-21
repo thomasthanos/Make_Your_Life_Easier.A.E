@@ -1,7 +1,3 @@
-/**
- * Spicetify Module
- * Handles Spicetify and Spotify-related operations
- */
 
 const { spawn } = require('child_process');
 const path = require('path');
@@ -9,10 +5,6 @@ const os = require('os');
 const fs = require('fs');
 const { attachChildProcessHandlers } = require('./process-utils');
 
-/**
- * Install Spicetify
- * @returns {{ child: ChildProcess, done: Promise<Object> }}
- */
 function installSpicetify(onOutput = () => { }) {
   if (process.platform === 'win32') {
     const tmpScriptName = `spicetify_install_${Date.now()}.ps1`;
@@ -102,10 +94,6 @@ function installSpicetify(onOutput = () => { }) {
   return { child, done };
 }
 
-/**
- * Uninstall Spicetify
- * @returns {Promise<Object>}
- */
 async function uninstallSpicetify() {
   return new Promise((resolve) => {
     if (process.platform === 'win32') {
@@ -115,7 +103,7 @@ async function uninstallSpicetify() {
         'Remove-Item -Recurse -Force "$env:LOCALAPPDATA\\spicetify" -ErrorAction SilentlyContinue',
         'if ((Test-Path "$env:APPDATA\\spicetify") -or (Test-Path "$env:LOCALAPPDATA\\spicetify")) { exit 1 } else { exit 0 }'
       ].join(' ; ');
-      
+
       const child = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], { windowsHide: true });
       attachChildProcessHandlers(child, resolve, 'Uninstall');
     } else {
@@ -126,10 +114,6 @@ async function uninstallSpicetify() {
   });
 }
 
-/**
- * Full uninstall of Spotify and Spicetify
- * @returns {Promise<Object>}
- */
 function fullUninstallSpotify(onOutput = () => { }) {
   if (process.platform === 'win32') {
     const tmpScriptPath = path.join(os.tmpdir(), `spotify_full_uninstall_${Date.now()}.ps1`);

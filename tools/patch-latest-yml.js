@@ -33,8 +33,6 @@ const zip = describe(path.join(distDir, zipName));
 const appZip = describe(path.join(distDir, appZipName));
 const electronVersion = require('electron/package.json').version;
 
-// The full zip stays first in `files` and in path/sha512: older versions take
-// the first .zip listed there. Only newer ones read the fields after releaseDate.
 const yml =
     `version: ${version}\n` +
     `files:\n` +
@@ -51,7 +49,6 @@ const yml =
     `  sha512: ${appZip.sha512}\n` +
     `  size: ${appZip.size}\n`;
 
-// Read it back the way electron-updater will, before anything is published
 const parsed = yaml.load(yml);
 if (parsed.version !== version || parsed.files[0].url !== zipName || parsed.sha512 !== zip.sha512 ||
     parsed.electronVersion !== electronVersion || parsed.updateShellVersion !== pkg.updateShellVersion ||

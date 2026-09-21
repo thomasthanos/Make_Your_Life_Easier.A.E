@@ -1,7 +1,3 @@
-/**
- * IPC Handlers Module
- * Handles all Inter-Process Communication between main and renderer
- */
 
 const { ipcMain, shell, dialog, app } = require('electron');
 const path = require('path');
@@ -13,16 +9,6 @@ const { psFileArgumentList, getAuthenticodeStatus } = require('../modules/proces
 const sharedSecurity = require('../modules/security');
 const { debug: log } = require('../modules/debug');
 
-/**
- * Refuse a file whose Authenticode signature does not match its contents.
- *
- * Deliberately narrow. Most of what this app downloads is unsigned, and plenty of
- * it is signed by publishers Windows does not trust, so neither of those may block
- * a launch. 'HashMismatch' is different: it means the binary carries a signature
- * that no longer matches its bytes — the file was modified after it was signed.
- * @param {string} filePath - Executable about to be launched
- * @returns {Promise<string|null>} An error message when the launch must be refused
- */
 async function blockIfTampered(filePath) {
     const ext = path.extname(filePath).toLowerCase();
     if (!['.exe', '.msi'].includes(ext)) return null;
@@ -107,8 +93,6 @@ function setupOAuthHandlers(oauth, userProfile, getMainWindow, supabase, setting
         const profile = userProfile.get();
         if (!profile) return null;
 
-        // A cached profile without a Supabase session cannot sync settings.
-        // Clear the stale identity so the renderer offers sign-in again.
         const sessionUser = await supabase.getSessionUser();
         if (!sessionUser) {
             userProfile.clear();
@@ -119,10 +103,6 @@ function setupOAuthHandlers(oauth, userProfile, getMainWindow, supabase, setting
     });
 
     ipcMain.handle('logout', async () => {
-        // Clear local state no matter what the server said. signOut() throws on a
-        // network failure, and the old code returned early from the catch — leaving
-        // the refresh token and the cached profile on disk, so a sign-out attempted
-        // offline left the account fully usable on next launch.
         let error = null;
         try {
             await supabase.signOut();
@@ -212,8 +192,6 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
     let wingetUpgradeChild = null;
     let wingetUpgradeCancelled = false;
 
-    // Probe winget presence + version. Returns { installed, version } where
-    // version is a { major, minor } object (null if it could not be parsed).
     async function probeWinget() {
         try {
             const result = await processUtils.runSpawnCommand('winget', ['--version'], { shell: false, windowsHide: true });
@@ -247,8 +225,6 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
             return { success: false, notInstalled: true };
         }
 
-        // --include-unknown / --disable-interactivity require winget 1.4+.
-        // Older builds reject them, so only add them when supported.
         const supportsModernFlags = version && (version.major > 1 || (version.major === 1 && version.minor >= 4));
         const args = ['upgrade', '--all', '--accept-source-agreements', '--accept-package-agreements'];
         if (supportsModernFlags) {
@@ -269,11 +245,7 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
             const result = await done;
             if (wingetUpgradeCancelled) return { success: false, cancelled: true };
 
-            // winget `upgrade --all` exits non-zero when ANY single package fails or
-            // is blocked, even if the rest upgraded fine. Treat the known
-            // "some upgrades failed" code (0x8A15002C) as a partial success so the
-            // UI doesn't report the whole run as a hard failure.
-            const WINGET_UPDATE_ALL_HAS_FAILURE = 0x8A15002C; // 2316632108
+            const WINGET_UPDATE_ALL_HAS_FAILURE = 0x8A15002C;
             if (!result.success && result.code === WINGET_UPDATE_ALL_HAS_FAILURE) {
                 return { success: true, partial: true, code: result.code };
             }
@@ -378,9 +350,6 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
 
                 const normalized = validation.normalized;
 
-                // Same restriction run-installer enforces. Without it this handler
-                // is a second, unguarded way to launch any executable on disk — and
-                // it is the one the crack-installer flow actually uses.
                 if (!sharedSecurity.isWritableTarget(normalized, app.getPath('userData'))) {
                     return resolve({ success: false, error: 'Files can only be opened from Downloads, temp or app data' });
                 }
@@ -397,7 +366,6 @@ function setupCommandHandlers(security, processUtils, fileUtils, systemTools) {
                     .catch(() => openIt());
                 return;
 
-                // Deferred so the signature check above can gate it.
                 function openIt() {
                     if (process.platform === 'win32') {
                         shell.openPath(normalized)
@@ -445,10 +413,6 @@ function setupDownloadHandlers(downloadManager, getMainWindow) {
         const win = getMainWindow();
         if (!win) return;
 
-        // A relative dest is sanitised into the Downloads folder by the download
-        // manager, but an absolute one is used verbatim — so it has to be pinned
-        // to a directory this app actually writes to. Every real caller passes
-        // either a bare filename or a path under userData (the Sparkle zip).
         if (typeof dest === 'string' && path.isAbsolute(dest)) {
             const check = sharedSecurity.validatePath(dest);
             if (!check.valid || !sharedSecurity.isWritableTarget(check.normalized, app.getPath('userData'))) {
@@ -464,8 +428,6 @@ function setupDownloadHandlers(downloadManager, getMainWindow) {
         downloadManager.startDownload(id, url, dest, win, headers);
     });
 
-    // Resolves the current download URL for vendor apps whose installer link
-    // carries a version in the path. Falls back to the caller's static URL.
     ipcMain.handle('resolve-download-url', async (event, key, fallbackUrl) => {
         return versionResolver.resolveDownloadUrl(key, fallbackUrl);
     });
@@ -532,11 +494,6 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
         });
     });
 
-    // ─── cleanup-install-artifacts ──────────────────────────────────────────────
-    // Removes the leftover download ZIP and its extracted folder once a crack
-    // installer has been launched. The ZIP goes immediately (it is redundant
-    // after extraction); the folder is retried a few times because the freshly
-    // launched installer may still hold a handle to it for a moment.
     ipcMain.handle('cleanup-install-artifacts', async (event, { zipPath, dir } = {}) => {
         const allowedDirs = [os.tmpdir(), path.join(os.homedir(), 'Downloads')];
         const removed = { zip: false, dir: false };
@@ -566,7 +523,6 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
                     removed.dir = true;
                     break;
                 } catch (err) {
-                    // Installer likely still holds the directory — wait and retry.
                     await new Promise((r) => setTimeout(r, 2000));
                     if (attempt === 4) debug('warn', 'Failed to remove extracted folder:', err.message);
                 }
@@ -576,20 +532,6 @@ function setupFileHandlers(security, fileUtils, debug, pendingCleanupFiles) {
         return { success: true, removed };
     });
 
-    // ─── replace-exe ────────────────────────────────────────────────────────────
-    // Strategy:
-    //   1. Write src/dst to a JSON config file  → no path quoting in PS scripts
-    //   2. Write elevated.ps1                   → does the actual file replacement
-    //   3. Write launcher.ps1                   → calls elevated.ps1 via Start-Process -Verb RunAs -Wait
-    //   4. spawn('powershell', ['-File', launcher.ps1])  → no shell string quoting at all
-    //   5. Resolve when proc closes (code 0 = success)
-    //
-    // Fixes vs old approach:
-    //   • No exec() string with nested quotes
-    //   • No JS template literal substitution inside PS variable names (${username} bug)
-    //   • No VBScript (.vbs disabled on Win11 24H2+)
-    //   • No broken polling (dst already existed before replacement)
-    // ────────────────────────────────────────────────────────────────────────────
 ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
     return new Promise((resolve) => {
         (async () => {
@@ -624,15 +566,11 @@ ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
                 const stamp = Date.now();
                 const tmpDir = os.tmpdir();
 
-                // 1. JSON config — paths go in here, not in PS script strings
                 const configFile = path.join(tmpDir, 'replace_cfg_' + stamp + '.json');
                 fs.writeFileSync(configFile, JSON.stringify({ src, dst }), 'utf8');
 
-                // PS single-quote-safe version of configFile path
                 const cfgPS = configFile.replace(/'/g, "''");
 
-                // 2. Elevated PS1 — reads from JSON, no JS-interpolated PS variables
-                //    Use $($env:USERNAME) for the current user — avoids ${...} entirely
                 const psLines = [
                     "$cfg = Get-Content -LiteralPath '" + cfgPS + "' -Raw | ConvertFrom-Json",
                     '$src = $cfg.src',
@@ -655,13 +593,7 @@ ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
                 const psFile = path.join(tmpDir, 'replace_ps_' + stamp + '.ps1');
                 fs.writeFileSync(psFile, psLines.join('\r\n'), 'utf8');
 
-                // 3. Launcher PS1 — calls elevated PS1 via Start-Process -Verb RunAs -Wait
-                //    The -ArgumentList value has to be one pre-quoted string: the array
-                //    form joins its elements with plain spaces and quotes nothing, so a
-                //    %TEMP% path containing a space (any "First Last" account) splits in
-                //    two and powershell -File never receives the script.
                 const launcherLines = [
-                    // Use $proc to capture the elevated process, then forward its exit code
                     '$proc = Start-Process powershell.exe -ArgumentList ' + psFileArgumentList(psFile) + ' -Verb RunAs -Wait -PassThru',
                     "exit $proc.ExitCode"
                 ];
@@ -683,7 +615,6 @@ ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
 
                 debug('info', 'Spawning launcher PS1 for UAC elevation...');
 
-                // 4. spawn with arg array — zero shell quoting needed
                 const proc = spawn('powershell.exe', [
                     '-NoProfile',
                     '-ExecutionPolicy', 'Bypass',
@@ -696,7 +627,6 @@ ipcMain.handle('replace-exe', async (event, { sourcePath, destPath }) => {
                     resolve({ success: false, error: 'Failed to start PowerShell: ' + err.message });
                 });
 
-                // 5. Resolve when proc closes — no polling, no race conditions
                 proc.on('close', (code) => {
                     cleanup();
                     debug('info', 'Launcher exited with code:', code);
@@ -734,9 +664,6 @@ function setupArchiveHandlers(security, archiveUtils, downloadManager) {
                 return { success: false, error: `Invalid archive path: ${fileCheck.error}` };
             }
 
-            // Extraction wipes its output directory before unpacking, and with no
-            // destDir that directory is derived from the archive's own location —
-            // so the archive path needs the same containment as the destination.
             const userDataPath = app.getPath('userData');
             if (!sharedSecurity.isWritableTarget(fileCheck.normalized, userDataPath)) {
                 return { success: false, error: 'Archive is outside the allowed extraction area' };
@@ -946,22 +873,21 @@ function setupInstallerHandlers(debug, security) {
             const MAX_FILES = 500;
 
             const queue = [{ path: rootDir, depth: 0 }];
-            
+
             while (queue.length > 0 && executableFiles.length < MAX_FILES) {
-                // Process in chunks to avoid blocking the event loop
                 const currentChunk = queue.splice(0, 20);
-                
+
                 await Promise.all(currentChunk.map(async ({ path: dir, depth }) => {
                     if (depth > MAX_DEPTH || executableFiles.length >= MAX_FILES) return;
-                    
+
                     try {
                         const items = await fs.promises.readdir(dir, { withFileTypes: true });
                         for (const item of items) {
                             if (executableFiles.length >= MAX_FILES) break;
                             const fullPath = path.join(dir, item.name);
-                            
+
                             if (item.isSymbolicLink()) continue;
-                            
+
                             if (item.isDirectory()) {
                                 queue.push({ path: fullPath, depth: depth + 1 });
                             } else if (item.isFile()) {
@@ -991,9 +917,6 @@ function setupInstallerHandlers(debug, security) {
             }
             const normalized = validation.normalized;
 
-            // Containment, not a prefix match: a bare startsWith also accepts
-            // C:\Users\me\Downloads-evil\x.exe, because nothing requires a
-            // separator after the prefix.
             if (!sharedSecurity.isWritableTarget(normalized, app.getPath('userData'))) {
                 return resolve({ success: false, error: 'Installers can only be run from Downloads or temp folder' });
             }
@@ -1013,7 +936,6 @@ function setupInstallerHandlers(debug, security) {
                 launch();
             }).catch(() => launch());
 
-            // Deferred so the signature check above can gate it.
             function launch() {
                 if (process.platform === 'win32') {
                     if (ext === '.msi') {
@@ -1059,7 +981,6 @@ function setupInstallerHandlers(debug, security) {
     });
 }
 
-// ─── Installer / Uninstaller mode ───────────────────────────────────────────
 function setupInstallerModeHandlers(selfInstaller, getInstallerWindow, debug) {
     const mode = selfInstaller.isUninstallMode() ? 'uninstall' : 'install';
     let lastInstalledExe = null;
@@ -1106,14 +1027,14 @@ function setupInstallerModeHandlers(selfInstaller, getInstallerWindow, debug) {
             await new Promise((resolve) => {
                 const timer = setInterval(() => {
                     let ready = false;
-                    try { ready = fs.existsSync(signalPath); } catch { /* ignore */ }
+                    try { ready = fs.existsSync(signalPath); } catch {  }
                     if (ready || Date.now() - start > 12000) {
                         clearInterval(timer);
                         resolve();
                     }
                 }, 80);
             });
-            try { fs.rmSync(signalPath, { force: true }); } catch { /* ignore */ }
+            try { fs.rmSync(signalPath, { force: true }); } catch {  }
         }
 
         const win = getInstallerWindow();
@@ -1143,11 +1064,6 @@ function setupInstallerModeHandlers(selfInstaller, getInstallerWindow, debug) {
     });
 }
 
-/**
- * Game saves. Every handler resolves to { success, ... }: the service catches its
- * own errors, and it takes game ids from the renderer, never paths.
- * @param {Object} gameSaves - Service from modules/game-saves
- */
 function setupGameSavesHandlers(gameSaves) {
     ipcMain.handle('game-saves-state', () => gameSaves.getState());
     ipcMain.handle('game-saves-scan', (event, options) => gameSaves.scan(options));

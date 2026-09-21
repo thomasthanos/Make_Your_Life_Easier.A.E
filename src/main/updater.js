@@ -2,8 +2,6 @@ const { autoUpdater } = require('electron-updater');
 const { ipcMain, app } = require('electron');
 const path = require('path');
 const fs = require('fs');
-// Staged and backed-up installs contain app.asar, which the patched fs opens and
-// locks instead of deleting (see external-updater.js)
 const originalFs = require('original-fs');
 const os = require('os');
 const { saveUpdateInfo, readAndClearUpdateInfo } = require('./update-info');
@@ -19,8 +17,6 @@ let retryCount = 0;
 let eventCtx = null;
 const MAX_RETRIES = 3;
 
-// An app-only update can finish in a second or two. Keep its steps on screen
-// long enough to be read instead of letting them flash past.
 const AVAILABLE_HOLD_MS = 900;
 const INSTALL_HOLD_MS = 900;
 
@@ -37,7 +33,6 @@ function getFeedUrl() {
         const match = yml.match(/^\s*url:\s*(.+?)\s*$/m);
         if (match) return match[1].replace(/^["']|["']$/g, '');
     } catch {
-        // not packaged or app-update.yml missing
     }
 
     try {
@@ -52,7 +47,6 @@ function sendUpdateStatus(window, payload) {
         try {
             window.webContents.send('update-status', payload);
         } catch {
-            // window is closing
         }
     }
 }
@@ -95,7 +89,6 @@ async function performInAppUpdate(info, ctx) {
             releaseNotes: info.releaseNotes
         });
 
-        // Let "update available" be read before the download replaces it
         await holdUntil(startedAt + AVAILABLE_HOLD_MS);
 
         const { stagingDir } = await externalUpdater.runInAppUpdate({
@@ -116,8 +109,6 @@ async function performInAppUpdate(info, ctx) {
             return;
         }
 
-        // Same words the installer window opens with, so the hand-over to it
-        // reads as one step
         sendUpdateStatus(ctx.getUpdateWindow(), {
             status: 'extracting',
             message: `Installing update v${info.version}...`,
@@ -135,7 +126,6 @@ async function performInAppUpdate(info, ctx) {
                 if (updateWin && !updateWin.isDestroyed()) updateWin.destroy();
                 if (mainWin && !mainWin.isDestroyed()) mainWin.destroy();
             } catch {
-                // windows already closing
             }
             app.quit();
         }, 300);
@@ -179,7 +169,6 @@ function configureAutoUpdater() {
         autoUpdater.logger = log;
         autoUpdater.logger.transports.file.level = 'info';
     } catch {
-        // electron-log not available
     }
 
     const feedUrl = getFeedUrl();
@@ -191,7 +180,6 @@ function configureAutoUpdater() {
         try {
             autoUpdater.logger.warn(`UPDATE_FEED_URL override active: ${process.env.UPDATE_FEED_URL}`);
         } catch {
-            // logger not available
         }
     }
 }
@@ -271,7 +259,7 @@ async function cleanupUpdaterCache(debug) {
 
         const delay = (ms) => new Promise(r => setTimeout(r, ms));
         let cleanedSize = 0;
-        
+
         for (let retry = 0; retry < 3; retry++) {
             const files = await fs.promises.readdir(updaterCachePath).catch(() => []);
             let failedFiles = 0;
@@ -330,7 +318,6 @@ function setupUpdaterEvents({ getUpdateWindow, getMainWindow, createMainWindow, 
             releaseNotes: info.releaseNotes,
             releaseDate: info.releaseDate,
             files: info.files,
-            // Kept so a retry through 'download-update' can still take the app-only package
             electronVersion: info.electronVersion,
             updateShellVersion: info.updateShellVersion,
             appUpdate: info.appUpdate

@@ -1,7 +1,3 @@
-/**
- * Debug utility module
- * Provides consistent logging with color-coded output
- */
 
 const colorMap = {
   info: 'color:#2196F3; font-weight:bold;',
@@ -10,11 +6,6 @@ const colorMap = {
   success: 'color:#4CAF50; font-weight:bold;'
 };
 
-/**
- * Log a message with color-coded output
- * @param {string} level - Log level: 'info', 'warn', 'error', or 'success'
- * @param {...any} args - Arguments to log
- */
 function debug(level, ...args) {
   const style = colorMap[level] || '';
   const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';

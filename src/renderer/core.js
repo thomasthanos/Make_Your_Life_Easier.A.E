@@ -1,51 +1,86 @@
-/**
- * Renderer Core
- * Contains page loading, initialization, and main application state
- */
+import { emptyState, button } from './ui.js';
+import { closePopups, bindMenu, configureHelp, openHelp } from './overlays.js';
+import { openActivityPanel, setNotificationSource, toast, subscribeActivity, activities } from './notifications.js';
+import { attachPageActivity } from './operations.js';
+import { TOOL_KEYS, buildToolsHub, wrapToolPage, buildBiosPage, showRestartDialog } from './pages/tools-hub.js';
+import { uiText } from './ui-text.js';
+import { initTooltips, hideTooltips, attachTooltipHandlers } from './tooltips.js';
 
-import { debug } from './utils.js';
-import { attachTooltipHandlers, buttonStateManager, detachAllDownloadUI, initDownloadListener } from './managers.js';
-import { INFO_ICON, MENU_ICON, toast, openInfoModal, createMenuButton } from './components.js';
+import { debug, escapeHtml } from './utils.js';
+import { initDownloadListener } from './downloads.js';
 import {
     loadSettings, saveSettings, applyTheme, loadTranslations, setTranslations,
     initializeAutoUpdater, ensureSidebarVersion, checkForChangelog,
     syncPref, hydratePrefsFromCloud
 } from './services.js';
 
-// Default window dimensions (must match window-manager.js MAIN_WINDOW)
+const INFO_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="11" y="10" width="2" height="10"/><rect x="11" y="6" width="2" height="2"/></svg>`;
+const MENU_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="6" width="16" height="2"/><rect x="4" y="11" width="16" height="2"/><rect x="4" y="16" width="16" height="2"/></svg>`;
+
+
+const MENU_ICONS = {
+    install_apps: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>`,
+    system_cleaner: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17h16"></path><path d="M7 17l1.2-7.2A2.2 2.2 0 0 1 10.4 8h3.2a2.2 2.2 0 0 1 2.2 1.8L17 17"></path><path d="M9 17v3"></path><path d="M15 17v3"></path><path d="M10 5h4"></path></svg>`,
+    activate_autologin: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-in"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" x2="3" y1="12" y2="12"></line></svg>`,
+    system_maintenance: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wrench"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>`,
+    crack_installer: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path><path d="M12 22V12"></path><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"></path><path d="m7.5 4.27 9 5.15"></path></svg>`,
+    spicetify: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-music"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`,
+    christitus: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-terminal"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" x2="20" y1="19" y2="19"></line></svg>`,
+    bios: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-computer"><rect width="14" height="8" x="5" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><path d="M6 18h2"></path><path d="M12 18h6"></path></svg>`,
+    debloat: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-broom"><path d="m13 11 9-9"></path><path d="M14.6 12.6c.8.8.9 2.1.2 3L10 22l-8-8 6.4-4.8c.9-.7 2.2-.6 3 .2z"></path><path d="m6.8 10.4 6.8 6.8"></path><path d="m5 17 1.4-1.4"></path></svg>`,
+    game_saves: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-gamepad-2"><line x1="6" x2="10" y1="11" y2="11"></line><line x1="8" x2="8" y1="9" y2="13"></line><line x1="15" x2="15.01" y1="12" y2="12"></line><line x1="18" x2="18.01" y1="10" y2="10"></line><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"></path></svg>`
+};
+
+function createMenuButton(key, label) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.key = key;
+    btn.innerHTML = `
+    <span class="menu-icon">${MENU_ICONS[key] || MENU_ICONS.christitus || ''}</span>
+    <span class="label">${escapeHtml(label)}</span>
+    <span class="dot" aria-hidden="true"></span>
+  `;
+    li.appendChild(btn);
+    return li;
+}
+
 const DEFAULT_WINDOW_WIDTH = 1100;
 const DEFAULT_WINDOW_HEIGHT = 750;
 
-// ============================================
-// APPLICATION STATE
-// ============================================
 
 let currentPage = null;
 let pageLoadGeneration = 0;
 let translations = {};
 let settings = {};
 
-// Use singleton buttonStateManager from managers.js (imported above)
 
-// Menu keys for sidebar navigation
-const menuKeys = [
-    'install_apps',
-    'system_cleaner',
-    'crack_installer',
-    'system_maintenance',
-    'activate_autologin',
-    'bios',
-    'spicetify',
-    'christitus',
-    'debloat',
-    'game_saves'
+const menuGroups = [
+    { key: 'nav_apps', label: 'Applications', pages: ['install_apps', 'crack_installer'] },
+    { key: 'nav_system', label: 'System', pages: ['system_cleaner', 'system_maintenance'] },
+    { key: 'nav_tools', label: 'Tools', pages: ['game_saves', 'spicetify', 'tools_hub'] }
 ];
+const menuKeys = menuGroups.flatMap(group => group.pages);
+// These pages draw their own progress and lock their own controls while a task runs.
+const PAGES_WITH_OWN_PROGRESS = new Set(['install_apps', 'game_saves']);
 
-// ============================================
-// HEADER UPDATE
-// ============================================
 
 function updateHeader() {
+    const labels = {
+        'sidebar-collapse-toggle': ['toggle_sidebar', 'Expand or collapse navigation'],
+        'title-bar-minimize': ['minimize', 'Minimize'],
+        'title-bar-maximize': ['maximize', 'Maximize or restore'],
+        'title-bar-close': ['close', 'Close'],
+        'info-toggle': ['help', 'Help']
+    };
+    for (const [id, [key, fallback]] of Object.entries(labels)) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.setAttribute('aria-label', uiText(key, fallback));
+            element.setAttribute('data-tooltip', uiText(key, fallback));
+        }
+    }
+    document.getElementById('sidebar')?.setAttribute('aria-label', uiText('navigation', 'Navigation'));
     const titleEl = document.querySelector('.app-title');
     const subtitleEl = document.querySelector('.app-subtitle');
 
@@ -79,11 +114,12 @@ function updateHeader() {
             saveSettings(settings);
             syncPref('lang', newLang);
             const dropdown = document.getElementById('titlebar-menu-dropdown');
-            if (dropdown) dropdown.classList.add('hidden');
+            if (dropdown) closePopups();
             translations = await loadTranslations(newLang);
             setTranslations(translations);
             applyTheme();
             renderMenu();
+            await ensureSidebarVersion({ settings });
             if (typeof currentPage === 'string' && currentPage) {
                 loadPage(currentPage);
             }
@@ -95,7 +131,7 @@ function updateHeader() {
     let infoToggle = document.getElementById('info-toggle');
     if (infoToggle) {
         infoToggle.innerHTML = INFO_ICON;
-        infoToggle.removeAttribute('data-tooltip');
+        infoToggle.setAttribute('data-tooltip', uiText('help', 'Help'));
         if (infoToggle._tooltipAttached) {
             const clone = infoToggle.cloneNode(true);
             infoToggle.parentNode.replaceChild(clone, infoToggle);
@@ -107,8 +143,8 @@ function updateHeader() {
         }
         const infoListener = () => {
             const dropdown = document.getElementById('titlebar-menu-dropdown');
-            if (dropdown) dropdown.classList.add('hidden');
-            openInfoModal();
+            if (dropdown) closePopups();
+            openHelp();
         };
         infoToggle._clickListener = infoListener;
         infoToggle.addEventListener('click', infoListener);
@@ -121,72 +157,56 @@ function updateHeader() {
         menuToggleBtn.setAttribute('data-tooltip', (translations.pages && translations.pages.menu) || 'Menu');
         attachTooltipHandlers(menuToggleBtn);
 
-        if (menuToggleBtn._clickListener) {
-            menuToggleBtn.removeEventListener('click', menuToggleBtn._clickListener);
+        if (!menuToggleBtn._menuBound) {
+            menuDropdown.classList.remove('hidden');
+            bindMenu(menuToggleBtn, menuDropdown);
+            menuToggleBtn._menuBound = true;
         }
-        const menuToggleListener = (e) => {
-            e.stopPropagation();
-            menuDropdown.classList.toggle('hidden');
-        };
-        menuToggleBtn._clickListener = menuToggleListener;
-        menuToggleBtn.addEventListener('click', menuToggleListener);
     }
-
-    if (!document._menuOutsideHandler) {
-        document._menuOutsideHandler = (event) => {
-            const dropdownEl = document.getElementById('titlebar-menu-dropdown');
-            const menuBtnEl = document.getElementById('menu-toggle');
-            if (!dropdownEl || dropdownEl.classList.contains('hidden')) return;
-            if (!dropdownEl.contains(event.target) && event.target !== menuBtnEl) {
-                dropdownEl.classList.add('hidden');
-            }
-        };
-        document.addEventListener('click', document._menuOutsideHandler);
+    const activityButton = document.getElementById('activity-toggle');
+    if (activityButton) {
+        activityButton.textContent = uiText('activity', 'Activity');
+        if (!activityButton._bound) {
+            activityButton.addEventListener('click', openActivityPanel);
+            subscribeActivity(() => {
+                const count = activities().filter(entry => entry.status === 'running').length;
+                activityButton.textContent = uiText('activity', 'Activity') + (count ? ' (' + count + ')' : '');
+            });
+            activityButton._bound = true;
+        }
     }
 }
 
-// ============================================
-// MENU RENDERING
-// ============================================
 
 function renderMenu() {
     const menuList = document.getElementById('menu-list');
     if (!menuList) return;
 
     menuList.innerHTML = '';
-    const separatorsAfter = {
-        crack_installer: 'large',
-        bios: 'small',
-        debloat: 'small'
-    };
-
-    menuKeys.forEach((key) => {
-        const label = (translations.menu && translations.menu[key]) || key;
-        const li = createMenuButton(key, label);
-        const btn = li.querySelector('button[data-key]');
-        if (btn) {
-            const info = translations.menu_info && translations.menu_info[key];
-            btn.setAttribute('data-tooltip', info ? `${label}\n${info}` : label);
-            btn.setAttribute('aria-label', label);
-            attachTooltipHandlers(btn);
-        }
-        menuList.appendChild(li);
-        const sepType = separatorsAfter[key];
-        if (sepType) {
-            const sepLi = document.createElement('li');
-            sepLi.className = 'menu-separator';
-            if (sepType === 'large') sepLi.classList.add('menu-separator-large');
-            menuList.appendChild(sepLi);
-        }
+    menuGroups.forEach((group) => {
+        const heading = document.createElement('li');
+        heading.className = 'menu-group-label';
+        heading.textContent = uiText(group.key, group.label);
+        heading.setAttribute('role', 'presentation');
+        menuList.appendChild(heading);
+        group.pages.forEach((key) => {
+            const label = (translations.menu && translations.menu[key]) || key;
+            const li = createMenuButton(key, label);
+            const btn = li.querySelector('button[data-key]');
+            if (btn) {
+                const info = translations.menu_info && translations.menu_info[key];
+                btn.setAttribute('data-tooltip', info ? `${label}\n${info}` : label);
+                btn.setAttribute('aria-label', label);
+                attachTooltipHandlers(btn);
+            }
+            menuList.appendChild(li);
+        });
     });
 
     if (!menuList._boundClick) {
         menuList.addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-key]');
             if (!btn) return;
-            document.querySelectorAll('#menu-list button.active')
-                .forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
             loadPage(btn.dataset.key);
         });
         menuList._boundClick = true;
@@ -198,20 +218,14 @@ function renderMenu() {
         const btnToActivate = menuList.querySelector(`button[data-key="${keyToActivate}"]`);
         if (btnToActivate) {
             btnToActivate.classList.add('active');
+            btnToActivate.setAttribute('aria-current', 'page');
         }
     }
 
     updateHeader();
 }
 
-// ============================================
-// PAGE LOADING
-// ============================================
 
-/**
- * Run and clear the teardown callbacks a page registered on its root element.
- * @param {Element|null} pageRoot - The outgoing page's root element
- */
 function runPageCleanup(pageRoot) {
     const callbacks = pageRoot && pageRoot._pageCleanup;
     if (!Array.isArray(callbacks)) return;
@@ -222,22 +236,38 @@ function runPageCleanup(pageRoot) {
 }
 
 export async function loadPage(key) {
+    hideTooltips();
+    closePopups();
+    document.querySelectorAll('.ui-drawer-overlay').forEach(node => node._close?.());
+    document.querySelectorAll('#menu-list button[data-key]').forEach(button => {
+        const active = button.dataset.key === (TOOL_KEYS.includes(key) ? 'tools_hub' : key);
+        button.classList.toggle('active', active);
+        if (active) button.setAttribute('aria-current', 'page');
+        else button.removeAttribute('aria-current');
+    });
     const generation = ++pageLoadGeneration;
 
-    // Detach download UI callbacks before destroying DOM (downloads continue in background)
-    detachAllDownloadUI();
-
-    // Cleanup previous page's button states
-    buttonStateManager.resetAll();
 
     document.querySelectorAll('.bios-overlay').forEach((el) => {
         if (typeof el._cleanup === 'function') {
-            try { el._cleanup(); } catch { /* already torn down */ }
+            try { el._cleanup(); } catch {  }
         }
         el.remove();
     });
 
     currentPage = key;
+    setNotificationSource(key);
+    configureHelp(translations, key);
+    const title = document.getElementById('title-bar-page');
+    if (title) {
+        const titleIcon = document.createElement('span');
+        titleIcon.className = 'title-bar-page-icon';
+        titleIcon.innerHTML = MENU_ICONS[key] || MENU_ICONS.christitus;
+        const titleLabel = document.createElement('span');
+        titleLabel.className = 'title-bar-page-label';
+        titleLabel.textContent = translations.menu?.[key] || key;
+        title.replaceChildren(titleIcon, titleLabel);
+    }
 
     const content = document.getElementById('content');
     if (!content) return;
@@ -248,99 +278,81 @@ export async function loadPage(key) {
         if (generation !== pageLoadGeneration) return;
     }
 
-    // Single consistent window width (no per-page resize)
-    const targetWidth = DEFAULT_WINDOW_WIDTH;
-    const targetHeight = DEFAULT_WINDOW_HEIGHT;
-    
-    // Resize BEFORE changing content so old content fills the new size
-    try {
-        if (window.api && typeof window.api.setWindowSize === 'function') {
-            await window.api.setWindowSize(targetWidth, targetHeight);
-        }
-    } catch { }
-
-    if (generation !== pageLoadGeneration) return;
-
-    // Run the outgoing page's teardown. Builders register anything that outlives
-    // their own DOM here — document-level listeners, pending debounces — because
-    // replaceChildren() only collects listeners attached to the nodes it removes.
     runPageCleanup(content.firstElementChild);
 
-    // Now clear and load new content
     content.replaceChildren();
     content.classList.remove('page-leaving');
     try {
         let page = null;
 
         switch (key) {
+            case 'tools_hub': { page = buildToolsHub(translations, loadPage); break; }
             case 'install_apps': {
                 const { buildInstallPageWingetWithCategories } = await import('./pages/installers.js');
                 if (generation !== pageLoadGeneration) return;
-                page = await buildInstallPageWingetWithCategories(translations, settings, buttonStateManager);
+                page = await buildInstallPageWingetWithCategories(translations, settings);
                 break;
             }
 
             case 'activate_autologin': {
                 const { buildActivateAutologinPage } = await import('./pages/activation.js');
                 if (generation !== pageLoadGeneration) return;
-                page = await buildActivateAutologinPage(translations, settings, buttonStateManager);
+                page = await buildActivateAutologinPage(translations, settings);
                 break;
             }
 
             case 'system_maintenance': {
-                const { buildMaintenancePage } = await import('./pages/tools.js');
+                const { buildMaintenancePage } = await import('./pages/maintenance.js');
                 if (generation !== pageLoadGeneration) return;
-                page = await buildMaintenancePage(translations, settings, buttonStateManager);
+                page = await buildMaintenancePage(translations, settings);
                 break;
             }
 
             case 'system_cleaner': {
-                const { buildCleanerPage } = await import('./pages/tools.js');
+                const { buildCleanerPage } = await import('./pages/cleaner.js');
                 if (generation !== pageLoadGeneration) return;
-                page = await buildCleanerPage(translations, settings, buttonStateManager);
+                page = await buildCleanerPage(translations, settings);
                 break;
             }
 
             case 'crack_installer': {
                 const { buildCrackInstallerPage } = await import('./pages/installers.js');
                 if (generation !== pageLoadGeneration) return;
-                page = await buildCrackInstallerPage(translations, settings, buttonStateManager);
+                page = await buildCrackInstallerPage(translations, settings);
                 break;
             }
 
             case 'spicetify': {
                 const { buildSpicetifyPage } = await import('./pages/media.js');
                 if (generation !== pageLoadGeneration) return;
-                page = await buildSpicetifyPage(translations, settings, buttonStateManager);
+                page = await buildSpicetifyPage(translations, settings);
                 break;
             }
 
             case 'debloat': {
-                const { buildDebloatPage } = await import('./pages/tools.js');
+                const { buildDebloatPage } = await import('./pages/debloat.js');
                 if (generation !== pageLoadGeneration) return;
-                page = await buildDebloatPage(translations, settings, buttonStateManager);
+                page = await buildDebloatPage(translations, settings);
                 break;
             }
 
             case 'christitus': {
                 const { buildChrisTitusPage } = await import('./pages/utilities.js');
                 if (generation !== pageLoadGeneration) return;
-                page = await buildChrisTitusPage(translations, settings, buttonStateManager);
+                page = await buildChrisTitusPage(translations, settings);
                 break;
             }
 
             case 'game_saves': {
                 const { buildGameSavesPage } = await import('./pages/game-saves.js');
                 if (generation !== pageLoadGeneration) return;
-                page = await buildGameSavesPage(translations, settings, buttonStateManager);
+                page = await buildGameSavesPage(translations, settings);
                 break;
             }
 
             case 'bios': {
-                const { showRestartDialog } = await import('./pages/tools.js');
-                if (generation !== pageLoadGeneration) return;
-                showRestartDialog(translations, menuKeys, loadPage);
-                return;
+                page = buildBiosPage(translations, () => showRestartDialog(translations, menuKeys, () => {}, { stayOnPage: true }));
+                break;
             }
 
             default:
@@ -348,32 +360,27 @@ export async function loadPage(key) {
         }
 
         if (generation === pageLoadGeneration && page) {
+            if (!PAGES_WITH_OWN_PROGRESS.has(key)) attachPageActivity(page, key);
+            if (TOOL_KEYS.includes(key)) page = wrapToolPage(key, page, translations, loadPage);
             content.appendChild(page);
+        } else if (page) {
+            runPageCleanup(page);
         }
     } catch (err) {
         if (generation !== pageLoadGeneration) return;
         debug('error', 'Failed to load page:', err);
-        toast('Failed to load this page.', { type: 'error', title: 'Error' });
+        const fallback = emptyState(uiText('page_failed', 'Failed to load this page.'));
+        fallback.append(button(uiText('retry', 'Retry'), () => loadPage(key)));
+        content.replaceChildren(fallback);
+        toast(uiText('page_failed', 'Failed to load this page.'), { type: 'error', title: translations.menu?.[key] || key, details: err.message });
     }
 }
 
-// ============================================
-// INITIALIZATION
-// ============================================
 
-/**
- * Push a splash-screen progress step without waiting for it.
- *
- * These five calls only paint a percentage in the updater window, and when the app
- * starts with --no-updater that window does not exist at all — so awaiting them
- * added five sequential IPC round-trips to boot in exchange for nothing.
- * @param {number} percent - Progress percentage
- * @param {string} message - Status line for the splash
- */
 function reportBootProgress(percent, message) {
     try {
         window.api?.updateLoadingProgress?.(percent, message)?.catch?.(() => {});
-    } catch { /* no splash window, nothing to report to */ }
+    } catch {  }
 }
 
 export async function init() {
@@ -382,49 +389,38 @@ export async function init() {
 
         await hydratePrefsFromCloud();
 
-        // Load settings
         settings = loadSettings();
 
-        // Initialize persistent download event listener (survives page switches)
         initDownloadListener();
 
-        // Apply theme
         applyTheme();
-        
+
         reportBootProgress(40, 'Loading translations...');
 
-        // Load translations
         translations = await loadTranslations(settings.lang);
         setTranslations(translations);
-        
+
         reportBootProgress(60, 'Building interface...');
 
-        // Render menu
+        initTooltips();
         renderMenu();
 
-        // Ensure sidebar version is displayed
         await ensureSidebarVersion({ settings });
-        
+
         reportBootProgress(80, 'Initializing...');
 
-        // Initialize auto-updater
         initializeAutoUpdater();
 
-        // Load default page
         const menuList = document.getElementById('menu-list');
         const defaultButton = menuList?.querySelector('button[data-key]');
         if (defaultButton) {
             await loadPage(defaultButton.dataset.key);
         }
-        
-        // The 150 ms pause that used to sit here existed only so the splash could
-        // paint 95% before it jumped to 100% — dead time on every single launch.
+
         reportBootProgress(95, 'Almost ready...');
 
-        // Signal to main process that app is ready FIRST (for updater window transition)
         if (window.api && typeof window.api.signalAppReady === 'function') {
             try {
-                // Determine target size for the default page so main can size the window before showing it
                 const targetWidthDefault = DEFAULT_WINDOW_WIDTH;
                 const targetHeightDefault = DEFAULT_WINDOW_HEIGHT;
                 await window.api.signalAppReady(targetWidthDefault, targetHeightDefault);
@@ -433,26 +429,23 @@ export async function init() {
                 debug('warn', 'Failed to signal app ready:', err);
             }
         }
-        
-        // Check for changelog after everything is ready
+
         setTimeout(() => {
             checkForChangelog();
         }, 1500);
     } catch (error) {
         debug('error', 'Initialization error:', error);
-        
-        // Signal app ready even on error, to close update window
+
         if (window.api && typeof window.api.signalAppReady === 'function') {
             try {
                 await window.api.signalAppReady(undefined, undefined, false);
             } catch { }
         }
 
-        toast('Failed to initialize application', { type: 'error', title: 'Error' });
+        toast(uiText("init_failed", "Failed to initialize application"), { type: 'error', title: uiText("error", "Error") });
     }
 }
 
-// Export for global access
 export {
     translations,
     settings,

@@ -1,21 +1,10 @@
-/**
- * Manifest placeholders, in both directions.
- *
- * Expanding turns `<winAppData>/Game/*.sav` into a pattern for this machine.
- * Collapsing does the reverse for a file that was found, so a backup records
- * `<winAppData>/Game/slot1.sav` rather than `C:\Users\me\...` and can be
- * restored under a different user name or on another PC.
- */
 
 const os = require('os');
 const path = require('path');
 const { escapeGlob, toSlash } = require('./glob');
 
-// Roots a collapsed path may start with. The longest match wins; on equal
-// length the earlier name does.
 const COLLAPSE_ROOTS = ['base', 'root', 'winDocuments', 'winLocalAppDataLow', 'winLocalAppData', 'winAppData', 'winProgramData', 'winPublic', 'home', 'winDir'];
 
-// The folder each root's files go under inside a game's backup.
 const BACKUP_FOLDERS = {
   base: 'Game folder',
   root: 'Launcher folder',
@@ -29,7 +18,6 @@ const BACKUP_FOLDERS = {
   winDir: 'Windows'
 };
 
-// Steam and Ubisoft keep one folder per account; any account on this PC counts.
 const WILDCARD_PLACEHOLDERS = new Set(['storeUserId', 'storeGameId']);
 
 const COLLAPSED = /^<([a-zA-Z]+)>(?:\/(.*))?$/;
@@ -43,13 +31,6 @@ function currentUserName(env) {
   }
 }
 
-/**
- * Values for the placeholders that depend only on the machine and user.
- * @param {Object} [env=process.env] - Environment variables
- * @param {{documents?: string}} [options] - The real Documents folder, which
- *   may be redirected into OneDrive and so cannot be derived from the profile
- * @returns {Object} Placeholder name → absolute path
- */
 function machineVariables(env = process.env, { documents } = {}) {
   const home = env.USERPROFILE || os.homedir();
   const systemRoot = `${env.SystemDrive || 'C:'}\\`;
@@ -66,12 +47,6 @@ function machineVariables(env = process.env, { documents } = {}) {
   };
 }
 
-/**
- * Substitute placeholders to get a glob pattern for this machine.
- * @param {string} template - Manifest path such as `<base>/Saves/*.sav`
- * @param {Object} vars - Placeholder values (machine variables plus base/root/game)
- * @returns {string|null} The pattern, or null when a placeholder has no value here
- */
 function expandTemplate(template, vars) {
   let unresolved = false;
   const pattern = String(template).replace(/<([a-zA-Z]+)>/g, (whole, name) => {
@@ -86,12 +61,6 @@ function expandTemplate(template, vars) {
   return unresolved ? null : pattern;
 }
 
-/**
- * Express a real path relative to the most specific known root.
- * @param {string} filePath - Absolute path of a found file
- * @param {Object} vars - Placeholder values
- * @returns {string|null} e.g. `<winAppData>/Game/slot1.sav`, or null when outside every root
- */
 function collapsePath(filePath, vars) {
   const target = toSlash(path.resolve(filePath));
   const lowerTarget = target.toLowerCase();
@@ -113,18 +82,10 @@ function collapsedParts(collapsed) {
   const match = COLLAPSED.exec(String(collapsed));
   if (!match || !COLLAPSE_ROOTS.includes(match[1])) return null;
   const segments = (match[2] || '').split('/').filter(Boolean);
-  // A recorded path is data read back from a backup folder, which may live in
-  // a synced cloud folder. It must not be able to climb out of its root.
   if (segments.some((segment) => segment === '.' || segment === '..' || /[\\:]/.test(segment))) return null;
   return { root: match[1], segments };
 }
 
-/**
- * Turn a collapsed path back into a real one on this machine.
- * @param {string} collapsed - Path produced by collapsePath()
- * @param {Object} vars - Placeholder values
- * @returns {string|null} Absolute path, or null when malformed or unresolvable
- */
 function expandCollapsed(collapsed, vars) {
   const parts = collapsedParts(collapsed);
   const base = parts && vars && vars[parts.root];
@@ -132,24 +93,12 @@ function expandCollapsed(collapsed, vars) {
   return path.join(base, ...parts.segments);
 }
 
-/**
- * Where a file is kept inside a game's backup folder, under a readable folder
- * per root: `Documents/The Witcher 3/input.settings`.
- * @param {string} collapsed - Path produced by collapsePath()
- * @returns {string|null} `/`-separated relative path, or null when malformed
- */
 function backupFilePath(collapsed) {
   const parts = collapsedParts(collapsed);
   if (!parts || parts.segments.length === 0) return null;
   return [BACKUP_FOLDERS[parts.root], ...parts.segments].join('/');
 }
 
-/**
- * The layout of backups made before the readable one, `winAppData/Game/slot1.sav`
- * under the game's files/ folder. Still read so those backups restore.
- * @param {string} collapsed - Path produced by collapsePath()
- * @returns {string|null} `/`-separated relative path, or null when malformed
- */
 function backupRelativePath(collapsed) {
   const parts = collapsedParts(collapsed);
   if (!parts || parts.segments.length === 0) return null;

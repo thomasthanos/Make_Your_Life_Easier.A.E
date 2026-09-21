@@ -60,7 +60,6 @@
             z-index: 1;
         }
 
-        /* Header */
         .header {
             text-align: center;
             margin-bottom: 48px;
@@ -143,7 +142,6 @@
             color: var(--text-primary);
         }
 
-        /* Buttons */
         .buttons {
             display: flex;
             gap: 16px;
@@ -194,7 +192,6 @@
             height: 18px;
         }
 
-        /* Changelog Section */
         .changelog-section {
             margin-top: 64px;
         }
@@ -213,7 +210,6 @@
             margin-bottom: 40px;
         }
 
-        /* Timeline */
         .timeline {
             position: relative;
             margin-left: 40px;
@@ -345,14 +341,12 @@
             color: var(--text-primary);
         }
 
-        /* Release Body - GitHub Style */
         .release-body {
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
 
-        /* Top level bullet points (no section) */
         .release-item {
             display: flex;
             align-items: flex-start;
@@ -375,7 +369,6 @@
             line-height: 1.6;
         }
 
-        /* Sections with headers */
         .release-section {
             background: var(--bg-section);
             border: 1px solid var(--border-section);
@@ -402,7 +395,6 @@
             font-size: 1.1rem;
         }
 
-        /* Code-style header (for filenames like main.js) */
         .section-header code {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.95rem;
@@ -440,7 +432,6 @@
             line-height: 1.5;
         }
 
-        /* Markdown styles */
         .text strong, .release-item .text strong {
             color: var(--text-primary);
             font-weight: 600;
@@ -468,7 +459,6 @@
             font-style: italic;
         }
 
-        /* Loading State */
         .loading {
             text-align: center;
             padding: 60px 0;
@@ -492,7 +482,6 @@
             color: var(--text-secondary);
         }
 
-        /* Error State */
         .error {
             text-align: center;
             padding: 40px;
@@ -502,7 +491,6 @@
             color: #f87171;
         }
 
-        /* Footer */
         .footer {
             text-align: center;
             margin-top: 60px;
@@ -512,36 +500,35 @@
             font-size: 0.9rem;
         }
 
-        /* Responsive */
         @media (max-width: 640px) {
             .title {
                 font-size: 2rem;
             }
-            
+
             .timeline {
                 margin-left: 20px;
             }
-            
+
             .timeline-item {
                 padding-left: 30px;
             }
-            
+
             .buttons {
                 flex-direction: column;
                 align-items: center;
             }
-            
+
             .btn {
                 width: 100%;
                 max-width: 280px;
                 justify-content: center;
             }
-            
+
             .release-header {
                 flex-direction: column;
                 align-items: flex-start;
             }
-            
+
             .release-date {
                 margin-left: 0;
             }
@@ -550,7 +537,7 @@
 </head>
 <body>
     <div class="bg-glow"></div>
-    
+
     <div class="container">
         <header class="header">
             <div class="logo-icon">
@@ -558,16 +545,16 @@
                     <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
                 </svg>
             </div>
-            
+
             <h1 class="title">Make Your Life Easier</h1>
             <p class="subtitle">Ιστορικό Ενημερώσεων & Αλλαγών</p>
-            
+
             <div class="version-badge">
                 <span class="version-dot"></span>
                 <span class="version-text">Τρέχουσα Έκδοση</span>
                 <span class="version-number" id="currentVersion">v0.0.0</span>
             </div>
-            
+
             <div class="buttons">
                 <a href="#" class="btn btn-primary" id="downloadBtn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -589,7 +576,7 @@
         <section class="changelog-section">
             <h2 class="section-title">Changelog</h2>
             <p class="section-subtitle">Όλες οι ενημερώσεις και βελτιώσεις της εφαρμογής</p>
-            
+
             <div class="timeline" id="timeline">
                 <div class="loading">
                     <div class="loading-spinner"></div>
@@ -604,58 +591,43 @@
     </div>
 
     <script>
-        // ============================================
-        // CONFIGURATION
-        // ============================================
         const CONFIG = {
             owner: 'thomasthanos',
             repo: 'Make_Your_Life_Easier.A.E',
         };
 
-        // ============================================
-        // HELPER FUNCTIONS
-        // ============================================
-        
+
         function formatDate(dateString) {
             const date = new Date(dateString);
             const options = { day: 'numeric', month: 'long', year: 'numeric' };
             return date.toLocaleDateString('el-GR', options);
         }
 
-        // Parse inline markdown (bold, italic, code, links)
         function parseInlineMarkdown(text) {
             if (!text) return '';
-            
+
             return text
-                // Bold: **text** or __text__
                 .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
                 .replace(/__(.+?)__/g, '<strong>$1</strong>')
-                // Italic: *text* or _text_ (but not inside words)
                 .replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, '<em>$1</em>')
                 .replace(/(?<!\w)_([^_]+)_(?!\w)/g, '<em>$1</em>')
-                // Code: `text`
                 .replace(/`([^`]+)`/g, '<code>$1</code>')
-                // Links: [text](url)
                 .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
         }
 
-        // Check if a line is a bold-only header (like **main.js**)
         function isBoldHeader(line) {
             const trimmed = line.trim();
-            // Match lines that are ONLY bold text (with optional emoji prefix)
-            // e.g., "**main.js**" or "🎨 **UI & Features**"
             const boldOnlyMatch = trimmed.match(/^([\p{Emoji}\u200d]*\s*)?\*\*(.+?)\*\*\s*$/u);
             return boldOnlyMatch;
         }
 
-        // Parse GitHub release body into structured sections
         function parseReleaseBody(body) {
             if (!body) return { items: [], sections: [] };
 
             const lines = body.split('\n');
             const result = {
-                items: [],      // Top-level bullet points (before any section)
-                sections: []    // Sections with headers
+                items: [],
+                sections: []
             };
 
             let currentSection = null;
@@ -664,33 +636,27 @@
                 const line = lines[i];
                 const trimmed = line.trim();
 
-                // Skip empty lines
                 if (!trimmed) continue;
 
-                // Skip separators
                 if (trimmed === '---' || trimmed === '--') continue;
 
-                // Check for ## or ### or #### header
                 const hashHeaderMatch = trimmed.match(/^#{1,6}\s+(.+)$/);
                 if (hashHeaderMatch) {
-                    // Save previous section if exists
                     if (currentSection && currentSection.items.length > 0) {
                         result.sections.push(currentSection);
                     }
-                    
-                    // Extract emoji and title from header
+
                     let headerText = hashHeaderMatch[1];
                     const emojiMatch = headerText.match(/^([\p{Emoji}\u200d]+)\s*(.+)$/u);
-                    
+
                     if (emojiMatch) {
                         headerText = emojiMatch[2];
                     }
-                    
-                    // Check if header is wrapped in backticks: `filename.js`
+
                     const backtickMatch = headerText.match(/^`(.+)`$/);
                     const isFilename = backtickMatch || /\.\w+$/.test(headerText);
                     const title = backtickMatch ? backtickMatch[1] : headerText;
-                    
+
                     currentSection = {
                         emoji: emojiMatch ? emojiMatch[1] : '',
                         title: title,
@@ -700,20 +666,17 @@
                     continue;
                 }
 
-                // Check for bold-only header (like **main.js**)
                 const boldHeaderMatch = isBoldHeader(trimmed);
                 if (boldHeaderMatch) {
-                    // Save previous section if exists
                     if (currentSection && currentSection.items.length > 0) {
                         result.sections.push(currentSection);
                     }
-                    
+
                     const emoji = boldHeaderMatch[1] ? boldHeaderMatch[1].trim() : '';
                     const title = boldHeaderMatch[2];
-                    
-                    // Check if it's a filename (ends with .js, .css, .json, etc.)
+
                     const isFilename = /\.\w+$/.test(title);
-                    
+
                     currentSection = {
                         emoji: emoji,
                         title: title,
@@ -723,11 +686,10 @@
                     continue;
                 }
 
-                // Check for bullet point
                 const bulletMatch = trimmed.match(/^[-*•]\s+(.+)$/);
                 if (bulletMatch) {
                     const itemText = parseInlineMarkdown(bulletMatch[1]);
-                    
+
                     if (currentSection) {
                         currentSection.items.push(itemText);
                     } else {
@@ -736,7 +698,6 @@
                     continue;
                 }
 
-                // Check for bold-dash format: **Title** - description
                 const boldDashMatch = trimmed.match(/^\*\*(.+?)\*\*\s*[-–—]\s*(.+)$/);
                 if (boldDashMatch) {
                     const title = boldDashMatch[1];
@@ -745,22 +706,18 @@
                     continue;
                 }
 
-                // Plain text paragraph (not a bullet, not a header)
-                // This handles text that comes after a section header
                 if (currentSection && !trimmed.startsWith('#') && !trimmed.startsWith('*') && !trimmed.startsWith('-')) {
                     const paragraphText = parseInlineMarkdown(trimmed);
                     currentSection.items.push(paragraphText);
                     continue;
                 }
 
-                // Top-level plain text (no current section)
                 if (!currentSection) {
                     const paragraphText = parseInlineMarkdown(trimmed);
                     result.items.push(paragraphText);
                 }
             }
 
-            // Don't forget the last section
             if (currentSection && currentSection.items.length > 0) {
                 result.sections.push(currentSection);
             }
@@ -768,11 +725,9 @@
             return result;
         }
 
-        // Render the parsed body
         function renderReleaseBody(parsed) {
             let html = '<div class="release-body">';
 
-            // Render top-level items first
             if (parsed.items.length > 0) {
                 parsed.items.forEach(item => {
                     html += `
@@ -784,20 +739,19 @@
                 });
             }
 
-            // Render sections
             parsed.sections.forEach(section => {
                 html += `
                     <div class="release-section">
                         <div class="section-header">
                             ${section.emoji ? `<span class="emoji">${section.emoji}</span>` : ''}
-                            ${section.isCode 
-                                ? `<code>${section.title}</code>` 
+                            ${section.isCode
+                                ? `<code>${section.title}</code>`
                                 : `<span>${section.title}</span>`
                             }
                         </div>
                         <div class="section-items">
                 `;
-                
+
                 section.items.forEach(item => {
                     html += `
                         <div class="section-item">
@@ -806,7 +760,7 @@
                         </div>
                     `;
                 });
-                
+
                 html += '</div></div>';
             });
 
@@ -814,7 +768,6 @@
             return html;
         }
 
-        // Render single release card
         function renderRelease(release, isLatest) {
             const version = release.tag_name;
             const title = release.name || version;
@@ -859,9 +812,6 @@
             `;
         }
 
-        // ============================================
-        // MAIN FETCH FUNCTION
-        // ============================================
         async function fetchReleases() {
             const timeline = document.getElementById('timeline');
             const currentVersionEl = document.getElementById('currentVersion');
@@ -887,13 +837,11 @@
                     return;
                 }
 
-                // Find the latest non-prerelease for version badge
                 const latestStable = releases.find(r => !r.prerelease) || releases[0];
-                
+
                 currentVersionEl.textContent = latestStable.tag_name;
                 githubBtn.href = `https://github.com/${CONFIG.owner}/${CONFIG.repo}`;
 
-                // Find .exe asset for download button
                 const exeAsset = latestStable.assets.find(a => a.name.endsWith('.exe'));
                 if (exeAsset) {
                     downloadBtn.href = exeAsset.browser_download_url;
@@ -903,7 +851,6 @@
                     downloadBtn.href = latestStable.html_url;
                 }
 
-                // Render all releases
                 timeline.innerHTML = releases
                     .map((release, index) => renderRelease(release, index === 0))
                     .join('');
@@ -919,7 +866,6 @@
             }
         }
 
-        // Initialize on page load
         document.addEventListener('DOMContentLoaded', fetchReleases);
     </script>
 </body>

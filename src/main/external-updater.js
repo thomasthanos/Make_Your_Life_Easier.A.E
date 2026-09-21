@@ -2,10 +2,6 @@ const { app } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-// Everything that reads, copies or deletes a staged install goes through
-// original-fs. Electron's patched fs treats app.asar as a folder, opens it and
-// keeps it open: deleting the folder then fails with EBUSY, and the swapper can
-// no longer move it into place.
 const originalFs = require('original-fs');
 const os = require('os');
 const crypto = require('crypto');
@@ -23,8 +19,6 @@ function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
 }
 
-// A 3 MB download can end before the progress bar has visibly moved. Keep the
-// download step on screen at least this long so it can be seen filling.
 const MIN_DOWNLOAD_VISIBLE_MS = 1100;
 
 function holdDownloadStep(startedAt) {
@@ -32,7 +26,7 @@ function holdDownloadStep(startedAt) {
 }
 
 function safeUnlink(filePath) {
-    try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch { /* ignore */ }
+    try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch {  }
 }
 
 function cancelledError() {
@@ -98,7 +92,7 @@ function downloadOnce(url, destPath, onProgress, isCancelled) {
             if (settled) return;
             settled = true;
             clearTimeout(hardTimer);
-            try { if (file) file.destroy(); } catch { /* ignore */ }
+            try { if (file) file.destroy(); } catch {  }
             safeUnlink(tmpPath);
             reject(err);
         };
@@ -124,8 +118,8 @@ function downloadOnce(url, destPath, onProgress, isCancelled) {
 
                 res.on('data', (chunk) => {
                     if (isCancelled && isCancelled()) {
-                        try { req.destroy(); } catch { /* ignore */ }
-                        try { res.destroy(); } catch { /* ignore */ }
+                        try { req.destroy(); } catch {  }
+                        try { res.destroy(); } catch {  }
                         return fail(cancelledError());
                     }
                     hash.update(chunk);
@@ -235,7 +229,7 @@ function preserveFiles(installDir, stagingDir) {
                 originalFs.mkdirSync(path.dirname(dst), { recursive: true });
                 originalFs.copyFileSync(src, dst);
             }
-        } catch { /* best effort */ }
+        } catch {  }
     }
 }
 
@@ -247,12 +241,6 @@ function localUpdateShellVersion() {
     }
 }
 
-/**
- * The app-only update package in a feed, when this install can take it instead
- * of the full zip: it runs the same Electron and shell version as the release.
- * @param {Object} info - Parsed latest.yml
- * @returns {{url: string, sha512: string, size: number}|null} The package, or null for a full update
- */
 function appOnlyUpdateOf(info) {
     return pickAppUpdate(info, {
         electron: process.versions.electron,
@@ -260,12 +248,6 @@ function appOnlyUpdateOf(info) {
     });
 }
 
-/**
- * Stage an update from the app-only package: its resources/ plus this
- * install's own runtime files, each checked against the package's manifest.
- * The result is the same complete folder a full update extracts, so the
- * swapper, health check and rollback treat it no differently.
- */
 async function stageAppOnlyUpdate({ info, appUpdate, feedUrl, installDir, stagingDir, exeName, onStatus, isCancelled, debug }) {
     const downloadStartedAt = Date.now();
     onStatus({ status: 'downloading', message: 'Downloading update... 0%', percent: 0 });
@@ -283,8 +265,6 @@ async function stageAppOnlyUpdate({ info, appUpdate, feedUrl, installDir, stagin
         if (isCancelled && isCancelled()) throw cancelledError();
         onStatus({ status: 'extracting', message: 'Preparing update...', percent: 100 });
 
-        // Unlike the full update, a staging folder that cannot be cleared is a
-        // reason to fall back: leftovers would end up in the new install
         await removeDir(stagingDir);
         originalFs.mkdirSync(stagingDir, { recursive: true });
         await extractZip(zipPath, stagingDir);
@@ -366,8 +346,6 @@ async function runInAppUpdate({ info, feedUrl, onStatus, isCancelled, debug }) {
 
     const zip = resolveZipFile(info);
 
-    // Same Electron and shell as the new release: only resources/ changed, so
-    // fetch that instead of the whole app. Anything off falls back to the full zip.
     const appUpdate = appOnlyUpdateOf(info);
     if (appUpdate) {
         try {

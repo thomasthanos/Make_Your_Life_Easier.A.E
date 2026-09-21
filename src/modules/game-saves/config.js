@@ -1,10 +1,3 @@
-/**
- * Game-saves settings for this machine.
- *
- * Kept in its own file rather than settings-store.js on purpose: that store is
- * synced to the signed-in account, and a backup folder or a game path means
- * nothing on a different PC.
- */
 
 const path = require('path');
 const { readJson, writeJsonAtomic } = require('./io');
@@ -41,11 +34,6 @@ function normalizeSchedule(value) {
   };
 }
 
-/**
- * Coerce stored or incoming config into its expected shape.
- * @param {Object} value - Raw config
- * @returns {Object} A complete, valid config
- */
 function normalizeConfig(value) {
   const input = value && typeof value === 'object' ? value : {};
   const customGames = [];
@@ -68,10 +56,6 @@ function normalizeConfig(value) {
   };
 }
 
-/**
- * @param {string} filePath - Where the config is stored
- * @returns {{get: Function, update: Function}}
- */
 function createConfigStore(filePath) {
   let current = null;
   const load = () => {

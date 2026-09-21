@@ -1,16 +1,3 @@
-/**
- * App Update Package Module
- * The small "app-only" update: the resources/ folder of a build plus a manifest
- * of the Electron runtime it was built against. When an install's runtime
- * matches that manifest, the updater downloads this (~3 MB) instead of the
- * whole app (~130 MB) and copies the unchanged runtime files over locally.
- *
- * Shared by the build scripts (plain Node) and the in-app updater, so it never
- * requires electron. Functions that touch an install take the fs module as a
- * parameter: the updater passes original-fs, because Electron's patched fs
- * opens any app.asar it looks at and keeps it open, and the swapper can then
- * no longer move the folder.
- */
 
 const nodeFs = require('fs');
 const path = require('path');
@@ -19,22 +6,10 @@ const crypto = require('crypto');
 const RUNTIME_MANIFEST = 'runtime-manifest.json';
 const APP_DIR = 'resources';
 
-/**
- * File name of a release's app-only update package
- * @param {string} productName - build.productName from package.json
- * @param {string} version - Release version
- * @returns {string} e.g. MakeYourLifeEasier-app-4.7.2.zip
- */
 function appPackageName(productName, version) {
   return `${productName}-app-${version}.zip`;
 }
 
-/**
- * SHA-256 of a file, streamed
- * @param {string} filePath - File to hash
- * @param {Object} [fs] - fs module to read with
- * @returns {Promise<string>} Lowercase hex digest
- */
 function hashFile(filePath, fs = nodeFs) {
   return new Promise((resolve, reject) => {
     const hash = crypto.createHash('sha256');
@@ -45,12 +20,6 @@ function hashFile(filePath, fs = nodeFs) {
   });
 }
 
-/**
- * Every file under a folder, as paths relative to it with forward slashes
- * @param {string} dir - Folder to walk
- * @param {string} [prefix] - Sub-path reached so far
- * @returns {string[]} Relative file paths
- */
 function listFiles(dir, prefix = '') {
   const out = [];
   for (const entry of nodeFs.readdirSync(path.join(dir, prefix), { withFileTypes: true })) {
@@ -64,14 +33,6 @@ function listFiles(dir, prefix = '') {
 const sameName = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 const isAppPath = (rel) => sameName(rel, APP_DIR) || String(rel).toLowerCase().startsWith(`${APP_DIR}/`);
 
-/**
- * Describe the Electron runtime of a built app: every file outside resources/
- * except the main exe, which electron-builder stamps with the app version and
- * re-signs on every build even when the Electron inside it is unchanged.
- * @param {string} appDir - The build's unpacked app folder (win-unpacked)
- * @param {{exeName: string, version: string, electron: string, updateShellVersion: number}} build
- * @returns {Promise<Object>} The runtime manifest
- */
 async function buildRuntimeManifest(appDir, { exeName, version, electron, updateShellVersion }) {
   const files = [];
   for (const rel of listFiles(appDir).sort()) {
@@ -82,13 +43,6 @@ async function buildRuntimeManifest(appDir, { exeName, version, electron, update
   return { version, electron, updateShellVersion, exe: exeName, files };
 }
 
-/**
- * The app-only package a feed offers, when this install can take it: same
- * Electron and same shell version, so its exe and runtime can stay as they are.
- * @param {Object} info - Parsed latest.yml
- * @param {{electron: string, updateShellVersion: number}} local - What this install runs
- * @returns {{url: string, sha512: string, size: number}|null} The package, or null for a full update
- */
 function pickAppUpdate(info, local) {
   const pkg = info && info.appUpdate;
   if (!pkg || typeof pkg.url !== 'string' || !pkg.url || typeof pkg.sha512 !== 'string' || !pkg.sha512) return null;
@@ -98,22 +52,11 @@ function pickAppUpdate(info, local) {
   return { url: pkg.url, sha512: pkg.sha512, size: Number(pkg.size) || 0 };
 }
 
-/**
- * Whether a manifest path is a plain relative path that stays inside the install
- * @param {string} rel - Path from the manifest
- * @returns {boolean} True when it has no drive, root, stream, '.' or '..' part
- */
 function isSafeRelativePath(rel) {
   if (typeof rel !== 'string' || !rel || rel.includes('\\') || rel.includes(':') || rel.startsWith('/')) return false;
   return rel.split('/').every((part) => part && part !== '.' && part !== '..');
 }
 
-/**
- * Check a downloaded manifest against the install it is about to be applied to
- * @param {Object} manifest - Parsed runtime-manifest.json
- * @param {{version: string, exeName: string, electron: string, updateShellVersion: number}} expected
- * @throws {Error} When the package is not for this install or a path is unsafe
- */
 function validateManifest(manifest, expected) {
   if (!manifest || typeof manifest !== 'object' || !Array.isArray(manifest.files) || manifest.files.length === 0) {
     throw new Error('Runtime manifest is missing or empty');
@@ -142,13 +85,6 @@ function validateManifest(manifest, expected) {
   }
 }
 
-/**
- * Check that an extracted package holds only resources/ and the manifest, so
- * nothing in it can land outside resources/ in the new install
- * @param {Object} fs - fs module (original-fs in the app)
- * @param {string} stagingDir - Folder the package was extracted into
- * @throws {Error} When anything else is there
- */
 function verifyPackageLayout(fs, stagingDir) {
   const names = fs.readdirSync(stagingDir);
   const unexpected = names.filter((name) => !sameName(name, APP_DIR) && !sameName(name, RUNTIME_MANIFEST));
@@ -157,14 +93,6 @@ function verifyPackageLayout(fs, stagingDir) {
   }
 }
 
-/**
- * Complete a staging folder that already holds the new resources/ with the
- * runtime files of the current install. Each copy is hashed after it is written,
- * so a bad read or a local file that differs from the build fails here, before
- * anything is swapped.
- * @param {{fs: Object, installDir: string, stagingDir: string, manifest: Object, exeName: string}} options
- * @throws {Error} When a runtime file is missing, unreadable or different
- */
 async function assembleStaging({ fs, installDir, stagingDir, manifest, exeName }) {
   for (const file of manifest.files) {
     const parts = file.path.split('/');

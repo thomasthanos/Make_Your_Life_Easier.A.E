@@ -1,9 +1,5 @@
 name: Supabase Keep-Alive
 
-# Supabase pauses free projects that get "too few user queries over the past
-# week" — per their docs, "a few user requests to the database each day" is
-# the bar. One ping every few days is NOT enough (learned the hard way), so
-# this runs twice a day and issues several queries per run.
 on:
   schedule:
     - cron: '0 3,15 * * *'
@@ -26,8 +22,6 @@ jobs:
           now=$(TZ='Europe/Athens' date +%Y-%m-%dT%H:%M:%S)
           ok=0
 
-          # 1) Write query (the one that must succeed), with retries for
-          #    transient failures like a stale PostgREST schema cache.
           for attempt in 1 2 3; do
             resp=$(curl -s --max-time 30 -w $'\n%{http_code}' -X PATCH \
               "$SUPABASE_URL/rest/v1/keepalive?id=eq.1" \
@@ -47,8 +41,6 @@ jobs:
             sleep 30
           done
 
-          # 2) Extra read queries — best-effort additional database activity
-          #    so the daily query count stays above the pause threshold.
           for path in \
             "keepalive?select=id,pinged_at&limit=1" \
             "user_settings?select=user_id&limit=1"; do
@@ -59,7 +51,6 @@ jobs:
             echo "GET /$path -> HTTP $code"
           done
 
-          # 3) Auth health check — activity on a second service surface.
           code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
             "$SUPABASE_URL/auth/v1/health" \
             -H "apikey: $SUPABASE_SERVICE_ROLE_KEY")

@@ -160,11 +160,6 @@ namespace MyleUpdater
         const int DWMWA_BORDER_COLOR = 34;
         const int DWMWCP_ROUND = 2;
 
-        /// <summary>
-        /// Give a borderless window the system shadow and, on Windows 11,
-        /// rounded corners with a thin border. Older versions ignore what
-        /// they do not support and keep a square window.
-        /// </summary>
         public static void StyleWindow(IntPtr hwnd, Color border)
         {
             try
@@ -184,9 +179,6 @@ namespace MyleUpdater
 
     sealed class UpdaterForm : Form
     {
-        // Drawn like the app's own update window (src/updater/update.html), so
-        // going from that window to this one and on to the app reads as one
-        // step. Sizes are in DIPs, as in the web card.
         const float CardWidth = 610f;
         const float CardHeight = 380f;
         static readonly RectangleF IconBox = new RectangleF(258f, 58f, 94f, 94f);
@@ -232,8 +224,6 @@ namespace MyleUpdater
             StartPosition = FormStartPosition.CenterScreen;
             TopMost = true;
             ShowInTaskbar = false;
-            // Minimised and transparent until there is something to show, so
-            // the window can neither flash nor catch clicks
             WindowState = FormWindowState.Minimized;
             Opacity = 0;
             ClientSize = new Size((int)Math.Round(CardWidth * _scale), (int)Math.Round(CardHeight * _scale));
@@ -251,8 +241,6 @@ namespace MyleUpdater
             _animation = new System.Windows.Forms.Timer { Interval = 16 };
             _animation.Tick += (s, e) => Invalidate(Rectangle.Inflate(Scaled(TrackBox), 2, 2));
 
-            // The app closes its own update window about 300 ms after starting
-            // this process; take over right after that, or as soon as it exits
             _revealTimer = new System.Windows.Forms.Timer { Interval = 450 };
             _revealTimer.Tick += (s, e) => Reveal();
 
@@ -314,8 +302,6 @@ namespace MyleUpdater
                     g.FillPath(background, pill);
                 }
 
-                // The web bar's blue gradient, drifting like its shimmer. The
-                // swap has no measurable progress, so the bar stays full.
                 float drift = (float)((_clock.Elapsed.TotalSeconds / 2.0) % 1.0) * track.Width;
                 var band = new RectangleF(track.X - drift, track.Y, track.Width, track.Height);
                 using (var fill = new LinearGradientBrush(band, Color.Black, Color.Black, LinearGradientMode.Horizontal))
@@ -344,7 +330,6 @@ namespace MyleUpdater
                 g.FillEllipse(chipBrush, chip);
             }
 
-            // A 25 px spinner with a 4 px border, measured at the stroke centre
             float ringSize = 21f * _scale;
             var ring = new RectangleF(chip.X + ((chipSize - ringSize) / 2f), chip.Y + ((chipSize - ringSize) / 2f), ringSize, ringSize);
             using (var ringPen = new Pen(Color.FromArgb(56, 235, 244, 255), 4f * _scale))
@@ -400,10 +385,6 @@ namespace MyleUpdater
             }
         }
 
-        /// <summary>
-        /// The app icon at full size. hacker.ico is embedded at build time; its
-        /// 256 px frame is a PNG, which GDI+ decodes more reliably than Icon does.
-        /// </summary>
         static Bitmap LoadAppIcon()
         {
             try
@@ -480,8 +461,6 @@ namespace MyleUpdater
             UI(Reveal);
         }
 
-        // Fade out as soon as the new version is on screen: the clean-up after
-        // it (registry, markers, deleting the old copy) needs no window
         void Dismiss()
         {
             _dismissed = true;
@@ -561,8 +540,6 @@ namespace MyleUpdater
                 }
 
                 WaitForAppExit();
-                // The app and its update window are gone: cover the gap until
-                // the new version is on screen
                 ShowCard();
 
                 try { File.WriteAllText(swapMarker, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString()); }
@@ -632,7 +609,6 @@ namespace MyleUpdater
                     throw new UpdateException(8, "The new version did not start correctly; the previous version was restored.");
                 }
 
-                // The new version acknowledged from its main window, so it is on screen
                 UI(Dismiss);
                 UpdateUninstallRegistry();
                 FileOps.TryDeleteFile(healthPending);
@@ -809,7 +785,6 @@ namespace MyleUpdater
                 }
                 catch { return false; }
 
-                // Short, so this window leaves the moment the new version shows
                 Thread.Sleep(100);
             }
 
@@ -881,7 +856,6 @@ namespace MyleUpdater
         static int Main(string[] args)
         {
             try { Directory.SetCurrentDirectory(Path.GetTempPath()); } catch { }
-            // Drawn at the screen's real DPI instead of being stretched blurry
             try { Native.SetProcessDPIAware(); } catch { }
 
             Options opts;

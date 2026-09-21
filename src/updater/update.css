@@ -1,0 +1,26 @@
+@import url('../renderer/styles/tokens.css');
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; background: transparent; color: var(--text-primary); font-family: 'Segoe UI', sans-serif; font-size: 14px; }
+body { display: grid; place-items: center; padding: 12px; }
+.update-card { width: 100%; max-width: 610px; max-height: 100%; overflow-y: auto; scrollbar-width: thin; padding: 24px; border-radius: 12px; border: 1px solid var(--border-default); background: var(--surface-0); display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.icon { width: 56px; height: 56px; }
+.title { font-size: 22px; text-align: center; line-height: 1.3; margin: 0; }
+.status { margin: 0; color: var(--text-secondary); text-align: center; }
+.progress-wrapper { width: 100%; }
+.progress-bar-bg { position: relative; padding-top: 18px; }
+.progress-bar-bg::before { content: ''; position: absolute; top: 0; height: 6px; left: 0; right: 0; background: var(--surface-3); border-radius: 4px; }
+.progress-bar { position: absolute; top: 0; left: 0; height: 6px; max-width: 100%; border-radius: 4px; background: var(--accent); transition: width .2s; }
+.progress-bar.indeterminate { animation: pending 1.4s ease-in-out infinite alternate; }
+.progress-content { font-variant-numeric: tabular-nums; text-align: center; font-size: 13px; color: var(--text-secondary); }
+.progress-metrics { display: flex; gap: 8px 16px; flex-wrap: wrap; justify-content: center; }
+.metric-primary { color: var(--text-primary); font-weight: 600; }
+.metric-dot, .spinner-chip, .progress-label { display: none; }
+.is-message .progress-wrapper, .is-installing .progress-metrics { display: none; }
+.is-installing .progress-label { display: block; }
+.is-installing .status { display: none; }
+.cancel-btn { min-height: 36px; padding: 8px 20px; border: 1px solid var(--border-default); border-radius: 8px; background: var(--surface-2); color: var(--text-primary); font: inherit; cursor: pointer; }
+.cancel-btn:hover { background: var(--surface-3); }
+.cancel-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+@keyframes pending { to { transform: translateX(185%); } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

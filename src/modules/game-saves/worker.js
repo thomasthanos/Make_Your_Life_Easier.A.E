@@ -1,10 +1,3 @@
-/**
- * Entry point of the utility process that runs one game-saves job.
- *
- * A scan reads thousands of directories and the first one parses a 17 MB YAML
- * file: synchronous work that would freeze the window in the main process.
- * Each job gets a fresh process, which the main process discards afterwards.
- */
 
 const { runJob } = require('./jobs');
 

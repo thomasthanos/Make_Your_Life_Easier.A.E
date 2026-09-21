@@ -1,9 +1,3 @@
-/**
- * The long-running game-saves operations, free of any Electron dependency.
- *
- * worker.js runs them in a utility process so a scan never blocks the main
- * process. They take plain data and return plain data.
- */
 
 const fs = require('fs');
 const path = require('path');
@@ -24,18 +18,10 @@ function requireBackupRoot(config) {
   let available = false;
   try {
     available = Boolean(config.backupRoot) && fs.statSync(config.backupRoot).isDirectory();
-  } catch { /* missing or on a disconnected drive */ }
+  } catch {  }
   if (!available) throw new Error('The backup folder is not available. Choose it again, or connect its drive.');
 }
 
-/**
- * Registry keys worth testing. Almost every manifest key sits under
- * HKCU\Software\<Vendor>, and one listing of HKCU\Software rules out the
- * vendors that were never installed — thousands of keys down to a handful.
- * @param {Array<Object>} games - Compact manifest games
- * @param {string[]} hkcuSoftware - Subkey names of HKCU\Software
- * @returns {string[]} Keys to test
- */
 function candidateRegistryKeys(games, hkcuSoftware) {
   const vendors = new Set(hkcuSoftware.map((name) => name.toLowerCase()));
   const keys = new Set();
@@ -73,7 +59,6 @@ async function scan({ userDataPath, config, refreshManifest = false, withSuggest
     game.backedUpAt = game.backup ? game.backup.backedUpAt : null;
   }
 
-  // Backed-up games whose saves are not on this PC (a new PC, a reinstall).
   const cloudByName = new Map(manifest.games.filter((game) => game.cloud).map((game) => [game.name, game.cloud]));
   for (const mapping of listBackups(config.backupRoot)) {
     const kind = mapping.kind === 'custom' ? 'custom' : 'manifest';
@@ -96,7 +81,6 @@ async function scan({ userDataPath, config, refreshManifest = false, withSuggest
       installed: false,
       steamCloud: false,
       cloud: cloudByName.get(mapping.name) || [],
-      // Where the saves will go, so the list can say so before restoring.
       locations: kind === 'custom'
         ? [expandCollapsed(mapping.customPathCollapsed, vars) || mapping.customPath].filter(Boolean)
         : restoreLocations(mapping, vars)
@@ -139,8 +123,6 @@ async function backup({ config, games, vars }, { onProgress = () => {} } = {}) {
 
 function restoreDefinition(item, gamesByName, vars) {
   if (item.kind === 'custom') {
-    // The folder can come from the backup itself (made on another PC), so it
-    // is held to this user's own profile.
     const dir = typeof item.customPath === 'string' && path.isAbsolute(item.customPath) ? path.resolve(item.customPath) : '';
     const insideProfile = [vars.home, vars.winDocuments].some((root) => isWithin(dir, root) && path.resolve(root) !== dir);
     if (!dir || !insideProfile) throw new Error('This folder is outside your user profile, so nothing is restored there.');
@@ -210,12 +192,6 @@ async function scheduled({ userDataPath, config }, hooks = {}) {
 
 const JOBS = { scan, backup, restore, scheduled };
 
-/**
- * @param {'scan'|'backup'|'restore'|'scheduled'} type - Job to run
- * @param {Object} payload - Job input
- * @param {{onProgress?: Function}} [hooks]
- * @returns {Promise<Object>} Job result
- */
 function runJob(type, payload, hooks) {
   const job = JOBS[type];
   if (!job) return Promise.reject(new Error(`Unknown game saves job: ${type}`));

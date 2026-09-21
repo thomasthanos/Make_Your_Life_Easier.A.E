@@ -1,20 +1,7 @@
-/**
- * Where launchers installed games, so `<base>` and `<root>` can be resolved.
- *
- * Saves under AppData or Documents are found without any of this. What needs a
- * launcher is the rest: saves inside a game's own folder, Steam's per-account
- * userdata, and Ubisoft Connect's savegames directory.
- */
 
 const fs = require('fs');
 const path = require('path');
 
-/**
- * Steam records every library root in libraryfolders.vdf, a loosely nested
- * key/value text file; only the "path" entries matter here.
- * @param {string} text - File contents
- * @returns {string[]} Library root paths
- */
 function parseLibraryFolders(text) {
   if (typeof text !== 'string' || !text) return [];
   const paths = [];
@@ -30,11 +17,6 @@ function acfField(text, name) {
   return match ? match[1].replace(/\\(.)/g, '$1') : '';
 }
 
-/**
- * The fields of an appmanifest_<id>.acf that locate an installed game.
- * @param {string} text - File contents
- * @returns {{appId: string, installDir: string, name: string}|null}
- */
 function parseAcf(text) {
   if (typeof text !== 'string' || !text) return null;
   const appId = acfField(text, 'appid');
@@ -43,11 +25,6 @@ function parseAcf(text) {
   return { appId, installDir, name: acfField(text, 'name') };
 }
 
-/**
- * An Epic Games Launcher manifest (.item, JSON).
- * @param {string} text - File contents
- * @returns {{name: string, installPath: string}|null}
- */
 function parseEpicItem(text) {
   try {
     const item = JSON.parse(text);
@@ -105,7 +82,6 @@ function detectSteam({ steamPath, env, fsImpl }) {
     if (!libraries.some((known) => known.toLowerCase() === steamapps.toLowerCase())) libraries.push(steamapps);
   }
 
-  // An installed game always has an appmanifest in the library it lives in.
   const apps = [];
   for (const library of libraries) {
     for (const name of readDirNames(fsImpl, library)) {
@@ -147,14 +123,6 @@ function detectUbisoft({ installDir, env, fsImpl }) {
   return root ? { root: path.normalize(root) } : null;
 }
 
-/**
- * Detect the installed launchers and the games they manage.
- * @param {Object} [options]
- * @param {Object} [options.probe] - Registry facts from system.probeSystem()
- * @param {Object} [options.env] - Environment variables
- * @param {Object} [options.fsImpl] - fs implementation
- * @returns {{steam: Object|null, epic: Array, gog: Array, ubisoft: Object|null}}
- */
 function detectLaunchers({ probe = {}, env = process.env, fsImpl = fs } = {}) {
   return {
     steam: detectSteam({ steamPath: probe.steam, env, fsImpl }),

@@ -1,7 +1,3 @@
-/**
- * Find the save files of every manifest game present on this PC, plus folders
- * that look like saves of games the manifest does not know.
- */
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -13,7 +9,6 @@ const { isWithin } = require('../security');
 const MAX_FILES_PER_GAME = 5000;
 const MAX_WALK_DEPTH = 12;
 const PROGRESS_EVERY = 250;
-// Steam leaves this file in every folder its cloud sync manages.
 const STEAM_CLOUD_MARKER = 'steam_autocloud.vdf';
 
 const SAVE_DIR_NAME = /^(saves?|save[ _-]?games?|saved[ _-]?games?|save[ _-]?data|save[ _-]?files?)$/i;
@@ -58,11 +53,6 @@ function addFile(files, filePath, stat, context) {
   files.set(key, file);
 }
 
-/**
- * Add a matched path to a game's files: the file itself, or everything under a
- * matched folder. Links inside a folder are not followed.
- * @returns {'file'|'dir'|null} What the path turned out to be
- */
 function collectInto(files, target, context, fsImpl) {
   let stat;
   try {
@@ -93,7 +83,7 @@ function collectInto(files, target, context, fsImpl) {
       } else if (entry.isFile()) {
         try {
           addFile(files, full, fsImpl.statSync(full), context);
-        } catch { /* vanished or locked */ }
+        } catch {  }
         if (files.size >= MAX_FILES_PER_GAME) break;
       }
     }
@@ -133,8 +123,6 @@ function basesForGame(game, index) {
   };
   for (const id of game.steamIds || []) add(index.bySteamId.get(id));
   for (const id of game.gogIds || []) add(index.byGogId.get(id));
-  // Folder names are ambiguous ("Game", "Launcher"), so they only count when
-  // no store id already placed the game.
   if (bases.size === 0) {
     for (const dir of game.installDirs || []) {
       for (const base of index.byFolder.get(dir.toLowerCase()) || []) add(base);
@@ -168,10 +156,6 @@ function templateVariants(entry, bases, roots) {
   return baseVariants.flatMap((variant) => rootPaths.map((root) => ({ ...variant, root })));
 }
 
-/**
- * Folders that are roots in their own right. A malformed entry that matches
- * one of them would otherwise back up a whole profile or game install.
- */
 function broadPaths(vars, launchers, bases) {
   const set = new Set();
   const add = (value) => {
@@ -265,18 +249,6 @@ function scanCustomGame(custom, context) {
   }, files);
 }
 
-/**
- * Every game with save data on this machine.
- * @param {Object} options
- * @param {Array<Object>} options.games - Compact manifest games
- * @param {Object} options.vars - Machine placeholder values
- * @param {Object} options.launchers - Result of detectLaunchers()
- * @param {Object} [options.config] - customRoots and customGames are used
- * @param {Set<string>} [options.registryKeys] - Existing registry keys, lower-cased
- * @param {string[]} [options.excludedRoots] - Folders never to collect from (the backup folder)
- * @param {Function} [options.onProgress] - Receives {phase, current, total}
- * @returns {Array<Object>} Found games, most recently modified first
- */
 function scanGames({ games, vars, launchers, config = {}, registryKeys = new Set(), excludedRoots = [], fsImpl = fs, onProgress }) {
   const index = buildInstallIndex(launchers, config.customRoots, fsImpl);
   const allBases = [...index.bySteamId.values(), ...index.byGogId.values(), ...[...index.byFolder.values()].flat()];
@@ -309,20 +281,16 @@ function suggestionCandidates(vars, fsImpl) {
   const candidates = [];
   const push = (name, dir, needsEvidence) => candidates.push({ name, path: dir, needsEvidence });
 
-  // Folders that exist only for games: any non-empty child is a candidate.
   for (const child of childDirs(fsImpl, path.join(vars.winDocuments, 'My Games'))) push(child.name, child.path, false);
   for (const child of childDirs(fsImpl, path.join(vars.home, 'Saved Games'))) push(child.name, child.path, false);
-  // Unreal Engine games: %LOCALAPPDATA%\<Game>\Saved\SaveGames.
   for (const child of childDirs(fsImpl, vars.winLocalAppData)) {
     const saveGames = path.join(child.path, 'Saved', 'SaveGames');
     if (isDirectory(fsImpl, saveGames)) push(child.name, saveGames, false);
   }
-  // A save-named folder directly inside an app's Roaming folder.
   for (const child of childDirs(fsImpl, vars.winAppData)) {
     const saveDir = childDirs(fsImpl, child.path).find((grandchild) => SAVE_DIR_NAME.test(grandchild.name));
     if (saveDir) push(child.name, saveDir.path, false);
   }
-  // Shared by games and everything else: only with save-like names inside.
   for (const company of childDirs(fsImpl, vars.winLocalAppDataLow)) {
     for (const game of childDirs(fsImpl, company.path)) push(game.name, game.path, true);
   }
@@ -358,15 +326,6 @@ function inspectCandidate(fsImpl, dir) {
   return { files, saveLike };
 }
 
-/**
- * Folders that look like game saves but belong to no found game.
- * @param {Object} options
- * @param {Object} options.vars - Machine placeholder values
- * @param {Array<Object>} options.games - Result of scanGames()
- * @param {Object} [options.config] - ignoredSuggestions and customGames are used
- * @param {string[]} [options.excludedRoots] - Folders never to suggest (the backup folder)
- * @returns {Array<Object>} Suggestions, most recently modified first
- */
 function findSuggestions({ vars, games, config = {}, excludedRoots = [], fsImpl = fs }) {
   const covered = games.flatMap((game) => game.files.map((file) => file.path.toLowerCase()));
   const ignored = config.ignoredSuggestions || [];
@@ -395,7 +354,7 @@ function findSuggestions({ vars, games, config = {}, excludedRoots = [], fsImpl 
         const stat = fsImpl.statSync(file);
         totalSize += stat.size;
         lastModified = Math.max(lastModified, stat.mtimeMs);
-      } catch { /* vanished */ }
+      } catch {  }
     }
     suggestions.push({
       id: `suggestion:${crypto.createHash('sha1').update(key).digest('hex').slice(0, 16)}`,

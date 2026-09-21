@@ -1,11 +1,3 @@
-/**
- * What only the registry knows, plus registry export and import.
- *
- * One PowerShell run answers everything a scan needs from the registry. reg.exe
- * would be a process per question, and it prints in the OEM code page, which
- * turns a Documents folder redirected to `OneDrive\Έγγραφα` into mojibake.
- * PowerShell is told to use UTF-8 in both directions instead.
- */
 
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -39,21 +31,12 @@ foreach ($root in @('HKLM:\\SOFTWARE\\WOW6432Node\\GOG.com\\Games', 'HKLM:\\SOFT
 } | ConvertTo-Json -Depth 4 -Compress
 `;
 
-// The keys arrive wrapped in an object: Windows PowerShell's ConvertFrom-Json
-// emits a top-level array as one pipeline item, so a bare array would be
-// tested as a single key named "System.Object[]".
 const KEYS_SCRIPT = `
 $data = [Console]::In.ReadToEnd() | ConvertFrom-Json
 $found = @(foreach ($key in @($data.keys)) { if (Test-Path -LiteralPath ('Registry::' + $key)) { $key } })
 ConvertTo-Json -InputObject $found -Compress
 `;
 
-/**
- * Run a script with UTF-8 input and output.
- * @param {string} script - PowerShell source
- * @param {{input?: string, timeoutMs?: number, spawnImpl?: Function}} [options]
- * @returns {Promise<{stdout: string, error?: string}>}
- */
 function runPowerShell(script, { input = '', timeoutMs = 60000, spawnImpl = spawn } = {}) {
   return new Promise((resolve) => {
     const chunks = [];
@@ -79,13 +62,13 @@ function runPowerShell(script, { input = '', timeoutMs = 60000, spawnImpl = spaw
     }
 
     timer = setTimeout(() => {
-      try { child.kill(); } catch { /* already exited */ }
+      try { child.kill(); } catch {  }
       finish('PowerShell timed out');
     }, timeoutMs);
     child.stdout.on('data', (chunk) => chunks.push(chunk));
     child.on('error', (err) => finish(err.message));
     child.on('close', (code) => finish(code === 0 ? null : `PowerShell exited with code ${code}`));
-    child.stdin.on('error', () => { /* the script may not read its input */ });
+    child.stdin.on('error', () => {  });
     child.stdin.end(input, 'utf8');
   });
 }
@@ -98,11 +81,6 @@ function parseJsonOutput(stdout) {
   }
 }
 
-/**
- * Documents folder, launcher locations, GOG installs and the names under
- * HKCU\Software, in one PowerShell run.
- * @returns {Promise<{documents: string, steam: string, ubisoft: string, gog: Array, hkcuSoftware: string[]}>}
- */
 async function probeSystem(options) {
   const data = parseJsonOutput((await runPowerShell(PROBE_SCRIPT, options)).stdout) || {};
   const text = (value) => (typeof value === 'string' ? value : '');
@@ -115,11 +93,6 @@ async function probeSystem(options) {
   };
 }
 
-/**
- * Which of the given registry keys exist.
- * @param {string[]} keys - Keys such as `HKEY_CURRENT_USER\Software\Vendor\Game`
- * @returns {Promise<Set<string>>} Existing keys, lower-cased
- */
 async function findExistingRegistryKeys(keys, options) {
   const unique = [...new Set(keys)];
   if (unique.length === 0) return new Set();
@@ -139,11 +112,6 @@ async function importRegistryFile(file) {
   return result.error ? { success: false, error: String(result.stderr || result.error).trim() } : { success: true };
 }
 
-/**
- * Every key a .reg file writes to or deletes.
- * @param {string} file - A file produced by `reg export`
- * @returns {string[]|null} Keys, or null when the file is not a registry export
- */
 function readRegistryFileKeys(file, fsImpl = fs) {
   const buffer = fsImpl.readFileSync(file);
   const text = buffer[0] === 0xff && buffer[1] === 0xfe

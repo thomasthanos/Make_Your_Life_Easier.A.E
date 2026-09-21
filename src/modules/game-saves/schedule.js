@@ -1,10 +1,3 @@
-/**
- * Automatic backups through the Windows Task Scheduler.
- *
- * A scheduled task starts the app with --backup-saves at the chosen time, and
- * that launch backs up and exits without opening a window. Nothing stays
- * resident, and the backup still happens on a day the app was never opened.
- */
 
 const fs = require('fs');
 const os = require('os');
@@ -12,7 +5,6 @@ const path = require('path');
 const { runSpawnCommand } = require('../process-utils');
 const { isWithin } = require('../security');
 
-// A top-level task name: creating a task folder can be refused to a standard user.
 const TASK_NAME = 'MakeYourLifeEasier Game Saves Backup';
 const BACKUP_FLAG = '--backup-saves';
 const WEEK_DAY_ELEMENTS = { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday', SUN: 'Sunday' };
@@ -31,17 +23,6 @@ function localDate(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-/**
- * Task Scheduler XML for a daily or weekly backup.
- *
- * XML rather than /SC arguments because of StartWhenAvailable: a laptop that is
- * off at the scheduled minute backs up at its next start instead of silently
- * skipping the day, and battery power does not block the run.
- * @param {{mode: string, time: string, day: string}} schedule - Normalised schedule
- * @param {string} exePath - Executable the task starts
- * @param {{now?: Date}} [options] - Date the trigger starts from
- * @returns {string} Task definition
- */
 function buildTaskXml(schedule, exePath, { now = new Date() } = {}) {
   const trigger = schedule.mode === 'weekly'
     ? `<ScheduleByWeek><WeeksInterval>1</WeeksInterval><DaysOfWeek><${WEEK_DAY_ELEMENTS[schedule.day] || 'Sunday'} /></DaysOfWeek></ScheduleByWeek>`
@@ -75,34 +56,17 @@ function buildTaskXml(schedule, exePath, { now = new Date() } = {}) {
   ].join('\r\n');
 }
 
-/**
- * The executable a scheduled task should start.
- * @param {Object} options
- * @param {boolean} options.isPackaged - app.isPackaged
- * @returns {{path: string, portable: boolean, risky: boolean, error?: string}}
- *   risky: a portable build kept in Downloads or Temp, likely to be moved or deleted
- */
 function resolveTaskExecutable({ isPackaged, env = process.env, execPath = process.execPath, homeDir = os.homedir(), tmpDir = os.tmpdir() } = {}) {
   if (!isPackaged) return { path: '', portable: false, risky: false, error: 'not-packaged' };
-  // A portable build runs from a temporary extraction; the task has to start
-  // the .exe the user actually keeps.
   const portableFile = env.PORTABLE_EXECUTABLE_FILE;
   const exe = portableFile || execPath;
   const risky = Boolean(portableFile) && [path.join(homeDir, 'Downloads'), tmpDir].some((dir) => isWithin(exe, dir));
   return { path: exe, portable: Boolean(portableFile), risky };
 }
 
-/**
- * Create, replace or remove the scheduled task.
- * @param {{mode: string, time: string, day: string}} schedule - Normalised schedule
- * @param {Object} options
- * @param {string} options.exePath - Executable to start (ignored when mode is off)
- * @returns {Promise<{success: boolean, error?: string}>}
- */
 async function applySchedule(schedule, { exePath, run = runSpawnCommand, fsImpl = fs, tmpDir = os.tmpdir(), now = new Date() } = {}) {
   const options = { windowsHide: true, _timeout: 30000 };
   if (!schedule || schedule.mode === 'off') {
-    // Deleting a task that does not exist fails harmlessly.
     await run('schtasks', ['/Delete', '/TN', TASK_NAME, '/F'], options);
     return { success: true };
   }
@@ -119,13 +83,10 @@ async function applySchedule(schedule, { exePath, run = runSpawnCommand, fsImpl 
   } catch (err) {
     return { success: false, error: err.message };
   } finally {
-    try { fsImpl.unlinkSync(xmlPath); } catch { /* already gone */ }
+    try { fsImpl.unlinkSync(xmlPath); } catch {  }
   }
 }
 
-/**
- * @returns {Promise<boolean>} Whether the task is registered
- */
 async function scheduledTaskExists({ run = runSpawnCommand } = {}) {
   const result = await run('schtasks', ['/Query', '/TN', TASK_NAME], { windowsHide: true, _timeout: 15000 });
   return !result.error;

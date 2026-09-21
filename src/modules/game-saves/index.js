@@ -1,10 +1,3 @@
-/**
- * Game Saves: find every game's saves on this PC, back them up, restore them.
- *
- * This is the main-process side. It owns the config, keeps the last scan, runs
- * the heavy jobs in a utility process, and is the only place where a game id
- * from the renderer turns into paths: the renderer never sends one.
- */
 
 const { app, dialog, Notification, shell, utilityProcess } = require('electron');
 const fs = require('fs');
@@ -35,10 +28,6 @@ const FILE_LIST_LIMIT = 2000;
 const DEFAULT_LANG = 'en';
 const ICON_PATH = path.join(__dirname, '..', '..', 'assets', 'icons', 'hacker.ico');
 
-/**
- * @param {string[]} argv - Process arguments or a second instance's command line
- * @returns {boolean} Whether this launch came from the scheduled task
- */
 function isBackupSavesLaunch(argv) {
   return Array.isArray(argv) && argv.includes(scheduler.BACKUP_FLAG);
 }
@@ -57,11 +46,6 @@ function isDirectory(dir) {
 
 const byPath = (a, b) => a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: 'base' });
 
-/**
- * Files grouped under the save folders the row shows, with paths relative to
- * the outermost folder that holds them. Anything outside those folders, or not
- * an absolute path, goes in a last group with no folder.
- */
 function groupByLocation(files, locations) {
   const roots = [...new Map(locations.filter(Boolean).map((dir) => [dir.toLowerCase(), dir])).values()];
   const groups = new Map(roots.map((dir) => [dir.toLowerCase(), { location: dir, files: [] }]));
@@ -106,11 +90,6 @@ function summarizeScan(scan, config) {
   };
 }
 
-/**
- * @param {Object} options
- * @param {Function} options.getMainWindow - Returns the main BrowserWindow, or null
- * @param {Object} options.settingsStore - Read for the interface language only
- */
 function createGameSavesService({ getMainWindow, settingsStore }) {
   const dataDir = path.join(app.getPath('userData'), 'game-saves');
   const configStore = createConfigStore(path.join(dataDir, 'config.json'));
@@ -119,8 +98,6 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
   let lastScan = null;
   let scheduledRuns = 0;
 
-  // Dialogs and notifications are built here, away from the renderer's copy of
-  // the translations.
   function strings() {
     const lang = (settingsStore && settingsStore.get('lang')) || DEFAULT_LANG;
     const all = readJson(path.join(__dirname, '..', '..', 'i18n', `${lang === 'gr' ? 'gr' : 'en'}.json`), {});
@@ -151,7 +128,7 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
         if (job === current) job = null;
         try {
           if (current.child) current.child.kill();
-        } catch { /* already exited */ }
+        } catch {  }
         sendProgress({ type, phase: 'done' });
         callback(value);
       };
@@ -186,8 +163,6 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     }
   }
 
-  // Where a backup from before a reinstall is likely to be: a cloud folder, the
-  // Documents folder or a drive root, under the folder name this app suggests.
   function findExistingBackups() {
     const candidates = [
       ...detectCloudFolders().map((folder) => ({ label: folder.label, path: path.join(folder.path, DEFAULT_ROOT_NAME) })),
@@ -238,7 +213,6 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     return lastScan.games.filter((game) => wanted.has(game.id));
   }
 
-  // Read back what the backup now holds, so both tabs are right without a new scan.
   function refreshBackups(results) {
     if (!lastScan) return;
     const { backupRoot } = configStore.get();
@@ -287,7 +261,6 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
       lines.push(format(t.restore_confirm_more || '…and {count} more', { count: items.length - RESTORE_LIST_LIMIT }));
     }
     const detail = [lines.join('\n')];
-    // Restoring these goes back in time, which is worth saying before it happens.
     const newer = games.filter((game) => game.status === 'changed' && game.backup && game.lastModified > game.backup.newestMtime);
     if (newer.length) {
       detail.push('', format(t.restore_confirm_newer || 'This PC has newer saves than the backup for: {games}.', {
@@ -335,11 +308,6 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     return { success: true, results: result.results, state: await buildState(), rescan: true };
   });
 
-  /**
-   * One game's files, on this PC or in its backup, each marked against the other side.
-   * @param {string} id - Game id
-   * @param {'pc'|'backup'} source - Which side to list
-   */
   const listFiles = (id, source) => guarded(async () => {
     const game = pickGames([id])[0];
     if (!game) return { success: false, error: strings().game_gone || 'This game is no longer in the list. Scan again.' };
@@ -356,7 +324,6 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
       total: files.length,
       totalSize: files.reduce((sum, file) => sum + file.size, 0),
       counts,
-      // Files on the PC that a restore leaves as they are.
       pcOnly: inBackup ? compared.pc.filter((file) => file.state === 'new').length : 0,
       groups: groupByLocation(files.slice(0, FILE_LIST_LIMIT), locations),
       registry: registry.map((item) => String(item.key))
@@ -368,7 +335,7 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
       job.cancelled = true;
       try {
         if (job.child) job.child.kill();
-      } catch { /* already exited */ }
+      } catch {  }
     }
     return { success: true };
   });
@@ -380,7 +347,6 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     fs.mkdirSync(root, { recursive: true });
     const previous = configStore.get().backupRoot;
     configStore.update({ backupRoot: root });
-    // Every status was measured against the old folder.
     if (previous.toLowerCase() !== root.toLowerCase()) lastScan = null;
     return { success: true, state: await buildState() };
   }
@@ -478,7 +444,6 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
       return { success: false, error: 'Unknown action.' };
     }
     lastScan.suggestions = lastScan.suggestions.filter((item) => item.id !== id);
-    // A confirmed folder only becomes a game on the next scan.
     return { success: true, state: await buildState(), rescan: action === 'confirm' };
   });
 
@@ -497,7 +462,6 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
       const suggestion = lastScan && lastScan.suggestions.find((item) => item.id === id);
       dir = suggestion && suggestion.path;
     }
-    // Only ever a folder: openPath on a file would run it.
     if (!isDirectory(dir)) return { success: false, error: strings().folder_missing || 'The folder does not exist.' };
     const error = await shell.openPath(dir);
     return error ? { success: false, error } : { success: true };
@@ -515,12 +479,6 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     }
   }
 
-  /**
-   * Back up every non-excluded game whose saves are new or changed. Used by the
-   * scheduled task and by "Run now".
-   * @param {{headless?: boolean}} [options] - headless: started by the task, notify when done
-   * @returns {Promise<{success: boolean, busy?: boolean, error?: string, lastRun?: Object}>}
-   */
   async function runScheduledBackup({ headless = false } = {}) {
     if (job) return { success: false, busy: true };
     const t = strings();
@@ -551,7 +509,6 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
     } catch (err) {
       debug('warn', 'Could not record the game saves backup run:', err.message);
     }
-    // A run that found nothing to copy stays silent; a daily "nothing changed" is noise.
     if (headless && (record.error || record.backedUp > 0)) notify(record, t);
     return { success: !record.error, error: record.error, lastRun: record };
   }
@@ -585,7 +542,7 @@ function createGameSavesService({ getMainWindow, settingsStore }) {
       job.cancelled = true;
       try {
         if (job.child) job.child.kill();
-      } catch { /* already exited */ }
+      } catch {  }
     }
   };
 }

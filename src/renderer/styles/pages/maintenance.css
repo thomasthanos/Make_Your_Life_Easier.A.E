@@ -1,0 +1,580 @@
+.maintenance-svg-icon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  color: currentColor;
+}
+
+.bios-dialog-icon .maintenance-svg-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.debloat-panel-icon .maintenance-svg-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.debloat-capability-icon .maintenance-svg-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.9;
+}
+
+.maintenance-page {
+  --maintenance-network: #64d2ff;
+  --maintenance-repair: #bf5af2;
+  --maintenance-updates: #30d158;
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  background: transparent;
+  container-type: inline-size;
+}
+
+.maintenance-page::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.maintenance-hero {
+  padding: 0 0 12px;
+  border: 0;
+  border-bottom: 1px solid var(--border-default);
+  border-radius: 0;
+  background: transparent;
+}
+
+.maintenance-hero-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.maintenance-hero-icon {
+  display: none;
+}
+
+.maintenance-hero-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.maintenance-hero-copy p {
+  display: block;
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.maintenance-hero-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.maintenance-hero-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.maintenance-hero-notice > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: rgba(255, 214, 10, 0.82);
+}
+
+.maintenance-hero-notice .maintenance-svg-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.maintenance-layout-control {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.maintenance-layout-label {
+  display: none;
+}
+
+.maintenance-layout-switcher {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--sunken);
+}
+
+.maintenance-layout-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: color var(--ease), background var(--ease), border-color var(--ease);
+}
+
+.maintenance-layout-option:hover {
+  color: var(--text-primary);
+  background: var(--stroke-06);
+}
+
+.maintenance-layout-option.active {
+  color: var(--text-primary);
+  background: #254261;
+  border-color: #436386;
+  box-shadow: var(--btn-elev);
+}
+
+.maintenance-layout-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.maintenance-layout-option-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.maintenance-layout-option-icon .maintenance-svg-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.maintenance-section {
+  --maintenance-section-color: var(--maintenance-network);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.maintenance-section--repair {
+  --maintenance-section-color: var(--maintenance-repair);
+}
+
+.maintenance-section--updates {
+  --maintenance-section-color: var(--maintenance-updates);
+}
+
+.maintenance-section-header {
+  gap: 12px;
+  margin: 4px 0 0;
+}
+
+.maintenance-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  color: var(--maintenance-section-color);
+  background: color-mix(in srgb, var(--maintenance-section-color) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--maintenance-section-color) 30%, transparent);
+  border-radius: 10px;
+  box-shadow: var(--btn-elev);
+}
+
+.maintenance-section-icon .maintenance-svg-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.maintenance-section-copy {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.maintenance-action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  align-items: stretch;
+  gap: 12px;
+  margin: 0;
+}
+
+.maintenance-action-card {
+  --maintenance-card-color: var(--maintenance-section-color);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  background: var(--raised);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  transition: background var(--ease), border-color var(--ease), box-shadow var(--ease), transform var(--ease);
+  box-shadow: var(--elev-1);
+}
+
+.maintenance-action-card:hover {
+  background: var(--raised-hover);
+  box-shadow: var(--elev-2);
+}
+
+.maintenance-action-card.is-running {
+  border-color: rgba(10, 132, 255, 0.44);
+}
+
+.maintenance-action-card--caution {
+  --maintenance-card-color: #ffb340;
+}
+
+.maintenance-action-card--read-only {
+  --maintenance-card-color: #8bd8ff;
+}
+
+.maintenance-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.maintenance-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  color: var(--maintenance-card-color);
+  background: transparent;
+  border: 0;
+}
+
+.maintenance-card-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.maintenance-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  padding: 0;
+}
+
+.maintenance-card-title {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 680;
+  line-height: 1.25;
+}
+
+.maintenance-card-title-row .help-button {
+  flex: 0 0 auto;
+}
+
+.maintenance-card-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 4px;
+  height: 21px;
+  margin-left: auto;
+  padding: 0 7px;
+  color: #ffe77c;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
+  background: rgba(255, 214, 10, 0.065);
+  border: 1px solid rgba(255, 214, 10, 0.2);
+  border-radius: var(--radius-pill);
+}
+
+.maintenance-card-badge--info {
+  color: #91eca8;
+  background: rgba(48, 209, 88, 0.065);
+  border-color: rgba(48, 209, 88, 0.2);
+}
+
+.maintenance-card-badge-icon,
+.maintenance-card-badge-icon .maintenance-svg-icon {
+  display: inline-flex;
+  width: 11px;
+  height: 11px;
+}
+
+.maintenance-card-description {
+  display: -webkit-box;
+  min-height: 2.9em;
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.maintenance-consequence {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  color: #f0c67d;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.maintenance-consequence-icon {
+  display: inline-flex;
+  flex: 0 0 14px;
+  margin-top: 1px;
+}
+
+.maintenance-consequence-icon .maintenance-svg-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.maintenance-card-action {
+  width: 100%;
+  margin: auto 0 0;
+  font-weight: 700;
+}
+
+.sfc-dism-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: auto 0 0;
+}
+
+.sfc-dism-buttons .maintenance-card-action {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+}
+
+.sfc-dism-buttons .help-button {
+  align-self: center;
+}
+
+.maintenance-page .winget-terminal {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.maintenance-action-card.winget-unavailable .winget-missing {
+  display: flex;
+}
+
+.maintenance-action-card.winget-unavailable .winget-terminal {
+  display: none;
+}
+
+.maintenance-view--overview .maintenance-action-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto 1fr auto;
+  column-gap: 12px;
+  row-gap: 8px;
+}
+
+.maintenance-view--overview .maintenance-card-header,
+.maintenance-view--overview .maintenance-action-card > .winget-terminal,
+.maintenance-view--overview .maintenance-action-card > .winget-missing {
+  grid-column: 1 / -1;
+}
+
+.maintenance-view--overview .maintenance-card-description {
+  min-height: 0;
+}
+
+.maintenance-view--overview .maintenance-consequence {
+  grid-column: 1;
+  grid-row: 3;
+  align-self: center;
+}
+
+.maintenance-view--overview .maintenance-action-card > .maintenance-card-action,
+.maintenance-view--overview .sfc-dism-buttons {
+  grid-column: 2;
+  grid-row: 3;
+  align-self: end;
+  width: auto;
+  margin: 0;
+}
+
+.maintenance-view--overview .maintenance-card-action {
+  min-width: 88px;
+  min-height: 32px;
+  padding: 6px 16px;
+  white-space: nowrap;
+}
+
+.maintenance-view--overview .sfc-dism-buttons {
+  flex-wrap: nowrap;
+}
+
+.maintenance-view--list .maintenance-action-grid {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+/* List rows: the header wrappers dissolve so the badge and the action share one centred axis. */
+.maintenance-view--list .maintenance-action-card {
+  display: grid;
+  grid-template-columns: 32px auto auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 2px;
+}
+
+.maintenance-view--list .maintenance-card-header,
+.maintenance-view--list .maintenance-card-copy,
+.maintenance-view--list .maintenance-card-title-row {
+  display: contents;
+}
+
+.maintenance-view--list .maintenance-card-icon {
+  grid-column: 1;
+  grid-row: 1 / 4;
+}
+
+.maintenance-view--list .maintenance-card-title {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.maintenance-view--list .maintenance-card-title-row .help-button {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.maintenance-view--list .maintenance-card-description {
+  grid-column: 2 / 5;
+  grid-row: 2;
+  min-height: 0;
+  margin: 0;
+  -webkit-line-clamp: 1;
+}
+
+.maintenance-view--list .maintenance-consequence {
+  grid-column: 2 / 5;
+  grid-row: 3;
+}
+
+.maintenance-view--list .maintenance-card-badge {
+  grid-column: 5;
+  grid-row: 1 / 4;
+  margin: 0;
+}
+
+.maintenance-view--list .maintenance-action-card > .maintenance-card-action,
+.maintenance-view--list .sfc-dism-buttons {
+  grid-column: 6;
+  grid-row: 1 / 4;
+  width: auto;
+  min-width: 110px;
+  margin: 0;
+}
+
+.maintenance-view--list .sfc-dism-buttons {
+  flex-wrap: nowrap;
+  min-width: 230px;
+}
+
+.maintenance-view--list .winget-terminal,
+.maintenance-view--list .winget-missing {
+  grid-column: 1 / -1;
+  grid-row: auto;
+}
+
+@container (max-width: 620px) {
+  .maintenance-hero-main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .maintenance-hero-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .maintenance-layout-control {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .maintenance-layout-switcher {
+    flex: 1 1 auto;
+  }
+
+  .maintenance-layout-option {
+    flex: 1 1 0;
+  }
+
+  .maintenance-view--list .maintenance-action-card {
+    grid-template-columns: 32px auto auto minmax(0, 1fr) auto;
+  }
+
+  .maintenance-view--list .maintenance-card-badge {
+    grid-row: 1;
+  }
+
+  .maintenance-view--list .maintenance-action-card > .maintenance-card-action,
+  .maintenance-view--list .sfc-dism-buttons {
+    grid-column: 2 / -1;
+    grid-row: 4;
+    width: 100%;
+    min-width: 0;
+  }
+}
