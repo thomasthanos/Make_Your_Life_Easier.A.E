@@ -1,6 +1,6 @@
 
 import { debug } from './utils.js';
-import { showErrorCard } from './components.js';
+import { showErrorCard } from './notifications.js';
 import { init } from './core.js';
 
 

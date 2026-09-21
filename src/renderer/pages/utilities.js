@@ -1,7 +1,10 @@
+import { createNotifier } from '../notifications.js';
+const toast = createNotifier('christitus');
+import { taskApi } from '../operations.js';
 import { uiText } from '../ui-text.js';
 
 import { escapeHtml } from '../utils.js';
-import { toast, closeOtherTerminals, openTerminal } from '../components.js';
+import { createStreamTerminal, closeOtherTerminals, openTerminal } from '../terminal.js';
 
 
 const svgDataUrl = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
@@ -30,11 +33,9 @@ export function buildChrisTitusPage(translations, _settings) {
     </svg>`;
     icon.src = svgDataUrl(terminalSVG);
 
-    const titleText = (translations.menu && translations.menu.christitus) || 'Windows Utility';
     const subtitleText = (translations.christitus_page && translations.christitus_page.subtitle_full) || 'COMPREHENSIVE TOOLBOX FOR WINDOWS OPTIMIZATION';
     const titleWrapper = el('div');
     titleWrapper.innerHTML = `
-    <h2 class="tool-card-title">${escapeHtml(titleText)}</h2>
     <p class="tool-card-sub">${escapeHtml(subtitleText)}</p>
   `;
     header.appendChild(icon);
@@ -57,88 +58,28 @@ export function buildChrisTitusPage(translations, _settings) {
     card.appendChild(el('ul', 'tool-card-bullets', bulletHtml));
 
     const actions = el('div', 'tool-card-actions');
-    const launchBtn = el('button', 'tool-card-launch', `<span class="tool-card-iconmono">›_</span>Launch Tool`);
+    const launchBtn = el('button', 'tool-card-launch', `<span class="tool-card-iconmono">›_</span>${escapeHtml(uiText('launch_tool', 'Launch tool'))}`);
     const ghBtn = el('button', 'tool-card-outline', `<span class="tool-card-iconmono">↗</span>GitHub`);
     actions.appendChild(launchBtn);
     actions.appendChild(ghBtn);
     card.appendChild(actions);
 
-    const status = el('div', 'tool-card-status');
-    card.appendChild(status);
-
     const setStatus = (msg, type = '') => {
-        status.className = 'tool-card-status';
-        status.textContent = '';
         if (msg) {
             const toastType = (type && type.toLowerCase().includes('error')) ? 'error' : 'success';
             toast(msg, { type: toastType });
         }
     };
 
-    const terminal = el('div', 'winget-terminal');
-    const termHeader = el('div', 'winget-terminal-header');
-    const dots = el('div', 'winget-terminal-dots');
-    for (let i = 0; i < 3; i++) dots.appendChild(document.createElement('span'));
-    const termTitle = el('span', 'winget-terminal-title', 'irm christitus.com/win | iex');
-    const stopBtn = el('button', 'winget-terminal-stop', uiText("stop", "Stop"));
-    stopBtn.type = 'button';
-    termHeader.appendChild(dots);
-    termHeader.appendChild(termTitle);
-    termHeader.appendChild(stopBtn);
-    const termBody = el('div', 'winget-terminal-body');
-    terminal.appendChild(termHeader);
-    terminal.appendChild(termBody);
+    const term = createStreamTerminal(uiText("stop", "Stop"));
+    term.title.textContent = 'irm christitus.com/win | iex';
+    const { terminal, stopBtn } = term;
+    const appendOutput = term.append;
+    const printLine = term.print;
     card.appendChild(terminal);
 
     let running = false;
     let cancelled = false;
-    let currentLine = null;
-    let replaceCurrent = false;
-    const MAX_LINES = 400;
-
-    const stripAnsiSequences = (text) => String(text)
-        .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
-        .replace(/\x1b\][^\x07]*\x07/g, '')
-        .replace(/\x08/g, '');
-
-    function newLine(className) {
-        currentLine = document.createElement('div');
-        currentLine.className = 'winget-terminal-line';
-        if (className) currentLine.classList.add(className);
-        termBody.appendChild(currentLine);
-        while (termBody.childElementCount > MAX_LINES) {
-            termBody.removeChild(termBody.firstElementChild);
-        }
-    }
-
-    function appendOutput(text, className) {
-        const clean = stripAnsiSequences(text).replace(/\r\n/g, '\n');
-        for (const chunk of clean.split(/(\n|\r)/)) {
-            if (chunk === '\n') {
-                currentLine = null;
-                replaceCurrent = false;
-            } else if (chunk === '\r') {
-                replaceCurrent = true;
-            } else if (chunk) {
-                if (!currentLine) newLine(className);
-                if (replaceCurrent) {
-                    currentLine.textContent = chunk;
-                    replaceCurrent = false;
-                } else {
-                    currentLine.textContent += chunk;
-                }
-            }
-        }
-        termBody.scrollTop = termBody.scrollHeight;
-    }
-
-    function printLine(text, className) {
-        currentLine = null;
-        newLine(className);
-        currentLine.textContent = text;
-        currentLine = null;
-        termBody.scrollTop = termBody.scrollHeight;
-    }
 
     launchBtn.addEventListener('click', async () => {
         if (running) return;
@@ -146,30 +87,28 @@ export function buildChrisTitusPage(translations, _settings) {
         cancelled = false;
         launchBtn.disabled = true;
 
-        termBody.innerHTML = '';
-        currentLine = null;
-        replaceCurrent = false;
+        term.reset();
         closeOtherTerminals(terminal);
         openTerminal(terminal);
         printLine('> irm christitus.com/win | iex', 'is-cmd');
 
-        const unsubscribe = window.api.onChrisTitusOutput(({ stream, text }) => {
+        const unsubscribe = taskApi.onChrisTitusOutput(({ stream, text }) => {
             appendOutput(text, stream === 'stderr' ? 'is-stderr' : undefined);
         });
 
         try {
-            const result = await window.api.runChrisTitus();
+            const result = await taskApi.runChrisTitus();
             if (result && result.success) {
                 printLine(uiText("utility_done_log", "✔ Utility finished."), 'is-ok');
                 setStatus(uiText("utility_done", "Windows Utility finished."), 'success');
             } else if (!result || !result.cancelled) {
                 printLine(`✖ ${result?.error || `Utility exited with code ${result?.code ?? '?'}.`}`, 'is-err');
-                setStatus('Failed to launch: ' + (result?.error || uiText("unknown_error", "Unknown error")), 'error');
+                setStatus(uiText('launch_failed', 'Could not launch the tool.') + ' ' + (result?.error || uiText("unknown_error", "Unknown error")), 'error');
             }
         } catch (e) {
             if (!cancelled) {
                 printLine(`✖ ${e.message}`, 'is-err');
-                setStatus('Failed to launch: ' + e.message, 'error');
+                setStatus(uiText('launch_failed', 'Could not launch the tool.') + ' ' + e.message, 'error');
             }
         } finally {
             unsubscribe();
@@ -184,7 +123,7 @@ export function buildChrisTitusPage(translations, _settings) {
         cancelled = true;
         stopBtn.disabled = true;
         try {
-            await window.api.cancelChrisTitus();
+            await taskApi.cancelChrisTitus();
             printLine(uiText("stopped", "■ Stopped."), 'is-warn');
         } finally {
             stopBtn.disabled = false;
@@ -193,7 +132,7 @@ export function buildChrisTitusPage(translations, _settings) {
 
     ghBtn.addEventListener('click', async () => {
         try {
-            if (window.api?.openExternal) await window.api.openExternal('https://github.com/ChrisTitusTech/winutil');
+            if (taskApi?.openExternal) await taskApi.openExternal('https://github.com/ChrisTitusTech/winutil');
             else window.open('https://github.com/ChrisTitusTech/winutil', '_blank');
         } catch {  }
     });

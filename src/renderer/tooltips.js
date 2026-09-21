@@ -1,3 +1,5 @@
+import { openPopover, closePopups } from './overlays.js';
+import { helpLink } from './overlays.js';
 import { uiText } from './ui-text.js';
 
 let tooltip;
@@ -101,10 +103,18 @@ export function initTooltips() {
     document.addEventListener('click', event => {
         const element = getTrigger(event.target);
         if (element?.hasAttribute('data-help-toggle')) {
-            if (pinned && element === target) hideTooltips();
+            const isOpen = element.getAttribute('aria-expanded') === 'true';
+            hideTooltips();
+            if (isOpen) closePopups();
             else {
-                showTooltip(element, true);
-                pinned = true;
+                const panel = document.createElement('div');
+                panel.className = 'help-popover';
+                panel.setAttribute('role', 'note');
+                panel.appendChild(document.createTextNode(element.getAttribute('data-tooltip')));
+                panel.appendChild(document.createElement('br'));
+                panel.appendChild(helpLink());
+                element.after(panel);
+                openPopover(element, panel, { onClose: () => panel.remove() });
             }
         } else if (!tooltip?.contains(event.target)) hideTooltips();
     });

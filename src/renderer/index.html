@@ -14,7 +14,7 @@
 
   <style>
     html, body {
-      background-color: #07080c !important;
+      background-color: #07080c;
       height: 100%;
       margin: 0;
       overflow: hidden;
@@ -23,13 +23,19 @@
 
   <link rel="preload" href="styles/main.css" as="style" />
   <link rel="modulepreload" href="index.js" />
-  <link rel="modulepreload" href="utils.js" />
-  <link rel="modulepreload" href="components.js" />
-  <link rel="modulepreload" href="managers.js" />
   <link rel="modulepreload" href="core.js" />
-  <link rel="modulepreload" href="services.js" />
+  <link rel="modulepreload" href="ui-text.js" />
+  <link rel="modulepreload" href="ui.js" />
+  <link rel="modulepreload" href="utils.js" />
+  <link rel="modulepreload" href="overlays.js" />
   <link rel="modulepreload" href="notifications.js" />
+  <link rel="modulepreload" href="operations.js" />
+  <link rel="modulepreload" href="tooltips.js" />
+  <link rel="modulepreload" href="downloads.js" />
+  <link rel="modulepreload" href="services.js" />
+  <link rel="modulepreload" href="pages/tools-hub.js" />
   <link rel="modulepreload" href="pages/installers.js" />
+  <link rel="modulepreload" href="winget-parse.js" />
   <link rel="preload" href="../config/favicon-config.js" as="script" />
   <link rel="preload" href="../config/titlebar-init.js" as="script" />
   <link rel="preload" href="../assets/icons/hacker.ico" as="image" type="image/x-icon" />
@@ -44,7 +50,6 @@
   <link rel="dns-prefetch" href="https://lh3.googleusercontent.com" />
 
   <link rel="stylesheet" href="styles/main.css" />
-  <link rel="stylesheet" href="styles/usability.css" />
   <link rel="icon" type="image/x-icon" href="../assets/icons/hacker.ico" />
 </head>
 
@@ -58,6 +63,7 @@
       <div class="title-bar-title">Make Your Life Easier</div>
     </div>
     <div class="title-bar-page" id="title-bar-page"></div>
+    <button id="activity-toggle" class="titlebar-activity" type="button">Activity</button>
     <div class="title-bar-menu">
       <button id="menu-toggle" class="menu-toggle" aria-label="Menu" data-tooltip="Menu"></button>
       <div id="titlebar-menu-dropdown" class="menu-dropdown hidden">

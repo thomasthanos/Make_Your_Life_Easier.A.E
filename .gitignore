@@ -20,7 +20,8 @@ oauth_config.json
 *.p12
 *.key
 
-/tests/
+
+/tools/tests/
 
 /.vscode
 

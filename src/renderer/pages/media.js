@@ -1,5 +1,9 @@
+import { createNotifier } from '../notifications.js';
+const toast = createNotifier('spicetify');
+import { uiText } from '../ui-text.js';
+import { taskApi } from '../operations.js';
 
-import { toast, closeOtherTerminals, openTerminal } from '../components.js';
+import { createStreamTerminal, closeOtherTerminals, openTerminal } from '../terminal.js';
 
 
 const ICON_INSTALL_SPICETIFY = `
@@ -68,32 +72,14 @@ export function buildSpicetifyPage(translations, settings) {
     const heroCopy = document.createElement('div');
     heroCopy.className = 'spotify-hero-copy';
 
-    const heroTitle = document.createElement('h2');
-    heroTitle.textContent = translations.pages?.spicetify_title || 'Customize Spotify';
-
     const heroDescription = document.createElement('p');
     heroDescription.textContent = translations.pages?.spicetify_desc || 'Install, restore, or fully remove Spotify customizations.';
 
-    heroCopy.appendChild(heroTitle);
     heroCopy.appendChild(heroDescription);
     heroMain.appendChild(heroIcon);
     heroMain.appendChild(heroCopy);
 
-    const heroMeta = document.createElement('div');
-    heroMeta.className = 'spotify-hero-meta';
-
-    const actionCount = document.createElement('span');
-    actionCount.className = 'spotify-action-count';
-    actionCount.textContent = `3 ${spotifyUi.actions_label || 'actions'}`;
-
-    const localBadge = document.createElement('span');
-    localBadge.className = 'spotify-local-badge';
-    localBadge.textContent = spotifyUi.local_setup || 'Local setup';
-
-    heroMeta.appendChild(actionCount);
-    heroMeta.appendChild(localBadge);
     hero.appendChild(heroMain);
-    hero.appendChild(heroMeta);
     container.appendChild(hero);
 
     const grid = document.createElement('div');
@@ -102,41 +88,16 @@ export function buildSpicetifyPage(translations, settings) {
     const outputPre = document.createElement('pre');
     outputPre.className = 'status-pre spotify-output';
 
-    const terminal = document.createElement('div');
-    terminal.className = 'winget-terminal spotify-terminal';
-
-    const termHeader = document.createElement('div');
-    termHeader.className = 'winget-terminal-header';
-
-    const dots = document.createElement('div');
-    dots.className = 'winget-terminal-dots';
-    for (let i = 0; i < 3; i++) dots.appendChild(document.createElement('span'));
-
-    const termTitle = document.createElement('span');
-    termTitle.className = 'winget-terminal-title';
-    termTitle.textContent = 'spicetify install';
-
-    const stopBtn = document.createElement('button');
-    stopBtn.type = 'button';
-    stopBtn.className = 'winget-terminal-stop';
-    stopBtn.textContent = translations.actions?.stop || 'Stop';
-
-    termHeader.appendChild(dots);
-    termHeader.appendChild(termTitle);
-    termHeader.appendChild(stopBtn);
-
-    const termBody = document.createElement('div');
-    termBody.className = 'winget-terminal-body';
-
-    terminal.appendChild(termHeader);
-    terminal.appendChild(termBody);
+    const term = createStreamTerminal(translations.actions?.stop || 'Stop');
+    term.terminal.classList.add('spotify-terminal');
+    term.title.textContent = 'spicetify install';
+    const { terminal, stopBtn, title: termTitle } = term;
+    const appendOutput = term.append;
+    const printLine = term.print;
 
     let installing = false;
     let streaming = false;
     let installCancelled = false;
-    let currentLine = null;
-    let replaceCurrent = false;
-    const MAX_LINES = 400;
 
     function setSpotifyCardState(button, state = 'ready') {
         const card = button.closest('.spotify-action-card');
@@ -156,52 +117,6 @@ export function buildSpicetifyPage(translations, settings) {
         }
     }
 
-    function stripAnsiSequences(text) {
-        return String(text)
-            .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
-            .replace(/\x1b\][^\x07]*\x07/g, '')
-            .replace(/\x08/g, '');
-    }
-
-    function newLine(className) {
-        currentLine = document.createElement('div');
-        currentLine.className = 'winget-terminal-line';
-        if (className) currentLine.classList.add(className);
-        termBody.appendChild(currentLine);
-        while (termBody.childElementCount > MAX_LINES) {
-            termBody.removeChild(termBody.firstElementChild);
-        }
-    }
-
-    function appendOutput(text, className) {
-        const clean = stripAnsiSequences(text).replace(/\r\n/g, '\n');
-        for (const chunk of clean.split(/(\n|\r)/)) {
-            if (chunk === '\n') {
-                currentLine = null;
-                replaceCurrent = false;
-            } else if (chunk === '\r') {
-                replaceCurrent = true;
-            } else if (chunk) {
-                if (!currentLine) newLine(className);
-                if (replaceCurrent) {
-                    currentLine.textContent = chunk;
-                    replaceCurrent = false;
-                } else {
-                    currentLine.textContent += chunk;
-                }
-            }
-        }
-        termBody.scrollTop = termBody.scrollHeight;
-    }
-
-    function printLine(text, className) {
-        currentLine = null;
-        newLine(className);
-        currentLine.textContent = text;
-        currentLine = null;
-        termBody.scrollTop = termBody.scrollHeight;
-    }
-
     async function runStreamingTask(button, cmdLabel, apiFn, successMsg, errorMsg) {
         if (installing) return;
         installing = true;
@@ -214,14 +129,12 @@ export function buildSpicetifyPage(translations, settings) {
         button.textContent = (translations.general?.run || 'Run') + '...';
 
         termTitle.textContent = cmdLabel;
-        termBody.innerHTML = '';
-        currentLine = null;
-        replaceCurrent = false;
+        term.reset();
         closeOtherTerminals(terminal);
         openTerminal(terminal);
         printLine(`> ${cmdLabel}`, 'is-cmd');
 
-        const unsubscribe = window.api.onSpicetifyInstallOutput(({ stream, text }) => {
+        const unsubscribe = taskApi.onSpicetifyInstallOutput(({ stream, text }) => {
             appendOutput(text, stream === 'stderr' ? 'is-stderr' : undefined);
         });
 
@@ -261,7 +174,7 @@ export function buildSpicetifyPage(translations, settings) {
         return runStreamingTask(
             button,
             'spicetify install',
-            () => window.api.installSpicetify(),
+            () => taskApi.installSpicetify(),
             translations.messages?.install_spicetify_success || 'Spicetify installed successfully!',
             translations.messages?.install_spicetify_error || 'Error installing Spicetify'
         );
@@ -271,7 +184,7 @@ export function buildSpicetifyPage(translations, settings) {
         return runStreamingTask(
             button,
             'spotify full uninstall',
-            () => window.api.fullUninstallSpotify(),
+            () => taskApi.fullUninstallSpotify(),
             translations.messages?.full_uninstall_spotify_success || 'Spotify fully uninstalled!',
             translations.messages?.full_uninstall_spotify_error || 'Error fully uninstalling Spotify'
         );
@@ -282,7 +195,7 @@ export function buildSpicetifyPage(translations, settings) {
         installCancelled = true;
         stopBtn.disabled = true;
         try {
-            await window.api.cancelSpicetifyInstall();
+            await taskApi.cancelSpicetifyInstall();
             printLine('■ Cancelled.', 'is-warn');
         } finally {
             stopBtn.disabled = false;
@@ -402,7 +315,7 @@ export function buildSpicetifyPage(translations, settings) {
         spotifyUi.uninstall_button || 'Uninstall',
         'warning',
         (btn) => runAction(
-            () => window.api.uninstallSpicetify(),
+            () => taskApi.uninstallSpicetify(),
             translations.messages?.uninstall_spicetify_success || 'Spicetify uninstalled successfully!',
             translations.messages?.uninstall_spicetify_error || 'Error uninstalling Spicetify',
             btn
@@ -420,6 +333,10 @@ export function buildSpicetifyPage(translations, settings) {
     fullUninstallCard.classList.add('spotify-action-full');
 
     grid.appendChild(installCard);
+    const removalTitle = document.createElement('h2');
+    removalTitle.className = 'spotify-removal-heading ui-section-head ui-section-title';
+    removalTitle.textContent = uiText('removal_options', 'Removal options');
+    grid.appendChild(removalTitle);
     grid.appendChild(uninstallCard);
     grid.appendChild(fullUninstallCard);
 

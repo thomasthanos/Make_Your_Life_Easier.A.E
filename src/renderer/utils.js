@@ -63,6 +63,21 @@ export function debounce(func, wait = 300) {
     return debounced;
 }
 
+export function formatBytes(bytes) {
+    const value = Number(bytes || 0);
+    if (value <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+    return `${(value / Math.pow(1024, index)).toFixed(index >= 2 ? 1 : 0)} ${units[index]}`;
+}
+
+export function stripAnsi(text) {
+    return String(text)
+        .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+        .replace(/\x1b\][^\x07]*\x07/g, '')
+        .replace(/\x08/g, '');
+}
+
 
 function getDirectoryName(filePath) {
     if (!filePath || typeof filePath !== 'string') {

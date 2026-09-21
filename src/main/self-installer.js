@@ -75,6 +75,7 @@ async function getInstallInfo() {
     } catch {  }
     return {
         appName: APP_DISPLAY_NAME,
+        lang: require('../modules/settings-store').get('lang') || (app.getLocale().startsWith('el') ? 'gr' : 'en'),
         version: app.getVersion(),
         defaultDir: defaultInstallDir(),
         sizeMB: size.sizeMB,

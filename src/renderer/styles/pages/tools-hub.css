@@ -1,0 +1,225 @@
+.tools-hub,
+.tool-workspace {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  container-type: inline-size;
+}
+
+.tools-hub .page-header {
+  margin-bottom: 16px;
+}
+
+.tools-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  align-items: stretch;
+  gap: 12px;
+}
+
+.hub-tool {
+  --tool-tone: #a7c9fc;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  color: inherit;
+  text-align: left;
+  background: var(--raised);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background var(--ease), border-color var(--ease), box-shadow var(--ease), transform var(--ease);
+  box-shadow: var(--elev-1);
+}
+
+.hub-tool[data-tool="bios"] { --tool-tone: #e2c58c; }
+.hub-tool[data-tool="debloat"] { --tool-tone: #9bd3b9; }
+.hub-tool[data-tool="activate_autologin"] { --tool-tone: #c0b5ee; }
+
+.hub-tool:hover {
+  background: var(--raised-hover);
+  border-color: #465164;
+  box-shadow: var(--elev-2);
+  transform: var(--lift);
+}
+
+.hub-tool-icon {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  color: var(--tool-tone);
+  background: var(--btn-face);
+  border-radius: 9px;
+  box-shadow: var(--btn-elev);
+}
+
+.hub-tool-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hub-tool-title {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.hub-tool-desc {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.hub-tool-points {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 10px;
+}
+
+.hub-tool-point {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.hub-tool-point-mark {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  color: var(--tool-tone);
+}
+
+.hub-tool-note {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-default);
+  color: #d9b36a;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.hub-tool-arrow {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin-top: 9px;
+  color: var(--text-muted);
+}
+
+.hub-tool:hover .hub-tool-arrow {
+  color: var(--text-primary);
+}
+
+.hub-tool-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.hub-tool-status:empty {
+  display: none;
+}
+
+.hub-tool-status .ui-symbol {
+  width: 13px;
+  height: 13px;
+}
+
+.hub-tool-status.is-error { color: #e5a6a6; }
+.hub-tool-status.is-running { color: var(--tool-tone); }
+
+.tools-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.tool-tab {
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+
+.tool-tab.active {
+  color: var(--text-primary);
+  background: #254261;
+  border-color: #436386;
+  box-shadow: var(--btn-elev);
+}
+
+.tool-workspace-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  align-items: start;
+  gap: 16px;
+}
+
+.tool-workspace-layout > * {
+  min-width: 0;
+}
+
+.tool-guide {
+  padding: 16px;
+  background: var(--raised);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  box-shadow: var(--elev-1);
+}
+
+.tool-guide h2 {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.tool-guide h3 {
+  font-size: 13px;
+}
+
+.tool-guide .help-content {
+  font-size: 13px;
+}
+
+.tool-guide .help-content h3 {
+  margin-top: 16px;
+  font-size: 13px;
+}
+
+.tool-guide .help-content p {
+  margin-top: 8px;
+}
+
+.tool-last-result {
+  color: var(--text-secondary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+@container (max-width: 860px) {
+  .tool-workspace-layout {
+    grid-template-columns: 1fr;
+  }
+}

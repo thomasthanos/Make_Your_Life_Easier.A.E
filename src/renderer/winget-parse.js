@@ -5,7 +5,7 @@ const KNOWN_SOURCES = new Set(['winget', 'msstore', 'winget-font']);
 
 const isSeparator = (line) => SEPARATOR_LINE.test(line) && line.trim().length > 5;
 
-export function toWingetLines(rawOutput) {
+function toWingetLines(rawOutput) {
     return String(rawOutput)
         .replace(ANSI_COLOURS, '')
         .split('\r\n')
@@ -35,7 +35,7 @@ function cell(line, start, end) {
 
 const looksLikeRow = (line, starts) => starts.length > 1 && line.length > starts[1] && line[starts[1]] !== ' ';
 
-export function parseWingetTables(rawOutput) {
+function parseWingetTables(rawOutput) {
     const lines = toWingetLines(rawOutput);
     const tables = [];
 

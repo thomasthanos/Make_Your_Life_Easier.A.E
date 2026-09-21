@@ -51,7 +51,7 @@ module.exports = [
   },
 
   {
-    files: ['src/renderer/**/*.js'],
+    files: ['src/renderer/**/*.js', 'src/i18n/*.js', 'src/installer-ui/installer.js', 'src/updater/updateRenderer.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

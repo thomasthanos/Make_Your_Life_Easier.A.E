@@ -1,7 +1,12 @@
+import { createNotifier } from '../notifications.js';
+const toast = createNotifier('game_saves');
+import { uiText } from '../ui-text.js';
+import { bindMenu, closePopups } from '../overlays.js';
+import { taskApi } from '../operations.js';
 
-import { debug } from '../utils.js';
-import { toast } from '../components.js';
-import { attachTooltipHandlers } from '../managers.js';
+import { debug, formatBytes } from '../utils.js';
+import { element as el } from '../ui.js';
+import { attachTooltipHandlers } from '../tooltips.js';
 
 const svg = (body) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 
@@ -9,7 +14,7 @@ const ICONS = {
     gamepad: svg('<line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>'),
     folder: svg('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>'),
     archive: svg('<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>'),
-    scan: svg('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>'),
+    scan: svg('<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v6h-6"/>'),
     upload: svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>'),
     restore: svg('<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>'),
     close: svg('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'),
@@ -74,7 +79,9 @@ const state = {
     query: '',
     expanded: new Set(),
     files: new Map(),
-    filesScan: null
+    filesScan: null,
+    settingsOpen: false,
+    scheduleDraft: null
 };
 
 let T = {};
@@ -93,14 +100,6 @@ const pageTitle = () => tr('title', 'Game Saves');
 const ERROR_KEYS = { 'cloud-unavailable': 'error_cloud_unavailable', 'in-use': 'error_in_use' };
 const errorText = (item) => (item.code && ERROR_KEYS[item.code] ? tr(ERROR_KEYS[item.code], item.error) : item.error);
 
-function formatBytes(bytes) {
-    const value = Number(bytes || 0);
-    if (value <= 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
-    return `${(value / Math.pow(1024, index)).toFixed(index >= 2 ? 1 : 0)} ${units[index]}`;
-}
-
 function formatDate(value) {
     if (!value) return '';
     const date = new Date(value);
@@ -110,13 +109,6 @@ function formatDate(value) {
     } catch {
         return date.toLocaleString();
     }
-}
-
-function el(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    if (text !== undefined && text !== null) node.textContent = text;
-    return node;
 }
 
 function textButton(className, label, icon) {
@@ -178,6 +170,7 @@ function switchToggle(checked, disabled, label) {
 }
 
 function closeDropdown(node) {
+    if (node.querySelector('.sort-dropdown-trigger')?.getAttribute('aria-expanded') === 'true') closePopups();
     node.classList.remove('open');
     const trigger = node.querySelector('.sort-dropdown-trigger');
     if (trigger) trigger.setAttribute('aria-expanded', 'false');
@@ -239,15 +232,7 @@ function dropdown(options, { label, onChange, className = '' } = {}) {
         }
     };
 
-    trigger.addEventListener('click', () => {
-        const opening = !root.classList.contains('open');
-        document.querySelectorAll('.gs-dropdown.open').forEach((node) => closeDropdown(node));
-        if (!opening) return;
-        root.classList.add('open');
-        trigger.setAttribute('aria-expanded', 'true');
-        const active = menu.querySelector('.active');
-        if (active) menu.scrollTop = active.offsetTop - menu.clientHeight / 2;
-    });
+    bindMenu(trigger, menu);
 
     api.setOptions(options);
     return api;
@@ -384,7 +369,7 @@ function applyState(next) {
 
 async function refreshState() {
     try {
-        const result = await window.api.gameSavesState();
+        const result = await taskApi.gameSavesState();
         if (result && result.success) applyState(result.state);
     } catch (err) {
         debug('warn', 'Game saves state failed:', err);
@@ -393,9 +378,9 @@ async function refreshState() {
 }
 
 function ensureProgressListener() {
-    if (progressListening || !window.api || typeof window.api.onGameSavesProgress !== 'function') return;
+    if (progressListening || !taskApi || typeof taskApi.onGameSavesProgress !== 'function') return;
     progressListening = true;
-    window.api.onGameSavesProgress((progress) => {
+    taskApi.onGameSavesProgress((progress) => {
         if (!progress) return;
         if (progress.phase === 'done') {
             state.progress = null;
@@ -437,7 +422,7 @@ async function runTask(name, action, { progress = true } = {}) {
 }
 
 function scan(refreshManifest = false) {
-    return runTask('scan', () => window.api.gameSavesScan({ refreshManifest }));
+    return runTask('scan', () => taskApi.gameSavesScan({ refreshManifest }));
 }
 
 async function rescanIfNeeded(result) {
@@ -497,7 +482,7 @@ function reportRun(result) {
 
 async function openFolder(target, id) {
     try {
-        const result = await window.api.gameSavesOpen(target, id);
+        const result = await taskApi.gameSavesOpen(target, id);
         if (result && !result.success && result.error) toast(result.error, { type: 'error', title: pageTitle() });
     } catch (err) {
         toast((err && err.message) || String(err), { type: 'error', title: pageTitle() });
@@ -517,7 +502,6 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     heroIcon.innerHTML = ICONS.gamepad;
     const heroCopy = el('div', 'gs-hero-copy');
     heroCopy.append(
-        el('h2', null, pageTitle()),
         el('p', null, tr('subtitle', 'Find the saves of every game on this PC, back them up and bring them back.'))
     );
     heroMain.append(heroIcon, heroCopy);
@@ -668,9 +652,36 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         document.createTextNode(' (CC BY-NC-SA)')
     );
 
-    container.append(hero, settingsGrid, toolbar, progressBox, listHeader, list, suggestionsSection, attribution);
+    const settingsSummary = el('section', 'gs-summary');
+    const settingsCopy = el('div', 'gs-summary-copy');
+    const folderSummary = el('p');
+    const scheduleSummary = el('p');
+    settingsCopy.append(folderSummary, scheduleSummary);
+    const settingsToggle = textButton('button-secondary gs-settings-toggle', uiText('backup_settings', 'Backup settings'));
+    settingsGrid.id = 'backup-settings';
+    settingsToggle.setAttribute('aria-controls', settingsGrid.id);
+    let settingsOpen = state.settingsOpen;
+    function syncSettingsVisibility() {
+        const needsSetup = Boolean(state.data && !state.data.config.backupRoot);
+        settingsGrid.hidden = !settingsOpen && !needsSetup;
+        settingsToggle.setAttribute('aria-expanded', String(!settingsGrid.hidden));
+        folderSummary.textContent = state.data?.config.backupRoot || uiText('backup_setup', 'Choose a backup folder to get started.');
+        scheduleSummary.textContent = scheduleStatus.textContent;
+    }
+    settingsToggle.addEventListener('click', () => {
+        settingsOpen = !settingsOpen;
+        syncSettingsVisibility();
+    });
+    settingsSummary.append(settingsCopy, settingsToggle);
+    container.append(hero, settingsSummary, settingsGrid, toolbar, progressBox, listHeader, list, suggestionsSection, attribution);
 
-    let scheduleDirty = false;
+    let scheduleDirty = Boolean(state.scheduleDraft);
+    if (state.scheduleDraft) {
+        modeDropdown.setValue(state.scheduleDraft.mode);
+        timeDropdown.setOptions(timeOptions(state.scheduleDraft.time));
+        timeDropdown.setValue(state.scheduleDraft.time);
+        dayDropdown.setValue(state.scheduleDraft.day);
+    }
 
     function visibleGames() {
         const view = state.view;
@@ -751,7 +762,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
             setTooltip(chip, folder.path);
             chip.disabled = locked;
             chip.addEventListener('click', async () => {
-                const result = await runTask('folder', () => window.api.gameSavesUseCloud(folder.id), { progress: false });
+                const result = await runTask('folder', () => taskApi.gameSavesUseCloud(folder.id), { progress: false });
                 await rescanIfNeeded(result);
             });
             cloudRow.appendChild(chip);
@@ -780,7 +791,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
             const use = textButton('button gs-btn gs-btn--small', tr('use_found_backup', 'Use this backup'), 'restore');
             use.disabled = locked;
             use.addEventListener('click', async () => {
-                const result = await runTask('folder', () => window.api.gameSavesUseBackup(item.path), { progress: false });
+                const result = await runTask('folder', () => taskApi.gameSavesUseBackup(item.path), { progress: false });
                 if (result && result.success) switchView('backup');
                 await rescanIfNeeded(result);
             });
@@ -841,7 +852,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
             const remove = iconButton('close', tr('remove', 'Remove'));
             remove.disabled = locked;
             remove.addEventListener('click', async () => {
-                const result = await runTask('roots', () => window.api.gameSavesRemoveRoot(root), { progress: false });
+                const result = await runTask('roots', () => taskApi.gameSavesRemoveRoot(root), { progress: false });
                 await rescanIfNeeded(result);
             });
             item.append(label, remove);
@@ -925,7 +936,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
                 : tr('auto_exclude_group', 'Leave out of automatic backup'), 'clock');
             toggle.disabled = locked;
             toggle.addEventListener('click', () => {
-                runTask('exclude', () => window.api.gameSavesSetExcluded(group.items.map((game) => game.id), !allExcluded), { progress: false });
+                runTask('exclude', () => taskApi.gameSavesSetExcluded(group.items.map((game) => game.id), !allExcluded), { progress: false });
             });
             actions.appendChild(toggle);
         } else if (group.key === 'missing') {
@@ -953,7 +964,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     }
 
     async function restoreGames(ids) {
-        const result = await runTask('restore', () => window.api.gameSavesRestore(ids), { progress: false });
+        const result = await runTask('restore', () => taskApi.gameSavesRestore(ids), { progress: false });
         reportRestore(result);
         if (result && result.success && result.rescan) await scan();
     }
@@ -962,7 +973,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         const scannedAt = state.filesScan;
         let result;
         try {
-            result = await window.api.gameSavesFiles(game.id, view);
+            result = await taskApi.gameSavesFiles(game.id, view);
         } catch (err) {
             result = { success: false, error: (err && err.message) || String(err) };
         }
@@ -1139,7 +1150,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
             const auto = switchToggle(!game.excluded, locked, tr('auto_toggle', 'Auto'));
             setTooltip(auto.wrap, tr('auto_toggle_hint', 'Include in automatic backups'));
             auto.input.addEventListener('change', () => {
-                runTask('exclude', () => window.api.gameSavesSetExcluded(game.id, !auto.input.checked), { progress: false });
+                runTask('exclude', () => taskApi.gameSavesSetExcluded(game.id, !auto.input.checked), { progress: false });
             });
             actions.appendChild(auto.wrap);
         } else {
@@ -1235,8 +1246,8 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
 
         const head = el('div', 'gs-section-head');
         head.append(
-            el('h3', null, tr('suggestions_title', 'Possible saves')),
-            el('p', 'gs-note', tr('suggestions_desc', 'These folders look like game saves but are not in the database. Add the ones you want backed up.'))
+            el('h3', 'ui-section-head ui-section-title', tr('suggestions_title', 'Possible saves')),
+            el('p', 'ui-section-desc', tr('suggestions_desc', 'These folders look like game saves but are not in the database. Add the ones you want backed up.'))
         );
         suggestionsSection.appendChild(head);
 
@@ -1257,7 +1268,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
             add.disabled = locked;
             ignore.disabled = locked;
             const resolve = async (action) => {
-                const result = await runTask('suggestion', () => window.api.gameSavesSuggestion(item.id, action), { progress: false });
+                const result = await runTask('suggestion', () => taskApi.gameSavesSuggestion(item.id, action), { progress: false });
                 if (result && result.success && action === 'confirm') {
                     toast(tr('suggestion_added', 'Added. Scanning again to include it…'), { type: 'success', title: pageTitle() });
                 }
@@ -1277,6 +1288,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         renderHero();
         renderFolder();
         renderSchedule();
+        syncSettingsVisibility();
         renderRoots();
         renderToolbar();
         renderList();
@@ -1284,7 +1296,7 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     }
 
     chooseBtn.addEventListener('click', async () => {
-        const result = await runTask('folder', () => window.api.gameSavesPickFolder(), { progress: false });
+        const result = await runTask('folder', () => taskApi.gameSavesPickFolder(), { progress: false });
         await rescanIfNeeded(result);
     });
     openRootBtn.addEventListener('click', () => openFolder('backup-root'));
@@ -1301,13 +1313,14 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     document.addEventListener('keydown', onDocumentKeydown);
     saveScheduleBtn.addEventListener('click', async () => {
         const mode = modeDropdown.value;
-        const result = await runTask('schedule', () => window.api.gameSavesSetSchedule({
+        const result = await runTask('schedule', () => taskApi.gameSavesSetSchedule({
             mode,
             time: timeDropdown.value,
             day: dayDropdown.value
         }), { progress: false });
         if (result && result.success) {
             scheduleDirty = false;
+            state.scheduleDraft = null;
             toast(mode === 'off' ? tr('schedule_disabled', 'Automatic backup turned off.') : tr('schedule_saved', 'Automatic backup saved.'), {
                 type: 'success',
                 title: pageTitle()
@@ -1316,11 +1329,11 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
         }
     });
     runNowBtn.addEventListener('click', async () => {
-        reportRun(await runTask('scheduled', () => window.api.gameSavesRunNow()));
+        reportRun(await runTask('scheduled', () => taskApi.gameSavesRunNow()));
     });
 
     addRootBtn.addEventListener('click', async () => {
-        const result = await runTask('roots', () => window.api.gameSavesAddRoot(), { progress: false });
+        const result = await runTask('roots', () => taskApi.gameSavesAddRoot(), { progress: false });
         await rescanIfNeeded(result);
     });
 
@@ -1346,20 +1359,22 @@ export async function buildGameSavesPage(translations = {}, settings = {}) {
     });
     backupBtn.addEventListener('click', async () => {
         const ids = selectedGames('pc').map((game) => game.id);
-        reportBackup(await runTask('backup', () => window.api.gameSavesBackup(ids)));
+        reportBackup(await runTask('backup', () => taskApi.gameSavesBackup(ids)));
     });
     restoreBtn.addEventListener('click', () => {
         restoreGames(selectedGames('backup').map((game) => game.id));
     });
     cancelBtn.addEventListener('click', () => {
         cancelBtn.disabled = true;
-        window.api.gameSavesCancel().catch(() => {});
+        taskApi.gameSavesCancel().catch(() => {});
     });
-    manifestLink.addEventListener('click', () => window.api.openExternal(MANIFEST_URL));
-    wikiLink.addEventListener('click', () => window.api.openExternal(PCGAMINGWIKI_URL));
+    manifestLink.addEventListener('click', () => taskApi.openExternal(MANIFEST_URL));
+    wikiLink.addEventListener('click', () => taskApi.openExternal(PCGAMINGWIKI_URL));
 
     activeRender = renderPage;
     container._pageCleanup = [() => {
+        state.settingsOpen = settingsOpen;
+        state.scheduleDraft = scheduleDirty ? { mode: modeDropdown.value, time: timeDropdown.value, day: dayDropdown.value } : null;
         if (activeRender === renderPage) activeRender = null;
         document.removeEventListener('click', onDocumentClick);
         document.removeEventListener('keydown', onDocumentKeydown);

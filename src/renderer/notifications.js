@@ -1,240 +1,222 @@
 import { uiText } from './ui-text.js';
-const MAX_TOASTS = 3;
-const SVG_NS = 'http://www.w3.org/2000/svg';
+import { button, element, emptyState, icon, progress } from './ui.js';
+import { openPopover } from './overlays.js';
 
-const TYPE_CONFIG = {
-    success: {
-        icon: 'm4.5 12.75 6 6 9-13.5'
-    },
-    info: {
-        icon: 'M11.25 11.25l.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z'
-    },
-    warning: {
-        icon: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z'
+let sequence = 0;
+const entries = [];
+const listeners = new Set();
+const publish = () => listeners.forEach(listener => {
+    try { listener(); } catch (error) { console.error('Activity view:', error); }
+});
+export function activities() { return entries.map(entry => ({ ...entry })); }
+export function subscribeActivity(listener) {
+    listeners.add(listener);
+    listener();
+    return () => listeners.delete(listener);
+}
+export function recordActivity(data) {
+    const entry = { id: `activity-${++sequence}`, time: Date.now(), count: 1, status: 'complete', type: 'info', ...data };
+    if (entry.status === 'running') entry.operationId ||= entry.id;
+    const duplicate = entry.status !== 'running' && entries.find(item =>
+        item.status !== 'running' && item.source === entry.source && item.operationId === entry.operationId &&
+        item.message === entry.message && item.type === entry.type && item.title === entry.title && Date.now() - item.time < 10000);
+    if (duplicate) {
+        duplicate.count++;
+        duplicate.time = Date.now();
+        publish();
+        return duplicate;
     }
-};
+    entries.unshift(entry);
+    trim();
+    publish();
+    return entry;
+}
+function trim() {
+    let completed = 0;
+    for (let i = 0; i < entries.length; i++) {
+        if (entries[i].status !== 'running' && ++completed > 100) entries.splice(i--, 1);
+    }
+}
+export function updateActivity(id, patch) {
+    const entry = entries.find(item => item.id === id);
+    if (!entry) return;
+    Object.assign(entry, patch);
+    trim();
+    publish();
+}
+export function clearActivity() {
+    for (let i = entries.length - 1; i >= 0; i--) if (entries[i].status !== 'running') entries.splice(i, 1);
+    publish();
+}
 
-let currentErrorCard = null;
-let errorPaletteIndex = 0;
-const errorBulletColours = ['#8a8e99', '#0a84ff', '#aeb4be', '#ffd60a', '#30d158'];
-
-function ensureNotificationCenter() {
+const pending = [];
+const visible = new Map();
+let currentSource = 'app';
+export function setNotificationSource(source) { currentSource = source; }
+export function createNotifier(source) {
+    return (message, options = {}) => toast(message, { ...options, source });
+}
+function dismissToast(node) {
+    if (!node) return;
+    node._stopTimer?.();
+    visible.delete(node.dataset.activityId);
+    node.remove();
+    flush();
+}
+function copyDetails(entry, feedback) {
+    navigator.clipboard.writeText([entry.title, entry.message, entry.details].filter(Boolean).join('\n'))
+        .then(() => { feedback.textContent = uiText('copied', 'Copied'); })
+        .catch(() => { feedback.textContent = uiText('copy_failed', 'Failed to copy'); });
+}
+function details(entry) {
+    const node = element('details', 'activity-details');
+    node.append(element('summary', '', uiText('details', 'Technical details')));
+    node.append(element('pre', '', entry.details || entry.message));
+    const copy = button(uiText('copy_details', 'Copy details'), () => copyDetails(entry, copy));
+    node.append(copy);
+    return node;
+}
+export function openActivityPanel() {
+    const anchor = document.getElementById('activity-toggle');
+    if (!anchor) return;
+    pending.length = 0;
+    [...visible.values()].forEach(dismissToast);
+    const panel = element('section', 'activity-panel');
+    panel.setAttribute('aria-label', uiText('activity', 'Activity'));
+    const header = element('header', 'activity-panel-header');
+    const heading = element('div', 'activity-heading');
+    const headingCopy = element('div');
+    headingCopy.append(element('h2', '', uiText('activity', 'Activity')), element('p', '', uiText('activity_session', 'Your current session')));
+    heading.append(icon('activity'), headingCopy);
+    let close = () => {};
+    const dismiss = button('', () => close(), 'ui-icon-button');
+    dismiss.append(icon('close'));
+    dismiss.setAttribute('aria-label', uiText('close', 'Close'));
+    header.append(heading, dismiss);
+    const filters = element('div', 'activity-filters');
+    const list = element('div', 'activity-list');
+    const cards = new Map();
+    let filter = 'all';
+    const allButton = button(uiText('activity_all', 'Recent'), () => { filter = 'all'; render(); }, 'activity-filter');
+    const runningButton = button('', () => { filter = 'running'; render(); }, 'activity-filter');
+    filters.append(allButton, runningButton);
+    const footer = element('footer', 'activity-panel-footer');
+    const count = element('span');
+    const clear = button(uiText('clear_history', 'Clear history'), clearActivity, 'ui-text-button');
+    footer.append(count, clear);
+    panel.append(header, filters, list, footer);
+    function render() {
+        const all = activities();
+        const active = all.filter(entry => entry.status === 'running').length;
+        runningButton.textContent = uiText('activity_running', 'Running') + (active ? ' · ' + active : '');
+        allButton.setAttribute('aria-pressed', String(filter === 'all'));
+        runningButton.setAttribute('aria-pressed', String(filter === 'running'));
+        clear.disabled = !all.some(entry => entry.status !== 'running');
+        count.textContent = uiText('activity_completed', '{count} completed', { count: all.length - active });
+        const shown = all.filter(entry => filter === 'all' || entry.status === 'running').sort((a, b) => Number(b.status === 'running') - Number(a.status === 'running'));
+        const ids = new Set(shown.map(entry => entry.id));
+        for (const [id, card] of cards) if (!ids.has(id)) { card.remove(); cards.delete(id); }
+        list.querySelector('.ui-empty')?.remove();
+        if (!shown.length) {
+            const empty = emptyState('');
+            empty.append(icon('check'), element('h3', '', uiText(filter === 'running' ? 'activity_idle' : 'activity_empty_title', 'Nothing running')),
+                element('p', '', uiText('activity_empty', 'Installations and task results appear here.')));
+            list.replaceChildren(empty);
+        }
+        for (const entry of shown) {
+            const previous = cards.get(entry.id);
+            const signature = JSON.stringify([entry.title, entry.time, entry.count, entry.type, entry.message, entry.status, entry.phase, entry.percent, entry.details, entry.actionLabel, !!entry.action]);
+            if (previous?.dataset.signature === signature) continue;
+            const wasOpen = previous?.querySelector('details')?.open;
+            const focused = previous?.contains(document.activeElement) ? document.activeElement.tagName : null;
+            const card = element('article', 'activity-entry is-' + entry.type + (entry.status === 'running' ? ' is-running' : ''));
+            card.dataset.signature = signature;
+            cards.set(entry.id, card);
+            const mark = icon(entry.status === 'running' ? 'activity' : entry.type === 'error' || entry.type === 'warning' ? 'error' : entry.status === 'cancelled' ? 'clock' : 'check', 'activity-mark');
+            const copy = element('div', 'activity-entry-copy');
+            const top = element('div', 'activity-entry-top');
+            top.append(element('h3', '', (entry.title || uiText('activity', 'Activity')) + (entry.count > 1 ? ' ×' + entry.count : '')),
+                element('time', '', new Date(entry.time).toLocaleTimeString(document.documentElement.lang, { hour: '2-digit', minute: '2-digit' })));
+            copy.append(top);
+            if (entry.status === 'running') copy.append(progress(entry.phase || entry.message || uiText('working', 'Working…'), entry.percent));
+            else copy.append(element('p', '', entry.type === 'error' ? uiText('error_summary', 'The action could not be completed. Review the details before trying again.') : entry.message));
+            if (entry.type === 'error' || entry.details) {
+                const extra = details(entry); extra.open = !!wasOpen; copy.append(extra);
+            }
+            if (typeof entry.action === 'function') copy.append(button(entry.actionLabel || uiText('retry', 'Retry'), entry.action, 'ui-text-button'));
+            card.append(mark, copy);
+            if (previous) previous.replaceWith(card);
+            else list.insertBefore(card, list.children[shown.indexOf(entry)] || null);
+            if (focused) card.querySelector(focused.toLowerCase())?.focus({ preventScroll: true });
+        }
+    }
+    const stop = subscribeActivity(render);
+    document.body.append(panel);
+    close = openPopover(anchor, panel, { keyboard: 'panel', onClose: () => { stop(); panel.remove(); } });
+}
+function flush() {
+    while (visible.size < 2 && pending.length) show(pending.shift());
+}
+function show(entry) {
     let center = document.getElementById('notification-center');
     if (!center) {
-        center = document.createElement('div');
+        center = element('div');
         center.id = 'notification-center';
-
-        const stack = document.createElement('div');
-        stack.id = 'toast-stack';
-        stack.setAttribute('aria-live', 'polite');
-
-        const errors = document.createElement('div');
-        errors.id = 'error-container';
-        errors.setAttribute('aria-live', 'assertive');
-
-        center.appendChild(stack);
-        center.appendChild(errors);
-        document.body.appendChild(center);
+        center.setAttribute('aria-label', uiText('notifications', 'Notifications'));
+        document.body.append(center);
     }
-    return {
-        toasts: center.querySelector('#toast-stack'),
-        errors: center.querySelector('#error-container')
+    const node = element('div', `ui-toast is-${entry.type}`);
+    node.dataset.activityId = entry.id;
+    node.setAttribute('role', entry.type === 'error' ? 'alert' : 'status');
+    const copy = element('div', 'ui-toast-copy');
+    copy.append(element('strong', '', entry.title || uiText(entry.type, 'Information')));
+    copy.append(element('p', '', entry.type === 'error' ? uiText('error_summary', 'The action could not be completed. Review the details before trying again.') : entry.message));
+    if (entry.type === 'error' || entry.details) copy.append(button(uiText('view_activity', 'View details'), openActivityPanel, 'ui-text-button'));
+    copy.append(element('span', 'ui-toast-count', entry.count > 1 ? `×${entry.count}` : ''));
+    const close = button('×', () => dismissToast(node), 'ui-icon-button');
+    close.setAttribute('aria-label', uiText('dismiss', 'Dismiss notification'));
+    node.append(icon(entry.type === 'error' || entry.type === 'warning' ? 'error' : 'check', 'toast-mark'), copy, close);
+    visible.set(entry.id, node);
+    center.append(node);
+    let timer, start, remaining = entry.type === 'error' ? 0 : entry.type === 'warning' ? 8000 : 5000;
+    const resume = () => {
+        if (!remaining || node.matches(':hover') || node.contains(document.activeElement)) return;
+        clearTimeout(timer);
+        start = performance.now();
+        timer = setTimeout(() => dismissToast(node), remaining);
     };
-}
-
-function createIcon(pathD, opts = {}) {
-    const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('fill', 'none');
-    svg.setAttribute('stroke', 'currentColor');
-    svg.setAttribute('stroke-width', opts.strokeWidth || '1.5');
-    svg.setAttribute('aria-hidden', 'true');
-    svg.setAttribute('focusable', 'false');
-    if (opts.className) svg.setAttribute('class', opts.className);
-    for (const d of Array.isArray(pathD) ? pathD : [pathD]) {
-        const path = document.createElementNS(SVG_NS, 'path');
-        path.setAttribute('stroke-linecap', 'round');
-        path.setAttribute('stroke-linejoin', 'round');
-        path.setAttribute('d', d);
-        svg.appendChild(path);
-    }
-    return svg;
-}
-
-export function dismissToast(toastEl) {
-    if (!toastEl || toastEl.classList.contains('toast-exit')) return;
-    if (toastEl._dismissTimer) {
-        clearTimeout(toastEl._dismissTimer);
-        toastEl._dismissTimer = null;
-    }
-    toastEl.classList.add('toast-exit');
-    const remove = () => toastEl.remove();
-    toastEl.addEventListener('animationend', remove, { once: true });
-    setTimeout(remove, 400);
-}
-
-export function toast(msg, opts = {}) {
-    const { title = '', type = 'info', duration = 4000 } = opts;
-
-    if (type === 'error') {
-        showErrorCard(msg, { title: title || uiText('error', 'Error') });
-        return null;
-    }
-
-    const config = TYPE_CONFIG[type] || TYPE_CONFIG.info;
-    const { toasts } = ensureNotificationCenter();
-
-    const toastEl = document.createElement('div');
-    toastEl.className = `toast toast-${TYPE_CONFIG[type] ? type : 'info'}`;
-    toastEl.setAttribute('role', 'status');
-
-    const iconWrapper = document.createElement('div');
-    iconWrapper.className = 'toast-icon-wrapper';
-    iconWrapper.appendChild(createIcon(config.icon, { className: 'toast-svg-icon' }));
-
-    const content = document.createElement('div');
-    content.className = 'toast-content';
-    if (title) {
-        const titleEl = document.createElement('div');
-        titleEl.className = 'toast-title';
-        titleEl.textContent = title;
-        content.appendChild(titleEl);
-    }
-    const messageEl = document.createElement('div');
-    messageEl.className = 'toast-message';
-    messageEl.textContent = msg;
-    content.appendChild(messageEl);
-
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'toast-close';
-    closeBtn.setAttribute('aria-label', uiText('dismiss', 'Dismiss notification'));
-    closeBtn.textContent = '×';
-    closeBtn.onclick = () => dismissToast(toastEl);
-
-    toastEl.appendChild(iconWrapper);
-    toastEl.appendChild(content);
-    toastEl.appendChild(closeBtn);
-
-    if (duration > 0) {
-        const progress = document.createElement('div');
-        progress.className = 'toast-progress';
-        progress.style.animationDuration = `${duration}ms`;
-        progress.addEventListener('animationend', () => dismissToast(toastEl), { once: true });
-        toastEl.appendChild(progress);
-        toastEl._dismissTimer = setTimeout(() => dismissToast(toastEl), duration + 150);
-    }
-
-    toasts.appendChild(toastEl);
-
-    const active = toasts.querySelectorAll('.toast:not(.toast-exit)');
-    for (let i = 0; i < active.length - MAX_TOASTS; i++) {
-        dismissToast(active[i]);
-    }
-
-    return toastEl;
-}
-
-function appendErrorLine(bodyEl, msg) {
-    const colour = errorBulletColours[errorPaletteIndex % errorBulletColours.length];
-    errorPaletteIndex++;
-
-    const line = document.createElement('div');
-    line.className = 'error-line';
-
-    const dash = document.createElement('span');
-    dash.textContent = '- ';
-    dash.style.color = colour;
-
-    const msgSpan = document.createElement('span');
-    msgSpan.className = 'error-msg';
-    msgSpan.textContent = msg;
-
-    line.appendChild(dash);
-    line.appendChild(msgSpan);
-    bodyEl.appendChild(line);
-}
-
-export function showErrorCard(msg, opts = {}) {
-    msg = String(msg);
-    if (msg.includes('\n')) {
-        for (const part of msg.split(/\n+/).filter((p) => p.trim() !== '')) {
-            showErrorCard(part, opts);
-        }
-        return;
-    }
-
-    const { errors } = ensureNotificationCenter();
-
-    if (currentErrorCard && currentErrorCard.isConnected) {
-        appendErrorLine(currentErrorCard.bodyEl, msg);
-        return;
-    }
-
-    const card = document.createElement('div');
-    card.className = 'error-card';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'error-wrap';
-
-    const terminal = document.createElement('div');
-    terminal.className = 'error-terminal';
-
-    const head = document.createElement('div');
-    head.className = 'error-head';
-
-    const titleEl = document.createElement('p');
-    titleEl.className = 'error-title';
-    titleEl.appendChild(createIcon(
-        'M7 15L10 12L7 9M13 15H17M7.8 21H16.2C17.8802 21 18.7202 21 19.362 20.673C19.9265 20.3854 20.3854 19.9265 20.673 19.362C21 18.7202 21 17.8802 21 16.2V7.8C21 6.11984 21 5.27976 20.673 4.63803C20.3854 4.07354 19.9265 3.6146 19.362 3.32698C18.7202 3 17.8802 3 16.2 3H7.8C6.11984 3 5.27976 3 4.63803 3.32698C4.07354 3.6146 3.6146 4.07354 3.32698 4.63803C3 5.27976 3 6.11984 3 7.8V16.2C3 17.8802 3 18.7202 3.32698 19.362C3.6146 19.9265 4.07354 20.3854 4.63803 20.673C5.27976 21 6.11984 21 7.8 21Z',
-        { strokeWidth: '2' }
-    ));
-    titleEl.appendChild(document.createTextNode(' ' + (opts.title || uiText('error', 'Error'))));
-
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'error-copy';
-    copyBtn.setAttribute('aria-label', uiText("copy_errors", "Copy error messages"));
-    copyBtn.appendChild(createIcon([
-        'M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2',
-        'M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z'
-    ], { strokeWidth: '2' }));
-
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'error-close';
-    closeBtn.setAttribute('aria-label', uiText("close_error", "Close error card"));
-    closeBtn.appendChild(createIcon(['M6 6L18 18', 'M6 18L18 6'], { strokeWidth: '2' }));
-
-    head.appendChild(titleEl);
-    head.appendChild(copyBtn);
-    head.appendChild(closeBtn);
-
-    const body = document.createElement('div');
-    body.className = 'error-body';
-    body.setAttribute('role', 'alert');
-
-    terminal.appendChild(head);
-    terminal.appendChild(body);
-    wrap.appendChild(terminal);
-    card.appendChild(wrap);
-    errors.appendChild(card);
-
-    card.bodyEl = body;
-    appendErrorLine(body, msg);
-
-    copyBtn.onclick = () => {
-        try {
-            const text = body.innerText.replace(/\n+$/g, '');
-            navigator.clipboard.writeText(text)
-                .then(() => toast(uiText("copied_errors", "Error messages copied to clipboard!"), { type: 'success', title: uiText("clipboard", "Clipboard") }))
-                .catch(() => toast(uiText("copy_failed", "Failed to copy"), { type: 'error', title: uiText("clipboard", "Clipboard") }));
-        } catch {
-            toast(uiText("copy_failed", "Failed to copy"), { type: 'error', title: uiText("clipboard", "Clipboard") });
-        }
+    const pause = () => {
+        if (!timer) return;
+        clearTimeout(timer);
+        timer = null;
+        remaining = Math.max(1, remaining - (performance.now() - start));
     };
-
-    closeBtn.onclick = () => {
-        card.remove();
-        currentErrorCard = null;
-    };
-
-    currentErrorCard = card;
+    node._stopTimer = () => clearTimeout(timer);
+    node.addEventListener('mouseenter', pause);
+    node.addEventListener('mouseleave', resume);
+    node.addEventListener('focusin', pause);
+    node.addEventListener('focusout', () => queueMicrotask(resume));
+    resume();
+    return node;
 }
+export function toast(message, options = {}) {
+    const source = options.source || currentSource;
+    // An operation's immediate result toast belongs to the same history entry.
+    const completed = activities().find(item => options.operationId ? item.id === options.operationId : item.source === source && item.operationId && item.status !== 'running' && !item.notified && Date.now() - (item.completedAt || 0) < 2000);
+    let entry;
+    if (completed && ['success', 'error', 'warning'].includes(options.type)) {
+        updateActivity(completed.id, { message: String(message), type: options.type, notified: true, details: completed.details || (options.type === 'error' ? String(message) : '') });
+        entry = activities().find(item => item.id === completed.id);
+    } else entry = recordActivity({ source, ...options, message: String(message) });
+    if (document.querySelector('.activity-panel.ui-popover')) return null;
+    const existing = visible.get(entry.id);
+    if (existing) {
+        existing.querySelector('.ui-toast-count').textContent = `×${entry.count}`;
+        return existing;
+    }
+    if (!pending.some(item => item.id === entry.id)) pending.push(entry);
+    if (pending.length > 20) pending.splice(0, pending.length - 20);
+    flush();
+    return visible.get(entry.id) || null;
+}
+export function showErrorCard(message, options = {}) { return toast(message, { ...options, type: 'error' }); }

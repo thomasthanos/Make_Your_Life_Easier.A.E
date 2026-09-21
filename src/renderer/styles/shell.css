@@ -1,0 +1,31 @@
+html, body { font-size: 14px; background: var(--app-backdrop); color: var(--text-primary); }
+body { line-height: 1.5; }
+#app { min-width: 0; }
+#main { border-radius: 12px; background: var(--surface-0); border-color: var(--border-default); box-shadow: var(--elev-1); }
+#content, body:not(.sidebar-expanded) #content { padding: 12px; }
+#sidebar { background: var(--raised); border-color: var(--border-default); box-shadow: var(--elev-1); }
+#menu-list { justify-content: flex-start; gap: 4px; overflow-y: auto; scrollbar-width: thin; }
+#menu-list .menu-group-label { margin: 12px 0 4px; font-size: 12px; color: var(--text-muted); }
+#menu-list button { min-height: 40px; font-size: 14px; border-radius: 8px; }
+#menu-list button.active::before { background: #254261; border-color: transparent; box-shadow: var(--btn-elev); }
+#menu-list button:hover::before { box-shadow: none; }
+body:not(.sidebar-expanded) #menu-list .menu-group-label { font-size: 0; margin: 8px 10px; }
+.custom-title-bar { background: var(--surface-1); box-shadow: none; backdrop-filter: none; gap: 8px; }
+.title-bar-page { position: absolute; top: 0; left: 50%; display: flex; align-items: center; justify-content: center; gap: 8px; height: 100%; max-width: calc(100% - 620px); transform: translateX(-50%); color: var(--text-primary); font-size: 14px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
+.title-bar-page:empty { display: none; }
+.title-bar-page-icon { display: inline-flex; flex: 0 0 16px; width: 16px; height: 16px; color: var(--accent); }
+.title-bar-page-icon svg { width: 16px; height: 16px; }
+.title-bar-page-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.titlebar-activity { -webkit-app-region: no-drag; margin-left: auto; background: transparent; color: var(--text-secondary); border: 0; padding: 4px 8px; white-space: nowrap; cursor: pointer; font-size: 13px; }
+.title-bar-menu { margin-left: 0; }
+.title-bar-controls { flex-shrink: 0; }
+.custom-title-bar .title-group { flex-shrink: 0; }
+.sidebar-header { box-shadow: none; }
+.sidebar-header .app-title { font-size: 16px; }
+.sidebar-header .app-subtitle { font-size: 12px; }
+.version-text { font-size: 12px; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+
+.page-header p { margin: 6px 0 0; color: var(--text-secondary); max-width: 70ch; }
+.page-header-copy { min-width: 0; }
+@media (max-height: 650px) { .sidebar-header { padding-block: 10px; } #menu-list .menu-group-label { margin-top: 6px; } }

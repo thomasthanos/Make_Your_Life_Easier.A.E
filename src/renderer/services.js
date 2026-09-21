@@ -1,8 +1,338 @@
+import { manageDialog } from './overlays.js';
 import { setUiTranslations, uiText } from './ui-text.js';
 
 import { debug, escapeHtml, getAppVersionWithFallback, normalizeVersion, normalizeVersionTag } from './utils.js';
-import { toast, showUpdateOverlay, updateUpdateOverlay, hideUpdateOverlay, openAccountModal, attachAvatarFallback, isHttpUrl } from './components.js';
-import { attachTooltipHandlers } from './managers.js';
+import { toast } from './notifications.js';
+import { attachTooltipHandlers } from './tooltips.js';
+
+
+let updateOverlay = null;
+
+function formatMegabytes(bytes) {
+    if (!bytes || bytes === 0) return '0 MB';
+    const mb = bytes / (1024 * 1024);
+    return mb.toFixed(2) + ' MB';
+}
+
+function formatSpeed(bytesPerSec) {
+    if (!bytesPerSec || bytesPerSec === 0) return '0 MB/s';
+    const mbps = bytesPerSec / (1024 * 1024);
+    return mbps.toFixed(2) + ' MB/s';
+}
+
+function formatTime(seconds) {
+    if (!seconds || seconds <= 0 || !isFinite(seconds)) return '0s';
+    if (seconds < 60) return Math.round(seconds) + 's';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${mins}m ${secs}s`;
+}
+
+function showUpdateOverlay(initialStatus) {
+    if (!updateOverlay) {
+        updateOverlay = document.createElement('div');
+        updateOverlay.id = 'update-overlay';
+        updateOverlay.classList.add('visible');
+
+        const container = document.createElement('div');
+        container.className = 'update-overlay-container';
+        updateOverlay.appendChild(container);
+
+        const iconWrapper = document.createElement('div');
+        iconWrapper.className = 'update-icon-wrapper';
+        iconWrapper.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+        `;
+        container.appendChild(iconWrapper);
+
+        const title = document.createElement('h2');
+        title.className = 'update-title';
+        title.textContent = uiText("update_download_title", "Downloading Update");
+        container.appendChild(title);
+
+        const ringContainer = document.createElement('div');
+        ringContainer.className = 'update-ring-container';
+
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('viewBox', '0 0 120 120');
+        svg.classList.add('update-overlay-svg');
+
+        const bg = document.createElementNS(svgNS, 'circle');
+        bg.setAttribute('cx', '60');
+        bg.setAttribute('cy', '60');
+        bg.setAttribute('r', '54');
+        bg.setAttribute('stroke', 'rgba(255,255,255,0.1)');
+        bg.setAttribute('stroke-width', '8');
+        bg.setAttribute('fill', 'none');
+
+        const progress = document.createElementNS(svgNS, 'circle');
+        progress.setAttribute('cx', '60');
+        progress.setAttribute('cy', '60');
+        progress.setAttribute('r', '54');
+        progress.setAttribute('stroke', 'url(#progressGradient)');
+        progress.setAttribute('stroke-width', '8');
+        progress.setAttribute('fill', 'none');
+        progress.setAttribute('stroke-linecap', 'round');
+        const circumference = 2 * Math.PI * 54;
+        progress.style.strokeDasharray = `${circumference}`;
+        progress.style.strokeDashoffset = `${circumference}`;
+        progress.style.transform = 'rotate(-90deg)';
+        progress.style.transformOrigin = '60px 60px';
+
+        const defs = document.createElementNS(svgNS, 'defs');
+        const gradient = document.createElementNS(svgNS, 'linearGradient');
+        gradient.setAttribute('id', 'progressGradient');
+        gradient.setAttribute('x1', '0%');
+        gradient.setAttribute('y1', '0%');
+        gradient.setAttribute('x2', '100%');
+        gradient.setAttribute('y2', '100%');
+
+        const stop1 = document.createElementNS(svgNS, 'stop');
+        stop1.setAttribute('offset', '0%');
+        stop1.setAttribute('style', 'stop-color:#0a84ff;stop-opacity:1');
+
+        const stop2 = document.createElementNS(svgNS, 'stop');
+        stop2.setAttribute('offset', '100%');
+        stop2.setAttribute('style', 'stop-color:#3a9bff;stop-opacity:1');
+
+        gradient.appendChild(stop1);
+        gradient.appendChild(stop2);
+        defs.appendChild(gradient);
+        svg.appendChild(defs);
+
+        svg.appendChild(bg);
+        svg.appendChild(progress);
+
+        const percentText = document.createElement('div');
+        percentText.className = 'update-percent';
+        percentText.textContent = '0%';
+
+        ringContainer.appendChild(svg);
+        ringContainer.appendChild(percentText);
+        container.appendChild(ringContainer);
+
+        const infoGrid = document.createElement('div');
+        infoGrid.className = 'update-info-grid';
+
+        const downloadInfo = document.createElement('div');
+        downloadInfo.className = 'update-info-item';
+        downloadInfo.innerHTML = `
+            <div class="update-info-label">${escapeHtml(uiText('downloaded'))}</div>
+            <div class="update-info-value" id="update-downloaded">0 MB / 0 MB</div>
+        `;
+
+        const speedInfo = document.createElement('div');
+        speedInfo.className = 'update-info-item';
+        speedInfo.innerHTML = `
+            <div class="update-info-label">${escapeHtml(uiText('speed'))}</div>
+            <div class="update-info-value" id="update-speed">0 MB/s</div>
+        `;
+
+        const etaInfo = document.createElement('div');
+        etaInfo.className = 'update-info-item';
+        etaInfo.innerHTML = `
+            <div class="update-info-label">${escapeHtml(uiText('remaining'))}</div>
+            <div class="update-info-value" id="update-eta">${escapeHtml(uiText('calculating'))}</div>
+        `;
+
+        infoGrid.appendChild(downloadInfo);
+        infoGrid.appendChild(speedInfo);
+        infoGrid.appendChild(etaInfo);
+        container.appendChild(infoGrid);
+
+        const statusText = document.createElement('p');
+        statusText.className = 'update-status-text';
+        statusText.textContent = initialStatus || uiText("update_prepare", "Preparing download...");
+        container.appendChild(statusText);
+
+        updateOverlay._progressCircle = progress;
+        updateOverlay._percentEl = percentText;
+        updateOverlay._statusEl = statusText;
+        document.body.appendChild(updateOverlay);
+        updateOverlay._downloadedEl = document.getElementById('update-downloaded');
+        updateOverlay._speedEl = document.getElementById('update-speed');
+        updateOverlay._etaEl = document.getElementById('update-eta');
+    }
+
+    updateOverlay.classList.add('visible');
+    updateOverlay.classList.remove('hidden');
+
+    if (initialStatus) {
+        updateOverlay._statusEl.textContent = initialStatus;
+    }
+}
+
+function updateUpdateOverlay(percent, statusText, details = {}) {
+    if (!updateOverlay) return;
+
+    const circumference = 2 * Math.PI * 54;
+    if (typeof percent === 'number') {
+        const offset = circumference - (percent / 100) * circumference;
+        updateOverlay._progressCircle.style.strokeDashoffset = offset;
+        updateOverlay._percentEl.textContent = Math.round(percent) + '%';
+    }
+
+    if (statusText) {
+        updateOverlay._statusEl.textContent = statusText;
+    }
+
+    if (details.transferred !== undefined && details.total !== undefined) {
+        updateOverlay._downloadedEl.textContent = `${formatMegabytes(details.transferred)} / ${formatMegabytes(details.total)}`;
+    }
+
+    if (details.bytesPerSecond !== undefined) {
+        updateOverlay._speedEl.textContent = formatSpeed(details.bytesPerSecond);
+
+        if (details.transferred && details.total && details.bytesPerSecond > 0) {
+            const remaining = details.total - details.transferred;
+            const eta = remaining / details.bytesPerSecond;
+            updateOverlay._etaEl.textContent = formatTime(eta);
+        }
+    }
+}
+
+function hideUpdateOverlay() {
+    if (updateOverlay) {
+        updateOverlay.classList.add('hidden');
+        updateOverlay.classList.remove('visible');
+    }
+}
+
+
+
+function isHttpUrl(value) {
+    if (typeof value !== 'string' || !value) return false;
+    try {
+        const { protocol } = new URL(value);
+        return protocol === 'https:' || protocol === 'http:';
+    } catch {
+        return false;
+    }
+}
+
+function attachAvatarFallback(img, name, fallbackClass, altSrc = null) {
+    if (!img) return;
+
+    const showPlaceholder = () => {
+        const placeholder = document.createElement('div');
+        placeholder.className = fallbackClass;
+        placeholder.textContent = String(name || '?').trim().slice(0, 1).toUpperCase() || '?';
+        img.replaceWith(placeholder);
+    };
+
+    const onError = () => {
+        if (altSrc && isHttpUrl(altSrc) && img.src !== altSrc && !img.dataset.triedAlt) {
+            debug('warn', 'Avatar failed, trying the still rendition:', img.src);
+            img.dataset.triedAlt = '1';
+            img.addEventListener('error', showPlaceholder, { once: true });
+            img.src = altSrc;
+            return;
+        }
+        debug('warn', 'Avatar image failed to load:', img.src);
+        showPlaceholder();
+    };
+
+    img.addEventListener('error', onError, { once: true });
+    if (img.complete && img.naturalWidth === 0) onError();
+}
+
+function openAccountModal(profile, syncedItems = [], handlers = {}, texts = {}) {
+    if (document.getElementById('account-modal-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'account-modal-overlay';
+    overlay.className = 'modal-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'account-modal';
+
+    const providerKey = profile.provider === 'google' ? 'google'
+        : profile.provider === 'discord' ? 'discord' : '';
+    const providerLabel = providerKey === 'google' ? 'Google'
+        : providerKey === 'discord' ? 'Discord' : (profile.provider || '');
+
+    const PROVIDER_ICONS = {
+        google: '<svg viewBox="-3 0 262 262" width="12" height="12" aria-hidden="true" preserveAspectRatio="xMidYMid"><path d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027" fill="#4285F4"/><path d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055-34.523 0-63.824-22.773-74.269-54.25l-1.531.13-40.298 31.187-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1" fill="#34A853"/><path d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82 0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602l42.356-32.782" fill="#FBBC05"/><path d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251" fill="#EB4335"/></svg>',
+        discord: '<svg viewBox="0 -28.5 256 256" width="13" height="13" aria-hidden="true" preserveAspectRatio="xMidYMid"><path fill="#5865F2" d="M216.856339,16.5966031 C200.285002,8.84328665 182.566144,3.2084988 164.041564,0 C161.766523,4.11318106 159.108624,9.64549908 157.276099,14.0464379 C137.583995,11.0849896 118.072967,11.0849896 98.7430163,14.0464379 C96.9108417,9.64549908 94.1925838,4.11318106 91.8971895,0 C73.3526068,3.2084988 55.6133949,8.86399117 39.0420583,16.6376612 C5.61752293,67.146514 -3.4433191,116.400813 1.08711069,164.955721 C23.2560196,181.510915 44.7403634,191.567697 65.8621325,198.148576 C71.0772151,190.971126 75.7283628,183.341335 79.7352139,175.300261 C72.104019,172.400575 64.7949724,168.822202 57.8887866,164.667963 C59.7209612,163.310589 61.5131304,161.891452 63.2445898,160.431257 C105.36741,180.133187 151.134928,180.133187 192.754523,160.431257 C194.506336,161.891452 196.298154,163.310589 198.110326,164.667963 C191.183787,168.842556 183.854737,172.420929 176.223542,175.320965 C180.230393,183.341335 184.861538,190.991831 190.096624,198.16893 C211.238746,191.588051 232.743023,181.531619 254.911949,164.955721 C260.227747,108.668201 245.831087,59.8662432 216.856339,16.5966031 Z M85.4738752,135.09489 C72.8290281,135.09489 62.4592217,123.290155 62.4592217,108.914901 C62.4592217,94.5396472 72.607595,82.7145587 85.4738752,82.7145587 C98.3405064,82.7145587 108.709962,94.5189427 108.488529,108.914901 C108.508531,123.290155 98.3405064,135.09489 85.4738752,135.09489 Z M170.525237,135.09489 C157.88039,135.09489 147.510584,123.290155 147.510584,108.914901 C147.510584,94.5396472 157.658606,82.7145587 170.525237,82.7145587 C183.391518,82.7145587 193.761324,94.5189427 193.539891,108.914901 C193.539891,123.290155 183.391518,135.09489 170.525237,135.09489 Z"/></svg>'
+    };
+    const providerIcon = PROVIDER_ICONS[providerKey] || '';
+
+    const rows = (syncedItems || []).map((item) => `
+            <li class="account-sync-row">
+                <span class="account-sync-label">${escapeHtml(item.label)}</span>
+                <span class="account-sync-value">${escapeHtml(String(item.value))}</span>
+            </li>
+        `).join('');
+    const syncedContent = rows
+        ? `<ul class="account-sync-list">${rows}</ul>`
+        : `<div class="account-sync-empty">${escapeHtml(texts.empty || 'No synced settings yet.')}</div>`;
+
+    const avatar = isHttpUrl(profile.avatar)
+        ? `<img class="account-avatar" src="${escapeHtml(profile.avatar)}" alt="" width="72" height="72" decoding="async" referrerpolicy="no-referrer">`
+        : `<div class="account-avatar account-avatar-fallback">${escapeHtml((profile.name || '?').slice(0, 1).toUpperCase())}</div>`;
+
+    modal.innerHTML = `
+        <button class="account-close" type="button" aria-label="${escapeHtml(uiText('close', 'Close'))}">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+                <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+            </svg>
+        </button>
+        <div class="account-hero">
+            <div class="account-avatar-ring">${avatar}</div>
+            <span class="account-name">${escapeHtml(profile.name || 'User')}</span>
+            <span class="account-provider">${providerIcon}<span>${escapeHtml(texts.via || 'via')} ${escapeHtml(providerLabel || texts.title || uiText("account", "Account"))}</span></span>
+        </div>
+        <div class="account-synced">
+            <div class="account-section-head">
+                <h4>${escapeHtml(texts.synced || 'Synced settings')}</h4>
+                <span class="account-count">${(syncedItems || []).length}</span>
+            </div>
+            ${syncedContent}
+        </div>
+        <div class="account-actions">
+            <button class="account-reset" type="button">${escapeHtml(texts.reset || 'Reset synced settings')}</button>
+            <button class="account-signout" type="button">${escapeHtml(texts.signout || 'Sign out')}</button>
+        </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    attachAvatarFallback(
+        modal.querySelector('img.account-avatar'),
+        profile.name,
+        'account-avatar account-avatar-fallback',
+        profile.avatarFallback
+    );
+
+    let releaseFocus = () => {};
+    const close = () => {
+        releaseFocus();
+        document.removeEventListener('keydown', onKey);
+        overlay.remove();
+    };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    releaseFocus = manageDialog(overlay, modal, close);
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    modal.querySelector('.account-close').addEventListener('click', close);
+
+    modal.querySelector('.account-signout').addEventListener('click', async () => {
+        close();
+        if (handlers.onSignOut) await handlers.onSignOut();
+    });
+
+    modal.querySelector('.account-reset').addEventListener('click', async () => {
+        if (handlers.onReset) await handlers.onReset();
+        close();
+    });
+}
 
 
 const defaultSettings = {
@@ -471,7 +801,9 @@ async function showChangelog(updateInfo) {
         content.appendChild(defaultMessage);
     }
 
+    let releaseFocus = () => {};
     const closeOverlay = () => {
+        releaseFocus();
         overlay.remove();
         document.removeEventListener('keydown', escHandler);
     };
@@ -497,6 +829,7 @@ async function showChangelog(updateInfo) {
         if (e.key === 'Escape') closeOverlay();
     };
     document.addEventListener('keydown', escHandler);
+    releaseFocus = manageDialog(overlay, modal, closeOverlay);
 
     closeBtn.addEventListener('click', closeOverlay);
     overlay.addEventListener('click', (e) => {
@@ -727,74 +1060,3 @@ export async function ensureSidebarVersion(_state = {}) {
 
     updateUserInfo();
 }
-
-
-export const CUSTOM_APPS = [
-    {
-        id: 'AdvancedInstaller.Crack',
-        name: 'Advanced Installer',
-        url: 'https://www.dropbox.com/scl/fi/nx5ced8mt2t5mye4tus6j/Advanced-Installer-Architect-23.1.0.zip?rlkey=2bre9u83d9lfdvhhz778nvr04&st=cgpe2npr&dl=1',
-        ext: 'zip',
-        category: 'Utilities'
-    },
-    {
-        id: 'Spotify.Official',
-        name: 'Spotify',
-        url: 'https://download.scdn.co/SpotifySetup.exe',
-        ext: 'exe',
-        category: 'Media'
-    },
-    {
-        id: 'Nvidia.App',
-        name: 'NVIDIA App',
-        resolver: 'nvidia-app',
-        url: 'https://us.download.nvidia.com/nvapp/client/11.0.8.299/NVIDIA_app_v11.0.8.299.exe',
-        ext: 'exe',
-        category: 'Hardware'
-    },
-    {
-        id: 'AMD.AdrenalinSoftware',
-        name: 'AMD Graphics Driver',
-        resolver: 'amd-adrenalin',
-        url: 'https://drivers.amd.com/drivers/installer/26.10/whql/amd-software-adrenalin-edition-26.7.1-minimalsetup-260724_web.exe',
-        ext: 'exe',
-        category: 'Hardware'
-    },
-    {
-        id: 'BetterDiscord.Dropbox',
-        name: 'BetterDiscord',
-        resolver: 'betterdiscord',
-        url: 'https://www.dropbox.com/scl/fi/sjzh1xoiv87a20wvvesk4/BetterDiscord-Windows.exe?rlkey=bej8or99jo19189a7h2v6553e&dl=1',
-        ext: 'exe',
-        category: 'Communication'
-    },
-    {
-        id: 'LeagueOfLegends.Dropbox',
-        name: 'League of Legends',
-        url: 'https://www.dropbox.com/scl/fi/8e2lozlfwbw5uz00zxl78/League-of-Legends.exe?rlkey=q781tbxxn3k4l18jxws57d1a6&dl=1',
-        ext: 'exe',
-        category: 'Games'
-    },
-    {
-        id: 'Mobalytics.Dropbox',
-        name: 'Mobalytics',
-        url: 'https://www.dropbox.com/scl/fi/ud8dijdfoe6sg3ntjqsxt/Mobalytics.exe?rlkey=agawubkfhkpw9mluzn8tpydu8&dl=1',
-        ext: 'exe',
-        category: 'Games'
-    },
-    {
-        id: 'ProjectLightning.Dropbox',
-        name: 'ProjectLightning',
-        url: 'https://www.dropbox.com/scl/fi/0i9ikwaiwui6z6befhxtq/ProjectLightning.exe?rlkey=s49qkhhli071on5d23xz1gut7&dl=1',
-        ext: 'exe',
-        category: 'Utilities'
-    },
-    {
-        id: 'Cursor.Dropbox',
-        name: 'Cursor',
-        resolver: 'cursor',
-        url: 'https://www.dropbox.com/scl/fi/bjjx57hosduostifzkjjr/Cursor.exe?rlkey=o60g8k5ct0j36bwysfk9sh53l&dl=1',
-        ext: 'exe',
-        category: 'Development'
-    }
-];
