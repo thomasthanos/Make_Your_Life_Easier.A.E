@@ -1246,7 +1246,7 @@
     overflow-wrap: anywhere;
   }
 
-  .installer-activity-detail { flex-basis: 100%; max-height: 3.9em; overflow-y: auto; }
+  .installer-activity-detail { flex-basis: 100%; max-height: 4.2em; overflow-y: auto; white-space: pre-line; }
 
   .installer-activity-detail:empty, .installer-activity-text:empty { display: none; }
 

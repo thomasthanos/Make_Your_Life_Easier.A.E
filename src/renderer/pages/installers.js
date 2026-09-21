@@ -4,7 +4,7 @@ import { uiText } from '../ui-text.js';
 import { debug, escapeHtml, debounce, getBaseName, getExtractedFolderPath } from '../utils.js';
 import { registerDownload, getActiveDownload, attachDownloadUI, attachDownloadLifecycle, downloadStore, finishDownload, updateDownloadPhase } from '../downloads.js';
 import { buttonStateManager } from '../ui.js';
-import { parseWingetColumns, parseWingetSearch, matchWingetId, sanitizeSearchQuery } from '../winget-parse.js';
+import { parseWingetColumns, parseWingetSearch, matchWingetId, sanitizeSearchQuery, isSameWingetPackage, wingetExitReason, formatWingetCode, wingetMessage } from '../winget-parse.js';
 
 function createInstallerActivity() {
     let state = { busy: false, kind: null, outcomes: {} };
@@ -37,8 +37,8 @@ function createInstallerActivity() {
         finish(patch = {}) {
             state = { ...state, ...patch, busy: false };
             updateActivity(activityId, { status: state.error || state.failed ? 'failed' : state.cancelled ? 'cancelled' : 'complete', type: state.error || (state.failed && !state.success) ? 'error' : state.failed ? 'warning' : state.cancelled ? 'info' : 'success',
-                message: state.error ? uiText('operation_failed') : state.cancelled ? uiText('task_cancelled') : state.kind === 'check' ? uiText('check_result', '', { installed: state.checked || 0, updates: state.updates || 0 }) : uiText('batch_result', '', state),
-                details: state.error || state.failedNames?.join('\n') || '', phase: null, completedAt: Date.now() });
+                message: state.error ? uiText('operation_failed') : state.cancelled ? uiText('task_cancelled') : state.kind === 'check' ? uiText('check_result', '', { installed: state.checked || 0, updates: state.updates || 0 }) : state.summary || uiText('batch_result', '', state),
+                details: state.error || (state.detailLines || state.failedNames)?.join('\n') || '', phase: null, completedAt: Date.now() });
             publish();
         },
         subscribe(listener) {
@@ -59,8 +59,34 @@ const crackToast = createNotifier('crack_installer');
 let installerViewState = null;
 
 const INSTALLED_TTL_MS = 5 * 60 * 1000;
-const installedState = { at: 0, installed: new Map(), upgradable: new Map() };
+// listedAt: the installed list is in; at: the update scan finished too (what the TTL counts from).
+const installedState = { at: 0, listedAt: 0, installed: new Map(), upgradable: new Map() };
 let installedCheckInFlight = null;
+
+// A page opened while a check runs waits for that check instead of trusting half-filled state.
+function trackInstalledCheck(promise) {
+    const tracked = promise.catch(() => { }).finally(() => {
+        if (installedCheckInFlight === tracked) installedCheckInFlight = null;
+    });
+    installedCheckInFlight = tracked;
+    return promise;
+}
+
+// Packages whose manifest refuses `winget upgrade`; winget still lists an update for them.
+const SELF_UPDATING_KEY = 'installerSelfUpdating';
+const selfUpdating = new Set((() => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(SELF_UPDATING_KEY));
+        return Array.isArray(saved) ? saved.filter((id) => typeof id === 'string') : [];
+    } catch {
+        return [];
+    }
+})());
+
+function rememberSelfUpdating(id) {
+    selfUpdating.add(String(id).toLowerCase());
+    try { localStorage.setItem(SELF_UPDATING_KEY, JSON.stringify([...selfUpdating])); } catch { }
+}
 const catalogCache = new Map();
 const CATALOG_RESULT_LIMIT = 40;
 
@@ -887,9 +913,9 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 activityText.tabIndex = 0;
             }
         } else if ((state.kind === 'install' || state.kind === 'update') && state.total && state.current) {
-            activityText.textContent = uiText('batch_result', '', state);
-            activityDetail.textContent = state.failedNames?.length
-                ? uiText('batch_failed', '', { names: state.failedNames.join(', ') }) : '';
+            activityText.textContent = state.summary || uiText('batch_result', '', state);
+            activityDetail.textContent = state.notes?.length ? state.notes.join('\n')
+                : state.failedNames?.length ? uiText('batch_failed', '', { names: state.failedNames.join(', ') }) : '';
         } else if (state.kind === 'check' && state.checked !== undefined) {
             activityText.textContent = uiText('check_result', '', { installed: state.checked, updates: state.updates });
             activityDetail.textContent = '';
@@ -1041,18 +1067,32 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         return null;
     }
 
+    function findUpgrade(appId) {
+        const key = String(appId).toLowerCase();
+        const entry = installedState.upgradable.get(key)
+            || [...installedState.upgradable.values()].find((candidate) => isSameWingetPackage(appId, candidate));
+        if (!entry || selfUpdating.has(key) || selfUpdating.has(entry.id.toLowerCase())) return null;
+        return entry;
+    }
+
+    function forgetUpgrade(appId, upgrade) {
+        installedState.upgradable.delete(String(appId).toLowerCase());
+        if (upgrade) installedState.upgradable.delete(upgrade.id.toLowerCase());
+    }
+
     function applyRowStatus(li) {
         const badge = li.querySelector('.app-status-dot');
-        if (!badge || !installedState.at || li.dataset.isCustom === 'true') return;
+        if (!badge || !installedState.listedAt || li.dataset.isCustom === 'true') return;
 
-        const upgrade = findPackage(installedState.upgradable, li.dataset.appId);
+        const upgrade = findUpgrade(li.dataset.appId);
         const installed = findPackage(installedState.installed, li.dataset.appId);
 
         if (upgrade && upgrade.available) {
             setStatusDot(badge, 'update-available', translations, upgrade.available);
             li.dataset.availableVersion = upgrade.available;
         } else if (installed) {
-            setStatusDot(badge, 'installed', translations, installed.version || '');
+            const selfUpdateNote = selfUpdating.has(li.dataset.appId.toLowerCase()) ? uiText('self_updating_note', 'Updates itself') : '';
+            setStatusDot(badge, 'installed', translations, [installed.version, selfUpdateNote].filter(Boolean).join(' · '));
             delete li.dataset.availableVersion;
         } else {
             setStatusDot(badge, 'not-installed', translations);
@@ -1080,14 +1120,14 @@ export async function buildInstallPageWingetWithCategories(translations, setting
             throw new Error(uiText('winget_command_error', 'Winget command failed to execute. Make sure Winget is installed.'));
         }
         installedState.installed = toPackageMap(parseWingetColumns(`${listResult.stdout || ''}${listResult.stderr || ''}`));
-        installedState.at = Date.now();
-        if (!container.isConnected) return { installed: 0, updates: 0 };
-        applyAllStatuses();
+        installedState.listedAt = Date.now();
+        if (container.isConnected) applyAllStatuses();
 
         const upgradeResult = await window.api.runCommand('winget upgrade --include-unknown --accept-source-agreements --source winget');
         installedState.upgradable = toPackageMap(
             parseWingetColumns(`${upgradeResult.stdout || ''}${upgradeResult.stderr || ''}`).filter((entry) => entry.available)
         );
+        installedState.at = Date.now();
         if (!container.isConnected) return { installed: 0, updates: 0 };
         applyAllStatuses();
 
@@ -1098,23 +1138,31 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         };
     }
 
+    function waitForInstalledCheck() {
+        checkInstalledBtn.classList.add('is-checking');
+        installedCheckInFlight.finally(() => {
+            if (container.isConnected) applyAllStatuses();
+            checkInstalledBtn.classList.remove('is-checking');
+        });
+    }
+
     function scheduleAutoCheck() {
+        if (installedCheckInFlight) {
+            applyAllStatuses();
+            waitForInstalledCheck();
+            return;
+        }
         if (Date.now() - installedState.at < INSTALLED_TTL_MS) {
             applyAllStatuses();
             return;
         }
         setTimeout(() => {
             if (!container.isConnected || installerActivity.snapshot().busy) return;
-            checkInstalledBtn.classList.add('is-checking');
             if (!installedCheckInFlight) {
-                installedCheckInFlight = refreshInstalledState({ silent: true })
-                    .catch((err) => debug('warn', 'Background check for installed apps failed:', err?.message || err))
-                    .finally(() => { installedCheckInFlight = null; });
+                trackInstalledCheck(refreshInstalledState({ silent: true }))
+                    .catch((err) => debug('warn', 'Background check for installed apps failed:', err?.message || err));
             }
-            installedCheckInFlight.finally(() => {
-                if (container.isConnected) applyAllStatuses();
-                checkInstalledBtn.classList.remove('is-checking');
-            });
+            waitForInstalledCheck();
         }, 400);
     }
 
@@ -1290,7 +1338,12 @@ export async function buildInstallPageWingetWithCategories(translations, setting
         if (!rows.length || !installerActivity.begin('update')) return;
 
         let done = 0;
+        let skipped = 0;
         let failed = 0;
+        let unexplained = 0;
+        const notes = [];
+        const detailLines = [];
+        let lastOutcome = null;
         try {
             for (const [index, li] of rows.entries()) {
                 const name = li.dataset.appName || li.dataset.appId;
@@ -1301,32 +1354,62 @@ export async function buildInstallPageWingetWithCategories(translations, setting
                 progressWrap?.classList.remove('hidden');
                 if (progressLabel) progressLabel.textContent = uiText('updating', 'Updating…');
 
+                const upgrade = findUpgrade(li.dataset.appId);
+                const packageId = upgrade && !upgrade.truncated ? upgrade.id : li.dataset.appId;
                 const source = li.dataset.source === 'msstore' ? 'msstore' : 'winget';
-                const command = `winget upgrade --id ${li.dataset.appId} -e --silent --accept-source-agreements --accept-package-agreements --source ${source}`;
+                const command = `winget upgrade --id ${packageId} -e --include-unknown --silent --accept-source-agreements --accept-package-agreements --source ${source}`;
                 const result = await window.api.runCommand(command);
-                const output = `${result.stdout || ''}${result.stderr || ''}`.toLowerCase();
-                const ok = !result.error && !output.includes('failed') && !output.includes('no applicable upgrade');
+                const output = `${result.stdout || ''}${result.stderr || ''}`;
+                const reason = result.error ? wingetExitReason(result.code) : null;
+                const wingetSaid = result.error && result.code != null
+                    ? [wingetMessage(output), formatWingetCode(result.code)].filter(Boolean).join(' · ') : '';
+                let note = '';
 
-                if (ok) {
+                if (!result.error || reason === 'restart') {
                     done++;
-                    installedState.upgradable.delete(li.dataset.appId.toLowerCase());
+                    const installed = findPackage(installedState.installed, li.dataset.appId);
+                    if (installed && upgrade?.available) installed.version = upgrade.available;
+                    forgetUpgrade(li.dataset.appId, upgrade);
                     installerActivity.record(li.dataset.appId, 'installed');
+                    if (reason) note = uiText('update_reason_restart', 'restart Windows to finish the update');
+                } else if (reason === 'no_update' || reason === 'self_updating') {
+                    skipped++;
+                    if (reason === 'self_updating') rememberSelfUpdating(packageId);
+                    forgetUpgrade(li.dataset.appId, upgrade);
+                    installerActivity.record(li.dataset.appId, 'installed');
+                    note = uiText(`update_reason_${reason}`);
                 } else {
                     failed++;
-                    debug('warn', `Update failed for ${li.dataset.appId}:`, output.slice(0, 200));
+                    debug('warn', `Update failed for ${packageId}:`, output.slice(-400));
                     installerActivity.record(li.dataset.appId, 'failed');
+                    if (!reason) unexplained++;
+                    note = reason ? uiText(`update_reason_${reason}`) : wingetSaid || result.error;
                 }
+
+                if (note) {
+                    notes.push(`${name}: ${note}`);
+                    detailLines.push(wingetSaid && wingetSaid !== note ? `${name}: ${note}\n  winget: ${wingetSaid}` : `${name}: ${note}`);
+                }
+                lastOutcome = { name, note };
                 progressWrap?.classList.add('hidden');
             }
         } finally {
-            installerActivity.finish({ success: done, failed });
+            const summary = [
+                uiText('update_done', '{done} updated', { done }),
+                skipped ? uiText('update_skipped', '{count} skipped', { count: skipped }) : '',
+                failed ? uiText('update_failed', '{count} failed', { count: failed }) : ''
+            ].filter(Boolean).join(', ');
+            installerActivity.finish({ success: done, failed, skipped, summary, notes, detailLines });
             applyAllStatuses();
-            installToast(
-                failed
-                    ? uiText('update_done_with_errors', '{done} updated, {failed} failed', { done, failed })
-                    : uiText('update_done', '{done} updated', { done }),
-                { type: failed ? 'warning' : 'success', title: uiText('update_title', 'Update') }
-            );
+
+            const single = rows.length === 1 && lastOutcome;
+            const message = !single ? summary
+                : lastOutcome.note ? `${lastOutcome.name}: ${lastOutcome.note}`
+                    : uiText('update_one_done', 'Updated {name}', { name: lastOutcome.name });
+            installToast(message, {
+                type: unexplained && !done ? 'error' : failed ? 'warning' : 'success',
+                title: uiText('update_title', 'Update')
+            });
         }
     }
 
@@ -1612,7 +1695,7 @@ export async function buildInstallPageWingetWithCategories(translations, setting
 
         try {
             installedState.at = 0;
-            const { installed, updates } = await refreshInstalledState({ silent: false });
+            const { installed, updates } = await trackInstalledCheck(refreshInstalledState({ silent: false }));
 
             installerActivity.update({ checked: installed, updates });
             installToast(uiText('check_result', '', { installed, updates }), {

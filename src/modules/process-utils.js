@@ -54,7 +54,7 @@ function runSpawnCommand(cmd, args = [], options = {}) {
         if (code === 0) {
           settle({ stdout, stderr });
         } else {
-          settle({ error: `Command exited with code ${code}`, stdout, stderr });
+          settle({ error: `Command exited with code ${code}`, code, stdout, stderr });
         }
       });
     } catch (err) {
