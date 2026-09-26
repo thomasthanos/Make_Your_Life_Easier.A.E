@@ -80,6 +80,11 @@ pub fn run() {
                 if let Ok(dir) = app.path().app_config_dir() {
                     std::thread::spawn(move || cleanup.init(dir.join("pending-cleanup.json")));
                 }
+                // The installer of the last update, if any. This runs before
+                // the splash can start a new download into the same folder.
+                // An installer still exiting after relaunching us stays
+                // locked and goes on a later start.
+                let _ = std::fs::remove_dir_all(updater::update_dir());
                 // If the splash never gets to call finish_startup (a failed
                 // update check, a broken page), show the window anyway.
                 let handle = app.handle().clone();

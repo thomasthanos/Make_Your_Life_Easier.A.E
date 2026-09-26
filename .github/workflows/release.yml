@@ -1,19 +1,27 @@
 # Builds the Windows installer and publishes it as a GitHub release.
 #
 # Release: bump "version" in package.json (and src-tauri/Cargo.toml), commit,
-# then push a matching tag:   git tag v5.0.1 && git push origin v5.0.1
+# then push a matching tag:   git tag v7.0.1 && git push origin main v7.0.1
 #
 # The app's updater (src-tauri/src/updater.rs) reads the latest release and
 # installs its *_x64-setup.exe after checking the SHA-256 digest GitHub
 # publishes for every asset.
+#
+# Run it by hand (Actions > Release > Run workflow) for a dry run: the same
+# build, with the installer kept as a workflow artifact and nothing published.
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   windows:
@@ -32,16 +40,22 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Tag matches the app version
+      - name: Read the app version
         shell: pwsh
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          if ("v$version" -ne "${{ github.ref_name }}") {
-            throw "Tag ${{ github.ref_name }} does not match package.json version $version"
+          $cargo = (Select-String -Path src-tauri/Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
+          if ($cargo -ne $version) {
+            throw "package.json is $version but src-tauri/Cargo.toml is $cargo"
+          }
+          if ("${{ github.ref_type }}" -eq "tag" -and "v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} does not match the app version $version"
           }
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - run: npm ci
+
+      - run: npm run check
 
       # Also downloads and verifies the pinned Ludusavi runtime for Game Saves
       # (scripts/bootstrap-game-saves.ps1); those files are not in Git.
@@ -53,32 +67,25 @@ jobs:
           $setup = Get-ChildItem "src-tauri/target/release/bundle/nsis/*_x64-setup.exe" | Select-Object -First 1
           if (-not $setup) { throw "The NSIS installer was not produced." }
           # No spaces: GitHub would rename "Make Your Life Easier_…" anyway.
-          $name = "MakeYourLifeEasier_${env:VERSION}_x64-setup.exe"
+          # The updater looks for the "_x64-setup.exe" ending.
           New-Item -ItemType Directory -Force out | Out-Null
-          Copy-Item $setup.FullName "out/$name"
+          Copy-Item $setup.FullName "out/MakeYourLifeEasier_${env:VERSION}_x64-setup.exe"
 
-          # latest.yml is what the old Electron app (v4.x) looks for in the
-          # latest release. Pointing it at this installer lets those installs
-          # update into the rewrite; the new app itself does not use it.
-          $bytes = [IO.File]::ReadAllBytes((Resolve-Path "out/$name"))
-          $sha512 = [Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash($bytes))
-          $date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-          @(
-            "version: ${env:VERSION}"
-            "files:"
-            "  - url: $name"
-            "    sha512: $sha512"
-            "    size: $($bytes.Length)"
-            "path: $name"
-            "sha512: $sha512"
-            "releaseDate: '$date'"
-          ) | Set-Content -Path out/latest.yml -Encoding utf8NoBOM
+      - name: Keep the installer (dry run)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MakeYourLifeEasier-${{ env.VERSION }}-setup
+          path: out/*
+          retention-days: 7
 
       - name: Publish the release
+        if: github.ref_type == 'tag'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ github.ref_name }}" (Get-ChildItem out).FullName `
             --title "Make Your Life Easier ${{ github.ref_name }}" `
-            --generate-notes
+            --generate-notes `
+            --latest

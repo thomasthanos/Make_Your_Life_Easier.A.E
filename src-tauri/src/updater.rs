@@ -19,7 +19,7 @@ use crate::download::{self, err, parse_sha256_digest};
 
 /// GitHub repository ("owner/name") whose Releases are checked.
 /// It also holds the releases of the old Electron app (v4.x); this rewrite
-/// starts at 5.0.0, so those always compare as older.
+/// starts at 7.0.0, so those always compare as older.
 pub const GITHUB_REPO: &str = "thomasthanos/Make_Your_Life_Easier.A.E";
 
 /// Set while an update is downloading, so the startup watchdog does not show
@@ -35,6 +35,14 @@ const ASSET_SUFFIX: &str = "_x64-setup.exe";
 const DOWNLOAD_PREFIX: &str = "https://github.com/";
 const CHECK_TIMEOUT: Duration = Duration::from_secs(8);
 const USER_AGENT: &str = "MakeYourLifeEasier-Updater";
+
+/// Where downloaded installers wait to run. The installer relaunches the app,
+/// so the file can only be removed on a later start.
+pub fn update_dir() -> std::path::PathBuf {
+    std::env::temp_dir()
+        .join("MakeYourLifeEasier")
+        .join("update")
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UpdateAsset {
@@ -162,10 +170,7 @@ pub async fn install_update(
     let _reset = ResetUpdating;
 
     let file_name = download::file_name_from(&asset.name, "MakeYourLifeEasier-setup.exe");
-    let path = std::env::temp_dir()
-        .join("MakeYourLifeEasier")
-        .join("update")
-        .join(file_name);
+    let path = update_dir().join(file_name);
 
     let mut started = false;
     let actual = download::download_to(
@@ -354,6 +359,25 @@ mod tests {
         assert!(matches!(
             evaluate(&current, release("v1.2.0", setup_asset())),
             Ok(UpdateCheck::Available { .. })
+        ));
+    }
+
+    #[test]
+    fn the_old_electron_releases_never_look_like_an_update() {
+        // The repository's latest release until v7 ships: v4.8.1, with
+        // electron-builder assets and no *_x64-setup.exe at all.
+        let old = release(
+            "v4.8.1",
+            serde_json::json!([
+                { "name": "latest.yml", "browser_download_url": "https://github.com/o/r/latest.yml", "size": 564 },
+                { "name": "MakeYourLifeEasier-Setup.exe", "browser_download_url": "https://github.com/o/r/s.exe", "size": 87022576 }
+            ]),
+        );
+        let current = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        assert!(current.major >= 7);
+        assert!(matches!(
+            evaluate(&current, old),
+            Ok(UpdateCheck::UpToDate { .. })
         ));
     }
 

@@ -170,13 +170,13 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 ## Updater (GitHub Releases)
 
 Τα releases βγαίνουν από αυτό το repo (`GITHUB_REPO` στο `src-tauri/src/updater.rs`: `thomasthanos/Make_Your_Life_Easier.A.E`).
-Η παλιά Electron εφαρμογή (v4.x) ζει στο branch `old` και τα releases της μένουν ως έχουν· η νέα ξεκινά από το **5.0.0**, οπότε τα v4.x είναι πάντα «παλαιότερα».
+Η παλιά Electron εφαρμογή (v4.x) ζει στο branch `old` και δεν παίρνει πια updates· η νέα ξεκινά από το **7.0.0**, οπότε τα v4.x releases είναι πάντα «παλαιότερα» και αγνοούνται.
 
-1. Ανέβασε την έκδοση στο `package.json` και στο `src-tauri/Cargo.toml` (π.χ. `5.0.1`) και κάνε commit.
-2. `git tag v5.0.1 && git push origin main v5.0.1`
-3. Το `.github/workflows/release.yml` χτίζει την εφαρμογή (κατεβάζει και το Ludusavi) και δημοσιεύει:
-   - `MakeYourLifeEasier_5.0.1_x64-setup.exe` — αυτό κατεβάζει ο updater της νέας εφαρμογής
-   - `latest.yml` — για τις εγκαταστάσεις της παλιάς Electron εφαρμογής, ώστε το electron-updater τους να βρει το νέο installer
+1. Ανέβασε την έκδοση **και** στο `package.json` **και** στο `src-tauri/Cargo.toml` (π.χ. `7.0.1`) και κάνε commit.
+2. `git tag v7.0.1 && git push origin main v7.0.1`
+3. Το `.github/workflows/release.yml` ελέγχει ότι tag και εκδόσεις ταιριάζουν, χτίζει την εφαρμογή (κατεβάζει και το Ludusavi) και δημοσιεύει το `MakeYourLifeEasier_7.0.1_x64-setup.exe`.
+
+Για δοκιμή χωρίς release: Actions → Release → **Run workflow**. Χτίζει το ίδιο, αλλά κρατά τον installer ως artifact και δεν δημοσιεύει τίποτα.
 
 Σε κάθε εκκίνηση, το splash:
 
