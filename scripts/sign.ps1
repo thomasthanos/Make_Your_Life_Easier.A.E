@@ -13,6 +13,13 @@ param([Parameter(Mandatory = $true)][string]$Path)
 
 $ErrorActionPreference = "Stop"
 
+# Tauri also offers the bundled resources. Ludusavi is a third-party program
+# published by its own author: it ships as downloaded, not under our name.
+if ($Path -match '\\resources\\ludusavi\\') {
+  Write-Host "Not signing third-party $Path"
+  exit 0
+}
+
 if (-not $env:MYLE_SIGN_PFX -or -not (Test-Path -LiteralPath $env:MYLE_SIGN_PFX)) {
   throw "MYLE_SIGN_PFX does not point at a certificate file."
 }
