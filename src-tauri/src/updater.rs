@@ -1,10 +1,12 @@
-//! Discord-style updater backed by the GitHub Releases API.
+//! Discord-style updater.
 //!
-//! 1. `check_for_update` asks GitHub for the latest release and compares its
-//!    tag with the running version.
-//! 2. `install_update` downloads the `*_x64-setup.exe` asset while streaming
-//!    progress to the splash, verifies its SHA-256 against the digest GitHub
-//!    publishes for every asset, runs it silently and exits the app. The
+//! 1. `check_for_update` reads the update feed on Cloudflare R2
+//!    (`UPDATE_FEED`, published by `release.yml`) and compares its version
+//!    with the running one. When the feed cannot be reached it asks the
+//!    GitHub Releases API instead, which `release.yml` publishes as well.
+//! 2. `install_update` downloads the installer while streaming progress to
+//!    the splash, verifies its SHA-256 (from the feed, or the digest GitHub
+//!    publishes for every asset), runs it silently and exits the app. The
 //!    installer relaunches the new version (`/R`).
 
 use std::time::Duration;
@@ -30,9 +32,15 @@ pub fn is_updating() -> bool {
     UPDATING.load(std::sync::atomic::Ordering::Relaxed)
 }
 
+/// Update feed on the R2 bucket behind downloads.thomast.uk. It is a file of
+/// its own: the old Electron app reads `latest.yml` from the same bucket, and
+/// that is left alone.
+pub const UPDATE_FEED: &str = "https://downloads.thomast.uk/latest.json";
+
 /// Release asset to install. `release.yml` publishes it with this suffix.
 const ASSET_SUFFIX: &str = "_x64-setup.exe";
-const DOWNLOAD_PREFIX: &str = "https://github.com/";
+/// Installers are only ever downloaded from these two places.
+const DOWNLOAD_PREFIXES: [&str; 2] = ["https://downloads.thomast.uk/", "https://github.com/"];
 const CHECK_TIMEOUT: Duration = Duration::from_secs(8);
 const USER_AGENT: &str = "MakeYourLifeEasier-Updater";
 
@@ -80,6 +88,25 @@ pub enum DownloadEvent {
     Installing,
 }
 
+/// `latest.json` on R2, written by `release.yml`.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Feed {
+    version: String,
+    #[serde(default)]
+    notes: String,
+    installer: FeedInstaller,
+}
+
+#[derive(Debug, Deserialize)]
+struct FeedInstaller {
+    name: String,
+    url: String,
+    size: u64,
+    /// Lowercase hex.
+    sha256: String,
+}
+
 #[derive(Deserialize)]
 struct GhRelease {
     tag_name: String,
@@ -113,7 +140,34 @@ pub async fn check_for_update(app: AppHandle) -> Result<UpdateCheck, String> {
         });
     }
 
-    let response = download::http_client(USER_AGENT)?
+    let client = download::http_client(USER_AGENT)?;
+    // R2 first: no rate limit, unlike GitHub's 60 anonymous calls an hour per
+    // address. GitHub is the fallback while the feed is unreachable or broken.
+    match check_feed(&client, &current).await {
+        Ok(check) => return Ok(check),
+        Err(error) => eprintln!("update feed unavailable, asking GitHub: {error}"),
+    }
+    check_github(&client, &current).await
+}
+
+async fn check_feed(client: &reqwest::Client, current: &Version) -> Result<UpdateCheck, String> {
+    let feed: Feed = client
+        .get(UPDATE_FEED)
+        .header("Cache-Control", "no-cache")
+        .timeout(CHECK_TIMEOUT)
+        .send()
+        .await
+        .map_err(err)?
+        .error_for_status()
+        .map_err(err)?
+        .json()
+        .await
+        .map_err(err)?;
+    evaluate_feed(current, feed)
+}
+
+async fn check_github(client: &reqwest::Client, current: &Version) -> Result<UpdateCheck, String> {
+    let response = client
         .get(format!(
             "https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
         ))
@@ -138,7 +192,7 @@ pub async fn check_for_update(app: AppHandle) -> Result<UpdateCheck, String> {
         .json()
         .await
         .map_err(err)?;
-    evaluate(&current, release)
+    evaluate(current, release)
 }
 
 #[tauri::command]
@@ -163,7 +217,7 @@ pub async fn install_update(
         .as_deref()
         .and_then(parse_sha256_digest)
         .ok_or("the release asset has no SHA-256 digest, refusing to install")?;
-    if !asset.url.starts_with(DOWNLOAD_PREFIX) {
+    if !allowed_download(&asset.url) {
         return Err(format!("unexpected download location: {}", asset.url));
     }
     UPDATING.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -218,6 +272,39 @@ impl Drop for ResetUpdating {
     fn drop(&mut self) {
         UPDATING.store(false, std::sync::atomic::Ordering::Relaxed);
     }
+}
+
+fn allowed_download(url: &str) -> bool {
+    DOWNLOAD_PREFIXES.iter().any(|prefix| url.starts_with(prefix))
+}
+
+fn evaluate_feed(current: &Version, feed: Feed) -> Result<UpdateCheck, String> {
+    let latest = parse_tag(&feed.version)?;
+    if latest <= *current {
+        return Ok(UpdateCheck::UpToDate {
+            current: current.to_string(),
+            latest: latest.to_string(),
+        });
+    }
+    let installer = feed.installer;
+    if !allowed_download(&installer.url) {
+        return Err(format!("the update feed points outside the download hosts: {}", installer.url));
+    }
+    let digest = format!("sha256:{}", installer.sha256.trim());
+    if parse_sha256_digest(&digest).is_none() {
+        return Err("the update feed has no valid SHA-256 for the installer".into());
+    }
+    Ok(UpdateCheck::Available {
+        current: current.to_string(),
+        latest: latest.to_string(),
+        notes: feed.notes,
+        asset: UpdateAsset {
+            name: installer.name,
+            url: installer.url,
+            size: installer.size,
+            digest: Some(digest),
+        },
+    })
 }
 
 fn evaluate(current: &Version, release: GhRelease) -> Result<UpdateCheck, String> {
@@ -379,6 +466,49 @@ mod tests {
             evaluate(&current, old),
             Ok(UpdateCheck::UpToDate { .. })
         ));
+    }
+
+    fn feed(version: &str, url: &str, sha256: &str) -> Feed {
+        serde_json::from_value(serde_json::json!({
+            "version": version,
+            "notes": "notes",
+            "pubDate": "2026-09-27T00:00:00Z",
+            "installer": {
+                "name": format!("MakeYourLifeEasier_{version}_x64-setup.exe"),
+                "url": url,
+                "size": 13_606_875,
+                "sha256": sha256
+            }
+        }))
+        .unwrap()
+    }
+
+    const SHA: &str = "0d4767f0bb3520ee6060bbc444c3c9851ba58888c2cb6f23c711e67910b89824";
+
+    #[test]
+    fn a_newer_feed_offers_the_r2_installer_with_its_hash() {
+        let url = "https://downloads.thomast.uk/MakeYourLifeEasier_7.1.0_x64-setup.exe";
+        let UpdateCheck::Available { latest, asset, .. } =
+            evaluate_feed(&Version::new(7, 0, 0), feed("7.1.0", url, SHA)).unwrap()
+        else {
+            panic!("expected an update");
+        };
+        assert_eq!(latest, "7.1.0");
+        assert_eq!(asset.url, url);
+        assert_eq!(asset.digest.as_deref(), Some(&*format!("sha256:{SHA}")));
+    }
+
+    #[test]
+    fn the_feed_is_not_trusted_blindly() {
+        let current = Version::new(7, 0, 0);
+        let good = "https://downloads.thomast.uk/x_x64-setup.exe";
+        assert!(matches!(
+            evaluate_feed(&current, feed("7.0.0", good, SHA)),
+            Ok(UpdateCheck::UpToDate { .. })
+        ));
+        assert!(evaluate_feed(&current, feed("7.1.0", "https://evil.example/x.exe", SHA)).is_err());
+        assert!(evaluate_feed(&current, feed("7.1.0", good, "not-a-hash")).is_err());
+        assert!(evaluate_feed(&current, feed("latest", good, SHA)).is_err());
     }
 
     #[test]

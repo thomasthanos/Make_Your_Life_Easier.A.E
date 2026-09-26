@@ -167,28 +167,32 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 
 Το παράθυρο δεν ξεπερνά ποτέ το 95% της περιοχής εκτός taskbar.
 
-## Updater (GitHub Releases)
+## Updater (Cloudflare R2 + GitHub Releases)
 
-Τα releases βγαίνουν από αυτό το repo (`GITHUB_REPO` στο `src-tauri/src/updater.rs`: `thomasthanos/Make_Your_Life_Easier.A.E`).
-Η παλιά Electron εφαρμογή (v4.x) ζει στο branch `old` και δεν παίρνει πια updates· η νέα ξεκινά από το **7.0.0**, οπότε τα v4.x releases είναι πάντα «παλαιότερα» και αγνοούνται.
+Η παλιά Electron εφαρμογή (v4.x) ζει στο branch `old` και δεν παίρνει πια updates· η νέα ξεκινά από το **7.0.0**. Το `latest.yml` της παλιάς στο R2 μένει ανέγγιχτο, άρα οι παλιές εγκαταστάσεις απλώς βλέπουν «up to date».
+
+**Release:**
 
 1. Ανέβασε την έκδοση **και** στο `package.json` **και** στο `src-tauri/Cargo.toml` (π.χ. `7.0.1`) και κάνε commit.
 2. `git tag v7.0.1 && git push origin main v7.0.1`
-3. Το `.github/workflows/release.yml` ελέγχει ότι tag και εκδόσεις ταιριάζουν, χτίζει την εφαρμογή (κατεβάζει και το Ludusavi) και δημοσιεύει το `MakeYourLifeEasier_7.0.1_x64-setup.exe`.
+3. Το `.github/workflows/release.yml`:
+   - ελέγχει ότι tag και εκδόσεις ταιριάζουν, τρέχει `svelte-check` και χτίζει (κατεβάζει και το Ludusavi)
+   - **υπογράφει** exe, installer και uninstaller με το πιστοποιητικό των secrets `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` (`scripts/sign.ps1`)
+   - ανεβάζει στο **Cloudflare R2** (`downloads.thomast.uk`, secrets `R2_*`) τον `MakeYourLifeEasier_7.0.1_x64-setup.exe`, το σταθερό link `MakeYourLifeEasier-installer.exe` και στο τέλος το `latest.json`, και ελέγχει ότι το R2 σερβίρει ακριβώς τα ίδια bytes
+   - δημοσιεύει και το GitHub release
 
-Για δοκιμή χωρίς release: Actions → Release → **Run workflow**. Χτίζει το ίδιο, αλλά κρατά τον installer ως artifact και δεν δημοσιεύει τίποτα.
+Για δοκιμή χωρίς release: Actions → Release → **Run workflow**. Χτίζει και υπογράφει το ίδιο, κρατά τον installer ως artifact και δεν ανεβάζει/δημοσιεύει τίποτα.
 
-Σε κάθε εκκίνηση, το splash:
+**Σε κάθε εκκίνηση, το splash:**
 
-- ρωτά το `api.github.com/repos/<repo>/releases/latest`
-- αν βρει νεότερο tag, κατεβάζει το setup και ελέγχει το SHA-256 του με το digest που δίνει το GitHub (χωρίς digest, δεν εγκαθιστά)
-- το τρέχει σιωπηλά (`/S /UPDATE /R`) και κλείνει
+- διαβάζει το `https://downloads.thomast.uk/latest.json` (`UPDATE_FEED` στο `src-tauri/src/updater.rs`)· αν δεν απαντά, ρωτά το `api.github.com/repos/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest`
+- αν βρει νεότερη έκδοση, κατεβάζει τον installer (μόνο από `downloads.thomast.uk` ή `github.com`) και ελέγχει το SHA-256 του (από το feed ή από το digest του GitHub· χωρίς hash δεν εγκαθιστά)
+- τον τρέχει σιωπηλά (`/S /UPDATE /R`) και κλείνει
 - ο installer ξανανοίγει τη νέα έκδοση
 
 Αν δεν υπάρχει δίκτυο, η εφαρμογή ανοίγει κανονικά μετά από ~2 δευτερόλεπτα.
 
-> Ο έλεγχος SHA-256 πιάνει αρχεία που χάλασαν ή άλλαξαν στη διαδρομή. Δεν προστατεύει αν παραβιαστεί ο ίδιος ο λογαριασμός GitHub.
-> Για κάτι τέτοιο χρειάζεται υπογραφή κώδικα (code signing).
+> Ο έλεγχος SHA-256 πιάνει αρχεία που χάλασαν ή άλλαξαν στη διαδρομή. Δεν προστατεύει αν παραβιαστεί ο ίδιος ο λογαριασμός GitHub/Cloudflare.
 
 ## Εγκατάσταση (one-click, ανά χρήστη, χωρίς admin)
 

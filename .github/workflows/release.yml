@@ -1,14 +1,16 @@
-# Builds the Windows installer and publishes it as a GitHub release.
+# Builds, signs and publishes a release of the Windows app.
 #
-# Release: bump "version" in package.json (and src-tauri/Cargo.toml), commit,
+# Release: bump "version" in package.json and src-tauri/Cargo.toml, commit,
 # then push a matching tag:   git tag v7.0.1 && git push origin main v7.0.1
 #
-# The app's updater (src-tauri/src/updater.rs) reads the latest release and
-# installs its *_x64-setup.exe after checking the SHA-256 digest GitHub
-# publishes for every asset.
+# Where updates come from (src-tauri/src/updater.rs):
+#   1. latest.json on Cloudflare R2 (downloads.thomast.uk), uploaded here
+#   2. the GitHub release, as a fallback while R2 is unreachable
+# Both carry the SHA-256 the app checks before it runs the installer.
 #
-# Run it by hand (Actions > Release > Run workflow) for a dry run: the same
-# build, with the installer kept as a workflow artifact and nothing published.
+# Run by hand (Actions > Release > Run workflow) for a dry run: the same
+# build and signature, with the installer kept as a workflow artifact and
+# nothing uploaded or published.
 name: Release
 
 on:
@@ -26,6 +28,8 @@ concurrency:
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      HAS_CERT: ${{ secrets.WIN_CSC_LINK != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -40,7 +44,7 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Read the app version
+      - name: Read the app version and update feed
         shell: pwsh
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
@@ -51,15 +55,61 @@ jobs:
           if ("${{ github.ref_type }}" -eq "tag" -and "v$version" -ne "${{ github.ref_name }}") {
             throw "Tag ${{ github.ref_name }} does not match the app version $version"
           }
+          # The app's own feed address, so the upload can never drift from it.
+          $feed = (Select-String -Path src-tauri/src/updater.rs -Pattern 'UPDATE_FEED: &str = "([^"]+)"').Matches[0].Groups[1].Value
+          $base = $feed.Substring(0, $feed.LastIndexOf('/'))
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "FEED_URL=$feed"   | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "FEED_BASE=$base"  | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - run: npm ci
 
       - run: npm run check
 
+      - name: Prepare code signing
+        if: env.HAS_CERT == 'true'
+        shell: pwsh
+        env:
+          CERT_B64: ${{ secrets.WIN_CSC_LINK }}
+          CERT_PASS: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          $pass = "$env:CERT_PASS".Trim().Trim('"').Trim("'")
+          Write-Host "::add-mask::$pass"
+          $pfx = Join-Path $env:RUNNER_TEMP "myle-sign.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT_B64.Trim()))
+          $cert = (Get-PfxData -FilePath $pfx -Password (ConvertTo-SecureString $pass -AsPlainText -Force)).EndEntityCertificates[0]
+          Write-Host "Signing certificate: $($cert.Subject), expires $($cert.NotAfter)"
+
+          # Tauri runs this for the exe, the installer and the uninstaller.
+          $config = Join-Path $env:RUNNER_TEMP "tauri.sign.json"
+          @{
+            bundle = @{
+              windows = @{
+                signCommand = @{
+                  cmd  = "powershell"
+                  args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                           (Join-Path $env:GITHUB_WORKSPACE "scripts/sign.ps1"), "%1")
+                }
+              }
+            }
+          } | ConvertTo-Json -Depth 6 | Set-Content -Path $config -Encoding utf8NoBOM
+
+          "MYLE_SIGN_PFX=$pfx"          | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "MYLE_SIGN_PASSWORD=$pass"    | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "TAURI_SIGN_CONFIG=$config"   | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
       # Also downloads and verifies the pinned Ludusavi runtime for Game Saves
       # (scripts/bootstrap-game-saves.ps1); those files are not in Git.
-      - run: npm run tauri build
+      - name: Build
+        shell: pwsh
+        run: |
+          if ($env:TAURI_SIGN_CONFIG) {
+            npm run tauri build -- --config $env:TAURI_SIGN_CONFIG
+          } else {
+            Write-Host "::warning::WIN_CSC_LINK is not set: building an unsigned installer."
+            npm run tauri build
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Collect the installer
         shell: pwsh
@@ -68,8 +118,15 @@ jobs:
           if (-not $setup) { throw "The NSIS installer was not produced." }
           # No spaces: GitHub would rename "Make Your Life Easier_…" anyway.
           # The updater looks for the "_x64-setup.exe" ending.
+          $name = "MakeYourLifeEasier_${env:VERSION}_x64-setup.exe"
           New-Item -ItemType Directory -Force out | Out-Null
-          Copy-Item $setup.FullName "out/MakeYourLifeEasier_${env:VERSION}_x64-setup.exe"
+          Copy-Item $setup.FullName "out/$name"
+          $signature = Get-AuthenticodeSignature "out/$name"
+          Write-Host "Signature: $($signature.Status) $($signature.SignerCertificate.Subject)"
+          if ($env:HAS_CERT -eq 'true' -and -not $signature.SignerCertificate) {
+            throw "The installer is not signed."
+          }
+          "SETUP_NAME=$name" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Keep the installer (dry run)
         if: github.ref_type != 'tag'
@@ -79,7 +136,60 @@ jobs:
           path: out/*
           retention-days: 7
 
-      - name: Publish the release
+      - name: Publish to Cloudflare R2
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          $endpoint = "https://$env:R2_ACCOUNT_ID.r2.cloudflarestorage.com"
+          $setup = Get-Item "out/$env:SETUP_NAME"
+          $sha256 = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+
+          function Publish([string]$File, [string]$Key, [string[]]$Extra = @()) {
+            aws s3 cp $File "s3://$env:R2_BUCKET/$Key" --endpoint-url $endpoint @Extra
+            if ($LASTEXITCODE -ne 0) { throw "Upload failed: $Key" }
+          }
+          function Assert-Served([string]$Key, [string]$Expected) {
+            $served = Join-Path $env:RUNNER_TEMP ([IO.Path]::GetFileName($Key))
+            Invoke-WebRequest -Uri "$env:FEED_BASE/$Key" -OutFile $served -Headers @{ 'Cache-Control' = 'no-cache' }
+            $actual = (Get-FileHash $served -Algorithm SHA256).Hash.ToLowerInvariant()
+            Remove-Item $served
+            if ($actual -ne $Expected) { throw "$Key served by $env:FEED_BASE does not match the build" }
+            Write-Host "Verified $env:FEED_BASE/$Key"
+          }
+
+          $exe = @('--content-type', 'application/vnd.microsoft.portable-executable')
+          # The versioned installer the app downloads...
+          Publish $setup.FullName $setup.Name $exe
+          Assert-Served $setup.Name $sha256
+          # ...and the fixed "latest installer" link for downloads from the web.
+          Publish $setup.FullName "MakeYourLifeEasier-installer.exe" ($exe + @('--cache-control', 'no-cache'))
+
+          # The feed goes last: clients only see a version once its installer is live.
+          $feed = [ordered]@{
+            version   = $env:VERSION
+            notes     = "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+            pubDate   = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            installer = [ordered]@{
+              name   = $setup.Name
+              url    = "$env:FEED_BASE/$($setup.Name)"
+              size   = $setup.Length
+              sha256 = $sha256
+            }
+          }
+          $feedFile = Join-Path $env:RUNNER_TEMP "latest.json"
+          $feed | ConvertTo-Json -Depth 4 | Set-Content -Path $feedFile -Encoding utf8NoBOM
+          Publish $feedFile "latest.json" @('--content-type', 'application/json', '--cache-control', 'no-cache')
+          Assert-Served "latest.json" (Get-FileHash $feedFile -Algorithm SHA256).Hash.ToLowerInvariant()
+
+      - name: Publish the GitHub release
         if: github.ref_type == 'tag'
         shell: pwsh
         env:
