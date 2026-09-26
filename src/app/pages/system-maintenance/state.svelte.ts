@@ -141,6 +141,11 @@ class MaintenanceState {
     setTimeout(tick, 2000);
   }
 
+  /** Re-reads the saved layout (after account sync replaced it). */
+  reloadView() {
+    this.view = readJson(KEY.view, this.view, oneOf("grid", "list"));
+  }
+
   setView(view: View) {
     this.view = view;
     writeJson(KEY.view, view);

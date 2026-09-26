@@ -1,3 +1,4 @@
+mod account;
 mod apps;
 mod cleaner;
 mod console;
@@ -46,6 +47,7 @@ fn show_main(app: &AppHandle) -> tauri::Result<()> {
 }
 
 pub fn run() {
+    let account_state = account::AccountState::default();
     let cleanup = apps::Cleanup::default();
     let jobs = apps::Jobs::default();
     let running = maintenance::Running::default();
@@ -66,6 +68,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(account_state)
         .manage(jobs.clone())
         .manage(cleanup.clone())
         .manage(running.clone())
@@ -118,6 +121,12 @@ pub fn run() {
             finish_startup,
             updater::check_for_update,
             updater::install_update,
+            account::account_profile,
+            account::account_sign_in,
+            account::account_cancel_sign_in,
+            account::account_sign_out,
+            account::account_pull,
+            account::account_push,
             apps::apps_installed,
             apps::apps_cancel,
             apps::winget::apps_search,
@@ -170,6 +179,8 @@ pub fn run() {
             game_saves::commands::game_saves_backup,
             game_saves::commands::game_saves_restore,
             game_saves::commands::game_saves_undo_last_restore,
+            game_saves::commands::game_saves_sync_export,
+            game_saves::commands::game_saves_sync_import,
             game_saves::commands::game_saves_cancel
         ])
         .build(tauri::generate_context!())

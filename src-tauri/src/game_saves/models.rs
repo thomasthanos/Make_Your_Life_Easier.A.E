@@ -158,6 +158,21 @@ impl Default for GameSavesSettings {
     }
 }
 
+/// The part of the Game Saves settings that follows the user's account to
+/// other PCs. Folders (backup, game libraries, restore locations) belong to
+/// one machine and stay out.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncedGameSaves {
+    pub schedule: BackupSchedule,
+    pub schedule_time: String,
+    pub schedule_weekday: ScheduleWeekday,
+    #[serde(default)]
+    pub auto_backup_excluded_game_ids: Vec<String>,
+    #[serde(default)]
+    pub custom_games: Vec<CustomGame>,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScheduledBackupResult {

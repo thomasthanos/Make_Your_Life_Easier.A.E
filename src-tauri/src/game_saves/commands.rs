@@ -16,7 +16,7 @@ use super::models::{
     BackupSchedule, CustomGame, DatabaseUpdate, DetectedFolder, GameRoot, GameSaveEntry,
     GameSaveStatus, GameSavesEvent, GameSavesOperationResult, GameSavesPageState, GameSavesScan,
     GameSavesSettings, OperationKind, OperationStage, RestorePathMapping, RestoreSelection,
-    RootSource, RootStore, ScanMode, ScheduleWeekday,
+    RootSource, RootStore, ScanMode, ScheduleWeekday, SyncedGameSaves,
 };
 use super::parser::{self, ApiGame, ApiOutput, ManifestMetadata};
 use super::scan_cache::{self, CachedScan};
@@ -766,6 +766,74 @@ pub async fn game_saves_undo_last_restore(
     Ok(result)
 }
 
+/// What of the Game Saves setup the account syncs.
+#[tauri::command]
+pub fn game_saves_sync_export(app: AppHandle) -> Result<SyncedGameSaves, String> {
+    let value = settings::initialize(&app)?;
+    Ok(SyncedGameSaves {
+        schedule: value.schedule,
+        schedule_time: value.schedule_time,
+        schedule_weekday: value.schedule_weekday,
+        auto_backup_excluded_game_ids: value.auto_backup_excluded_game_ids,
+        custom_games: value.custom_games,
+    })
+}
+
+/// Applies settings synced from another PC. Custom games keep only the save
+/// folders that exist here (profile names and drives differ between PCs);
+/// a game with none left is skipped. Local folders are never touched.
+#[tauri::command]
+pub async fn game_saves_sync_import(
+    app: AppHandle,
+    state: State<'_, GameSavesState>,
+    synced: SyncedGameSaves,
+) -> Result<GameSavesSettings, String> {
+    state.ensure_idle()?;
+    let mut value = settings::initialize(&app)?;
+    value.auto_backup_excluded_game_ids = synced.auto_backup_excluded_game_ids;
+    merge_synced_custom_games(&mut value.custom_games, synced.custom_games);
+    if let Some(backup) = value.backup_folder.as_deref() {
+        value.custom_games.retain(|game| {
+            !game
+                .paths
+                .iter()
+                .any(|path| settings::overlaps(Path::new(path), Path::new(backup)))
+        });
+    }
+
+    let schedule_changed = value.schedule != synced.schedule
+        || value.schedule_time != synced.schedule_time
+        || value.schedule_weekday != synced.schedule_weekday;
+    if schedule_changed && settings::valid_schedule_time(&synced.schedule_time) {
+        configure_scheduled_task(synced.schedule, &synced.schedule_time, synced.schedule_weekday)
+            .await?;
+        value.schedule = synced.schedule;
+        value.schedule_time = synced.schedule_time;
+        value.schedule_weekday = synced.schedule_weekday;
+    }
+    settings::save(&app, &value)?;
+    settings::initialize(&app)
+}
+
+fn merge_synced_custom_games(local: &mut Vec<CustomGame>, synced: Vec<CustomGame>) {
+    for mut game in synced {
+        game.paths.retain(|path| Path::new(path).is_dir());
+        if game
+            .install_path
+            .as_deref()
+            .is_some_and(|path| !Path::new(path).is_dir())
+        {
+            game.install_path = None;
+        }
+        if game.paths.is_empty() || game.name.trim().is_empty() {
+            continue;
+        }
+        // The same game (by id, or by name from an older copy) is replaced.
+        local.retain(|known| known.id != game.id && !known.name.eq_ignore_ascii_case(&game.name));
+        local.push(game);
+    }
+}
+
 #[tauri::command]
 pub fn game_saves_cancel(state: State<'_, GameSavesState>) {
     state.cancel();
@@ -1332,6 +1400,43 @@ mod tests {
             target: r"C:\Saves\Old Game".into(),
         });
         assert!(selected_restore_games(&state, &selections, &value).is_ok());
+    }
+
+    #[test]
+    fn synced_custom_games_keep_only_folders_that_exist_here() {
+        let here = std::env::temp_dir();
+        let game = |id: &str, name: &str, paths: Vec<String>| CustomGame {
+            id: id.into(),
+            name: name.into(),
+            paths,
+            install_path: Some(r"Q:\Nowhere\Game".into()),
+            auto_backup: true,
+        };
+        let mut local = vec![
+            game("custom-a", "Alpha", vec![here.to_string_lossy().into_owned()]),
+            game("custom-keep", "Kept", vec![here.to_string_lossy().into_owned()]),
+        ];
+        merge_synced_custom_games(
+            &mut local,
+            vec![
+                // Same game from the other PC: replaces the local copy.
+                game(
+                    "custom-a",
+                    "Alpha",
+                    vec![
+                        here.to_string_lossy().into_owned(),
+                        r"Q:\Users\Other\Saves".into(),
+                    ],
+                ),
+                // Nothing of it exists on this PC: skipped.
+                game("custom-b", "Beta", vec![r"Q:\Users\Other\Beta".into()]),
+            ],
+        );
+        let names: Vec<_> = local.iter().map(|g| g.name.as_str()).collect();
+        assert_eq!(names, vec!["Kept", "Alpha"]);
+        let alpha = local.iter().find(|g| g.name == "Alpha").unwrap();
+        assert_eq!(alpha.paths.len(), 1);
+        assert_eq!(alpha.install_path, None);
     }
 
     #[test]

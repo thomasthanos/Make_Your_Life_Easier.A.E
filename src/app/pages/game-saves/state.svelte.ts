@@ -5,7 +5,7 @@ import { SvelteSet } from "svelte/reactivity";
 import { badges } from "../../../lib/badges.svelte";
 import { confirm } from "../../../lib/confirm.svelte";
 import { nav } from "../../../lib/nav.svelte";
-import { readFlag, readJson, writeFlag, writeJson } from "../../../lib/storage";
+import { notifyChange, readFlag, readJson, writeFlag, writeJson } from "../../../lib/storage";
 import { toast } from "../../../lib/toast.svelte";
 import {
   gameSavesApi,
@@ -45,6 +45,9 @@ const KEY = {
 };
 
 const oneOf = <T extends string>(...values: T[]) => (value: unknown) => values.includes(value as T);
+
+/** Settings that follow the account to other PCs (the rest name local folders). */
+const SYNCED_SETTINGS = new Set(["schedule", "customGame"]);
 
 /** Background check for saves changed by playing, while the app is open. */
 const WATCH_EVERY_MS = 10 * 60 * 1000;
@@ -206,6 +209,12 @@ class GameSavesState {
         // Keep waiting; the next poll retries.
       }
     }
+  }
+
+  /** Re-reads the saved tab and filter (after account sync replaced them). */
+  reloadChoices() {
+    this.tab = readJson(KEY.tab, this.tab, oneOf("pc", "backup"));
+    this.filter = readJson(KEY.filter, this.filter, oneOf("all", "changed", "notBackedUp", "backedUp", "problems"));
   }
 
   toggleSettings() {
@@ -687,6 +696,7 @@ class GameSavesState {
       await this.#stopDiscovery();
       this.page.settings = await gameSavesApi.setGameAutoBackup(game.id, enabled);
       if (this.scanResult) this.#updateBadge(this.scanResult);
+      notifyChange("gameSaves");
     } catch (error) {
       game.autoBackup = before;
       toast.error(`Could not update ${game.title}: ${message(error)}`);
@@ -708,6 +718,7 @@ class GameSavesState {
       // Settings cannot change under a running scan; a background one yields.
       await this.#stopDiscovery();
       await action();
+      if (SYNCED_SETTINGS.has(key)) notifyChange("gameSaves");
     } catch (error) {
       toast.error(message(error));
     } finally {

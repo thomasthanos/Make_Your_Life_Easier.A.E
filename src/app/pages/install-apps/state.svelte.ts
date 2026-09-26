@@ -335,6 +335,17 @@ class InstallAppsState {
 
   // ---------------------------------------------------------------- choices
 
+  /** Re-reads the saved choices (after account sync replaced them). */
+  reloadChoices() {
+    this.view = readJson(KEY.view, this.view, oneOf("grid", "list"));
+    this.filter = readJson(KEY.filter, this.filter, oneOf("all", "installed", "updates", "missing"));
+    this.sort = readJson(KEY.sort, this.sort, oneOf("category", "az", "za", "status"));
+    const selected = readJson<string[]>(KEY.selected, [...this.selected], isStringArray);
+    this.selected.clear();
+    for (const id of selected) this.selected.add(id);
+    this.pinned = readJson(KEY.pinned, this.pinned, isEntryArray);
+  }
+
   setView(view: View) {
     this.view = view;
     writeJson(KEY.view, view);

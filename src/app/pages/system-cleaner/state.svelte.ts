@@ -80,6 +80,13 @@ class CleanerState {
     }
   }
 
+  /** Re-reads the saved selection (after account sync replaced it). */
+  reloadSelection() {
+    const saved = readJson<string[]>(KEY.selected, [...this.selected], isStringArray);
+    this.selected.clear();
+    for (const id of saved) if (!this.cleaned.has(id)) this.selected.add(id);
+  }
+
   isCleaned(id: string) {
     return this.cleaned.has(id);
   }

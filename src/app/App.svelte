@@ -3,6 +3,7 @@
   import Toaster from "../lib/components/Toaster.svelte";
   import { onMount } from "svelte";
   import { nav } from "../lib/nav.svelte";
+  import { account } from "./account/account.svelte";
   import { gameSavesState } from "./pages/game-saves/state.svelte";
   import ContentArea from "./shell/ContentArea.svelte";
   import Sidebar from "./shell/Sidebar.svelte";
@@ -10,8 +11,12 @@
 
   let maximized = $state(false);
 
-  // Notices game saves changed by playing, whichever page is open.
-  onMount(() => gameSavesState.startWatcher());
+  onMount(() => {
+    // Notices game saves changed by playing, whichever page is open.
+    gameSavesState.startWatcher();
+    // Restores the signed-in account and syncs settings with it.
+    void account.init();
+  });
 
   function onKeydown(e: KeyboardEvent) {
     if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {

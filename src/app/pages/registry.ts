@@ -12,7 +12,7 @@ import CreativeHub from "./creative-hub/CreativeHub.svelte";
 import GameSaves from "./game-saves/GameSaves.svelte";
 import InstallApps from "./install-apps/InstallApps.svelte";
 import SpotifyHub from "./spotify-hub/SpotifyHub.svelte";
-import Settings from "./Settings.svelte";
+import Settings from "./settings/Settings.svelte";
 import SystemCleaner from "./system-cleaner/SystemCleaner.svelte";
 import SystemMaintenance from "./system-maintenance/SystemMaintenance.svelte";
 import WindowsOptimization from "./windows-optimization/WindowsOptimization.svelte";

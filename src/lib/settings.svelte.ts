@@ -10,6 +10,12 @@ class Settings {
     this.apply();
   }
 
+  /** Re-reads the saved value (after account sync replaced it). */
+  reload() {
+    this.perfLite = readFlag(PERF_LITE_KEY, this.perfLite);
+    this.apply();
+  }
+
   setPerfLite(value: boolean) {
     this.perfLite = value;
     writeFlag(PERF_LITE_KEY, value);

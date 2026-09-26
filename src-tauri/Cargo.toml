@@ -24,7 +24,7 @@ sha2 = "0.11"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 # native-tls uses Windows' built-in SChannel: smaller binary than bundling rustls.
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "json", "stream", "system-proxy"] }
-tokio = { version = "1", features = ["fs", "io-util", "time", "process", "macros"] }
+tokio = { version = "1", features = ["fs", "io-util", "time", "process", "macros", "net", "sync"] }
 # Install Apps page
 regex-lite = "0.1"
 unicode-width = "0.2"
@@ -38,6 +38,7 @@ windows-sys = { version = "0.61", features = [
     "Win32_Security_Authentication_Identity",
     "Win32_Security_Authorization",
     "Win32_Security_Credentials",
+    "Win32_Security_Cryptography",
     "Win32_Storage_FileSystem",
     "Win32_System_Com",
     "Win32_System_Registry",

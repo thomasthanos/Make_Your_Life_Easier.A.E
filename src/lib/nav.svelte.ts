@@ -16,6 +16,11 @@ class Nav {
     this.current = id;
   }
 
+  /** Re-reads the saved sidebar mode (after account sync replaced it). */
+  reload() {
+    this.collapsed = readFlag(SIDEBAR_KEY, this.collapsed);
+  }
+
   toggleSidebar = () => {
     this.collapsed = !this.collapsed;
     writeFlag(SIDEBAR_KEY, this.collapsed);

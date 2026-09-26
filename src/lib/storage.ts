@@ -1,4 +1,24 @@
 // localStorage wrappers that never throw (storage can be blocked or unavailable).
+//
+// Every write is also announced to one listener: account sync uses it to
+// notice changed preferences without each page having to report them.
+
+type ChangeListener = (key: string) => void;
+let listener: ChangeListener | null = null;
+
+/** Registers the (single) listener told about every write. */
+export function onStorageChange(fn: ChangeListener): void {
+  listener = fn;
+}
+
+/** Announces a change kept outside localStorage (e.g. Game Saves settings). */
+export function notifyChange(key: string): void {
+  try {
+    listener?.(key);
+  } catch {
+    // A listener failure never breaks saving a preference.
+  }
+}
 
 export function readFlag(key: string, fallback: boolean): boolean {
   try {
@@ -15,6 +35,7 @@ export function writeFlag(key: string, value: boolean): void {
   } catch {
     // Not persisted; the in-memory state still applies.
   }
+  notifyChange(key);
 }
 
 /** Parsed JSON value, or `fallback` if missing, unreadable or rejected by `valid`. */
@@ -35,4 +56,5 @@ export function writeJson(key: string, value: unknown): void {
   } catch {
     // Not persisted; the in-memory state still applies.
   }
+  notifyChange(key);
 }
