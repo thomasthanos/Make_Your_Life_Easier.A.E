@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a0d15" />
+    <meta
+      name="description"
+      content="Learn what Make Your Life Easier does, how it handles Windows changes and where to download the current installer."
+    />
+    <title>About — Make Your Life Easier</title>
+    <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="assets/site.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="container nav-shell">
+        <a class="brand" href="/" aria-label="Make Your Life Easier home">
+          <img src="assets/app-icon.svg" width="34" height="34" alt="" />
+          <span>Make Your Life Easier</span>
+        </a>
+        <nav class="site-nav" aria-label="Primary navigation">
+          <a href="/">Home</a>
+          <a href="changelog.html">Changelog</a>
+          <a href="readme.html" aria-current="page">About</a>
+          <a class="nav-download" href="#download">Download</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="container page-hero">
+        <span class="eyebrow">About the application</span>
+        <h1>A focused control center for <span class="gradient-text">everyday Windows tasks.</span></h1>
+        <p>
+          Make Your Life Easier brings app setup, backups, cleanup and maintenance into
+          one modern Windows desktop experience.
+        </p>
+      </section>
+
+      <div class="container prose">
+        <article class="info-card">
+          <h2>What it includes</h2>
+          <ul>
+            <li><strong>Install Apps:</strong> curated applications, winget search, batch installation and updates.</li>
+            <li><strong>Spotify Hub:</strong> verified Spicetify setup, stock restore and confirmed cleanup flows.</li>
+            <li><strong>Game Saves:</strong> local save discovery, snapshot backups, restore points and scheduling.</li>
+            <li><strong>Creative Hub:</strong> managed downloads for configured creative packages.</li>
+            <li><strong>Windows Optimization:</strong> trusted launchers plus guarded built-in Windows actions.</li>
+            <li><strong>System Cleaner:</strong> category-based scanning and cleanup of known cache locations.</li>
+            <li><strong>System Maintenance:</strong> network, health and update tasks with live status.</li>
+          </ul>
+        </article>
+
+        <article class="info-card">
+          <h2>Designed around explicit choices</h2>
+          <p>
+            The app does not silently apply broad system tweaks. Potentially disruptive operations
+            use confirmations, fixed backend allowlists and Windows administrator prompts where the
+            operating system requires them.
+          </p>
+          <p>
+            Third-party tools remain identifiable in the interface. Downloads that support published
+            digests are verified before execution, and application updates are checked against a
+            SHA-256 value supplied by the release feed or GitHub.
+          </p>
+        </article>
+
+        <article class="info-card">
+          <h2>Accounts and local data</h2>
+          <p>
+            Signing in is optional. The application can synchronize selected preferences and setup
+            choices, while credentials and machine-specific operational data remain protected on the
+            current Windows profile. Game save contents are not uploaded by the settings sync feature.
+          </p>
+          <p>
+            Backup destinations and third-party downloads are chosen or initiated by the user. Review
+            each tool's confirmation before allowing a system-level operation.
+          </p>
+        </article>
+
+        <article class="info-card">
+          <h2>System requirements</h2>
+          <ul>
+            <li>Windows 10 or Windows 11, 64-bit.</li>
+            <li>Microsoft Edge WebView2, installed automatically by Windows or the setup bootstrapper.</li>
+            <li>An internet connection for catalog searches, downloads, sign-in and update checks.</li>
+            <li>Administrator approval only for actions that modify protected Windows resources.</li>
+          </ul>
+        </article>
+
+        <div class="notice" role="note">
+          <span aria-hidden="true">!</span>
+          <div>
+            <strong>Before system maintenance</strong><br />
+            Save open work and keep a current backup. Stopping an operation cannot undo changes that
+            Windows or a third-party tool has already completed.
+          </div>
+        </div>
+
+        <article id="download" class="download-panel">
+          <div>
+            <span class="section-label">Official distribution</span>
+            <h2>Download the Windows installer</h2>
+            <p>
+              The stable download address is maintained by the release workflow. GitHub Releases is
+              available as a fallback if the primary download is temporarily unavailable.
+            </p>
+          </div>
+          <div class="download-actions">
+            <a class="button primary" href="https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe">
+              Download installer&nbsp; ↓
+            </a>
+            <a
+              class="button"
+              href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Latest GitHub release</a>
+          </div>
+        </article>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-shell">
+        <div class="footer-copy">
+          <strong>Make Your Life Easier</strong>
+          <span>© 2026 ThomasThanos. All rights reserved.</span>
+        </div>
+        <nav class="footer-links" aria-label="Footer navigation">
+          <a href="/">Home</a>
+          <a href="changelog.html">Changelog</a>
+          <a href="copyright.html">Copyright</a>
+          <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/issues">Report an issue</a>
+          <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E">GitHub</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

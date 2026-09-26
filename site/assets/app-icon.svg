@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="icon-title">
+  <title id="icon-title">Make Your Life Easier</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#232a45" />
+      <stop offset="1" stop-color="#0c0f18" />
+    </linearGradient>
+    <radialGradient id="glow" cx=".3" cy=".22" r=".75">
+      <stop offset="0" stop-color="#6f7dff" stop-opacity=".45" />
+      <stop offset="1" stop-color="#6f7dff" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".55" />
+      <stop offset=".35" stop-color="#fff" stop-opacity=".08" />
+      <stop offset="1" stop-color="#fff" stop-opacity=".14" />
+    </linearGradient>
+    <linearGradient id="spark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c9ceff" />
+      <stop offset=".5" stop-color="#7486ff" />
+      <stop offset="1" stop-color="#4fd1e8" />
+    </linearGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="220" fill="url(#bg)" />
+  <rect x="64" y="64" width="896" height="896" rx="220" fill="url(#glow)" />
+  <rect x="70" y="70" width="884" height="884" rx="214" fill="none" stroke="url(#rim)" stroke-width="12" />
+  <g transform="translate(512 512) scale(16) translate(-32 -32)">
+    <path d="M32 13c1.4 11.2 6.3 16.6 19 19-12.7 2.4-17.6 7.8-19 19-1.4-11.2-6.3-16.6-19-19 12.7-2.4 17.6-7.8 19-19z" fill="url(#spark)" />
+    <path d="M46.5 11.5c.5 3.4 1.9 4.9 5.5 5.5-3.6.6-5 2.1-5.5 5.5-.5-3.4-1.9-4.9-5.5-5.5 3.6-.6 5-2.1 5.5-5.5z" fill="#e3e7ff" opacity=".9" />
+  </g>
+</svg>

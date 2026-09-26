@@ -194,6 +194,16 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 
 > Ο έλεγχος SHA-256 πιάνει αρχεία που χάλασαν ή άλλαξαν στη διαδρομή. Δεν προστατεύει αν παραβιαστεί ο ίδιος ο λογαριασμός GitHub/Cloudflare.
 
+### Cloudflare Pages site (ξεχωριστό από το updater)
+
+Το `make-your-life-easier.pages.dev` είναι στατικό download/marketing site και δεν σερβίρει το Tauri webview. Τα αρχεία του βρίσκονται στο `site/`, ενώ το root `wrangler.toml` δηλώνει `pages_build_output_dir = "./site"`. Το Pages build command μένει κενό· δεν πρέπει να δείχνει στο Vite `dist/` ούτε να τρέχει `npm run build`.
+
+- Κύριο download: `https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe`
+- GitHub fallback: το latest release του repository
+- Το `/installer.html` ανακατευθύνεται στο `/` για συμβατότητα με παλιούς συνδέσμους
+- `npm run check:site` ελέγχει τα required αρχεία, internal links, security headers και παλιές Electron/Portable αναφορές
+- Τα R2 objects, το `latest.json` και το release workflow είναι ανεξάρτητα από το Pages deployment
+
 ## Εγκατάσταση (one-click, ανά χρήστη, χωρίς admin)
 
 | Τι | Πού |
