@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="fnc-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="fnc-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#13222E" />
+      <stop offset="52%" stop-color="#0B141C" />
+      <stop offset="100%" stop-color="#05090E" />
+    </linearGradient>
+    <radialGradient id="fnc-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.34" />
+      <stop offset="55%" stop-color="#0284C7" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#0B141C" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="fnc-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#7DD3FC" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#0B141C" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="fnc-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BAE6FD" stop-opacity="0.6" />
+      <stop offset="25%" stop-color="#38BDF8" stop-opacity="0.28" />
+      <stop offset="80%" stop-color="#0F172A" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#7DD3FC" stop-opacity="0.38" />
+    </linearGradient>
+    <linearGradient id="fnc-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="fnc-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#fnc-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#fnc-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#fnc-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#fnc-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#fnc-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#fnc-rim)" stroke-width="3" />
+  <g filter="url(#fnc-shadow)">
+    
+      <rect x="58" y="58" width="140" height="140" rx="28" stroke="#94A3B8" stroke-width="10"/>
+      <path d="M128 104C128 78 152 72 162 86C172 100 150 116 128 116ZM152 128C178 128 184 152 170 162C156 172 140 150 140 128ZM128 152C128 178 104 184 94 170C84 156 106 140 128 140ZM104 128C78 128 72 104 86 94C100 84 116 106 116 128Z" fill="#E2E8F0"/>
+      <circle cx="128" cy="128" r="18" fill="#38BDF8"/>
+    
+  </g>
+</svg>

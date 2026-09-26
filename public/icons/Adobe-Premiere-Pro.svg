@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <!-- Glyph Subtle Shadow (μόνο μέσα στα γράμματα για 3D βάθος) -->
+    <filter id="pr-glyph-shadow" x="35" y="52" width="186" height="155" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000022" flood-opacity="0.65" />
+    </filter>
+
+    <!-- Main Deep Indigo 2026 Background -->
+    <linearGradient id="pr-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#14084E" />
+      <stop offset="50%" stop-color="#050229" />
+      <stop offset="100%" stop-color="#020013" />
+    </linearGradient>
+
+    <!-- Ambient Neon Violet Glow -->
+    <radialGradient id="pr-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#6B4DFF" stop-opacity="0.42" />
+      <stop offset="55%" stop-color="#3A1C99" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#00005B" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Bottom-Right Secondary Glow -->
+    <radialGradient id="pr-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#9999FF" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#00005B" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- macOS 3D Glass Bevel Border -->
+    <linearGradient id="pr-glass-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#C4B8FF" stop-opacity="0.65" />
+      <stop offset="25%" stop-color="#7C66FF" stop-opacity="0.30" />
+      <stop offset="80%" stop-color="#2E1A80" stop-opacity="0.20" />
+      <stop offset="100%" stop-color="#9988FF" stop-opacity="0.40" />
+    </linearGradient>
+
+    <!-- Top Specular Sheen -->
+    <linearGradient id="pr-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- "Pr" 2026 Lavender-Violet Gradient -->
+    <linearGradient id="pr-text-grad" x1="128" y1="68" x2="128" y2="186" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D9D4FF" />
+      <stop offset="45%" stop-color="#A8A4FF" />
+      <stop offset="100%" stop-color="#8580FF" />
+    </linearGradient>
+
+    <!-- macOS Squircle Clip -->
+    <clipPath id="pr-squircle-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+  </defs>
+
+  <!-- Base Squircle & Internal Lighting (Χωρίς εξωτερικό shadow) -->
+  <g clip-path="url(#pr-squircle-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#pr-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#pr-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#pr-glow-bottom)" />
+    <!-- Top Glass Reflection Curve -->
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#pr-sheen)" />
+  </g>
+
+  <!-- 3D Inner Glass Rim -->
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#pr-glass-rim)" stroke-width="3" />
+
+  <!-- "Pr" Vector Typography -->
+  <g filter="url(#pr-glyph-shadow)" fill="url(#pr-text-grad)">
+    <!-- Letter 'P' -->
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M56 68H97.5C125.5 68 140.5 82 140.5 105.8C140.5 130.2 124.5 144.5 96 144.5H80V186H56V68ZM80 87.2V125.2H96C109.5 125.2 116.5 118.2 116.5 106C116.5 93.8 109.5 87.2 96 87.2H80Z" />
+
+    <!-- Letter 'r' -->
+    <path d="M152 98H173L174.5 112C179.5 102 187.2 97 197 97C199 97 200.6 97.2 202 97.6L200.5 119.8C198.2 119.2 195.8 118.8 192.8 118.8C183.8 118.8 177.8 123.5 175 131.8V186H152V98Z" />
+  </g>
+</svg>

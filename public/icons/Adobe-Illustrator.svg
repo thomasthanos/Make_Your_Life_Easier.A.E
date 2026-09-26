@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <!-- Glyph Subtle Shadow (μόνο μέσα στα γράμματα για 3D βάθος) -->
+    <filter id="ai-glyph-shadow" x="35" y="48" width="186" height="160" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#1A0500" flood-opacity="0.7" />
+    </filter>
+
+    <!-- Main Deep Burnt-Umber 2026 Background -->
+    <linearGradient id="ai-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3D1400" />
+      <stop offset="50%" stop-color="#240900" />
+      <stop offset="100%" stop-color="#120300" />
+    </linearGradient>
+
+    <!-- Ambient Warm Orange Glow -->
+    <radialGradient id="ai-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#FF7C00" stop-opacity="0.42" />
+      <stop offset="55%" stop-color="#993D00" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#330000" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Bottom-Right Secondary Glow -->
+    <radialGradient id="ai-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#FF9A00" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#330000" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- macOS 3D Glass Bevel Border -->
+    <linearGradient id="ai-glass-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFD494" stop-opacity="0.65" />
+      <stop offset="25%" stop-color="#FF8800" stop-opacity="0.32" />
+      <stop offset="80%" stop-color="#662200" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#FFA640" stop-opacity="0.42" />
+    </linearGradient>
+
+    <!-- Top Specular Sheen -->
+    <linearGradient id="ai-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- "Ai" 2026 Vibrant Amber-Orange Gradient -->
+    <linearGradient id="ai-text-grad" x1="128" y1="60" x2="128" y2="186" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFC46B" />
+      <stop offset="45%" stop-color="#FF9A00" />
+      <stop offset="100%" stop-color="#FF7700" />
+    </linearGradient>
+
+    <!-- macOS Squircle Clip -->
+    <clipPath id="ai-squircle-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+  </defs>
+
+  <!-- Base Squircle & Internal Lighting (Χωρίς εξωτερικό shadow) -->
+  <g clip-path="url(#ai-squircle-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#ai-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#ai-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#ai-glow-bottom)" />
+    <!-- Top Glass Reflection Curve -->
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#ai-sheen)" />
+  </g>
+
+  <!-- 3D Inner Glass Rim -->
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#ai-glass-rim)" stroke-width="3" />
+
+  <!-- "Ai" Vector Typography -->
+  <g filter="url(#ai-glyph-shadow)" fill="url(#ai-text-grad)">
+    <!-- Letter 'A' -->
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M93.5 68H119.5L158 186H132.5L124.5 158.5H88.5L80.5 186H56L93.5 68ZM106.2 94.5L94 138.5H118.8L106.2 94.5Z" />
+
+    <!-- Letter 'i' Dot -->
+    <path d="M186 60.5C193.8 60.5 199.5 66.2 199.5 74C199.5 81.8 193.8 87.5 186 87.5C178.2 87.5 172.5 81.8 172.5 74C172.5 66.2 178.2 60.5 186 60.5Z" />
+
+    <!-- Letter 'i' Stem -->
+    <path d="M174 99H198V186H174V99Z" />
+  </g>
+</svg>

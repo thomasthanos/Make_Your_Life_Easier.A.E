@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <!-- Glyph Subtle Shadow (μόνο μέσα στα γράμματα για 3D βάθος) -->
+    <filter id="lrc-glyph-shadow" x="12" y="52" width="232" height="155" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000B18" flood-opacity="0.7" />
+    </filter>
+
+    <!-- Main Deep Navy-Cobalt 2026 Background -->
+    <linearGradient id="lrc-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#002645" />
+      <stop offset="50%" stop-color="#001629" />
+      <stop offset="100%" stop-color="#000912" />
+    </linearGradient>
+
+    <!-- Ambient Sky-Cyan Glow -->
+    <radialGradient id="lrc-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#31A8FF" stop-opacity="0.42" />
+      <stop offset="55%" stop-color="#005A9E" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#001E36" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Bottom-Right Secondary Glow -->
+    <radialGradient id="lrc-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#49B8FF" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#001E36" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- macOS 3D Glass Bevel Border -->
+    <linearGradient id="lrc-glass-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A6DCFF" stop-opacity="0.65" />
+      <stop offset="25%" stop-color="#31A8FF" stop-opacity="0.32" />
+      <stop offset="80%" stop-color="#003666" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#59BFFF" stop-opacity="0.42" />
+    </linearGradient>
+
+    <!-- Top Specular Sheen -->
+    <linearGradient id="lrc-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- "LrC" 2026 Vibrant Sky-Cyan Gradient -->
+    <linearGradient id="lrc-text-grad" x1="128" y1="68" x2="128" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8FD4FF" />
+      <stop offset="45%" stop-color="#31A8FF" />
+      <stop offset="100%" stop-color="#1793EB" />
+    </linearGradient>
+
+    <!-- macOS Squircle Clip -->
+    <clipPath id="lrc-squircle-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+  </defs>
+
+  <!-- Base Squircle & Internal Lighting (Χωρίς εξωτερικό shadow) -->
+  <g clip-path="url(#lrc-squircle-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#lrc-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#lrc-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#lrc-glow-bottom)" />
+    <!-- Top Glass Reflection Curve -->
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#lrc-sheen)" />
+  </g>
+
+  <!-- 3D Inner Glass Rim -->
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#lrc-glass-rim)" stroke-width="3" />
+
+  <!-- "LrC" Vector Typography -->
+  <g filter="url(#lrc-glyph-shadow)" fill="url(#lrc-text-grad)">
+    <!-- Letter 'L' -->
+    <path d="M23 70H46V165H86V186H23V70Z" />
+
+    <!-- Letter 'r' -->
+    <path d="M95 99H115.5L117 112.5C121.5 102.8 128.8 98 137.8 98C139.5 98 140.8 98.2 142 98.6L140.5 120C138.5 119.4 136.2 119 133.5 119C125.2 119 120 123.5 117.5 131.5V186H95V99Z" />
+
+    <!-- Letter 'C' -->
+    <path d="M230.5 160.5L233.8 179C225.5 184.5 214.5 187.8 201 187.8C169 187.8 149 164 149 128.2C149 92 170 68.5 202.5 68.5C215.2 68.5 225.5 71.5 233 76L228.8 94.5C222 90.2 213.2 87.8 203.5 87.8C182.5 87.8 171 103.5 171 128C171 152.5 182.8 168.2 203.5 168.2C213.8 168.2 223 165.2 230.5 160.5Z" />
+  </g>
+</svg>

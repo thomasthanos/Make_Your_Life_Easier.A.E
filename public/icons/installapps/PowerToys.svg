@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="pwt-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="pwt-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#161F30" />
+      <stop offset="52%" stop-color="#0C111C" />
+      <stop offset="100%" stop-color="#05070C" />
+    </linearGradient>
+    <radialGradient id="pwt-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.34" />
+      <stop offset="55%" stop-color="#EC4899" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#0C111C" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="pwt-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#FACC15" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#0C111C" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="pwt-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BAE6FD" stop-opacity="0.6" />
+      <stop offset="25%" stop-color="#38BDF8" stop-opacity="0.28" />
+      <stop offset="80%" stop-color="#0F172A" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#FACC15" stop-opacity="0.38" />
+    </linearGradient>
+    <linearGradient id="pwt-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="pwt-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#pwt-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#pwt-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#pwt-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#pwt-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#pwt-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#pwt-rim)" stroke-width="3" />
+  <g filter="url(#pwt-shadow)">
+    <svg x="48" y="48" width="160" height="160" viewBox="0 0 256 256" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="pwt_SVGBm9k6dsJ" x1="202.55" x2="53.45" y1="257.12" y2="-1.12" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#d7ccb3"/><stop offset="1" stop-color="#f2e6ca"/></linearGradient><linearGradient id="pwt_SVG31d5Vb1r" x1="134.91" x2="84.09" y1="145.01" y2="56.99" gradientUnits="userSpaceOnUse"><stop offset="0"/><stop offset="0" stop-color="#ffb900"/><stop offset="1" stop-color="#fef000"/></linearGradient><linearGradient id="pwt_SVGNkDYwdkq" x1="98.76" x2="48.91" y1="144.52" y2="58.19" gradientUnits="userSpaceOnUse"><stop offset="0"/><stop offset="0" stop-color="#d83b01"/><stop offset="1" stop-color="#ec6725"/></linearGradient><linearGradient id="pwt_SVGS7MHIdqx" x1="171.91" x2="121.09" y1="145.01" y2="56.99" gradientUnits="userSpaceOnUse"><stop offset="0"/><stop offset="0" stop-color="#56b60e"/><stop offset="1" stop-color="#66eb6e"/></linearGradient><linearGradient id="pwt_SVGoHkAy0YS" x1="207.09" x2="157.24" y1="143.81" y2="57.48" gradientUnits="userSpaceOnUse"><stop offset="0"/><stop offset="0" stop-color="#0078d4"/><stop offset="1" stop-color="#28afea"/></linearGradient><linearGradient id="pwt_SVGPw8KTPmY" x1="80.07" x2="59.93" y1="203.45" y2="168.55" href="#pwt_SVGBm9k6dsJ"/><linearGradient id="pwt_SVGhyK3qbxA" x1="138.07" x2="117.93" y1="203.45" y2="168.55" href="#pwt_SVGBm9k6dsJ"/><linearGradient id="pwt_SVGYynIxcxi" x1="196.07" x2="175.93" y1="203.45" y2="168.55" href="#pwt_SVGBm9k6dsJ"/></defs><rect width="224" height="224" x="16" y="16" fill="url(#pwt_SVGBm9k6dsJ)" rx="10.67" ry="10.67"/><path fill="#666" d="M32 32h192v192H32z"/><rect width="148" height="96" x="54" y="53" fill="#fff" opacity=".32" rx="5.31" ry="5.31"/><rect width="148" height="96" x="54" y="53" fill="#fff" opacity=".24" rx="5.31" ry="5.31"/><path fill="url(#pwt_SVG31d5Vb1r)" d="M91 53h37v96H91z"/><path fill="url(#pwt_SVGNkDYwdkq)" d="M91 149H59.35a5.35 5.35 0 0 1-5.35-5.35v-85.3A5.35 5.35 0 0 1 59.35 53H91z"/><path fill="url(#pwt_SVGS7MHIdqx)" d="M128 53h37v96h-37z"/><path fill="url(#pwt_SVGoHkAy0YS)" d="M165 53h31.65c2.95 0 5.35 2.4 5.35 5.35v85.31c0 2.95-2.4 5.35-5.35 5.35H165z"/><path fill="none" d="M0 0h256v256H0z"/><rect width="32" height="32" x="54" y="170" fill="url(#pwt_SVGPw8KTPmY)" rx="4.67" ry="4.67"/><rect width="32" height="32" x="112" y="170" fill="url(#pwt_SVGhyK3qbxA)" rx="4.67" ry="4.67"/><rect width="32" height="32" x="170" y="170" fill="url(#pwt_SVGYynIxcxi)" rx="4.67" ry="4.67"/></svg>
+  </g>
+</svg>

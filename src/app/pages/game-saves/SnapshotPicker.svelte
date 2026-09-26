@@ -1,0 +1,293 @@
+<script lang="ts">
+  import { onMount } from "svelte";
+  import { cubicOut } from "svelte/easing";
+  import { fade, scale } from "svelte/transition";
+  import FolderSearch from "@lucide/svelte/icons/folder-search";
+  import History from "@lucide/svelte/icons/history";
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import ShieldCheck from "@lucide/svelte/icons/shield-check";
+  import X from "@lucide/svelte/icons/x";
+  import { portal } from "../../../lib/portal";
+  import { formatBytes, formatDate, gameSavesState as gs } from "./state.svelte";
+
+  let cancelButton = $state<HTMLButtonElement>();
+  const choices = $derived(
+    gs.selectedGames
+      .map((game) => ({ gameId: game.id, snapshotId: gs.snapshotFor(game) }))
+      .filter((item) => item.snapshotId),
+  );
+  const missingLocation = $derived(
+    gs.selectedGames.some((game) => game.status === "needsLocation" && !gs.mappingFor(game)),
+  );
+  const canRestore = $derived(choices.length === gs.selectedGames.length && !missingLocation);
+
+  onMount(() => cancelButton?.focus());
+
+  function onKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape") gs.restoreDialogOpen = false;
+  }
+</script>
+
+<svelte:window onkeydown={onKeydown} />
+
+<div class="backdrop" role="presentation" transition:fade={{ duration: 140 }} {@attach portal}>
+  <div
+    class="dialog glass glass--3"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="snapshot-title"
+    transition:scale={{ start: 0.97, duration: 170, easing: cubicOut }}
+  >
+    <header>
+      <span class="heading-icon"><History size={19} /></span>
+      <span class="heading">
+        <h2 id="snapshot-title">Choose restore snapshots</h2>
+        <p>The newest snapshot is selected by default. A safety backup is created before restore.</p>
+      </span>
+      <button class="icon-btn" aria-label="Close" onclick={() => (gs.restoreDialogOpen = false)}><X size={16} /></button>
+    </header>
+
+    <div class="games">
+      {#each gs.selectedGames as game (game.id)}
+        {@const mapping = gs.mappingFor(game)}
+        <article class="game surface">
+          <div class="game-title">
+            <strong>{game.title}</strong>
+            <span>{game.snapshots.length} {game.snapshots.length === 1 ? "snapshot" : "snapshots"}</span>
+          </div>
+
+          {#if game.snapshots.length}
+            <label class="snapshot-field">
+              <span>Restore from</span>
+              <select
+                value={gs.snapshotFor(game)}
+                onchange={(event) => gs.setSnapshot(game.id, event.currentTarget.value)}
+              >
+                {#each game.snapshots as snapshot (snapshot.id)}
+                  <option value={snapshot.id}>
+                    {formatDate(snapshot.timestamp)} · {formatBytes(snapshot.bytes)}{snapshot.label ? ` · ${snapshot.label}` : ""}{snapshot.isSafety ? " · Safety" : ""}
+                  </option>
+                {/each}
+              </select>
+            </label>
+          {:else}
+            <p class="problem">No restorable snapshot is available.</p>
+          {/if}
+
+          {#if game.status === "needsLocation" || mapping}
+            <div class="destination" class:missing={!mapping}>
+              <span>
+                <small>Restore location</small>
+                <strong class="selectable" title={mapping?.target ?? ""}>{mapping?.target ?? "Choose a folder on this PC"}</strong>
+              </span>
+              <button class="btn small" disabled={gs.settingsBusy === "pathMapping"} onclick={() => gs.chooseRestoreLocation(game)}>
+                <FolderSearch size={14} /> {mapping ? "Change" : "Choose"}
+              </button>
+              {#if mapping}
+                <button class="icon-btn" title="Clear restore location" aria-label={`Clear restore location for ${game.title}`} onclick={() => gs.removeRestoreLocation(game)}>
+                  <X size={14} />
+                </button>
+              {/if}
+            </div>
+          {/if}
+        </article>
+      {/each}
+    </div>
+
+    <div class="safety">
+      <ShieldCheck size={15} />
+      Current local saves are copied to a safety snapshot before any files are replaced.
+    </div>
+
+    <footer>
+      <span class="summary">{choices.length} of {gs.selectedGames.length} ready</span>
+      <button bind:this={cancelButton} class="btn" onclick={() => (gs.restoreDialogOpen = false)}>Cancel</button>
+      <button class="btn primary" disabled={!canRestore || gs.busy} onclick={() => gs.restore(choices)}>
+        <RotateCcw size={15} /> Restore ({choices.length})
+      </button>
+    </footer>
+  </div>
+</div>
+
+<style>
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 91;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgb(4 6 12 / 0.58);
+  }
+
+  /* The game list scrolls, not the glass element: an overflow on it clips
+     the glass rim (see BiosRestartDialog). */
+  .dialog {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    gap: 15px;
+    width: min(680px, 100%);
+    max-height: calc(100vh - 48px);
+    padding: 20px;
+    border-radius: var(--radius-xl);
+  }
+
+  header {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .heading-icon {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    border: 1px solid rgb(139 151 255 / 0.17);
+    border-radius: 10px;
+    background: rgb(139 151 255 / 0.08);
+    color: var(--accent);
+  }
+
+  .heading {
+    flex: 1;
+  }
+
+  h2 {
+    font-size: 17px;
+  }
+
+  header p {
+    margin-top: 3px;
+    color: var(--text-3);
+    font-size: 12px;
+  }
+
+  .games {
+    display: grid;
+    gap: 7px;
+    overflow: auto;
+  }
+
+  .game {
+    display: grid;
+    grid-template-columns: minmax(120px, 0.7fr) minmax(220px, 1.3fr);
+    align-items: center;
+    gap: 10px 16px;
+    padding: 11px 12px;
+  }
+
+  .game-title {
+    display: grid;
+    min-width: 0;
+  }
+
+  .game-title strong {
+    overflow: hidden;
+    font-size: 12.5px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .game-title span {
+    color: var(--text-3);
+    font-size: 10.5px;
+  }
+
+  .snapshot-field {
+    display: grid;
+    gap: 4px;
+  }
+
+  .snapshot-field > span,
+  .destination small {
+    color: var(--text-3);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+  }
+
+  select {
+    width: 100%;
+    height: 32px;
+    padding: 0 9px;
+    border: 1px solid rgb(255 255 255 / 0.075);
+    border-radius: 9px;
+    background: rgb(9 12 20 / 0.75);
+    color: var(--text-2);
+    font: inherit;
+    font-size: 11px;
+  }
+
+  .destination {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 7px;
+    padding-top: 8px;
+    border-top: 1px solid rgb(255 255 255 / 0.045);
+  }
+
+  .destination > span {
+    display: grid;
+    min-width: 0;
+  }
+
+  .destination strong {
+    overflow: hidden;
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 400;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .destination.missing strong,
+  .problem {
+    color: rgb(245 188 95 / 0.82);
+  }
+
+  .problem {
+    font-size: 11.5px;
+  }
+
+  .safety {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: rgb(92 218 166 / 0.72);
+    font-size: 11.5px;
+  }
+
+  footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .summary {
+    margin-right: auto;
+    color: var(--text-3);
+    font-size: 11.5px;
+  }
+
+  button:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  @media (max-width: 620px) {
+    .game {
+      grid-template-columns: 1fr;
+    }
+
+    .destination {
+      grid-column: auto;
+    }
+  }
+</style>

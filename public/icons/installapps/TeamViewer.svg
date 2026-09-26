@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="tmv-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="tmv-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#08224A" />
+      <stop offset="52%" stop-color="#04132B" />
+      <stop offset="100%" stop-color="#020814" />
+    </linearGradient>
+    <radialGradient id="tmv-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#0E8EE9" stop-opacity="0.4" />
+      <stop offset="55%" stop-color="#1D4ED8" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#04132B" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="tmv-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#60A5FA" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#04132B" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="tmv-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BFDBFE" stop-opacity="0.62" />
+      <stop offset="25%" stop-color="#0E8EE9" stop-opacity="0.3" />
+      <stop offset="80%" stop-color="#1E3A8A" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#60A5FA" stop-opacity="0.4" />
+    </linearGradient>
+    <linearGradient id="tmv-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="tmv-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#tmv-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#tmv-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#tmv-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#tmv-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#tmv-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#tmv-rim)" stroke-width="3" />
+  <g filter="url(#tmv-shadow)">
+    
+      <circle cx="128" cy="128" r="70" fill="#FFFFFF"/>
+      <path d="M74 128L106 102V118H150V102L182 128L150 154V138H106V154L74 128Z" fill="#0E8EE9"/>
+    
+  </g>
+</svg>

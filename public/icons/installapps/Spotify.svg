@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="spt-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="spt-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0A2917" />
+      <stop offset="52%" stop-color="#05160C" />
+      <stop offset="100%" stop-color="#020A05" />
+    </linearGradient>
+    <radialGradient id="spt-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#1ED760" stop-opacity="0.4" />
+      <stop offset="55%" stop-color="#15803D" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#05160C" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="spt-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#4ADE80" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#05160C" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="spt-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BBF7D0" stop-opacity="0.65" />
+      <stop offset="25%" stop-color="#1ED760" stop-opacity="0.32" />
+      <stop offset="80%" stop-color="#14532D" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#4ADE80" stop-opacity="0.42" />
+    </linearGradient>
+    <linearGradient id="spt-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="spt-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#spt-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#spt-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#spt-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#spt-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#spt-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#spt-rim)" stroke-width="3" />
+  <g filter="url(#spt-shadow)">
+    <svg x="48" y="48" width="160" height="160" viewBox="0 0 256 256" preserveAspectRatio="xMidYMid meet"><path fill="#1ed760" d="M128 0C57.308 0 0 57.309 0 128c0 70.696 57.309 128 128 128c70.697 0 128-57.304 128-128C256 57.314 198.697.007 127.998.007zm58.699 184.614c-2.293 3.76-7.215 4.952-10.975 2.644c-30.053-18.357-67.885-22.515-112.44-12.335a7.98 7.98 0 0 1-9.552-6.007a7.97 7.97 0 0 1 6-9.553c48.76-11.14 90.583-6.344 124.323 14.276c3.76 2.308 4.952 7.215 2.644 10.975m15.667-34.853c-2.89 4.695-9.034 6.178-13.726 3.289c-34.406-21.148-86.853-27.273-127.548-14.92c-5.278 1.594-10.852-1.38-12.454-6.649c-1.59-5.278 1.386-10.842 6.655-12.446c46.485-14.106 104.275-7.273 143.787 17.007c4.692 2.89 6.175 9.034 3.286 13.72zm1.345-36.293C162.457 88.964 94.394 86.71 55.007 98.666c-6.325 1.918-13.014-1.653-14.93-7.978c-1.917-6.328 1.65-13.012 7.98-14.935C93.27 62.027 168.434 64.68 215.929 92.876c5.702 3.376 7.566 10.724 4.188 16.405c-3.362 5.69-10.73 7.565-16.4 4.187z"/></svg>
+  </g>
+</svg>

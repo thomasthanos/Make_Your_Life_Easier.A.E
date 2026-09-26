@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="shx-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="shx-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#18202C" />
+      <stop offset="52%" stop-color="#0D1219" />
+      <stop offset="100%" stop-color="#06080C" />
+    </linearGradient>
+    <radialGradient id="shx-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.34" />
+      <stop offset="55%" stop-color="#22C55E" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#0D1219" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="shx-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#F43F5E" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#0D1219" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="shx-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BAE6FD" stop-opacity="0.6" />
+      <stop offset="25%" stop-color="#38BDF8" stop-opacity="0.28" />
+      <stop offset="80%" stop-color="#0F172A" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#4ADE80" stop-opacity="0.38" />
+    </linearGradient>
+    <linearGradient id="shx-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="shx-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#shx-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#shx-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#shx-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#shx-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#shx-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#shx-rim)" stroke-width="3" />
+  <g filter="url(#shx-shadow)">
+    <svg x="48" y="48" width="160" height="160" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet"><path fill="#2885f1" d="M5.217 15.774v.054c.083 3.469 2.543 6.416 5.99 7.607h-.002c1.095.377 2.246.568 3.404.565c5.159 0 9.347-3.697 9.389-8.275a7.5 7.5 0 0 0-.563-2.668c-1.19 3.446-4.138 5.906-7.607 5.987h-.176c-2.01 0-3.854-.8-5.294-2.13c-1.656-1.53-2.78-3.765-3.01-6.295c-1.3 1.407-2.093 3.2-2.13 5.155Zm3.01-10.557H8.17c-3.36.08-6.23 2.39-7.49 5.669l-.117.32A10.4 10.4 0 0 0 0 14.608c0 5.159 3.697 9.347 8.275 9.389a7.5 7.5 0 0 0 2.668-.563c-3.446-1.19-5.906-4.138-5.987-7.607v-.176c0-2.01.8-3.854 2.13-5.296c1.53-1.656 3.765-2.78 6.296-3.01c-1.407-1.3-3.2-2.093-5.155-2.129Zm7.601 13.566l.324-.015c3.327-.223 6.129-2.636 7.283-5.974A10.4 10.4 0 0 0 24 9.392c0-5.16-3.697-9.347-8.275-9.39a7.5 7.5 0 0 0-2.668.563c3.446 1.19 5.906 4.14 5.987 7.607v.176c0 2.01-.8 3.854-2.13 5.294c-1.53 1.656-3.765 2.78-6.295 3.01c1.407 1.3 3.2 2.094 5.155 2.13zM.002 8.275a7.5 7.5 0 0 0 .563 2.668c1.19-3.446 4.14-5.906 7.607-5.987h.176c2.01 0 3.854.8 5.294 2.13q.502.465.925.999c1.146 1.436 1.9 3.27 2.085 5.297c1.3-1.407 2.094-3.2 2.13-5.155V8.17C18.7 4.703 16.24 1.756 12.795.564A10.4 10.4 0 0 0 9.393 0C4.23 0 .045 3.697.002 8.275"/></svg>
+  </g>
+</svg>

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="tlg-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="tlg-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0A263D" />
+      <stop offset="52%" stop-color="#061626" />
+      <stop offset="100%" stop-color="#020B14" />
+    </linearGradient>
+    <radialGradient id="tlg-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#2AABEE" stop-opacity="0.4" />
+      <stop offset="55%" stop-color="#0284C7" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#061626" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="tlg-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#061626" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="tlg-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BAE6FD" stop-opacity="0.65" />
+      <stop offset="25%" stop-color="#2AABEE" stop-opacity="0.32" />
+      <stop offset="80%" stop-color="#0C4A6E" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.42" />
+    </linearGradient>
+    <linearGradient id="tlg-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="tlg-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#tlg-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#tlg-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#tlg-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#tlg-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#tlg-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#tlg-rim)" stroke-width="3" />
+  <g filter="url(#tlg-shadow)">
+    <svg x="48" y="48" width="160" height="160" viewBox="0 0 256 256" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="tlg_SVG6DaOZcwt" x1="50%" x2="50%" y1="0%" y2="100%"><stop offset="0%" stop-color="#2aabee"/><stop offset="100%" stop-color="#229ed9"/></linearGradient></defs><path fill="url(#tlg_SVG6DaOZcwt)" d="M128 0C94.06 0 61.48 13.494 37.5 37.49A128.04 128.04 0 0 0 0 128c0 33.934 13.5 66.514 37.5 90.51C61.48 242.506 94.06 256 128 256s66.52-13.494 90.5-37.49c24-23.996 37.5-56.576 37.5-90.51s-13.5-66.514-37.5-90.51C194.52 13.494 161.94 0 128 0"/><path fill="#fff" d="M57.94 126.648q55.98-24.384 74.64-32.152c35.56-14.786 42.94-17.354 47.76-17.441c1.06-.017 3.42.245 4.96 1.49c1.28 1.05 1.64 2.47 1.82 3.467c.16.996.38 3.266.2 5.038c-1.92 20.24-10.26 69.356-14.5 92.026c-1.78 9.592-5.32 12.808-8.74 13.122c-7.44.684-13.08-4.912-20.28-9.63c-11.26-7.386-17.62-11.982-28.56-19.188c-12.64-8.328-4.44-12.906 2.76-20.386c1.88-1.958 34.64-31.748 35.26-34.45c.08-.338.16-1.598-.6-2.262c-.74-.666-1.84-.438-2.64-.258c-1.14.256-19.12 12.152-54 35.686c-5.1 3.508-9.72 5.218-13.88 5.128c-4.56-.098-13.36-2.584-19.9-4.708c-8-2.606-14.38-3.984-13.82-8.41c.28-2.304 3.46-4.662 9.52-7.072"/></svg>
+  </g>
+</svg>

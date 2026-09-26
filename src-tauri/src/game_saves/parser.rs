@@ -1,0 +1,536 @@
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use serde::Deserialize;
+
+use super::detection::stable_id;
+use super::models::{
+    GameSaveEntry, GameSaveSnapshot, GameSaveStatus, GameSavesScan, GameSavesSettings,
+    GameSavesStats,
+};
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ApiOutput {
+    #[serde(default)]
+    pub games: BTreeMap<String, ApiGame>,
+    #[serde(default)]
+    pub overall: Option<OperationStatus>,
+    #[serde(default)]
+    pub errors: Option<ApiErrors>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ApiErrors {
+    #[serde(default)]
+    pub some_games_failed: Option<bool>,
+    /// Names passed in that the database does not know; the engine then
+    /// processes nothing and exits with an error.
+    #[serde(default)]
+    pub unknown_games: Vec<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct OperationStatus {
+    #[serde(default)]
+    pub processed_bytes: u64,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ApiGame {
+    #[serde(default)]
+    pub change: Option<String>,
+    #[serde(default)]
+    pub decision: Option<String>,
+    #[serde(default)]
+    pub files: BTreeMap<String, ApiFile>,
+    #[serde(default)]
+    pub registry: BTreeMap<String, ApiRegistry>,
+    #[serde(default)]
+    pub backup_path: Option<String>,
+    #[serde(default)]
+    pub backups: Vec<ApiBackup>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ApiFile {
+    #[serde(default)]
+    pub bytes: u64,
+    #[serde(default)]
+    pub failed: bool,
+    #[serde(default)]
+    pub ignored: bool,
+    #[serde(default)]
+    pub error: Option<ApiError>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ApiRegistry {
+    #[serde(default)]
+    pub failed: bool,
+    #[serde(default)]
+    pub ignored: bool,
+    #[serde(default)]
+    pub error: Option<ApiError>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ApiError {
+    pub message: String,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ApiBackup {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub when: String,
+    #[serde(default)]
+    pub comment: Option<String>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ManifestMetadata {
+    pub supported_games: u64,
+    pub badges: HashMap<String, Vec<String>>,
+}
+
+pub(crate) fn parse_api(text: &str) -> Result<ApiOutput, String> {
+    if text.trim().is_empty() {
+        return Err("The Game Saves engine returned no data.".into());
+    }
+    serde_json::from_str(text)
+        .map_err(|e| format!("The Game Saves engine returned invalid data: {e}"))
+}
+
+/// Parses only the stable, shallow fields needed by our UI. This deliberately
+/// does not deserialize the 16+ MB YAML document and remains forward compatible
+/// when the manifest adds fields.
+pub(crate) fn parse_manifest_metadata(yaml: &str) -> ManifestMetadata {
+    let mut result = ManifestMetadata::default();
+    let mut title: Option<String> = None;
+    let mut supported = false;
+    let mut badges = Vec::<String>::new();
+    let mut in_cloud = false;
+
+    let finish = |title: &mut Option<String>,
+                  supported: &mut bool,
+                  badges: &mut Vec<String>,
+                  result: &mut ManifestMetadata| {
+        if let Some(name) = title.take() {
+            if *supported {
+                result.supported_games += 1;
+            }
+            if !badges.is_empty() {
+                badges.sort();
+                badges.dedup();
+                result.badges.insert(name, std::mem::take(badges));
+            }
+        }
+        *supported = false;
+        badges.clear();
+    };
+
+    for line in yaml.lines() {
+        if line.is_empty() || line.starts_with('#') || line == "---" {
+            continue;
+        }
+        let indent = line.len() - line.trim_start().len();
+        let trimmed = line.trim();
+        if indent == 0 && trimmed.ends_with(':') {
+            finish(&mut title, &mut supported, &mut badges, &mut result);
+            title = Some(yaml_key(&trimmed[..trimmed.len() - 1]));
+            in_cloud = false;
+            continue;
+        }
+        if title.is_none() {
+            continue;
+        }
+        if indent == 2 {
+            in_cloud = trimmed == "cloud:";
+            if trimmed == "files:" || trimmed == "registry:" {
+                supported = true;
+            }
+            continue;
+        }
+        if in_cloud
+            && indent == 4
+            && let Some((provider, value)) = trimmed.split_once(':')
+            && value.trim().eq_ignore_ascii_case("true")
+        {
+            let label = match provider.trim() {
+                "steam" => "Steam Cloud",
+                "epic" => "Epic Cloud",
+                "gog" => "GOG Cloud",
+                "origin" => "EA Cloud",
+                "uplay" => "Ubisoft Cloud",
+                other => other,
+            };
+            badges.push(label.into());
+        }
+    }
+    finish(&mut title, &mut supported, &mut badges, &mut result);
+    result
+}
+
+fn yaml_key(raw: &str) -> String {
+    let raw = raw.trim();
+    if raw.starts_with('\'') && raw.ends_with('\'') && raw.len() >= 2 {
+        raw[1..raw.len() - 1].replace("''", "'")
+    } else if raw.starts_with('"') && raw.ends_with('"') && raw.len() >= 2 {
+        raw[1..raw.len() - 1]
+            .replace(r#"\""#, "\"")
+            .replace(r"\\", r"\")
+    } else {
+        raw.to_string()
+    }
+}
+
+pub(crate) fn build_scan(
+    local: ApiOutput,
+    restore: ApiOutput,
+    inventory: ApiOutput,
+    metadata: &ManifestMetadata,
+    settings: &GameSavesSettings,
+) -> GameSavesScan {
+    let mut inventory_games = inventory.games;
+    let mut restore_games = restore.games;
+    let mut local_rows = Vec::new();
+
+    for (title, game) in local.games {
+        if game.files.values().all(|file| file.ignored)
+            && game.registry.values().all(|entry| entry.ignored)
+        {
+            continue;
+        }
+        let history = inventory_games.get(&title);
+        local_rows.push(entry_from(
+            &title, &game, history, true, true, metadata, settings,
+        ));
+    }
+
+    let local_titles: HashSet<String> = local_rows
+        .iter()
+        .map(|game| game.title.to_ascii_lowercase())
+        .collect();
+    let mut backup_rows = Vec::new();
+    for (title, history) in &mut inventory_games {
+        let preview = restore_games.remove(title).unwrap_or_default();
+        let local_present = local_titles.contains(&title.to_ascii_lowercase());
+        backup_rows.push(entry_from(
+            title,
+            &preview,
+            Some(history),
+            false,
+            local_present,
+            metadata,
+            settings,
+        ));
+    }
+
+    local_rows.sort_by_key(|game| game.title.to_lowercase());
+    backup_rows.sort_by_key(|game| game.title.to_lowercase());
+    let total_bytes = local_rows.iter().map(|game| game.total_bytes).sum();
+    GameSavesScan {
+        generated_at: now(),
+        stats: GameSavesStats {
+            local_games: local_rows.len(),
+            backup_games: backup_rows.len(),
+            total_bytes,
+            database_games: metadata.supported_games.max(settings.database_games),
+        },
+        on_this_pc: local_rows,
+        in_backup: backup_rows,
+        ..Default::default()
+    }
+}
+
+fn entry_from(
+    title: &str,
+    game: &ApiGame,
+    history: Option<&ApiGame>,
+    local_view: bool,
+    local_present: bool,
+    metadata: &ManifestMetadata,
+    settings: &GameSavesSettings,
+) -> GameSaveEntry {
+    let id = stable_id("game", title);
+    let files: Vec<_> = game
+        .files
+        .iter()
+        .filter(|(_, file)| !file.ignored)
+        .collect();
+    let registries: Vec<_> = game
+        .registry
+        .iter()
+        .filter(|(_, item)| !item.ignored)
+        .collect();
+    let total_bytes = files.iter().map(|(_, file)| file.bytes).sum();
+    let failed =
+        files.iter().any(|(_, file)| file.failed) || registries.iter().any(|(_, item)| item.failed);
+    let error = files
+        .iter()
+        .find_map(|(_, file)| file.error.as_ref().map(|error| error.message.clone()))
+        .or_else(|| {
+            registries
+                .iter()
+                .find_map(|(_, item)| item.error.as_ref().map(|error| error.message.clone()))
+        });
+    let paths = display_paths(files.iter().map(|(path, _)| path.as_str()));
+    let last_save_at = files
+        .iter()
+        .filter_map(|(path, _)| fs::metadata(path).ok()?.modified().ok())
+        .filter_map(system_time)
+        .max();
+    let mut snapshots = snapshots(history);
+    snapshots.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    snapshots.truncate(3);
+    let has_backup = !snapshots.is_empty();
+    let has_local_data = local_present;
+    let needs_location = !local_view
+        && !local_present
+        && restore_destination_unknown(&id, &paths, !registries.is_empty(), settings);
+
+    let status = if failed || error.is_some() {
+        GameSaveStatus::Error
+    } else if needs_location {
+        GameSaveStatus::NeedsLocation
+    } else if !local_view && !local_present {
+        GameSaveStatus::BackupOnly
+    } else if !has_backup {
+        GameSaveStatus::NotBackedUp
+    } else {
+        match game.change.as_deref() {
+            Some("Same") => GameSaveStatus::BackedUp,
+            Some("New" | "Different" | "Removed") => GameSaveStatus::ChangedSinceBackup,
+            _ => GameSaveStatus::Unknown,
+        }
+    };
+
+    let mut platform_badges = metadata.badges.get(title).cloned().unwrap_or_default();
+    if settings.custom_games.iter().any(|game| game.name == title) {
+        platform_badges.push("Added by you".into());
+    }
+    platform_badges.sort();
+    platform_badges.dedup();
+    let auto_backup = !settings.auto_backup_excluded_game_ids.contains(&id)
+        && settings
+            .custom_games
+            .iter()
+            .find(|game| game.name == title)
+            .is_none_or(|game| game.auto_backup);
+
+    GameSaveEntry {
+        id,
+        title: title.into(),
+        status,
+        platform_badges,
+        file_count: files.len() as u64,
+        total_bytes,
+        last_save_at,
+        last_backup_at: snapshots.first().map(|snapshot| snapshot.timestamp.clone()),
+        paths,
+        auto_backup,
+        has_local_data,
+        has_backup,
+        error,
+        snapshots,
+    }
+}
+
+fn restore_destination_unknown(
+    game_id: &str,
+    paths: &[String],
+    has_registry: bool,
+    settings: &GameSavesSettings,
+) -> bool {
+    if settings
+        .path_mappings
+        .iter()
+        .any(|mapping| mapping.game_id == game_id)
+    {
+        return false;
+    }
+    if paths.is_empty() {
+        return !has_registry;
+    }
+
+    let current_profile = std::env::var_os("USERPROFILE").map(PathBuf::from);
+    let profiles_root = current_profile
+        .as_deref()
+        .and_then(Path::parent)
+        .map(normalized_path);
+    let current_profile = current_profile.as_deref().map(normalized_path);
+
+    paths.iter().any(|raw| {
+        let path = Path::new(raw);
+        if !path.is_absolute() || raw.contains('<') || raw.contains('%') {
+            return true;
+        }
+        let normalized = normalized_path(path);
+        if let (Some(profiles_root), Some(current_profile)) =
+            (profiles_root.as_deref(), current_profile.as_deref())
+            && within(&normalized, profiles_root)
+            && !within(&normalized, current_profile)
+        {
+            return true;
+        }
+        let drive_root: PathBuf = path.components().take(2).collect();
+        !drive_root.as_os_str().is_empty() && !drive_root.exists()
+    })
+}
+
+fn normalized_path(path: &Path) -> String {
+    path.to_string_lossy()
+        .trim_end_matches(['\\', '/'])
+        .replace('/', "\\")
+        .to_ascii_lowercase()
+}
+
+fn within(path: &str, parent: &str) -> bool {
+    path == parent
+        || path
+            .strip_prefix(parent)
+            .is_some_and(|rest| rest.starts_with('\\'))
+}
+
+fn snapshots(history: Option<&ApiGame>) -> Vec<GameSaveSnapshot> {
+    let Some(history) = history else {
+        return Vec::new();
+    };
+    history
+        .backups
+        .iter()
+        .map(|backup| GameSaveSnapshot {
+            id: backup.name.clone(),
+            timestamp: backup.when.clone(),
+            bytes: history
+                .backup_path
+                .as_deref()
+                .map(Path::new)
+                .map(|root| path_size(&root.join(&backup.name), 0))
+                .unwrap_or(0),
+            label: backup.comment.clone(),
+            is_safety: false,
+        })
+        .collect()
+}
+
+fn path_size(path: &Path, depth: u8) -> u64 {
+    if depth > 32 {
+        return 0;
+    }
+    let Ok(metadata) = fs::metadata(path) else {
+        return 0;
+    };
+    if metadata.is_file() {
+        return metadata.len();
+    }
+    fs::read_dir(path)
+        .ok()
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| path_size(&entry.path(), depth + 1))
+        .sum()
+}
+
+fn display_paths<'a>(paths: impl Iterator<Item = &'a str>) -> Vec<String> {
+    let mut parents = Vec::<String>::new();
+    let mut seen = HashSet::new();
+    for path in paths {
+        let path = PathBuf::from(path);
+        let display = if path.is_dir() {
+            path
+        } else {
+            path.parent().unwrap_or(&path).to_path_buf()
+        }
+        .to_string_lossy()
+        .into_owned();
+        let key = display.to_ascii_lowercase();
+        if seen.insert(key) {
+            parents.push(display);
+            if parents.len() == 8 {
+                break;
+            }
+        }
+    }
+    parents
+}
+
+fn system_time(time: SystemTime) -> Option<u64> {
+    time.duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_secs())
+}
+
+pub(crate) fn now() -> u64 {
+    system_time(SystemTime::now()).unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn manifest_count_only_includes_entries_with_backup_definitions() {
+        let yaml = r#"
+Alias only:
+  alias: Real Game
+No paths:
+  steam:
+    id: 1
+'Game: One':
+  files:
+    '<winAppData>/Game': {}
+  cloud:
+    steam: true
+Registry Game:
+  registry:
+    HKEY_CURRENT_USER/Software/Game: {}
+  cloud:
+    gog: true
+"#;
+        let metadata = parse_manifest_metadata(yaml);
+        assert_eq!(metadata.supported_games, 2);
+        assert_eq!(metadata.badges["Game: One"], vec!["Steam Cloud"]);
+        assert_eq!(metadata.badges["Registry Game"], vec!["GOG Cloud"]);
+    }
+
+    #[test]
+    fn pinned_manifest_supported_count_is_current_when_resource_is_present() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/ludusavi/manifest.yaml");
+        if let Ok(text) = fs::read_to_string(path) {
+            assert_eq!(parse_manifest_metadata(&text).supported_games, 22_976);
+        }
+    }
+
+    #[test]
+    fn partial_failures_are_not_reported_as_backed_up() {
+        let local = parse_api(
+            r#"{"games":{"Game":{"change":"Same","decision":"Processed","files":{"C:/save.dat":{"bytes":10,"failed":true,"ignored":false,"error":{"message":"locked"}}},"registry":{}}}}"#,
+        )
+        .unwrap();
+        let history = parse_api(
+            r#"{"games":{"Game":{"backupPath":"D:/backup/Game","backups":[{"name":"x.zip","when":"2026-01-01T00:00:00Z","locked":false}]}}}"#,
+        )
+        .unwrap();
+        let scan = build_scan(
+            local,
+            ApiOutput::default(),
+            history,
+            &ManifestMetadata::default(),
+            &GameSavesSettings::default(),
+        );
+        assert_eq!(scan.on_this_pc[0].status, GameSaveStatus::Error);
+        assert_eq!(scan.on_this_pc[0].error.as_deref(), Some("locked"));
+    }
+}

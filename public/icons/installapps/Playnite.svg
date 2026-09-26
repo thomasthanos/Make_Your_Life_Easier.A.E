@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="pln-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="pln-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2B160C" />
+      <stop offset="52%" stop-color="#180B06" />
+      <stop offset="100%" stop-color="#0A0402" />
+    </linearGradient>
+    <radialGradient id="pln-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#FF6B2B" stop-opacity="0.38" />
+      <stop offset="55%" stop-color="#EA580C" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#180B06" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="pln-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#FB923C" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#180B06" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="pln-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FED7AA" stop-opacity="0.62" />
+      <stop offset="25%" stop-color="#FF6B2B" stop-opacity="0.3" />
+      <stop offset="80%" stop-color="#431407" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#FB923C" stop-opacity="0.4" />
+    </linearGradient>
+    <linearGradient id="pln-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="pln-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+      <linearGradient id="pln-g" x1="56" y1="80" x2="200" y2="180" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#FDBA74"/><stop offset="50%" stop-color="#F97316"/><stop offset="100%" stop-color="#EA580C"/></linearGradient>
+    
+  </defs>
+  <g clip-path="url(#pln-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#pln-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#pln-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#pln-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#pln-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#pln-rim)" stroke-width="3" />
+  <g filter="url(#pln-shadow)">
+    
+      <path d="M78 88H178C194 88 204 102 200 120L190 162C186 176 172 182 160 172L142 156H114L96 172C84 182 70 176 66 162L56 120C52 102 62 88 78 88Z" fill="url(#pln-g)"/>
+      <path d="M92 112V136M80 124H104" stroke="#FFF" stroke-width="10" stroke-linecap="round"/>
+      <circle cx="156" cy="116" r="7" fill="#FFF"/>
+      <circle cx="172" cy="130" r="7" fill="#FFF"/>
+    
+  </g>
+</svg>

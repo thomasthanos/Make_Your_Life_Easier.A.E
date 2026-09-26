@@ -1,114 +1,84 @@
-name: Build and Release
+# Builds the Windows installer and publishes it as a GitHub release.
+#
+# Release: bump "version" in package.json (and src-tauri/Cargo.toml), commit,
+# then push a matching tag:   git tag v5.0.1 && git push origin v5.0.1
+#
+# The app's updater (src-tauri/src/updater.rs) reads the latest release and
+# installs its *_x64-setup.exe after checking the SHA-256 digest GitHub
+# publishes for every asset.
+name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+    tags: ["v*"]
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  windows:
     runs-on: windows-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-        cache: 'npm'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
-    - name: Install dependencies
-      run: npm install
+      - uses: dtolnay/rust-toolchain@stable
 
-    - name: Import signing certificate
-      shell: pwsh
-      env:
-        CERT_B64: ${{ secrets.WIN_CSC_LINK }}
-        CERT_PASS: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-      run: |
-        $ErrorActionPreference = 'Stop'
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
-        if ([string]::IsNullOrWhiteSpace($env:CERT_B64))  { throw "Secret WIN_CSC_LINK is empty" }
-        if ([string]::IsNullOrWhiteSpace($env:CERT_PASS)) { throw "Secret WIN_CSC_KEY_PASSWORD is empty" }
-
-        $pass = $env:CERT_PASS.Trim().Trim('"').Trim("'")
-        Write-Host "::add-mask::$pass"
-
-        New-Item -ItemType Directory -Force config/signing | Out-Null
-        $pfx = Join-Path $PWD 'config/signing/certificate.pfx'
-        [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT_B64.Trim()))
-
-        $cert = (Get-PfxData -FilePath $pfx -Password (ConvertTo-SecureString $pass -AsPlainText -Force)).EndEntityCertificates[0]
-        Write-Host "Signing certificate: $($cert.Subject) — expires $($cert.NotAfter)"
-
-        "CSC_LINK=$pfx"           | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-        "CSC_KEY_PASSWORD=$pass"  | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-
-    - name: Build application
-      env:
-        GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      run: npm run build-all
-
-    - name: Publish update feed to R2
-      shell: pwsh
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: auto
-        AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
-        AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
-        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-        R2_BUCKET: ${{ secrets.R2_BUCKET }}
-      run: |
-        $ErrorActionPreference = 'Stop'
-        $endpoint = "https://$env:R2_ACCOUNT_ID.r2.cloudflarestorage.com"
-        $dist = 'artifacts/dist'
-        $feedUrl = (Select-String -Path config/app-update.yml -Pattern '^url:\s*(\S+)').Matches[0].Groups[1].Value.TrimEnd('/')
-
-        function Publish([string]$File, [string]$Key, [string[]]$Extra = @()) {
-          aws s3 cp $File "s3://$env:R2_BUCKET/$Key" --endpoint-url $endpoint @Extra
-          if ($LASTEXITCODE -ne 0) { throw "Upload failed: $Key" }
-        }
-
-        $zip = Get-ChildItem "$dist/*-win.zip" | Select-Object -First 1
-        $appZip = Get-ChildItem "$dist/*-app-*.zip" | Select-Object -First 1
-        if (-not $zip -or -not $appZip) { throw 'Update zips are missing from artifacts/dist' }
-        $zipArgs = @('--content-type', 'application/zip', '--cache-control', 'no-cache')
-
-        Publish $zip.FullName $zip.Name $zipArgs
-        Publish $appZip.FullName $appZip.Name $zipArgs
-
-        foreach ($file in @($zip, $appZip)) {
-          $served = Join-Path $env:RUNNER_TEMP $file.Name
-          Invoke-WebRequest -Uri "$feedUrl/$($file.Name)" -OutFile $served -Headers @{ 'Cache-Control' = 'no-cache' }
-          if ((Get-FileHash $served -Algorithm SHA512).Hash -ne (Get-FileHash $file.FullName -Algorithm SHA512).Hash) {
-            throw "$($file.Name) served by $feedUrl does not match the build"
+      - name: Tag matches the app version
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} does not match package.json version $version"
           }
-          Remove-Item $served
-          Write-Host "Verified $feedUrl/$($file.Name)"
-        }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-        Publish "$dist/latest.yml" 'latest.yml' @('--content-type', 'text/yaml', '--cache-control', 'no-cache')
+      - run: npm ci
 
-        Publish "$dist/MakeYourLifeEasier-Setup.exe" 'MakeYourLifeEasier-installer.exe'
-        Publish "$dist/MakeYourLifeEasier-Portable.exe" 'MakeYourLifeEasier-Portable.exe'
+      # Also downloads and verifies the pinned Ludusavi runtime for Game Saves
+      # (scripts/bootstrap-game-saves.ps1); those files are not in Git.
+      - run: npm run tauri build
 
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        files: |
-          artifacts/dist/*.exe
-          artifacts/dist/MakeYourLifeEasier-win.zip
-          artifacts/dist/latest.yml
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Collect the installer
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem "src-tauri/target/release/bundle/nsis/*_x64-setup.exe" | Select-Object -First 1
+          if (-not $setup) { throw "The NSIS installer was not produced." }
+          # No spaces: GitHub would rename "Make Your Life Easier_…" anyway.
+          $name = "MakeYourLifeEasier_${env:VERSION}_x64-setup.exe"
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item $setup.FullName "out/$name"
+
+          # latest.yml is what the old Electron app (v4.x) looks for in the
+          # latest release. Pointing it at this installer lets those installs
+          # update into the rewrite; the new app itself does not use it.
+          $bytes = [IO.File]::ReadAllBytes((Resolve-Path "out/$name"))
+          $sha512 = [Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash($bytes))
+          $date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+          @(
+            "version: ${env:VERSION}"
+            "files:"
+            "  - url: $name"
+            "    sha512: $sha512"
+            "    size: $($bytes.Length)"
+            "path: $name"
+            "sha512: $sha512"
+            "releaseDate: '$date'"
+          ) | Set-Content -Path out/latest.yml -Encoding utf8NoBOM
+
+      - name: Publish the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" (Get-ChildItem out).FullName `
+            --title "Make Your Life Easier ${{ github.ref_name }}" `
+            --generate-notes

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="kpx-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="kpx-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0D2816" />
+      <stop offset="52%" stop-color="#07170C" />
+      <stop offset="100%" stop-color="#030B05" />
+    </linearGradient>
+    <radialGradient id="kpx-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#4CAF50" stop-opacity="0.38" />
+      <stop offset="55%" stop-color="#15803D" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#07170C" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="kpx-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#4ADE80" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#07170C" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="kpx-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BBF7D0" stop-opacity="0.62" />
+      <stop offset="25%" stop-color="#4CAF50" stop-opacity="0.3" />
+      <stop offset="80%" stop-color="#14532D" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#4ADE80" stop-opacity="0.4" />
+    </linearGradient>
+    <linearGradient id="kpx-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="kpx-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#kpx-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#kpx-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#kpx-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#kpx-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#kpx-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#kpx-rim)" stroke-width="3" />
+  <g filter="url(#kpx-shadow)">
+    <svg x="48" y="48" width="160" height="160" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet"><path fill="#6cac4d" d="M12 0C5.378 0 0 5.378 0 12c0 6.623 5.378 12 12 12c6.623 0 12-5.377 12-12c0-6.622-5.377-12-12-12m0 .791a11.203 11.203 0 0 1 11.209 11.21A11.2 11.2 0 0 1 12 23.208A11.203 11.203 0 0 1 .791 12A11.203 11.203 0 0 1 12.001.791zm0 1.871a9.4 9.4 0 0 0-1.705.162A1.746 1.746 0 0 0 12 4.95a1.746 1.746 0 0 0 1.706-2.126A9.3 9.3 0 0 0 12 2.662M7.2 4a9.34 9.34 0 0 0-4.54 8a9.338 9.338 0 0 0 18.677 0a9.34 9.34 0 0 0-4.54-7.998a4.89 4.89 0 0 1-2.701 5.365l-.12 2.066l1.482 1.483l-1.483 1.482l.989.989l-.989.988l.12 1.857L12 20.328l-2.096-2.096V9.367A4.89 4.89 0 0 1 7.2 4m3.4 6.543v6.99h.7v-6.99z"/></svg>
+  </g>
+</svg>

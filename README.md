@@ -1,217 +1,206 @@
-<div align="center">
+# Make Your Life Easier
 
-<img src=".github/assets/banner-myle.svg?v=9" alt="Make Your Life Easier">
+Βάση για desktop εφαρμογή Windows: **Tauri 2** (Rust + WebView2) με **Svelte 5 + TypeScript + Vite**.
+Σκούρο UI σε στυλ 3D glass, custom titlebar, sidebar που ανοιγοκλείνει, splash για updates σε στυλ Discord (GitHub Releases) και one-click installer. Το installer περιλαμβάνει επίσης το pinned Ludusavi engine και offline manifest για τη σελίδα Game Saves, επομένως το τελικό μέγεθος εξαρτάται από αυτά τα bundled resources.
 
-[![Windows 10/11](.github/assets/badge-windows.svg?v=10)](#-install)
-[![Electron 39](.github/assets/badge-electron.svg?v=10)](https://www.electronjs.org/)
-[![English and Greek](.github/assets/badge-lang.svg?v=10)](src/i18n)
-[![Code-signed builds](.github/assets/badge-signed.svg?v=10)](#-privacy-briefly)
-<br>
-[![Install](.github/assets/btn-install.svg?v=10)](#-install)
-[![Features](.github/assets/btn-features.svg?v=10)](#-features)
-[![Settings](.github/assets/btn-settings.svg?v=10)](#-settings)
-[![Privacy](.github/assets/btn-privacy.svg?v=10)](#-privacy-briefly)
-[![Troubleshooting](.github/assets/btn-troubleshooting.svg?v=10)](#-troubleshooting)
+## Εργαλεία (μία φορά)
 
-<img src=".github/assets/spec-myle.svg" alt="At a glance">
+- Node.js 20+
+- Rust (stable MSVC): `winget install Rustlang.Rustup`
+- Visual Studio 2022 Build Tools με το workload «Desktop development with C++»
+- Το WebView2 υπάρχει ήδη στα Windows 10/11. Το NSIS το κατεβάζει μόνο του το Tauri.
 
-</div>
+## Εντολές
 
-<img src=".github/assets/divider.svg" width="100%" alt="">
+```bash
+npm install
+npm run prepare:game-saves  # κατεβάζει/επαληθεύει τα pinned Game Saves resources
+npm run tauri dev      # ανάπτυξη με hot reload
+npm run check          # έλεγχος τύπων (Svelte + TS)
+cd src-tauri && cargo test --locked
+npm run tauri build    # release exe + installer στο src-tauri/target/release/bundle/nsis/
+```
 
-## <img src=".github/assets/icon-cloud.svg?v=6" width="24" align="middle"> What it does
+Το `npm run tauri ...` εκτελεί αυτόματα το `prepare:game-saves`. Το script χρησιμοποιεί SHA-256 μέσω .NET ώστε να λειτουργεί και σε παλαιότερο Windows PowerShell όπου δεν υπάρχει το `Get-FileHash`.
 
-Windows already has a package manager, a disk cleaner, a repair toolkit and a pile of
-third-party utilities — they just live in different windows, different elevation prompts
-and different websites. This app puts the ones you actually use in one place.
+Για να δεις το splash να «κατεβάζει» update χωρίς πραγματικό release (λειτουργεί μόνο σε dev):
 
-Open it, pick a job from the sidebar, walk away. Install a catalog of apps through
-winget, get patched software, clean and repair the system, activate Windows, launch Sparkle or WinUtil, theme Spotify, back up your game saves, or
-restart straight into BIOS. An account is optional: sign in only if you want those
-preferences on another PC.
+```powershell
+$env:MYLE_UPDATER_DEMO = "1"; npm run tauri dev        # ψεύτικο download
+$env:MYLE_UPDATER_DEMO = "offline"; npm run tauri dev  # ψεύτικο σφάλμα δικτύου
+```
 
-<img src=".github/assets/divider.svg" width="100%" alt="">
+## Δομή
 
-## <img src=".github/assets/icon-sparkle.svg?v=6" width="24" align="middle"> Features
+```
+src/
+  app/App.svelte              layout: titlebar + sidebar + content
+  app/shell/                  Titlebar, Sidebar, ContentArea
+  app/pages/registry.ts       ← εδώ προσθέτεις σελίδες
+  app/pages/install-apps/     σελίδα Install Apps (winget)
+  app/pages/game-saves/       Game Saves UI, state και typed IPC
+  lib/toast.svelte.ts         ειδοποιήσεις (toast.success/info/error)
+  lib/confirm.svelte.ts       await confirm({...})
+  splash/                     οθόνη updater (λογότυπο, κατάσταση, progress)
+  lib/updater.ts              typed γέφυρα προς τον Rust updater
+  styles/tokens.css           χρώματα, μεγέθη, κινήσεις
+  styles/glass.css            .glass / .surface
+src-tauri/
+  src/game_saves/             scan, backup, restore, settings και scheduling
+  resources/ludusavi/         pinned engine, manifest, license και notices
+  src/window_sizing.rs        αυτόματο μέγεθος παραθύρου
+  src/updater.rs              GitHub Releases updater
+  src/lib.rs                  εκκίνηση, splash → main
+  windows/installer.nsi       custom NSIS template (αλλαγές με "; MYLE:")
+  tauri.conf.json             όνομα, έκδοση, παράθυρα, installer
+scripts/
+  bootstrap-game-saves.ps1    λήψη και SHA-256 verification των pinned resources
+```
 
-### App & software installers
+### Νέα σελίδα
 
-- Categorized **winget catalog** — browsers, communication, games, media, development,
-  security, hardware, utilities, plus your own custom entries.
-- **Crack Apps** — Download and install patched versions of professional software on-demand.
-- **Check Installed** scans what is already on the machine and what can be upgraded.
-- Bulk actions: install selected, uncheck all, export and import lists, upgrade all.
-- List or grid view, sorted by category, A→Z, Z→A or status.
+1. Φτιάξε το `src/app/pages/MyPage.svelte` και ξεκίνα με `<PageHeader title="…" />`.
+2. Πρόσθεσε μία γραμμή στο `registry.ts`: `{ id: "my-page", label: "My page", icon: SomeIcon, component: MyPage }`.
 
-### System cleaner & maintenance
+Τα icons είναι από το [Lucide](https://lucide.dev/icons), π.χ. `import Star from "@lucide/svelte/icons/star"`.
+Αν θέλεις κάρτες μέσα σε σελίδα, χρησιμοποίησε την κλάση `.surface` και όχι την `.glass`: blur μέσα σε blur κοστίζει.
 
-- **System Cleaner:** Scan and remove temporary files, Prefetch, Recycle Bin, Windows Update cache,
-  thumbnail cache, and error reports to free up disk space.
-- **Network:** Flush DNS, release/renew IP, fix Bluetooth, full network reset.
-- **Repair:** SFC, DISM, Check Disk, restart audio services, Winget upgrade all.
+## Σελίδα «Install Apps»
 
-### Windows tools & utilities
+App store πάνω από το **winget**, στον φάκελο `src/app/pages/install-apps/` (frontend) και `src-tauri/src/apps/` (Rust).
 
-- **Activate & Auto Login** — Activate Windows/Office and set up automatic login.
-- **Debloat** — Downloads and launches the open-source Sparkle utility on first use.
-- **Windows Utility** — Chris Titus Tech's WinUtil, run elevated from the official signed script.
-- **BIOS / UEFI** — One click to restart into firmware setup (admin required).
-- **Spicetify** — Install, uninstall, or fully remove Spotify + Spicetify.
-
-### Game saves
-
-- **Game Saves** finds the save files of the games on this PC with the
-  [Ludusavi manifest](https://github.com/mtkennerly/ludusavi-manifest): save locations for over
-  20,000 games, compiled from [PCGamingWiki](https://www.pcgamingwiki.com) (CC BY-NC-SA). Steam, Epic,
-  GOG and Ubisoft installs are detected automatically, and saves are found in AppData, Documents (also
-  when it is redirected to OneDrive), game folders and the registry.
-- Backs up to one folder per game and copies only what changed. Pick a OneDrive, Google Drive or
-  Dropbox folder to keep the backup off the PC.
-- **Restore** puts saves back, on the same PC or a new one, and first keeps a copy of whatever it replaces.
-- **Automatic backup** through the Windows Task Scheduler, daily or weekly, even when the app is closed.
-- Folders that look like saves of games the manifest does not know are offered as suggestions.
-
-### Quality of life
-
-- Dark UI with a custom Windows 11-style title bar.
-- Optional **Google or Discord** sign-in via Supabase Auth to sync theme, language,
-  and preferences.
-- Background **auto-updates** from Cloudflare R2, including portable builds.
-- Authenticode-signed installers, so SmartScreen shows a trusted publisher.
-
-### <img src=".github/assets/icon-globe.svg?v=6" width="22" align="middle"> Languages
-
-English and Greek. Switch from Settings; the rest of the app follows immediately.
-
-<img src=".github/assets/divider.svg" width="100%" alt="">
-
-## <img src=".github/assets/icon-install.svg?v=6" width="24" align="middle"> Install
-
-**Requirements:** Windows 10/11 (64-bit) · 4 GB RAM · 200 MB storage.
-
-1. Download the [installer](https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe)
-   or the [portable build](https://downloads.thomast.uk/MakeYourLifeEasier-Portable.exe).
-2. Run it. The installer is Authenticode-signed as **ThomasThanos**.
-3. (Optional) Sign in with Google or Discord if you want settings to follow you.
-4. **Use the sidebar** to navigate between tools:
-   - **Apps:** Install Apps, Crack Apps
-   - **System:** System Cleaner, System Maintenance
-   - **Activation:** Activate & Auto Login
-   - **Utilities:** BIOS, Spicetify, Christitus, Debloat, Game Saves
-
-![Note](.github/assets/callout-note.svg?v=10)
-> **Some tools need administrator rights.** Cleanup of protected folders, SFC/DISM,
-> BIOS restart, Sparkle and WinUtil will prompt UAC. The rest of the app works without
-> elevation.
-
-<img src=".github/assets/divider.svg" width="100%" alt="">
-
-## <img src=".github/assets/icon-settings.svg?v=6" width="24" align="middle"> Settings
-
-Reachable from the sidebar → **Settings**. Changes save instantly, locally first.
-
-| Group | Settings |
+| Αρχείο | Περιεχόμενο |
 |---|---|
-| **Appearance** | Language (English / Greek) · sidebar expanded/collapsed · installer list/grid · maintenance layout |
-| **Account** | Google or Discord sign-in · synced preferences · reset synced settings · sign out |
-| **Updates** | Check for updates · progress UI for installer and portable |
+| `data/apps.json` | Η σταθερή λίστα (winget IDs, site, `selfUpdating`, `iconDomain`/`icon`) και τα **app packs** |
+| `src-tauri/catalog/custom-apps.json` | Οι «ειδικές» εφαρμογές εκτός winget: resolver (`github` / `page` / `static`), τύπος εγκατάστασης (`installer` / `portable` / `zip`), ανίχνευση, `activate` |
+| `categories.ts` | Λέξεις-κλειδιά για τις αυτόματες κατηγορίες (override με `"category"` στο JSON) |
 
-The app is fully usable signed out. An account only adds cross-device sync of
-preferences — never of files, credentials or system state.
+- Η κατάσταση (πράσινο = εγκατεστημένη, μπλε = update, γκρι = όχι) προέρχεται από το `winget list`. Οι ειδικές εφαρμογές ανιχνεύονται από το registry ή από κάποιο αρχείο.
+- Όσες είναι `selfUpdating` δεν μετράνε ποτέ στα updates.
+- **Αναζήτηση:**
+  - ψάχνει πρώτα στη λίστα
+  - αν δεν βρει τίποτα, ψάχνει ζωντανά στο winget («More from catalog»)
+  - ό,τι τσεκάρεις από εκεί μένει «Pinned»
+- **Εγκατάσταση με winget**, με τρεις προσπάθειες:
+  1. `--silent`
+  2. χωρίς `--silent`
+  3. `--scope user`
+- **Hash mismatch:**
+  - η εφαρμογή ρωτά πρώτα
+  - αν δεχτείς, ένα UAC ανοίγει προσωρινά το `InstallerHashOverride`, εγκαθιστά και το ξανακλείνει
+- **Ειδικές εφαρμογές:** ο resolver βρίσκει το πιο πρόσφατο link (cache 6 ωρών). Αν το GitHub δίνει SHA-256, ελέγχεται.
+- **Ασφάλεια:** το UI στέλνει μόνο IDs. Τα URLs και οι εντολές υπάρχουν μόνο στο JSON που είναι μέσα στο binary.
+- **Vencord / BetterDiscord:**
+  - Το Install κατεβάζει το επίσημο εργαλείο (`VencordInstallerCli.exe` / `bdcli.exe`) και «πειράζει» αμέσως το Discord Stable.
+  - Η κατάσταση βγαίνει από τα αρχεία στο `%LOCALAPPDATA%\Discord\app-*\resources` (πιο πρόσφατο `app-*`).
+  - Αν ένα update του Discord σβήσει το patch, εμφανίζεται το κουμπί «Patch Discord».
+  - Τα δύο δηλώνουν `conflicts` μεταξύ τους, οπότε η εγκατάσταση του ενός ζητά επιβεβαίωση όταν το άλλο είναι ενεργό.
 
-<img src=".github/assets/divider.svg" width="100%" alt="">
+## Σελίδα «Creative Hub»
 
-## <img src=".github/assets/icon-key.svg?v=6" width="24" align="middle"> What it asks of Windows
+Κάρτες για **δικά σου** πακέτα (zip ή installer): κατέβασμα με πρόοδο, αποσυμπίεση, εκτέλεση setup και σβήσιμο των προσωρινών αρχείων.
+Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.rs`.
 
-| Access | Why it is needed |
+Η λίστα είναι **μόνο** το `src-tauri/catalog/creative-apps.json`, που μπαίνει μέσα στο exe κατά το build. Ο χρήστης δεν μπορεί να την αλλάξει: κάθε αλλαγή θέλει νέο build.
+
+```jsonc
+{
+  "id": "creative.video",
+  "name": "…", "description": "…", "category": "Video",
+  "sizeHint": 1500000000,          // προαιρετικό, για ένδειξη μεγέθους
+  "digest": "sha256:…",            // προαιρετικό, ελέγχεται πριν το setup
+  "source": { "type": "gdrive", "fileId": "ID_ΑΠΟ_ΤΟ_LINK", "fileName": "suite.zip" },
+  "setup": { "type": "zip", "run": "setup.exe", "args": [] }
+}
+```
+
+- `source`: `gdrive` (file id **ή ολόκληρο το link** του Drive), `static` (οποιοδήποτε https URL: R2, B2, Dropbox, δικός σου server), `github`, `page`.
+- `setup`:
+  - `zip`: ξεπακετάρει και τρέχει το `run` (αν λείπει, βρίσκει μόνο του το `setup.exe`/`.msi`). Με `"onlyRun": true` βγάζει **μόνο** αυτό το αρχείο από το zip, χρήσιμο όταν το zip έχει ολόκληρο project.
+  - `installer`: τρέχει σκέτο exe/msi.
+  - `extract`: μόνο ξεπακετάρισμα στο `to` (default `%USERPROFILE%\Downloads\<όνομα>`).
+  - `"password": "…"` για κλειδωμένα zip (AES ή κλασικό).
+- `icon` (προαιρετικό):
+  - `"/icons/app.svg"` για αρχείο μέσα στο `public/icons/`, που ταξιδεύει με την εφαρμογή
+  - `"https://…"` για εικόνα από το διαδίκτυο
+  - διαδρομή αρχείου, π.χ. `%USERPROFILE%\Pictures\logo.png`, που τη διαβάζει το backend (μόνο τοπικά)
+  - Προτίμησε **SVG** για λογότυπα, ή **PNG/WebP** 256×256 με διαφάνεια. Δεκτά: svg, png, webp, jpg, gif, avif, ico, έως 4 MB.
+- **Πού πάνε τα αρχεία:** το πακέτο κατεβαίνει στο `%USERPROFILE%\Downloads\` και ξεπακετάρεται στο `%USERPROFILE%\Downloads\<όνομα>\`. Ο installer τρέχει από εκεί και, αν ζητήσει δικαιώματα admin, βγαίνει το UAC.
+- **Καθάρισμα:** το κατεβασμένο αρχείο και ο φάκελος που ξεπακετάρεται για installer διαγράφονται **όταν κλείνει η εφαρμογή**, όχι νωρίτερα. Έτσι ένας installer που ξαναξεκινά τον εαυτό του δεν μένει χωρίς αρχεία. Ο προορισμός του `extract` (π.χ. φωτογραφίες) **δεν** διαγράφεται.
+- Πρόοδος με ποσοστό υπάρχει και στο κατέβασμα και στο ξεπακετάρισμα, μαζί με το όνομα του αρχείου.
+- Αν το `run` δεν ταιριάζει με κανένα αρχείο μέσα στο zip, το μήνυμα λάθους δείχνει ποια `.exe`/`.msi` περιέχει το πακέτο. Αν το JSON σου έχει λάθος, εμφανίζεται μήνυμα με τη γραμμή, αντί να αγνοείται σιωπηλά.
+
+### Google Drive
+
+Χρησιμοποιείται το direct endpoint `https://drive.usercontent.google.com/download?id=<ID>&export=download&confirm=t`,
+που παρακάμπτει τη σελίδα «δεν μπορούμε να σαρώσουμε το αρχείο».
+
+- Το αρχείο πρέπει να είναι κοινόχρηστο ως **«Anyone with the link»**.
+- Το Google Drive έχει **ημερήσιο όριο λήψεων ανά αρχείο**. Όταν το πιάσει, επιστρέφει ιστοσελίδα αντί για αρχείο, και η εφαρμογή το εμφανίζει ως σαφές σφάλμα. Δεν παρακάμπτεται από την εφαρμογή.
+- Για μεγάλα/πολυκατεβασμένα πακέτα, προτιμότερα είναι τα **Cloudflare R2** (χωρίς χρέωση egress), **Backblaze B2** ή τα **GitHub Releases** (έως 2 GB/αρχείο), με `"source": { "type": "static", "url": "…" }`.
+
+## Σελίδα «Game Saves»
+
+Η σελίδα βρίσκεται μετά το Install Apps και χρησιμοποιεί bundled **Ludusavi v0.31.0** με ξεχωριστό config directory, ώστε να μην αλλάζει τυχόν προσωπική εγκατάσταση Ludusavi του χρήστη.
+
+- Το κανονικό scan είναι offline (`--no-manifest-update`) και αναγνωρίζει τα saves της pinned βάσης μαζί με custom games του χρήστη.
+- Το `Update database` είναι η μόνη ρητή ενέργεια που επικοινωνεί με το manifest source. Αν η λήψη ή η επικύρωση αποτύχει, διατηρείται ατομικά η προηγούμενη βάση.
+- Τα backups είναι ZIP/Deflate level 6, με τρία πλήρη snapshots ανά παιχνίδι και χωρίς differential snapshots.
+- Το restore κάνει νέο preview, ζητά επιβεβαίωση και κρατά safety copy για επτά ημέρες. Το τελευταίο restore μπορεί να αναιρεθεί από το `Undo last restore`.
+- Το frontend στέλνει opaque IDs. Οι τίτλοι περνούν στο Ludusavi μέσω stdin και όχι ως αυθαίρετα command arguments.
+- Οι ρυθμίσεις αποθηκεύονται ατομικά στο app data, μαζί με launcher roots, custom games, exclusions, path mappings, database metadata και το τελευταίο scheduled αποτέλεσμα.
+- Το Daily/Weekly auto-backup δημιουργεί per-user Windows Scheduled Task με `StartWhenAvailable`, χωρίς elevation και χωρίς wake-from-sleep. Το `Off` και το uninstall αφαιρούν το task.
+- Τα OneDrive, Dropbox και Google Drive shortcuts επιλέγουν μόνο τοπικούς συγχρονιζόμενους φακέλους· δεν χρησιμοποιούνται cloud APIs.
+
+Τα generated binaries/manifest αγνοούνται από το Git. Σε νέο checkout τρέξε `npm run prepare:game-saves`. Οι pinned URLs και SHA-256 τιμές βρίσκονται στο `scripts/bootstrap-game-saves.ps1`, ενώ οι άδειες/attributions μπαίνουν στο installer από το `src-tauri/resources/ludusavi/`.
+
+## Μέγεθος παραθύρου
+
+Στην εκκίνηση το κύριο παράθυρο παίρνει μέγεθος ανάλογα με την οθόνη όπου βρίσκεται ο κέρσορας, και κεντράρεται. Τα μεγέθη είναι σε physical pixels:
+
+| Οθόνη | Παράθυρο |
 |---|---|
-| **Local files** | Settings JSON, encrypted session cache, downloaded tools (Sparkle, crack installers, 7-Zip helpers). |
-| **Game save folders** | Game Saves reads save folders and the games' registry keys, and restores only into each game's own save locations. |
-| **Task Scheduler** | Only when automatic backup is on: one task that starts the app with `--backup-saves`. |
-| **Administrator (on demand)** | Cleanup of protected paths, SFC/DISM/Check Disk, BIOS restart, Sparkle, WinUtil. |
-| **Network** | winget catalogs, optional auth/sync, auto-update feed on `downloads.thomast.uk`, first-run tool downloads, the Game Saves database from GitHub. |
-| **Electron `safeStorage`** | Encrypts the local auth/session cache with the OS credential store when available. |
+| 4K (2160p) | 2560×1440 |
+| 2K (1440p) | 1920×1080 |
+| 1080p | 1280×720 |
+| μικρότερη | 90% της ωφέλιμης περιοχής |
 
-That is the complete list. No telemetry, no ads, no always-on cloud.
+Το παράθυρο δεν ξεπερνά ποτέ το 95% της περιοχής εκτός taskbar.
 
-<img src=".github/assets/divider.svg" width="100%" alt="">
+## Updater (GitHub Releases)
 
-## <img src=".github/assets/icon-shield.svg?v=6" width="24" align="middle"> Privacy, briefly
+Τα releases βγαίνουν από αυτό το repo (`GITHUB_REPO` στο `src-tauri/src/updater.rs`: `thomasthanos/Make_Your_Life_Easier.A.E`).
+Η παλιά Electron εφαρμογή (v4.x) ζει στο branch `old` και τα releases της μένουν ως έχουν· η νέα ξεκινά από το **5.0.0**, οπότε τα v4.x είναι πάντα «παλαιότερα».
 
-**The tools run on your computer.** Maintenance, the installer hub, debloat and
-utility launches never leave the machine. Optional account sync stores only
-preferences (theme, language, selected app list, view/sort) through Supabase Auth.
-Session cache is encrypted at rest. The renderer is locked down: strict CSP, no
-inline scripts, context isolation via a dedicated preload bridge.
+1. Ανέβασε την έκδοση στο `package.json` και στο `src-tauri/Cargo.toml` (π.χ. `5.0.1`) και κάνε commit.
+2. `git tag v5.0.1 && git push origin main v5.0.1`
+3. Το `.github/workflows/release.yml` χτίζει την εφαρμογή (κατεβάζει και το Ludusavi) και δημοσιεύει:
+   - `MakeYourLifeEasier_5.0.1_x64-setup.exe` — αυτό κατεβάζει ο updater της νέας εφαρμογής
+   - `latest.yml` — για τις εγκαταστάσεις της παλιάς Electron εφαρμογής, ώστε το electron-updater τους να βρει το νέο installer
 
-No analytics. No ads. Signed-out is the default.
+Σε κάθε εκκίνηση, το splash:
 
-<img src=".github/assets/divider.svg" width="100%" alt="">
+- ρωτά το `api.github.com/repos/<repo>/releases/latest`
+- αν βρει νεότερο tag, κατεβάζει το setup και ελέγχει το SHA-256 του με το digest που δίνει το GitHub (χωρίς digest, δεν εγκαθιστά)
+- το τρέχει σιωπηλά (`/S /UPDATE /R`) και κλείνει
+- ο installer ξανανοίγει τη νέα έκδοση
 
+Αν δεν υπάρχει δίκτυο, η εφαρμογή ανοίγει κανονικά μετά από ~2 δευτερόλεπτα.
 
-## <img src=".github/assets/icon-help.svg?v=6" width="24" align="middle"> Troubleshooting
+> Ο έλεγχος SHA-256 πιάνει αρχεία που χάλασαν ή άλλαξαν στη διαδρομή. Δεν προστατεύει αν παραβιαστεί ο ίδιος ο λογαριασμός GitHub.
+> Για κάτι τέτοιο χρειάζεται υπογραφή κώδικα (code signing).
 
-<details>
-<summary><b>SmartScreen or Windows Defender warns on first run</b></summary>
+## Εγκατάσταση (one-click, ανά χρήστη, χωρίς admin)
 
-<br>
+| Τι | Πού |
+|---|---|
+| Πρόγραμμα | `%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier\MakeYourLifeEasier.exe` |
+| Desktop | `%USERPROFILE%\Desktop\Make Your Life Easier.lnk` |
+| Start Menu | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Make Your Life Easier.lnk` |
+| Εκκίνηση με τα Windows | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Make Your Life Easier.lnk` (με `--autostart`) |
+| Registry | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier` |
+| Game Saves task | `MakeYourLifeEasier Game Saves Backup` (μόνο όταν το schedule είναι Daily/Weekly) |
 
-The publisher is **ThomasThanos**. New certificates take time to build reputation;
-the installer is still Authenticode-signed. Prefer the installer over an unsigned
-copy from elsewhere.
-</details>
-
-<details>
-<summary><b>winget is not installed / Check Installed does nothing</b></summary>
-
-<br>
-
-App Installer (winget) has to be present. Use **Open Microsoft Store** from the
-installer page, install *App Installer*, then try again.
-</details>
-
-<details>
-<summary><b>A cleanup or repair task asks for admin and then seems stuck</b></summary>
-
-<br>
-
-Approve the UAC prompt. Only one maintenance task runs at a time; wait for it to
-finish before starting another. Limited scans without admin skip protected folders
-until you elevate.
-</details>
-
-<details>
-<summary><b>Settings did not appear on another PC after sign-in</b></summary>
-
-<br>
-
-Sync is preferences only, and it needs a configured OAuth client. Sign out and
-back in once. If the login button says credentials are missing, you are on a build
-without cloud auth — local settings still work.
-</details>
-
-<details>
-<summary><b>Updates never show up</b></summary>
-
-<br>
-
-Packaged builds check `https://downloads.thomast.uk`. Portable mode updates too; leave the app open
-long enough for the background check.
-</details>
-
-<img src=".github/assets/divider.svg" width="100%" alt="">
-
-## <img src=".github/assets/icon-license.svg?v=6" width="24" align="middle"> Licence
-
-Source-available, all rights reserved. The source is published for viewing and
-education. Compiled binaries may be used for personal, non-commercial use.
-Copying, modifying, redistributing or using the software commercially requires
-written permission.
-
-[![Read the licence](.github/assets/btn-licence-read.svg?v=10)](LICENSE)
-
-<div align="center">
-
-[![ThomasThanos](.github/assets/footer-author.svg?v=10)](https://github.com/thomasthanos)
-
-</div>
+- Όταν η εφαρμογή ανοίγει από το Startup (`--autostart`), το κύριο παράθυρο ξεκινά ελαχιστοποιημένο στο taskbar. Αυτό ρυθμίζεται στο `finish_startup` (`src-tauri/src/lib.rs`).
+- Το uninstall αφαιρεί και το Windows Scheduled Task του Game Saves.
+- Μετά από εγκατάσταση ή απεγκατάσταση, το `scripts/verify-install.ps1` (ή `-Removed`) ελέγχει όλα τα παραπάνω.

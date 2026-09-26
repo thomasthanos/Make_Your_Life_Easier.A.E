@@ -1,0 +1,626 @@
+{
+  "apps": [
+    {
+      "id": "Google.Chrome",
+      "name": "Google Chrome",
+      "site": "google.com/chrome",
+      "iconDomain": "chrome.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Google-Chrome.svg"
+    },
+    {
+      "id": "Mozilla.Firefox",
+      "name": "Firefox",
+      "site": "mozilla.org/firefox",
+      "iconDomain": "firefox.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Firefox.svg"
+    },
+    {
+      "id": "Brave.Brave",
+      "name": "Brave",
+      "site": "brave.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Brave.svg"
+    },
+    {
+      "id": "Opera.Opera",
+      "name": "Opera",
+      "site": "opera.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Opera.svg"
+    },
+    {
+      "id": "Opera.OperaGX",
+      "name": "Opera GX",
+      "site": "opera.com/gx",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Opera-GX.svg"
+    },
+    {
+      "id": "Vivaldi.Vivaldi",
+      "name": "Vivaldi",
+      "site": "vivaldi.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Vivaldi.svg"
+    },
+    {
+      "id": "Zen-Team.Zen-Browser",
+      "name": "Zen Browser",
+      "site": "zen-browser.app",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Zen-Browser.svg"
+    },
+    {
+      "id": "LibreWolf.LibreWolf",
+      "name": "LibreWolf",
+      "site": "librewolf.net",
+      "icon": "/icons/installapps/LibreWolf.svg"
+    },
+    {
+      "id": "TorProject.TorBrowser",
+      "name": "Tor Browser",
+      "site": "torproject.org",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Tor-Browser.svg"
+    },
+    {
+      "id": "Discord.Discord",
+      "name": "Discord",
+      "site": "discord.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Discord.svg"
+    },
+    {
+      "id": "Telegram.TelegramDesktop",
+      "name": "Telegram",
+      "site": "telegram.org",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Telegram.svg"
+    },
+    {
+      "id": "Zoom.Zoom",
+      "name": "Zoom",
+      "site": "zoom.us",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Zoom.svg"
+    },
+    {
+      "id": "Microsoft.Teams",
+      "name": "Microsoft Teams",
+      "site": "microsoft.com/microsoft-teams",
+      "iconDomain": "teams.microsoft.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Microsoft-Teams.svg"
+    },
+    {
+      "id": "SlackTechnologies.Slack",
+      "name": "Slack",
+      "site": "slack.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Slack.svg"
+    },
+    {
+      "id": "OpenWhisperSystems.Signal",
+      "name": "Signal",
+      "site": "signal.org",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Signal.svg"
+    },
+    {
+      "id": "Rakuten.Viber",
+      "name": "Viber",
+      "site": "viber.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Viber.svg"
+    },
+    {
+      "id": "TeamSpeakSystems.TeamSpeakClient",
+      "name": "TeamSpeak",
+      "site": "teamspeak.com",
+      "icon": "/icons/installapps/TeamSpeak.svg"
+    },
+    {
+      "id": "Mozilla.Thunderbird",
+      "name": "Thunderbird",
+      "site": "thunderbird.net",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Thunderbird.svg"
+    },
+    {
+      "id": "Valve.Steam",
+      "name": "Steam",
+      "site": "store.steampowered.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Steam.svg"
+    },
+    {
+      "id": "EpicGames.EpicGamesLauncher",
+      "name": "Epic Games Launcher",
+      "site": "epicgames.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Epic-Games-Launcher.svg"
+    },
+    {
+      "id": "ElectronicArts.EADesktop",
+      "name": "EA app",
+      "site": "ea.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/EA-app.svg"
+    },
+    {
+      "id": "Ubisoft.Connect",
+      "name": "Ubisoft Connect",
+      "site": "ubisoft.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Ubisoft-Connect.svg"
+    },
+    {
+      "id": "GOG.Galaxy",
+      "name": "GOG Galaxy",
+      "site": "gog.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/GOG-Galaxy.svg"
+    },
+    {
+      "id": "Blizzard.BattleNet",
+      "name": "Battle.net",
+      "site": "battle.net",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Battle-net.svg"
+    },
+    {
+      "id": "Playnite.Playnite",
+      "name": "Playnite",
+      "site": "playnite.link",
+      "icon": "/icons/installapps/Playnite.svg"
+    },
+    {
+      "id": "Mojang.MinecraftLauncher",
+      "name": "Minecraft Launcher",
+      "site": "minecraft.net",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Minecraft-Launcher.svg"
+    },
+    {
+      "id": "VideoLAN.VLC",
+      "name": "VLC media player",
+      "site": "videolan.org",
+      "icon": "/icons/installapps/VLC-media-player.svg"
+    },
+    {
+      "id": "Spotify.Spotify",
+      "name": "Spotify",
+      "site": "spotify.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Spotify.svg"
+    },
+    {
+      "id": "OBSProject.OBSStudio",
+      "name": "OBS Studio",
+      "site": "obsproject.com",
+      "icon": "/icons/installapps/OBS-Studio.svg"
+    },
+    {
+      "id": "Audacity.Audacity",
+      "name": "Audacity",
+      "site": "audacityteam.org",
+      "icon": "/icons/installapps/Audacity.svg"
+    },
+    {
+      "id": "HandBrake.HandBrake",
+      "name": "HandBrake",
+      "site": "handbrake.fr",
+      "icon": "/icons/installapps/HandBrake.svg"
+    },
+    {
+      "id": "GIMP.GIMP.3",
+      "name": "GIMP",
+      "site": "gimp.org",
+      "icon": "/icons/installapps/GIMP.svg"
+    },
+    {
+      "id": "KDE.Krita",
+      "name": "Krita",
+      "site": "krita.org",
+      "icon": "/icons/installapps/Krita.svg"
+    },
+    {
+      "id": "Inkscape.Inkscape",
+      "name": "Inkscape",
+      "site": "inkscape.org",
+      "icon": "/icons/installapps/Inkscape.svg"
+    },
+    {
+      "id": "clsid2.mpc-hc",
+      "name": "MPC-HC",
+      "site": "github.com/clsid2/mpc-hc",
+      "iconDomain": "mpc-hc.org",
+      "category": "Media",
+      "icon": "/icons/installapps/MPC-HC.svg"
+    },
+    {
+      "id": "PeterPawlowski.foobar2000",
+      "name": "foobar2000",
+      "site": "foobar2000.org",
+      "icon": "/icons/installapps/foobar2000.svg"
+    },
+    {
+      "id": "Stremio.Stremio",
+      "name": "Stremio",
+      "site": "stremio.com",
+      "icon": "/icons/installapps/Stremio.svg"
+    },
+    {
+      "id": "dotPDN.PaintDotNet",
+      "name": "Paint.NET",
+      "site": "getpaint.net",
+      "icon": "/icons/installapps/Paint-NET.svg"
+    },
+    {
+      "id": "Microsoft.VisualStudioCode",
+      "name": "Visual Studio Code",
+      "site": "code.visualstudio.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Visual-Studio-Code.svg"
+    },
+    {
+      "id": "Git.Git",
+      "name": "Git",
+      "site": "git-scm.com",
+      "icon": "/icons/installapps/Git.svg"
+    },
+    {
+      "id": "GitHub.GitHubDesktop",
+      "name": "GitHub Desktop",
+      "site": "desktop.github.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/GitHub-Desktop.svg"
+    },
+    {
+      "id": "OpenJS.NodeJS.LTS",
+      "name": "Node.js LTS",
+      "site": "nodejs.org",
+      "icon": "/icons/installapps/Node-js-LTS.svg"
+    },
+    {
+      "id": "Python.Python.3.14",
+      "name": "Python 3.14",
+      "site": "python.org",
+      "icon": "/icons/installapps/Python-3-14.svg"
+    },
+    {
+      "id": "Docker.DockerDesktop",
+      "name": "Docker Desktop",
+      "site": "docker.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Docker-Desktop.svg"
+    },
+    {
+      "id": "Postman.Postman",
+      "name": "Postman",
+      "site": "postman.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Postman.svg"
+    },
+    {
+      "id": "Notepad++.Notepad++",
+      "name": "Notepad++",
+      "site": "notepad-plus-plus.org",
+      "icon": "/icons/installapps/Notepad-Plus-Plus.svg"
+    },
+    {
+      "id": "JetBrains.Toolbox",
+      "name": "JetBrains Toolbox",
+      "site": "jetbrains.com/toolbox-app",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/JetBrains-Toolbox.svg"
+    },
+    {
+      "id": "Microsoft.WindowsTerminal",
+      "name": "Windows Terminal",
+      "site": "github.com/microsoft/terminal",
+      "iconDomain": "learn.microsoft.com",
+      "icon": "/icons/installapps/Windows-Terminal.svg"
+    },
+    {
+      "id": "Microsoft.PowerShell",
+      "name": "PowerShell 7",
+      "site": "github.com/PowerShell/PowerShell",
+      "iconDomain": "learn.microsoft.com",
+      "icon": "/icons/installapps/PowerShell-7.svg"
+    },
+    {
+      "id": "Bitwarden.Bitwarden",
+      "name": "Bitwarden",
+      "site": "bitwarden.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Bitwarden.svg"
+    },
+    {
+      "id": "KeePassXCTeam.KeePassXC",
+      "name": "KeePassXC",
+      "site": "keepassxc.org",
+      "icon": "/icons/installapps/KeePassXC.svg"
+    },
+    {
+      "id": "Malwarebytes.Malwarebytes",
+      "name": "Malwarebytes",
+      "site": "malwarebytes.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Malwarebytes.svg"
+    },
+    {
+      "id": "Proton.ProtonVPN",
+      "name": "Proton VPN",
+      "site": "protonvpn.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Proton-VPN.svg"
+    },
+    {
+      "id": "WireGuard.WireGuard",
+      "name": "WireGuard",
+      "site": "wireguard.com",
+      "icon": "/icons/installapps/WireGuard.svg"
+    },
+    {
+      "id": "IDRIX.VeraCrypt",
+      "name": "VeraCrypt",
+      "site": "veracrypt.io",
+      "iconDomain": "veracrypt.fr",
+      "icon": "/icons/installapps/VeraCrypt.svg"
+    },
+    {
+      "id": "CPUID.CPU-Z",
+      "name": "CPU-Z",
+      "site": "cpuid.com",
+      "icon": "/icons/installapps/CPU-Z.svg"
+    },
+    {
+      "id": "TechPowerUp.GPU-Z",
+      "name": "GPU-Z",
+      "site": "techpowerup.com",
+      "icon": "/icons/installapps/GPU-Z.svg"
+    },
+    {
+      "id": "CPUID.HWMonitor",
+      "name": "HWMonitor",
+      "site": "cpuid.com",
+      "icon": "/icons/installapps/HWMonitor.svg"
+    },
+    {
+      "id": "REALiX.HWiNFO",
+      "name": "HWiNFO",
+      "site": "hwinfo.com",
+      "icon": "/icons/installapps/HWiNFO.svg"
+    },
+    {
+      "id": "Guru3D.Afterburner",
+      "name": "MSI Afterburner",
+      "site": "msi.com",
+      "icon": "/icons/installapps/MSI-Afterburner.svg"
+    },
+    {
+      "id": "CrystalDewWorld.CrystalDiskInfo",
+      "name": "CrystalDiskInfo",
+      "site": "crystalmark.info",
+      "icon": "/icons/installapps/CrystalDiskInfo.svg"
+    },
+    {
+      "id": "CrystalDewWorld.CrystalDiskMark",
+      "name": "CrystalDiskMark",
+      "site": "crystalmark.info",
+      "icon": "/icons/installapps/CrystalDiskMark.svg"
+    },
+    {
+      "id": "Rem0o.FanControl",
+      "name": "Fan Control",
+      "site": "getfancontrol.com",
+      "icon": "/icons/installapps/Fan-Control.svg"
+    },
+    {
+      "id": "Wagnardsoft.DisplayDriverUninstaller",
+      "name": "Display Driver Uninstaller",
+      "site": "wagnardsoft.com",
+      "icon": "/icons/installapps/Display-Driver-Uninstaller.svg"
+    },
+    {
+      "id": "7zip.7zip",
+      "name": "7-Zip",
+      "site": "7-zip.org",
+      "icon": "/icons/installapps/7-Zip.svg"
+    },
+    {
+      "id": "RARLab.WinRAR",
+      "name": "WinRAR",
+      "site": "win-rar.com",
+      "icon": "/icons/installapps/WinRAR.svg"
+    },
+    {
+      "id": "voidtools.Everything",
+      "name": "Everything",
+      "site": "voidtools.com",
+      "icon": "/icons/installapps/Everything.svg"
+    },
+    {
+      "id": "Microsoft.PowerToys",
+      "name": "PowerToys",
+      "site": "github.com/microsoft/PowerToys",
+      "iconDomain": "learn.microsoft.com",
+      "icon": "/icons/installapps/PowerToys.svg"
+    },
+    {
+      "id": "ShareX.ShareX",
+      "name": "ShareX",
+      "site": "getsharex.com",
+      "icon": "/icons/installapps/ShareX.svg"
+    },
+    {
+      "id": "Rufus.Rufus",
+      "name": "Rufus",
+      "site": "rufus.ie",
+      "icon": "/icons/installapps/Rufus.svg"
+    },
+    {
+      "id": "qBittorrent.qBittorrent",
+      "name": "qBittorrent",
+      "site": "qbittorrent.org",
+      "icon": "/icons/installapps/qBittorrent.svg"
+    },
+    {
+      "id": "Dropbox.Dropbox",
+      "name": "Dropbox",
+      "site": "dropbox.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Dropbox.svg"
+    },
+    {
+      "id": "Google.GoogleDrive",
+      "name": "Google Drive",
+      "site": "drive.google.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Google-Drive.svg"
+    },
+    {
+      "id": "AnyDesk.AnyDesk",
+      "name": "AnyDesk",
+      "site": "anydesk.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/AnyDesk.svg"
+    },
+    {
+      "id": "TeamViewer.TeamViewer",
+      "name": "TeamViewer",
+      "site": "teamviewer.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/TeamViewer.svg"
+    },
+    {
+      "id": "SumatraPDF.SumatraPDF",
+      "name": "SumatraPDF",
+      "site": "sumatrapdfreader.org",
+      "icon": "/icons/installapps/SumatraPDF.svg"
+    },
+    {
+      "id": "Adobe.Acrobat.Reader.64-bit",
+      "name": "Adobe Acrobat Reader",
+      "site": "adobe.com/acrobat",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Adobe-Acrobat-Reader.svg"
+    },
+    {
+      "id": "SoftDeluxe.FreeDownloadManager",
+      "name": "Free Download Manager",
+      "site": "freedownloadmanager.org",
+      "icon": "/icons/installapps/Free-Download-Manager.svg"
+    },
+    {
+      "id": "RevoUninstaller.RevoUninstaller",
+      "name": "Revo Uninstaller",
+      "site": "revouninstaller.com",
+      "icon": "/icons/installapps/Revo-Uninstaller.svg"
+    },
+    {
+      "id": "BleachBit.BleachBit",
+      "name": "BleachBit",
+      "site": "bleachbit.org",
+      "icon": "/icons/installapps/BleachBit.svg"
+    },
+    {
+      "id": "TheDocumentFoundation.LibreOffice",
+      "name": "LibreOffice",
+      "site": "libreoffice.org",
+      "icon": "/icons/installapps/LibreOffice.svg"
+    },
+    {
+      "id": "Obsidian.Obsidian",
+      "name": "Obsidian",
+      "site": "obsidian.md",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Obsidian.svg"
+    },
+    {
+      "id": "Notion.Notion",
+      "name": "Notion",
+      "site": "notion.com",
+      "selfUpdating": true,
+      "icon": "/icons/installapps/Notion.svg"
+    }
+  ],
+  "packs": [
+    {
+      "id": "basics",
+      "name": "Basics",
+      "description": "Browser, media, archives, PDF",
+      "apps": [
+        "Google.Chrome",
+        "VideoLAN.VLC",
+        "7zip.7zip",
+        "voidtools.Everything",
+        "SumatraPDF.SumatraPDF",
+        "Discord.Discord",
+        "Microsoft.PowerToys"
+      ]
+    },
+    {
+      "id": "gaming",
+      "name": "Gaming",
+      "description": "Launchers, chat, monitoring",
+      "apps": [
+        "Valve.Steam",
+        "EpicGames.EpicGamesLauncher",
+        "ElectronicArts.EADesktop",
+        "Ubisoft.Connect",
+        "GOG.Galaxy",
+        "Discord.Discord",
+        "Guru3D.Afterburner",
+        "Playnite.Playnite"
+      ]
+    },
+    {
+      "id": "development",
+      "name": "Development",
+      "description": "Editors, runtimes, tooling",
+      "apps": [
+        "Microsoft.VisualStudioCode",
+        "Git.Git",
+        "GitHub.GitHubDesktop",
+        "OpenJS.NodeJS.LTS",
+        "Python.Python.3.14",
+        "Microsoft.WindowsTerminal",
+        "Microsoft.PowerShell",
+        "Postman.Postman",
+        "Docker.DockerDesktop"
+      ]
+    },
+    {
+      "id": "media",
+      "name": "Media",
+      "description": "Record, edit, play",
+      "apps": [
+        "OBSProject.OBSStudio",
+        "VideoLAN.VLC",
+        "Audacity.Audacity",
+        "HandBrake.HandBrake",
+        "GIMP.GIMP.3",
+        "Spotify.Spotify",
+        "ShareX.ShareX"
+      ]
+    },
+    {
+      "id": "hardware",
+      "name": "Hardware",
+      "description": "Sensors, drivers, diagnostics",
+      "apps": [
+        "CPUID.CPU-Z",
+        "TechPowerUp.GPU-Z",
+        "REALiX.HWiNFO",
+        "CrystalDewWorld.CrystalDiskInfo",
+        "Guru3D.Afterburner",
+        "Rem0o.FanControl",
+        "Wagnardsoft.DisplayDriverUninstaller",
+        "Custom.NvidiaApp"
+      ]
+    }
+  ]
+}

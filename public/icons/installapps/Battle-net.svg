@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="bnt-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="bnt-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#071E3B" />
+      <stop offset="52%" stop-color="#041022" />
+      <stop offset="100%" stop-color="#010710" />
+    </linearGradient>
+    <radialGradient id="bnt-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#00AEFF" stop-opacity="0.42" />
+      <stop offset="55%" stop-color="#0284C7" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#041022" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="bnt-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.26" />
+      <stop offset="100%" stop-color="#041022" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="bnt-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BAE6FD" stop-opacity="0.65" />
+      <stop offset="25%" stop-color="#00AEFF" stop-opacity="0.32" />
+      <stop offset="80%" stop-color="#0C4A6E" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.42" />
+    </linearGradient>
+    <linearGradient id="bnt-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="bnt-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#bnt-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#bnt-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#bnt-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#bnt-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#bnt-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#bnt-rim)" stroke-width="3" />
+  <g filter="url(#bnt-shadow)">
+    <svg x="50" y="50" width="156" height="156" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet"><path fill="#38BDF8" d="M18.94 8.296C15.9 6.892 11.534 6 7.426 6.332c.206-1.36.714-2.308 1.548-2.508c1.148-.275 2.4.48 3.594 1.854c.782.102 1.71.28 2.355.429C12.747 2.013 9.828-.282 7.607.565c-1.688.644-2.553 2.97-2.448 6.094c-2.2.468-3.915 1.3-5.013 2.495c-.056.065-.181.227-.137.305c.034.058.146-.008.194-.04c1.274-.89 2.904-1.373 5.027-1.676c.303 3.333 1.713 7.56 4.055 10.952c-1.28.502-2.356.536-2.946-.087c-.812-.856-.784-2.318-.19-4.04a27 27 0 0 1-.807-2.254c-2.459 3.934-2.986 7.61-1.143 9.11c1.402 1.14 3.847.725 6.502-.926c1.505 1.672 3.083 2.74 4.667 3.094c.084.015.287.043.332-.034c.034-.06-.08-.124-.131-.149c-1.408-.657-2.64-1.828-3.964-3.515c2.735-1.929 5.691-5.263 7.457-8.988c1.076.86 1.64 1.773 1.398 2.595c-.336 1.131-1.615 1.84-3.403 2.185a28 28 0 0 1-1.548 1.826c4.634.16 8.08-1.22 8.458-3.565c.286-1.786-1.295-3.696-4.053-5.17c.696-2.139.832-4.04.346-5.588c-.029-.08-.106-.27-.196-.27c-.068 0-.067.13-.063.187c.135 1.547-.263 3.2-1.062 5.19zm-8.533 9.869c-1.96-3.145-3.09-6.849-3.082-10.594c3.702-.124 7.474.748 10.714 2.627c-1.743 3.269-4.385 6.1-7.633 7.966z"/></svg>
+  </g>
+</svg>

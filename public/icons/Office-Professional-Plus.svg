@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <!-- Inner Emblem Subtle 3D Shadow -->
+    <filter id="off-emblem-shadow" x="36" y="30" width="188" height="204" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#140200" flood-opacity="0.75" />
+    </filter>
+
+    <!-- Main Deep Obsidian-Ruby Background -->
+    <linearGradient id="off-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#360B05" />
+      <stop offset="50%" stop-color="#1E0502" />
+      <stop offset="100%" stop-color="#0D0200" />
+    </linearGradient>
+
+    <!-- Ambient Warm Fiery-Orange Glow -->
+    <radialGradient id="off-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#FF5722" stop-opacity="0.42" />
+      <stop offset="55%" stop-color="#9E1F00" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#1E0502" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Bottom-Right Secondary Glow -->
+    <radialGradient id="off-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#FF7043" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#1E0502" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- macOS 3D Glass Bevel Border -->
+    <linearGradient id="off-glass-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFB899" stop-opacity="0.65" />
+      <stop offset="25%" stop-color="#FF5722" stop-opacity="0.32" />
+      <stop offset="80%" stop-color="#661100" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#FF7A4D" stop-opacity="0.42" />
+    </linearGradient>
+
+    <!-- Top Specular Sheen -->
+    <linearGradient id="off-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Office 3D Ribbon Gradients -->
+    <!-- Bottom Tail (Deep Crimson) -->
+    <linearGradient id="off-tail" x1="72" y1="168" x2="178" y2="202" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9E1316" />
+      <stop offset="100%" stop-color="#D83B01" />
+    </linearGradient>
+
+    <!-- Left Wing (Rich Scarlet-Orange) -->
+    <linearGradient id="off-left-wing" x1="62" y1="172" x2="138" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#B91D1D" />
+      <stop offset="55%" stop-color="#E64119" />
+      <stop offset="100%" stop-color="#FF7540" />
+    </linearGradient>
+
+    <!-- Right Main Pillar (Luminous Orange-Coral) -->
+    <linearGradient id="off-right-pillar" x1="164" y1="46" x2="164" y2="208" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF945E" />
+      <stop offset="45%" stop-color="#F55322" />
+      <stop offset="100%" stop-color="#D83B01" />
+    </linearGradient>
+
+    <!-- macOS Squircle Clip -->
+    <clipPath id="off-squircle-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+  </defs>
+
+  <!-- Base Squircle & Internal Lighting (Χωρίς εξωτερικό shadow) -->
+  <g clip-path="url(#off-squircle-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#off-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#off-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#off-glow-bottom)" />
+    <!-- Top Glass Reflection Curve -->
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#off-sheen)" />
+  </g>
+
+  <!-- 3D Inner Glass Rim -->
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#off-glass-rim)" stroke-width="3" />
+
+  <!-- Microsoft Office 2021-2024 3D Fluent Emblem -->
+  <g filter="url(#off-emblem-shadow)">
+    <!-- 1. Bottom Folded Tail -->
+    <path d="M72 174L118 155L182 184L147 204C139.5 208.2 130.5 208.2 123 204L73.5 176.5C70.5 174.8 70.5 174.6 72 174Z" fill="url(#off-tail)" />
+
+    <!-- 2. Left Vertical Wing & Top Slope -->
+    <path d="M62 95C62 86.5 66.5 78.8 74 74.5L125 46C131 42.6 138 42.6 144 46L146 47.2V90L100 114V161L68.5 174.2C64.8 175.8 62 173 62 169V95Z" fill="url(#off-left-wing)" />
+
+    <!-- 3. Right Tall Pillar -->
+    <path d="M134.5 43.5C138 43.5 141.5 44.4 144.8 46.2L182 67C189.5 71.2 194 79 194 87.5V168.5C194 177 189.5 184.8 182 189L146 208.5C143 207 142 203.5 142 199V66.5L134.5 43.5Z" fill="url(#off-right-pillar)" />
+  </g>
+</svg>

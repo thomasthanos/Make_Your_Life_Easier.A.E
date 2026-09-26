@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="lbo-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="lbo-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1F2937" />
+      <stop offset="52%" stop-color="#111827" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+    <radialGradient id="lbo-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.36" />
+      <stop offset="55%" stop-color="#047857" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#111827" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="lbo-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#34D399" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#111827" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="lbo-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6EE7B7" stop-opacity="0.6" />
+      <stop offset="25%" stop-color="#10B981" stop-opacity="0.28" />
+      <stop offset="80%" stop-color="#064E3B" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#34D399" stop-opacity="0.38" />
+    </linearGradient>
+    <linearGradient id="lbo-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="lbo-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#lbo-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#lbo-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#lbo-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#lbo-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#lbo-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#lbo-rim)" stroke-width="3" />
+  <g filter="url(#lbo-shadow)">
+    <svg x="32" y="32" width="192" height="192" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet"><path fill="#4ADE80" stroke="#D1FAE5" stroke-width="0.45" stroke-linejoin="round" d="M16.365 0a.6.6 0 0 0-.555.352a.58.58 0 0 0 .128.635l4.985 4.996a.6.6 0 0 0 .635.133a.59.59 0 0 0 .363-.53V.577A.605.605 0 0 0 21.335 0zM2.661 0a.59.59 0 0 0-.582.59v22.82a.59.59 0 0 0 .582.59h18.67a.59.59 0 0 0 .59-.59V8.716a.6.6 0 0 0-.17-.42L13.674.182a.6.6 0 0 0-.42-.181zm.59 1.184h9.754l7.733 7.77v13.863H3.251z"/></svg>
+  </g>
+</svg>

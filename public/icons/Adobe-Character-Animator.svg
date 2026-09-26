@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <!-- Glyph Subtle Shadow (μόνο μέσα στα γράμματα για 3D βάθος) -->
+    <filter id="ch-glyph-shadow" x="20" y="50" width="216" height="160" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000022" flood-opacity="0.65" />
+    </filter>
+
+    <!-- Main Deep Indigo 2026 Background -->
+    <linearGradient id="ch-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#14084E" />
+      <stop offset="50%" stop-color="#050229" />
+      <stop offset="100%" stop-color="#020013" />
+    </linearGradient>
+
+    <!-- Ambient Neon Violet Glow -->
+    <radialGradient id="ch-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#6B4DFF" stop-opacity="0.42" />
+      <stop offset="55%" stop-color="#3A1C99" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#00005B" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Bottom-Right Secondary Glow -->
+    <radialGradient id="ch-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#9999FF" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#00005B" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- macOS 3D Glass Bevel Border -->
+    <linearGradient id="ch-glass-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#C4B8FF" stop-opacity="0.65" />
+      <stop offset="25%" stop-color="#7C66FF" stop-opacity="0.30" />
+      <stop offset="80%" stop-color="#2E1A80" stop-opacity="0.20" />
+      <stop offset="100%" stop-color="#9988FF" stop-opacity="0.40" />
+    </linearGradient>
+
+    <!-- Top Specular Sheen -->
+    <linearGradient id="ch-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- "Ch" 2026 Lavender-Violet Gradient -->
+    <linearGradient id="ch-text-grad" x1="128" y1="62" x2="128" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D9D4FF" />
+      <stop offset="45%" stop-color="#A8A4FF" />
+      <stop offset="100%" stop-color="#8580FF" />
+    </linearGradient>
+
+    <!-- macOS Squircle Clip -->
+    <clipPath id="ch-squircle-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+  </defs>
+
+  <!-- Base Squircle & Internal Lighting (Χωρίς εξωτερικό shadow) -->
+  <g clip-path="url(#ch-squircle-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#ch-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#ch-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#ch-glow-bottom)" />
+    <!-- Top Glass Reflection Curve -->
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#ch-sheen)" />
+  </g>
+
+  <!-- 3D Inner Glass Rim -->
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#ch-glass-rim)" stroke-width="3" />
+
+  <!-- "Ch" Vector Typography -->
+  <g filter="url(#ch-glyph-shadow)" fill="url(#ch-text-grad)">
+    <!-- Letter 'C' -->
+    <path d="M131 160.5L134.5 179.5C125.5 184.8 113.5 188 99 188C62.5 188 40 163.5 40 127.5C40 90.5 63.5 66.5 100.5 66.5C114.5 66.5 125.8 69.5 134 74.2L129.5 93.2C122 88.8 112.5 86.2 101.5 86.2C77.5 86.2 64 102.5 64 127.2C64 152.2 77.8 168.2 101.5 168.2C112.8 168.2 123 165.2 131 160.5Z" />
+
+    <!-- Letter 'h' -->
+    <path d="M145 62H168V109.5C174.5 101.5 183.8 97 195.2 97C211.5 97 219 108.2 219 127.5V186H196V131.5C196 119.5 190.5 114.8 181.5 114.8C174.8 114.8 170.2 117.8 168 122.2V186H145V62Z" />
+  </g>
+</svg>

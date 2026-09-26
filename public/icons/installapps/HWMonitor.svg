@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="hwm-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="hwm-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1D1A36" />
+      <stop offset="52%" stop-color="#100E20" />
+      <stop offset="100%" stop-color="#070610" />
+    </linearGradient>
+    <radialGradient id="hwm-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#818CF8" stop-opacity="0.36" />
+      <stop offset="55%" stop-color="#4F46E5" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#100E20" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="hwm-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#A5B4FC" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#100E20" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="hwm-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E0E7FF" stop-opacity="0.6" />
+      <stop offset="25%" stop-color="#818CF8" stop-opacity="0.28" />
+      <stop offset="80%" stop-color="#1E1B4B" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#A5B4FC" stop-opacity="0.38" />
+    </linearGradient>
+    <linearGradient id="hwm-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="hwm-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#hwm-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#hwm-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#hwm-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#hwm-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#hwm-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#hwm-rim)" stroke-width="3" />
+  <g filter="url(#hwm-shadow)">
+    
+      <rect x="56" y="66" width="144" height="100" rx="16" fill="#1E1B4B" stroke="#A5B4FC" stroke-width="8"/>
+      <path d="M74 122H98L112 92L134 146L150 112H182" stroke="#4ADE80" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M104 188H152M128 166V188" stroke="#A5B4FC" stroke-width="10" stroke-linecap="round"/>
+    
+  </g>
+</svg>

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="ghd-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="ghd-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#231138" />
+      <stop offset="52%" stop-color="#130921" />
+      <stop offset="100%" stop-color="#08030F" />
+    </linearGradient>
+    <radialGradient id="ghd-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#A855F7" stop-opacity="0.38" />
+      <stop offset="55%" stop-color="#6D28D9" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#130921" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="ghd-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#C084FC" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#130921" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="ghd-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E9D5FF" stop-opacity="0.62" />
+      <stop offset="25%" stop-color="#A855F7" stop-opacity="0.3" />
+      <stop offset="80%" stop-color="#3B0764" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#C084FC" stop-opacity="0.4" />
+    </linearGradient>
+    <linearGradient id="ghd-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="ghd-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#ghd-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#ghd-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#ghd-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#ghd-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#ghd-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#ghd-rim)" stroke-width="3" />
+  <g filter="url(#ghd-shadow)">
+    
+      <path d="M128 56C88.2 56 56 88.2 56 128C56 159.8 76.6 186.8 105.2 196.3C108.8 197 110.1 194.7 110.1 192.8V179.2C90.1 183.5 85.9 169.6 85.9 169.6C82.6 161.3 77.9 159.1 77.9 159.1C71.3 154.6 78.4 154.7 78.4 154.7C85.7 155.2 89.5 162.2 89.5 162.2C96 173.3 106.5 170.1 110.4 168.3C111.1 163.6 112.9 160.4 115 158.6C99 156.8 82.2 150.6 82.2 123C82.2 115.1 85 108.7 89.6 103.6C88.9 101.8 86.4 94.5 90.3 84.6C90.3 84.6 96.3 82.7 110 92C115.7 90.4 121.8 89.6 128 89.6C134.2 89.6 140.3 90.4 146 92C159.7 82.7 165.7 84.6 165.7 84.6C169.6 94.5 167.1 101.8 166.4 103.6C171 108.7 173.8 115.1 173.8 123C173.8 150.7 156.9 156.8 140.9 158.6C143.5 160.8 145.8 165.3 145.8 172.1V192.8C145.8 194.7 147.1 197 150.8 196.3C179.4 186.8 200 159.8 200 128C200 88.2 167.8 56 128 56Z" fill="#FFFFFF"/>
+    
+  </g>
+</svg>
