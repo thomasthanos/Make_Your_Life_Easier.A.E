@@ -92,8 +92,11 @@ for (const file of ["index.html", "readme.html"]) {
 const redirects = existsSync(join(siteRoot, "_redirects"))
   ? readFileSync(join(siteRoot, "_redirects"), "utf8")
   : "";
-if (!/^\/installer\.html\s+\/\s+301\s*$/m.test(redirects)) {
-  fail("_redirects must permanently redirect /installer.html to /");
+for (const legacyPath of ["/installer.html", "/installer"]) {
+  const escaped = legacyPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!new RegExp(`^${escaped}\\s+\\/\\s+301\\s*$`, "m").test(redirects)) {
+    fail(`_redirects must permanently redirect ${legacyPath} to /`);
+  }
 }
 
 const headers = existsSync(join(siteRoot, "_headers"))
