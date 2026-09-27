@@ -60,9 +60,11 @@
         {#if provider}<span class="provider-dot {provider}"><BrandIcon brand={provider} size={11} /></span>{/if}
       </span>
       <div class="who">
-        <h2 id="account-title" class="selectable">{displayName}</h2>
+        <div class="who-top">
+          <h2 id="account-title" class="selectable">{displayName}</h2>
+          {#if provider}<span class="via">Signed in with {providerNames[provider]}</span>{/if}
+        </div>
         {#if profile.email}<p class="selectable">{profile.email}</p>{/if}
-        {#if provider}<span class="via">Signed in with {providerNames[provider]}</span>{/if}
       </div>
     </div>
 
@@ -77,12 +79,14 @@
         {/if}
         <span class="text">{syncText}</span>
       </span>
-      <button class="btn small" disabled={account.syncing} onclick={() => account.sync(true)}>
-        <RefreshCw size={13} class={account.syncing ? "spin" : ""} /> Sync now
-      </button>
-      <button class="btn small ghost" disabled={account.syncing} onclick={() => account.signOut()}>
-        <LogOut size={13} /> Sign out
-      </button>
+      <div class="sync-actions">
+        <button class="btn small" disabled={account.syncing} onclick={() => account.sync(true)}>
+          <RefreshCw size={13} class={account.syncing ? "spin" : ""} /> Sync now
+        </button>
+        <button class="btn small ghost" disabled={account.syncing} onclick={() => account.signOut()}>
+          <LogOut size={13} /> Sign out
+        </button>
+      </div>
     </div>
   {:else}
     <div class="intro">
@@ -126,9 +130,9 @@
     position: relative;
     display: grid;
     gap: 16px;
-    padding: 20px;
+    padding: 18px;
     overflow: hidden;
-    border: 1px solid rgb(var(--accent-rgb) / 0.2);
+    border: 1px solid rgb(var(--accent-rgb) / 0.22);
     border-radius: var(--radius-lg);
     background:
       var(--grain),
@@ -151,7 +155,8 @@
   }
 
   h2 {
-    font-size: 17px;
+    font-size: 16.5px;
+    letter-spacing: -0.01em;
   }
 
   .intro {
@@ -268,13 +273,13 @@
   .profile {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 14px;
   }
 
   .avatar {
     position: relative;
-    width: 58px;
-    height: 58px;
+    width: 54px;
+    height: 54px;
     flex: none;
   }
 
@@ -296,7 +301,7 @@
     place-items: center;
     background: var(--accent-grad);
     color: #fff;
-    font-size: 19px;
+    font-size: 18px;
     font-weight: 700;
   }
 
@@ -323,7 +328,16 @@
 
   .who {
     display: grid;
-    gap: 2px;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .who-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
   }
 
@@ -340,28 +354,31 @@
   }
 
   .via {
-    justify-self: start;
-    margin-top: 4px;
-    padding: 2px 8px;
-    border: 1px solid rgb(255 255 255 / 0.08);
+    flex: none;
+    padding: 2px 9px;
+    border: 1px solid rgb(255 255 255 / 0.09);
     border-radius: 999px;
-    background: rgb(255 255 255 / 0.04);
-    color: var(--text-3);
+    background: rgb(255 255 255 / 0.045);
+    color: var(--text-2);
     font-size: 10.5px;
+    font-weight: 500;
   }
 
   .sync-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding-top: 14px;
-    border-top: 1px solid rgb(255 255 255 / 0.06);
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid rgb(255 255 255 / 0.06);
+    border-radius: 11px;
+    background: rgb(0 0 0 / 0.16);
   }
 
   .sync-state {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     flex: 1;
     min-width: 0;
     color: var(--text-2);
@@ -376,6 +393,13 @@
 
   .sync-state.error {
     color: rgb(255 170 150 / 0.9);
+  }
+
+  .sync-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
   }
 
   .ok-dot {
