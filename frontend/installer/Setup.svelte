@@ -44,6 +44,11 @@
     { label: "Finishing up", stages: ["finishing"], from: 96, to: 100 },
   ];
 
+  /** Passive mode: how long "Updated to …" shows, then how long the setup
+   *  stays after opening the app. */
+  const PASSIVE_SHOW_MS = 700;
+  const PASSIVE_HANDOVER_MS = 500;
+
   let api: SetupApi | null = null;
   let info = $state<SetupState | null>(null);
   let screen = $state<Screen>("loading");
@@ -251,7 +256,7 @@
       if (uninstalling) await api.uninstall(removeData, onEvent);
       else installedDir = await api.install({ desktop, startMenu, startup }, onEvent);
       screen = "done";
-      if (info.passive) setTimeout(() => void finish(), 1200);
+      if (info.passive) void finishPassive();
       else if (!uninstalling && launchAfter) void finish();
     } catch (err) {
       error = message(err);
@@ -272,6 +277,29 @@
       }
     }
     await api.exit();
+  }
+
+  /** Passive (`/P`, the in-app updater): show the result for a moment, open
+   *  the app, and close half a second later so its window takes over. */
+  async function finishPassive() {
+    await sleep(PASSIVE_SHOW_MS);
+    if (!api || !info || finishing) return;
+    finishing = true;
+    if (!uninstalling) {
+      try {
+        await api.launch();
+      } catch (err) {
+        launchError = message(err);
+        finishing = false;
+        return;
+      }
+      await sleep(PASSIVE_HANDOVER_MS);
+    }
+    await api.exit();
+  }
+
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   function closeAfterInstall() {
@@ -421,15 +449,22 @@
               {/if}
             </div>
             <div class="footer">
-              {#if !uninstalling && !launchError}
+              {#if info.passive && !launchError}
+                <span class="opening" role="status">
+                  <span class="dot" aria-hidden="true"></span>
+                  {uninstalling ? "Closing…" : `Opening ${info.product}…`}
+                </span>
+              {:else if !uninstalling && !launchError}
                 <Toggle bind:checked={launchAfter} icon={Rocket} label="Open {info.product}" />
               {:else if launchError}
                 <button class="btn" onclick={closeAfterInstall}>Close setup</button>
               {/if}
               <span class="spacer"></span>
-              <button class="btn primary big" onclick={finish} disabled={finishing}>
-                {launchError ? "Try again" : !uninstalling && launchAfter ? "Finish and open" : "Finish"}
-              </button>
+              {#if !info.passive || launchError}
+                <button class="btn primary big" onclick={finish} disabled={finishing}>
+                  {launchError ? "Try again" : !uninstalling && launchAfter ? "Finish and open" : "Finish"}
+                </button>
+              {/if}
             </div>
           {:else if screen === "error"}
             <div class="result failed">
@@ -723,6 +758,30 @@
 
   .result .lead {
     max-width: 380px;
+  }
+
+  .opening {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-2);
+    font-size: 13px;
+  }
+
+  .opening .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ok, #3ecf8e);
+    box-shadow: 0 0 10px var(--ok-glow, rgb(62 207 142 / 0.6));
+    animation: opening-pulse 0.9s ease-in-out infinite alternate;
+  }
+
+  @keyframes opening-pulse {
+    from {
+      opacity: 0.45;
+      transform: scale(0.8);
+    }
   }
 
   .launch-error {

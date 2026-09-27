@@ -198,6 +198,12 @@ async fn setup_install(
         return Err("This is the uninstaller.".into());
     };
     let _busy = Busy::start(&context.busy)?;
+    // The in-app updater quits by itself right after starting us.
+    let grace = if context.cli.update {
+        Duration::from_secs(20)
+    } else {
+        Duration::ZERO
+    };
     let options = InstallOptions {
         dir: install_dir(&context),
         desktop: request.desktop,
@@ -212,7 +218,7 @@ async fn setup_install(
         report(Progress::Stage {
             stage: engine::Stage::ClosingApp,
         });
-        engine::close_running(&options.dir, Duration::ZERO)?;
+        engine::close_running(&options.dir, grace)?;
         engine::install(bytes, &options, &mut report)
     })
     .await

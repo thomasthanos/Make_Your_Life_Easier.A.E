@@ -211,7 +211,7 @@ Frontend: `frontend/app/pages/creative-hub/`. Backend: `backend/src/apps/creativ
 
 - διαβάζει το `https://downloads.thomast.uk/latest.json` (`UPDATE_FEED` στο `backend/src/updater.rs`)· αν δεν απαντά, ρωτά το `api.github.com/repos/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest`
 - αν βρει νεότερη έκδοση, κατεβάζει τον installer (μόνο από `downloads.thomast.uk` ή `github.com`) και ελέγχει το SHA-256 του (από το feed ή από το digest του GitHub· χωρίς hash δεν εγκαθιστά)
-- τον τρέχει σιωπηλά (`/S /UPDATE /R`) και κλείνει
+- ανοίγει το παράθυρο προόδου του setup (`/P /UPDATE /R`) και κλείνει· το setup περιμένει να κλείσει η εφαρμογή, κάνει το update και ανοίγει τη νέα έκδοση μισό δευτερόλεπτο πριν κλείσει το ίδιο
 - ο installer ξανανοίγει τη νέα έκδοση
 
 Αν δεν υπάρχει δίκτυο, η εφαρμογή ανοίγει κανονικά μετά από ~2 δευτερόλεπτα (η μπάρα μετρά αντίστροφα).
@@ -241,8 +241,8 @@ Frontend: `frontend/app/pages/creative-hub/`. Backend: `backend/src/apps/creativ
 
 | Flag | Τι κάνει |
 |---|---|
-| `/S` | χωρίς παράθυρο (ο updater τρέχει `/S /UPDATE /R`) |
-| `/P` | μόνο πρόοδος, ξεκινά αμέσως και κλείνει μόνο του |
+| `/S` | χωρίς παράθυρο |
+| `/P` | μόνο πρόοδος, ξεκινά αμέσως και κλείνει μόνο του (ο updater τρέχει `/P /UPDATE /R`) |
 | `/UPDATE` | τα shortcuts μένουν όπως τα άφησε ο χρήστης |
 | `/R` | ανοίγει την εφαρμογή μετά |
 | `/NS` | χωρίς shortcuts |

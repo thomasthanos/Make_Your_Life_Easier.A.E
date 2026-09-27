@@ -277,14 +277,17 @@ pub async fn install_update(
     }
 
     let _ = on_event.send(DownloadEvent::Installing);
-    // Per-user install: no UAC prompt. `/UPDATE` keeps shortcuts as the user
-    // left them and `/R` relaunches the app when the installer finishes.
+    // Per-user install: no UAC prompt. `/P` shows the setup's progress
+    // window, which starts at once, waits for this app to quit, and opens the
+    // new version half a second before it closes itself. `/UPDATE` keeps
+    // shortcuts as the user left them; `/R` asks for the relaunch.
     std::process::Command::new(&path)
-        .args(["/S", "/UPDATE", "/R"])
+        .args(["/P", "/UPDATE", "/R"])
         .spawn()
         .map_err(err)?;
 
-    // Let the splash paint "Installing update…" before the app goes away.
+    // Let the splash paint its last line before the app goes away; the setup
+    // window takes about as long to appear.
     tokio::time::sleep(Duration::from_millis(600)).await;
     app.exit(0);
     Ok(())

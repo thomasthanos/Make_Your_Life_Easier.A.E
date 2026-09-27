@@ -2,8 +2,8 @@
 //!
 //! One crate, two programs sharing everything but the payload:
 //! - `setup.exe` carries the app (see `payload`) and installs it per user,
-//!   with a window (`ui`), a progress-only window (`/P`) or none (`/S`, which
-//!   the in-app updater uses as `/S /UPDATE /R`);
+//!   with a window (`ui`), a progress-only window (`/P`, which the in-app
+//!   updater uses as `/P /UPDATE /R`) or none (`/S`);
 //! - `uninstall.exe` is installed next to the app and removes it again,
 //!   running from a copy of itself in %TEMP% (see `relocate`).
 

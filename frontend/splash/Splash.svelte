@@ -127,7 +127,7 @@
       case "installing":
         phase = "installing";
         title = "Installing update…";
-        detail = "The app will restart by itself";
+        detail = "It opens again by itself when it's done";
         clearTransfer();
         break;
     }
