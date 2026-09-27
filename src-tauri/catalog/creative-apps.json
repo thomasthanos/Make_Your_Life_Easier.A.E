@@ -1,0 +1,191 @@
+[
+    {
+        "id": "creative.aftereffects.2026",
+        "name": "After Effects 2026",
+        "description": "Motion graphics & visual effects.",
+        "category": "Creative",
+        "icon": "/icons/Adobe-After-Effects.svg",
+        "sizeHint": 0,
+        "digest": null,
+        "source": {
+            "type": "gdrive",
+            "fileId": "https://drive.google.com/file/d/1M2P9pf0TYHtR6yKYjDVQLlXIgz25fxBs/view?usp=sharing",
+            "fileName": "Adobe.After.Effects.2026.zip"
+        },
+        "setup": {
+            "type": "zip",
+            "run": "Set-up.exe",
+            "args": [],
+            "password": "123",
+            "onlyRun": true
+        }
+    },
+    {
+        "id": "creative.characteranimator.2026",
+        "name": "Character Animator 2026",
+        "description": "Real-time 2D character animation.",
+        "category": "Creative",
+        "icon": "/icons/Adobe-Character-Animator.svg",
+        "sizeHint": 0,
+        "digest": null,
+        "source": {
+            "type": "gdrive",
+            "fileId": "https://drive.google.com/open?id=159P4AJwEtAzR04-tXJYRsgRuJpxDHZr4&usp=drive_fs",
+            "fileName": "Adobe.Character.Animator.2026.zip"
+        },
+        "setup": {
+            "type": "zip",
+            "run": "Set-up.exe",
+            "args": [],
+            "password": "123",
+            "onlyRun": true
+        }
+    },
+    {
+        "id": "creative.illustrator.2026",
+        "name": "Illustrator 2026",
+        "description": "Vector graphics & illustration.",
+        "category": "Creative",
+        "icon": "/icons/Adobe-Illustrator.svg",
+        "sizeHint": 0,
+        "digest": null,
+        "source": {
+            "type": "gdrive",
+            "fileId": "https://drive.google.com/open?id=1xPnTb7NN1reZCiokcAXXE1ngD9HbtK69&usp=drive_fs",
+            "fileName": "Adobe.Illustrator.2026.zip"
+        },
+        "setup": {
+            "type": "zip",
+            "run": "Set-up.exe",
+            "args": [],
+            "password": "123",
+            "onlyRun": true
+        }
+    },
+    {
+        "id": "creative.indesign.2026",
+        "name": "InDesign 2026",
+        "description": "Page layout & digital publishing.",
+        "category": "Creative",
+        "icon": "/icons/Adobe-InDesign.svg",
+        "sizeHint": 0,
+        "digest": null,
+        "source": {
+            "type": "gdrive",
+            "fileId": "https://drive.google.com/open?id=1ICUszi22ZaKU8dpRxsWP4r44l2hmZzdT&usp=drive_fs",
+            "fileName": "Adobe.InDesign.2026.zip"
+        },
+        "setup": {
+            "type": "zip",
+            "run": "Set-up.exe",
+            "args": [],
+            "password": "123",
+            "onlyRun": true
+        }
+    },
+    {
+        "id": "creative.lightroomclassic.2026",
+        "name": "Lightroom Classic 2026",
+        "description": "RAW photo editing & organization.",
+        "category": "Creative",
+        "icon": "/icons/Adobe-Lightroom-Classic.svg",
+        "sizeHint": 0,
+        "digest": null,
+        "source": {
+            "type": "gdrive",
+            "fileId": "https://drive.google.com/open?id=1ZzMmbjZb9rvKUQaQ489BQOJZaLhGDYrp&usp=drive_fs",
+            "fileName": "Adobe.Lightroom.Classic.2026.zip"
+        },
+        "setup": {
+            "type": "zip",
+            "run": "Set-up.exe",
+            "args": [],
+            "password": "123",
+            "onlyRun": true
+        }
+    },
+    {
+        "id": "creative.photoshop.2026",
+        "name": "Photoshop 2026",
+        "description": "Image editing & digital design.",
+        "category": "Creative",
+        "icon": "/icons/Adobe-Photoshop.svg",
+        "sizeHint": 0,
+        "digest": null,
+        "source": {
+            "type": "gdrive",
+            "fileId": "https://drive.google.com/open?id=1O8Szbp-fN4FrozAg4G6Z3dyp20DJHHTR&usp=drive_fs",
+            "fileName": "Adobe.Photoshop.2026.zip"
+        },
+        "setup": {
+            "type": "zip",
+            "run": "Set-up.exe",
+            "args": [],
+            "password": "123",
+            "onlyRun": true
+        }
+    },
+    {
+        "id": "creative.premierepro.2026",
+        "name": "Premiere Pro 2026",
+        "description": "Professional video editing.",
+        "category": "Creative",
+        "icon": "/icons/Adobe-Premiere-Pro.svg",
+        "sizeHint": 0,
+        "digest": null,
+        "source": {
+            "type": "gdrive",
+            "fileId": "https://drive.google.com/open?id=1HGq3deW3N3AAr0shj3rg_1nfs3kODN-v&usp=drive_fs",
+            "fileName": "Adobe.Premiere.Pro.2026.zip"
+        },
+        "setup": {
+            "type": "zip",
+            "run": "Set-up.exe",
+            "args": [],
+            "password": "123",
+            "onlyRun": true
+        }
+    },
+    {
+        "id": "creative.clipstudiopaint.5.1.4",
+        "name": "Clip Studio Paint EX",
+        "description": "Illustration, comics & animation.",
+        "category": "Creative",
+        "icon": "/icons/Clip-Studio-Paint-EX.svg",
+        "sizeHint": 0,
+        "digest": null,
+        "source": {
+            "type": "gdrive",
+            "fileId": "https://drive.google.com/open?id=19ID0h8iLc8PZM83QTl1A1dBS5hr6wLlq&usp=drive_fs",
+            "fileName": "Clip Studio Paint EX 5.1.4.zip"
+        },
+        "setup": {
+            "type": "zip",
+            "run": "CLIPStudioPaint-restoreversion.exe",
+            "args": [],
+            "password": "123",
+            "onlyRun": true
+        }
+    },
+    {
+        "id": "office.professionalplus.2021-2024",
+        "name": "Office Pro Plus",
+        "description": "Word, Excel, PowerPoint & more.",
+        "category": "Productivity",
+        "icon": "/icons/Office-Professional-Plus.svg",
+        "sizeHint": 0,
+        "digest": null,
+        "source": {
+            "type": "gdrive",
+            "fileId": "https://drive.google.com/open?id=1ZvZm8NKGHyfcveemWmyJalapM9XrW7qj&usp=drive_fs",
+            "fileName": "Office.Professional Plus.2021-2024.zip"
+        },
+        "setup": {
+            "type": "zip",
+            "run": "OInstall_x64.exe",
+            "args": [],
+            "password": "123",
+            "onlyRun": true
+        }
+    }
+]
