@@ -151,7 +151,7 @@
   }
 
   .more.open {
-    border-color: rgb(139 151 255 / 0.28);
+    border-color: rgb(var(--accent-rgb) / 0.28);
     background: var(--selected);
   }
 

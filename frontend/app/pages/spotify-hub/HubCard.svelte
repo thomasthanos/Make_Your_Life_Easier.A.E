@@ -221,13 +221,13 @@
   @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(295%); } }
   @keyframes pulse { to { opacity: 0.4; } }
 
-  :global(:root.perf-lite) .card,
-  :global(:root.perf-lite) .card:hover:not(.active) {
+  :global(:root.solid) .card,
+  :global(:root.solid) .card:hover:not(.active) {
     transform: none;
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1), inset 0 -1px 0 rgb(0 0 0 / 0.28), var(--elev-1);
   }
 
-  :global(:root.perf-lite) .rim { box-shadow: none; }
+  :global(:root.solid) .rim { box-shadow: none; }
 
   @media (prefers-reduced-motion: reduce) {
     .card:hover:not(.active) { transform: none; }

@@ -219,7 +219,7 @@
     bottom: 10px;
   }
 
-  :global(:root.perf-lite) .wrap {
+  :global(:root.solid) .wrap {
     transition: none;
   }
 </style>

@@ -323,7 +323,7 @@
   .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
   header { min-width: 0; }
   .title { display: flex; align-items: center; gap: 10px; }
-  .title-icon { display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid rgb(139 151 255 / 0.22); border-radius: 10px; background: rgb(121 138 255 / 0.1); color: rgb(176 188 255 / 0.95); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08); }
+  .title-icon { display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid rgb(var(--accent-rgb) / 0.22); border-radius: 10px; background: rgb(121 138 255 / 0.1); color: rgb(176 188 255 / 0.95); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08); }
   h1 { font-size: 24px; }
   header > p { margin: 5px 0 0 41px; color: var(--text-2); font-size: 12.5px; }
   .mutex { display: inline-flex; align-items: center; gap: 6px; flex: none; margin-top: 4px; padding: 5px 9px; border: 1px solid rgb(255 255 255 / 0.07); border-radius: 999px; background: rgb(255 255 255 / 0.035); color: var(--text-3); font-size: 10.5px; }
@@ -588,11 +588,11 @@
   .firmware-button { min-width: 146px; white-space: nowrap; }
 
   @keyframes seek { from { transform: translateX(-40%); } to { transform: translateX(300%); } }
-  :global(:root.perf-lite) .tool-card, :global(:root.perf-lite) .tool-card:hover:not(.active) { transform: none; box-shadow: none; }
-  :global(:root.perf-lite) .rim { box-shadow: none; }
-  :global(:root.perf-lite) .firmware-action { box-shadow: none; }
-  :global(:root.perf-lite) .firmware-rim { box-shadow: none; }
-  :global(:root.perf-lite) .track > span.indeterminate { animation: none; }
+  :global(:root.solid) .tool-card, :global(:root.solid) .tool-card:hover:not(.active) { transform: none; box-shadow: none; }
+  :global(:root.solid) .rim { box-shadow: none; }
+  :global(:root.solid) .firmware-action { box-shadow: none; }
+  :global(:root.solid) .firmware-rim { box-shadow: none; }
+  :global(:root.solid) .track > span.indeterminate { animation: none; }
 
   @media (max-width: 1150px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 860px) { .cards { grid-template-columns: 1fr; } }

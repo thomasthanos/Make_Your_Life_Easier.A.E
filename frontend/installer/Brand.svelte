@@ -42,7 +42,7 @@
     width: 220px;
     height: 220px;
     border-radius: 50%;
-    background: radial-gradient(closest-side, rgb(118 134 255 / 0.28), transparent);
+    background: radial-gradient(closest-side, rgb(var(--accent-rgb) / 0.28), transparent);
     transform: translateX(-50%);
     pointer-events: none;
   }
@@ -68,8 +68,8 @@
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: #cfd6ff;
-    background: rgb(139 151 255 / 0.14);
-    box-shadow: inset 0 0 0 1px rgb(139 151 255 / 0.24);
+    background: rgb(var(--accent-rgb) / 0.14);
+    box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.24);
   }
 
   .note {

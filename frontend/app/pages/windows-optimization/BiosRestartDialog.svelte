@@ -278,7 +278,7 @@
   footer { display: flex; justify-content: flex-end; gap: 8px; }
   .restart { min-width: 154px; }
 
-  :global(:root.perf-lite) .top-rim { box-shadow: none; }
+  :global(:root.solid) .top-rim { box-shadow: none; }
 
   @media (max-width: 520px) {
     .backdrop { padding: 12px; }

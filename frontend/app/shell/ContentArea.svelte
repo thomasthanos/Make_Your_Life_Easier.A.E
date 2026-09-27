@@ -9,7 +9,7 @@
   // A short slide-in; none at all in the lighter mode or with reduced motion,
   // so a slow machine spends its first frames on the page, not the animation.
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const enter = $derived(settings.perfLite || reducedMotion ? 0 : 160);
+  const enter = $derived(!settings.glass || reducedMotion ? 0 : 160);
   let scroller = $state<HTMLDivElement>();
   // Ignore the scroll events caused by swapping pages.
   let restoring = false;

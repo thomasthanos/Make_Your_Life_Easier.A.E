@@ -229,7 +229,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    color: rgb(166 176 255 / 0.75);
+    color: rgb(var(--accent-soft-rgb) / 0.75);
     font-size: 11px;
   }
 
@@ -245,7 +245,7 @@
     min-width: 0;
     padding: 7px 8px 9px;
     border-radius: 9px;
-    background: rgb(139 151 255 / 0.045);
+    background: rgb(var(--accent-rgb) / 0.045);
     color: var(--accent);
   }
 

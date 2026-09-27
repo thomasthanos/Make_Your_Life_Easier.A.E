@@ -118,7 +118,7 @@
 }
 
 .chip.active {
-  border-color: rgb(139 151 255 / 0.4);
+  border-color: rgb(var(--accent-rgb) / 0.4);
   background: var(--selected);
   color: var(--text-1);
 }
@@ -246,7 +246,7 @@
 }
 
 .input:focus {
-  border-color: rgb(139 151 255 / 0.55);
+  border-color: rgb(var(--accent-rgb) / 0.55);
 }
 
 /* Floating menus (popovers). Solid fill: no blur stacked on blur. */

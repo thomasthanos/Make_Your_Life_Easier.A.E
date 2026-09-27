@@ -94,14 +94,14 @@
       <h2 id="appearance-title"><Palette size={15} /> Appearance</h2>
       <label class="row">
         <span class="text">
-          <strong>Reduce transparency</strong>
-          <small>Turns off the blur and softens animations. Useful on older graphics hardware.</small>
+          <strong>Glass effects</strong>
+          <small>Translucent, blurred panels with glow and motion. Uses more graphics power.</small>
         </span>
         <input
           type="checkbox"
           class="switch"
-          checked={settings.perfLite}
-          onchange={(e) => settings.setPerfLite(e.currentTarget.checked)}
+          checked={settings.glass}
+          onchange={(e) => settings.setGlass(e.currentTarget.checked)}
         />
       </label>
     </section>
@@ -188,7 +188,7 @@
   }
 
   h2 :global(svg) {
-    color: rgb(166 176 255 / 0.85);
+    color: rgb(var(--accent-soft-rgb) / 0.85);
   }
 
   .row {
@@ -239,7 +239,7 @@
   }
 
   .status.accent {
-    color: rgb(178 186 255);
+    color: rgb(var(--accent-soft-rgb));
   }
 
   .status.error {

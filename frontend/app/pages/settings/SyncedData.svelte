@@ -87,7 +87,7 @@
   }
 
   .scope.on {
-    color: rgb(166 176 255 / 0.9);
+    color: rgb(var(--accent-soft-rgb) / 0.9);
   }
 
   ul {
@@ -119,10 +119,10 @@
     width: 32px;
     height: 32px;
     flex: none;
-    border: 1px solid rgb(139 151 255 / 0.16);
+    border: 1px solid rgb(var(--accent-rgb) / 0.16);
     border-radius: 9px;
-    background: rgb(139 151 255 / 0.07);
-    color: rgb(170 180 255 / 0.9);
+    background: rgb(var(--accent-rgb) / 0.07);
+    color: rgb(var(--accent-soft-rgb) / 0.9);
   }
 
   .local .icon {

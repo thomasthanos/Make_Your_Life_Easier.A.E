@@ -98,8 +98,8 @@
 
 <style>
   .card {
-    --tone: #8b97ff;
-    --tone-soft: rgb(139 151 255 / 0.12);
+    --tone: var(--accent);
+    --tone-soft: rgb(var(--accent-rgb) / 0.12);
 
     position: relative;
     display: grid;
@@ -139,8 +139,8 @@
   }
 
   .card[data-section="health"] {
-    --tone: #9aa5ff;
-    --tone-soft: rgb(139 151 255 / 0.12);
+    --tone: rgb(var(--accent-soft-rgb));
+    --tone-soft: rgb(var(--accent-rgb) / 0.12);
   }
 
   .card[data-section="software"] {
@@ -381,13 +381,13 @@
     }
   }
 
-  :global(:root.perf-lite) .card,
-  :global(:root.perf-lite) .card:hover {
+  :global(:root.solid) .card,
+  :global(:root.solid) .card:hover {
     transform: none;
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
   }
 
-  :global(:root.perf-lite) .status.running .status-dot {
+  :global(:root.solid) .status.running .status-dot {
     animation: none;
   }
 

@@ -282,8 +282,8 @@
     font-size: 12px;
     font-weight: 600;
     color: #cfd6ff;
-    background: rgb(139 151 255 / 0.16);
-    box-shadow: inset 0 0 0 1px rgb(139 151 255 / 0.28);
+    background: rgb(var(--accent-rgb) / 0.16);
+    box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.28);
   }
 
   .detail {

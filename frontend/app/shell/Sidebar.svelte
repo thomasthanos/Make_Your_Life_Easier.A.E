@@ -150,7 +150,7 @@
   .item:hover .icon :global(.custom-nav-icon),
   .item.active .icon :global(.custom-nav-icon) {
     opacity: 1;
-    filter: saturate(1) drop-shadow(0 2px 6px rgb(118 134 255 / 0.3));
+    filter: saturate(1) drop-shadow(0 2px 6px rgb(var(--accent-rgb) / 0.3));
   }
 
   .item.active .icon :global(.custom-nav-icon) {

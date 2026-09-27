@@ -208,9 +208,9 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    border: 2px solid rgb(139 151 255 / 0.2);
-    border-top-color: #8b97ff;
-    border-right-color: #53d3ea;
+    border: 2px solid rgb(var(--accent-rgb) / 0.2);
+    border-top-color: var(--accent);
+    border-right-color: var(--accent-2);
     animation: spin 0.8s linear infinite;
   }
 

@@ -153,7 +153,7 @@
   }
 
   .card.working {
-    border-color: rgb(139 151 255 / 0.4);
+    border-color: rgb(var(--accent-rgb) / 0.4);
   }
 
   .top {

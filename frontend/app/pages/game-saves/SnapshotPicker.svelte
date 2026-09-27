@@ -144,9 +144,9 @@
     width: 34px;
     height: 34px;
     flex: none;
-    border: 1px solid rgb(139 151 255 / 0.17);
+    border: 1px solid rgb(var(--accent-rgb) / 0.17);
     border-radius: 10px;
-    background: rgb(139 151 255 / 0.08);
+    background: rgb(var(--accent-rgb) / 0.08);
     color: var(--accent);
   }
 

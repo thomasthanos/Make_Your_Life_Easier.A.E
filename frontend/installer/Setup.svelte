@@ -549,9 +549,9 @@
     gap: 5px;
     flex: none;
     padding: 5px 8px;
-    border: 1px solid rgb(139 151 255 / 0.2);
+    border: 1px solid rgb(var(--accent-rgb) / 0.2);
     border-radius: 999px;
-    background: rgb(139 151 255 / 0.1);
+    background: rgb(var(--accent-rgb) / 0.1);
     color: #cfd6ff;
     font-size: 10.5px;
     font-weight: 600;
@@ -621,7 +621,7 @@
     flex: none;
     border-radius: 8px;
     color: #bfc8ff;
-    background: rgb(139 151 255 / 0.1);
+    background: rgb(var(--accent-rgb) / 0.1);
   }
 
   .location .path {
@@ -738,8 +738,8 @@
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    border: 2.5px solid rgb(139 151 255 / 0.2);
-    border-top-color: #8b97ff;
+    border: 2.5px solid rgb(var(--accent-rgb) / 0.2);
+    border-top-color: var(--accent);
     animation: spin 0.8s linear infinite;
   }
 
@@ -821,7 +821,7 @@
 
   .mark-ok circle,
   .mark-fail circle {
-    stroke: #8b97ff;
+    stroke: var(--accent);
     stroke-width: 3;
     stroke-dasharray: 183;
     stroke-dashoffset: 183;
@@ -829,7 +829,7 @@
   }
 
   .mark-ok path {
-    stroke: #53d3ea;
+    stroke: var(--accent-2);
     stroke-width: 4;
     stroke-dasharray: 42;
     stroke-dashoffset: 42;

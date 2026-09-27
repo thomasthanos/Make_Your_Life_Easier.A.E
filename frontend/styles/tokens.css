@@ -10,18 +10,25 @@
   /* Surfaces */
   --bg-0: #0a0c12;
   --bg-1: #0e1119;
-  --bg-solid-panel: rgb(20 24 34 / 0.94); /* used when blur is turned off */
+  /* Solid panels (the default look; "Glass effects" off). */
+  --solid-fill-top: #171b27;
+  --solid-fill-bottom: #12151e;
+  --bg-solid-panel: linear-gradient(180deg, var(--solid-fill-top), var(--solid-fill-bottom));
 
   /* Text */
   --text-1: rgb(236 240 255 / 0.94);
   --text-2: rgb(214 222 245 / 0.66);
   --text-3: rgb(200 210 240 / 0.42);
 
-  /* Accents */
-  --accent: #8b97ff;
-  --accent-2: #53d3ea;
-  --accent-grad: linear-gradient(135deg, #9aa5ff 0%, #6f86ff 45%, #4fd1e8 100%);
-  --accent-glow: rgb(118 134 255 / 0.45);
+  /* Accents: a calm, slightly muted indigo. Components tint with
+     rgb(var(--accent-rgb) / alpha), so the whole app, the splash and the
+     setup follow these few lines. */
+  --accent-rgb: 132 142 222;
+  --accent-soft-rgb: 176 183 232;
+  --accent: rgb(var(--accent-rgb));
+  --accent-2: #6fb3c6;
+  --accent-grad: linear-gradient(135deg, #9ba3e2 0%, #7f8ad6 50%, #6aa9bf 100%);
+  --accent-glow: rgb(var(--accent-rgb) / 0.24);
   --danger: #e5484d;
 
   /* App status dots */
@@ -45,7 +52,7 @@
   /* Interactive fills */
   --hover: rgb(255 255 255 / 0.06);
   --press: rgb(255 255 255 / 0.1);
-  --selected: rgb(139 151 255 / 0.14);
+  --selected: rgb(var(--accent-rgb) / 0.14);
 
   /* Window controls: transparent at rest, tinted only on hover */
   --ctl-icon: rgb(255 255 255 / 0.72);

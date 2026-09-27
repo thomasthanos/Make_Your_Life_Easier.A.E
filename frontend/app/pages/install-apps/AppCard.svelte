@@ -89,8 +89,8 @@
   }
 
   .card.selected {
-    border-color: rgb(139 151 255 / 0.45);
-    background: linear-gradient(180deg, rgb(139 151 255 / 0.12), rgb(139 151 255 / 0.04));
+    border-color: rgb(var(--accent-rgb) / 0.45);
+    background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.12), rgb(var(--accent-rgb) / 0.04));
   }
 
   /* Grid: checkbox top-right, action bottom-right. */

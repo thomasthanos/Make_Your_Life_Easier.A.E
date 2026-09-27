@@ -128,11 +128,11 @@
     gap: 16px;
     padding: 20px;
     overflow: hidden;
-    border: 1px solid rgb(139 151 255 / 0.2);
+    border: 1px solid rgb(var(--accent-rgb) / 0.2);
     border-radius: var(--radius-lg);
     background:
       var(--grain),
-      radial-gradient(circle at 8% 0%, rgb(139 151 255 / 0.14), transparent 45%),
+      radial-gradient(circle at 8% 0%, rgb(var(--accent-rgb) / 0.14), transparent 45%),
       linear-gradient(180deg, rgb(200 210 255 / 0.08), rgb(200 210 255 / 0.02) 65%, rgb(0 0 0 / 0.08));
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.11),
@@ -146,8 +146,8 @@
     left: 10%;
     width: 80%;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgb(139 151 255 / 0.7), transparent);
-    box-shadow: 0 0 14px rgb(139 151 255 / 0.4);
+    background: linear-gradient(90deg, transparent, rgb(var(--accent-rgb) / 0.7), transparent);
+    box-shadow: 0 0 14px rgb(var(--accent-rgb) / 0.4);
   }
 
   h2 {
@@ -173,10 +173,10 @@
     width: 42px;
     height: 42px;
     flex: none;
-    border: 1px solid rgb(139 151 255 / 0.25);
+    border: 1px solid rgb(var(--accent-rgb) / 0.25);
     border-radius: 13px;
-    background: linear-gradient(160deg, rgb(139 151 255 / 0.2), rgb(139 151 255 / 0.04));
-    color: rgb(178 186 255);
+    background: linear-gradient(160deg, rgb(var(--accent-rgb) / 0.2), rgb(var(--accent-rgb) / 0.04));
+    color: rgb(var(--accent-soft-rgb));
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
   }
 
@@ -229,10 +229,10 @@
     align-items: center;
     gap: 12px;
     padding: 12px 14px;
-    border: 1px solid rgb(139 151 255 / 0.22);
+    border: 1px solid rgb(var(--accent-rgb) / 0.22);
     border-radius: 12px;
-    background: rgb(139 151 255 / 0.08);
-    color: rgb(178 186 255);
+    background: rgb(var(--accent-rgb) / 0.08);
+    color: rgb(var(--accent-soft-rgb));
   }
 
   .waiting span {
@@ -283,8 +283,8 @@
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    border: 2px solid rgb(139 151 255 / 0.4);
-    box-shadow: 0 0 0 4px rgb(139 151 255 / 0.08), 0 10px 26px -12px rgb(0 0 0 / 0.8);
+    border: 2px solid rgb(var(--accent-rgb) / 0.4);
+    box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 0.08), 0 10px 26px -12px rgb(0 0 0 / 0.8);
   }
 
   .avatar img {

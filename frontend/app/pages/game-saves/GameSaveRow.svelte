@@ -126,8 +126,8 @@
   }
 
   .card.selected {
-    border-color: rgb(139 151 255 / 0.34);
-    background: linear-gradient(180deg, rgb(139 151 255 / 0.085), rgb(139 151 255 / 0.025));
+    border-color: rgb(var(--accent-rgb) / 0.34);
+    background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.085), rgb(var(--accent-rgb) / 0.025));
   }
 
   .card.problem {
@@ -154,7 +154,7 @@
     flex: none;
     border: 1px solid rgb(255 255 255 / 0.07);
     border-radius: 11px;
-    background: linear-gradient(145deg, rgb(139 151 255 / 0.14), rgb(79 209 232 / 0.045));
+    background: linear-gradient(145deg, rgb(var(--accent-rgb) / 0.14), rgb(79 209 232 / 0.045));
     color: rgb(175 184 255 / 0.86);
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
   }

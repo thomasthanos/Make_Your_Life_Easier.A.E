@@ -329,9 +329,9 @@
     width: 31px;
     height: 31px;
     flex: none;
-    border: 1px solid rgb(139 151 255 / 0.15);
+    border: 1px solid rgb(var(--accent-rgb) / 0.15);
     border-radius: 9px;
-    background: rgb(139 151 255 / 0.07);
+    background: rgb(var(--accent-rgb) / 0.07);
     color: rgb(169 179 255 / 0.86);
   }
 
@@ -428,8 +428,8 @@
   }
 
   .cloud-tile:hover:not(:disabled) {
-    border-color: rgb(139 151 255 / 0.28);
-    background: rgb(139 151 255 / 0.07);
+    border-color: rgb(var(--accent-rgb) / 0.28);
+    background: rgb(var(--accent-rgb) / 0.07);
   }
 
   .cloud-tile.in-use {

@@ -234,7 +234,7 @@
   }
 
   .metric :global(svg) {
-    color: rgb(166 176 255 / 0.72);
+    color: rgb(var(--accent-soft-rgb) / 0.72);
   }
 
   .metric strong {
@@ -248,7 +248,7 @@
   }
 
   .settings-button.active {
-    border-color: rgb(139 151 255 / 0.25);
+    border-color: rgb(var(--accent-rgb) / 0.25);
     background: var(--selected);
   }
 
@@ -437,9 +437,9 @@
     width: 50px;
     height: 50px;
     margin-bottom: 2px;
-    border: 1px solid rgb(139 151 255 / 0.12);
+    border: 1px solid rgb(var(--accent-rgb) / 0.12);
     border-radius: 15px;
-    background: rgb(139 151 255 / 0.045);
+    background: rgb(var(--accent-rgb) / 0.045);
     color: rgb(169 179 255 / 0.7);
   }
 

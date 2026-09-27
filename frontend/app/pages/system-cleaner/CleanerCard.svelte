@@ -119,11 +119,11 @@
   }
 
   .card.on {
-    border-color: rgb(139 151 255 / 0.32);
+    border-color: rgb(var(--accent-rgb) / 0.32);
   }
 
   .card.working {
-    border-color: rgb(139 151 255 / 0.5);
+    border-color: rgb(var(--accent-rgb) / 0.5);
   }
 
   .card.done .head,
