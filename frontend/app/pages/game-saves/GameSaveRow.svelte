@@ -2,6 +2,7 @@
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import HardDrive from "@lucide/svelte/icons/hard-drive";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
+  import Select, { type SelectOption } from "../../../lib/components/Select.svelte";
   import type { GameSaveEntry, GameSaveStatus, GameSavesTab } from "./api";
   import { formatBytes, formatDate, gameSavesState as state } from "./state.svelte";
 
@@ -9,6 +10,12 @@
   const uid = $props.id();
   const selected = $derived(state.isSelected(game));
   const snapshotId = $derived(state.snapshotFor(game));
+  const snapshotOptions = $derived<SelectOption<string>[]>(
+    game.snapshots.map((snapshot) => ({
+      value: snapshot.id,
+      label: `${formatDate(snapshot.timestamp)}${snapshot.label ? ` · ${snapshot.label}` : ""}${snapshot.isSafety ? " · Safety" : ""}`,
+    })),
+  );
 
   const statusInfo: Record<GameSaveStatus, { label: string; tone: string }> = {
     notBackedUp: { label: "Not backed up", tone: "warning" },
@@ -64,21 +71,18 @@
 
   <div class="actions">
     {#if tab === "backup" && game.snapshots.length}
-      <label class="snapshot">
+      <div class="snapshot">
         <span>Snapshot</span>
-        <select
-          aria-label={`Snapshot for ${game.title}`}
+        <Select
           value={snapshotId}
+          options={snapshotOptions}
+          ariaLabel={`Snapshot for ${game.title}`}
+          size="sm"
+          minWidth="156px"
           disabled={state.busy}
-          onchange={(event) => state.setSnapshot(game.id, event.currentTarget.value)}
-        >
-          {#each game.snapshots as snapshot (snapshot.id)}
-            <option value={snapshot.id}>
-              {formatDate(snapshot.timestamp)}{snapshot.label ? ` · ${snapshot.label}` : ""}{snapshot.isSafety ? " · Safety" : ""}
-            </option>
-          {/each}
-        </select>
-      </label>
+          onchange={(id) => state.setSnapshot(game.id, id)}
+        />
+      </div>
     {/if}
 
     <label class="auto" title="Include this game in scheduled backups">
@@ -302,18 +306,6 @@
     gap: 3px;
     color: var(--text-3);
     font-size: 10.5px;
-  }
-
-  select {
-    width: 150px;
-    height: 28px;
-    padding: 0 24px 0 8px;
-    border: 1px solid rgb(255 255 255 / 0.07);
-    border-radius: 8px;
-    background: rgb(9 12 20 / 0.72);
-    color: var(--text-2);
-    font: inherit;
-    font-size: 11px;
   }
 
   button:disabled {

@@ -423,6 +423,10 @@
     contain-intrinsic-size: auto 92px;
   }
 
+  .game-list > :global(article:focus-within) {
+    content-visibility: visible;
+  }
+
   .empty {
     display: grid;
     justify-items: center;

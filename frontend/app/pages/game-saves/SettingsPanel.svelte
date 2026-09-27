@@ -9,27 +9,42 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { CLOUD_PROVIDERS, type BackupSchedule, type CloudProvider, type DetectedFolder, type RootStore, type ScheduleWeekday } from "./api";
+  import Select, { type SelectOption } from "../../../lib/components/Select.svelte";
   import CloudLogo from "./CloudLogo.svelte";
   import { formatDate, gameSavesState as gs, samePath } from "./state.svelte";
 
-  const storeOptions: { id: RootStore; label: string }[] = [
-    { id: "steam", label: "Steam" },
-    { id: "epic", label: "Epic Games" },
-    { id: "gog", label: "GOG" },
-    { id: "gogGalaxy", label: "GOG Galaxy" },
-    { id: "uplay", label: "Ubisoft Connect" },
-    { id: "origin", label: "EA app / Origin" },
-    { id: "otherWindows", label: "Other folder" },
+  const scheduleOptions: SelectOption<BackupSchedule>[] = [
+    { value: "off", label: "Off" },
+    { value: "daily", label: "Daily" },
+    { value: "weekly", label: "Weekly" },
   ];
-  const weekdays: { id: ScheduleWeekday; label: string }[] = [
-    { id: "monday", label: "Monday" },
-    { id: "tuesday", label: "Tuesday" },
-    { id: "wednesday", label: "Wednesday" },
-    { id: "thursday", label: "Thursday" },
-    { id: "friday", label: "Friday" },
-    { id: "saturday", label: "Saturday" },
-    { id: "sunday", label: "Sunday" },
+  const storeOptions: SelectOption<RootStore>[] = [
+    { value: "steam", label: "Steam" },
+    { value: "epic", label: "Epic Games" },
+    { value: "gog", label: "GOG" },
+    { value: "gogGalaxy", label: "GOG Galaxy" },
+    { value: "uplay", label: "Ubisoft Connect" },
+    { value: "origin", label: "EA app / Origin" },
+    { value: "otherWindows", label: "Other folder" },
   ];
+  const weekdays: SelectOption<ScheduleWeekday>[] = [
+    { value: "monday", label: "Monday" },
+    { value: "tuesday", label: "Tuesday" },
+    { value: "wednesday", label: "Wednesday" },
+    { value: "thursday", label: "Thursday" },
+    { value: "friday", label: "Friday" },
+    { value: "saturday", label: "Saturday" },
+    { value: "sunday", label: "Sunday" },
+  ];
+  const BASE_TIMES = Array.from(
+    { length: 48 },
+    (_, i) => `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`,
+  );
+  const timeOptions = $derived.by((): SelectOption<string>[] => {
+    const current = gs.page.settings.scheduleTime;
+    const times = current && !BASE_TIMES.includes(current) ? [...BASE_TIMES, current].sort() : BASE_TIMES;
+    return times.map((time) => ({ value: time, label: time }));
+  });
   /** One tile per detected folder (a provider can have several accounts),
    *  and one for each provider not found, which asks where its folder is. */
   interface CloudTile {
@@ -46,7 +61,7 @@
         : [{ key: id, provider: id, name, folder: null }];
     }),
   );
-  const storeLabel = (store: RootStore) => storeOptions.find((item) => item.id === store)?.label ?? store;
+  const storeLabel = (store: RootStore) => storeOptions.find((item) => item.value === store)?.label ?? store;
   let newRootStore = $state<RootStore>("steam");
   const scheduledFailure = $derived(
     gs.page.settings.lastScheduledResult?.error ??
@@ -60,19 +75,6 @@
         (gs.page.settings.lastScheduledSuccess === null ||
           gs.page.settings.lastScheduledAttempt > gs.page.settings.lastScheduledSuccess)),
   );
-
-  /** Saves the schedule, then shows what was actually stored: a refused
-   *  change (or one skipped while busy) must not stay visible in the control. */
-  async function changeSchedule(
-    control: HTMLInputElement | HTMLSelectElement,
-    stored: () => string,
-    schedule: BackupSchedule,
-    time = gs.page.settings.scheduleTime,
-    weekday = gs.page.settings.scheduleWeekday,
-  ) {
-    await gs.setSchedule(schedule, time, weekday);
-    control.value = stored();
-  }
 </script>
 
 <section id="game-saves-settings" class="settings" aria-label="Backup settings">
@@ -149,58 +151,46 @@
       </span>
     </div>
 
-    <label class="field">
+    <div class="field">
       <span>Frequency</span>
-      <select
+      <Select
         value={gs.page.settings.schedule}
+        options={scheduleOptions}
+        ariaLabel="Backup frequency"
+        fullWidth
         disabled={!!gs.settingsBusy || gs.busy}
-        onchange={(event) =>
-          changeSchedule(event.currentTarget, () => gs.page.settings.schedule, event.currentTarget.value as BackupSchedule)}
-      >
-        <option value="off">Off</option>
-        <option value="daily">Daily</option>
-        <option value="weekly">Weekly</option>
-      </select>
-    </label>
+        onchange={(schedule) =>
+          void gs.setSchedule(schedule, gs.page.settings.scheduleTime, gs.page.settings.scheduleWeekday)}
+      />
+    </div>
 
     {#if gs.page.settings.schedule !== "off"}
       <div class="schedule-fields">
         {#if gs.page.settings.schedule === "weekly"}
-          <label class="field compact">
+          <div class="field compact">
             <span>Day</span>
-            <select
+            <Select
               value={gs.page.settings.scheduleWeekday}
+              options={weekdays}
+              ariaLabel="Backup day"
               disabled={!!gs.settingsBusy || gs.busy}
-              onchange={(event) =>
-                changeSchedule(
-                  event.currentTarget,
-                  () => gs.page.settings.scheduleWeekday,
-                  gs.page.settings.schedule,
-                  gs.page.settings.scheduleTime,
-                  event.currentTarget.value as ScheduleWeekday,
-                )}
-            >
-              {#each weekdays as day (day.id)}<option value={day.id}>{day.label}</option>{/each}
-            </select>
-          </label>
+              onchange={(weekday) =>
+                void gs.setSchedule(gs.page.settings.schedule, gs.page.settings.scheduleTime, weekday)}
+            />
+          </div>
         {/if}
-        <label class="field compact">
+        <div class="field compact">
           <span>Time</span>
-          <input
-            class="input time"
-            type="time"
+          <Select
             value={gs.page.settings.scheduleTime}
+            options={timeOptions}
+            ariaLabel="Backup time"
+            minWidth="104px"
             disabled={!!gs.settingsBusy || gs.busy}
-            onchange={(event) =>
-              changeSchedule(
-                event.currentTarget,
-                () => gs.page.settings.scheduleTime,
-                gs.page.settings.schedule,
-                event.currentTarget.value,
-                gs.page.settings.scheduleWeekday,
-              )}
+            onchange={(time) =>
+              void gs.setSchedule(gs.page.settings.schedule, time, gs.page.settings.scheduleWeekday)}
           />
-        </label>
+        </div>
       </div>
     {/if}
 
@@ -261,9 +251,13 @@
     </div>
 
     <div class="add-root">
-      <select bind:value={newRootStore} aria-label="Launcher for new folder">
-        {#each storeOptions as store (store.id)}<option value={store.id}>{store.label}</option>{/each}
-      </select>
+      <Select
+        bind:value={newRootStore}
+        options={storeOptions}
+        ariaLabel="Launcher for new folder"
+        minWidth="148px"
+        disabled={!!gs.settingsBusy || gs.busy}
+      />
       <button class="btn" disabled={!!gs.settingsBusy || gs.busy} onclick={() => gs.addRoot(newRootStore)}>
         <Plus size={15} /> Add folder
       </button>
@@ -480,22 +474,6 @@
     width: 100%;
   }
 
-  select {
-    height: 32px;
-    min-width: 130px;
-    padding: 0 28px 0 9px;
-    border: 1px solid rgb(255 255 255 / 0.075);
-    border-radius: 9px;
-    background: rgb(9 12 20 / 0.72);
-    color: var(--text-2);
-    font: inherit;
-    font-size: 12px;
-  }
-
-  .time {
-    width: 112px;
-  }
-
   .last-run strong {
     color: var(--text-2);
     font-size: 12px;
@@ -597,8 +575,7 @@
     text-overflow: ellipsis;
   }
 
-  button:disabled,
-  select:disabled {
+  button:disabled {
     opacity: 0.45;
     pointer-events: none;
   }

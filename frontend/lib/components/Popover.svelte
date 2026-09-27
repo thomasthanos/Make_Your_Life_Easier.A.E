@@ -52,6 +52,7 @@
     position: absolute;
     z-index: 40;
     left: 0;
+    min-width: 100%;
   }
 
   .panel.end {

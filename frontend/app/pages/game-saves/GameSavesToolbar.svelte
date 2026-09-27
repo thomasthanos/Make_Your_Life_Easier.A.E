@@ -7,9 +7,17 @@
   import ScanSearch from "@lucide/svelte/icons/scan-search";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
+  import Select, { type SelectOption } from "../../../lib/components/Select.svelte";
   import type { OperationStage } from "./api";
   import { formatBytes, gameSavesState as gameSaves, type GameSavesFilter } from "./state.svelte";
 
+  const filterOptions: SelectOption<GameSavesFilter>[] = [
+    { value: "all", label: "All statuses" },
+    { value: "changed", label: "Changed since backup" },
+    { value: "notBackedUp", label: "Not backed up" },
+    { value: "backedUp", label: "Backed up" },
+    { value: "problems", label: "Needs attention" },
+  ];
   const stageLabels: Record<OperationStage, string> = {
     preparing: "Preparing…",
     scanning: "Scanning save locations…",
@@ -65,16 +73,13 @@
       {/if}
     </label>
 
-    <label class="filter">
-      <span class="sr-only">Status filter</span>
-      <select value={gameSaves.filter} onchange={(event) => gameSaves.setFilter(event.currentTarget.value as GameSavesFilter)}>
-        <option value="all">All statuses</option>
-        <option value="changed">Changed since backup</option>
-        <option value="notBackedUp">Not backed up</option>
-        <option value="backedUp">Backed up</option>
-        <option value="problems">Needs attention</option>
-      </select>
-    </label>
+    <Select
+      value={gameSaves.filter}
+      options={filterOptions}
+      ariaLabel="Status filter"
+      minWidth="172px"
+      onchange={(filter) => gameSaves.setFilter(filter)}
+    />
 
     <span class="spacer"></span>
 
@@ -198,17 +203,6 @@
     height: 28px;
   }
 
-  select {
-    height: 34px;
-    padding: 0 28px 0 10px;
-    border: 1px solid rgb(255 255 255 / 0.075);
-    border-radius: 10px;
-    background: rgb(9 12 20 / 0.7);
-    color: var(--text-2);
-    font: inherit;
-    font-size: 12px;
-  }
-
   .spacer {
     flex: 1;
   }
@@ -319,18 +313,6 @@
     to {
       transform: translateX(340%);
     }
-  }
-
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
   }
 
   button:disabled {
