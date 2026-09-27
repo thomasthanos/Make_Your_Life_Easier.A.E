@@ -92,9 +92,13 @@
             <span class="section-count">{section.cards.length}</span>
             <span class="section-divider" aria-hidden="true"></span>
           </div>
-          <div class="cards {s.view}" class:single={section.cards.length === 1}>
-            {#each section.cards as card (card.id)}
-              <MaintenanceCard {card} view={s.view} wide={s.view === "grid" && section.cards.length === 1} />
+          <div class="cards {s.view}">
+            {#each section.cards as card, i (card.id)}
+              <MaintenanceCard
+                {card}
+                view={s.view}
+                wide={s.view === "grid" && section.cards.length % 2 === 1 && i === section.cards.length - 1}
+              />
             {/each}
           </div>
         </section>
@@ -213,16 +217,16 @@
   .cards {
     display: grid;
     gap: 12px;
-    /* A card with its console open must not stretch the one beside it. */
+    align-items: stretch;
+  }
+
+  /* A card with its console open must not stretch the one beside it. */
+  .cards:has(:global(.console.expanded)) {
     align-items: start;
   }
 
   .cards.grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .cards.grid.single {
-    grid-template-columns: 1fr;
   }
 
   .cards.list {
