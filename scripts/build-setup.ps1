@@ -1,16 +1,16 @@
 <#
 .SYNOPSIS
   Builds the ready-to-ship setup: the app, its uninstaller, and the setup
-  that carries both (src-tauri/installer).
+  that carries both (backend/installer).
 
 .DESCRIPTION
   1. the app's release exe (Tauri, no bundle) and the pinned Game Saves files
   2. the setup window's page and uninstall.exe
   3. the install folder, staged exactly as it lands on a PC
-     (bundle.resources in src-tauri/tauri.conf.json says where each file goes)
+     (bundle.resources in backend/tauri.conf.json says where each file goes)
   4. that folder packed into one XZ payload, then setup.exe built around it
 
-  Output: src-tauri/target/release/bundle/setup/<mainBinaryName>_<version>_x64-setup.exe
+  Output: backend/target/release/bundle/setup/<mainBinaryName>_<version>_x64-setup.exe
 
   The app, the uninstaller and the setup are signed when MYLE_SIGN_PFX is set
   (release.yml sets it from the certificate secrets); see scripts/sign.ps1.
@@ -22,7 +22,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$tauriDir = Join-Path $root "src-tauri"
+$tauriDir = Join-Path $root "backend"
 $manifest = Join-Path $tauriDir "Cargo.toml"
 $release = Join-Path $tauriDir "target\release"
 

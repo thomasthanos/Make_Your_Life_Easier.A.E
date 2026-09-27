@@ -15,7 +15,7 @@
 ```bash
 npm install
 npm run dev             # η εφαρμογή σε ανάπτυξη με hot reload
-npm run build           # installer: εφαρμογή + uninstaller + setup στο src-tauri/target/release/bundle/setup/
+npm run build           # installer: εφαρμογή + uninstaller + setup στο backend/target/release/bundle/setup/
 npm run check           # έλεγχος τύπων (Svelte + TS) και του site/
 npm test                # Rust tests (εφαρμογή και setup)
 npm run lint            # cargo clippy -D warnings
@@ -27,12 +27,12 @@ npm run lint            # cargo clippy -D warnings
 | `build` | ολόκληρο το setup (`scripts/build-setup.ps1`): `MakeYourLifeEasier_<version>_x64-setup.exe` |
 | `build:app` | μόνο το release exe της εφαρμογής, χωρίς setup |
 | `check` | svelte-check, tsc και `check:site` |
-| `test` / `lint` | `cargo test` / `cargo clippy` σε όλο το workspace του `src-tauri` |
+| `test` / `lint` | `cargo test` / `cargo clippy` σε όλο το workspace του `backend` |
 | `verify:install` | ελέγχει ότι η εγκατάσταση (ή με `-- -Removed` η απεγκατάσταση) άφησε τα σωστά αρχεία, συντομεύσεις και registry |
 | `web:dev` / `web:build` | μόνο το Vite της εφαρμογής (τα τρέχει το Tauri από μόνο του· το `web:dev` χρησιμεύει και για προεπισκόπηση στον browser) |
-| `web:setup` | η σελίδα του παραθύρου του setup (`dist-installer/`) |
+| `web:setup` | η σελίδα του παραθύρου του setup (`backend/target/web-setup/`) |
 | `prepare:game-saves` | κατεβάζει/επαληθεύει τα pinned Game Saves resources |
-| `tauri` | το Tauri CLI όπως είναι, π.χ. `npm run tauri icon src-tauri/icons/app-icon.svg` |
+| `tauri` | το Tauri CLI όπως είναι, π.χ. `npm run tauri icon backend/icons/app-icon.svg` |
 
 Κάθε push στο `main` και κάθε pull request περνά από το `.github/workflows/ci.yml`, σε Windows: `npm run check`, build των frontends, `cargo clippy -D warnings` και `cargo test` για εφαρμογή και setup, και ένα δεύτερο job που χτίζει το setup, το εγκαθιστά, το ενημερώνει και το απεγκαθιστά σιωπηλά (`scripts/smoke-test-setup.ps1`). Το setup του κάθε run μένει 7 μέρες ως artifact.
 
@@ -47,7 +47,7 @@ $env:MYLE_UPDATER_DEMO = "offline"; npm run dev  # ψεύτικο σφάλμα �
 
 Ή σκέτο στον browser, με `npm run web:dev` και `http://localhost:1420/splash.html?demo=update` (ή `=offline`, `=latest`).
 
-Το εικονίδιο (ο hooded coder) ζει στο `src-tauri/icons/app-icon.svg`. Μετά από αλλαγή του, ξαναφτιάξε τα PNG/ICO με `npm run tauri icon src-tauri/icons/app-icon.svg` και κράτα από το `src-tauri/icons/` μόνο όσα δηλώνει το `tauri.conf.json`. Το λογότυπο μέσα στην εφαρμογή (`src/lib/components/Logo.svelte`) και η κινούμενη εκδοχή του splash (`src/splash/CoderScene.svelte`) διαβάζουν τα ίδια σχήματα από το `src/lib/brand.ts`, οπότε άλλαξέ τα και εκεί.
+Το εικονίδιο (ο hooded coder) ζει στο `backend/icons/app-icon.svg`. Μετά από αλλαγή του, ξαναφτιάξε τα PNG/ICO με `npm run tauri icon backend/icons/app-icon.svg` και κράτα από το `backend/icons/` μόνο όσα δηλώνει το `tauri.conf.json`. Το λογότυπο μέσα στην εφαρμογή (`frontend/lib/components/Logo.svelte`) και η κινούμενη εκδοχή του splash (`frontend/splash/CoderScene.svelte`) διαβάζουν τα ίδια σχήματα από το `frontend/lib/brand.ts`, οπότε άλλαξέ τα και εκεί.
 
 ## Δομή
 
@@ -61,7 +61,7 @@ scripts/
   verify-install.ps1          έλεγχος μιας εγκατάστασης
   check-site.mjs              έλεγχος του site/
 site/                         στατικό download site (Cloudflare Pages, wrangler.toml)
-src/                          frontend (Svelte 5 + TS), root του Vite
+frontend/                     frontend (Svelte 5 + TS), root του Vite
   index.html                  κύριο παράθυρο → main.ts → app/
   splash.html                 παράθυρο updater → splash.ts → splash/
   installer.html              παράθυρο setup/uninstaller → installer/
@@ -75,7 +75,7 @@ src/                          frontend (Svelte 5 + TS), root του Vite
   lib/                        κοινά: toast, confirm, updater, brand, components/
   styles/                     tokens.css (χρώματα, μεγέθη, κινήσεις), glass.css
   public/                     στατικά αρχεία που ταξιδεύουν με την εφαρμογή (icons/)
-src-tauri/                    backend (Rust)
+backend/                      backend (Rust + Tauri)
   src/lib.rs                  εκκίνηση, splash → main
   src/<λειτουργία>/           apps, game_saves, cleaner, spotify_hub, account, …
   src/updater.rs              updater (feed στο R2, εφεδρεία τα GitHub Releases)
@@ -83,14 +83,14 @@ src-tauri/                    backend (Rust)
   icons/                      app-icon.svg (η πηγή) και τα PNG/ICO που βγαίνουν από αυτό
   resources/                  ό,τι μπαίνει δίπλα στο exe (Ludusavi, Spicetify)
   tauri.conf.json             όνομα, έκδοση, παράθυρα, resources (και για το setup)
-vite.config.ts                ένα config για όλα: `vite build` → dist/, `--mode setup` → dist-installer/
+vite.config.ts                ένα config για όλα: `vite build` → backend/target/web/, `--mode setup` → backend/target/web-setup/
 ```
 
-Φτιάχνονται από τα builds και δεν είναι στο git: `node_modules/`, `dist/`, `dist-installer/`, `src-tauri/target/`.
+Δεν είναι στο git: το `node_modules/` (npm) και το `backend/target/`, όπου πάνε **όλα** τα builds: Rust, Vite (`web/`, `web-setup/`) και το setup (`release/bundle/setup/`).
 
 ### Νέα σελίδα
 
-1. Φτιάξε το `src/app/pages/MyPage.svelte` και ξεκίνα με `<PageHeader title="…" />`.
+1. Φτιάξε το `frontend/app/pages/MyPage.svelte` και ξεκίνα με `<PageHeader title="…" />`.
 2. Πρόσθεσε μία γραμμή στο `registry.ts`: `{ id: "my-page", label: "My page", icon: SomeIcon, component: MyPage }`.
 
 Τα icons είναι από το [Lucide](https://lucide.dev/icons), π.χ. `import Star from "@lucide/svelte/icons/star"`.
@@ -98,12 +98,12 @@ vite.config.ts                ένα config για όλα: `vite build` → dist
 
 ## Σελίδα «Install Apps»
 
-App store πάνω από το **winget**, στον φάκελο `src/app/pages/install-apps/` (frontend) και `src-tauri/src/apps/` (Rust).
+App store πάνω από το **winget**, στον φάκελο `frontend/app/pages/install-apps/` (frontend) και `backend/src/apps/` (Rust).
 
 | Αρχείο | Περιεχόμενο |
 |---|---|
 | `data/apps.json` | Η σταθερή λίστα (winget IDs, site, `selfUpdating`, `iconDomain`/`icon`) και τα **app packs** |
-| `src-tauri/catalog/custom-apps.json` | Οι «ειδικές» εφαρμογές εκτός winget: resolver (`github` / `page` / `static`), τύπος εγκατάστασης (`installer` / `portable` / `zip`), ανίχνευση, `activate` |
+| `backend/catalog/custom-apps.json` | Οι «ειδικές» εφαρμογές εκτός winget: resolver (`github` / `page` / `static`), τύπος εγκατάστασης (`installer` / `portable` / `zip`), ανίχνευση, `activate` |
 | `categories.ts` | Λέξεις-κλειδιά για τις αυτόματες κατηγορίες (override με `"category"` στο JSON) |
 
 - Η κατάσταση (πράσινο = εγκατεστημένη, μπλε = update, γκρι = όχι) προέρχεται από το `winget list`. Οι ειδικές εφαρμογές ανιχνεύονται από το registry ή από κάποιο αρχείο.
@@ -130,9 +130,9 @@ App store πάνω από το **winget**, στον φάκελο `src/app/pages/
 ## Σελίδα «Creative Hub»
 
 Κάρτες για **δικά σου** πακέτα (zip ή installer): κατέβασμα με πρόοδο, αποσυμπίεση, εκτέλεση setup και σβήσιμο των προσωρινών αρχείων.
-Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.rs`.
+Frontend: `frontend/app/pages/creative-hub/`. Backend: `backend/src/apps/creative.rs`.
 
-Η λίστα είναι **μόνο** το `src-tauri/catalog/creative-apps.json`, που μπαίνει μέσα στο exe κατά το build. Ο χρήστης δεν μπορεί να την αλλάξει: κάθε αλλαγή θέλει νέο build.
+Η λίστα είναι **μόνο** το `backend/catalog/creative-apps.json`, που μπαίνει μέσα στο exe κατά το build. Ο χρήστης δεν μπορεί να την αλλάξει: κάθε αλλαγή θέλει νέο build.
 
 ```jsonc
 {
@@ -152,7 +152,7 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
   - `extract`: μόνο ξεπακετάρισμα στο `to` (default `%USERPROFILE%\Downloads\<όνομα>`).
   - `"password": "…"` για κλειδωμένα zip (AES ή κλασικό).
 - `icon` (προαιρετικό):
-  - `"/icons/app.svg"` για αρχείο μέσα στο `src/public/icons/`, που ταξιδεύει με την εφαρμογή
+  - `"/icons/app.svg"` για αρχείο μέσα στο `frontend/public/icons/`, που ταξιδεύει με την εφαρμογή
   - `"https://…"` για εικόνα από το διαδίκτυο
   - διαδρομή αρχείου, π.χ. `%USERPROFILE%\Pictures\logo.png`, που τη διαβάζει το backend (μόνο τοπικά)
   - Προτίμησε **SVG** για λογότυπα, ή **PNG/WebP** 256×256 με διαφάνεια. Δεκτά: svg, png, webp, jpg, gif, avif, ico, έως 4 MB.
@@ -183,7 +183,7 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 - Το Daily/Weekly auto-backup δημιουργεί per-user Windows Scheduled Task με `StartWhenAvailable`, χωρίς elevation και χωρίς wake-from-sleep. Το `Off` και το uninstall αφαιρούν το task.
 - Τα OneDrive, Dropbox και Google Drive shortcuts επιλέγουν μόνο τοπικούς συγχρονιζόμενους φακέλους· δεν χρησιμοποιούνται cloud APIs.
 
-Τα generated binaries/manifest αγνοούνται από το Git. Σε νέο checkout τρέξε `npm run prepare:game-saves`. Οι pinned URLs και SHA-256 τιμές βρίσκονται στο `scripts/bootstrap-game-saves.ps1`, ενώ οι άδειες/attributions μπαίνουν στο installer από το `src-tauri/resources/ludusavi/`.
+Τα generated binaries/manifest αγνοούνται από το Git. Σε νέο checkout τρέξε `npm run prepare:game-saves`. Οι pinned URLs και SHA-256 τιμές βρίσκονται στο `scripts/bootstrap-game-saves.ps1`, ενώ οι άδειες/attributions μπαίνουν στο installer από το `backend/resources/ludusavi/`.
 
 ## Μέγεθος παραθύρου
 
@@ -204,7 +204,7 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 
 **Release:**
 
-1. Ανέβασε την έκδοση **και** στο `package.json` **και** στο `src-tauri/Cargo.toml` (π.χ. `7.0.1`) και κάνε commit.
+1. Ανέβασε την έκδοση **και** στο `package.json` **και** στο `backend/Cargo.toml` (π.χ. `7.0.1`) και κάνε commit.
 2. `git tag v7.0.1 && git push origin main v7.0.1`
 3. Το `.github/workflows/release.yml`:
    - ελέγχει ότι tag και εκδόσεις ταιριάζουν, τρέχει `svelte-check` και χτίζει (κατεβάζει και το Ludusavi)
@@ -216,7 +216,7 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 
 **Σε κάθε εκκίνηση, το splash:**
 
-- διαβάζει το `https://downloads.thomast.uk/latest.json` (`UPDATE_FEED` στο `src-tauri/src/updater.rs`)· αν δεν απαντά, ρωτά το `api.github.com/repos/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest`
+- διαβάζει το `https://downloads.thomast.uk/latest.json` (`UPDATE_FEED` στο `backend/src/updater.rs`)· αν δεν απαντά, ρωτά το `api.github.com/repos/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest`
 - αν βρει νεότερη έκδοση, κατεβάζει τον installer (μόνο από `downloads.thomast.uk` ή `github.com`) και ελέγχει το SHA-256 του (από το feed ή από το digest του GitHub· χωρίς hash δεν εγκαθιστά)
 - τον τρέχει σιωπηλά (`/S /UPDATE /R`) και κλείνει
 - ο installer ξανανοίγει τη νέα έκδοση
@@ -227,7 +227,7 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 
 ### Cloudflare Pages site (ξεχωριστό από το updater)
 
-Το `make-your-life-easier.pages.dev` είναι στατικό download/marketing site και δεν σερβίρει το Tauri webview. Τα αρχεία του βρίσκονται στο `site/`, ενώ το root `wrangler.toml` δηλώνει `pages_build_output_dir = "./site"`. Το Pages build command μένει κενό· δεν πρέπει να δείχνει στο Vite `dist/` ούτε να τρέχει `npm run web:build`.
+Το `make-your-life-easier.pages.dev` είναι στατικό download/marketing site και δεν σερβίρει το Tauri webview. Τα αρχεία του βρίσκονται στο `site/`, ενώ το root `wrangler.toml` δηλώνει `pages_build_output_dir = "./site"`. Το Pages build command μένει κενό· δεν πρέπει να δείχνει στο build του Vite ούτε να τρέχει `npm run web:build`.
 
 - Κύριο download: `https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe`
 - GitHub fallback: το latest release του repository
@@ -237,7 +237,7 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 
 ## Setup και uninstall (ανά χρήστη, χωρίς admin)
 
-Το setup είναι δικό μας: το crate `src-tauri/installer` (Rust) με παράθυρο Svelte (`src/installer/`, `src/installer.html`) στο ίδιο σκούρο στυλ με την εφαρμογή. Βγάζει δύο προγράμματα:
+Το setup είναι δικό μας: το crate `backend/installer` (Rust) με παράθυρο Svelte (`frontend/installer/`, `frontend/installer.html`) στο ίδιο σκούρο στυλ με την εφαρμογή. Βγάζει δύο προγράμματα:
 
 - **`setup.exe`**: κουβαλά την εφαρμογή ως ένα συμπαγές XZ payload (`installer/src/payload.rs`). Δείχνει φάκελο εγκατάστασης, διακόπτες για Desktop / Start menu / εκκίνηση με τα Windows / άνοιγμα στο τέλος, πρόοδο ανά αρχείο και οθόνη ολοκλήρωσης. Σε υπάρχουσα εγκατάσταση λέει «Update»/«Reinstall» και κρατά ρυθμίσεις και shortcuts. Αν η εφαρμογή τρέχει, ρωτά και την κλείνει ομαλά (και με τη βία μόνο αν δεν κλείσει).
 - **`uninstall.exe`**: μπαίνει δίπλα στην εφαρμογή και το τρέχουν τα Windows από τα «Installed apps». Ρωτά αν θα σβηστούν **και** οι ρυθμίσεις/δεδομένα (`%APPDATA%` / `%LOCALAPPDATA%\com.thomasthanos.makeyourlifeeasier`, cache). Τα backups του Game Saves δεν αγγίζονται ποτέ. Επειδή ένα πρόγραμμα δεν μπορεί να σβήσει το αρχείο του όσο τρέχει, το `uninstall.exe` (όπως και του NSIS) αντιγράφεται σε νέο φάκελο στο `%TEMP%` και τρέχει από εκεί (`installer/src/relocate.rs`): το αντίγραφο κάνει τη δουλειά, και όταν κλείσει το αρχικό σβήνει κι αυτό και τον φάκελο. Το exit code του `/S` φτάνει κανονικά σε όποιον το έτρεξε. Τα παλιά αντίγραφα στο `%TEMP%` σβήνονται στο επόμενο uninstall.
@@ -267,7 +267,7 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 | Registry | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier` |
 | Game Saves task | `MakeYourLifeEasier Game Saves Backup` (μόνο όταν το schedule είναι Daily/Weekly) |
 
-- Όταν η εφαρμογή ανοίγει από το Startup (`--autostart`), το κύριο παράθυρο ξεκινά ελαχιστοποιημένο στο taskbar. Αυτό ρυθμίζεται στο `finish_startup` (`src-tauri/src/lib.rs`).
+- Όταν η εφαρμογή ανοίγει από το Startup (`--autostart`), το κύριο παράθυρο ξεκινά ελαχιστοποιημένο στο taskbar. Αυτό ρυθμίζεται στο `finish_startup` (`backend/src/lib.rs`).
 - Το uninstall αφαιρεί και το Windows Scheduled Task του Game Saves, και μόνο τα shortcuts που δείχνουν στη δική μας εφαρμογή.
 - Όποια shortcuts επιλέχτηκαν στο setup· το `/UPDATE` δεν ξαναφτιάχνει όσα έσβησε ο χρήστης.
 - Μετά από εγκατάσταση ή απεγκατάσταση, το `scripts/verify-install.ps1` (ή `-Removed`) ελέγχει όλα τα παραπάνω.

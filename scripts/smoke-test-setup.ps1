@@ -4,7 +4,7 @@
   each step leaves on disk and in the registry. CI runs it on every change.
 
 .EXAMPLE
-  ./scripts/smoke-test-setup.ps1 -Setup src-tauri/target/release/bundle/setup/MakeYourLifeEasier_7.0.1_x64-setup.exe
+  ./scripts/smoke-test-setup.ps1 -Setup backend/target/release/bundle/setup/MakeYourLifeEasier_7.0.1_x64-setup.exe
 #>
 param([Parameter(Mandatory = $true)][string]$Setup)
 
@@ -12,7 +12,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$config = Get-Content (Join-Path $root "src-tauri/tauri.conf.json") -Raw | ConvertFrom-Json
+$config = Get-Content (Join-Path $root "backend/tauri.conf.json") -Raw | ConvertFrom-Json
 $version = (Get-Content (Join-Path $root "package.json") -Raw | ConvertFrom-Json).version
 $binary = $config.mainBinaryName
 $uninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$binary"

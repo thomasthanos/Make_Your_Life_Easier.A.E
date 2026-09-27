@@ -34,14 +34,14 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: backend
 
       - run: npm ci
 
       - run: npm run check
 
-      # tauri::generate_context! embeds the built frontends (dist/ for the
-      # app, dist-installer/ for the setup).
+      # tauri::generate_context! embeds the built frontends (backend/target/web/
+      # for the app, backend/target/web-setup/ for the setup).
       - run: npm run web:build
 
       - run: npm run web:setup
@@ -51,11 +51,11 @@ jobs:
       - run: npm run prepare:game-saves
 
       - name: Clippy
-        working-directory: src-tauri
+        working-directory: backend
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Tests
-        working-directory: src-tauri
+        working-directory: backend
         run: cargo test --locked --workspace
 
   setup:
@@ -72,7 +72,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: backend
           key: release
 
       - run: npm ci
@@ -86,7 +86,7 @@ jobs:
       - name: Install, update and uninstall it
         shell: pwsh
         run: |
-          $setup = Get-ChildItem "src-tauri/target/release/bundle/setup/*_x64-setup.exe" | Select-Object -First 1
+          $setup = Get-ChildItem "backend/target/release/bundle/setup/*_x64-setup.exe" | Select-Object -First 1
           if (-not $setup) { throw "The setup was not produced." }
           ./scripts/smoke-test-setup.ps1 -Setup $setup.FullName
 
@@ -94,5 +94,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: setup-${{ github.sha }}
-          path: src-tauri/target/release/bundle/setup/*_x64-setup.exe
+          path: backend/target/release/bundle/setup/*_x64-setup.exe
           retention-days: 7

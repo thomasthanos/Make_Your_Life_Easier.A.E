@@ -1,9 +1,9 @@
 # Builds, signs and publishes a release of the Windows app.
 #
-# Release: bump "version" in package.json and src-tauri/Cargo.toml, commit,
+# Release: bump "version" in package.json and backend/Cargo.toml, commit,
 # then push a matching tag:   git tag v7.0.1 && git push origin main v7.0.1
 #
-# Where updates come from (src-tauri/src/updater.rs):
+# Where updates come from (backend/src/updater.rs):
 #   1. latest.json on Cloudflare R2 (downloads.thomast.uk), uploaded here
 #   2. the GitHub release, as a fallback while R2 is unreachable
 # Both carry the SHA-256 the app checks before it runs the installer.
@@ -42,21 +42,21 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: backend
 
       - name: Read the app version and update feed
         shell: pwsh
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          $cargo = (Select-String -Path src-tauri/Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
+          $cargo = (Select-String -Path backend/Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
           if ($cargo -ne $version) {
-            throw "package.json is $version but src-tauri/Cargo.toml is $cargo"
+            throw "package.json is $version but backend/Cargo.toml is $cargo"
           }
           if ("${{ github.ref_type }}" -eq "tag" -and "v$version" -ne "${{ github.ref_name }}") {
             throw "Tag ${{ github.ref_name }} does not match the app version $version"
           }
           # The app's own feed address, so the upload can never drift from it.
-          $feed = (Select-String -Path src-tauri/src/updater.rs -Pattern 'UPDATE_FEED: &str = "([^"]+)"').Matches[0].Groups[1].Value
+          $feed = (Select-String -Path backend/src/updater.rs -Pattern 'UPDATE_FEED: &str = "([^"]+)"').Matches[0].Groups[1].Value
           $base = $feed.Substring(0, $feed.LastIndexOf('/'))
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "FEED_URL=$feed"   | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -86,7 +86,7 @@ jobs:
           "MYLE_SIGN_PASSWORD=$pass"    | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       # The app, its uninstaller and the setup that carries both
-      # (src-tauri/installer). Also downloads and verifies the pinned Ludusavi
+      # (backend/installer). Also downloads and verifies the pinned Ludusavi
       # runtime for Game Saves (scripts/bootstrap-game-saves.ps1).
       - name: Build
         shell: pwsh
@@ -100,7 +100,7 @@ jobs:
       - name: Collect the installer
         shell: pwsh
         run: |
-          $setup = Get-ChildItem "src-tauri/target/release/bundle/setup/*_x64-setup.exe" | Select-Object -First 1
+          $setup = Get-ChildItem "backend/target/release/bundle/setup/*_x64-setup.exe" | Select-Object -First 1
           if (-not $setup) { throw "The setup was not produced." }
           # No spaces: GitHub would rename "Make Your Life Easier_…" anyway.
           # The updater looks for the "_x64-setup.exe" ending.

@@ -3,7 +3,7 @@
   Downloads and verifies the pinned Ludusavi runtime and manifest used by Game Saves.
 
 .DESCRIPTION
-  Generated files are placed in src-tauri/resources/ludusavi and are intentionally
+  Generated files are placed in backend/resources/ludusavi and are intentionally
   ignored by Git. Release builds run this script before Tauri bundles the app.
 
 .PARAMETER Force
@@ -44,7 +44,7 @@ $expectedOutputs = [ordered]@{
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$outputDir = Join-Path $repoRoot "src-tauri\resources\ludusavi"
+$outputDir = Join-Path $repoRoot "backend\resources\ludusavi"
 
 function Get-Sha256([string]$Path) {
   # Do not depend on Get-FileHash: some stripped-down Windows PowerShell
