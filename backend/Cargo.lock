@@ -2182,7 +2182,7 @@ dependencies = [
 
 [[package]]
 name = "make-your-life-easier"
-version = "7.0.3"
+version = "7.0.4"
 dependencies = [
  "base64 0.22.1",
  "futures-util",
