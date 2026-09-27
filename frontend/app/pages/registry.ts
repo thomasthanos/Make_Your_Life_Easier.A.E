@@ -30,7 +30,7 @@ const defs = [
   { id: "install-apps",         label: "Install Apps",          icon: IconInstallApps,   component: InstallApps },
   { id: "spotify-hub",          label: "Spotify Hub",           icon: IconSpotifyHub,    component: SpotifyHub },
   { id: "game-saves",           label: "Game Saves",            icon: IconGameSaves,     component: GameSaves },
-  { id: "creative-hub",         label: "Creative Hub",          icon: IconCreativeHub,   component: CreativeHub },
+  { id: "creative-hub",         label: "Creative Suite",        icon: IconCreativeHub,   component: CreativeHub },
   { id: "windows-optimization", label: "Windows Optimization",  icon: IconWindowsOpt,    component: WindowsOptimization },
   { id: "system-cleaner",       label: "System Cleaner",        icon: IconSystemCleaner, component: SystemCleaner },
   { id: "system-maintenance",   label: "System Maintenance",    icon: IconSystemMaint,   component: SystemMaintenance },

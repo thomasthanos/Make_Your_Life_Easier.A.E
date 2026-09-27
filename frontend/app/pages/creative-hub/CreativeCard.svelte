@@ -15,6 +15,8 @@
   let iconFailed = $state(false);
 
   const categoryIcons: Record<string, typeof Package> = {
+    creative: Brush,
+    productivity: FileText,
     photo: Image,
     video: Clapperboard,
     art: Brush,

@@ -11,7 +11,10 @@
   });
 </script>
 
-<PageHeader title="Creative Hub" subtitle="Download and set up your packages in one click." />
+<PageHeader
+  title="Creative Suite"
+  subtitle="Adobe 2026 apps, Clip Studio Paint EX, and Office Pro Plus — ready to download and set up in one click."
+/>
 
 {#if creativeState.error}
   <div class="banner surface" role="alert">
