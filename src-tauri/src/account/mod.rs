@@ -134,7 +134,7 @@ fn client() -> Result<reqwest::Client, String> {
 // Commands
 
 /// The signed-in profile, if any. Reads the saved session; no network.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn account_profile(app: AppHandle, state: State<'_, AccountState>) -> Option<Profile> {
     state.session(&app).map(|session| session.profile)
 }
@@ -325,6 +325,16 @@ async fn token_request(grant: &str, body: Value) -> Result<Session, TokenError> 
         .await
         .map_err(|e| TokenError::Network(e.to_string()))?;
     let status = response.status();
+    // Busy or slow, not a verdict on the token: signing out over it would
+    // throw away a perfectly good session.
+    if matches!(
+        status,
+        reqwest::StatusCode::TOO_MANY_REQUESTS | reqwest::StatusCode::REQUEST_TIMEOUT
+    ) {
+        return Err(TokenError::Network(format!(
+            "Supabase is busy ({status}). Try again in a moment."
+        )));
+    }
     let json: Value = response
         .json()
         .await

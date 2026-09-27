@@ -1,6 +1,7 @@
 // App-wide toast notifications.
 //  - at most 2 on screen, the rest wait in a queue
-//  - errors stay until dismissed; success/info close after 5 s
+//  - errors stay until dismissed, unless other messages are waiting: then
+//    they make room after 12 s; success/info close after 5 s
 //  - repeating a visible or queued message bumps its counter (×2, ×3…)
 
 export type ToastKind = "success" | "info" | "error";
@@ -21,6 +22,8 @@ export interface Toast {
 
 const MAX_VISIBLE = 2;
 const AUTO_CLOSE_MS = 5000;
+/** How long an error keeps its place while other toasts wait behind it. */
+const ERROR_YIELD_MS = 12000;
 
 class Toasts {
   visible = $state<Toast[]>([]);
@@ -45,6 +48,7 @@ class Toasts {
     if (shown) {
       shown.count++;
       this.arm(shown); // restart its timer
+      this.yieldErrors();
       return;
     }
     const queued = this.queue.find(same);
@@ -56,16 +60,28 @@ class Toasts {
     this.fill();
   }
 
+  /** Errors that fill every slot would hold the queue forever. */
+  private yieldErrors() {
+    if (!this.queue.length) return;
+    for (const toast of this.visible) {
+      if (toast.kind === "error" && !this.timers.has(toast.id)) {
+        this.timers.set(toast.id, setTimeout(() => this.dismiss(toast.id), ERROR_YIELD_MS));
+      }
+    }
+  }
+
   private fill() {
     while (this.visible.length < MAX_VISIBLE && this.queue.length) {
       const toast = this.queue.shift()!;
       this.visible.push(toast);
       this.arm(this.visible[this.visible.length - 1]);
     }
+    this.yieldErrors();
   }
 
   private arm(toast: Toast) {
     clearTimeout(this.timers.get(toast.id));
+    this.timers.delete(toast.id);
     if (toast.kind === "error") return;
     this.timers.set(toast.id, setTimeout(() => this.dismiss(toast.id), AUTO_CLOSE_MS));
   }

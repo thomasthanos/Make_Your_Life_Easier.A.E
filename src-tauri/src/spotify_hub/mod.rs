@@ -181,7 +181,7 @@ pub async fn spotify_hub_run(
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn spotify_hub_cancel(
     state: State<'_, SpotifyHubState>,
     jobs: State<'_, Jobs>,

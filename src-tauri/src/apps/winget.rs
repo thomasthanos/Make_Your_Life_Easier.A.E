@@ -30,6 +30,13 @@ const NO_PACKAGES_FOUND: i32 = 0x8A15_0014_u32 as i32;
 const NO_APPLICABLE_UPDATE: i32 = 0x8A15_002B_u32 as i32;
 const ALREADY_INSTALLED: i32 = 0x8A15_0061_u32 as i32;
 const REBOOT_REQUIRED: i32 = 0x8A15_0109_u32 as i32;
+// Installer results that another attempt with other options cannot change.
+const PACKAGE_IN_USE: i32 = 0x8A15_0101_u32 as i32;
+const INSTALL_IN_PROGRESS: i32 = 0x8A15_0102_u32 as i32;
+const DISK_FULL: i32 = 0x8A15_0105_u32 as i32;
+const NO_NETWORK: i32 = 0x8A15_0107_u32 as i32;
+const CANCELLED_BY_USER: i32 = 0x8A15_010C_u32 as i32;
+const BLOCKED_BY_POLICY: i32 = 0x8A15_010F_u32 as i32;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -157,6 +164,7 @@ pub async fn apps_install_ignoring_hash(
     match classify(code, mode) {
         Classified::Success(note) => Ok(JobOutcome::Done { note }),
         Classified::UpToDate => Ok(JobOutcome::UpToDate),
+        Classified::Cancelled => Ok(JobOutcome::Cancelled),
         Classified::HashMismatch => Err(describe(code)),
         Classified::Fatal(msg) | Classified::Retry(msg) => Err(msg),
     }
@@ -483,6 +491,7 @@ async fn install_with_retries(
             Classified::Success(note) => return Ok(JobOutcome::Done { note }),
             Classified::UpToDate => return Ok(JobOutcome::UpToDate),
             Classified::HashMismatch => return Ok(JobOutcome::HashMismatch),
+            Classified::Cancelled => return Ok(JobOutcome::Cancelled),
             Classified::Fatal(msg) => return Err(msg),
             Classified::Retry(msg) => last_error = msg,
         }
@@ -495,6 +504,8 @@ enum Classified {
     Success(Option<String>),
     UpToDate,
     HashMismatch,
+    /// The user closed the installer: asking again would be rude.
+    Cancelled,
     /// Retrying with other options cannot help.
     Fatal(String),
     Retry(String),
@@ -509,7 +520,9 @@ fn classify(code: i32, mode: Mode) -> Classified {
         }
         ALREADY_INSTALLED | NO_APPLICABLE_UPDATE => Classified::UpToDate,
         HASH_MISMATCH => Classified::HashMismatch,
-        NO_PACKAGES_FOUND => Classified::Fatal(describe(code)),
+        CANCELLED_BY_USER => Classified::Cancelled,
+        NO_PACKAGES_FOUND | PACKAGE_IN_USE | INSTALL_IN_PROGRESS | DISK_FULL | NO_NETWORK
+        | BLOCKED_BY_POLICY => Classified::Fatal(describe(code)),
         _ => Classified::Retry(describe(code)),
     }
 }
@@ -519,6 +532,13 @@ fn describe(code: i32) -> String {
         DOWNLOAD_FAILED => "Downloading the installer failed.".into(),
         HASH_MISMATCH => "The installer's hash does not match the winget manifest.".into(),
         NO_PACKAGES_FOUND => "The package was not found in winget.".into(),
+        PACKAGE_IN_USE => "The app is running. Close it and try again.".into(),
+        INSTALL_IN_PROGRESS => {
+            "Another installation is running. Wait for it to finish and try again.".into()
+        }
+        DISK_FULL => "There is not enough free disk space.".into(),
+        NO_NETWORK => "The installer could not reach the internet.".into(),
+        BLOCKED_BY_POLICY => "The installation is blocked by a policy on this PC.".into(),
         _ => format!("winget failed with code 0x{:08X}.", code as u32),
     }
 }
@@ -869,6 +889,27 @@ Installer:\n  Installer Url: https://download.blender.org/release/Blender5.2/ble
             classify(DOWNLOAD_FAILED, Mode::Install),
             Classified::Retry(_)
         ));
+        // Closing the installer's window is an answer, not a failure to retry.
+        assert_eq!(
+            classify(CANCELLED_BY_USER, Mode::Install),
+            Classified::Cancelled
+        );
+        for code in [
+            PACKAGE_IN_USE,
+            INSTALL_IN_PROGRESS,
+            DISK_FULL,
+            NO_NETWORK,
+            BLOCKED_BY_POLICY,
+        ] {
+            assert!(matches!(
+                classify(code, Mode::Upgrade),
+                Classified::Fatal(_)
+            ));
+            assert!(
+                !describe(code).contains("code 0x"),
+                "{code:#x} has its own message"
+            );
+        }
         assert_eq!(describe(-1), "winget failed with code 0xFFFFFFFF.");
     }
 

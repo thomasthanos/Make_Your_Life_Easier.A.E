@@ -15,17 +15,21 @@ interface Pending extends ConfirmOptions {
 
 class ConfirmState {
   current = $state<Pending | null>(null);
+  /** Questions asked while another one is on screen, answered in turn. */
+  #waiting: Pending[] = [];
 
   ask(options: ConfirmOptions): Promise<boolean> {
-    this.current?.resolve(false);
     return new Promise((resolve) => {
-      this.current = { ...options, resolve };
+      const pending = { ...options, resolve };
+      // Never answer an open question for the user: a second one waits.
+      if (this.current) this.#waiting.push(pending);
+      else this.current = pending;
     });
   }
 
   answer(ok: boolean) {
     const pending = this.current;
-    this.current = null;
+    this.current = this.#waiting.shift() ?? null;
     pending?.resolve(ok);
   }
 }

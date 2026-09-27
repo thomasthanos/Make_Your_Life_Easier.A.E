@@ -94,8 +94,9 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move {
                     loop {
                         tokio::time::sleep(std::time::Duration::from_secs(12)).await;
-                        // An update download legitimately keeps the splash up.
-                        if updater::is_updating() {
+                        // A slow update check (feed, then GitHub) or an update
+                        // download legitimately keeps the splash up.
+                        if updater::is_checking() || updater::is_updating() {
                             continue;
                         }
                         let hidden = handle

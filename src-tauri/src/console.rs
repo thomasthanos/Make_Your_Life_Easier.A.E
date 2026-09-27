@@ -1,7 +1,9 @@
 //! Turns the raw bytes of a console tool into finished lines.
 //!
 //! Three things make this harder than `String::from_utf8_lossy`:
-//!  - `sfc.exe` writes UTF-16LE **without a BOM**, the rest write single-byte text;
+//!  - `sfc.exe` writes UTF-16LE **without a BOM**, the rest write single-byte
+//!    text: UTF-8 (winget), or the console's OEM code page (`ipconfig`,
+//!    `chkdsk`, DISM), which on a Greek Windows is CP737, not UTF-8;
 //!  - a read can end in the middle of a line, or of a UTF-16 code unit;
 //!  - progress output repaints the same line, so the bytes have to be replayed
 //!    the way a terminal would draw them rather than split on every `\r`.
@@ -22,6 +24,8 @@ const MAX_LINE: usize = 64 * 1024;
 pub enum Encoding {
     Utf8,
     Utf16Le,
+    /// The OEM code page. Chosen once the text turns out not to be UTF-8.
+    Oem,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -86,7 +90,13 @@ impl LineSplitter {
     pub fn finish(&mut self) -> Option<Line> {
         let encoding = self.encoding.or_else(|| sniff_final(&self.bytes))?;
         self.encoding = Some(encoding);
-        let text = self.take_decodable();
+        let mut text = self.take_decodable();
+        // A "character" still cut off once the output has ended was never
+        // UTF-8: it is the last letter of OEM text.
+        if !self.bytes.is_empty() && self.encoding == Some(Encoding::Utf8) {
+            self.encoding = Some(Encoding::Oem);
+            text += &self.take_decodable();
+        }
         for c in text.chars() {
             if !matches!(c, '\r' | '\n' | '\u{0}' | '\u{feff}') {
                 if self.overwrite {
@@ -136,15 +146,29 @@ impl LineSplitter {
                 let whole: Vec<u8> = self.bytes.drain(..take).collect();
                 decode(&whole, Encoding::Utf16Le)
             }
-            _ => {
-                let take = match std::str::from_utf8(&self.bytes) {
-                    Ok(_) => self.bytes.len(),
-                    // A truncated character waits; a broken one is consumed.
-                    Err(e) => e.valid_up_to() + e.error_len().unwrap_or(0),
-                };
-                let whole: Vec<u8> = self.bytes.drain(..take).collect();
-                decode(&whole, Encoding::Utf8)
+            Some(Encoding::Oem) => {
+                let whole = std::mem::take(&mut self.bytes);
+                decode(&whole, Encoding::Oem)
             }
+            _ => match std::str::from_utf8(&self.bytes) {
+                Ok(_) => {
+                    let whole = std::mem::take(&mut self.bytes);
+                    decode(&whole, Encoding::Utf8)
+                }
+                // A byte sequence UTF-8 does not allow: this is the OEM code
+                // page after all. Its ASCII half is the same, so what was
+                // already shown stays right.
+                Err(e) if e.error_len().is_some() => {
+                    self.encoding = Some(Encoding::Oem);
+                    let whole = std::mem::take(&mut self.bytes);
+                    decode(&whole, Encoding::Oem)
+                }
+                // A character cut off by the read waits for the rest.
+                Err(e) => {
+                    let whole: Vec<u8> = self.bytes.drain(..e.valid_up_to()).collect();
+                    decode(&whole, Encoding::Utf8)
+                }
+            },
         }
     }
 }
@@ -191,11 +215,40 @@ fn sniff_final(head: &[u8]) -> Option<Encoding> {
 pub fn decode(bytes: &[u8], encoding: Encoding) -> String {
     match encoding {
         Encoding::Utf8 => String::from_utf8_lossy(bytes).into_owned(),
+        Encoding::Oem => decode_oem(bytes),
         Encoding::Utf16Le => {
             let (pairs, _odd) = bytes.as_chunks::<2>();
             let units: Vec<u16> = pairs.iter().copied().map(u16::from_le_bytes).collect();
             String::from_utf16_lossy(&units)
         }
+    }
+}
+
+/// Text in the console's OEM code page, the way `cmd.exe` would show it.
+fn decode_oem(bytes: &[u8]) -> String {
+    use windows_sys::Win32::Globalization::{CP_OEMCP, MultiByteToWideChar};
+    let Ok(length) = i32::try_from(bytes.len()) else {
+        return String::from_utf8_lossy(bytes).into_owned();
+    };
+    if length == 0 {
+        return String::new();
+    }
+    // Single-byte code pages give one UTF-16 unit per byte.
+    let mut wide = vec![0u16; bytes.len()];
+    // SAFETY: both buffers are valid for the lengths passed with them.
+    let written = unsafe {
+        MultiByteToWideChar(
+            CP_OEMCP,
+            0,
+            bytes.as_ptr(),
+            length,
+            wide.as_mut_ptr(),
+            length,
+        )
+    };
+    match usize::try_from(written) {
+        Ok(written) if written > 0 => String::from_utf16_lossy(&wide[..written]),
+        _ => String::from_utf8_lossy(bytes).into_owned(),
     }
 }
 
@@ -232,6 +285,21 @@ mod tests {
         assert_eq!(sniff(b"Deployment Image Servicing"), Some(Encoding::Utf8));
         assert_eq!(sniff(b""), None);
         assert_eq!(sniff(b"short"), None, "waits for enough bytes to be sure");
+    }
+
+    #[test]
+    fn text_that_is_not_utf8_is_read_in_the_oem_code_page() {
+        let mut splitter = LineSplitter::default();
+        // 0x82 cannot appear on its own in UTF-8; in an OEM code page it is a
+        // letter ("é" in CP437, "Γ" in CP737), whichever this PC uses.
+        let mut lines = splitter.feed(b"Windows IP Configuration\r\nCaf\x82 ok\r\nEnd \xE0");
+        lines.extend(splitter.finish());
+        let shown = drawn(&lines);
+        assert_eq!(shown[0], "Windows IP Configuration");
+        assert!(shown[1].starts_with("Caf") && shown[1].ends_with(" ok"));
+        assert_eq!(shown[1].chars().count(), 7);
+        assert!(shown[2].starts_with("End ") && shown[2].chars().count() == 5);
+        assert!(!shown.concat().contains('\u{fffd}'));
     }
 
     #[test]

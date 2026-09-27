@@ -156,6 +156,9 @@ class InstallAppsState {
   #queue: { entry: AppEntry; mode: Mode }[] = [];
   #current: string | null = null;
   #running = false;
+  /** Work that holds the shared installer slot besides the queue itself. */
+  #activations = 0;
+  #selecting = false;
 
   // ---------------------------------------------------------------- derived
 
@@ -537,6 +540,7 @@ class InstallAppsState {
     if (this.jobs[k] || !operationGate.begin("install-apps")) return;
     const label = app.activateLabel ?? "Activate";
     this.jobs[k] = { mode: "install", phase: "installing", progress: null, note: `${label}…` };
+    this.#activations++;
     try {
       await api.activate(app.id);
       const s = this.statuses[k];
@@ -546,16 +550,37 @@ class InstallAppsState {
       toast.error(`${app.name}: ${message(err)}`);
     } finally {
       delete this.jobs[k];
-      operationGate.end("install-apps");
+      this.#activations--;
+      this.#releaseGate();
     }
+  }
+
+  /** Lets other pages have the installer slot once nothing here needs it:
+   *  an activation finishing must not free it under a running install. */
+  #releaseGate() {
+    if (this.#running || this.#selecting || this.#activations > 0 || this.#queue.length) return;
+    operationGate.end("install-apps");
   }
 
   /** Installs the checked apps; ones with an update are updated instead. */
   async installSelected() {
+    if (this.#selecting) return;
     if (!operationGate.begin("install-apps")) {
       toast.info("Finish the Spotify Hub action before installing apps.");
       return;
     }
+    // Conflict questions are awaited in the loop: a batch that finishes in
+    // the meantime must not free the slot before this one is queued.
+    this.#selecting = true;
+    try {
+      await this.#queueSelected();
+    } finally {
+      this.#selecting = false;
+      this.#releaseGate();
+    }
+  }
+
+  async #queueSelected() {
     const byId = new Map([...this.all, ...this.pinned].map((a) => [a.id, a]));
     let skipped = 0;
     for (const id of [...this.selected]) {
@@ -571,7 +596,6 @@ class InstallAppsState {
       this.enqueue(app, mode);
     }
     if (skipped) toast.info(`${skipped} selected ${skipped === 1 ? "app is" : "apps are"} already installed.`);
-    if (!this.#queue.length && !this.#running) operationGate.end("install-apps");
   }
 
   /** Warns before installing an app that cannot coexist with an installed one. */
@@ -629,7 +653,7 @@ class InstallAppsState {
       }
     } finally {
       this.#running = false;
-      operationGate.end("install-apps");
+      this.#releaseGate();
     }
     // Pick up exact versions after a batch, and again a little later for
     // installers that were still finishing when winget returned.

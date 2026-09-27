@@ -43,34 +43,50 @@ impl Loopback {
     }
 
     /// Answers requests until one carries a code or an error. Anything else
-    /// (a favicon, a stray visit) gets a 404 and is ignored.
+    /// (a favicon, a stray visit) gets a 404 and is ignored. Every connection
+    /// is served on its own: browsers open spare connections that may never
+    /// send a request, and one of those must not hold up the real redirect.
     pub async fn next_callback(&self) -> Callback {
+        let (found, mut callbacks) = tokio::sync::mpsc::channel::<Callback>(1);
         loop {
-            let accepted = match &self.v6 {
-                Some(v6) => tokio::select! {
-                    r = self.v4.accept() => r,
-                    r = v6.accept() => r,
-                },
-                None => self.v4.accept().await,
+            let accepted = tokio::select! {
+                Some(callback) = callbacks.recv() => return callback,
+                accepted = self.v4.accept() => accepted,
+                accepted = accept_optional(self.v6.as_ref()) => accepted,
             };
-            let Ok((mut stream, _)) = accepted else {
+            let Ok((stream, _)) = accepted else {
                 continue;
             };
-            let Some(target) = read_request_target(&mut stream).await else {
-                continue;
-            };
-            match parse_callback(&target) {
-                Some(Callback::Code(code)) => {
-                    respond(&mut stream, 200, &page(true, "")).await;
-                    return Callback::Code(code);
-                }
-                Some(Callback::Error(message)) => {
-                    respond(&mut stream, 200, &page(false, &message)).await;
-                    return Callback::Error(message);
-                }
-                None => respond(&mut stream, 404, "").await,
-            }
+            tokio::spawn(serve(stream, found.clone()));
         }
+    }
+}
+
+async fn accept_optional(
+    listener: Option<&TcpListener>,
+) -> std::io::Result<(TcpStream, std::net::SocketAddr)> {
+    match listener {
+        Some(listener) => listener.accept().await,
+        None => std::future::pending().await,
+    }
+}
+
+/// Answers one request. A code or an error is handed on only after the
+/// browser has its page, so the tab never hangs on a closed app.
+async fn serve(mut stream: TcpStream, found: tokio::sync::mpsc::Sender<Callback>) {
+    let Some(target) = read_request_target(&mut stream).await else {
+        return;
+    };
+    match parse_callback(&target) {
+        Some(Callback::Code(code)) => {
+            respond(&mut stream, 200, &page(true, "")).await;
+            let _ = found.send(Callback::Code(code)).await;
+        }
+        Some(Callback::Error(message)) => {
+            respond(&mut stream, 200, &page(false, &message)).await;
+            let _ = found.send(Callback::Error(message)).await;
+        }
+        None => respond(&mut stream, 404, "").await,
     }
 }
 
@@ -187,6 +203,28 @@ mod tests {
     #[test]
     fn error_text_cannot_inject_markup() {
         assert!(!page(false, "<script>x</script>").contains("<script>x"));
+    }
+
+    #[tokio::test]
+    async fn an_idle_browser_connection_does_not_hold_up_the_redirect() {
+        let server = Loopback::bind(0).await.unwrap();
+        let port = server.v4.local_addr().unwrap().port();
+        // A speculative connection that never sends anything, opened first.
+        let _idle = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+        tokio::spawn(async move {
+            let mut stream = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+            stream
+                .write_all(b"GET /?code=fast HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                .await
+                .unwrap();
+            let mut reply = Vec::new();
+            let _ = stream.read_to_end(&mut reply).await;
+        });
+        let callback =
+            tokio::time::timeout(std::time::Duration::from_secs(2), server.next_callback())
+                .await
+                .expect("the idle connection must not delay the real one");
+        assert_eq!(callback, Callback::Code("fast".into()));
     }
 
     #[tokio::test]

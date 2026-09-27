@@ -1,7 +1,7 @@
 # Make Your Life Easier
 
 Βάση για desktop εφαρμογή Windows: **Tauri 2** (Rust + WebView2) με **Svelte 5 + TypeScript + Vite**.
-Σκούρο UI σε στυλ 3D glass, custom titlebar, sidebar που ανοιγοκλείνει, splash για updates σε στυλ Discord (GitHub Releases) και one-click installer. Το installer περιλαμβάνει επίσης το pinned Ludusavi engine και offline manifest για τη σελίδα Game Saves, επομένως το τελικό μέγεθος εξαρτάται από αυτά τα bundled resources.
+Σκούρο UI σε στυλ 3D glass, custom titlebar, sidebar που ανοιγοκλείνει, splash για updates σε στυλ Discord (Cloudflare R2, με τα GitHub Releases ως εφεδρεία) και one-click installer. Το installer περιλαμβάνει επίσης το pinned Ludusavi engine και offline manifest για τη σελίδα Game Saves, επομένως το τελικό μέγεθος εξαρτάται από αυτά τα bundled resources.
 
 ## Εργαλεία (μία φορά)
 
@@ -20,6 +20,8 @@ npm run check          # έλεγχος τύπων (Svelte + TS)
 cd src-tauri && cargo test --locked
 npm run tauri build    # release exe + installer στο src-tauri/target/release/bundle/nsis/
 ```
+
+Κάθε push στο `main` και κάθε pull request περνά από το `.github/workflows/ci.yml`: `npm run check`, build του frontend, `cargo clippy -D warnings` και `cargo test`, σε Windows.
 
 Το `npm run tauri ...` εκτελεί αυτόματα το `prepare:game-saves`. Το script χρησιμοποιεί SHA-256 μέσω .NET ώστε να λειτουργεί και σε παλαιότερο Windows PowerShell όπου δεν υπάρχει το `Get-FileHash`.
 
@@ -54,7 +56,7 @@ src-tauri/
   src/game_saves/             scan, backup, restore, settings και scheduling
   resources/ludusavi/         pinned engine, manifest, license και notices
   src/window_sizing.rs        αυτόματο μέγεθος παραθύρου
-  src/updater.rs              GitHub Releases updater
+  src/updater.rs              updater (feed στο R2, εφεδρεία τα GitHub Releases)
   src/lib.rs                  εκκίνηση, splash → main
   windows/installer.nsi       custom NSIS template (αλλαγές με "; MYLE:")
   tauri.conf.json             όνομα, έκδοση, παράθυρα, installer

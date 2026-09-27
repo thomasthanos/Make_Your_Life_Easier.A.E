@@ -151,7 +151,7 @@ pub async fn windows_optimization_run(
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn windows_optimization_cancel(
     state: State<'_, WindowsOptimizationState>,
     jobs: State<'_, Jobs>,

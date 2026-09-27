@@ -213,7 +213,7 @@ async fn segmented(
     let done = Arc::new(AtomicU64::new(0));
     let stop = Arc::new(AtomicBool::new(false));
     let parts = split_ranges(total, SEGMENTS).into_iter().map(|(start, end)| {
-        fetch_range(
+        let part = fetch_range(
             client.clone(),
             url.to_string(),
             dest.to_path_buf(),
@@ -221,7 +221,17 @@ async fn segmented(
             end,
             done.clone(),
             stop.clone(),
-        )
+        );
+        let stop = stop.clone();
+        async move {
+            let result = part.await;
+            // One part giving up dooms the whole attempt: stop the others
+            // now rather than let them finish for a file that is refetched.
+            if result.is_err() {
+                stop.store(true, Ordering::Relaxed);
+            }
+            result
+        }
     });
     let mut all = std::pin::pin!(futures_util::future::join_all(parts));
     let mut ticker = tokio::time::interval(PROGRESS_INTERVAL);
@@ -239,8 +249,13 @@ async fn segmented(
     if is_cancelled() {
         return Err(CANCELLED.into());
     }
-    results.into_iter().collect::<Result<Vec<()>, String>>()?;
-    Ok(())
+    // The parts stopped because of a failure report "cancelled"; the failure
+    // itself is what counts (and is not the user cancelling).
+    let mut errors = results.into_iter().filter_map(Result::err);
+    match errors.find(|e| e != CANCELLED) {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
 }
 
 async fn fetch_range(
@@ -264,6 +279,7 @@ async fn fetch_range(
         if stop.load(Ordering::Relaxed) {
             return Err(CANCELLED.into());
         }
+        let resumed_at = position;
         let response = client
             .get(&url)
             .header(RANGE, format!("bytes={position}-{end}"))
@@ -299,6 +315,11 @@ async fn fetch_range(
             Err(e) => last_error = e.to_string(),
         }
         if position <= end {
+            // Only drops in a row count: a long download over a flaky
+            // connection may lose its link many times and still get there.
+            if position > resumed_at {
+                failures = 0;
+            }
             failures += 1;
             if failures > SEGMENT_RETRIES {
                 return Err(last_error);
@@ -494,6 +515,82 @@ mod tests {
         assert_eq!(last, (body.len() as u64, Some(body.len() as u64)));
         // The probe, then one request per part: not the single-stream fallback.
         assert_eq!(requests.load(Ordering::Relaxed), 1 + SEGMENTS);
+        let _ = std::fs::remove_file(&dest);
+    }
+
+    /// Answers the first range request (the probe) and plain requests, but
+    /// refuses the parts that do not start at 0, like a host that stops
+    /// honouring parallel ranges part-way.
+    async fn serve_refusing_parts(body: Vec<u8>) -> String {
+        use tokio::io::AsyncReadExt;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let body = Arc::new(body);
+        tokio::spawn(async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    return;
+                };
+                let body = body.clone();
+                tokio::spawn(async move {
+                    let mut request = Vec::new();
+                    let mut buffer = [0u8; 1024];
+                    while !request.windows(4).any(|w| w == b"\r\n\r\n") {
+                        let Ok(read) = socket.read(&mut buffer).await else {
+                            return;
+                        };
+                        if read == 0 {
+                            return;
+                        }
+                        request.extend_from_slice(&buffer[..read]);
+                    }
+                    let text = String::from_utf8_lossy(&request).to_ascii_lowercase();
+                    let total = body.len();
+                    let start = text
+                        .lines()
+                        .find_map(|line| line.strip_prefix("range: bytes="))
+                        .and_then(|range| range.split('-').next()?.parse::<usize>().ok());
+                    let (head, part): (String, &[u8]) = match start {
+                        Some(0) => (
+                            format!(
+                                "HTTP/1.1 206 Partial Content\r\nContent-Length: {total}\r\nContent-Range: bytes 0-{}/{total}\r\nConnection: close\r\n\r\n",
+                                total - 1
+                            ),
+                            &body[..],
+                        ),
+                        Some(_) => (
+                            "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".into(),
+                            &[],
+                        ),
+                        None => (
+                            format!(
+                                "HTTP/1.1 200 OK\r\nContent-Length: {total}\r\nConnection: close\r\n\r\n"
+                            ),
+                            &body[..],
+                        ),
+                    };
+                    let _ = socket.write_all(head.as_bytes()).await;
+                    let _ = socket.write_all(part).await;
+                });
+            }
+        });
+        format!("http://{address}/file.bin")
+    }
+
+    #[tokio::test]
+    async fn a_refused_part_falls_back_to_one_connection_and_is_not_a_cancel() {
+        let body: Vec<u8> = (0..(SEGMENTED_MIN + 4_321))
+            .map(|i| (i % 241) as u8)
+            .collect();
+        let expected = to_hex(&Sha256::digest(&body));
+        let url = serve_refusing_parts(body.clone()).await;
+        let dest = std::env::temp_dir().join(format!("myle-refused-{}.bin", std::process::id()));
+        let client = http_client("test").unwrap();
+        let hash = download_file(&client, &url, &dest, None, |_, _| {}, || false, true)
+            .await
+            .expect("the plain fallback gets the whole file");
+        assert_eq!(hash.as_deref(), Some(expected.as_str()));
+        assert_eq!(std::fs::read(&dest).unwrap(), body);
         let _ = std::fs::remove_file(&dest);
     }
 

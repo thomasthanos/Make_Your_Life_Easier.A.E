@@ -176,7 +176,7 @@ pub async fn apps_installed(app: AppHandle) -> Result<InstalledReport, String> {
 
 /// Stops the running job for `id`: its process tree is killed and the job
 /// reports `Cancelled`.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn apps_cancel(jobs: State<'_, Jobs>, id: String) {
     jobs.cancel(&id);
 }

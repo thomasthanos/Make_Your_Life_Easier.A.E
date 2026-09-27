@@ -196,7 +196,7 @@ pub fn maintenance_running(running: State<'_, Running>) -> Option<String> {
     running.current()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn maintenance_cancel(running: State<'_, Running>, jobs: State<'_, Jobs>, id: String) {
     running.cancel(&id);
     // winget runs unelevated, so it can simply be killed.

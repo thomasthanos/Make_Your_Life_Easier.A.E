@@ -143,12 +143,21 @@ class AccountState {
     if (this.#applying || !isSynced(key)) return;
     writeRaw(UPDATED_AT_KEY, new Date().toISOString());
     if (!this.profile) return;
+    this.#schedulePush();
+  }
+
+  #schedulePush() {
     clearTimeout(this.#pushTimer);
     this.#pushTimer = setTimeout(() => void this.#pushNow(), PUSH_DELAY_MS);
   }
 
   async #pushNow() {
-    if (!this.profile || this.syncing) return;
+    if (!this.profile) return;
+    // A sync is running: try again after it rather than drop this change.
+    if (this.syncing) {
+      this.#schedulePush();
+      return;
+    }
     this.syncing = true;
     try {
       await this.#push();

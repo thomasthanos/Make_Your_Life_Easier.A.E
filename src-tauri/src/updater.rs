@@ -32,6 +32,30 @@ pub fn is_updating() -> bool {
     UPDATING.load(std::sync::atomic::Ordering::Relaxed)
 }
 
+/// Set while the splash is asking the feed (and maybe GitHub) for a newer
+/// version. Both requests together can take longer than the watchdog waits.
+static CHECKING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn is_checking() -> bool {
+    CHECKING.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Clears `CHECKING` however the check ends.
+struct CheckingGuard;
+
+impl CheckingGuard {
+    fn start() -> Self {
+        CHECKING.store(true, std::sync::atomic::Ordering::Relaxed);
+        Self
+    }
+}
+
+impl Drop for CheckingGuard {
+    fn drop(&mut self) {
+        CHECKING.store(false, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 /// Update feed on the R2 bucket behind downloads.thomast.uk. It is a file of
 /// its own: the old Electron app reads `latest.yml` from the same bucket, and
 /// that is left alone.
@@ -140,6 +164,7 @@ pub async fn check_for_update(app: AppHandle) -> Result<UpdateCheck, String> {
         });
     }
 
+    let _checking = CheckingGuard::start();
     let client = download::http_client(USER_AGENT)?;
     // R2 first: no rate limit, unlike GitHub's 60 anonymous calls an hour per
     // address. GitHub is the fallback while the feed is unreachable or broken.

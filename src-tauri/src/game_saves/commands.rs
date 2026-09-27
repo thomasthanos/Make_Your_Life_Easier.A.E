@@ -31,6 +31,15 @@ const TASK_NAME: &str = "MakeYourLifeEasier Game Saves Backup";
 /// time: parsing the 17 MB file on every scan cost a noticeable pause.
 static MANIFEST: Mutex<Option<(u64, SystemTime, ManifestMetadata)>> = Mutex::new(None);
 
+/// Held by the quick settings commands while they read, change and save the
+/// settings file. They run on the async pool, so two clicks in a row could
+/// otherwise both read the old file and the second save would drop the first.
+static SETTINGS_EDIT: Mutex<()> = Mutex::new(());
+
+fn settings_edit() -> std::sync::MutexGuard<'static, ()> {
+    SETTINGS_EDIT.lock().unwrap_or_else(|p| p.into_inner())
+}
+
 #[tauri::command]
 pub async fn game_saves_get_state(
     app: AppHandle,
@@ -83,12 +92,13 @@ pub async fn game_saves_pick_backup_folder(
     set_backup_folder(&app, &path).map(Some)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_set_backup_folder(
     app: AppHandle,
     state: State<'_, GameSavesState>,
     path: String,
 ) -> Result<GameSavesSettings, String> {
+    let _edit = settings_edit();
     state.ensure_idle()?;
     let candidate = PathBuf::from(path.trim());
     let detected = detection::detect_cloud_folders();
@@ -104,7 +114,7 @@ pub fn game_saves_set_backup_folder(
     set_backup_folder(&app, &candidate)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_open_backup_folder(app: AppHandle) -> Result<(), String> {
     let settings = settings::initialize(&app)?;
     let path = backup_folder(&settings)?;
@@ -113,7 +123,7 @@ pub fn game_saves_open_backup_folder(app: AppHandle) -> Result<(), String> {
     tauri_plugin_opener::open_path(path, None::<&str>).map_err(|error| error.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_open_game_folder(
     state: State<'_, GameSavesState>,
     game_id: String,
@@ -137,16 +147,17 @@ pub fn game_saves_open_game_folder(
     tauri_plugin_opener::open_path(folder, None::<&str>).map_err(|error| error.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_detect_cloud_folders() -> Vec<DetectedFolder> {
     detection::detect_cloud_folders()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_refresh_roots(
     app: AppHandle,
     state: State<'_, GameSavesState>,
 ) -> Result<GameSavesSettings, String> {
+    let _edit = settings_edit();
     state.ensure_idle()?;
     let mut value = settings::initialize(&app)?;
     settings::merge_detected_roots(&mut value);
@@ -190,12 +201,13 @@ pub async fn game_saves_add_root(
     Ok(Some(value))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_remove_root(
     app: AppHandle,
     state: State<'_, GameSavesState>,
     root_id: String,
 ) -> Result<GameSavesSettings, String> {
+    let _edit = settings_edit();
     state.ensure_idle()?;
     let mut value = settings::initialize(&app)?;
     let before = value.roots.len();
@@ -233,13 +245,14 @@ pub async fn game_saves_set_schedule(
     Ok(value)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_set_game_auto_backup(
     app: AppHandle,
     state: State<'_, GameSavesState>,
     game_id: String,
     enabled: bool,
 ) -> Result<GameSavesSettings, String> {
+    let _edit = settings_edit();
     state.ensure_idle()?;
     let game = state
         .find_game(&game_id)
@@ -272,12 +285,13 @@ pub async fn game_saves_pick_folder(
         .map(|picked| picked.map(|path| path.to_string_lossy().into_owned()))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_upsert_custom_game(
     app: AppHandle,
     state: State<'_, GameSavesState>,
     mut game: CustomGame,
 ) -> Result<GameSavesSettings, String> {
+    let _edit = settings_edit();
     state.ensure_idle()?;
     game.name = game.name.trim().to_string();
     if game.name.is_empty()
@@ -359,12 +373,13 @@ pub fn game_saves_upsert_custom_game(
     Ok(value)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_remove_custom_game(
     app: AppHandle,
     state: State<'_, GameSavesState>,
     game_id: String,
 ) -> Result<GameSavesSettings, String> {
+    let _edit = settings_edit();
     state.ensure_idle()?;
     let mut value = settings::initialize(&app)?;
     let before = value.custom_games.len();
@@ -376,12 +391,13 @@ pub fn game_saves_remove_custom_game(
     Ok(value)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_set_path_mapping(
     app: AppHandle,
     state: State<'_, GameSavesState>,
     mut mapping: RestorePathMapping,
 ) -> Result<GameSavesSettings, String> {
+    let _edit = settings_edit();
     state.ensure_idle()?;
     let game = state
         .find_game(&mapping.game_id)
@@ -411,13 +427,14 @@ pub fn game_saves_set_path_mapping(
     Ok(value)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_remove_path_mapping(
     app: AppHandle,
     state: State<'_, GameSavesState>,
     game_id: String,
     source: String,
 ) -> Result<GameSavesSettings, String> {
+    let _edit = settings_edit();
     state.ensure_idle()?;
     let mut value = settings::initialize(&app)?;
     value.path_mappings.retain(|mapping| {
@@ -767,7 +784,7 @@ pub async fn game_saves_undo_last_restore(
 }
 
 /// What of the Game Saves setup the account syncs.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_sync_export(app: AppHandle) -> Result<SyncedGameSaves, String> {
     let value = settings::initialize(&app)?;
     Ok(SyncedGameSaves {
@@ -834,7 +851,7 @@ fn merge_synced_custom_games(local: &mut Vec<CustomGame>, synced: Vec<CustomGame
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn game_saves_cancel(state: State<'_, GameSavesState>) {
     state.cancel();
 }

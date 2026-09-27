@@ -153,39 +153,64 @@ pub struct CustomStatus {
 }
 
 pub async fn statuses(app: &AppHandle) -> Vec<CustomStatus> {
-    let mut out = Vec::new();
-    for entry in CATALOG.iter() {
-        let (installed, version) = detect(entry);
-        // Only look for updates when we know what is installed.
-        let available = match (&version, installed) {
-            (Some(current), true) if !entry.self_updating => {
-                resolver::resolve(app, &entry.id, &entry.resolver)
-                    .await
-                    .ok()
-                    .and_then(|r| r.version)
-                    .filter(|latest| is_newer(latest, current))
+    // Registry and file checks run once for the whole catalog, off the async
+    // workers: reading every Uninstall key again for each app added up.
+    let local = tauri::async_runtime::spawn_blocking(|| {
+        let registered = uninstall_entries();
+        CATALOG
+            .iter()
+            .map(|entry| {
+                let (installed, version) = detect(entry, &registered);
+                (installed, version, installed && is_activated(entry))
+            })
+            .collect::<Vec<_>>()
+    })
+    .await
+    .unwrap_or_default();
+
+    // Only look for updates when we know what is installed. The lookups go
+    // out together rather than one after another.
+    let lookups = CATALOG
+        .iter()
+        .zip(&local)
+        .map(|(entry, (installed, version, _))| async move {
+            match (version.as_deref(), *installed) {
+                (Some(current), true) if !entry.self_updating => {
+                    resolver::resolve(app, &entry.id, &entry.resolver)
+                        .await
+                        .ok()
+                        .and_then(|r| r.version)
+                        .filter(|latest| is_newer(latest, current))
+                }
+                _ => None,
             }
-            _ => None,
-        };
-        out.push(CustomStatus {
-            id: entry.id.clone(),
-            installed,
-            version,
-            available,
-            activated: installed && is_activated(entry),
         });
-    }
-    out
+    let available = futures_util::future::join_all(lookups).await;
+
+    CATALOG
+        .iter()
+        .zip(local)
+        .zip(available)
+        .map(
+            |((entry, (installed, version, activated)), available)| CustomStatus {
+                id: entry.id.clone(),
+                installed,
+                version,
+                available,
+                activated,
+            },
+        )
+        .collect()
 }
 
-fn detect(entry: &CustomApp) -> (bool, Option<String>) {
+fn detect(entry: &CustomApp, registered: &[Registered]) -> (bool, Option<String>) {
     let pattern = entry
         .detect
         .display_name
         .as_deref()
         .and_then(|p| Regex::new(p).ok());
-    if let Some(found) = pattern.and_then(|p| find_uninstall_entry(&p)) {
-        return (true, found);
+    if let Some(found) = pattern.and_then(|p| registered.iter().find(|r| p.is_match(&r.name))) {
+        return (true, found.version.clone());
     }
     if let Some(path) = &entry.detect.path {
         let path = PathBuf::from(expand_env(path));
@@ -238,9 +263,15 @@ fn resolve_path(pattern: &str) -> Option<PathBuf> {
     current.exists().then_some(current)
 }
 
-/// Searches the Uninstall keys (machine 64/32-bit and user) for a matching
-/// DisplayName; returns its DisplayVersion.
-fn find_uninstall_entry(pattern: &Regex) -> Option<Option<String>> {
+/// An installed program as the Uninstall keys list it.
+struct Registered {
+    name: String,
+    version: Option<String>,
+}
+
+/// Every DisplayName (and DisplayVersion) under the Uninstall keys: machine
+/// 64-bit, machine 32-bit, then the user, which is the order matches win in.
+fn uninstall_entries() -> Vec<Registered> {
     use winreg::RegKey;
     use winreg::enums::{
         HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_32KEY, KEY_WOW64_64KEY,
@@ -252,6 +283,7 @@ fn find_uninstall_entry(pattern: &Regex) -> Option<Option<String>> {
         (HKEY_LOCAL_MACHINE, KEY_READ | KEY_WOW64_32KEY),
         (HKEY_CURRENT_USER, KEY_READ),
     ];
+    let mut out = Vec::new();
     for (hive, flags) in views {
         let Ok(root) = RegKey::predef(hive).open_subkey_with_flags(UNINSTALL, flags) else {
             continue;
@@ -263,12 +295,13 @@ fn find_uninstall_entry(pattern: &Regex) -> Option<Option<String>> {
             let Ok(display_name) = key.get_value::<String, _>("DisplayName") else {
                 continue;
             };
-            if pattern.is_match(&display_name) {
-                return Some(key.get_value::<String, _>("DisplayVersion").ok());
-            }
+            out.push(Registered {
+                name: display_name,
+                version: key.get_value::<String, _>("DisplayVersion").ok(),
+            });
         }
     }
-    None
+    out
 }
 
 fn is_activated(entry: &CustomApp) -> bool {
@@ -377,32 +410,40 @@ async fn install(
     let _ = on_event.send(JobEvent::Stage {
         stage: Stage::Installing,
     });
-    let note = match &entry.install {
-        InstallKind::Installer { args } => run_installer(job, &file, args).await?,
-        InstallKind::Portable { dir, exe } => {
-            let target = programs_dir(dir);
-            tokio::fs::create_dir_all(&target).await.map_err(err)?;
-            tokio::fs::copy(&file, target.join(exe))
-                .await
-                .map_err(err)?;
-            write_version_marker(&target, resolved.version.as_deref());
-            None
-        }
-        InstallKind::Zip { dir, run } => {
-            let target = programs_dir(dir);
-            let (zip, dest) = (file.clone(), target.clone());
-            tauri::async_runtime::spawn_blocking(move || extract_zip(&zip, &dest, None, |_, _| {}))
-                .await
-                .map_err(err)??;
-            write_version_marker(&target, resolved.version.as_deref());
-            if let Some(exe) = run {
-                run_installer(job, &target.join(exe), &[]).await?
-            } else {
+    let installed: Result<Option<String>, String> = async {
+        Ok(match &entry.install {
+            InstallKind::Installer { args } => run_installer(job, &file, args).await?,
+            InstallKind::Portable { dir, exe } => {
+                let target = programs_dir(dir);
+                tokio::fs::create_dir_all(&target).await.map_err(err)?;
+                tokio::fs::copy(&file, target.join(exe))
+                    .await
+                    .map_err(err)?;
+                write_version_marker(&target, resolved.version.as_deref());
                 None
             }
-        }
-    };
+            InstallKind::Zip { dir, run } => {
+                let target = programs_dir(dir);
+                let (zip, dest) = (file.clone(), target.clone());
+                tauri::async_runtime::spawn_blocking(move || {
+                    extract_zip(&zip, &dest, None, |_, _| {})
+                })
+                .await
+                .map_err(err)??;
+                write_version_marker(&target, resolved.version.as_deref());
+                if let Some(exe) = run {
+                    run_installer(job, &target.join(exe), &[]).await?
+                } else {
+                    None
+                }
+            }
+        })
+    }
+    .await;
+    // The download is only needed until it has been installed, whether that
+    // worked or not; a failed install used to leave it in %TEMP%.
     let _ = tokio::fs::remove_file(&file).await;
+    let note = installed?;
 
     if let Some(activate) = entry.activate.as_ref().filter(|a| a.after_install) {
         let _ = on_event.send(JobEvent::Note {

@@ -49,7 +49,13 @@ pub async fn run(
         return Ok(HashMap::new());
     }
 
-    let out_file = std::env::temp_dir().join(format!("myle-cleaner-{}.json", std::process::id()));
+    // Unguessable, so nothing can be waiting at this path for the elevated
+    // process to write through.
+    let out_file = std::env::temp_dir().join(format!(
+        "myle-cleaner-{}-{}.json",
+        std::process::id(),
+        uuid::Uuid::new_v4().simple()
+    ));
     let _ = std::fs::remove_file(&out_file);
     let script = build_script(&jobs, action, &out_file);
 
@@ -75,27 +81,61 @@ pub async fn run(
     serde_json::from_str(text.trim_start_matches('\u{feff}').trim()).map_err(err)
 }
 
+/// Walks one folder without ever following a junction or symbolic link, and
+/// measures or deletes the files it finds. Windows PowerShell 5.1 (the one
+/// that ships with Windows) follows links under `Get-ChildItem -Recurse`, and
+/// users can create junctions inside `C:\Windows\Temp`: an administrator
+/// sweep that followed one would delete whatever it points at. So the walk is
+/// done by hand, links are skipped, and each folder's chain up to the root is
+/// re-checked right before it is read.
+const WALKER: &str = r#"$reparse = [IO.FileAttributes]::ReparsePoint
+function Test-Linked([IO.DirectoryInfo]$dir, [string]$root) {
+  $cursor = $dir
+  while ($null -ne $cursor) {
+    $cursor.Refresh()
+    if ($cursor.Attributes -band $reparse) { return $true }
+    if ($cursor.FullName.TrimEnd('\') -ieq $root.TrimEnd('\')) { return $false }
+    $cursor = $cursor.Parent
+  }
+  return $true
+}
+function Invoke-Target([string]$root, [bool]$clean) {
+  $totals = @{ bytes = 0; files = 0; skipped = 0 }
+  if (-not (Test-Path -LiteralPath $root -PathType Container)) { return $totals }
+  $stack = New-Object System.Collections.Generic.Stack[string]
+  $stack.Push($root)
+  while ($stack.Count -gt 0) {
+    $dir = New-Object IO.DirectoryInfo($stack.Pop())
+    if (Test-Linked $dir $root) { continue }
+    foreach ($item in @(Get-ChildItem -LiteralPath $dir.FullName -Force -ErrorAction SilentlyContinue)) {
+      if ($item.Attributes -band $reparse) { continue }
+      if ($item.PSIsContainer) { $stack.Push($item.FullName); continue }
+      $len = $item.Length
+      if ($clean) {
+        try { Remove-Item -LiteralPath $item.FullName -Force -ErrorAction Stop; $totals.bytes += $len; $totals.files += 1 }
+        catch { $totals.skipped += 1 }
+      } else { $totals.bytes += $len; $totals.files += 1 }
+    }
+  }
+  return $totals
+}
+"#;
+
 /// PowerShell that measures or deletes, then writes one JSON object.
 fn build_script(jobs: &[(&str, Vec<&'static Target>)], action: Action, out_file: &Path) -> String {
-    let mut script = String::from("$result = @{}\n");
+    let clean = match action {
+        Action::Measure => "$false",
+        Action::Clean => "$true",
+    };
+    let mut script = String::from(WALKER);
+    script.push_str("$result = @{}\n");
     for (id, targets) in jobs {
         script.push_str("$bytes = 0; $files = 0; $skipped = 0\n");
         for target in targets {
-            let dir = target.path();
             script.push_str(&format!(
-                "$items = @(Get-ChildItem -LiteralPath {} -Recurse -Force -File -ErrorAction SilentlyContinue)\n",
-                ps_quote(&dir.to_string_lossy())
+                "$t = Invoke-Target {} {clean}; $bytes += $t.bytes; $files += $t.files; $skipped += $t.skipped\n",
+                ps_quote(&target.path().to_string_lossy())
             ));
-            match action {
-                Action::Measure => script.push_str(
-                    "foreach ($i in $items) { $bytes += $i.Length; $files += 1 }\n",
-                ),
-                Action::Clean => script.push_str(
-                    "foreach ($i in $items) { $len = $i.Length; \
-                     try { Remove-Item -LiteralPath $i.FullName -Force -ErrorAction Stop; $bytes += $len; $files += 1 } \
-                     catch { $skipped += 1 } }\n",
-                ),
-            }
         }
         script.push_str(&format!(
             "$result[{}] = @{{ bytes = $bytes; files = $files; skipped = $skipped }}\n",
@@ -141,7 +181,12 @@ mod tests {
             .flat_map(|c| c.targets())
             .map(|t| t.path().to_string_lossy().to_ascii_lowercase())
             .collect();
-        for line in script.lines().filter(|l| l.contains("Get-ChildItem")) {
+        let calls: Vec<&str> = script
+            .lines()
+            .filter(|l| l.starts_with("$t = Invoke-Target"))
+            .collect();
+        assert!(!calls.is_empty());
+        for line in calls {
             let quoted = line.split('\'').nth(1).unwrap().to_ascii_lowercase();
             assert!(
                 known.contains(&quoted),
@@ -159,7 +204,24 @@ mod tests {
         let category = targets::find("prefetch").unwrap();
         let jobs = vec![(category.id, category.targets().iter().collect::<Vec<_>>())];
         let script = build_script(&jobs, Action::Measure, Path::new(r"C:\Temp\out.json"));
-        assert!(!script.contains("Remove-Item"));
+        // The walker defines the delete branch; measuring never takes it.
+        assert!(script.contains("Invoke-Target 'C:\\Windows\\Prefetch' $false"));
+        assert!(!script.contains("$true;"));
+    }
+
+    #[test]
+    fn links_are_never_followed() {
+        let category = targets::find("temp").unwrap();
+        let admin: Vec<&'static Target> = category.targets().iter().filter(|t| t.admin).collect();
+        let script = build_script(
+            &[(category.id, admin)],
+            Action::Clean,
+            Path::new(r"C:\Temp\o.json"),
+        );
+        // Windows PowerShell 5.1 follows junctions under -Recurse.
+        assert!(!script.contains("-Recurse"));
+        assert!(script.contains("ReparsePoint"));
+        assert!(script.contains("Test-Linked $dir $root"));
     }
 
     #[test]
