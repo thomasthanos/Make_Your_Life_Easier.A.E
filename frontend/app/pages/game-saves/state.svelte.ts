@@ -8,9 +8,12 @@ import { nav } from "../../../lib/nav.svelte";
 import { notifyChange, readFlag, readJson, writeFlag, writeJson } from "../../../lib/storage";
 import { toast } from "../../../lib/toast.svelte";
 import {
+  CLOUD_PROVIDERS,
   gameSavesApi,
   type BackupSchedule,
+  type CloudProvider,
   type CustomGame,
+  type DetectedFolder,
   type GameSaveEntry,
   type GameSaveStatus,
   type GameSavesEvent,
@@ -26,6 +29,12 @@ import {
   type RootStore,
   type ScheduleWeekday,
 } from "./api";
+
+/** Windows paths, compared as Windows does: case and a trailing slash aside. */
+export function samePath(a: string, b: string) {
+  const normal = (path: string) => path.replace(/[\\/]+$/, "").toLowerCase();
+  return normal(a) === normal(b);
+}
 
 export type GameSavesFilter = "all" | "changed" | "notBackedUp" | "backedUp" | "problems";
 
@@ -576,10 +585,19 @@ class GameSavesState {
     });
   }
 
-  async useDetectedBackupFolder(path: string) {
+  /** Backs up into a cloud folder: a detected one, or one the user points to. */
+  async useCloudFolder(provider: CloudProvider, folder: DetectedFolder | null) {
+    const before = this.page.settings.backupFolder;
     await this.setting("backupFolder", async () => {
-      this.page.settings = await gameSavesApi.setBackupFolder(path);
-      toast.success("Backup folder updated.");
+      const settings = await gameSavesApi.useCloudFolder(provider, folder?.path ?? null);
+      if (!settings) return;
+      this.page.settings = settings;
+      const name = folder?.label ?? CLOUD_PROVIDERS.find((item) => item.id === provider)?.name ?? provider;
+      const moved = !!before && !samePath(before, settings.backupFolder ?? "");
+      toast.success(
+        `Backups now go to ${name}: ${settings.backupFolder}` +
+          (moved ? ". Earlier backups stay in the previous folder." : ""),
+      );
     });
   }
 
@@ -594,7 +612,8 @@ class GameSavesState {
   async detectCloudFolders() {
     await this.setting("cloudFolders", async () => {
       this.page.cloudFolders = await gameSavesApi.detectCloudFolders();
-      if (!this.page.cloudFolders.length) toast.info("No cloud folders were detected.");
+      const count = this.page.cloudFolders.length;
+      toast.info(count ? `Found ${count} cloud folder${count === 1 ? "" : "s"}.` : "No cloud folders were found on this PC.");
     });
   }
 

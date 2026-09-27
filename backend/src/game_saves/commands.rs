@@ -13,10 +13,10 @@ use super::atomic;
 use super::detection;
 use super::engine::{Engine, EngineOutput, failure_detail};
 use super::models::{
-    BackupSchedule, CustomGame, DatabaseUpdate, DetectedFolder, GameRoot, GameSaveEntry,
-    GameSaveStatus, GameSavesEvent, GameSavesOperationResult, GameSavesPageState, GameSavesScan,
-    GameSavesSettings, OperationKind, OperationStage, RestorePathMapping, RestoreSelection,
-    RootSource, RootStore, ScanMode, ScheduleWeekday, SyncedGameSaves,
+    BackupSchedule, CloudProvider, CustomGame, DatabaseUpdate, DetectedFolder, GameRoot,
+    GameSaveEntry, GameSaveStatus, GameSavesEvent, GameSavesOperationResult, GameSavesPageState,
+    GameSavesScan, GameSavesSettings, OperationKind, OperationStage, RestorePathMapping,
+    RestoreSelection, RootSource, RootStore, ScanMode, ScheduleWeekday, SyncedGameSaves,
 };
 use super::parser::{self, ApiGame, ApiOutput, ManifestMetadata};
 use super::scan_cache::{self, CachedScan};
@@ -93,26 +93,58 @@ pub async fn game_saves_pick_backup_folder(
     set_backup_folder(&app, &path).map(Some)
 }
 
-#[tauri::command(async)]
-pub fn game_saves_set_backup_folder(
+/// Makes `<cloud folder>\Make Your Life Easier\Game Saves Backups` the
+/// backup folder, creating it. `path` must be one of the folders this app
+/// detected for `provider`; without one, the user is asked where that
+/// provider's folder is. `None` when that question was cancelled.
+#[tauri::command]
+pub async fn game_saves_use_cloud_folder(
     app: AppHandle,
     state: State<'_, GameSavesState>,
-    path: String,
-) -> Result<GameSavesSettings, String> {
-    let _edit = settings_edit();
+    provider: CloudProvider,
+    path: Option<String>,
+) -> Result<Option<GameSavesSettings>, String> {
     state.ensure_idle()?;
-    let candidate = PathBuf::from(path.trim());
-    let detected = detection::detect_cloud_folders();
-    if !detected
-        .iter()
-        .any(|folder| settings::paths_equal(&candidate, Path::new(&folder.path)))
-    {
-        return Err(
-            "For a quick cloud selection, choose a folder detected by this app. Use Choose folder for any other location."
-                .into(),
-        );
-    }
-    set_backup_folder(&app, &candidate)
+    let root = match path {
+        Some(path) => {
+            let candidate = PathBuf::from(path.trim());
+            let detected = tauri::async_runtime::spawn_blocking(detection::detect_cloud_folders)
+                .await
+                .map_err(|e| e.to_string())?;
+            if !detected.iter().any(|folder| {
+                folder.provider == provider
+                    && settings::paths_equal(&candidate, Path::new(&folder.path))
+            }) {
+                return Err(format!(
+                    "That {} folder is no longer there. Detect the cloud folders again.",
+                    provider.name()
+                ));
+            }
+            candidate
+        }
+        None => {
+            let title = format!("Where is your {} folder?", provider.name());
+            let Some(picked) = pick_folder(app.clone(), title).await? else {
+                return Ok(None);
+            };
+            match provider {
+                CloudProvider::GoogleDrive => detection::google_my_drive(&picked).unwrap_or(picked),
+                _ => picked,
+            }
+        }
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        let _edit = settings_edit();
+        let folder = detection::cloud_backup_folder(&root);
+        let value = settings::initialize(&app)?;
+        // Checked before anything is created on disk.
+        settings::validate_backup_folder(&app, &folder, &value)?;
+        fs::create_dir_all(&folder)
+            .map_err(|e| format!("{} could not be created: {e}", folder.display()))?;
+        set_backup_folder(&app, &folder).map(Some)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command(async)]
@@ -472,8 +504,9 @@ pub async fn game_saves_scan(
     // scan there is none, and the full scan is the only way to find them.
     let cached = scan_cache::load(&root);
     let titles = match (mode.unwrap_or_default(), &cached) {
-        (ScanMode::Quick, Some(cached)) => Some(scan_cache::known_titles(&cached.scan, &value))
-            .filter(|titles| !titles.is_empty()),
+        (ScanMode::Quick, Some(cached)) => {
+            Some(scan_cache::known_titles(&cached.scan, &value)).filter(|titles| !titles.is_empty())
+        }
         _ => None,
     };
     send_stage(&on_event, OperationStage::Scanning);
@@ -823,8 +856,12 @@ pub async fn game_saves_sync_import(
         || value.schedule_time != synced.schedule_time
         || value.schedule_weekday != synced.schedule_weekday;
     if schedule_changed && settings::valid_schedule_time(&synced.schedule_time) {
-        configure_scheduled_task(synced.schedule, &synced.schedule_time, synced.schedule_weekday)
-            .await?;
+        configure_scheduled_task(
+            synced.schedule,
+            &synced.schedule_time,
+            synced.schedule_weekday,
+        )
+        .await?;
         value.schedule = synced.schedule;
         value.schedule_time = synced.schedule_time;
         value.schedule_weekday = synced.schedule_weekday;
@@ -1431,8 +1468,16 @@ mod tests {
             auto_backup: true,
         };
         let mut local = vec![
-            game("custom-a", "Alpha", vec![here.to_string_lossy().into_owned()]),
-            game("custom-keep", "Kept", vec![here.to_string_lossy().into_owned()]),
+            game(
+                "custom-a",
+                "Alpha",
+                vec![here.to_string_lossy().into_owned()],
+            ),
+            game(
+                "custom-keep",
+                "Kept",
+                vec![here.to_string_lossy().into_owned()],
+            ),
         ];
         merge_synced_custom_games(
             &mut local,

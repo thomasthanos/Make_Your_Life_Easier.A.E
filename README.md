@@ -217,7 +217,12 @@ Frontend: `frontend/app/pages/creative-hub/`. Backend: `backend/src/apps/creativ
 - Το frontend στέλνει opaque IDs. Οι τίτλοι περνούν στο Ludusavi μέσω stdin και όχι ως αυθαίρετα command arguments.
 - Οι ρυθμίσεις αποθηκεύονται ατομικά στο app data, μαζί με launcher roots, custom games, exclusions, path mappings, database metadata και το τελευταίο scheduled αποτέλεσμα.
 - Το Daily/Weekly auto-backup δημιουργεί per-user Windows Scheduled Task με `StartWhenAvailable`, χωρίς elevation και χωρίς wake-from-sleep. Το `Off` και το uninstall αφαιρούν το task.
-- Τα OneDrive, Dropbox και Google Drive shortcuts επιλέγουν μόνο τοπικούς συγχρονιζόμενους φακέλους· δεν χρησιμοποιούνται cloud APIs.
+- **Backup στο cloud**: κουμπιά για Dropbox, Google Drive, MEGA και OneDrive. Με το πάτημα φτιάχνεται ο φάκελος `<cloud>\Make Your Life Easier\Game Saves Backups` και γίνεται ο φάκελος των backups (ποτέ η ρίζα του cloud). Χρησιμοποιούνται μόνο οι τοπικοί συγχρονιζόμενοι φάκελοι των εφαρμογών τους, χωρίς cloud APIs ή λογαριασμούς:
+  - **Dropbox**: `info.json` στο `%LOCALAPPDATA%` ή `%APPDATA%\Dropbox` (personal και business), αλλιώς `%USERPROFILE%\Dropbox`.
+  - **Google Drive**: ο δίσκος του Drive for desktop (ρυθμίσεις του στο registry ή δίσκος με όνομα «Google Drive») και το «My Drive» μέσα του σε όποια γλώσσα, ή ο φάκελος mirror στο προφίλ.
+  - **MEGA**: οι ρυθμίσεις του είναι κρυπτογραφημένες, οπότε ψάχνεται `MEGA` / `MEGAsync` στο προφίλ και στα Documents.
+  - **OneDrive**: οι μεταβλητές `OneDrive*` των Windows.
+  - Αν μια υπηρεσία δεν βρεθεί, το κουμπί της ζητά τον φάκελό της και φτιάχνει μέσα τον φάκελο των backups. Τα προηγούμενα backups μένουν στον παλιό φάκελο.
 
 Τα generated binaries/manifest αγνοούνται από το Git. Σε νέο checkout τρέξε `npm run prepare:game-saves`. Οι pinned URLs και SHA-256 τιμές βρίσκονται στο `scripts/bootstrap-game-saves.ps1`, ενώ οι άδειες/attributions μπαίνουν στο installer από το `backend/resources/ludusavi/`.
 

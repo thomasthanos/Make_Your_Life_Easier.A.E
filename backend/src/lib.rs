@@ -161,7 +161,7 @@ pub fn run() {
             windows_optimization::windows_optimization_restart_to_firmware,
             game_saves::commands::game_saves_get_state,
             game_saves::commands::game_saves_pick_backup_folder,
-            game_saves::commands::game_saves_set_backup_folder,
+            game_saves::commands::game_saves_use_cloud_folder,
             game_saves::commands::game_saves_open_backup_folder,
             game_saves::commands::game_saves_open_game_folder,
             game_saves::commands::game_saves_detect_cloud_folders,

@@ -1,5 +1,6 @@
 <script lang="ts">
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
+  import Check from "@lucide/svelte/icons/check";
   import Cloud from "@lucide/svelte/icons/cloud";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import FolderSearch from "@lucide/svelte/icons/folder-search";
@@ -7,8 +8,9 @@
   import Plus from "@lucide/svelte/icons/plus";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import type { BackupSchedule, RootStore, ScheduleWeekday } from "./api";
-  import { formatDate, gameSavesState as gs } from "./state.svelte";
+  import { CLOUD_PROVIDERS, type BackupSchedule, type CloudProvider, type DetectedFolder, type RootStore, type ScheduleWeekday } from "./api";
+  import CloudLogo from "./CloudLogo.svelte";
+  import { formatDate, gameSavesState as gs, samePath } from "./state.svelte";
 
   const storeOptions: { id: RootStore; label: string }[] = [
     { id: "steam", label: "Steam" },
@@ -28,6 +30,22 @@
     { id: "saturday", label: "Saturday" },
     { id: "sunday", label: "Sunday" },
   ];
+  /** One tile per detected folder (a provider can have several accounts),
+   *  and one for each provider not found, which asks where its folder is. */
+  interface CloudTile {
+    key: string;
+    provider: CloudProvider;
+    name: string;
+    folder: DetectedFolder | null;
+  }
+  const cloudTiles = $derived.by(() =>
+    CLOUD_PROVIDERS.flatMap(({ id, name }): CloudTile[] => {
+      const found = gs.page.cloudFolders.filter((folder) => folder.provider === id);
+      return found.length
+        ? found.map((folder) => ({ key: folder.path, provider: id, name: folder.label, folder }))
+        : [{ key: id, provider: id, name, folder: null }];
+    }),
+  );
   const storeLabel = (store: RootStore) => storeOptions.find((item) => item.id === store)?.label ?? store;
   let newRootStore = $state<RootStore>("steam");
   const scheduledFailure = $derived(
@@ -85,25 +103,40 @@
     </div>
 
     <div class="clouds">
-      <span class="sub-label">Cloud folders</span>
-      {#if gs.page.cloudFolders.length}
-        <div class="cloud-list">
-          {#each gs.page.cloudFolders as folder (`${folder.provider}:${folder.path}`)}
-            <button
-              class="cloud-chip"
-              title={`${folder.provider}: ${folder.path}`}
-              disabled={!!gs.settingsBusy || gs.busy}
-              onclick={() => gs.useDetectedBackupFolder(folder.path)}
-            >
-              <Cloud size={12} /> {folder.provider}
-            </button>
-          {/each}
-        </div>
-      {:else}
-        <button class="link" disabled={!!gs.settingsBusy || gs.busy} onclick={() => gs.detectCloudFolders()}>
-          Detect cloud folders
+      <div class="clouds-head">
+        <span class="sub-label">Back up to the cloud</span>
+        <button
+          class="icon-btn"
+          title="Look for cloud folders again"
+          aria-label="Look for cloud folders again"
+          disabled={!!gs.settingsBusy || gs.busy}
+          onclick={() => gs.detectCloudFolders()}
+        >
+          <RefreshCw size={13} class={gs.settingsBusy === "cloudFolders" ? "spin" : ""} />
         </button>
-      {/if}
+      </div>
+      <div class="cloud-list">
+        {#each cloudTiles as tile (tile.key)}
+          {@const inUse = !!tile.folder && !!gs.page.settings.backupFolder && samePath(tile.folder.backupPath, gs.page.settings.backupFolder)}
+          <button
+            class="cloud-tile"
+            class:found={!!tile.folder}
+            class:in-use={inUse}
+            title={tile.folder
+              ? `Backups go to ${tile.folder.backupPath}`
+              : `${tile.name} was not found on this PC. Choose its folder and a backup folder is made inside it.`}
+            disabled={!!gs.settingsBusy || gs.busy}
+            onclick={() => gs.useCloudFolder(tile.provider, tile.folder)}
+          >
+            <CloudLogo provider={tile.provider} />
+            <span class="cloud-text">
+              <strong>{tile.name}</strong>
+              <small>{inUse ? "In use" : tile.folder ? "Found" : "Choose folder…"}</small>
+            </span>
+            {#if inUse}<Check size={14} class="cloud-check" />{/if}
+          </button>
+        {/each}
+      </div>
     </div>
   </article>
 
@@ -357,32 +390,83 @@
     text-transform: uppercase;
   }
 
-  .cloud-list {
+  .clouds-head {
     display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-  }
-
-  .cloud-chip {
-    display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 4px 8px;
-    border: 1px solid rgb(79 209 232 / 0.12);
-    border-radius: 999px;
-    background: rgb(79 209 232 / 0.035);
-    color: rgb(139 210 224 / 0.78);
-    font-size: 11px;
+    justify-content: space-between;
   }
 
-  .cloud-chip:hover {
-    background: rgb(79 209 232 / 0.075);
+  .cloud-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+    gap: 6px;
   }
 
-  .link {
-    justify-self: start;
-    color: var(--accent);
-    font-size: 11.5px;
+  .cloud-tile {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1px dashed rgb(255 255 255 / 0.09);
+    border-radius: 10px;
+    background: rgb(0 0 0 / 0.1);
+    color: var(--text-3);
+    text-align: left;
+    transition:
+      background 140ms var(--ease-out),
+      border-color 140ms var(--ease-out);
+  }
+
+  .cloud-tile.found {
+    border-style: solid;
+    border-color: rgb(255 255 255 / 0.075);
+    background: rgb(255 255 255 / 0.025);
+    color: var(--text-2);
+  }
+
+  .cloud-tile:hover:not(:disabled) {
+    border-color: rgb(139 151 255 / 0.28);
+    background: rgb(139 151 255 / 0.07);
+  }
+
+  .cloud-tile.in-use {
+    border-color: rgb(52 211 153 / 0.35);
+    background: rgb(52 211 153 / 0.07);
+  }
+
+  .cloud-tile:not(.found) :global(svg:first-child) {
+    opacity: 0.55;
+    filter: grayscale(0.5);
+  }
+
+  .cloud-text {
+    display: grid;
+    min-width: 0;
+  }
+
+  .cloud-text strong {
+    overflow: hidden;
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .cloud-text small {
+    color: var(--text-3);
+    font-size: 10.5px;
+  }
+
+  .cloud-tile.in-use small {
+    color: rgb(110 231 183 / 0.9);
+  }
+
+  .cloud-tile :global(.cloud-check) {
+    flex: none;
+    margin-left: auto;
+    color: rgb(110 231 183);
   }
 
   .field {
