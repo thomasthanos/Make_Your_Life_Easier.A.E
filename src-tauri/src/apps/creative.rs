@@ -85,10 +85,19 @@ impl Setup {
 /// command runs on the main thread, where a panic aborts the process at start.
 /// `bundled_catalog_parses` is what catches a bad file before a release.
 fn catalog() -> Vec<CreativeApp> {
-    serde_json::from_str(DEFAULT_CATALOG).unwrap_or_else(|e| {
+    parse_catalog(DEFAULT_CATALOG).unwrap_or_else(|e| {
         eprintln!("catalog/creative-apps.json is invalid: {e}");
         Vec::new()
     })
+}
+
+/// The list is private: the public repository ships the file empty, and a
+/// build made from it has no Creative Hub cards rather than a broken list.
+fn parse_catalog(text: &str) -> serde_json::Result<Vec<CreativeApp>> {
+    if text.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    serde_json::from_str(text)
 }
 
 fn find(id: &str) -> Result<CreativeApp, String> {
@@ -471,13 +480,34 @@ mod tests {
 
     #[test]
     fn bundled_catalog_parses() {
-        let apps: Vec<CreativeApp> = serde_json::from_str(DEFAULT_CATALOG).unwrap();
-        assert!(!apps.is_empty());
+        // Empty in the public repository; whatever a build carries must parse.
+        let apps = parse_catalog(DEFAULT_CATALOG).unwrap();
         for app in &apps {
             assert!(
                 !app.name.is_empty() && !app.description.is_empty() && !app.category.is_empty()
             );
         }
+    }
+
+    #[test]
+    fn an_empty_list_has_no_cards_and_an_entry_like_the_readme_parses() {
+        assert!(parse_catalog("").unwrap().is_empty());
+        assert!(parse_catalog("  \n").unwrap().is_empty());
+        assert!(
+            parse_catalog("[").is_err(),
+            "a broken list is still reported"
+        );
+        let apps = parse_catalog(
+            r#"[{
+                "id": "creative.video", "name": "Suite", "description": "Video tools",
+                "category": "Video", "sizeHint": 1500000000,
+                "source": { "type": "static", "url": "https://example.com/suite.zip" },
+                "setup": { "type": "zip", "run": "setup.exe", "args": [] }
+            }]"#,
+        )
+        .unwrap();
+        assert_eq!(apps.len(), 1);
+        assert_eq!(apps[0].setup.action_label(), "Download & Setup");
     }
 
     #[test]

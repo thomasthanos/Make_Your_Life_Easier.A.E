@@ -168,12 +168,34 @@ impl Allowed {
 
 /// Lower-cased, `..` resolved as far as possible, trailing separators dropped.
 fn normalize(path: &Path) -> PathBuf {
-    let cleaned = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let cleaned = canonical(path);
     let text = cleaned.to_string_lossy().to_ascii_lowercase();
     PathBuf::from(
         text.trim_end_matches(['\\', '/'])
             .trim_start_matches(r"\\?\"),
     )
+}
+
+/// `canonicalize`, also for a path that does not exist (yet): its deepest
+/// existing folder is resolved and the rest appended. A root and a file under
+/// it then compare alike even when one is spelled with 8.3 short names
+/// (`C:\Users\RUNNER~1\...`) and the other is not.
+fn canonical(path: &Path) -> PathBuf {
+    let mut missing = Vec::new();
+    let mut current = path;
+    loop {
+        if let Ok(mut real) = current.canonicalize() {
+            real.extend(missing.iter().rev());
+            return real;
+        }
+        match (current.parent(), current.file_name()) {
+            (Some(parent), Some(name)) => {
+                missing.push(name.to_os_string());
+                current = parent;
+            }
+            _ => return path.to_path_buf(),
+        }
+    }
 }
 
 /// `thumbcache_*.db` style matching (one `*`, case-insensitive).
