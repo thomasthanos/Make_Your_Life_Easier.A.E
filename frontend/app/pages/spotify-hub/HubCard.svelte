@@ -53,10 +53,8 @@
   <!-- The card's height is reserved here, above the console: opening the
        console grows the card downwards instead of pulling the button up. -->
   <div class="main">
-    <header>
-      <span class="icon"><Icon size={22} strokeWidth={1.65} /></span>
-      <span class="status {status.toLowerCase()}" aria-live="polite"><span class="status-dot"></span>{status}</span>
-    </header>
+    <span class="icon"><Icon size={22} strokeWidth={1.65} /></span>
+    <span class="status {status.toLowerCase()}" aria-live="polite"><span class="status-dot"></span>{status}</span>
 
     <div class="copy">
       <h2>{title}</h2>
@@ -155,16 +153,23 @@
     box-shadow: 0 0 15px rgb(var(--tone) / 0.42);
   }
 
-  header,
   .progress-meta,
   .progress-meta span {
     display: flex;
     align-items: center;
   }
 
-  header { justify-content: space-between; gap: 10px; }
+  .main {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto 1fr auto;
+    gap: 14px 10px;
+    flex: 1;
+  }
 
   .icon {
+    grid-column: 1;
+    grid-row: 1;
     display: grid;
     place-items: center;
     width: 44px;
@@ -177,6 +182,10 @@
   }
 
   .status {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -201,22 +210,77 @@
   .status.partial .status-dot { background: #f5b454; box-shadow: 0 0 8px rgb(245 180 84 / 0.45); }
   .status.error .status-dot { background: var(--danger); box-shadow: 0 0 8px rgb(229 72 77 / 0.5); }
 
-  .main { display: flex; flex-direction: column; min-height: 252px; }
-  .copy { margin-top: 17px; margin-bottom: 16px; }
+  .copy {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+  }
+
   h2 { font-size: 16px; }
-  .copy p { margin-top: 7px; color: var(--text-2); font-size: 12px; line-height: 1.48; }
+  .copy p { margin-top: 6px; color: var(--text-2); font-size: 12px; line-height: 1.48; }
   .copy .detail { color: var(--text-3); font-size: 10.75px; }
 
-  .action { align-self: flex-start; margin-top: auto; border-color: rgb(var(--tone) / 0.22); background: var(--tone-soft); }
+  .action {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: start;
+    align-self: end;
+    border-color: rgb(var(--tone) / 0.22);
+    background: var(--tone-soft);
+  }
   .action:hover { border-color: rgb(var(--tone) / 0.4); background: rgb(var(--tone) / 0.16); }
 
-  .progress { display: grid; gap: 7px; margin-top: auto; }
+  .progress {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    align-self: end;
+    display: grid;
+    gap: 7px;
+  }
   .progress-meta { justify-content: space-between; gap: 8px; color: var(--text-2); font-size: 11px; }
   .progress-meta span { gap: 6px; }
   .progress-meta strong { color: var(--text-3); font-size: 10px; font-weight: 500; font-variant-numeric: tabular-nums; }
   .track { position: relative; height: 4px; overflow: hidden; border-radius: 999px; background: rgb(0 0 0 / 0.28); }
   .track span { position: absolute; inset: 0; border-radius: inherit; background: rgb(var(--tone)); box-shadow: 0 0 10px rgb(var(--tone) / 0.5); transform-origin: left; transition: transform 160ms linear; }
   .track.indeterminate span { width: 34%; animation: sweep 1.2s var(--ease-in-out) infinite; }
+
+  @media (max-width: 980px) {
+    .main {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-rows: auto auto;
+      align-items: center;
+      gap: 10px 14px;
+    }
+
+    .icon {
+      grid-column: 1;
+      grid-row: 1 / span 2;
+      align-self: start;
+    }
+
+    .copy {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+    }
+
+    .status {
+      grid-column: 3;
+      grid-row: 1;
+      align-self: start;
+    }
+
+    .action {
+      grid-column: 3;
+      grid-row: 2;
+      justify-self: end;
+      align-self: end;
+    }
+
+    .progress {
+      grid-column: 2 / -1;
+      grid-row: 2;
+    }
+  }
 
   @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(295%); } }
   @keyframes pulse { to { opacity: 0.4; } }

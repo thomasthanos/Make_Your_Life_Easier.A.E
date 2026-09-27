@@ -132,15 +132,31 @@
   .notice.warn { border-color: rgb(245 180 84 / 0.24); color: rgb(255 205 126 / 0.85); }
   .notice :global(svg), .banner :global(svg) { flex: none; }
 
-  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 12px; }
-
-  @media (max-width: 1100px) {
-    .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 12px;
   }
 
-  @media (max-width: 850px) {
-    .cards { grid-template-columns: 1fr; }
-    .top { flex-direction: column; gap: 8px; }
-    .mutex { margin-top: 0; }
+  .cards:has(:global(.collapse.open)) {
+    align-items: start;
+  }
+
+  @media (max-width: 980px) {
+    .cards {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .top {
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mutex {
+      margin-top: 0;
+    }
   }
 </style>

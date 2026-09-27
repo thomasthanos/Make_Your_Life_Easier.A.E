@@ -164,14 +164,15 @@
   }
 
   h3 {
-    font-size: 14.5px;
+    font-size: 14px;
+    line-height: 1.25;
   }
 
   .titles p {
     margin-top: 3px;
     color: var(--text-2);
-    font-size: 12.5px;
-    line-height: 1.45;
+    font-size: 12px;
+    line-height: 1.42;
   }
 
   .foot {
@@ -180,6 +181,8 @@
     justify-content: space-between;
     gap: 10px;
     margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid rgb(255 255 255 / 0.055);
   }
 
   .amount {
