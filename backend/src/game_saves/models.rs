@@ -358,7 +358,17 @@ pub struct GameSavesOperationResult {
     pub processed_games: u64,
     pub processed_bytes: u64,
     pub failed_games: Vec<String>,
+    /// Why each failed game failed, as far as the engine said.
+    #[serde(default)]
+    pub failures: Vec<GameFailure>,
     pub safety_backup_path: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameFailure {
+    pub game: String,
+    pub reason: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

@@ -13,7 +13,7 @@ use super::atomic;
 use super::detection;
 use super::engine::{Engine, EngineOutput, failure_detail};
 use super::models::{
-    BackupSchedule, CloudProvider, CustomGame, DatabaseUpdate, DetectedFolder, GameRoot,
+    BackupSchedule, CloudProvider, CustomGame, DatabaseUpdate, DetectedFolder, GameFailure, GameRoot,
     GameSaveEntry, GameSaveStatus, GameSavesEvent, GameSavesOperationResult, GameSavesPageState,
     GameSavesScan, GameSavesSettings, OperationKind, OperationStage, RestorePathMapping,
     RestoreSelection, RootSource, RootStore, ScanMode, ScheduleWeekday, SyncedGameSaves,
@@ -612,7 +612,6 @@ pub async fn game_saves_backup(
     let engine = Engine::for_app(&app)?;
     engine.prepare(&value)?;
     send_stage(&on_event, OperationStage::BackingUp);
-    send_progress(&on_event, 0, games.len(), None);
     let titles: Vec<String> = games.iter().map(|game| game.title.clone()).collect();
     let input = stdin_titles(&titles);
     let output = run_engine(
@@ -624,7 +623,6 @@ pub async fn game_saves_backup(
     .await?;
     let api = parser::parse_api(&output.stdout)?;
     ensure_not_cancelled(&operation)?;
-    send_progress(&on_event, games.len(), games.len(), None);
     send_stage(&on_event, OperationStage::Finishing);
     Ok(operation_result(OperationKind::Backup, &titles, &api, None))
 }
@@ -649,7 +647,10 @@ pub async fn game_saves_restore(
     // local files. This catches a deleted/corrupt/stale snapshot while it is
     // still safe to stop, and applies persisted path redirects in the preview.
     send_stage(&on_event, OperationStage::Preparing);
-    for (game, snapshot) in &games {
+    let total = games.len();
+    send_progress(&on_event, 0, total, None);
+    for (index, (game, snapshot)) in games.iter().enumerate() {
+        send_progress(&on_event, index, total, Some(game.title.clone()));
         let input = stdin_titles(std::slice::from_ref(&game.title));
         let output = run_engine(
             &engine,
@@ -666,6 +667,7 @@ pub async fn game_saves_restore(
                 game.title
             ));
         }
+        send_progress(&on_event, index + 1, total, Some(game.title.clone()));
     }
 
     send_stage(&on_event, OperationStage::CreatingSafetyBackup);
@@ -729,7 +731,8 @@ pub async fn game_saves_restore(
     let mut processed_games = 0;
     let mut processed_bytes = 0;
     let mut failures = Vec::new();
-    let total = games.len();
+    let mut reasons: Vec<GameFailure> = Vec::new();
+    send_progress(&on_event, 0, total, None);
     for (index, (game, snapshot)) in games.iter().enumerate() {
         if operation.is_cancelled() {
             return Err("The restore was cancelled.".into());
@@ -755,17 +758,29 @@ pub async fn game_saves_restore(
                     processed_games += result.processed_games;
                     processed_bytes += result.processed_bytes;
                     failures.extend(result.failed_games);
+                    reasons.extend(result.failures);
                 }
-                Err(_) => failures.push(game.title.clone()),
+                Err(error) => {
+                    failures.push(game.title.clone());
+                    reasons.push(GameFailure {
+                        game: game.title.clone(),
+                        reason: format!("The engine returned an invalid result: {error}"),
+                    });
+                }
             },
             Err(error) => {
                 if operation.is_cancelled() {
                     return Err("The restore was cancelled.".into());
                 }
                 failures.push(game.title.clone());
+                reasons.push(GameFailure {
+                    game: game.title.clone(),
+                    reason: error.clone(),
+                });
                 let _ = on_event.send(GameSavesEvent::Message { text: error });
             }
         }
+        send_progress(&on_event, index + 1, total, Some(game.title.clone()));
     }
     send_progress(&on_event, total, total, None);
     send_stage(&on_event, OperationStage::Finishing);
@@ -779,6 +794,7 @@ pub async fn game_saves_restore(
         processed_games,
         processed_bytes,
         failed_games: failures,
+        failures: reasons,
         safety_backup_path: safety_path,
     })
 }
@@ -1022,12 +1038,89 @@ pub(crate) fn operation_result(
                 .map(|file| file.bytes)
                 .sum()
         });
+    let failures = failure_reasons(&failed_games, api);
     GameSavesOperationResult {
         kind,
         processed_games,
         processed_bytes,
         failed_games,
+        failures,
         safety_backup_path,
+    }
+}
+
+/// The first error the engine reported for each failed game, in words a
+/// player can act on, with the file it happened to.
+pub(crate) fn failure_reasons(failed: &[String], api: &ApiOutput) -> Vec<GameFailure> {
+    failed
+        .iter()
+        .map(|title| {
+            let game = api
+                .games
+                .iter()
+                .find(|(name, _)| name.eq_ignore_ascii_case(title))
+                .map(|(_, game)| game);
+            let first = game.and_then(|game| {
+                game.files
+                    .iter()
+                    .filter_map(|(path, file)| {
+                        file.error.as_ref().map(|e| (path.as_str(), e.message.as_str()))
+                    })
+                    .chain(game.registry.iter().filter_map(|(path, entry)| {
+                        entry.error.as_ref().map(|e| (path.as_str(), e.message.as_str()))
+                    }))
+                    .next()
+            });
+            let reason = match first {
+                Some((path, message)) => {
+                    format!("{} ({})", explain_error(message), short_path(path))
+                }
+                None if game.is_none() => "The engine did not report this game.".into(),
+                None => "The engine did not finish this game.".into(),
+            };
+            GameFailure {
+                game: title.clone(),
+                reason,
+            }
+        })
+        .collect()
+}
+
+/// Ludusavi passes on the operating system's message; the common ones get a
+/// hint about what to do.
+fn explain_error(message: &str) -> String {
+    let lower = message.to_ascii_lowercase();
+    let code = lower
+        .rsplit_once("os error ")
+        .and_then(|(_, rest)| rest.trim_end_matches(')').trim().parse::<u32>().ok());
+    let hint = match code {
+        // ERROR_CLOUD_FILE_*: an online-only OneDrive (or other cloud) file.
+        Some(362 | 389..=398 | 404) => Some(
+            "the file is online-only in OneDrive or another cloud folder; open that app and let it download, or mark the folder \"Always keep on this device\"",
+        ),
+        Some(32 | 33) => Some("the file is in use; close the game and try again"),
+        Some(5) => Some("access was denied; the game or an antivirus may be holding the file"),
+        Some(206) => Some("the path is too long; choose a shorter backup folder"),
+        Some(112) => Some("the disk is full"),
+        _ if lower.contains("cloud") => {
+            Some("the file is online-only in a cloud folder; let it download first")
+        }
+        _ => None,
+    };
+    match hint {
+        Some(hint) => format!("{}: {hint}", message.trim().trim_end_matches('.')),
+        None => message.trim().to_string(),
+    }
+}
+
+/// The end of a long save path, enough to recognise it.
+fn short_path(path: &str) -> String {
+    const KEEP: usize = 60;
+    let chars: Vec<char> = path.chars().collect();
+    if chars.len() <= KEEP {
+        path.to_string()
+    } else {
+        format!("…{}", chars[chars.len() - KEEP..].iter().collect::<String>())
     }
 }
 
@@ -1387,6 +1480,21 @@ mod tests {
         );
         assert_eq!(result.processed_games, 1);
         assert_eq!(result.failed_games, vec!["Bad"]);
+        assert_eq!(result.failures.len(), 1);
+        assert_eq!(result.failures[0].game, "Bad");
+        assert_eq!(result.failures[0].reason, "locked (x)");
+    }
+
+    #[test]
+    fn common_os_errors_come_with_a_hint() {
+        let cloud = explain_error("The cloud file provider is not running. (os error 362)");
+        assert!(cloud.contains("online-only"), "{cloud}");
+        let busy = explain_error(
+            "The process cannot access the file because it is being used by another process. (os error 32)",
+        );
+        assert!(busy.contains("close the game"), "{busy}");
+        assert_eq!(explain_error("something else"), "something else");
+        assert!(short_path(&"a/".repeat(80)).starts_with('…'));
     }
 
     #[test]

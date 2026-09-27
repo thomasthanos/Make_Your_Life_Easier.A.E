@@ -166,11 +166,18 @@ export interface RestoreSelection {
   snapshotId: string;
 }
 
+export interface GameFailure {
+  game: string;
+  reason: string;
+}
+
 export interface GameSavesOperationResult {
   kind: "backup" | "restore";
   processedGames: number;
   processedBytes: number;
   failedGames: string[];
+  /** Why each failed game failed, as far as the engine said. */
+  failures: GameFailure[];
   safetyBackupPath: string | null;
 }
 

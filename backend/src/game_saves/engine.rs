@@ -116,6 +116,11 @@ impl Engine {
 
     /// Runs the engine; a non-zero exit is an error carrying its last message.
     /// `on_spawn(pid, running)` is told when the process starts and ends.
+    ///
+    /// With `--api`, a non-zero exit that still printed its JSON report is a
+    /// partial result, not a failure: Ludusavi exits with an error when *some*
+    /// files could not be processed, after handling all the others. The
+    /// report says which games failed and why, per file.
     pub(crate) async fn run(
         &self,
         args: &[String],
@@ -124,7 +129,12 @@ impl Engine {
     ) -> Result<EngineOutput, String> {
         let output = self.run_raw(args, stdin, on_spawn).await?;
         if !output.success {
-            return Err(failure_detail(&output.stderr, &output.stdout).to_string());
+            let partial = args.iter().any(|arg| arg == "--api")
+                && crate::game_saves::parser::parse_api(&output.stdout)
+                    .is_ok_and(|api| !api.games.is_empty());
+            if !partial {
+                return Err(failure_detail(&output.stderr, &output.stdout).to_string());
+            }
         }
         Ok(EngineOutput {
             stdout: output.stdout,

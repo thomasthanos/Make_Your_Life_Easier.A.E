@@ -299,7 +299,9 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
     gap: 10px;
-    margin: -10px 0 20px;
+    /* Never pulled up: when the header wraps, the summary chips sit right
+       above and a negative margin slid the panel over them. */
+    margin: 0 0 20px;
   }
 
   .setting-card {
