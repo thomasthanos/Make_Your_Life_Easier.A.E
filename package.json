@@ -19,6 +19,7 @@
     "tauri": "npm run prepare:game-saves && tauri"
   },
   "dependencies": {
+    "@fontsource-variable/outfit": "^5.3.0",
     "@lucide/svelte": "^1.47.0",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-opener": "^2.5.5"

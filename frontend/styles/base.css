@@ -60,7 +60,29 @@ button {
   background: none;
   border: 0;
   padding: 0;
-  cursor: default;
+}
+
+/* The hand cursor on everything that can be clicked. */
+button,
+a[href],
+summary,
+select,
+label:has(> input:not([type="text"], [type="search"])),
+[role="button"],
+[role="tab"],
+[role="option"],
+[role="menuitem"],
+[role="menuitemradio"],
+[role="switch"],
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] {
+  cursor: pointer;
+}
+
+:is(button, input, select):disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 
 :focus-visible {

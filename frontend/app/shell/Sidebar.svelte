@@ -97,7 +97,8 @@
     overflow: hidden;
     transition:
       background var(--dur-fast),
-      color var(--dur-fast);
+      color var(--dur-fast),
+      scale 140ms var(--ease-out);
   }
 
   .item:hover {
@@ -106,7 +107,9 @@
   }
 
   .item:active {
+    scale: 0.96;
     background: var(--press);
+    transition-duration: var(--dur-fast), var(--dur-fast), 50ms;
   }
 
   .item.active {

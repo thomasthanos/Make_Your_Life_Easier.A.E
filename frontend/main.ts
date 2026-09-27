@@ -1,3 +1,4 @@
+import "@fontsource-variable/outfit";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/background.css";

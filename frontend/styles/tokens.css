@@ -6,6 +6,8 @@
   --font-sans: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  /* The name in the title bars (bundled: @fontsource-variable/outfit) */
+  --font-brand: "Outfit Variable", var(--font-display);
 
   /* Surfaces */
   --bg-0: #0a0c12;
@@ -54,13 +56,6 @@
   --press: rgb(255 255 255 / 0.1);
   --selected: rgb(var(--accent-rgb) / 0.14);
 
-  /* Window controls: transparent at rest, tinted only on hover */
-  --ctl-icon: rgb(255 255 255 / 0.72);
-  --ctl-hover: rgb(255 255 255 / 0.08);
-  --ctl-press: rgb(255 255 255 / 0.12);
-  --ctl-close-hover: rgb(239 68 68 / 0.85);
-  --ctl-close-press: rgb(220 50 50 / 0.95);
-
   /* Custom window chrome */
   --window-fill-top: rgb(15 20 31 / 0.76);
   --window-fill-bottom: rgb(8 11 18 / 0.62);
@@ -94,7 +89,6 @@
 
   /* Layout */
   --titlebar-h: 44px;
-  --window-control-w: 46px;
   --window-inset: 8px;
   --chrome-gap: 8px;
   --sidebar-w: 232px;

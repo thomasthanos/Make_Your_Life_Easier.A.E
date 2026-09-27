@@ -1,5 +1,22 @@
 /* Shared form controls: buttons, chips, checkboxes, inputs, menus, status dots. */
 
+/*
+ * Every button sinks a little while the mouse is held on it, and springs
+ * back on release. The `scale` and `translate` properties compose with any
+ * `transform` a component sets. Zero specificity: a component can opt out.
+ */
+:where(button, [role="button"], .btn, .chip, .icon-btn) {
+  transition-property: scale, translate;
+  transition-duration: 140ms;
+  transition-timing-function: var(--ease-out);
+}
+
+:where(button, [role="button"], .btn, .chip, .icon-btn):not(:disabled):active {
+  scale: 0.97;
+  translate: 0 1px;
+  transition-duration: 50ms;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -17,15 +34,35 @@
   transition:
     background var(--dur-fast),
     border-color var(--dur-fast),
-    filter var(--dur-fast);
+    box-shadow var(--dur-fast),
+    filter var(--dur-fast),
+    scale 140ms var(--ease-out),
+    translate 140ms var(--ease-out);
 }
 
 .btn:hover {
   background: rgb(255 255 255 / 0.09);
 }
 
+/* Held down: pressed into the surface. */
 .btn:active {
+  scale: 0.96;
+  translate: 0 1px;
   background: rgb(255 255 255 / 0.12);
+  box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.35);
+  transition-duration: var(--dur-fast), var(--dur-fast), 50ms, 50ms, 50ms, 50ms;
+}
+
+.btn.primary:active,
+.btn.danger:active {
+  filter: brightness(0.9);
+  box-shadow:
+    inset 0 2px 6px rgb(0 0 0 / 0.35),
+    0 2px 6px -4px var(--accent-glow);
+}
+
+.btn.ghost:active {
+  box-shadow: inset 0 1px 4px rgb(0 0 0 / 0.3);
 }
 
 .btn:disabled {
@@ -80,12 +117,20 @@
   color: var(--text-2);
   transition:
     background var(--dur-fast),
-    color var(--dur-fast);
+    color var(--dur-fast),
+    scale 140ms var(--ease-out),
+    translate 140ms var(--ease-out);
 }
 
 .icon-btn:hover {
   background: var(--hover);
   color: var(--text-1);
+}
+
+.icon-btn:active {
+  scale: 0.9;
+  background: var(--press);
+  transition-duration: var(--dur-fast), var(--dur-fast), 50ms, 50ms;
 }
 
 .icon-btn.active {
@@ -109,12 +154,21 @@
   transition:
     background var(--dur-fast),
     border-color var(--dur-fast),
-    color var(--dur-fast);
+    color var(--dur-fast),
+    scale 140ms var(--ease-out),
+    translate 140ms var(--ease-out);
 }
 
 .chip:hover {
   background: rgb(255 255 255 / 0.07);
   color: var(--text-1);
+}
+
+.chip:active {
+  scale: 0.95;
+  background: rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 1px 4px rgb(0 0 0 / 0.3);
+  transition-duration: var(--dur-fast), var(--dur-fast), var(--dur-fast), 50ms, 50ms;
 }
 
 .chip.active {

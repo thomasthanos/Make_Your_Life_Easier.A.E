@@ -3,6 +3,7 @@
   import { isTauri } from "@tauri-apps/api/core";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import Logo from "../../lib/components/Logo.svelte";
+  import WindowButton from "../../lib/components/WindowButton.svelte";
   import { nav } from "../../lib/nav.svelte";
   import { pages } from "../pages/registry";
 
@@ -53,22 +54,13 @@
   </div>
 
   <div class="controls">
-    <button class="ctl" aria-label="Minimize" onclick={() => win?.minimize()}>
-      <svg viewBox="0 0 10 10"><path d="M0 5h10" /></svg>
-    </button>
-    <button class="ctl" aria-label={maximized ? "Restore" : "Maximize"} onclick={() => void toggleMaximized()}>
-      {#if maximized}
-        <svg viewBox="0 0 10 10">
-          <path d="M2.5 2.5v-1a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-1" />
-          <rect x="0.5" y="2.5" width="7" height="7" rx="1" />
-        </svg>
-      {:else}
-        <svg viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" rx="1" /></svg>
-      {/if}
-    </button>
-    <button class="ctl close" aria-label="Close" onclick={() => win?.close()}>
-      <svg viewBox="0 0 10 10"><path d="M.5.5l9 9m0-9l-9 9" /></svg>
-    </button>
+    <WindowButton kind="minimize" label="Minimize" onclick={() => win?.minimize()} />
+    <WindowButton
+      kind="maximize"
+      label={maximized ? "Restore" : "Maximize"}
+      onclick={() => void toggleMaximized()}
+    />
+    <WindowButton kind="close" label="Close" onclick={() => win?.close()} />
   </div>
 </header>
 
@@ -102,9 +94,10 @@
   .brand {
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: 10px;
     min-width: 0;
-    font-size: 12.75px;
+    font-family: var(--font-brand);
+    font-size: 14px;
     white-space: nowrap;
     /* Clicks fall through to the drag region. */
     pointer-events: none;
@@ -112,8 +105,11 @@
 
   .name {
     font-weight: 600;
-    letter-spacing: -0.005em;
-    color: var(--text-1);
+    letter-spacing: 0.01em;
+    background: linear-gradient(180deg, #fff 30%, rgb(var(--accent-soft-rgb)) 130%);
+    background-clip: text;
+    color: transparent;
+    text-shadow: none;
   }
 
   .breadcrumb {
@@ -129,7 +125,9 @@
 
   .page {
     overflow: hidden;
-    color: rgb(214 222 245 / 0.6);
+    color: rgb(214 222 245 / 0.62);
+    font-weight: 400;
+    letter-spacing: 0.01em;
     text-overflow: ellipsis;
   }
 
@@ -137,50 +135,8 @@
     display: flex;
     flex: none;
     align-items: center;
+    gap: 2px;
     height: 100%;
-    border-left: 1px solid rgb(255 255 255 / 0.025);
-  }
-
-  .ctl {
-    display: grid;
-    place-items: center;
-    width: var(--window-control-w);
-    height: 100%;
-    border-left: 1px solid rgb(255 255 255 / 0.018);
-    border-radius: 0;
-    background: transparent;
-    color: var(--ctl-icon);
-    transition:
-      background var(--dur-fast),
-      color var(--dur-fast),
-      box-shadow var(--dur-fast);
-  }
-
-  .ctl:hover {
-    background: var(--ctl-hover);
-    color: #fff;
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.045);
-  }
-
-  .ctl:active {
-    background: var(--ctl-press);
-  }
-
-  .close:hover {
-    background: var(--ctl-close-hover);
-    box-shadow: none;
-  }
-
-  .close:active {
-    background: var(--ctl-close-press);
-  }
-
-  svg {
-    width: 10.5px;
-    height: 10.5px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.05;
-    shape-rendering: geometricPrecision;
+    padding-right: 12px;
   }
 </style>
