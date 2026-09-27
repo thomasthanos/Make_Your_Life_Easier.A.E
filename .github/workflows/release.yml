@@ -182,7 +182,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Hand-written notes when docs/release-notes/<version>.md exists,
+          # GitHub's generated list of changes otherwise.
+          $notes = "docs/release-notes/${env:VERSION}.md"
+          $body = if (Test-Path $notes) { @("--notes-file", $notes) } else { @("--generate-notes") }
           gh release create "${{ github.ref_name }}" (Get-ChildItem out).FullName `
             --title "Make Your Life Easier ${{ github.ref_name }}" `
-            --generate-notes `
+            @body `
             --latest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
