@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" role="img" aria-labelledby="t d">
+  <title id="t">How Make Your Life Easier works</title>
+  <desc id="d">A Svelte 5 frontend talks over IPC to a Rust and Tauri 2 backend, which drives Windows tools such as winget, Ludusavi and Task Scheduler. On every start the updater reads latest.json from Cloudflare R2, checks the SHA-256 and runs the setup silently.</desc>
+  <style>
+    text { font-family: 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif; }
+    .tag { font-size: 11.5px; font-weight: 700; letter-spacing: 1.6px; }
+    .title { font-size: 20px; font-weight: 700; fill: #eef0ff; letter-spacing: -.2px; }
+    .desc { font-size: 13.5px; fill: #9aa3c7; }
+    .mono { font-family: 'Cascadia Code', Consolas, 'SFMono-Regular', Menlo, monospace; font-size: 12px; }
+    .flow { stroke-dasharray: 4 7; animation: flow 1.1s linear infinite; }
+    .flow.back { animation-direction: reverse; }
+    .breathe { transform-box: fill-box; transform-origin: center; animation: breathe 4s ease-in-out infinite; }
+    .step { animation: step 4.8s ease-in-out infinite; }
+    @keyframes flow { to { stroke-dashoffset: -22; } }
+    @keyframes breathe { 0%, 100% { opacity: .5; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.04); } }
+    @keyframes step { 0%, 100% { stroke-opacity: .22; } 12%, 30% { stroke-opacity: .95; } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#171e35" />
+      <stop offset="1" stop-color="#0e1325" />
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#aab4ff" stop-opacity=".26" />
+      <stop offset="1" stop-color="#aab4ff" stop-opacity=".07" />
+    </linearGradient>
+    <linearGradient id="lane" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#8b83ff" stop-opacity=".16" />
+      <stop offset="1" stop-color="#45c8e6" stop-opacity=".1" />
+    </linearGradient>
+    <radialGradient id="dot">
+      <stop stop-color="#fff" />
+      <stop offset=".4" stop-color="#8fe6f6" stop-opacity=".8" />
+      <stop offset="1" stop-color="#8fe6f6" stop-opacity="0" />
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="12" /></filter>
+  </defs>
+
+  <!-- Frontend -->
+  <rect x="24.75" y="24.75" width="338.5" height="138.5" rx="20" fill="url(#face)" stroke="url(#edge)" stroke-width="1.5" />
+  <circle class="breathe" cx="330" cy="54" r="30" fill="#ff8a5c" fill-opacity=".16" filter="url(#soft)" />
+  <text class="tag" x="50" y="58" fill="#ff9d78">FRONTEND</text>
+  <text class="title" x="50" y="90">Svelte 5 + TypeScript</text>
+  <text class="desc" x="50" y="116">Σελίδες, splash και παράθυρο setup</text>
+  <text class="mono" x="50" y="142" fill="#ff9d78">frontend/</text>
+
+  <!-- Backend -->
+  <rect x="430.75" y="24.75" width="338.5" height="138.5" rx="20" fill="url(#face)" stroke="url(#edge)" stroke-width="1.5" />
+  <circle class="breathe" cx="736" cy="54" r="30" fill="#f0b86e" fill-opacity=".16" filter="url(#soft)" style="animation-delay:-1.3s" />
+  <text class="tag" x="456" y="58" fill="#f6c98a">BACKEND</text>
+  <text class="title" x="456" y="90">Rust + Tauri 2</text>
+  <text class="desc" x="456" y="116">Κάνει όλη τη δουλειά στο PC σου</text>
+  <text class="mono" x="456" y="142" fill="#f6c98a">backend/</text>
+
+  <!-- Windows -->
+  <rect x="836.75" y="24.75" width="338.5" height="138.5" rx="20" fill="url(#face)" stroke="url(#edge)" stroke-width="1.5" />
+  <circle class="breathe" cx="1142" cy="54" r="30" fill="#5ad8ee" fill-opacity=".16" filter="url(#soft)" style="animation-delay:-2.6s" />
+  <text class="tag" x="862" y="58" fill="#86e4f5">WINDOWS</text>
+  <text class="title" x="862" y="90">Εργαλεία συστήματος</text>
+  <text class="desc" x="862" y="116">winget · Ludusavi · Task Scheduler</text>
+  <text class="mono" x="862" y="142" fill="#86e4f5">registry · shortcuts · UAC</text>
+
+  <!-- Frontend <-> backend -->
+  <g stroke-width="2" stroke-linecap="round" fill="none">
+    <path class="flow" d="M370 86H424" stroke="#ff9d78" />
+    <path class="flow back" d="M370 102H424" stroke="#f6c98a" />
+    <path class="flow" d="M776 94H830" stroke="#86e4f5" />
+  </g>
+  <text class="mono" x="397" y="76" text-anchor="middle" fill="#8f98bd">IPC</text>
+  <text class="mono" x="803" y="84" text-anchor="middle" fill="#8f98bd">native</text>
+
+  <!-- Backend -> updates -->
+  <path class="flow" d="M600 170V204" stroke="#b69cff" stroke-width="2" stroke-linecap="round" fill="none" />
+  <text class="mono" x="612" y="192" fill="#8f98bd">updater.rs</text>
+
+  <!-- Update lane -->
+  <rect x="24.75" y="210.75" width="1150.5" height="104.5" rx="20" fill="url(#lane)" stroke="url(#edge)" stroke-width="1.5" />
+  <text class="tag" x="50" y="252" fill="#cdbcff">UPDATES</text>
+  <text class="title" x="50" y="282">Σε κάθε εκκίνηση</text>
+
+  <g fill="none" stroke-width="2" stroke-linecap="round">
+    <path class="flow" d="M510 263H534" stroke="#b69cff" />
+    <path class="flow" d="M726 263H750" stroke="#b69cff" />
+    <path class="flow" d="M942 263H966" stroke="#b69cff" />
+  </g>
+
+  <ellipse cy="263" rx="30" ry="9" fill="url(#dot)">
+    <animate attributeName="cx" values="320;1146" dur="4.8s" repeatCount="indefinite" calcMode="spline" keySplines=".5 0 .5 1" />
+    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.08;.9;1" dur="4.8s" repeatCount="indefinite" />
+  </ellipse>
+
+  <g>
+    <rect class="step" x="314" y="241" width="190" height="44" rx="14" fill="#10162a" stroke="#b69cff" stroke-width="1.5" />
+    <text class="mono" x="409" y="267.5" text-anchor="middle" fill="#e2dcff">latest.json · R2</text>
+    <rect class="step" x="530" y="241" width="190" height="44" rx="14" fill="#10162a" stroke="#58d39a" stroke-width="1.5" style="animation-delay:1.2s" />
+    <text class="mono" x="625" y="267.5" text-anchor="middle" fill="#a9ebc9">SHA-256 ✓</text>
+    <rect class="step" x="746" y="241" width="190" height="44" rx="14" fill="#10162a" stroke="#5ad8ee" stroke-width="1.5" style="animation-delay:2.4s" />
+    <text class="mono" x="841" y="267.5" text-anchor="middle" fill="#b5eef8">setup /S /UPDATE</text>
+    <rect class="step" x="962" y="241" width="190" height="44" rx="14" fill="#10162a" stroke="#f0b86e" stroke-width="1.5" style="animation-delay:3.6s" />
+    <text class="mono" x="1057" y="267.5" text-anchor="middle" fill="#f8d9ab">νέα έκδοση ✦</text>
+  </g>
+
+</svg>
