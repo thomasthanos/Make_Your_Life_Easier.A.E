@@ -30,6 +30,10 @@ $env:MYLE_UPDATER_DEMO = "1"; npm run tauri dev        # ψεύτικο download
 $env:MYLE_UPDATER_DEMO = "offline"; npm run tauri dev  # ψεύτικο σφάλμα δικτύου
 ```
 
+Ή σκέτο στον browser, με `npm run dev` και `http://localhost:1420/splash.html?demo=update` (ή `=offline`, `=latest`).
+
+Το εικονίδιο (ο hooded coder) ζει στο `app-icon.svg`. Μετά από αλλαγή του, ξαναφτιάξε τα PNG/ICO με `npx tauri icon app-icon.svg` και κράτα από το `src-tauri/icons/` μόνο όσα δηλώνει το `tauri.conf.json`. Το λογότυπο μέσα στην εφαρμογή (`src/lib/components/Logo.svelte`) και η κινούμενη εκδοχή του splash (`src/splash/CoderScene.svelte`) διαβάζουν τα ίδια σχήματα από το `src/lib/brand.ts`, οπότε άλλαξέ τα και εκεί.
+
 ## Δομή
 
 ```
@@ -41,7 +45,8 @@ src/
   app/pages/game-saves/       Game Saves UI, state και typed IPC
   lib/toast.svelte.ts         ειδοποιήσεις (toast.success/info/error)
   lib/confirm.svelte.ts       await confirm({...})
-  splash/                     οθόνη updater (λογότυπο, κατάσταση, progress)
+  splash/                     οθόνη updater (κινούμενο λογότυπο, κατάσταση, progress, ταχύτητα)
+  lib/brand.ts                σχήματα του εικονιδίου (Logo.svelte + splash)
   lib/updater.ts              typed γέφυρα προς τον Rust updater
   styles/tokens.css           χρώματα, μεγέθη, κινήσεις
   styles/glass.css            .glass / .surface
@@ -190,7 +195,7 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 - τον τρέχει σιωπηλά (`/S /UPDATE /R`) και κλείνει
 - ο installer ξανανοίγει τη νέα έκδοση
 
-Αν δεν υπάρχει δίκτυο, η εφαρμογή ανοίγει κανονικά μετά από ~2 δευτερόλεπτα.
+Αν δεν υπάρχει δίκτυο, η εφαρμογή ανοίγει κανονικά μετά από ~2 δευτερόλεπτα (η μπάρα μετρά αντίστροφα).
 
 > Ο έλεγχος SHA-256 πιάνει αρχεία που χάλασαν ή άλλαξαν στη διαδρομή. Δεν προστατεύει αν παραβιαστεί ο ίδιος ο λογαριασμός GitHub/Cloudflare.
 

@@ -34,7 +34,7 @@
 
 <header class="titlebar" data-tauri-drag-region>
   <div class="brand">
-    <Logo size={18} />
+    <Logo size={20} />
     <span class="name">Make Your Life Easier</span>
     {#if pageTitle}
       <span class="breadcrumb" aria-label={`Current page: ${pageTitle}`}>

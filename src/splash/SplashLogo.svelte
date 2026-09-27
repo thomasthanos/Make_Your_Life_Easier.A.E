@@ -1,16 +1,15 @@
 <script lang="ts">
-  import Logo from "../lib/components/Logo.svelte";
+  import CoderScene from "./CoderScene.svelte";
 
-  let { busy = true }: { busy?: boolean } = $props();
+  let { tone = "busy" }: { tone?: "busy" | "done" | "error" } = $props();
 </script>
 
 <!-- Every animated layer is its own element that only moves via transform or
      opacity, so the compositor animates it without repainting. -->
-<div class="splash-logo" class:busy>
+<div class="splash-logo {tone}">
   <div class="halo"></div>
-  <div class="track"></div>
-  <div class="ring"></div>
-  <div class="mark"><Logo size={68} /></div>
+  <div class="halo error-halo"></div>
+  <div class="mark"><CoderScene size={124} paused={tone === "error"} /></div>
 </div>
 
 <style>
@@ -18,77 +17,88 @@
     position: relative;
     display: grid;
     place-items: center;
-    width: 112px;
-    height: 112px;
-  }
-
-  .halo,
-  .track,
-  .ring {
-    position: absolute;
-    border-radius: 50%;
+    width: 164px;
+    height: 164px;
   }
 
   .halo {
-    inset: 4px;
-    background: radial-gradient(closest-side, rgb(118 134 255 / 0.5), transparent);
-    animation: halo 2.4s var(--ease-in-out) infinite alternate;
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(118 134 255 / 0.55), rgb(79 209 232 / 0.12) 62%, transparent);
+    transition: opacity var(--dur-slow) var(--ease-out);
     will-change: transform, opacity;
   }
 
-  .track {
-    inset: 0;
-    border: 1px solid rgb(255 255 255 / 0.06);
-  }
-
-  .ring {
-    inset: 0;
-    background: conic-gradient(
-      from 0turn,
-      transparent 0turn 0.42turn,
-      rgb(139 151 255 / 0.9) 0.82turn,
-      #7ee6f5 1turn
-    );
-    mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  .error-halo {
+    background: radial-gradient(closest-side, rgb(229 72 77 / 0.45), transparent);
     opacity: 0;
-    transition: opacity var(--dur-slow) var(--ease-out);
-    animation: spin 1.1s linear infinite;
-    will-change: transform;
   }
 
-  .busy .ring {
+  .error .halo:not(.error-halo) {
+    opacity: 0;
+  }
+
+  .error .error-halo {
     opacity: 1;
   }
 
   .mark {
     position: relative;
-    animation: breathe 2.4s var(--ease-in-out) infinite alternate;
     will-change: transform;
   }
 
-  @keyframes spin {
-    to {
-      transform: rotate(1turn);
-    }
+  /* Drop shadow under the tile, which sits 64/1024 inside the scene box. */
+  .mark::before {
+    content: "";
+    position: absolute;
+    inset: 6.25%;
+    border-radius: 24.5%;
+    box-shadow: 0 16px 32px -12px rgb(0 0 0 / 0.85);
   }
 
-  @keyframes breathe {
-    from {
-      transform: scale(0.95);
+  @media (prefers-reduced-motion: no-preference) {
+    .halo {
+      animation: halo 2.4s var(--ease-in-out) infinite alternate;
     }
-    to {
-      transform: scale(1.03);
+
+    .mark {
+      animation:
+        rise 620ms var(--ease-out) both,
+        float 3.2s var(--ease-in-out) 620ms infinite alternate;
+    }
+
+    .done .mark {
+      animation: done 420ms var(--ease-out) both;
     }
   }
 
   @keyframes halo {
     from {
-      opacity: 0.5;
-      transform: scale(0.9);
+      transform: scale(0.88);
     }
     to {
-      opacity: 1;
       transform: scale(1.06);
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.9);
+    }
+  }
+
+  @keyframes float {
+    to {
+      transform: translateY(-3px);
+    }
+  }
+
+  /* A small pop as the app is about to open. */
+  @keyframes done {
+    50% {
+      transform: scale(1.045);
     }
   }
 </style>
