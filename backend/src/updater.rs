@@ -392,6 +392,8 @@ fn sweep(dir: &std::path::Path) -> bool {
     for entry in entries.flatten() {
         let path = entry.path();
         match entry.file_type() {
+            // The app's own data lives in the install folder too.
+            Ok(kind) if kind.is_dir() && entry.file_name() == "data" => {}
             Ok(kind) if kind.is_dir() => left |= sweep(&path),
             Ok(_) if entry.file_name().to_string_lossy().ends_with(".myle-old") => {
                 left |= std::fs::remove_file(&path).is_err();

@@ -235,7 +235,7 @@ Frontend: `frontend/app/pages/creative-hub/`. Backend: `backend/src/apps/creativ
 Το setup είναι δικό μας: το crate `backend/installer` (Rust) με παράθυρο Svelte (`frontend/installer/`, `frontend/installer.html`) στο ίδιο σκούρο στυλ με την εφαρμογή. Βγάζει δύο προγράμματα:
 
 - **`setup.exe`**: κουβαλά την εφαρμογή ως ένα συμπαγές XZ payload (`installer/src/payload.rs`). Δείχνει φάκελο εγκατάστασης, διακόπτες για Desktop / Start menu / εκκίνηση με τα Windows / άνοιγμα στο τέλος, πρόοδο ανά αρχείο και οθόνη ολοκλήρωσης. Στην ίδια έκδοση εμφανίζει καθαρά «Reinstall» και διατηρεί ρυθμίσεις και δεδομένα. Επιδιορθώνει τα αναγνωρισμένα shortcuts της εφαρμογής και ελέγχει τους προορισμούς τους· το Startup shortcut ξεκινά με `--autostart`. Αν η εφαρμογή τρέχει, ζητά να την κλείσεις πριν αλλάξει αρχεία. Με επιλεγμένο το «Open when finished», ανοίγει την εφαρμογή και κλείνει το setup μετά την επιτυχή εγκατάσταση.
-- **`uninstall.exe`**: μπαίνει δίπλα στην εφαρμογή και το τρέχουν τα Windows από τα «Installed apps». Ρωτά αν θα σβηστούν **και** οι ρυθμίσεις/δεδομένα (`%APPDATA%\Make Your Life Easier` / `%LOCALAPPDATA%\Make Your Life Easier`, cache). Κατά τη μετάβαση καθαρίζει και τους παλιούς φακέλους `com.thomasthanos.makeyourlifeeasier`. Τα backups του Game Saves δεν αγγίζονται ποτέ. Επειδή ένα πρόγραμμα δεν μπορεί να σβήσει το αρχείο του όσο τρέχει, το `uninstall.exe` (όπως και του NSIS) αντιγράφεται σε νέο φάκελο στο `%TEMP%` και τρέχει από εκεί (`installer/src/relocate.rs`): το αντίγραφο κάνει τη δουλειά, και όταν κλείσει το αρχικό σβήνει κι αυτό και τον φάκελο. Το exit code του `/S` φτάνει κανονικά σε όποιον το έτρεξε. Τα παλιά αντίγραφα στο `%TEMP%` σβήνονται στο επόμενο uninstall.
+- **`uninstall.exe`**: μπαίνει δίπλα στην εφαρμογή και το τρέχουν τα Windows από τα «Installed apps». Ρωτά αν θα σβηστούν **και** οι ρυθμίσεις/δεδομένα (`%APPDATA%\ThomasThanos\MakeYourLifeEasier` / `%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier\data`, cache). Κατά τη μετάβαση καθαρίζει και τους παλιούς φακέλους `com.thomasthanos.makeyourlifeeasier`. Τα backups του Game Saves δεν αγγίζονται ποτέ. Επειδή ένα πρόγραμμα δεν μπορεί να σβήσει το αρχείο του όσο τρέχει, το `uninstall.exe` (όπως και του NSIS) αντιγράφεται σε νέο φάκελο στο `%TEMP%` και τρέχει από εκεί (`installer/src/relocate.rs`): το αντίγραφο κάνει τη δουλειά, και όταν κλείσει το αρχικό σβήνει κι αυτό και τον φάκελο. Το exit code του `/S` φτάνει κανονικά σε όποιον το έτρεξε. Τα παλιά αντίγραφα στο `%TEMP%` σβήνονται στο επόμενο uninstall.
 
 Η εγκατάσταση είναι «όλα ή τίποτα»: κάθε αρχείο γράφεται δίπλα στο παλιό, και αν κάτι αποτύχει στη μέση επιστρέφει η προηγούμενη έκδοση. Το `install.json` στον φάκελο λέει ποια αρχεία έβαλε το setup, ώστε update και uninstall να σβήνουν μόνο αυτά.
 
@@ -256,12 +256,16 @@ Frontend: `frontend/app/pages/creative-hub/`. Backend: `backend/src/apps/creativ
 
 | Τι | Πού |
 |---|---|
-| Πρόγραμμα | `%LOCALAPPDATA%\Programs\Make Your Life Easier\MakeYourLifeEasier.exe` |
+| Πρόγραμμα | `%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier\MakeYourLifeEasier.exe` (όπως η παλιά εφαρμογή) |
+| Ρυθμίσεις, λογαριασμός, Game Saves | `%APPDATA%\ThomasThanos\MakeYourLifeEasier` |
+| Cache και WebView2 (localStorage) | `%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier\data` |
 | Desktop | Windows Desktop known folder (μπορεί να ανακατευθύνεται στο OneDrive) · `Make Your Life Easier.lnk` |
 | Start Menu | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Make Your Life Easier.lnk` |
 | Εκκίνηση με τα Windows | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Make Your Life Easier.lnk` (με `--autostart`) |
 | Registry | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier` |
 | Game Saves task | `MakeYourLifeEasier Game Saves Backup` (μόνο όταν το schedule είναι Daily/Weekly) |
+
+Οι εκδόσεις ως 7.0.x κρατούσαν τα δεδομένα σε φακέλους `com.thomasthanos.makeyourlifeeasier`. Η εφαρμογή τούς μεταφέρει μία φορά, ολόκληρους με ένα rename (`backend/src/storage.rs`). Αν ένας φάκελος είναι σε χρήση (στο live update τρέχει ακόμα η παλιά έκδοση), εκείνη τη φορά χρησιμοποιείται ο παλιός και η μεταφορά ξαναδοκιμάζεται στην επόμενη εκκίνηση. Μισή μεταφορά δεν γίνεται ποτέ, γιατί θα χαλούσε το profile του WebView2.
 
 - Όταν η εφαρμογή ανοίγει από το Startup (`--autostart`), το κύριο παράθυρο ξεκινά ελαχιστοποιημένο στο taskbar. Αυτό ρυθμίζεται στο `finish_startup` (`backend/src/lib.rs`).
 - Το uninstall αφαιρεί και το Windows Scheduled Task του Game Saves, και μόνο τα shortcuts που δείχνουν στη δική μας εφαρμογή.

@@ -82,8 +82,8 @@ pub fn default_dir() -> PathBuf {
     shell::local_app_data()
         .or_else(|| std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
         .unwrap_or_else(std::env::temp_dir)
-        .join("Programs")
-        .join(product::NAME)
+        .join(product::PUBLISHER)
+        .join(product::BINARY)
 }
 
 /// Refuses folders an app must never be installed straight into.
@@ -347,6 +347,7 @@ pub fn sweep_leftovers(dir: &Path) {
     for entry in entries.flatten() {
         let path = entry.path();
         match entry.file_type() {
+            Ok(kind) if kind.is_dir() && entry.file_name() == DATA_DIR => {}
             Ok(kind) if kind.is_dir() => sweep_leftovers(&path),
             Ok(_) if entry.file_name().to_string_lossy().ends_with(&suffix) => {
                 let _ = std::fs::remove_file(&path);
@@ -423,19 +424,29 @@ pub fn existing_shortcuts(dir: &Path) -> [bool; 3] {
 /// account, Game Saves setup and restore safety copies, caches, the web
 /// view's storage. Game Saves backups live in a folder the user chose and
 /// are never touched.
+///
+/// Where they are: `%APPDATA%\ThomasThanos\MakeYourLifeEasier` and
+/// `%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier\data` (see the app's
+/// `storage.rs`), plus the folders earlier versions used.
 pub fn data_folders() -> Vec<PathBuf> {
     let mut folders = Vec::new();
     if let Some(roaming) = shell::roaming_app_data() {
+        folders.push(roaming.join(product::PUBLISHER).join(product::BINARY));
         folders.push(roaming.join(product::NAME));
         folders.push(roaming.join(product::IDENTIFIER));
     }
     if let Some(local) = shell::local_app_data() {
+        folders.push(local.join(product::PUBLISHER).join(product::BINARY).join(DATA_DIR));
         folders.push(local.join(product::NAME));
         folders.push(local.join(product::IDENTIFIER));
     }
     folders.push(std::env::temp_dir().join(product::BINARY));
     folders
 }
+
+/// The app's local data inside its install folder; installs, updates and the
+/// sweep of old copies leave it alone.
+const DATA_DIR: &str = "data";
 
 pub fn uninstall(
     dir: &Path,
@@ -531,7 +542,15 @@ pub fn uninstall(
             if folder.exists() && std::fs::remove_dir_all(&folder).is_err() {
                 // Something still holds a file (the web view shutting down):
                 // finish once this program is gone.
-                after_exit.remove.push(folder);
+                after_exit.remove.push(folder.clone());
+            }
+            // %APPDATA%\ThomasThanos, when it held nothing else.
+            if let Some(parent) = folder.parent()
+                && parent
+                    .file_name()
+                    .is_some_and(|name| name.eq_ignore_ascii_case(product::PUBLISHER))
+            {
+                after_exit.remove_if_empty.push(parent.to_path_buf());
             }
         }
     }
@@ -562,26 +581,43 @@ mod tests {
     }
 
     #[test]
-    fn default_install_uses_the_standard_programs_folder_and_product_name() {
-        let expected = shell::local_app_data()
+    fn the_default_install_folder_is_the_old_apps_one() {
+        let local = shell::local_app_data()
             .or_else(|| std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
-            .unwrap_or_else(std::env::temp_dir)
-            .join("Programs")
-            .join(product::NAME);
-        assert_eq!(default_dir(), expected);
+            .unwrap();
+        assert_eq!(default_dir(), local.join("ThomasThanos").join("MakeYourLifeEasier"));
     }
 
     #[test]
-    fn uninstall_knows_the_branded_and_legacy_data_folders() {
+    fn uninstall_knows_the_data_folders_old_and_new() {
         let folders = data_folders();
         if let Some(roaming) = shell::roaming_app_data() {
+            assert!(folders.contains(&roaming.join("ThomasThanos").join("MakeYourLifeEasier")));
             assert!(folders.contains(&roaming.join(product::NAME)));
             assert!(folders.contains(&roaming.join(product::IDENTIFIER)));
         }
         if let Some(local) = shell::local_app_data() {
+            assert!(folders.contains(&default_dir().join("data")));
             assert!(folders.contains(&local.join(product::NAME)));
             assert!(folders.contains(&local.join(product::IDENTIFIER)));
         }
+        assert!(
+            !folders.contains(&default_dir()),
+            "never the whole install folder"
+        );
+    }
+
+    #[test]
+    fn the_sweep_of_old_copies_leaves_the_data_folder_alone() {
+        let dir = temp("sweep-data");
+        std::fs::create_dir_all(dir.join("data")).unwrap();
+        std::fs::create_dir_all(dir.join("res")).unwrap();
+        std::fs::write(dir.join("data").join("x.myle-old"), b"user data").unwrap();
+        std::fs::write(dir.join("res").join("y.myle-old"), b"old copy").unwrap();
+        sweep_leftovers(&dir);
+        assert!(dir.join("data").join("x.myle-old").exists());
+        assert!(!dir.join("res").join("y.myle-old").exists());
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     fn packed(files: &[(&str, &[u8])], version: &str) -> Vec<u8> {
