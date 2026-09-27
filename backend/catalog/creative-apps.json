@@ -161,7 +161,7 @@
         },
         "setup": {
             "type": "zip",
-            "run": "CLIPStudioPaint-restoreversion.exe",
+            "run": "CLIPStudioPaint.exe",
             "args": [],
             "password": "123",
             "onlyRun": true

@@ -5,8 +5,9 @@
   import FileText from "@lucide/svelte/icons/file-text";
   import Image from "@lucide/svelte/icons/image";
   import Package from "@lucide/svelte/icons/package";
+  import RefreshCcw from "@lucide/svelte/icons/refresh-ccw";
   import X from "@lucide/svelte/icons/x";
-  import { creativeState, type CreativeApp, type Job } from "./state.svelte";
+  import { creativeState, CLIP_STUDIO_ID, type CreativeApp, type Job } from "./state.svelte";
 
   let { app }: { app: CreativeApp } = $props();
 
@@ -57,6 +58,14 @@
     const gb = bytes / 1024 ** 3;
     return gb >= 1 ? `${gb.toFixed(1)} GB` : `${Math.round(bytes / 1024 ** 2)} MB`;
   }
+
+  /**
+   * True only for Clip Studio once the restore exe is present in Downloads.
+   * Checked instantly on page load and right after install — no polling delay.
+   */
+  const showRevert = $derived(
+    app.id === CLIP_STUDIO_ID && creativeState.clipStudioRestoreReady,
+  );
 </script>
 
 <article class="card" class:working={!!job}>
@@ -86,6 +95,13 @@
       <button class="icon-btn" title="Cancel" aria-label="Cancel {app.name}" onclick={() => creativeState.cancel(app)}>
         <X size={16} />
       </button>
+    {:else if showRevert}
+      <!-- After install: replace the primary button with the revert action -->
+      <button class="btn revert" onclick={() => creativeState.swapExe()}>
+        <RefreshCcw size={14} />
+        Revert exe (v5.1.4)
+      </button>
+      <span class="meta">After a CELSYS update</span>
     {:else}
       <button class="btn primary" disabled={!app.configured} onclick={() => creativeState.install(app)}>
         <Download size={15} />
@@ -257,5 +273,28 @@
     to {
       transform: translateX(290%);
     }
+  }
+
+  /* Revert button: same size/layout as the primary, but muted amber tint */
+  .btn.revert {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid rgb(255 200 80 / 0.25);
+    border-radius: var(--radius-md, 8px);
+    background: rgb(255 200 80 / 0.08);
+    color: rgb(255 215 100);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+      background var(--dur-fast),
+      border-color var(--dur-fast);
+  }
+
+  .btn.revert:hover {
+    background: rgb(255 200 80 / 0.16);
+    border-color: rgb(255 200 80 / 0.45);
   }
 </style>

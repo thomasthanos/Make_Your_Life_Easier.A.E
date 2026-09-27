@@ -182,6 +182,8 @@ pub fn run() {
             apps::io::apps_import_list,
             apps::creative::creative_catalog,
             apps::creative::creative_install,
+            apps::creative::creative_clip_studio_restore_available,
+            apps::creative::creative_clip_studio_swap_exe,
             cleaner::cleaner_categories,
             cleaner::cleaner_scan,
             cleaner::cleaner_scan_elevated,
