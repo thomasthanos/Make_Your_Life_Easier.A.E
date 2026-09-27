@@ -1,0 +1,58 @@
+[package]
+name = "myle-setup"
+# The version users see comes from package.json (tauri.conf.json); this one
+# never ships anywhere.
+version = "0.0.0"
+description = "Make Your Life Easier Setup"
+authors = ["ThomasThanos"]
+edition = "2024"
+publish = false
+
+[lib]
+name = "myle_setup"
+
+# The distributed installer: carries the app as an embedded payload.
+[[bin]]
+name = "setup"
+path = "src/bin/setup.rs"
+
+# Copied next to the app; what Windows' "Installed apps" runs.
+[[bin]]
+name = "uninstall"
+path = "src/bin/uninstall.rs"
+
+# Build-time tool: packs the staged app files into the payload.
+[[bin]]
+name = "myle-pack"
+path = "src/bin/pack.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+serde_json = "1"
+
+[dependencies]
+# Always serve the embedded UI: this crate is never run against a dev server.
+tauri = { version = "2", features = ["custom-protocol"] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+lzma-rust2 = { version = "0.16", default-features = false, features = ["std", "encoder", "xz"] }
+winreg = "0.56"
+uuid = { version = "1", features = ["v4"] }
+base64 = "0.22"
+# COM (IShellLinkW) writes shortcuts that work for any user name, Greek included.
+windows = { version = "0.61", features = [
+    "Win32_Storage_FileSystem",
+    "Win32_System_Com",
+    "Win32_UI_Shell",
+] }
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Com",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Threading",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }

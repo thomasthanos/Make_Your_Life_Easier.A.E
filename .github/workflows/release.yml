@@ -80,42 +80,28 @@ jobs:
           $cert = (Get-PfxData -FilePath $pfx -Password (ConvertTo-SecureString $pass -AsPlainText -Force)).EndEntityCertificates[0]
           Write-Host "Signing certificate: $($cert.Subject), expires $($cert.NotAfter)"
 
-          # Tauri runs this for the exe, the installer and the uninstaller.
-          $config = Join-Path $env:RUNNER_TEMP "tauri.sign.json"
-          @{
-            bundle = @{
-              windows = @{
-                signCommand = @{
-                  cmd  = "powershell"
-                  args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-                           (Join-Path $env:GITHUB_WORKSPACE "scripts/sign.ps1"), "%1")
-                }
-              }
-            }
-          } | ConvertTo-Json -Depth 6 | Set-Content -Path $config -Encoding utf8NoBOM
-
+          # scripts/build-setup.ps1 signs the app, the uninstaller and the
+          # setup with it (scripts/sign.ps1).
           "MYLE_SIGN_PFX=$pfx"          | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "MYLE_SIGN_PASSWORD=$pass"    | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-          "TAURI_SIGN_CONFIG=$config"   | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
-      # Also downloads and verifies the pinned Ludusavi runtime for Game Saves
-      # (scripts/bootstrap-game-saves.ps1); those files are not in Git.
+      # The app, its uninstaller and the setup that carries both
+      # (src-tauri/installer). Also downloads and verifies the pinned Ludusavi
+      # runtime for Game Saves (scripts/bootstrap-game-saves.ps1).
       - name: Build
         shell: pwsh
         run: |
-          if ($env:TAURI_SIGN_CONFIG) {
-            npm run tauri build -- --config $env:TAURI_SIGN_CONFIG
-          } else {
-            Write-Host "::warning::WIN_CSC_LINK is not set: building an unsigned installer."
-            npm run tauri build
+          if (-not $env:MYLE_SIGN_PFX) {
+            Write-Host "::warning::WIN_CSC_LINK is not set: building an unsigned setup."
           }
+          npm run build:setup
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Collect the installer
         shell: pwsh
         run: |
-          $setup = Get-ChildItem "src-tauri/target/release/bundle/nsis/*_x64-setup.exe" | Select-Object -First 1
-          if (-not $setup) { throw "The NSIS installer was not produced." }
+          $setup = Get-ChildItem "src-tauri/target/release/bundle/setup/*_x64-setup.exe" | Select-Object -First 1
+          if (-not $setup) { throw "The setup was not produced." }
           # No spaces: GitHub would rename "Make Your Life Easier_…" anyway.
           # The updater looks for the "_x64-setup.exe" ending.
           $name = "MakeYourLifeEasier_${env:VERSION}_x64-setup.exe"

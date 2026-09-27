@@ -1,14 +1,14 @@
 # Make Your Life Easier
 
 Βάση για desktop εφαρμογή Windows: **Tauri 2** (Rust + WebView2) με **Svelte 5 + TypeScript + Vite**.
-Σκούρο UI σε στυλ 3D glass, custom titlebar, sidebar που ανοιγοκλείνει, splash για updates σε στυλ Discord (Cloudflare R2, με τα GitHub Releases ως εφεδρεία) και one-click installer. Το installer περιλαμβάνει επίσης το pinned Ludusavi engine και offline manifest για τη σελίδα Game Saves, επομένως το τελικό μέγεθος εξαρτάται από αυτά τα bundled resources.
+Σκούρο UI σε στυλ 3D glass, custom titlebar, sidebar που ανοιγοκλείνει, splash για updates σε στυλ Discord (Cloudflare R2, με τα GitHub Releases ως εφεδρεία) και δικό της σκούρο setup/uninstaller (όχι πια NSIS). Το setup περιλαμβάνει επίσης το pinned Ludusavi engine και offline manifest για τη σελίδα Game Saves, επομένως το τελικό μέγεθος εξαρτάται από αυτά τα bundled resources.
 
 ## Εργαλεία (μία φορά)
 
 - Node.js 20+
 - Rust (stable MSVC): `winget install Rustlang.Rustup`
 - Visual Studio 2022 Build Tools με το workload «Desktop development with C++»
-- Το WebView2 υπάρχει ήδη στα Windows 10/11. Το NSIS το κατεβάζει μόνο του το Tauri.
+- Το WebView2 υπάρχει ήδη στα Windows 10/11· αν λείπει, το setup το κατεβάζει από τη Microsoft πριν ανοίξει το παράθυρό του.
 
 ## Εντολές
 
@@ -18,10 +18,10 @@ npm run prepare:game-saves  # κατεβάζει/επαληθεύει τα pinne
 npm run tauri dev      # ανάπτυξη με hot reload
 npm run check          # έλεγχος τύπων (Svelte + TS)
 cd src-tauri && cargo test --locked
-npm run tauri build    # release exe + installer στο src-tauri/target/release/bundle/nsis/
+npm run build:setup    # εφαρμογή + uninstaller + setup στο src-tauri/target/release/bundle/setup/
 ```
 
-Κάθε push στο `main` και κάθε pull request περνά από το `.github/workflows/ci.yml`: `npm run check`, build του frontend, `cargo clippy -D warnings` και `cargo test`, σε Windows.
+Κάθε push στο `main` και κάθε pull request περνά από το `.github/workflows/ci.yml`, σε Windows: `npm run check`, build των frontends, `cargo clippy -D warnings` και `cargo test` για εφαρμογή και setup, και ένα δεύτερο job που χτίζει το setup, το εγκαθιστά, το ενημερώνει και το απεγκαθιστά σιωπηλά (`scripts/smoke-test-setup.ps1`). Το setup του κάθε run μένει 7 μέρες ως artifact.
 
 Το `npm run tauri ...` εκτελεί αυτόματα το `prepare:game-saves`. Το script χρησιμοποιεί SHA-256 μέσω .NET ώστε να λειτουργεί και σε παλαιότερο Windows PowerShell όπου δεν υπάρχει το `Get-FileHash`.
 
@@ -58,10 +58,13 @@ src-tauri/
   src/window_sizing.rs        αυτόματο μέγεθος παραθύρου
   src/updater.rs              updater (feed στο R2, εφεδρεία τα GitHub Releases)
   src/lib.rs                  εκκίνηση, splash → main
-  windows/installer.nsi       custom NSIS template (αλλαγές με "; MYLE:")
-  tauri.conf.json             όνομα, έκδοση, παράθυρα, installer
+  tauri.conf.json             όνομα, έκδοση, παράθυρα, resources (και για το setup)
+  installer/                  setup.exe + uninstall.exe (Rust, δικό τους Tauri παράθυρο)
+src/installer/                το παράθυρο του setup/uninstaller (Svelte)
 scripts/
   bootstrap-game-saves.ps1    λήψη και SHA-256 verification των pinned resources
+  build-setup.ps1             ολόκληρο το setup (npm run build:setup)
+  smoke-test-setup.ps1        σιωπηλό install → update → uninstall με ελέγχους
 ```
 
 ### Νέα σελίδα
@@ -211,7 +214,28 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 - `npm run check:site` ελέγχει τα required αρχεία, internal links, security headers και παλιές Electron/Portable αναφορές
 - Τα R2 objects, το `latest.json` και το release workflow είναι ανεξάρτητα από το Pages deployment
 
-## Εγκατάσταση (one-click, ανά χρήστη, χωρίς admin)
+## Setup και uninstall (ανά χρήστη, χωρίς admin)
+
+Το setup είναι δικό μας: το crate `src-tauri/installer` (Rust) με παράθυρο Svelte (`src/installer/`, `installer.html`) στο ίδιο σκούρο στυλ με την εφαρμογή. Βγάζει δύο προγράμματα:
+
+- **`setup.exe`**: κουβαλά την εφαρμογή ως ένα συμπαγές XZ payload (`installer/src/payload.rs`). Δείχνει φάκελο εγκατάστασης, διακόπτες για Desktop / Start menu / εκκίνηση με τα Windows / άνοιγμα στο τέλος, πρόοδο ανά αρχείο και οθόνη ολοκλήρωσης. Σε υπάρχουσα εγκατάσταση λέει «Update»/«Reinstall» και κρατά ρυθμίσεις και shortcuts. Αν η εφαρμογή τρέχει, ρωτά και την κλείνει ομαλά (και με τη βία μόνο αν δεν κλείσει).
+- **`uninstall.exe`**: μπαίνει δίπλα στην εφαρμογή και το τρέχουν τα Windows από τα «Installed apps». Ρωτά αν θα σβηστούν **και** οι ρυθμίσεις/δεδομένα (`%APPDATA%` / `%LOCALAPPDATA%\com.thomasthanos.makeyourlifeeasier`, cache). Τα backups του Game Saves δεν αγγίζονται ποτέ.
+
+Η εγκατάσταση είναι «όλα ή τίποτα»: κάθε αρχείο γράφεται δίπλα στο παλιό, και αν κάτι αποτύχει στη μέση επιστρέφει η προηγούμενη έκδοση. Το `install.json` στον φάκελο λέει ποια αρχεία έβαλε το setup, ώστε update και uninstall να σβήνουν μόνο αυτά.
+
+Γραμμή εντολών (ίδια με του NSIS, που τη μιλά ήδη ο updater):
+
+| Flag | Τι κάνει |
+|---|---|
+| `/S` | χωρίς παράθυρο (ο updater τρέχει `/S /UPDATE /R`) |
+| `/P` | μόνο πρόοδος, ξεκινά αμέσως και κλείνει μόνο του |
+| `/UPDATE` | τα shortcuts μένουν όπως τα άφησε ο χρήστης |
+| `/R` | ανοίγει την εφαρμογή μετά |
+| `/NS` | χωρίς shortcuts |
+| `/D=<φάκελος>` | άλλος φάκελος (τελευταίο, χωρίς εισαγωγικά) |
+| `/PURGE` | (uninstall) σβήνει και ρυθμίσεις/δεδομένα |
+
+Προεπισκόπηση του παραθύρου στον browser: `npm run dev` και `http://localhost:1420/installer.html?demo=install` (ή `=update`, `=uninstall`, `=running`, `=error`, `=passive`).
 
 | Τι | Πού |
 |---|---|
@@ -223,5 +247,6 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 | Game Saves task | `MakeYourLifeEasier Game Saves Backup` (μόνο όταν το schedule είναι Daily/Weekly) |
 
 - Όταν η εφαρμογή ανοίγει από το Startup (`--autostart`), το κύριο παράθυρο ξεκινά ελαχιστοποιημένο στο taskbar. Αυτό ρυθμίζεται στο `finish_startup` (`src-tauri/src/lib.rs`).
-- Το uninstall αφαιρεί και το Windows Scheduled Task του Game Saves.
+- Το uninstall αφαιρεί και το Windows Scheduled Task του Game Saves, και μόνο τα shortcuts που δείχνουν στη δική μας εφαρμογή.
+- Όποια shortcuts επιλέχτηκαν στο setup· το `/UPDATE` δεν ξαναφτιάχνει όσα έσβησε ο χρήστης.
 - Μετά από εγκατάσταση ή απεγκατάσταση, το `scripts/verify-install.ps1` (ή `-Removed`) ελέγχει όλα τα παραπάνω.

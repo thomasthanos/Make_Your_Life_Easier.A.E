@@ -48,8 +48,7 @@
     }
   },
   "bundle": {
-    "active": true,
-    "targets": ["nsis"],
+    "active": false,
     "publisher": "ThomasThanos",
     "copyright": "© 2026 ThomasThanos",
     "category": "Utility",
@@ -63,15 +62,6 @@
       "resources/spicetify/placeholder-theme/color.ini": "spicetify/placeholder-theme/color.ini",
       "resources/spicetify/placeholder-theme/user.css": "spicetify/placeholder-theme/user.css",
       "resources/spicetify/MIT-NOTICE.txt": "spicetify/MIT-NOTICE.txt"
-    },
-    "windows": {
-      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
-      "nsis": {
-        "installMode": "currentUser",
-        "template": "windows/installer.nsi",
-        "compression": "lzma",
-        "installerIcon": "icons/icon.ico"
-      }
     }
   }
 }

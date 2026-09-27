@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:installer-ui": "vite build --config vite.installer.config.ts",
+    "build:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-setup.ps1",
     "preview": "vite preview",
     "check:site": "node scripts/check-site.mjs",
     "check": "npm run check:site && svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",

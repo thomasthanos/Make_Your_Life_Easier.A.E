@@ -1,6 +1,7 @@
 # Checks every push to main and every pull request: the download site, the
-# frontend, and the Rust backend (clippy and the unit tests). The backend is
-# Windows-only, so everything runs on Windows. Releases stay in release.yml.
+# frontend, the Rust backend and the setup (clippy and the unit tests), and
+# builds the setup and installs, updates and uninstalls it. Everything is
+# Windows-only, so it all runs on Windows. Releases stay in release.yml.
 name: CI
 
 on:
@@ -39,8 +40,11 @@ jobs:
 
       - run: npm run check
 
-      # tauri::generate_context! embeds the built frontend (dist/).
+      # tauri::generate_context! embeds the built frontends (dist/ for the
+      # app, dist-installer/ for the setup).
       - run: npm run build
+
+      - run: npm run build:installer-ui
 
       # The bundle lists the pinned Ludusavi files, and the build checks
       # that they exist; they are downloaded and verified, never committed.
@@ -48,8 +52,47 @@ jobs:
 
       - name: Clippy
         working-directory: src-tauri
-        run: cargo clippy --locked --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Tests
         working-directory: src-tauri
-        run: cargo test --locked
+        run: cargo test --locked --workspace
+
+  setup:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: release
+
+      - run: npm ci
+
+      - name: Build the setup (unsigned)
+        shell: pwsh
+        run: |
+          npm run build:setup
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install, update and uninstall it
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem "src-tauri/target/release/bundle/setup/*_x64-setup.exe" | Select-Object -First 1
+          if (-not $setup) { throw "The setup was not produced." }
+          ./scripts/smoke-test-setup.ps1 -Setup $setup.FullName
+
+      - name: Keep the setup
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-${{ github.sha }}
+          path: src-tauri/target/release/bundle/setup/*_x64-setup.exe
+          retention-days: 7

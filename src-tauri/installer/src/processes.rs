@@ -1,0 +1,144 @@
+//! Finds the programs running out of the install folder (the app, its
+//! bundled Ludusavi, a scheduled Game Saves run) and closes them: politely
+//! first, so the app can save its state, then by force.
+
+use std::ffi::OsString;
+use std::os::windows::ffi::OsStringExt;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
+
+use windows_sys::Win32::Foundation::{
+    CloseHandle, HWND, INVALID_HANDLE_VALUE, LPARAM, WAIT_OBJECT_0,
+};
+use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+    CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
+};
+use windows_sys::Win32::System::Threading::{
+    GetCurrentProcessId, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
+    PROCESS_TERMINATE, QueryFullProcessImageNameW, TerminateProcess, WaitForSingleObject,
+};
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    EnumWindows, GetWindowThreadProcessId, PostMessageW, WM_CLOSE,
+};
+
+use crate::shell;
+
+#[derive(Clone, Debug)]
+pub struct Running {
+    pub pid: u32,
+    pub path: PathBuf,
+}
+
+/// Every process whose executable lives in `dir`, except this one.
+pub fn running_in(dir: &Path) -> Vec<Running> {
+    // Windows reports long names; the folder may be spelled with short ones.
+    let dir = shell::real_path(dir);
+    let own = unsafe { GetCurrentProcessId() };
+    // SAFETY: a snapshot handle, closed below.
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+    if snapshot == INVALID_HANDLE_VALUE {
+        return Vec::new();
+    }
+    let mut found = Vec::new();
+    let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
+    entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+    let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
+    while more {
+        let pid = entry.th32ProcessID;
+        if pid != own
+            && pid != 0
+            && let Some(path) = image_path(pid)
+            && shell::is_within(&path, &dir)
+        {
+            found.push(Running { pid, path });
+        }
+        more = unsafe { Process32NextW(snapshot, &mut entry) } != 0;
+    }
+    unsafe { CloseHandle(snapshot) };
+    found
+}
+
+fn image_path(pid: u32) -> Option<PathBuf> {
+    // SAFETY: the handle is closed before returning.
+    let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if process.is_null() {
+        return None;
+    }
+    let mut buffer = [0u16; 1024];
+    let mut length = buffer.len() as u32;
+    let ok = unsafe { QueryFullProcessImageNameW(process, 0, buffer.as_mut_ptr(), &mut length) };
+    unsafe { CloseHandle(process) };
+    (ok != 0).then(|| PathBuf::from(OsString::from_wide(&buffer[..length as usize])))
+}
+
+/// Asks each process's windows to close, as the title bar's close button
+/// would. The app shuts down cleanly when its window closes.
+fn ask_to_close(pids: &[u32]) {
+    unsafe extern "system" fn visit(window: HWND, targets: LPARAM) -> i32 {
+        // SAFETY: `targets` is the slice passed to EnumWindows below.
+        let targets = unsafe { &*(targets as *const Vec<u32>) };
+        let mut pid = 0u32;
+        unsafe { GetWindowThreadProcessId(window, &mut pid) };
+        if targets.contains(&pid) {
+            unsafe { PostMessageW(window, WM_CLOSE, 0, 0) };
+        }
+        1
+    }
+    let targets: Vec<u32> = pids.to_vec();
+    // SAFETY: `targets` outlives the synchronous enumeration.
+    unsafe { EnumWindows(Some(visit), &targets as *const Vec<u32> as LPARAM) };
+}
+
+fn wait_exit(pid: u32, timeout: Duration) -> bool {
+    // SAFETY: the handle is closed before returning.
+    let process = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
+    if process.is_null() {
+        return true; // already gone
+    }
+    let millis = u32::try_from(timeout.as_millis()).unwrap_or(u32::MAX);
+    let exited = unsafe { WaitForSingleObject(process, millis) } == WAIT_OBJECT_0;
+    unsafe { CloseHandle(process) };
+    exited
+}
+
+fn terminate(pid: u32) {
+    // SAFETY: the handle is closed before returning.
+    let process = unsafe { OpenProcess(PROCESS_TERMINATE | PROCESS_SYNCHRONIZE, 0, pid) };
+    if process.is_null() {
+        return;
+    }
+    unsafe {
+        TerminateProcess(process, 1);
+        WaitForSingleObject(process, 5_000);
+        CloseHandle(process);
+    }
+}
+
+/// Closes everything running from `dir`. `grace` is how long the programs
+/// get to exit on their own first: the in-app updater quits by itself right
+/// after starting the setup. Returns what could not be stopped.
+pub fn close_all(dir: &Path, grace: Duration) -> Vec<Running> {
+    let deadline = Instant::now() + grace;
+    while Instant::now() < deadline && !running_in(dir).is_empty() {
+        std::thread::sleep(Duration::from_millis(250));
+    }
+
+    let running = running_in(dir);
+    if running.is_empty() {
+        return running;
+    }
+    let pids: Vec<u32> = running.iter().map(|process| process.pid).collect();
+    ask_to_close(&pids);
+    let polite = Instant::now() + Duration::from_secs(8);
+    for process in &running {
+        let left = polite.saturating_duration_since(Instant::now());
+        wait_exit(process.pid, left);
+    }
+
+    // Whatever is left (a window that asked "are you sure", Ludusavi
+    // mid-backup, a headless scheduled run) is stopped.
+    for process in running_in(dir) {
+        terminate(process.pid);
+    }
+    running_in(dir)
+}

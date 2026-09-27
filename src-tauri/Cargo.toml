@@ -9,6 +9,11 @@ publish = false
 [lib]
 name = "myle_lib"
 
+# The setup and uninstaller (installer/) build with the app: one lock file,
+# one target folder. Commands run in this folder still act on the app alone.
+[workspace]
+members = ["installer"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

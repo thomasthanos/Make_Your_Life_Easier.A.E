@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Make Your Life Easier Setup",
+  "version": "../../package.json",
+  "identifier": "com.thomasthanos.makeyourlifeeasier.setup",
+  "build": {
+    "frontendDist": "../../dist-installer"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost",
+      "dangerousDisableAssetCspModification": ["style-src"]
+    }
+  },
+  "bundle": {
+    "active": false,
+    "publisher": "ThomasThanos",
+    "copyright": "© 2026 ThomasThanos",
+    "icon": ["../icons/icon.ico"]
+  }
+}

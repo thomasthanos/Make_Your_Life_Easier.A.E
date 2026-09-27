@@ -24,7 +24,8 @@ use super::settings;
 use super::state::{GameSavesState, OperationHandle};
 use super::undo;
 
-/// Must stay in sync with the NSIS uninstall hook.
+/// Must stay in sync with `GAME_SAVES_TASK` in installer/src/product.rs: the
+/// uninstaller deletes this task.
 const TASK_NAME: &str = "MakeYourLifeEasier Game Saves Backup";
 
 /// The parsed game database, keyed by the manifest's size and modification
