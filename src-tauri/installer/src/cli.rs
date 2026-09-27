@@ -2,6 +2,10 @@
 //! speak: `/S` silent, `/P` passive, `/UPDATE`, `/R` relaunch, `/NS` no
 //! shortcuts, `/D=<folder>` (last, unquoted, may contain spaces), plus
 //! `/PURGE` for the uninstaller to remove settings and data as well.
+//!
+//! The uninstaller also takes `_?=<folder>` (NSIS's "uninstall this folder,
+//! from where you are") and `--parent=<pid>`: how its copy in %TEMP% is
+//! started (see `relocate`).
 
 use std::path::PathBuf;
 
@@ -19,6 +23,22 @@ pub struct Cli {
     /// Uninstall: also remove settings, caches and account data.
     pub purge: bool,
     pub dir: Option<PathBuf>,
+    /// Uninstall: the folder to remove, without copying to %TEMP% first.
+    pub in_place: Option<PathBuf>,
+    /// Uninstall: the uninstaller that started this copy and waits for it.
+    pub parent: Option<u32>,
+}
+
+/// A path given as `/D=` or `_?=`: the value and every argument after it,
+/// spaces included (NSIS convention: these come last and are not quoted).
+fn rest_of_line(first: &str, rest: &[String]) -> Option<PathBuf> {
+    let mut path = first.to_string();
+    for more in rest {
+        path.push(' ');
+        path.push_str(more);
+    }
+    let path = path.trim().trim_matches('"');
+    (!path.is_empty()).then(|| PathBuf::from(path))
 }
 
 pub fn parse(args: impl IntoIterator<Item = String>) -> Cli {
@@ -26,18 +46,17 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Cli {
     let mut cli = Cli::default();
     for (index, arg) in args.iter().enumerate() {
         let upper = arg.to_ascii_uppercase();
-        if let Some(dir) = upper.strip_prefix("/D=").map(|_| &arg[3..]) {
-            // NSIS convention: everything after /D= is the path, spaces included.
-            let mut path = dir.to_string();
-            for rest in &args[index + 1..] {
-                path.push(' ');
-                path.push_str(rest);
-            }
-            let path = path.trim().trim_matches('"');
-            if !path.is_empty() {
-                cli.dir = Some(PathBuf::from(path));
-            }
+        if upper.starts_with("/D=") {
+            cli.dir = rest_of_line(&arg[3..], &args[index + 1..]);
             break;
+        }
+        if upper.starts_with("_?=") {
+            cli.in_place = rest_of_line(&arg[3..], &args[index + 1..]);
+            break;
+        }
+        if let Some(pid) = upper.strip_prefix("--PARENT=") {
+            cli.parent = pid.parse().ok();
+            continue;
         }
         match upper.as_str() {
             "/S" | "--SILENT" => cli.silent = true,
@@ -75,6 +94,15 @@ mod tests {
             cli.dir,
             Some(PathBuf::from(r"C:\My Apps\Make Your Life Easier"))
         );
+    }
+
+    #[test]
+    fn the_uninstaller_copy_is_told_its_folder_and_parent() {
+        let cli = parse(args(r"/S --parent=4242 _?=C:\My Apps\MYLE"));
+        assert!(cli.silent);
+        assert_eq!(cli.parent, Some(4242));
+        assert_eq!(cli.in_place, Some(PathBuf::from(r"C:\My Apps\MYLE")));
+        assert_eq!(parse(args("--parent=x")).parent, None);
     }
 
     #[test]

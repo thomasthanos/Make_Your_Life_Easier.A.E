@@ -39,7 +39,6 @@ serde_json = "1"
 lzma-rust2 = { version = "0.16", default-features = false, features = ["std", "encoder", "xz"] }
 winreg = "0.56"
 uuid = { version = "1", features = ["v4"] }
-base64 = "0.22"
 # COM (IShellLinkW) writes shortcuts that work for any user name, Greek included.
 windows = { version = "0.61", features = [
     "Win32_Storage_FileSystem",

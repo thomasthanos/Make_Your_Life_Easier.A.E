@@ -2305,7 +2305,6 @@ dependencies = [
 name = "myle-setup"
 version = "0.0.0"
 dependencies = [
- "base64 0.22.1",
  "lzma-rust2",
  "serde",
  "serde_json",

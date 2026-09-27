@@ -58,8 +58,15 @@ Assert (Test-Path $startMenu) "an update keeps the shortcut"
 Assert ((Invoke-Silently (Join-Path $dir "uninstall.exe") @("/S")) -eq 0) "silent uninstall exits 0"
 Assert (-not (Test-Path $uninstallKey)) "Installed apps entry removed"
 Assert (-not (Test-Path $startMenu)) "Start menu shortcut removed"
-# The uninstaller deletes itself and the folder once it has exited.
+# The uninstaller runs from a copy in %TEMP%, which removes the original
+# and the folder once the original has exited.
 $deadline = (Get-Date).AddSeconds(30)
 while ((Test-Path $dir) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+if (Test-Path $dir) {
+  $left = Get-ChildItem $dir -Recurse -Force | ForEach-Object { $_.FullName.Substring($dir.Length) }
+  Write-Host "Still in the install folder: $($left -join ', ')"
+  Get-Process | Where-Object { $_.Path -like "*$binary*" -or $_.Path -like "*uninstall*" } |
+    ForEach-Object { Write-Host "Running: $($_.Id) $($_.Path)" }
+}
 Assert (-not (Test-Path $dir)) "install folder removed"
 Write-Host "Setup smoke test passed."

@@ -5,10 +5,11 @@
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use windows_sys::Win32::Foundation::{
-    CloseHandle, HWND, INVALID_HANDLE_VALUE, LPARAM, WAIT_OBJECT_0,
+    CloseHandle, HANDLE, HWND, INVALID_HANDLE_VALUE, LPARAM, WAIT_OBJECT_0,
 };
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
@@ -29,11 +30,51 @@ pub struct Running {
     pub path: PathBuf,
 }
 
-/// Every process whose executable lives in `dir`, except this one.
+/// The uninstaller in the install folder that started this copy of it and
+/// waits for it to finish (see `relocate`): never closed, and its file is
+/// removed only once it has exited.
+static SPARED: OnceLock<u32> = OnceLock::new();
+
+pub fn spare(pid: u32) {
+    let _ = SPARED.set(pid);
+}
+
+/// The spared process's executable, while it runs.
+pub fn spared_exe() -> Option<PathBuf> {
+    SPARED.get().copied().and_then(image_path)
+}
+
+/// A process to wait for, opened early so that its ID cannot be reused by
+/// another process in the meantime.
+pub struct Process(HANDLE);
+
+impl Process {
+    pub fn open(pid: u32) -> Option<Self> {
+        // SAFETY: the handle is closed on drop.
+        let handle = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
+        (!handle.is_null()).then_some(Self(handle))
+    }
+
+    /// Whether it exited within `timeout`.
+    pub fn wait(&self, timeout: Duration) -> bool {
+        let millis = u32::try_from(timeout.as_millis()).unwrap_or(u32::MAX);
+        unsafe { WaitForSingleObject(self.0, millis) == WAIT_OBJECT_0 }
+    }
+}
+
+impl Drop for Process {
+    fn drop(&mut self) {
+        unsafe { CloseHandle(self.0) };
+    }
+}
+
+/// Every process whose executable lives in `dir`, except this one and the
+/// spared one.
 pub fn running_in(dir: &Path) -> Vec<Running> {
     // Windows reports long names; the folder may be spelled with short ones.
     let dir = shell::real_path(dir);
     let own = unsafe { GetCurrentProcessId() };
+    let spared = SPARED.get().copied();
     // SAFETY: a snapshot handle, closed below.
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
     if snapshot == INVALID_HANDLE_VALUE {
@@ -47,6 +88,7 @@ pub fn running_in(dir: &Path) -> Vec<Running> {
         let pid = entry.th32ProcessID;
         if pid != own
             && pid != 0
+            && Some(pid) != spared
             && let Some(path) = image_path(pid)
             && shell::is_within(&path, &dir)
         {

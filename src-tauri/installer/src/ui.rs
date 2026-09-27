@@ -3,13 +3,13 @@
 //! passes the user's choices here and shows the progress it is sent.
 
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
-use tauri::{Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::cleanup::AfterExit;
@@ -28,7 +28,8 @@ struct Context {
     /// Set while files are being changed: the window cannot be closed then.
     busy: AtomicBool,
     installed_exe: Mutex<Option<PathBuf>>,
-    after_exit: Mutex<AfterExit>,
+    /// Deleted once the window has closed.
+    after_exit: Arc<Mutex<AfterExit>>,
 }
 
 #[derive(Serialize)]
@@ -286,9 +287,11 @@ async fn setup_uninstall(
     })
     .await
     .map_err(|e| e.to_string())??;
-    let mut pending = context.after_exit.lock().unwrap_or_else(|p| p.into_inner());
-    pending.remove.extend(after_exit.remove);
-    pending.remove_if_empty.extend(after_exit.remove_if_empty);
+    context
+        .after_exit
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .append(after_exit);
     Ok(())
 }
 
@@ -310,8 +313,9 @@ fn setup_exit(app: tauri::AppHandle, context: State<'_, Context>) {
     }
 }
 
-/// Opens the window and runs until it closes. Returns the process exit code.
-pub fn run(mode: Mode, cli: Cli) -> i32 {
+/// Opens the window and runs until it closes. Returns the exit code and
+/// what is left to delete now that the window is gone.
+pub fn run(mode: Mode, cli: Cli) -> (i32, AfterExit) {
     // The window's own browser profile lives in %TEMP% and goes with it: the
     // setup never creates the app's profile, and the uninstaller never holds
     // files in the folders it is removing.
@@ -322,13 +326,14 @@ pub fn run(mode: Mode, cli: Cli) -> i32 {
     ));
     let mut after_exit = AfterExit::default();
     after_exit.remove.push(webview_dir.clone());
+    let after_exit = Arc::new(Mutex::new(after_exit));
     let uninstalling = matches!(mode, Mode::Uninstall { .. });
     let context = Context {
         mode,
         cli,
         busy: AtomicBool::new(false),
         installed_exe: Mutex::new(None),
-        after_exit: Mutex::new(after_exit),
+        after_exit: after_exit.clone(),
     };
 
     let app = tauri::Builder::default()
@@ -381,15 +386,13 @@ pub fn run(mode: Mode, cli: Cli) -> i32 {
                 &format!("Setup could not open its window: {error}"),
                 true,
             );
-            return 1;
+            return (
+                1,
+                std::mem::take(&mut *after_exit.lock().unwrap_or_else(|p| p.into_inner())),
+            );
         }
     };
-    app.run(|app, event| {
-        if let RunEvent::Exit = event {
-            let context = app.state::<Context>();
-            let pending = context.after_exit.lock().unwrap_or_else(|p| p.into_inner());
-            pending.spawn();
-        }
-    });
-    0
+    let code = app.run_return(|_, _| {});
+    let pending = std::mem::take(&mut *after_exit.lock().unwrap_or_else(|p| p.into_inner()));
+    (code, pending)
 }

@@ -4,7 +4,8 @@
 //! - `setup.exe` carries the app (see `payload`) and installs it per user,
 //!   with a window (`ui`), a progress-only window (`/P`) or none (`/S`, which
 //!   the in-app updater uses as `/S /UPDATE /R`);
-//! - `uninstall.exe` is installed next to the app and removes it again.
+//! - `uninstall.exe` is installed next to the app and removes it again,
+//!   running from a copy of itself in %TEMP% (see `relocate`).
 
 mod cleanup;
 mod cli;
@@ -13,13 +14,15 @@ pub mod payload;
 mod processes;
 mod product;
 mod registry;
+mod relocate;
 mod shell;
 mod ui;
 mod webview2;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use cleanup::AfterExit;
 use cli::Cli;
 
 /// Exit codes of the silent modes (0 is success).
@@ -31,10 +34,7 @@ const STILL_RUNNING: i32 = 4;
 pub fn setup_main(payload: &'static [u8]) -> i32 {
     let cli = cli::parse(std::env::args().skip(1));
     let Some(_lock) = shell::SingleInstance::acquire() else {
-        if !cli.silent {
-            shell::message(product::NAME, "Setup is already running.", false);
-        }
-        return ALREADY_RUNNING;
+        return already_running(&cli);
     };
     if payload.is_empty() {
         if !cli.silent {
@@ -66,7 +66,9 @@ pub fn setup_main(payload: &'static [u8]) -> i32 {
             return FAILED;
         }
     }
-    ui::run(ui::Mode::Install { payload }, cli)
+    let (code, after_exit) = ui::run(ui::Mode::Install { payload }, cli);
+    after_exit.finish();
+    code
 }
 
 /// `/S`: no window. The updater waits for nothing and reads no output, so
@@ -110,13 +112,7 @@ fn silent_install(payload: &'static [u8], cli: &Cli) -> i32 {
 
 pub fn uninstall_main() -> i32 {
     let cli = cli::parse(std::env::args().skip(1));
-    let Some(_lock) = shell::SingleInstance::acquire() else {
-        if !cli.silent {
-            shell::message(product::NAME, "Setup is already running.", false);
-        }
-        return ALREADY_RUNNING;
-    };
-    let Some(dir) = install_dir_to_remove() else {
+    let not_installed = || {
         if !cli.silent {
             shell::message(
                 product::NAME,
@@ -124,8 +120,63 @@ pub fn uninstall_main() -> i32 {
                 false,
             );
         }
-        return FAILED;
+        FAILED
     };
+
+    // The copy in %TEMP% (or a caller that asked, as NSIS allows, for no copy).
+    if let Some(dir) = cli.in_place.clone() {
+        let parent = cli.parent.and_then(|pid| {
+            processes::spare(pid);
+            processes::Process::open(pid)
+        });
+        if !has_app(&dir) {
+            if parent.is_some() {
+                relocate::report(FAILED);
+            }
+            return not_installed();
+        }
+        let Some(_lock) = shell::SingleInstance::acquire() else {
+            if parent.is_some() {
+                relocate::report(ALREADY_RUNNING);
+            }
+            return already_running(&cli);
+        };
+        let (code, after_exit) = uninstall_from(&cli, dir);
+        if let Some(parent) = parent {
+            relocate::report(code);
+            // Its file, and so the folder, can only go once it has exited.
+            parent.wait(Duration::from_secs(60));
+        }
+        after_exit.finish();
+        return code;
+    }
+
+    let Some(dir) = install_dir_to_remove() else {
+        return not_installed();
+    };
+    if let Some(code) = relocate::run_from_temp(&cli, &dir) {
+        return code;
+    }
+    // No copy could be started: uninstall from here, leaving this program
+    // (and so its folder) behind.
+    let Some(_lock) = shell::SingleInstance::acquire() else {
+        return already_running(&cli);
+    };
+    let (code, after_exit) = uninstall_from(&cli, dir);
+    after_exit.finish();
+    code
+}
+
+fn already_running(cli: &Cli) -> i32 {
+    if !cli.silent {
+        shell::message(product::NAME, "Setup is already running.", false);
+    }
+    ALREADY_RUNNING
+}
+
+/// Removes the app in `dir`, with or without a window. Returns the exit code
+/// and what can only be deleted later.
+fn uninstall_from(cli: &Cli, dir: PathBuf) -> (i32, AfterExit) {
     // Without WebView2 there is no window: ask with a plain message box.
     let windowless = !cli.silent && !webview2::installed();
     if windowless
@@ -134,31 +185,33 @@ pub fn uninstall_main() -> i32 {
             &format!("Remove {} from this PC?", product::NAME),
         )
     {
-        return DECLINED;
+        return (DECLINED, AfterExit::default());
     }
     if cli.silent || windowless {
         if engine::close_running(&dir, Duration::from_secs(3)).is_err() {
-            return STILL_RUNNING;
+            return (STILL_RUNNING, AfterExit::default());
         }
         return match engine::uninstall(&dir, cli.purge, &mut |_| {}) {
-            Ok(after_exit) => {
-                after_exit.spawn();
-                0
-            }
-            Err(_) => FAILED,
+            Ok(after_exit) => (0, after_exit),
+            Err(_) => (FAILED, AfterExit::default()),
         };
     }
-    ui::run(ui::Mode::Uninstall { dir }, cli)
+    ui::run(ui::Mode::Uninstall { dir }, cli.clone())
+}
+
+fn has_app(dir: &Path) -> bool {
+    dir.join(product::exe_name()).is_file()
 }
 
 /// The registered install, or the folder this uninstaller sits in if the
 /// app is there (an install whose registry entry is already gone).
 fn install_dir_to_remove() -> Option<PathBuf> {
-    let has_app = |dir: &PathBuf| dir.join(product::exe_name()).is_file();
-    registry::install_dir().filter(has_app).or_else(|| {
-        std::env::current_exe()
-            .ok()
-            .and_then(|exe| exe.parent().map(PathBuf::from))
-            .filter(has_app)
-    })
+    registry::install_dir()
+        .filter(|dir| has_app(dir))
+        .or_else(|| {
+            std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(PathBuf::from))
+                .filter(|dir| has_app(dir))
+        })
 }

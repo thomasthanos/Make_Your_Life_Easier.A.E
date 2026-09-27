@@ -417,7 +417,13 @@ pub fn uninstall(
             product::NAME
         ));
     }
-    let own_exe = std::env::current_exe().ok();
+    // This program and, when it runs as a copy, the uninstaller in the
+    // folder that waits for it: deleted once they have exited.
+    let in_use: Vec<PathBuf> = std::env::current_exe()
+        .ok()
+        .into_iter()
+        .chain(processes::spared_exe())
+        .collect();
     let mut after_exit = AfterExit::default();
 
     // The Game Saves page's scheduled backup would otherwise keep starting a
@@ -455,11 +461,7 @@ pub fn uninstall(
             total,
             file: file.clone(),
         });
-        if own_exe
-            .as_deref()
-            .is_some_and(|own| shell::same_file(own, &path))
-        {
-            // This very program: deleted once it has exited.
+        if in_use.iter().any(|exe| shell::same_file(exe, &path)) {
             after_exit.remove.push(path);
             continue;
         }
