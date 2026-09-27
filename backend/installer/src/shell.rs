@@ -177,11 +177,13 @@ fn details_at(link_path: &Path) -> Option<ShortcutDetails> {
         link.cast::<IPersistFile>()?
             .Load(&HSTRING::from(link_path.as_os_str()), STGM_READ)?;
 
-        let mut target = [0u16; 32_768];
-        let mut working_directory = [0u16; 32_768];
-        let mut description = [0u16; 1_024];
-        let mut icon = [0u16; 32_768];
-        let mut arguments = [0u16; 32_768];
+        // On the heap: together these are 260 KB, and the silent install
+        // runs on the main thread, which has a 1 MB stack.
+        let mut target = vec![0u16; 32_768];
+        let mut working_directory = vec![0u16; 32_768];
+        let mut description = vec![0u16; 1_024];
+        let mut icon = vec![0u16; 32_768];
+        let mut arguments = vec![0u16; 32_768];
         let mut icon_index = 0;
         link.GetPath(&mut target, std::ptr::null_mut(), SLGP_RAWPATH.0 as u32)?;
         link.GetWorkingDirectory(&mut working_directory)?;
@@ -210,11 +212,13 @@ pub fn create_shortcut(kind: Shortcut, exe: &Path) -> Result<(), String> {
     if paths.is_empty() {
         return Err("the shortcut folder could not be found".into());
     }
+    // Ours first, wherever it is: rewriting the fallback name when the main
+    // one has since become free would leave two shortcuts.
     let link_path = paths
-        .into_iter()
-        .find(|path| {
-            !path.exists() || details_at(path).is_some_and(|link| managed_link(&link, exe))
-        })
+        .iter()
+        .find(|path| details_at(path).is_some_and(|link| managed_link(&link, exe)))
+        .or_else(|| paths.iter().find(|path| !path.exists()))
+        .cloned()
         .ok_or_else(|| {
             format!(
                 "A different shortcut already uses the {} shortcut name. Rename it and try again.",
