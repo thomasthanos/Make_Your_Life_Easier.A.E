@@ -88,6 +88,7 @@ pub fn run() {
                 // An installer still exiting after relaunching us stays
                 // locked and goes on a later start.
                 let _ = std::fs::remove_dir_all(updater::update_dir());
+                updater::sweep_leftovers_later();
                 // If the splash never gets to call finish_startup (a failed
                 // update check, a broken page), show the window anyway.
                 let handle = app.handle().clone();

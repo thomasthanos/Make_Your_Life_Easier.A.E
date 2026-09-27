@@ -1,7 +1,9 @@
 //! Command line, in the NSIS dialect the app's updater and scripts already
 //! speak: `/S` silent, `/P` passive, `/UPDATE`, `/R` relaunch, `/NS` no
 //! shortcuts, `/D=<folder>` (last, unquoted, may contain spaces), plus
-//! `/PURGE` for the uninstaller to remove settings and data as well.
+//! `/PURGE` for the uninstaller to remove settings and data as well, and
+//! `/LIVE` (with `/S /UPDATE`): the app's seamless update, run while the app
+//! is still open.
 //!
 //! The uninstaller also takes `_?=<folder>` (NSIS's "uninstall this folder,
 //! from where you are") and `--parent=<pid>`: how its copy in %TEMP% is
@@ -19,6 +21,8 @@ pub struct Cli {
     pub update: bool,
     /// Start the app once installed.
     pub relaunch: bool,
+    /// Update in place while the app keeps running; it restarts itself.
+    pub live: bool,
     pub no_shortcuts: bool,
     /// Uninstall: also remove settings, caches and account data.
     pub purge: bool,
@@ -63,6 +67,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Cli {
             "/P" | "--PASSIVE" => cli.passive = true,
             "/UPDATE" => cli.update = true,
             "/R" => cli.relaunch = true,
+            "/LIVE" => cli.live = true,
             "/NS" => cli.no_shortcuts = true,
             "/PURGE" => cli.purge = true,
             _ => {}
@@ -83,7 +88,10 @@ mod tests {
     fn the_updater_command_line_is_understood() {
         let cli = parse(args("/S /UPDATE /R"));
         assert!(cli.silent && cli.update && cli.relaunch);
-        assert!(!cli.passive && !cli.purge && cli.dir.is_none());
+        assert!(!cli.passive && !cli.purge && !cli.live && cli.dir.is_none());
+
+        let live = parse(args("/S /UPDATE /LIVE"));
+        assert!(live.silent && live.update && live.live && !live.relaunch);
     }
 
     #[test]

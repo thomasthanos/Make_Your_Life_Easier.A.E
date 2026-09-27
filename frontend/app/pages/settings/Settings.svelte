@@ -45,6 +45,7 @@
       const result = await checkForUpdate();
       if (result.status === "available") update = { state: "available", latest: result.latest, asset: result.asset };
       else if (result.status === "upToDate") update = { state: "upToDate", latest: result.latest };
+      else if (result.status === "justUpdated") update = { state: "upToDate", latest: result.current };
       else update = { state: "error", message: "Updates are not configured in this build." };
     } catch (error) {
       update = { state: "error", message: message(error) };

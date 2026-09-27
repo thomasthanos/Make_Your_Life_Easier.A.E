@@ -11,21 +11,25 @@ export interface UpdateAsset {
 export type UpdateCheck =
   | { status: "upToDate"; current: string; latest: string }
   | { status: "available"; current: string; latest: string; notes: string; asset: UpdateAsset }
-  | { status: "notConfigured"; current: string };
+  | { status: "notConfigured"; current: string }
+  /** Started by the previous version right after it updated this one. */
+  | { status: "justUpdated"; current: string };
 
 export type DownloadEvent =
   | { event: "started"; data: { total: number | null } }
   | { event: "progress"; data: { downloaded: number; total: number | null } }
   | { event: "verifying" }
-  | { event: "installing" };
+  | { event: "installing" }
+  | { event: "restarting"; data: { version: string } };
 
 export function checkForUpdate(): Promise<UpdateCheck> {
   return invoke<UpdateCheck>("check_for_update");
 }
 
 /**
- * Downloads, verifies and launches the installer. In a real update the app
- * exits once the installer starts, so the promise only resolves in demo mode.
+ * Downloads, verifies and installs the update, then starts the new version;
+ * this app exits once its window is up, so the promise only resolves in demo
+ * mode.
  */
 export function installUpdate(asset: UpdateAsset, onEvent: (e: DownloadEvent) => void): Promise<void> {
   const channel = new Channel<DownloadEvent>();

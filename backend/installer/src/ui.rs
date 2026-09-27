@@ -210,6 +210,7 @@ async fn setup_install(
         start_menu: request.start_menu,
         startup: request.startup,
         keep_shortcuts: false,
+        live: false,
     };
     let exe = tauri::async_runtime::spawn_blocking(move || {
         let mut report = |event: Progress| {
