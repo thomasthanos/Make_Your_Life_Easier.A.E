@@ -1,5 +1,5 @@
 // Dev-only stand-in for the setup crate, so the window can be worked on in a
-// browser: `npm run dev`, then /installer.html?demo=install (or =update,
+// browser: `npm run web:dev`, then /installer.html?demo=install (or =update,
 // =uninstall, =running, =error).
 import type { Progress, SetupApi, SetupState } from "./api";
 

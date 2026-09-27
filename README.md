@@ -32,7 +32,7 @@ npm run lint            # cargo clippy -D warnings
 | `web:dev` / `web:build` | μόνο το Vite της εφαρμογής (τα τρέχει το Tauri από μόνο του· το `web:dev` χρησιμεύει και για προεπισκόπηση στον browser) |
 | `web:setup` | η σελίδα του παραθύρου του setup (`dist-installer/`) |
 | `prepare:game-saves` | κατεβάζει/επαληθεύει τα pinned Game Saves resources |
-| `tauri` | το Tauri CLI όπως είναι, π.χ. `npm run tauri icon app-icon.svg` |
+| `tauri` | το Tauri CLI όπως είναι, π.χ. `npm run tauri icon src-tauri/icons/app-icon.svg` |
 
 Κάθε push στο `main` και κάθε pull request περνά από το `.github/workflows/ci.yml`, σε Windows: `npm run check`, build των frontends, `cargo clippy -D warnings` και `cargo test` για εφαρμογή και setup, και ένα δεύτερο job που χτίζει το setup, το εγκαθιστά, το ενημερώνει και το απεγκαθιστά σιωπηλά (`scripts/smoke-test-setup.ps1`). Το setup του κάθε run μένει 7 μέρες ως artifact.
 
@@ -47,38 +47,46 @@ $env:MYLE_UPDATER_DEMO = "offline"; npm run dev  # ψεύτικο σφάλμα �
 
 Ή σκέτο στον browser, με `npm run web:dev` και `http://localhost:1420/splash.html?demo=update` (ή `=offline`, `=latest`).
 
-Το εικονίδιο (ο hooded coder) ζει στο `app-icon.svg`. Μετά από αλλαγή του, ξαναφτιάξε τα PNG/ICO με `npx tauri icon app-icon.svg` και κράτα από το `src-tauri/icons/` μόνο όσα δηλώνει το `tauri.conf.json`. Το λογότυπο μέσα στην εφαρμογή (`src/lib/components/Logo.svelte`) και η κινούμενη εκδοχή του splash (`src/splash/CoderScene.svelte`) διαβάζουν τα ίδια σχήματα από το `src/lib/brand.ts`, οπότε άλλαξέ τα και εκεί.
+Το εικονίδιο (ο hooded coder) ζει στο `src-tauri/icons/app-icon.svg`. Μετά από αλλαγή του, ξαναφτιάξε τα PNG/ICO με `npm run tauri icon src-tauri/icons/app-icon.svg` και κράτα από το `src-tauri/icons/` μόνο όσα δηλώνει το `tauri.conf.json`. Το λογότυπο μέσα στην εφαρμογή (`src/lib/components/Logo.svelte`) και η κινούμενη εκδοχή του splash (`src/splash/CoderScene.svelte`) διαβάζουν τα ίδια σχήματα από το `src/lib/brand.ts`, οπότε άλλαξέ τα και εκεί.
 
 ## Δομή
 
 ```
-src/
+.github/workflows/            ci.yml (κάθε push/PR), release.yml (tag v*), keepalive.yml
+scripts/
+  build-setup.ps1             ολόκληρο το setup (npm run build)
+  bootstrap-game-saves.ps1    λήψη και SHA-256 verification των pinned resources
+  sign.ps1                    υπογραφή exe (release.yml)
+  smoke-test-setup.ps1        σιωπηλό install → update → uninstall με ελέγχους (CI)
+  verify-install.ps1          έλεγχος μιας εγκατάστασης
+  check-site.mjs              έλεγχος του site/
+site/                         στατικό download site (Cloudflare Pages, wrangler.toml)
+src/                          frontend (Svelte 5 + TS), root του Vite
+  index.html                  κύριο παράθυρο → main.ts → app/
+  splash.html                 παράθυρο updater → splash.ts → splash/
+  installer.html              παράθυρο setup/uninstaller → installer/
   app/App.svelte              layout: titlebar + sidebar + content
   app/shell/                  Titlebar, Sidebar, ContentArea
   app/pages/registry.ts       ← εδώ προσθέτεις σελίδες
-  app/pages/install-apps/     σελίδα Install Apps (winget)
-  app/pages/game-saves/       Game Saves UI, state και typed IPC
-  lib/toast.svelte.ts         ειδοποιήσεις (toast.success/info/error)
-  lib/confirm.svelte.ts       await confirm({...})
-  splash/                     οθόνη updater (κινούμενο λογότυπο, κατάσταση, progress, ταχύτητα)
-  lib/brand.ts                σχήματα του εικονιδίου (Logo.svelte + splash)
-  lib/updater.ts              typed γέφυρα προς τον Rust updater
-  styles/tokens.css           χρώματα, μεγέθη, κινήσεις
-  styles/glass.css            .glass / .surface
-src-tauri/
-  src/game_saves/             scan, backup, restore, settings και scheduling
-  resources/ludusavi/         pinned engine, manifest, license και notices
-  src/window_sizing.rs        αυτόματο μέγεθος παραθύρου
-  src/updater.rs              updater (feed στο R2, εφεδρεία τα GitHub Releases)
+  app/pages/<σελίδα>/         μία σελίδα ανά φάκελο (UI, state, typed IPC)
+  app/account/                σύνδεση Discord/Google και sync ρυθμίσεων
+  installer/                  το παράθυρο του setup/uninstaller (Svelte)
+  splash/                     οθόνη updater (κινούμενο λογότυπο, κατάσταση, progress)
+  lib/                        κοινά: toast, confirm, updater, brand, components/
+  styles/                     tokens.css (χρώματα, μεγέθη, κινήσεις), glass.css
+  public/                     στατικά αρχεία που ταξιδεύουν με την εφαρμογή (icons/)
+src-tauri/                    backend (Rust)
   src/lib.rs                  εκκίνηση, splash → main
-  tauri.conf.json             όνομα, έκδοση, παράθυρα, resources (και για το setup)
+  src/<λειτουργία>/           apps, game_saves, cleaner, spotify_hub, account, …
+  src/updater.rs              updater (feed στο R2, εφεδρεία τα GitHub Releases)
   installer/                  setup.exe + uninstall.exe (Rust, δικό τους Tauri παράθυρο)
-src/installer/                το παράθυρο του setup/uninstaller (Svelte)
-scripts/
-  bootstrap-game-saves.ps1    λήψη και SHA-256 verification των pinned resources
-  build-setup.ps1             ολόκληρο το setup (npm run build)
-  smoke-test-setup.ps1        σιωπηλό install → update → uninstall με ελέγχους
+  icons/                      app-icon.svg (η πηγή) και τα PNG/ICO που βγαίνουν από αυτό
+  resources/                  ό,τι μπαίνει δίπλα στο exe (Ludusavi, Spicetify)
+  tauri.conf.json             όνομα, έκδοση, παράθυρα, resources (και για το setup)
+vite.config.ts                ένα config για όλα: `vite build` → dist/, `--mode setup` → dist-installer/
 ```
+
+Φτιάχνονται από τα builds και δεν είναι στο git: `node_modules/`, `dist/`, `dist-installer/`, `src-tauri/target/`.
 
 ### Νέα σελίδα
 
@@ -144,7 +152,7 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
   - `extract`: μόνο ξεπακετάρισμα στο `to` (default `%USERPROFILE%\Downloads\<όνομα>`).
   - `"password": "…"` για κλειδωμένα zip (AES ή κλασικό).
 - `icon` (προαιρετικό):
-  - `"/icons/app.svg"` για αρχείο μέσα στο `public/icons/`, που ταξιδεύει με την εφαρμογή
+  - `"/icons/app.svg"` για αρχείο μέσα στο `src/public/icons/`, που ταξιδεύει με την εφαρμογή
   - `"https://…"` για εικόνα από το διαδίκτυο
   - διαδρομή αρχείου, π.χ. `%USERPROFILE%\Pictures\logo.png`, που τη διαβάζει το backend (μόνο τοπικά)
   - Προτίμησε **SVG** για λογότυπα, ή **PNG/WebP** 256×256 με διαφάνεια. Δεκτά: svg, png, webp, jpg, gif, avif, ico, έως 4 MB.
@@ -229,7 +237,7 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 
 ## Setup και uninstall (ανά χρήστη, χωρίς admin)
 
-Το setup είναι δικό μας: το crate `src-tauri/installer` (Rust) με παράθυρο Svelte (`src/installer/`, `installer.html`) στο ίδιο σκούρο στυλ με την εφαρμογή. Βγάζει δύο προγράμματα:
+Το setup είναι δικό μας: το crate `src-tauri/installer` (Rust) με παράθυρο Svelte (`src/installer/`, `src/installer.html`) στο ίδιο σκούρο στυλ με την εφαρμογή. Βγάζει δύο προγράμματα:
 
 - **`setup.exe`**: κουβαλά την εφαρμογή ως ένα συμπαγές XZ payload (`installer/src/payload.rs`). Δείχνει φάκελο εγκατάστασης, διακόπτες για Desktop / Start menu / εκκίνηση με τα Windows / άνοιγμα στο τέλος, πρόοδο ανά αρχείο και οθόνη ολοκλήρωσης. Σε υπάρχουσα εγκατάσταση λέει «Update»/«Reinstall» και κρατά ρυθμίσεις και shortcuts. Αν η εφαρμογή τρέχει, ρωτά και την κλείνει ομαλά (και με τη βία μόνο αν δεν κλείσει).
 - **`uninstall.exe`**: μπαίνει δίπλα στην εφαρμογή και το τρέχουν τα Windows από τα «Installed apps». Ρωτά αν θα σβηστούν **και** οι ρυθμίσεις/δεδομένα (`%APPDATA%` / `%LOCALAPPDATA%\com.thomasthanos.makeyourlifeeasier`, cache). Τα backups του Game Saves δεν αγγίζονται ποτέ. Επειδή ένα πρόγραμμα δεν μπορεί να σβήσει το αρχείο του όσο τρέχει, το `uninstall.exe` (όπως και του NSIS) αντιγράφεται σε νέο φάκελο στο `%TEMP%` και τρέχει από εκεί (`installer/src/relocate.rs`): το αντίγραφο κάνει τη δουλειά, και όταν κλείσει το αρχικό σβήνει κι αυτό και τον φάκελο. Το exit code του `/S` φτάνει κανονικά σε όποιον το έτρεξε. Τα παλιά αντίγραφα στο `%TEMP%` σβήνονται στο επόμενο uninstall.

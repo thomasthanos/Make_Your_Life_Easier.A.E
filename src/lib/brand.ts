@@ -1,4 +1,4 @@
-// The app icon's scene (app-icon.svg), in its 1024×1024 space: a hooded
+// The app icon's scene (src-tauri/icons/app-icon.svg), in its 1024×1024 space: a hooded
 // coder, back to us, writing code on a glowing screen. Shared by the static
 // mark (components/Logo.svelte) and the animated splash (splash/CoderScene).
 

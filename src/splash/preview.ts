@@ -1,5 +1,5 @@
 // Dev-only stand-in for the Rust updater, so the splash can be worked on in a
-// browser: `npm run dev`, then open /splash.html?demo=update (or =offline,
+// browser: `npm run web:dev`, then open /splash.html?demo=update (or =offline,
 // =latest). Inside the app, `MYLE_UPDATER_DEMO` does the same for real.
 import type { DownloadEvent, UpdateAsset, UpdateCheck } from "../lib/updater";
 

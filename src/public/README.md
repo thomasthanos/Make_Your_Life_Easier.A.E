@@ -2,7 +2,7 @@
 
 Ό,τι βάλεις εδώ μπαίνει στο build και το βλέπουν όλοι οι χρήστες.
 
-Ένα αρχείο `public/icons/billias.svg` το δηλώνεις στη λίστα ως:
+Ένα αρχείο `src/public/icons/billias.svg` το δηλώνεις στη λίστα ως:
 
 ```json
 "icon": "/icons/billias.svg"

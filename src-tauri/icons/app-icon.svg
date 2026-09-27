@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- Source for all app icons: `npx tauri icon app-icon.svg`.
+  <!-- Source for all app icons: `npm run tauri icon src-tauri/icons/app-icon.svg`.
        A hooded coder, back to us, writing code on a glowing screen.
        The in-app mark (src/lib/components/Logo.svelte) draws the same scene. -->
   <defs>

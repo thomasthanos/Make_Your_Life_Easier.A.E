@@ -143,7 +143,7 @@ const MAX_ICON_BYTES: u64 = 4 * 1024 * 1024;
 
 /// Turns the `icon` field into something the page can render:
 /// * `https://…`, `data:…` — used as they are
-/// * `/icons/app.svg` — a file shipped in the app's own `public/` folder
+/// * `/icons/app.svg` — a file shipped in the app's own `src/public/` folder
 /// * any other path (`%VAR%` expanded) — read from disk into a data URL, so
 ///   the webview needs no file-system access
 fn resolve_icon(icon: &str) -> Option<String> {

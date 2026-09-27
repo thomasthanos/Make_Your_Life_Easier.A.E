@@ -13,7 +13,7 @@
     "verify:install": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-install.ps1",
     "web:dev": "vite",
     "web:build": "vite build",
-    "web:setup": "vite build --config vite.installer.config.ts",
+    "web:setup": "vite build --mode setup",
     "check:site": "node scripts/check-site.mjs",
     "prepare:game-saves": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bootstrap-game-saves.ps1",
     "tauri": "npm run prepare:game-saves && tauri"
