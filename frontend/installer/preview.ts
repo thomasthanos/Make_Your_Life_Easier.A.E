@@ -26,9 +26,6 @@ export function previewApi(mode: string): SetupApi {
       await sleep(120);
       return state;
     },
-    async pickFolder() {
-      return String.raw`D:\Apps\MakeYourLifeEasier`;
-    },
     async running() {
       if (mode === "running" && !runningAsked) {
         runningAsked = true;
@@ -39,7 +36,7 @@ export function previewApi(mode: string): SetupApi {
     async checkFolder(dir) {
       if (/^[a-z]:\\?$/i.test(dir.trim())) throw "Choose a full folder path, not a drive root.";
     },
-    async install(request, onEvent) {
+    async install(_request, onEvent) {
       await stage(onEvent, "closingApp", 350);
       await stage(onEvent, "preparing", 450);
       onEvent({ event: "stage", data: { stage: "copying" } });
@@ -59,7 +56,7 @@ export function previewApi(mode: string): SetupApi {
       await stage(onEvent, "registering", 400);
       await stage(onEvent, "shortcuts", 450);
       await stage(onEvent, "finishing", 300);
-      return request.dir;
+      return DIR;
     },
     async uninstall(removeData, onEvent) {
       await stage(onEvent, "closingApp", 350);

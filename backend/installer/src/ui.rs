@@ -10,7 +10,6 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 use tauri::{Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent};
-use tauri_plugin_dialog::DialogExt;
 
 use crate::cleanup::AfterExit;
 use crate::cli::Cli;
@@ -75,12 +74,7 @@ fn setup_state(context: State<'_, Context>) -> SetupState {
     match &context.mode {
         Mode::Install { payload: bytes } => {
             let header = payload::open(bytes).ok().map(|(header, _)| header);
-            let dir = context
-                .cli
-                .dir
-                .clone()
-                .or(existing.clone())
-                .unwrap_or_else(engine::default_dir);
+            let dir = install_dir(&context);
             // A fresh install offers every shortcut, as the old setup made
             // them all; a reinstall starts from what the user kept.
             let [desktop, start_menu, startup] = match &existing {
@@ -138,41 +132,6 @@ fn folder_size(dir: &Path) -> u64 {
         .unwrap_or(0)
 }
 
-/// Picks a folder. The app always gets a folder of its own: choosing
-/// "D:\Apps" installs into "D:\Apps\MakeYourLifeEasier", so uninstalling can
-/// never take anything else with it.
-#[tauri::command]
-async fn setup_pick_folder(app: tauri::AppHandle, current: String) -> Option<String> {
-    let start = PathBuf::from(&current);
-    let start = start
-        .parent()
-        .filter(|p| p.is_dir())
-        .map(Path::to_path_buf)
-        .unwrap_or(start);
-    let picked = tauri::async_runtime::spawn_blocking(move || {
-        app.dialog()
-            .file()
-            .set_title(format!("Choose where to install {}", product::NAME))
-            .set_directory(start)
-            .blocking_pick_folder()
-    })
-    .await
-    .ok()
-    .flatten()?
-    .into_path()
-    .ok()?;
-    let own = picked
-        .file_name()
-        .is_some_and(|name| name.eq_ignore_ascii_case(product::BINARY))
-        || picked.join(product::exe_name()).is_file();
-    let dir = if own {
-        picked
-    } else {
-        picked.join(product::BINARY)
-    };
-    Some(dir.display().to_string())
-}
-
 /// Names of the programs running from the folder, for the "close it?" prompt.
 #[tauri::command(async)]
 fn setup_running(dir: String) -> Vec<String> {
@@ -209,10 +168,21 @@ impl Drop for Busy<'_> {
     }
 }
 
+/// Where the app goes. It is not the user's choice: always the app's own
+/// folder (%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier), or wherever an
+/// earlier install already is. Only `/D=` on the command line (tests) moves it.
+fn install_dir(context: &Context) -> PathBuf {
+    context
+        .cli
+        .dir
+        .clone()
+        .or_else(|| registry::install_dir().filter(|dir| dir.join(product::exe_name()).is_file()))
+        .unwrap_or_else(engine::default_dir)
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct InstallRequest {
-    dir: String,
     desktop: bool,
     start_menu: bool,
     startup: bool,
@@ -229,7 +199,7 @@ async fn setup_install(
     };
     let _busy = Busy::start(&context.busy)?;
     let options = InstallOptions {
-        dir: PathBuf::from(request.dir.trim()),
+        dir: install_dir(&context),
         desktop: request.desktop,
         start_menu: request.start_menu,
         startup: request.startup,
@@ -337,7 +307,6 @@ pub fn run(mode: Mode, cli: Cli) -> (i32, AfterExit) {
     };
 
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
         .manage(context)
         .setup(move |app| {
             let title = if uninstalling {
@@ -369,7 +338,6 @@ pub fn run(mode: Mode, cli: Cli) -> (i32, AfterExit) {
         })
         .invoke_handler(tauri::generate_handler![
             setup_state,
-            setup_pick_folder,
             setup_running,
             setup_check_folder,
             setup_install,

@@ -33,7 +33,6 @@ serde_json = "1"
 [dependencies]
 # Always serve the embedded UI: this crate is never run against a dev server.
 tauri = { version = "2", features = ["custom-protocol"] }
-tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 lzma-rust2 = { version = "0.16", default-features = false, features = ["std", "encoder", "xz"] }

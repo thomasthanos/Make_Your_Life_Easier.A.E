@@ -32,7 +32,6 @@ export type Progress =
   | { event: "files"; data: { done: number; total: number; file: string } };
 
 export interface InstallRequest {
-  dir: string;
   desktop: boolean;
   startMenu: boolean;
   startup: boolean;
@@ -40,7 +39,6 @@ export interface InstallRequest {
 
 export interface SetupApi {
   state(): Promise<SetupState>;
-  pickFolder(current: string): Promise<string | null>;
   running(dir: string): Promise<string[]>;
   checkFolder(dir: string): Promise<void>;
   /** Resolves with the install folder. */
@@ -58,7 +56,6 @@ function channel(onEvent: (e: Progress) => void): Channel<Progress> {
 
 const tauriApi: SetupApi = {
   state: () => invoke("setup_state"),
-  pickFolder: (current) => invoke("setup_pick_folder", { current }),
   running: (dir) => invoke("setup_running", { dir }),
   checkFolder: (dir) => invoke("setup_check_folder", { dir }),
   install: (request, onEvent) => invoke("setup_install", { request, onEvent: channel(onEvent) }),

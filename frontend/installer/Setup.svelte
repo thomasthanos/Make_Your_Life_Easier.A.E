@@ -207,15 +207,6 @@
     if (state.passive) void start();
   }
 
-  async function changeFolder() {
-    if (!api || busy) return;
-    const picked = await api.pickFolder(dir).catch(() => null);
-    if (picked) {
-      dir = picked;
-      folderError = null;
-    }
-  }
-
   async function start() {
     if (!api || !info || busy) return;
     folderError = null;
@@ -249,7 +240,7 @@
     };
     try {
       if (uninstalling) await api.uninstall(removeData, onEvent);
-      else installedDir = await api.install({ dir, desktop, startMenu, startup }, onEvent);
+      else installedDir = await api.install({ desktop, startMenu, startup }, onEvent);
       screen = "done";
       if (info.passive) setTimeout(() => void finish(), 1200);
     } catch (err) {
@@ -339,10 +330,6 @@
               <span class="label">Install location</span>
               <div class="location" class:invalid={folderError}>
                 <span class="path selectable" title={dir}>{dir}</span>
-                <button class="btn small" onclick={changeFolder} disabled={relation !== "fresh"}
-                  title={relation !== "fresh" ? "Updates go where the app already is" : undefined}>
-                  Change…
-                </button>
               </div>
               {#if folderError}
                 <p class="field-error" transition:fade={{ duration: 150 }}>{folderError}</p>

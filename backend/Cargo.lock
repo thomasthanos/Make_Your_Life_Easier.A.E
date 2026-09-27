@@ -2310,7 +2310,6 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
- "tauri-plugin-dialog",
  "uuid",
  "windows",
  "windows-sys 0.61.2",

@@ -91,7 +91,13 @@ try {
 
   $out = Join-Path $release "bundle\setup"
   # Only this build's setup in there, under the product's plain name.
-  if (Test-Path $out) { Remove-Item (Join-Path $out "*.exe") -Force }
+  if (Test-Path $out) {
+    try {
+      Remove-Item (Join-Path $out "*.exe") -Force -ErrorAction Stop
+    } catch {
+      throw "The previous setup in $out is still open. Close it and build again."
+    }
+  }
   New-Item -ItemType Directory -Force $out | Out-Null
   $setup = Join-Path $out "$binary.exe"
   Copy-Item (Join-Path $release "setup.exe") $setup -Force
