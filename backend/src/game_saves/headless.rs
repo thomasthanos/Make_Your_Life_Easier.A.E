@@ -125,17 +125,7 @@ async fn run_due(
         return Ok((0, Vec::new()));
     }
 
-    let mut input = titles.join("\n");
-    input.push('\n');
-    let output = commands::run_engine(
-        &engine,
-        &Engine::backup_args(backup),
-        Some(&input),
-        operation,
-    )
-    .await?;
-    let api = parser::parse_api(&output.stdout)?;
-    let result = commands::operation_result(OperationKind::Backup, &titles, &api, None);
+    let result = commands::backup_titles(&engine, backup, &titles, operation, &|_| {}).await?;
     Ok((result.processed_games, result.failed_games))
 }
 

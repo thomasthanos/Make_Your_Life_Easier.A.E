@@ -32,6 +32,7 @@ export type OperationStage =
   | "updatingDatabase"
   | "creatingSafetyBackup"
   | "backingUp"
+  | "waitingForOneDrive"
   | "restoring"
   | "finishing";
 
@@ -169,6 +170,8 @@ export interface RestoreSelection {
 export interface GameFailure {
   game: string;
   reason: string;
+  /** The end of the path of the file it happened to. */
+  file?: string | null;
 }
 
 export interface GameSavesOperationResult {

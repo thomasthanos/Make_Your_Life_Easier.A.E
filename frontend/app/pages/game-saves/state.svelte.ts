@@ -784,10 +784,10 @@ class GameSavesState {
       this.failures = null;
       return;
     }
-    const reasons = new Map((result.failures ?? []).map((failure) => [failure.game, failure.reason]));
+    const reasons = new Map((result.failures ?? []).map((failure) => [failure.game, failure]));
     this.failures = {
       kind: result.kind,
-      items: result.failedGames.map((game) => ({ game, reason: reasons.get(game) ?? "No reason was given." })),
+      items: result.failedGames.map((game) => reasons.get(game) ?? { game, reason: "No reason was given." }),
     };
     toast.error(`${failed} ${failed === 1 ? "game" : "games"} could not be ${result.kind === "backup" ? "backed up" : "restored"}. See the details on the page.`);
   }

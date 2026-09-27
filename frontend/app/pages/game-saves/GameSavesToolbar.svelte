@@ -24,6 +24,7 @@
     updatingDatabase: "Updating the game database…",
     creatingSafetyBackup: "Creating a safety backup…",
     backingUp: "Backing up saves…",
+    waitingForOneDrive: "Starting OneDrive to download online-only saves…",
     restoring: "Restoring saves…",
     finishing: "Finishing…",
   };

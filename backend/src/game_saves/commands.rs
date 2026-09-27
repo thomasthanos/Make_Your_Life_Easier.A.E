@@ -3,13 +3,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Mutex;
-use std::time::SystemTime;
+use std::time::{Duration, Instant, SystemTime};
 
 use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
 use super::atomic;
+use super::cloud;
 use super::detection;
 use super::engine::{Engine, EngineOutput, failure_detail};
 use super::models::{
@@ -613,18 +614,141 @@ pub async fn game_saves_backup(
     engine.prepare(&value)?;
     send_stage(&on_event, OperationStage::BackingUp);
     let titles: Vec<String> = games.iter().map(|game| game.title.clone()).collect();
-    let input = stdin_titles(&titles);
-    let output = run_engine(
+    let result = backup_titles(
         &engine,
-        &Engine::backup_args(&backup.to_string_lossy()),
-        Some(&input),
+        &backup.to_string_lossy(),
+        &titles,
         &operation,
+        &|stage| send_stage(&on_event, stage),
+    )
+    .await?;
+    send_stage(&on_event, OperationStage::Finishing);
+    Ok(result)
+}
+
+/// How long a backup waits for OneDrive to start and bring online-only saves
+/// down to this PC.
+const ONEDRIVE_WAIT: Duration = Duration::from_secs(90);
+
+/// Backs up `titles`. Games that failed only because their saves are
+/// online-only in OneDrive and OneDrive was not running get a second pass,
+/// once OneDrive has been started and their files can be read.
+pub(crate) async fn backup_titles(
+    engine: &Engine,
+    backup: &str,
+    titles: &[String],
+    operation: &OperationHandle,
+    on_stage: &(dyn Fn(OperationStage) + Sync),
+) -> Result<GameSavesOperationResult, String> {
+    let api = backup_pass(engine, backup, titles, operation).await?;
+    let first = operation_result(OperationKind::Backup, titles, &api, None);
+    let (retry, files) = cloud_offline(&first.failed_games, &api);
+    if retry.is_empty() {
+        return Ok(first);
+    }
+    on_stage(OperationStage::WaitingForOneDrive);
+    if !wait_for_onedrive(files, operation).await? {
+        on_stage(OperationStage::BackingUp);
+        return Ok(first);
+    }
+    on_stage(OperationStage::BackingUp);
+    let api = backup_pass(engine, backup, &retry, operation).await?;
+    let second = operation_result(OperationKind::Backup, &retry, &api, None);
+
+    let still_failed = |title: &String| !retry.contains(title);
+    let mut failed_games: Vec<String> =
+        first.failed_games.iter().filter(|t| still_failed(t)).cloned().collect();
+    failed_games.extend(second.failed_games);
+    let mut failures: Vec<GameFailure> = first
+        .failures
+        .into_iter()
+        .filter(|failure| still_failed(&failure.game))
+        .collect();
+    failures.extend(second.failures);
+    Ok(GameSavesOperationResult {
+        kind: OperationKind::Backup,
+        processed_games: first.processed_games + second.processed_games,
+        processed_bytes: first.processed_bytes + second.processed_bytes,
+        failed_games,
+        failures,
+        safety_backup_path: None,
+    })
+}
+
+async fn backup_pass(
+    engine: &Engine,
+    backup: &str,
+    titles: &[String],
+    operation: &OperationHandle,
+) -> Result<ApiOutput, String> {
+    let output = run_engine(
+        engine,
+        &Engine::backup_args(backup),
+        Some(&stdin_titles(titles)),
+        operation,
     )
     .await?;
     let api = parser::parse_api(&output.stdout)?;
-    ensure_not_cancelled(&operation)?;
-    send_stage(&on_event, OperationStage::Finishing);
-    Ok(operation_result(OperationKind::Backup, &titles, &api, None))
+    ensure_not_cancelled(operation)?;
+    Ok(api)
+}
+
+/// The failed games whose saves could not be read because the cloud app
+/// that keeps them online-only was not running, and those files.
+fn cloud_offline(failed: &[String], api: &ApiOutput) -> (Vec<String>, Vec<PathBuf>) {
+    let mut games = Vec::new();
+    let mut files = Vec::new();
+    for title in failed {
+        let Some((_, game)) = api
+            .games
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case(title))
+        else {
+            continue;
+        };
+        let offline: Vec<PathBuf> = game
+            .files
+            .iter()
+            .filter(|(_, file)| {
+                file.error.as_ref().is_some_and(|error| {
+                    os_error_code(&error.message) == Some(cloud::PROVIDER_NOT_RUNNING)
+                })
+            })
+            .map(|(path, _)| PathBuf::from(path))
+            .collect();
+        if !offline.is_empty() {
+            games.push(title.clone());
+            files.extend(offline);
+        }
+    }
+    (games, files)
+}
+
+/// Starts OneDrive for `files` and waits until they can be read. False when
+/// they are not OneDrive's, OneDrive is not installed, or it took too long.
+async fn wait_for_onedrive(
+    files: Vec<PathBuf>,
+    operation: &OperationHandle,
+) -> Result<bool, String> {
+    let started = tauri::async_runtime::spawn_blocking(move || cloud::start_onedrive(&files))
+        .await
+        .map_err(|error| error.to_string())?;
+    let Some(probe) = started else {
+        return Ok(false);
+    };
+    let since = Instant::now();
+    while since.elapsed() < ONEDRIVE_WAIT {
+        ensure_not_cancelled(operation)?;
+        let file = probe.clone();
+        if tauri::async_runtime::spawn_blocking(move || cloud::readable(&file))
+            .await
+            .unwrap_or(false)
+        {
+            return Ok(true);
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+    Ok(false)
 }
 
 #[tauri::command]
@@ -765,6 +889,7 @@ pub async fn game_saves_restore(
                     reasons.push(GameFailure {
                         game: game.title.clone(),
                         reason: format!("The engine returned an invalid result: {error}"),
+                        file: None,
                     });
                 }
             },
@@ -776,6 +901,7 @@ pub async fn game_saves_restore(
                 reasons.push(GameFailure {
                     game: game.title.clone(),
                     reason: error.clone(),
+                    file: None,
                 });
                 let _ = on_event.send(GameSavesEvent::Message { text: error });
             }
@@ -1071,16 +1197,15 @@ pub(crate) fn failure_reasons(failed: &[String], api: &ApiOutput) -> Vec<GameFai
                     }))
                     .next()
             });
-            let reason = match first {
-                Some((path, message)) => {
-                    format!("{} ({})", explain_error(message), short_path(path))
-                }
-                None if game.is_none() => "The engine did not report this game.".into(),
-                None => "The engine did not finish this game.".into(),
+            let (reason, file) = match first {
+                Some((path, message)) => (explain_error(message), Some(short_path(path))),
+                None if game.is_none() => ("The engine did not report this game.".into(), None),
+                None => ("The engine did not finish this game.".into(), None),
             };
             GameFailure {
                 game: title.clone(),
                 reason,
+                file,
             }
         })
         .collect()
@@ -1090,12 +1215,14 @@ pub(crate) fn failure_reasons(failed: &[String], api: &ApiOutput) -> Vec<GameFai
 /// hint about what to do.
 fn explain_error(message: &str) -> String {
     let lower = message.to_ascii_lowercase();
-    let code = lower
-        .rsplit_once("os error ")
-        .and_then(|(_, rest)| rest.trim_end_matches(')').trim().parse::<u32>().ok());
-    let hint = match code {
-        // ERROR_CLOUD_FILE_*: an online-only OneDrive (or other cloud) file.
-        Some(362 | 389..=398 | 404) => Some(
+    let hint = match os_error_code(message) {
+        // The backup already tried to start OneDrive; this is left when it
+        // is not installed or signed in here, or another cloud app keeps it.
+        Some(cloud::PROVIDER_NOT_RUNNING) => Some(
+            "the file is online-only in OneDrive or another cloud folder, and that app is not running; start it and let the file download, or mark the folder \"Always keep on this device\"",
+        ),
+        // Other ERROR_CLOUD_FILE_* codes: an online-only file that could not come down.
+        Some(389..=398 | 404) => Some(
             "the file is online-only in OneDrive or another cloud folder; open that app and let it download, or mark the folder \"Always keep on this device\"",
         ),
         Some(32 | 33) => Some("the file is in use; close the game and try again"),
@@ -1111,6 +1238,14 @@ fn explain_error(message: &str) -> String {
         Some(hint) => format!("{}: {hint}", message.trim().trim_end_matches('.')),
         None => message.trim().to_string(),
     }
+}
+
+/// The Windows error code in a message such as "… (os error 362)".
+fn os_error_code(message: &str) -> Option<u32> {
+    message
+        .to_ascii_lowercase()
+        .rsplit_once("os error ")
+        .and_then(|(_, rest)| rest.trim_end_matches(')').trim().parse().ok())
 }
 
 /// The end of a long save path, enough to recognise it.
@@ -1482,7 +1617,8 @@ mod tests {
         assert_eq!(result.failed_games, vec!["Bad"]);
         assert_eq!(result.failures.len(), 1);
         assert_eq!(result.failures[0].game, "Bad");
-        assert_eq!(result.failures[0].reason, "locked (x)");
+        assert_eq!(result.failures[0].reason, "locked");
+        assert_eq!(result.failures[0].file.as_deref(), Some("x"));
     }
 
     #[test]
@@ -1495,6 +1631,28 @@ mod tests {
         assert!(busy.contains("close the game"), "{busy}");
         assert_eq!(explain_error("something else"), "something else");
         assert!(short_path(&"a/".repeat(80)).starts_with('…'));
+    }
+
+    #[test]
+    fn only_saves_waiting_for_a_cloud_app_get_a_second_pass() {
+        let api = parser::parse_api(
+            r#"{"games":{
+                "Cloud":{"decision":"Processed","files":{
+                    "C:/Users/Panos/OneDrive/Documents/My Games/a.sav":{"failed":true,"error":{"message":"The cloud file provider is not running. (os error 362)"}},
+                    "C:/Users/Panos/OneDrive/Documents/My Games/b.sav":{"bytes":3}}},
+                "Busy":{"decision":"Processed","files":{
+                    "C:/Games/busy.sav":{"failed":true,"error":{"message":"in use (os error 32)"}}}}}}"#,
+        )
+        .unwrap();
+        let failed = failed_games(&["Cloud".into(), "Busy".into()], &api);
+        let (games, files) = cloud_offline(&failed, &api);
+        assert_eq!(games, vec!["Cloud".to_string()]);
+        assert_eq!(
+            files,
+            vec![PathBuf::from("C:/Users/Panos/OneDrive/Documents/My Games/a.sav")]
+        );
+        assert_eq!(os_error_code("x (os error 362)"), Some(362));
+        assert_eq!(os_error_code("no code"), None);
     }
 
     #[test]

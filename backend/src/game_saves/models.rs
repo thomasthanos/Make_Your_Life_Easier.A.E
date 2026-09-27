@@ -234,6 +234,8 @@ pub enum OperationStage {
     UpdatingDatabase,
     CreatingSafetyBackup,
     BackingUp,
+    /// Waiting for OneDrive to start and download online-only saves.
+    WaitingForOneDrive,
     Restoring,
     Finishing,
 }
@@ -369,6 +371,9 @@ pub struct GameSavesOperationResult {
 pub struct GameFailure {
     pub game: String,
     pub reason: String,
+    /// The end of the path of the file it happened to, when there is one.
+    #[serde(default)]
+    pub file: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

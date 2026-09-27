@@ -16,12 +16,19 @@
   import GameSavesToolbar from "./GameSavesToolbar.svelte";
   import SettingsPanel from "./SettingsPanel.svelte";
   import SnapshotPicker from "./SnapshotPicker.svelte";
-  import type { GameSavesTab } from "./api";
+  import type { GameFailure, GameSavesTab } from "./api";
   import { formatBytes, formatDate, gameSavesState as state } from "./state.svelte";
 
   onMount(() => {
     void state.init();
   });
+
+  /** Games that failed for the same reason share it: said once, not per game. */
+  function byReason(items: GameFailure[]) {
+    const groups = new Map<string, GameFailure[]>();
+    for (const item of items) groups.set(item.reason, [...(groups.get(item.reason) ?? []), item]);
+    return [...groups].map(([reason, games]) => ({ reason, games }));
+  }
 
   const tabs: { id: GameSavesTab; label: string; icon: typeof HardDrive }[] = [
     { id: "pc", label: "On this PC", icon: HardDrive },
@@ -100,11 +107,21 @@
           {failures.items.length}
           {failures.items.length === 1 ? "game" : "games"} could not be {failures.kind === "backup" ? "backed up" : "restored"}
         </strong>
-        <ul>
-          {#each failures.items as failure (failure.game)}
-            <li><b>{failure.game}</b> <span class="selectable">{failure.reason}</span></li>
+        <div class="failure-groups">
+          {#each byReason(failures.items) as group (group.reason)}
+            <section>
+              <p class="selectable">{group.reason}</p>
+              <ul>
+                {#each group.games as failure (failure.game)}
+                  <li>
+                    <b>{failure.game}</b>
+                    {#if failure.file}<span class="selectable file">{failure.file}</span>{/if}
+                  </li>
+                {/each}
+              </ul>
+            </section>
           {/each}
-        </ul>
+        </div>
       </div>
       <button class="btn small ghost" onclick={() => state.dismissFailures()}>Dismiss</button>
     </div>
@@ -282,25 +299,55 @@
     min-width: 0;
   }
 
-  .failures ul {
+  .failure-groups {
     display: grid;
-    gap: 4px;
-    max-height: 168px;
-    margin: 0;
-    padding: 0;
+    gap: 10px;
+    max-height: 184px;
     overflow: auto;
-    list-style: none;
   }
 
-  .failures li {
+  .failure-groups section {
+    display: grid;
+    gap: 4px;
+  }
+
+  .failure-groups p {
+    margin: 0;
     color: var(--text-2);
     font-size: 11.5px;
     line-height: 1.45;
   }
 
+  .failures ul {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0 0 0 10px;
+    border-left: 2px solid rgb(255 255 255 / 0.08);
+    list-style: none;
+  }
+
+  .failures li {
+    display: flex;
+    gap: 8px;
+    min-width: 0;
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
   .failures li b {
+    flex: none;
     color: var(--text-1);
     font-weight: 600;
+  }
+
+  .failures li .file {
+    overflow: hidden;
+    color: var(--text-3);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 10.5px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .tabs-wrap {

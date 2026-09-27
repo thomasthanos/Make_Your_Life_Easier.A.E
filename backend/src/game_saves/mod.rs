@@ -1,4 +1,5 @@
 mod atomic;
+mod cloud;
 pub(crate) mod commands;
 mod detection;
 mod engine;
