@@ -14,25 +14,38 @@
 
 ```bash
 npm install
-npm run prepare:game-saves  # κατεβάζει/επαληθεύει τα pinned Game Saves resources
-npm run tauri dev      # ανάπτυξη με hot reload
-npm run check          # έλεγχος τύπων (Svelte + TS)
-cd src-tauri && cargo test --locked
-npm run build:setup    # εφαρμογή + uninstaller + setup στο src-tauri/target/release/bundle/setup/
+npm run dev             # η εφαρμογή σε ανάπτυξη με hot reload
+npm run build           # installer: εφαρμογή + uninstaller + setup στο src-tauri/target/release/bundle/setup/
+npm run check           # έλεγχος τύπων (Svelte + TS) και του site/
+npm test                # Rust tests (εφαρμογή και setup)
+npm run lint            # cargo clippy -D warnings
 ```
+
+| Script | Τι κάνει |
+| --- | --- |
+| `dev` | `tauri dev`: ανοίγει την εφαρμογή με hot reload |
+| `build` | ολόκληρο το setup (`scripts/build-setup.ps1`): `MakeYourLifeEasier_<version>_x64-setup.exe` |
+| `build:app` | μόνο το release exe της εφαρμογής, χωρίς setup |
+| `check` | svelte-check, tsc και `check:site` |
+| `test` / `lint` | `cargo test` / `cargo clippy` σε όλο το workspace του `src-tauri` |
+| `verify:install` | ελέγχει ότι η εγκατάσταση (ή με `-- -Removed` η απεγκατάσταση) άφησε τα σωστά αρχεία, συντομεύσεις και registry |
+| `web:dev` / `web:build` | μόνο το Vite της εφαρμογής (τα τρέχει το Tauri από μόνο του· το `web:dev` χρησιμεύει και για προεπισκόπηση στον browser) |
+| `web:setup` | η σελίδα του παραθύρου του setup (`dist-installer/`) |
+| `prepare:game-saves` | κατεβάζει/επαληθεύει τα pinned Game Saves resources |
+| `tauri` | το Tauri CLI όπως είναι, π.χ. `npm run tauri icon app-icon.svg` |
 
 Κάθε push στο `main` και κάθε pull request περνά από το `.github/workflows/ci.yml`, σε Windows: `npm run check`, build των frontends, `cargo clippy -D warnings` και `cargo test` για εφαρμογή και setup, και ένα δεύτερο job που χτίζει το setup, το εγκαθιστά, το ενημερώνει και το απεγκαθιστά σιωπηλά (`scripts/smoke-test-setup.ps1`). Το setup του κάθε run μένει 7 μέρες ως artifact.
 
-Το `npm run tauri ...` εκτελεί αυτόματα το `prepare:game-saves`. Το script χρησιμοποιεί SHA-256 μέσω .NET ώστε να λειτουργεί και σε παλαιότερο Windows PowerShell όπου δεν υπάρχει το `Get-FileHash`.
+Τα `dev`, `build`, `build:app` και `tauri` εκτελούν πρώτα αυτόματα το `prepare:game-saves`. Το script χρησιμοποιεί SHA-256 μέσω .NET ώστε να λειτουργεί και σε παλαιότερο Windows PowerShell όπου δεν υπάρχει το `Get-FileHash`.
 
 Για να δεις το splash να «κατεβάζει» update χωρίς πραγματικό release (λειτουργεί μόνο σε dev):
 
 ```powershell
-$env:MYLE_UPDATER_DEMO = "1"; npm run tauri dev        # ψεύτικο download
-$env:MYLE_UPDATER_DEMO = "offline"; npm run tauri dev  # ψεύτικο σφάλμα δικτύου
+$env:MYLE_UPDATER_DEMO = "1"; npm run dev        # ψεύτικο download
+$env:MYLE_UPDATER_DEMO = "offline"; npm run dev  # ψεύτικο σφάλμα δικτύου
 ```
 
-Ή σκέτο στον browser, με `npm run dev` και `http://localhost:1420/splash.html?demo=update` (ή `=offline`, `=latest`).
+Ή σκέτο στον browser, με `npm run web:dev` και `http://localhost:1420/splash.html?demo=update` (ή `=offline`, `=latest`).
 
 Το εικονίδιο (ο hooded coder) ζει στο `app-icon.svg`. Μετά από αλλαγή του, ξαναφτιάξε τα PNG/ICO με `npx tauri icon app-icon.svg` και κράτα από το `src-tauri/icons/` μόνο όσα δηλώνει το `tauri.conf.json`. Το λογότυπο μέσα στην εφαρμογή (`src/lib/components/Logo.svelte`) και η κινούμενη εκδοχή του splash (`src/splash/CoderScene.svelte`) διαβάζουν τα ίδια σχήματα από το `src/lib/brand.ts`, οπότε άλλαξέ τα και εκεί.
 
@@ -63,7 +76,7 @@ src-tauri/
 src/installer/                το παράθυρο του setup/uninstaller (Svelte)
 scripts/
   bootstrap-game-saves.ps1    λήψη και SHA-256 verification των pinned resources
-  build-setup.ps1             ολόκληρο το setup (npm run build:setup)
+  build-setup.ps1             ολόκληρο το setup (npm run build)
   smoke-test-setup.ps1        σιωπηλό install → update → uninstall με ελέγχους
 ```
 
@@ -206,7 +219,7 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 
 ### Cloudflare Pages site (ξεχωριστό από το updater)
 
-Το `make-your-life-easier.pages.dev` είναι στατικό download/marketing site και δεν σερβίρει το Tauri webview. Τα αρχεία του βρίσκονται στο `site/`, ενώ το root `wrangler.toml` δηλώνει `pages_build_output_dir = "./site"`. Το Pages build command μένει κενό· δεν πρέπει να δείχνει στο Vite `dist/` ούτε να τρέχει `npm run build`.
+Το `make-your-life-easier.pages.dev` είναι στατικό download/marketing site και δεν σερβίρει το Tauri webview. Τα αρχεία του βρίσκονται στο `site/`, ενώ το root `wrangler.toml` δηλώνει `pages_build_output_dir = "./site"`. Το Pages build command μένει κενό· δεν πρέπει να δείχνει στο Vite `dist/` ούτε να τρέχει `npm run web:build`.
 
 - Κύριο download: `https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe`
 - GitHub fallback: το latest release του repository
@@ -235,7 +248,7 @@ Frontend: `src/app/pages/creative-hub/`. Backend: `src-tauri/src/apps/creative.r
 | `/D=<φάκελος>` | άλλος φάκελος (τελευταίο, χωρίς εισαγωγικά) |
 | `/PURGE` | (uninstall) σβήνει και ρυθμίσεις/δεδομένα |
 
-Προεπισκόπηση του παραθύρου στον browser: `npm run dev` και `http://localhost:1420/installer.html?demo=install` (ή `=update`, `=uninstall`, `=running`, `=error`, `=passive`).
+Προεπισκόπηση του παραθύρου στον browser: `npm run web:dev` και `http://localhost:1420/installer.html?demo=install` (ή `=update`, `=uninstall`, `=running`, `=error`, `=passive`).
 
 | Τι | Πού |
 |---|---|

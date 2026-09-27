@@ -106,7 +106,7 @@ fn payload() {
     env("MYLE_PAYLOAD", &path.display().to_string());
 }
 
-/// The window's page comes from `npm run build:installer-ui`. A release build
+/// The window's page comes from `npm run web:setup`. A release build
 /// without it is a mistake; a check or a test only needs something to embed.
 fn frontend(crate_dir: &Path) {
     let dist = crate_dir.join("../../dist-installer");
@@ -114,12 +114,12 @@ fn frontend(crate_dir: &Path) {
         return;
     }
     if std::env::var("PROFILE").as_deref() == Ok("release") {
-        panic!("dist-installer is missing: run `npm run build:installer-ui` first");
+        panic!("dist-installer is missing: run `npm run web:setup` first");
     }
     std::fs::create_dir_all(&dist).unwrap();
     std::fs::write(
         dist.join("installer.html"),
-        "<!doctype html><title>Setup</title><p>Run npm run build:installer-ui.</p>",
+        "<!doctype html><title>Setup</title><p>Run npm run web:setup.</p>",
     )
     .unwrap();
 }

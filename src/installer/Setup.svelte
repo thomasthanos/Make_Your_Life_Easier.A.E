@@ -306,7 +306,7 @@
               <h2>Nothing to install</h2>
               <p class="lead">
                 {info && !info.ready
-                  ? "This setup was built without the app inside. Build it with npm run build:setup."
+                  ? "This setup was built without the app inside. Build it with npm run build."
                   : "Open this page inside the setup, or add ?demo=install to preview it."}
               </p>
             </div>

@@ -94,7 +94,7 @@ jobs:
           if (-not $env:MYLE_SIGN_PFX) {
             Write-Host "::warning::WIN_CSC_LINK is not set: building an unsigned setup."
           }
-          npm run build:setup
+          npm run build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Collect the installer

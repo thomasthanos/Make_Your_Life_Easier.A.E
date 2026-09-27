@@ -52,7 +52,7 @@ try {
   Set-Signature $appExe
 
   # 2. The uninstaller, which the setup carries inside it.
-  Invoke-Step "Setup window" { npm run build:installer-ui }
+  Invoke-Step "Setup window" { npm run web:setup }
   Invoke-Step "Uninstaller" {
     cargo build --release --locked --manifest-path $manifest -p myle-setup --bin uninstall --bin myle-pack
   }
