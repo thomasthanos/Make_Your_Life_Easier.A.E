@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="fdm-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="fdm-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0B224A" />
+      <stop offset="52%" stop-color="#06132B" />
+      <stop offset="100%" stop-color="#020814" />
+    </linearGradient>
+    <radialGradient id="fdm-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.4" />
+      <stop offset="55%" stop-color="#1D4ED8" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#06132B" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="fdm-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#60A5FA" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#06132B" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="fdm-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BFDBFE" stop-opacity="0.62" />
+      <stop offset="25%" stop-color="#3B82F6" stop-opacity="0.3" />
+      <stop offset="80%" stop-color="#1E3A8A" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#60A5FA" stop-opacity="0.4" />
+    </linearGradient>
+    <linearGradient id="fdm-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="fdm-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+      <linearGradient id="fdm-b" x1="60" y1="60" x2="196" y2="196" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#60A5FA"/><stop offset="100%" stop-color="#1D4ED8"/></linearGradient>
+    
+  </defs>
+  <g clip-path="url(#fdm-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#fdm-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#fdm-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#fdm-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#fdm-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#fdm-rim)" stroke-width="3" />
+  <g filter="url(#fdm-shadow)">
+    
+      <rect x="60" y="60" width="136" height="136" rx="32" fill="url(#fdm-b)"/>
+      <path d="M128 84V152M98 126L128 156L158 126" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M92 172H164" stroke="#BAE6FD" stroke-width="12" stroke-linecap="round"/>
+    
+  </g>
+</svg>

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="ddu-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="ddu-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1F1D2B" />
+      <stop offset="52%" stop-color="#12101A" />
+      <stop offset="100%" stop-color="#08070D" />
+    </linearGradient>
+    <radialGradient id="ddu-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.34" />
+      <stop offset="55%" stop-color="#D97706" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#12101A" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="ddu-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#FBBF24" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#12101A" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="ddu-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FDE68A" stop-opacity="0.58" />
+      <stop offset="25%" stop-color="#F59E0B" stop-opacity="0.28" />
+      <stop offset="80%" stop-color="#1E293B" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#FBBF24" stop-opacity="0.38" />
+    </linearGradient>
+    <linearGradient id="ddu-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="ddu-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#ddu-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#ddu-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#ddu-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#ddu-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#ddu-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#ddu-rim)" stroke-width="3" />
+  <g filter="url(#ddu-shadow)">
+    
+      <rect x="54" y="76" width="148" height="104" rx="18" fill="#1E293B" stroke="#FBBF24" stroke-width="8"/>
+      <circle cx="104" cy="128" r="24" stroke="#F8FAFC" stroke-width="10"/>
+      <path d="M148 108L180 148M180 108L148 148" stroke="#EF4444" stroke-width="12" stroke-linecap="round"/>
+    
+  </g>
+</svg>

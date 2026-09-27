@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <!-- Inner Emblem Subtle 3D Shadow -->
+    <filter id="al-emblem-shadow" x="28" y="42" width="204" height="176" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#00120B" flood-opacity="0.75" />
+    </filter>
+
+    <!-- Main Deep Forest-Obsidian Background -->
+    <linearGradient id="al-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#082E22" />
+      <stop offset="50%" stop-color="#041912" />
+      <stop offset="100%" stop-color="#010B08" />
+    </linearGradient>
+
+    <!-- Ambient Emerald-Mint Glow -->
+    <radialGradient id="al-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#00E676" stop-opacity="0.38" />
+      <stop offset="55%" stop-color="#00897B" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#041912" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Bottom-Right Secondary Glow -->
+    <radialGradient id="al-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#1DE9B6" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#041912" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- macOS 3D Glass Bevel Border -->
+    <linearGradient id="al-glass-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#B9F6CA" stop-opacity="0.65" />
+      <stop offset="25%" stop-color="#00E676" stop-opacity="0.32" />
+      <stop offset="80%" stop-color="#004D40" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#69F0AE" stop-opacity="0.42" />
+    </linearGradient>
+
+    <!-- Top Specular Sheen -->
+    <linearGradient id="al-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Sign-In Arrow Smooth Gradient -->
+    <linearGradient id="al-arrow-grad" x1="104" y1="78" x2="104" y2="178" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E0F2F1" />
+      <stop offset="45%" stop-color="#69F0AE" />
+      <stop offset="100%" stop-color="#00C853" />
+    </linearGradient>
+
+    <!-- Portal Frame Gradient -->
+    <linearGradient id="al-portal-grad" x1="176" y1="64" x2="176" y2="192" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A7FFEB" />
+      <stop offset="50%" stop-color="#1DE9B6" />
+      <stop offset="100%" stop-color="#00BFA5" />
+    </linearGradient>
+
+    <!-- macOS Squircle Clip -->
+    <clipPath id="al-squircle-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+  </defs>
+
+  <!-- Base Squircle & Internal Lighting (Χωρίς εξωτερικό shadow) -->
+  <g clip-path="url(#al-squircle-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#al-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#al-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#al-glow-bottom)" />
+    <!-- Top Glass Reflection Curve -->
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#al-sheen)" />
+  </g>
+
+  <!-- 3D Inner Glass Rim -->
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#al-glass-rim)" stroke-width="3" />
+
+  <!-- Auto-Logon Portal & Arrow Emblem -->
+  <g filter="url(#al-emblem-shadow)">
+    <!-- Portal Door Frame -->
+    <path d="M148 64H176C189.255 64 200 74.745 200 88V168C200 181.255 189.255 192 176 192H148" stroke="url(#al-portal-grad)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- Single-Path Seamless Sign-In Arrow -->
+    <path d="M58 117H123.5L104.8 98.3C100.5 94 100.5 87 104.8 82.7C109.1 78.4 116.1 78.4 120.4 82.7L157.9 120.2C162.2 124.5 162.2 131.5 157.9 135.8L120.4 173.3C116.1 177.6 109.1 177.6 104.8 173.3C100.5 169 100.5 162 104.8 157.7L123.5 139H58C51.9 139 47 134.1 47 128C47 121.9 51.9 117 58 117Z" fill="url(#al-arrow-grad)" />
+  </g>
+</svg>

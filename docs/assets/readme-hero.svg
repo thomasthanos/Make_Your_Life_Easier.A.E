@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title description">
+  <title id="title">Make Your Life Easier</title>
+  <desc id="description">A dark, animated control desk for apps, cleanup, game saves and Windows tools.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#090d18" />
+      <stop offset=".55" stop-color="#11182a" />
+      <stop offset="1" stop-color="#0a1020" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#8d83ff" />
+      <stop offset="1" stop-color="#54d6ef" />
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#202b43" stop-opacity=".96" />
+      <stop offset="1" stop-color="#121a2b" stop-opacity=".98" />
+    </linearGradient>
+    <radialGradient id="halo">
+      <stop stop-color="#8278ff" stop-opacity=".36" />
+      <stop offset=".55" stop-color="#60cdea" stop-opacity=".12" />
+      <stop offset="1" stop-color="#60cdea" stop-opacity="0" />
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0v32" fill="none" stroke="#8291b3" stroke-opacity=".075" stroke-width="1" />
+    </pattern>
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="22" />
+    </filter>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="4" result="soft" />
+      <feMerge><feMergeNode in="soft" /><feMergeNode in="SourceGraphic" /></feMerge>
+    </filter>
+    <clipPath id="frame"><rect x="1" y="1" width="1198" height="418" rx="28" /></clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="420" fill="url(#background)" />
+    <rect width="1200" height="420" fill="url(#grid)" />
+    <ellipse cx="320" cy="88" rx="330" ry="210" fill="url(#halo)" filter="url(#blur)">
+      <animate attributeName="opacity" values=".7;1;.7" dur="7s" repeatCount="indefinite" />
+    </ellipse>
+    <ellipse cx="1030" cy="380" rx="260" ry="180" fill="#3bbbd8" opacity=".08" filter="url(#blur)">
+      <animate attributeName="opacity" values=".04;.13;.04" dur="8s" repeatCount="indefinite" />
+    </ellipse>
+
+    <g font-family="Segoe UI, Inter, Arial, sans-serif">
+      <rect x="66" y="57" width="244" height="34" rx="17" fill="#182238" stroke="#8392b4" stroke-opacity=".22" />
+      <circle cx="86" cy="74" r="4" fill="#66e1da" filter="url(#glow)">
+        <animate attributeName="opacity" values="1;.42;1" dur="2.3s" repeatCount="indefinite" />
+      </circle>
+      <text x="102" y="79" fill="#c8d5f2" font-size="12" font-weight="700" letter-spacing="1.4">THOMASTHANOS  /  WINDOWS</text>
+
+      <text x="64" y="163" fill="#f5f7ff" font-size="48" font-weight="750" letter-spacing="-1.7">Make Your Life</text>
+      <text x="64" y="218" fill="#f5f7ff" font-size="48" font-weight="750" letter-spacing="-1.7">Easier<tspan fill="url(#accent)">.</tspan></text>
+      <text x="67" y="260" fill="#aab8d1" font-size="17">Your everyday Windows toolkit, in one quiet place.</text>
+      <text x="67" y="286" fill="#aab8d1" font-size="17">Apps, cleanup, game saves and useful system tools.</text>
+
+      <g transform="translate(67 327)">
+        <rect width="116" height="30" rx="15" fill="#172237" stroke="#8292b3" stroke-opacity=".2" />
+        <circle cx="17" cy="15" r="4" fill="#8a83ff" />
+        <text x="30" y="19" fill="#d5dcf0" font-size="11" font-weight="700" letter-spacing=".7">TAURI 2</text>
+        <rect x="126" width="132" height="30" rx="15" fill="#172237" stroke="#8292b3" stroke-opacity=".2" />
+        <circle cx="143" cy="15" r="4" fill="#51d2dc" />
+        <text x="156" y="19" fill="#d5dcf0" font-size="11" font-weight="700" letter-spacing=".7">Svelte 5 + Rust</text>
+        <rect x="268" width="114" height="30" rx="15" fill="#172237" stroke="#8292b3" stroke-opacity=".2" />
+        <circle cx="285" cy="15" r="4" fill="#a9da83" />
+        <text x="298" y="19" fill="#d5dcf0" font-size="11" font-weight="700" letter-spacing=".7">WINDOWS 10+</text>
+      </g>
+
+      <!-- A small glass desktop, echoing the real app's dark panels. -->
+      <rect x="671" y="42" width="466" height="338" rx="22" fill="#050813" opacity=".55" filter="url(#blur)" />
+      <rect x="680" y="37" width="460" height="338" rx="20" fill="url(#panel)" stroke="#9aa9cb" stroke-opacity=".24" />
+      <path d="M700 37h420a20 20 0 0 1 20 20v25H680V57a20 20 0 0 1 20-20Z" fill="#ffffff" opacity=".035" />
+      <circle cx="704" cy="61" r="4" fill="#ff747f" />
+      <circle cx="720" cy="61" r="4" fill="#f4c36a" />
+      <circle cx="736" cy="61" r="4" fill="#62d8b0" />
+      <text x="760" y="65" fill="#a9b8d4" font-size="11" font-weight="600">MAKE YOUR LIFE EASIER</text>
+      <rect x="698" y="101" width="118" height="247" rx="12" fill="#0c1322" stroke="#a1afd0" stroke-opacity=".12" />
+      <rect x="711" y="119" width="91" height="35" rx="9" fill="#252d4c" />
+      <rect x="720" y="130" width="5" height="14" rx="2.5" fill="#a89aff" />
+      <text x="734" y="140" fill="#e7eaff" font-size="10" font-weight="700">Overview</text>
+      <g fill="#7e8ca8" font-size="10">
+        <circle cx="721" cy="177" r="3" fill="#6dcfe0" /><text x="734" y="180">Install Apps</text>
+        <circle cx="721" cy="210" r="3" fill="#a790ff" /><text x="734" y="213">Game Saves</text>
+        <circle cx="721" cy="243" r="3" fill="#75d0a0" /><text x="734" y="246">Cleanup</text>
+        <circle cx="721" cy="276" r="3" fill="#f2be73" /><text x="734" y="279">Windows</text>
+      </g>
+      <rect x="836" y="101" width="282" height="68" rx="12" fill="#1b2740" stroke="#8b9abd" stroke-opacity=".15" />
+      <text x="855" y="126" fill="#8294b7" font-size="9" font-weight="700" letter-spacing="1">YOUR DESKTOP, IN GOOD ORDER</text>
+      <text x="855" y="149" fill="#f3f5ff" font-size="16" font-weight="650">Everything in one place.</text>
+      <rect x="836" y="184" width="133" height="144" rx="12" fill="#151f33" stroke="#8b9abd" stroke-opacity=".14" />
+      <rect x="981" y="184" width="137" height="144" rx="12" fill="#151f33" stroke="#8b9abd" stroke-opacity=".14" />
+      <circle cx="864" cy="214" r="13" fill="#34335f" />
+      <path d="M859 214h10m-5-5v10" stroke="#b7aaff" stroke-width="1.6" stroke-linecap="round" />
+      <text x="853" y="249" fill="#e3e9f8" font-size="12" font-weight="650">Apps</text>
+      <text x="853" y="269" fill="#8595b0" font-size="9">Keep tools updated</text>
+      <rect x="853" y="290" width="86" height="4" rx="2" fill="#27334b" />
+      <rect x="853" y="290" width="57" height="4" rx="2" fill="url(#accent)">
+        <animate attributeName="width" values="46;76;46" dur="4.5s" repeatCount="indefinite" />
+      </rect>
+      <circle cx="1009" cy="214" r="13" fill="#203e4b" />
+      <path d="M1004 214l4 4 7-8" fill="none" stroke="#74e2da" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="998" y="249" fill="#e3e9f8" font-size="12" font-weight="650">Game Saves</text>
+      <text x="998" y="269" fill="#8595b0" font-size="9">Back up with care</text>
+      <rect x="998" y="290" width="94" height="20" rx="10" fill="#173a39" />
+      <circle cx="1010" cy="300" r="3" fill="#6ae0b7" />
+      <text x="1019" y="303" fill="#a6e7d2" font-size="8" font-weight="650">READY</text>
+
+      <circle cx="1086" cy="112" r="5" fill="#62d9e4" filter="url(#glow)">
+        <animate attributeName="cy" values="112;119;112" dur="3.2s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values=".45;1;.45" dur="3.2s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="1098" cy="345" r="2" fill="#a995ff" filter="url(#glow)">
+        <animate attributeName="opacity" values=".3;1;.3" dur="2.8s" repeatCount="indefinite" />
+      </circle>
+      <path d="M650 96h-20v226h20" fill="none" stroke="url(#accent)" stroke-opacity=".55" stroke-width="1.4">
+        <animate attributeName="stroke-opacity" values=".25;.75;.25" dur="5s" repeatCount="indefinite" />
+      </path>
+    </g>
+  </g>
+  <rect x="1" y="1" width="1198" height="418" rx="28" fill="none" stroke="#a6b4d4" stroke-opacity=".19" stroke-width="2" />
+</svg>

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="eaa-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="eaa-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2B0E14" />
+      <stop offset="52%" stop-color="#17070A" />
+      <stop offset="100%" stop-color="#0B0204" />
+    </linearGradient>
+    <radialGradient id="eaa-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#FF4747" stop-opacity="0.38" />
+      <stop offset="55%" stop-color="#F97316" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#17070A" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="eaa-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#FB7185" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#17070A" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="eaa-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FECDD3" stop-opacity="0.62" />
+      <stop offset="25%" stop-color="#FF4747" stop-opacity="0.3" />
+      <stop offset="80%" stop-color="#4C0519" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#F97316" stop-opacity="0.4" />
+    </linearGradient>
+    <linearGradient id="eaa-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="eaa-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#eaa-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#eaa-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#eaa-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#eaa-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#eaa-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#eaa-rim)" stroke-width="3" />
+  <g filter="url(#eaa-shadow)">
+    <svg x="50" y="50" width="156" height="156" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet"><path fill="#FF5745" d="m16.635 6.162l-5.928 9.377H4.24l1.508-2.3h4.024l1.474-2.335H2.264L.79 13.239h2.156L0 17.84h12.072l4.563-7.259l1.652 2.66h-1.401l-1.473 2.299h4.347l1.473 2.3H24zm-11.461.107L3.7 8.604l9.52-.035l1.474-2.3z"/></svg>
+  </g>
+</svg>

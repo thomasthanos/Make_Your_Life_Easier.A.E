@@ -1,0 +1,149 @@
+//! The per-user registry entries: the "Installed apps" entry and the
+//! remembered install folder. Names and values match what the NSIS setup
+//! wrote, so an install made by it is found, updated and removed the same way.
+
+use std::path::{Path, PathBuf};
+
+use winreg::RegKey;
+use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_WRITE};
+
+use crate::product;
+
+fn hkcu() -> RegKey {
+    RegKey::predef(HKEY_CURRENT_USER)
+}
+
+fn unquote(text: &str) -> &str {
+    text.trim().trim_matches('"')
+}
+
+/// The folder of an existing install, if there is one.
+pub fn install_dir() -> Option<PathBuf> {
+    let remembered = hkcu()
+        .open_subkey_with_flags(product::product_key(), KEY_READ)
+        .and_then(|key| key.get_value::<String, _>(""))
+        .ok();
+    let listed = || {
+        hkcu()
+            .open_subkey_with_flags(product::uninstall_key(), KEY_READ)
+            .and_then(|key| key.get_value::<String, _>("InstallLocation"))
+            .ok()
+    };
+    remembered
+        .or_else(listed)
+        .map(|dir| PathBuf::from(unquote(&dir)))
+        .filter(|dir| !dir.as_os_str().is_empty())
+}
+
+/// The version "Installed apps" lists, if the app is installed.
+pub fn installed_version() -> Option<String> {
+    hkcu()
+        .open_subkey_with_flags(product::uninstall_key(), KEY_READ)
+        .and_then(|key| key.get_value::<String, _>("DisplayVersion"))
+        .ok()
+        .filter(|version| !version.trim().is_empty())
+}
+
+/// Lists the app in "Installed apps" and remembers where it went.
+pub fn register(dir: &Path, version: &str, size_kb: u32) -> Result<(), String> {
+    let exe = dir.join(product::exe_name());
+    let uninstaller = dir.join(product::UNINSTALLER);
+    let (key, _) = hkcu()
+        .create_subkey(product::uninstall_key())
+        .map_err(|e| format!("Windows did not accept the uninstall entry: {e}"))?;
+    let quoted = |path: &Path| format!("\"{}\"", path.display());
+    let text: [(&str, String); 10] = [
+        ("DisplayName", product::NAME.to_string()),
+        ("DisplayIcon", quoted(&exe)),
+        ("DisplayVersion", version.to_string()),
+        ("Publisher", product::PUBLISHER.to_string()),
+        ("InstallLocation", dir.display().to_string()),
+        ("UninstallString", quoted(&uninstaller)),
+        (
+            "QuietUninstallString",
+            format!("{} /S", quoted(&uninstaller)),
+        ),
+        ("MainBinaryName", product::exe_name()),
+        ("InstallDate", today()),
+        ("Comments", format!("{} for Windows", product::NAME)),
+    ];
+    for (name, value) in text {
+        key.set_value(name, &value).map_err(|e| e.to_string())?;
+    }
+    key.set_value("NoModify", &1u32)
+        .map_err(|e| e.to_string())?;
+    key.set_value("NoRepair", &1u32)
+        .map_err(|e| e.to_string())?;
+    key.set_value("EstimatedSize", &size_kb)
+        .map_err(|e| e.to_string())?;
+
+    let (remembered, _) = hkcu()
+        .create_subkey(product::product_key())
+        .map_err(|e| e.to_string())?;
+    remembered
+        .set_value("", &dir.display().to_string())
+        .map_err(|e| e.to_string())
+}
+
+/// Removes the "Installed apps" entry and the login-launch value the NSIS
+/// setup's uninstaller also cleared. `forget_folder` drops the remembered
+/// install folder too (a full clean-up); otherwise a reinstall reuses it.
+pub fn unregister(forget_folder: bool) {
+    let _ = hkcu().delete_subkey_all(product::uninstall_key());
+    if let Ok(run) = hkcu().open_subkey_with_flags(
+        r"Software\Microsoft\Windows\CurrentVersion\Run",
+        KEY_READ | KEY_WRITE,
+    ) {
+        let _ = run.delete_value(product::NAME);
+    }
+    if forget_folder {
+        let _ = hkcu().delete_subkey_all(product::product_key());
+        // The publisher key only if nothing else of ours lives under it.
+        let empty = hkcu()
+            .open_subkey_with_flags(product::publisher_key(), KEY_READ)
+            .is_ok_and(|key| {
+                key.enum_keys().next().is_none() && key.enum_values().next().is_none()
+            });
+        if empty {
+            let _ = hkcu().delete_subkey(product::publisher_key());
+        }
+    }
+}
+
+/// `YYYYMMDD`, as "Installed apps" expects `InstallDate`.
+fn today() -> String {
+    let seconds = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let days = (seconds / 86_400) as i64;
+    // Civil date from days since 1970-01-01 (Howard Hinnant's algorithm).
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    format!("{year:04}{month:02}{day:02}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn install_dates_have_eight_digits() {
+        let date = today();
+        assert_eq!(date.len(), 8);
+        assert!(date.starts_with("20"));
+    }
+
+    #[test]
+    fn quoted_registry_paths_are_unquoted() {
+        assert_eq!(unquote(r#""C:\Apps\MYLE""#), r"C:\Apps\MYLE");
+        assert_eq!(unquote(r"C:\Apps\MYLE"), r"C:\Apps\MYLE");
+    }
+}

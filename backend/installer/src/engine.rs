@@ -1,0 +1,626 @@
+//! Installing and uninstalling, without any window: the UI and the silent
+//! command line both drive these and only differ in how they show progress.
+//!
+//! An install is all-or-nothing for the files: each one is written next to
+//! its target, the old one is moved aside, and only when every file is in
+//! place are the old ones deleted. A failure part-way puts the previous
+//! version back, so an interrupted update never leaves a broken app.
+
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
+
+use serde::{Deserialize, Serialize};
+
+use crate::cleanup::AfterExit;
+use crate::shell::{self, Shortcut};
+use crate::{payload, processes, product, registry};
+
+/// Progress for the window (or nobody, when silent).
+#[derive(Clone, Debug, Serialize)]
+#[serde(tag = "event", content = "data", rename_all = "camelCase")]
+pub enum Progress {
+    Stage {
+        stage: Stage,
+    },
+    /// Bytes written so far out of the whole install, and the current file.
+    Files {
+        done: u64,
+        total: u64,
+        file: String,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Stage {
+    ClosingApp,
+    Preparing,
+    Copying,
+    Registering,
+    Shortcuts,
+    RemovingFiles,
+    RemovingData,
+    Finishing,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallOptions {
+    pub dir: PathBuf,
+    pub desktop: bool,
+    pub start_menu: bool,
+    pub startup: bool,
+    /// An update: shortcuts stay exactly as the user left them (refreshed
+    /// when present, never re-created when deleted).
+    #[serde(default)]
+    pub keep_shortcuts: bool,
+}
+
+/// What the install folder holds, written by the setup: the uninstaller and
+/// the next update remove exactly these files and nothing else.
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct InstalledFiles {
+    version: String,
+    files: Vec<String>,
+}
+
+const NEW: &str = "myle-new";
+const OLD: &str = "myle-old";
+/// A file held by a virus scanner or the indexer usually frees up quickly.
+const BUSY_RETRIES: u32 = 24;
+const BUSY_WAIT: Duration = Duration::from_millis(250);
+const REPORT_EVERY: Duration = Duration::from_millis(60);
+
+pub fn default_dir() -> PathBuf {
+    shell::local_app_data()
+        .or_else(|| std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
+        .unwrap_or_else(std::env::temp_dir)
+        .join(product::PUBLISHER)
+        .join(product::BINARY)
+}
+
+/// Refuses folders an app must never be installed straight into.
+pub fn check_dir(dir: &Path) -> Result<(), String> {
+    if !dir.is_absolute() || dir.parent().is_none() {
+        return Err("Choose a full folder path, not a drive root.".into());
+    }
+    let off_limits = [
+        "SystemRoot",
+        "ProgramFiles",
+        "ProgramFiles(x86)",
+        "USERPROFILE",
+        "ProgramData",
+    ];
+    for var in off_limits {
+        if let Some(value) = std::env::var_os(var)
+            && shell::same_path(dir, Path::new(&value))
+        {
+            return Err(format!(
+                "{} cannot be installed directly into {}.",
+                product::NAME,
+                dir.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Closes whatever runs from `dir`; an error names what would not stop.
+pub fn close_running(dir: &Path, grace: Duration) -> Result<(), String> {
+    let left = processes::close_all(dir, grace);
+    if left.is_empty() {
+        return Ok(());
+    }
+    let names: Vec<String> = left
+        .iter()
+        .filter_map(|p| p.path.file_name().map(|n| n.to_string_lossy().into_owned()))
+        .collect();
+    Err(format!(
+        "These programs would not close: {}. Close them and try again.",
+        names.join(", ")
+    ))
+}
+
+pub fn install(
+    payload: &[u8],
+    options: &InstallOptions,
+    report: &mut dyn FnMut(Progress),
+) -> Result<PathBuf, String> {
+    let dir = options.dir.as_path();
+    check_dir(dir)?;
+    report(Progress::Stage {
+        stage: Stage::Preparing,
+    });
+    if !processes::running_in(dir).is_empty() {
+        return Err(format!(
+            "{} is still running. Close it and try again.",
+            product::NAME
+        ));
+    }
+    std::fs::create_dir_all(dir)
+        .map_err(|e| format!("The folder {} could not be created: {e}", dir.display()))?;
+    probe_writable(dir)?;
+
+    let (header, mut reader) =
+        payload::open(payload).map_err(|e| format!("The setup file is damaged: {e}"))?;
+    let previous = read_installed(dir);
+
+    report(Progress::Stage {
+        stage: Stage::Copying,
+    });
+    let placed = copy_files(dir, &header, &mut reader, report)?;
+    commit(placed);
+
+    // Files the previous version had and this one does not.
+    let current: Vec<String> = header.files.iter().map(|f| f.path.clone()).collect();
+    if let Some(previous) = previous {
+        let stale: Vec<&String> = previous
+            .files
+            .iter()
+            .filter(|old| !current.iter().any(|new| new.eq_ignore_ascii_case(old)))
+            .collect();
+        for path in stale {
+            if let Ok(relative) = payload::relative_path(path) {
+                let _ = std::fs::remove_file(dir.join(relative));
+            }
+        }
+        remove_empty_dirs(dir, &previous.files);
+    }
+    write_installed(dir, &header.version, &current)?;
+
+    report(Progress::Stage {
+        stage: Stage::Registering,
+    });
+    let size_kb = u32::try_from(header.total_size().div_ceil(1024)).unwrap_or(u32::MAX);
+    registry::register(dir, &header.version, size_kb)?;
+
+    report(Progress::Stage {
+        stage: Stage::Shortcuts,
+    });
+    let exe = dir.join(product::exe_name());
+    apply_shortcuts(&exe, options)?;
+
+    report(Progress::Stage {
+        stage: Stage::Finishing,
+    });
+    Ok(exe)
+}
+
+fn probe_writable(dir: &Path) -> Result<(), String> {
+    let probe = dir.join(format!(".myle-probe-{}", std::process::id()));
+    std::fs::write(&probe, b"").map_err(|_| {
+        format!(
+            "Setup cannot write to {}. Choose a folder in your user profile.",
+            dir.display()
+        )
+    })?;
+    let _ = std::fs::remove_file(probe);
+    Ok(())
+}
+
+/// A file put in place, and the previous one it replaced (kept until the
+/// whole install succeeds).
+struct Placed {
+    target: PathBuf,
+    backup: Option<PathBuf>,
+}
+
+fn sibling(path: &Path, suffix: &str) -> PathBuf {
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(format!(".{suffix}"));
+    path.with_file_name(name)
+}
+
+fn copy_files(
+    dir: &Path,
+    header: &payload::Header,
+    reader: &mut impl Read,
+    report: &mut dyn FnMut(Progress),
+) -> Result<Vec<Placed>, String> {
+    let total = header.total_size();
+    let mut done = 0u64;
+    let mut placed = Vec::new();
+    let mut last_report: Option<Instant> = None;
+    for entry in &header.files {
+        let result = (|| -> Result<Placed, String> {
+            let relative = payload::relative_path(&entry.path).map_err(|e| e.to_string())?;
+            let target = dir.join(relative);
+            if let Some(parent) = target.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            }
+            let fresh = sibling(&target, NEW);
+            let mut file = std::fs::File::create(&fresh)
+                .map_err(|e| format!("{} could not be written: {e}", entry.path))?;
+            let mut left = entry.size;
+            let mut buffer = vec![0u8; 256 * 1024];
+            while left > 0 {
+                let want = usize::try_from(left.min(buffer.len() as u64)).unwrap_or(buffer.len());
+                reader
+                    .read_exact(&mut buffer[..want])
+                    .map_err(|e| format!("The setup file is damaged: {e}"))?;
+                file.write_all(&buffer[..want])
+                    .map_err(|e| format!("{} could not be written: {e}", entry.path))?;
+                left -= want as u64;
+                done += want as u64;
+                if last_report.is_none_or(|at| at.elapsed() >= REPORT_EVERY) {
+                    last_report = Some(Instant::now());
+                    report(Progress::Files {
+                        done,
+                        total,
+                        file: entry.path.clone(),
+                    });
+                }
+            }
+            file.flush().map_err(|e| e.to_string())?;
+            drop(file);
+
+            let backup = if target.exists() {
+                let backup = sibling(&target, OLD);
+                let _ = std::fs::remove_file(&backup);
+                rename_patiently(&target, &backup)
+                    .map_err(|e| format!("{} is in use: {e}", entry.path))?;
+                Some(backup)
+            } else {
+                None
+            };
+            if let Err(e) = rename_patiently(&fresh, &target) {
+                if let Some(backup) = &backup {
+                    let _ = std::fs::rename(backup, &target);
+                }
+                let _ = std::fs::remove_file(&fresh);
+                return Err(format!("{} could not be put in place: {e}", entry.path));
+            }
+            Ok(Placed { target, backup })
+        })();
+        match result {
+            Ok(file) => placed.push(file),
+            Err(error) => {
+                roll_back(placed);
+                if let Ok(relative) = payload::relative_path(&entry.path) {
+                    let _ = std::fs::remove_file(sibling(&dir.join(relative), NEW));
+                }
+                return Err(error);
+            }
+        }
+    }
+    report(Progress::Files {
+        done: total,
+        total,
+        file: String::new(),
+    });
+    Ok(placed)
+}
+
+fn rename_patiently(from: &Path, to: &Path) -> std::io::Result<()> {
+    let mut attempt = 0;
+    loop {
+        match std::fs::rename(from, to) {
+            Ok(()) => return Ok(()),
+            Err(_) if attempt < BUSY_RETRIES => {
+                attempt += 1;
+                std::thread::sleep(BUSY_WAIT);
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+/// Puts the previous version back after a failed install.
+fn roll_back(placed: Vec<Placed>) {
+    for file in placed.into_iter().rev() {
+        let _ = std::fs::remove_file(&file.target);
+        if let Some(backup) = file.backup {
+            let _ = std::fs::rename(&backup, &file.target);
+        }
+    }
+}
+
+/// The install worked: the previous files can go (a virus scanner may hold
+/// one for a moment).
+fn commit(placed: Vec<Placed>) {
+    for backup in placed.into_iter().filter_map(|file| file.backup) {
+        remove_patiently(&backup);
+    }
+}
+
+fn read_installed(dir: &Path) -> Option<InstalledFiles> {
+    let text = std::fs::read_to_string(dir.join(product::INSTALL_MANIFEST)).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
+fn write_installed(dir: &Path, version: &str, files: &[String]) -> Result<(), String> {
+    let record = InstalledFiles {
+        version: version.to_string(),
+        files: files.to_vec(),
+    };
+    let json = serde_json::to_vec_pretty(&record).map_err(|e| e.to_string())?;
+    std::fs::write(dir.join(product::INSTALL_MANIFEST), json).map_err(|e| e.to_string())
+}
+
+/// Removes folders that held `files` once they are empty, deepest first.
+fn remove_empty_dirs(dir: &Path, files: &[String]) {
+    let mut folders: Vec<PathBuf> = files
+        .iter()
+        .filter_map(|file| payload::relative_path(file).ok())
+        .flat_map(|relative| {
+            relative
+                .ancestors()
+                .skip(1)
+                .filter(|ancestor| !ancestor.as_os_str().is_empty())
+                .map(Path::to_path_buf)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    folders.sort_by_key(|folder| std::cmp::Reverse(folder.components().count()));
+    folders.dedup();
+    for folder in folders {
+        let _ = std::fs::remove_dir(dir.join(folder));
+    }
+}
+
+fn apply_shortcuts(exe: &Path, options: &InstallOptions) -> Result<(), String> {
+    for kind in Shortcut::ALL {
+        let wanted = match kind {
+            Shortcut::Desktop => options.desktop,
+            Shortcut::StartMenu => options.start_menu,
+            Shortcut::Startup => options.startup,
+        };
+        let ours = shell::shortcut_is_managed(kind, exe);
+        if options.keep_shortcuts {
+            // Refresh what the user kept (its icon may have changed).
+            if ours {
+                shell::create_shortcut(kind, exe)?;
+            }
+        } else if wanted {
+            shell::create_shortcut(kind, exe)?;
+        } else if ours {
+            shell::remove_shortcut(kind, exe);
+        }
+    }
+    Ok(())
+}
+
+/// Which shortcuts an existing install has, for the setup's defaults.
+pub fn existing_shortcuts(dir: &Path) -> [bool; 3] {
+    let exe = dir.join(product::exe_name());
+    Shortcut::ALL.map(|kind| shell::shortcut_is_managed(kind, &exe))
+}
+
+/// The app's own data, removed only when asked: settings, the signed-in
+/// account, Game Saves setup and restore safety copies, caches, the web
+/// view's storage. Game Saves backups live in a folder the user chose and
+/// are never touched.
+pub fn data_folders() -> Vec<PathBuf> {
+    let mut folders = Vec::new();
+    if let Some(roaming) = shell::roaming_app_data() {
+        folders.push(roaming.join(product::IDENTIFIER));
+    }
+    if let Some(local) = shell::local_app_data() {
+        folders.push(local.join(product::IDENTIFIER));
+    }
+    folders.push(std::env::temp_dir().join(product::BINARY));
+    folders
+}
+
+pub fn uninstall(
+    dir: &Path,
+    remove_data: bool,
+    report: &mut dyn FnMut(Progress),
+) -> Result<AfterExit, String> {
+    report(Progress::Stage {
+        stage: Stage::Preparing,
+    });
+    if !processes::running_in(dir).is_empty() {
+        return Err(format!(
+            "{} is still running. Close it and try again.",
+            product::NAME
+        ));
+    }
+    // This program and, when it runs as a copy, the uninstaller in the
+    // folder that waits for it: deleted once they have exited.
+    let in_use: Vec<PathBuf> = std::env::current_exe()
+        .ok()
+        .into_iter()
+        .chain(processes::spared_exe())
+        .collect();
+    let mut after_exit = AfterExit::default();
+
+    // The Game Saves page's scheduled backup would otherwise keep starting a
+    // program that is no longer there.
+    shell::run_hidden(
+        &shell::system32("schtasks.exe"),
+        &["/Delete", "/TN", product::GAME_SAVES_TASK, "/F"],
+    );
+
+    report(Progress::Stage {
+        stage: Stage::Shortcuts,
+    });
+    let exe = dir.join(product::exe_name());
+    for kind in Shortcut::ALL {
+        if shell::shortcut_is_managed(kind, &exe) {
+            shell::remove_shortcut(kind, &exe);
+        }
+    }
+
+    report(Progress::Stage {
+        stage: Stage::RemovingFiles,
+    });
+    let mut files = read_installed(dir)
+        .map(|installed| installed.files)
+        .unwrap_or_else(product::legacy_files);
+    files.push(product::INSTALL_MANIFEST.to_string());
+    let total = files.len() as u64;
+    for (index, file) in files.iter().enumerate() {
+        let Ok(relative) = payload::relative_path(file) else {
+            continue;
+        };
+        let path = dir.join(relative);
+        report(Progress::Files {
+            done: index as u64,
+            total,
+            file: file.clone(),
+        });
+        if in_use.iter().any(|exe| shell::same_file(exe, &path)) {
+            after_exit.remove.push(path);
+            continue;
+        }
+        remove_patiently(&path);
+    }
+    report(Progress::Files {
+        done: total,
+        total,
+        file: String::new(),
+    });
+    remove_empty_dirs(dir, &files);
+    after_exit.remove_if_empty.push(dir.to_path_buf());
+    // %LOCALAPPDATA%\ThomasThanos, when it held nothing else.
+    if let Some(parent) = dir.parent()
+        && parent
+            .file_name()
+            .is_some_and(|name| name.eq_ignore_ascii_case(product::PUBLISHER))
+    {
+        after_exit.remove_if_empty.push(parent.to_path_buf());
+    }
+    let _ = std::fs::remove_dir(dir);
+
+    report(Progress::Stage {
+        stage: Stage::Registering,
+    });
+    registry::unregister(remove_data);
+
+    if remove_data {
+        report(Progress::Stage {
+            stage: Stage::RemovingData,
+        });
+        for folder in data_folders() {
+            if folder.exists() && std::fs::remove_dir_all(&folder).is_err() {
+                // Something still holds a file (the web view shutting down):
+                // finish once this program is gone.
+                after_exit.remove.push(folder);
+            }
+        }
+    }
+    report(Progress::Stage {
+        stage: Stage::Finishing,
+    });
+    Ok(after_exit)
+}
+
+fn remove_patiently(path: &Path) {
+    for _ in 0..BUSY_RETRIES {
+        match std::fs::remove_file(path) {
+            Ok(()) => return,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+            Err(_) => std::thread::sleep(BUSY_WAIT),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("myle-engine-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        dir
+    }
+
+    fn packed(files: &[(&str, &[u8])], version: &str) -> Vec<u8> {
+        // Tests run side by side: every call packs from a folder of its own.
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let call = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let source = temp(&format!("src-{version}-{call}"));
+        for (path, bytes) in files {
+            let path = source.join(path);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, bytes).unwrap();
+        }
+        let mut out = Vec::new();
+        payload::pack(&source, version, &mut out).unwrap();
+        let _ = std::fs::remove_dir_all(source);
+        out
+    }
+
+    #[test]
+    fn copying_writes_every_file_and_replaces_the_old_ones() {
+        let dir = temp("copy");
+        std::fs::create_dir_all(dir.join("ludusavi")).unwrap();
+        std::fs::write(dir.join("App.exe"), b"old").unwrap();
+        let bytes = packed(
+            &[("App.exe", b"new app"), ("ludusavi/l.exe", b"engine")],
+            "2.0.0",
+        );
+        let (header, mut reader) = payload::open(&bytes).unwrap();
+        let mut last = None;
+        let placed = copy_files(&dir, &header, &mut reader, &mut |p| last = Some(p)).unwrap();
+        assert!(
+            dir.join("App.exe.myle-old").exists(),
+            "kept until committed"
+        );
+        commit(placed);
+        assert_eq!(std::fs::read(dir.join("App.exe")).unwrap(), b"new app");
+        assert_eq!(
+            std::fs::read(dir.join("ludusavi").join("l.exe")).unwrap(),
+            b"engine"
+        );
+        assert!(!dir.join("App.exe.myle-old").exists());
+        assert!(matches!(
+            last,
+            Some(Progress::Files {
+                done: 13,
+                total: 13,
+                ..
+            })
+        ));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_failure_part_way_puts_the_previous_version_back() {
+        let dir = temp("rollback");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("App.exe"), b"old").unwrap();
+        // The second file cannot be placed: a file stands where its folder goes.
+        std::fs::write(dir.join("sub"), b"not a folder").unwrap();
+        let bytes = packed(&[("App.exe", b"new"), ("sub/x.dat", b"data")], "2.0.0");
+        let (header, mut reader) = payload::open(&bytes).unwrap();
+        assert!(copy_files(&dir, &header, &mut reader, &mut |_| {}).is_err());
+        assert_eq!(std::fs::read(dir.join("App.exe")).unwrap(), b"old");
+        assert!(!dir.join("App.exe.myle-old").exists());
+        assert!(!dir.join("App.exe.myle-new").exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn empty_folders_are_removed_deepest_first() {
+        let dir = temp("empty");
+        std::fs::create_dir_all(dir.join("spicetify").join("theme")).unwrap();
+        std::fs::create_dir_all(dir.join("ludusavi")).unwrap();
+        std::fs::write(dir.join("ludusavi").join("user-file"), b"x").unwrap();
+        remove_empty_dirs(
+            &dir,
+            &[
+                "spicetify/theme/user.css".into(),
+                "ludusavi/ludusavi.exe".into(),
+            ],
+        );
+        assert!(!dir.join("spicetify").exists());
+        assert!(
+            dir.join("ludusavi").exists(),
+            "a folder with other files stays"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn system_folders_are_refused() {
+        assert!(check_dir(Path::new(r"C:\")).is_err());
+        assert!(check_dir(Path::new("relative")).is_err());
+        if let Some(windows) = std::env::var_os("SystemRoot") {
+            assert!(check_dir(Path::new(&windows)).is_err());
+        }
+        assert!(check_dir(&default_dir()).is_ok());
+    }
+}

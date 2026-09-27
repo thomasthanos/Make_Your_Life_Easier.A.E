@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="mpc-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="mpc-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#18202E" />
+      <stop offset="52%" stop-color="#0D131C" />
+      <stop offset="100%" stop-color="#06090E" />
+    </linearGradient>
+    <radialGradient id="mpc-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#60A5FA" stop-opacity="0.32" />
+      <stop offset="55%" stop-color="#3B82F6" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#0D131C" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="mpc-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#93C5FD" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#0D131C" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="mpc-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#DBEAFE" stop-opacity="0.58" />
+      <stop offset="25%" stop-color="#60A5FA" stop-opacity="0.28" />
+      <stop offset="80%" stop-color="#0F172A" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#93C5FD" stop-opacity="0.38" />
+    </linearGradient>
+    <linearGradient id="mpc-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="mpc-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#mpc-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#mpc-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#mpc-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#mpc-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#mpc-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#mpc-rim)" stroke-width="3" />
+  <g filter="url(#mpc-shadow)">
+    
+      <rect x="58" y="88" width="140" height="104" rx="14" fill="#1E293B" stroke="#E2E8F0" stroke-width="8"/>
+      <path d="M58 88L72 62H192L198 88H58Z" fill="#E2E8F0"/>
+      <path d="M86 62L74 88M124 62L112 88M162 62L150 88" stroke="#0F172A" stroke-width="10"/>
+      <path d="M112 118L154 142L112 166V118Z" fill="#60A5FA"/>
+    
+  </g>
+</svg>

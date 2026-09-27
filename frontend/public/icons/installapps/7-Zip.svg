@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="7zp-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="7zp-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1F2128" />
+      <stop offset="52%" stop-color="#111216" />
+      <stop offset="100%" stop-color="#08090B" />
+    </linearGradient>
+    <radialGradient id="7zp-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#F8FAFC" stop-opacity="0.25" />
+      <stop offset="55%" stop-color="#64748B" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#111216" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="7zp-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#94A3B8" stop-opacity="0.18" />
+      <stop offset="100%" stop-color="#111216" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="7zp-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F1F5F9" stop-opacity="0.58" />
+      <stop offset="25%" stop-color="#94A3B8" stop-opacity="0.26" />
+      <stop offset="80%" stop-color="#0F172A" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#CBD5E1" stop-opacity="0.36" />
+    </linearGradient>
+    <linearGradient id="7zp-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="7zp-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#7zp-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#7zp-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#7zp-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#7zp-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#7zp-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#7zp-rim)" stroke-width="3" />
+  <g filter="url(#7zp-shadow)">
+    <svg x="50" y="50" width="156" height="156" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet"><g fill="#FFFFFF"><path d="M0 18.858h24V8.181H10.717V5.142H0ZM2.021 7.271h6.657v1.994c-1.74 2.09-2.84 4.502-2.948 7.404H3.477c.09-2.501.353-4.954 2.283-6.994l.033-.033H2.021Zm8.45 1.253h13.215v10.143H10.47Zm6.01 1.213v6.871h1.482v-6.87Zm2.755.043v6.912h1.616v-2.42h1.029c.43-.001.754-.29.969-.716c.427-.848.429-2.257-.024-3.092c-.227-.419-.571-.697-1.033-.684zm-7.924.002v1.596h2.217l-2.304 3.736v1.54h4.287V15.1h-2.698l2.786-3.909v-1.41Zm9.452 1.512h.595c.164-.006.287.081.371.217c.17.273.172.736.004.99a.36.36 0 0 1-.373.176l-.55.047z"/></g></svg>
+  </g>
+</svg>

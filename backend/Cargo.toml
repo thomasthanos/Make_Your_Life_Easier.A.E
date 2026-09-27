@@ -1,0 +1,71 @@
+[package]
+name = "make-your-life-easier"
+version = "7.0.2"
+description = "Make Your Life Easier"
+authors = ["ThomasThanos"]
+edition = "2024"
+publish = false
+
+[lib]
+name = "myle_lib"
+
+# The setup and uninstaller (installer/) build with the app: one lock file,
+# one target folder. Commands run in this folder still act on the app alone.
+[workspace]
+members = ["installer"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+semver = "1"
+sha2 = "0.11"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+# native-tls uses Windows' built-in SChannel: smaller binary than bundling rustls.
+reqwest = { version = "0.13", default-features = false, features = ["native-tls", "json", "stream", "system-proxy"] }
+tokio = { version = "1", features = ["fs", "io-util", "time", "process", "macros", "net", "sync", "rt"] }
+# Install Apps page
+regex-lite = "0.1"
+unicode-width = "0.2"
+winreg = "0.56"
+zip = { version = "8", default-features = false, features = ["deflate-flate2-zlib-rs", "aes-crypto"] }
+mslnk = "0.1"
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Graphics_Gdi",
+    "Win32_Security",
+    "Win32_Security_Authentication_Identity",
+    "Win32_Security_Authorization",
+    "Win32_Security_Credentials",
+    "Win32_Security_Cryptography",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Com",
+    "Win32_System_Registry",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_System_WindowsProgramming",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+base64 = "0.22"
+uuid = { version = "1", features = ["v4"] }
+
+# Dev builds optimize the dependencies (not our crate, so rebuilds stay fast):
+# unoptimized SHA-256, zip and zlib made downloads and unpacking crawl.
+[profile.dev.package."*"]
+opt-level = 2
+
+# Size-optimized release build.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

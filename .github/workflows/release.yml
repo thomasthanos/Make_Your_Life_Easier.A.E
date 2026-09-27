@@ -1,114 +1,188 @@
-name: Build and Release
+# Builds, signs and publishes a release of the Windows app.
+#
+# Release: bump "version" in package.json and backend/Cargo.toml, commit,
+# then push a matching tag:   git tag v7.0.2 && git push origin main v7.0.2
+#
+# Where updates come from (backend/src/updater.rs):
+#   1. latest.json on Cloudflare R2 (downloads.thomast.uk), uploaded here
+#   2. the GitHub release, as a fallback while R2 is unreachable
+# Both carry the SHA-256 the app checks before it runs the installer.
+#
+# Run by hand (Actions > Release > Run workflow) for a dry run: the same
+# build and signature, with the installer kept as a workflow artifact and
+# nothing uploaded or published.
+name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  release:
+  windows:
     runs-on: windows-latest
-
+    env:
+      HAS_CERT: ${{ secrets.WIN_CSC_LINK != '' }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-        cache: 'npm'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
-    - name: Install dependencies
-      run: npm install
+      - uses: dtolnay/rust-toolchain@stable
 
-    - name: Import signing certificate
-      shell: pwsh
-      env:
-        CERT_B64: ${{ secrets.WIN_CSC_LINK }}
-        CERT_PASS: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-      run: |
-        $ErrorActionPreference = 'Stop'
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
 
-        if ([string]::IsNullOrWhiteSpace($env:CERT_B64))  { throw "Secret WIN_CSC_LINK is empty" }
-        if ([string]::IsNullOrWhiteSpace($env:CERT_PASS)) { throw "Secret WIN_CSC_KEY_PASSWORD is empty" }
-
-        $pass = $env:CERT_PASS.Trim().Trim('"').Trim("'")
-        Write-Host "::add-mask::$pass"
-
-        New-Item -ItemType Directory -Force config/signing | Out-Null
-        $pfx = Join-Path $PWD 'config/signing/certificate.pfx'
-        [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT_B64.Trim()))
-
-        $cert = (Get-PfxData -FilePath $pfx -Password (ConvertTo-SecureString $pass -AsPlainText -Force)).EndEntityCertificates[0]
-        Write-Host "Signing certificate: $($cert.Subject) — expires $($cert.NotAfter)"
-
-        "CSC_LINK=$pfx"           | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-        "CSC_KEY_PASSWORD=$pass"  | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-
-    - name: Build application
-      env:
-        GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      run: npm run build-all
-
-    - name: Publish update feed to R2
-      shell: pwsh
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: auto
-        AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
-        AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
-        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-        R2_BUCKET: ${{ secrets.R2_BUCKET }}
-      run: |
-        $ErrorActionPreference = 'Stop'
-        $endpoint = "https://$env:R2_ACCOUNT_ID.r2.cloudflarestorage.com"
-        $dist = 'artifacts/dist'
-        $feedUrl = (Select-String -Path config/app-update.yml -Pattern '^url:\s*(\S+)').Matches[0].Groups[1].Value.TrimEnd('/')
-
-        function Publish([string]$File, [string]$Key, [string[]]$Extra = @()) {
-          aws s3 cp $File "s3://$env:R2_BUCKET/$Key" --endpoint-url $endpoint @Extra
-          if ($LASTEXITCODE -ne 0) { throw "Upload failed: $Key" }
-        }
-
-        $zip = Get-ChildItem "$dist/*-win.zip" | Select-Object -First 1
-        $appZip = Get-ChildItem "$dist/*-app-*.zip" | Select-Object -First 1
-        if (-not $zip -or -not $appZip) { throw 'Update zips are missing from artifacts/dist' }
-        $zipArgs = @('--content-type', 'application/zip', '--cache-control', 'no-cache')
-
-        Publish $zip.FullName $zip.Name $zipArgs
-        Publish $appZip.FullName $appZip.Name $zipArgs
-
-        foreach ($file in @($zip, $appZip)) {
-          $served = Join-Path $env:RUNNER_TEMP $file.Name
-          Invoke-WebRequest -Uri "$feedUrl/$($file.Name)" -OutFile $served -Headers @{ 'Cache-Control' = 'no-cache' }
-          if ((Get-FileHash $served -Algorithm SHA512).Hash -ne (Get-FileHash $file.FullName -Algorithm SHA512).Hash) {
-            throw "$($file.Name) served by $feedUrl does not match the build"
+      - name: Read the app version and update feed
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $cargo = (Select-String -Path backend/Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
+          if ($cargo -ne $version) {
+            throw "package.json is $version but backend/Cargo.toml is $cargo"
           }
-          Remove-Item $served
-          Write-Host "Verified $feedUrl/$($file.Name)"
-        }
+          if ("${{ github.ref_type }}" -eq "tag" -and "v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} does not match the app version $version"
+          }
+          # The app's own feed address, so the upload can never drift from it.
+          $feed = (Select-String -Path backend/src/updater.rs -Pattern 'UPDATE_FEED: &str = "([^"]+)"').Matches[0].Groups[1].Value
+          $base = $feed.Substring(0, $feed.LastIndexOf('/'))
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "FEED_URL=$feed"   | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "FEED_BASE=$base"  | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-        Publish "$dist/latest.yml" 'latest.yml' @('--content-type', 'text/yaml', '--cache-control', 'no-cache')
+      - run: npm ci
 
-        Publish "$dist/MakeYourLifeEasier-Setup.exe" 'MakeYourLifeEasier-installer.exe'
-        Publish "$dist/MakeYourLifeEasier-Portable.exe" 'MakeYourLifeEasier-Portable.exe'
+      - run: npm run check
 
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        files: |
-          artifacts/dist/*.exe
-          artifacts/dist/MakeYourLifeEasier-win.zip
-          artifacts/dist/latest.yml
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare code signing
+        if: env.HAS_CERT == 'true'
+        shell: pwsh
+        env:
+          CERT_B64: ${{ secrets.WIN_CSC_LINK }}
+          CERT_PASS: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          $pass = "$env:CERT_PASS".Trim().Trim('"').Trim("'")
+          Write-Host "::add-mask::$pass"
+          $pfx = Join-Path $env:RUNNER_TEMP "myle-sign.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT_B64.Trim()))
+          $cert = (Get-PfxData -FilePath $pfx -Password (ConvertTo-SecureString $pass -AsPlainText -Force)).EndEntityCertificates[0]
+          Write-Host "Signing certificate: $($cert.Subject), expires $($cert.NotAfter)"
+
+          # scripts/build-setup.ps1 signs the app, the uninstaller and the
+          # setup with it (scripts/sign.ps1).
+          "MYLE_SIGN_PFX=$pfx"          | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "MYLE_SIGN_PASSWORD=$pass"    | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      # The app, its uninstaller and the setup that carries both
+      # (backend/installer). Also downloads and verifies the pinned Ludusavi
+      # runtime for Game Saves (scripts/bootstrap-game-saves.ps1).
+      - name: Build
+        shell: pwsh
+        run: |
+          if (-not $env:MYLE_SIGN_PFX) {
+            Write-Host "::warning::WIN_CSC_LINK is not set: building an unsigned setup."
+          }
+          npm run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Collect the installer
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem "backend/target/release/bundle/setup/MakeYourLifeEasier.exe" | Select-Object -First 1
+          if (-not $setup) { throw "The setup was not produced." }
+          # No spaces: GitHub would rename "Make Your Life Easier_…" anyway.
+          # The updater looks for the "_x64-setup.exe" ending, so the published
+          # copy keeps the version in its name (the local build is MakeYourLifeEasier.exe).
+          $name = "MakeYourLifeEasier_${env:VERSION}_x64-setup.exe"
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item $setup.FullName "out/$name"
+          $signature = Get-AuthenticodeSignature "out/$name"
+          Write-Host "Signature: $($signature.Status) $($signature.SignerCertificate.Subject)"
+          if ($env:HAS_CERT -eq 'true' -and -not $signature.SignerCertificate) {
+            throw "The installer is not signed."
+          }
+          "SETUP_NAME=$name" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Keep the installer (dry run)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MakeYourLifeEasier-${{ env.VERSION }}-setup
+          path: out/*
+          retention-days: 7
+
+      - name: Publish to Cloudflare R2
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          $endpoint = "https://$env:R2_ACCOUNT_ID.r2.cloudflarestorage.com"
+          $setup = Get-Item "out/$env:SETUP_NAME"
+          $sha256 = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+
+          function Publish([string]$File, [string]$Key, [string[]]$Extra = @()) {
+            aws s3 cp $File "s3://$env:R2_BUCKET/$Key" --endpoint-url $endpoint @Extra
+            if ($LASTEXITCODE -ne 0) { throw "Upload failed: $Key" }
+          }
+          function Assert-Served([string]$Key, [string]$Expected) {
+            $served = Join-Path $env:RUNNER_TEMP ([IO.Path]::GetFileName($Key))
+            Invoke-WebRequest -Uri "$env:FEED_BASE/$Key" -OutFile $served -Headers @{ 'Cache-Control' = 'no-cache' }
+            $actual = (Get-FileHash $served -Algorithm SHA256).Hash.ToLowerInvariant()
+            Remove-Item $served
+            if ($actual -ne $Expected) { throw "$Key served by $env:FEED_BASE does not match the build" }
+            Write-Host "Verified $env:FEED_BASE/$Key"
+          }
+
+          $exe = @('--content-type', 'application/vnd.microsoft.portable-executable')
+          # The versioned installer the app downloads...
+          Publish $setup.FullName $setup.Name $exe
+          Assert-Served $setup.Name $sha256
+          # ...and the fixed "latest installer" link for downloads from the web.
+          Publish $setup.FullName "MakeYourLifeEasier-installer.exe" ($exe + @('--cache-control', 'no-cache'))
+
+          # The feed goes last: clients only see a version once its installer is live.
+          $feed = [ordered]@{
+            version   = $env:VERSION
+            notes     = "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+            pubDate   = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            installer = [ordered]@{
+              name   = $setup.Name
+              url    = "$env:FEED_BASE/$($setup.Name)"
+              size   = $setup.Length
+              sha256 = $sha256
+            }
+          }
+          $feedFile = Join-Path $env:RUNNER_TEMP "latest.json"
+          $feed | ConvertTo-Json -Depth 4 | Set-Content -Path $feedFile -Encoding utf8NoBOM
+          Publish $feedFile "latest.json" @('--content-type', 'application/json', '--cache-control', 'no-cache')
+          Assert-Served "latest.json" (Get-FileHash $feedFile -Algorithm SHA256).Hash.ToLowerInvariant()
+
+      - name: Publish the GitHub release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" (Get-ChildItem out).FullName `
+            --title "Make Your Life Easier ${{ github.ref_name }}" `
+            --generate-notes `
+            --latest

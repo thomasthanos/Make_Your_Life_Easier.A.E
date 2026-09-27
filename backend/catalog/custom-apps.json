@@ -1,0 +1,130 @@
+[
+  {
+    "id": "Custom.NvidiaApp",
+    "name": "NVIDIA App",
+    "site": "nvidia.com/en-us/software/nvidia-app",
+    "category": "Hardware",
+    "resolver": {
+      "type": "page",
+      "url": "https://www.nvidia.com/en-us/software/nvidia-app/",
+      "pattern": "https://us\\.download\\.nvidia\\.com/nvapp/client/(?P<version>[\\d.]+)/NVIDIA_app_v[\\d.]+\\.exe"
+    },
+    "install": {
+      "type": "installer",
+      "args": [
+        "-s",
+        "-noreboot"
+      ]
+    },
+    "detect": {
+      "displayName": "^NVIDIA App \\d"
+    },
+    "icon": "/icons/installapps/NVIDIA-App.svg"
+  },
+  {
+    "id": "Custom.Optimizer",
+    "name": "Optimizer",
+    "site": "github.com/hellzerg/optimizer",
+    "category": "Utilities",
+    "resolver": {
+      "type": "github",
+      "repo": "hellzerg/optimizer",
+      "asset": "^Optimizer-[\\d.]+\\.exe$"
+    },
+    "install": {
+      "type": "portable",
+      "dir": "Optimizer",
+      "exe": "Optimizer.exe"
+    },
+    "detect": {
+      "path": "%LOCALAPPDATA%\\Programs\\Optimizer\\Optimizer.exe"
+    },
+    "activate": {
+      "label": "Add to Start menu",
+      "action": {
+        "type": "shortcut"
+      }
+    },
+    "icon": "/icons/installapps/Optimizer.svg"
+  },
+  {
+    "id": "Custom.Vencord",
+    "name": "Vencord",
+    "site": "vencord.dev",
+    "category": "Communication",
+    "selfUpdating": true,
+    "conflicts": [
+      "Custom.BetterDiscord"
+    ],
+    "resolver": {
+      "type": "github",
+      "repo": "Vencord/Installer",
+      "asset": "^VencordInstallerCli\\.exe$"
+    },
+    "install": {
+      "type": "portable",
+      "dir": "Vencord",
+      "exe": "VencordInstallerCli.exe"
+    },
+    "detect": {
+      "path": "%LOCALAPPDATA%\\Programs\\Vencord\\VencordInstallerCli.exe"
+    },
+    "activate": {
+      "label": "Patch Discord",
+      "afterInstall": true,
+      "action": {
+        "type": "run",
+        "exe": "%LOCALAPPDATA%\\Programs\\Vencord\\VencordInstallerCli.exe",
+        "args": [
+          "-install",
+          "-branch",
+          "stable"
+        ]
+      },
+      "done": [
+        "%LOCALAPPDATA%\\Discord\\app-*\\resources\\_app.asar"
+      ]
+    },
+    "icon": "/icons/installapps/Vencord.svg"
+  },
+  {
+    "id": "Custom.BetterDiscord",
+    "name": "BetterDiscord",
+    "site": "betterdiscord.app",
+    "category": "Communication",
+    "selfUpdating": true,
+    "conflicts": [
+      "Custom.Vencord"
+    ],
+    "resolver": {
+      "type": "github",
+      "repo": "BetterDiscord/cli",
+      "asset": "^bdcli_[\\d.]+_windows_amd64\\.zip$"
+    },
+    "install": {
+      "type": "zip",
+      "dir": "BetterDiscord CLI"
+    },
+    "detect": {
+      "path": "%LOCALAPPDATA%\\Programs\\BetterDiscord CLI\\bdcli.exe"
+    },
+    "activate": {
+      "label": "Patch Discord",
+      "afterInstall": true,
+      "action": {
+        "type": "run",
+        "exe": "%LOCALAPPDATA%\\Programs\\BetterDiscord CLI\\bdcli.exe",
+        "args": [
+          "install",
+          "--channel",
+          "stable"
+        ]
+      },
+      "done": [
+        "%LOCALAPPDATA%\\Discord\\app-*\\resources\\app\\index.js",
+        "%LOCALAPPDATA%\\Discord\\app-*\\resources\\betterdiscord.app.asar"
+      ]
+    },
+    "icon": "/icons/installapps/BetterDiscord.svg"
+  }
+]

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="str-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="str-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#20103D" />
+      <stop offset="52%" stop-color="#120826" />
+      <stop offset="100%" stop-color="#070312" />
+    </linearGradient>
+    <radialGradient id="str-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#8A5AAB" stop-opacity="0.4" />
+      <stop offset="55%" stop-color="#3B82F6" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#120826" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="str-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#A855F7" stop-opacity="0.26" />
+      <stop offset="100%" stop-color="#120826" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="str-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E9D5FF" stop-opacity="0.62" />
+      <stop offset="25%" stop-color="#8A5AAB" stop-opacity="0.3" />
+      <stop offset="80%" stop-color="#2E1065" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#A855F7" stop-opacity="0.4" />
+    </linearGradient>
+    <linearGradient id="str-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="str-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#str-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#str-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#str-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#str-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#str-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#str-rim)" stroke-width="3" />
+  <g filter="url(#str-shadow)">
+    
+    <rect x="74" y="74" width="108" height="108" rx="24" transform="rotate(45 128 128)" fill="url(#str-d)"/>
+    <path d="M114 102L156 128L114 154V102Z" fill="#FFFFFF"/>
+  
+  </g>
+  
+  <defs>
+    <linearGradient id="str-d" x1="64" y1="64" x2="192" y2="192" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A855F7"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+  </defs>
+  
+</svg>

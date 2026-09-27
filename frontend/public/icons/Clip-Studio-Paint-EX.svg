@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <!-- Inner Emblem Subtle 3D Shadow -->
+    <filter id="csp-emblem-shadow" x="20" y="24" width="216" height="216" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#02050A" flood-opacity="0.7" />
+    </filter>
+
+    <!-- Main Deep Studio Slate-Navy Background -->
+    <linearGradient id="csp-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1C2436" />
+      <stop offset="50%" stop-color="#0F1420" />
+      <stop offset="100%" stop-color="#070A10" />
+    </linearGradient>
+
+    <!-- Ambient Cyan-Blue Top Glow -->
+    <radialGradient id="csp-glow-top" cx="26%" cy="18%" r="76%">
+      <stop offset="0%" stop-color="#29B6F6" stop-opacity="0.32" />
+      <stop offset="55%" stop-color="#3949AB" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#0F1420" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Ambient Magenta-Gold Bottom Glow -->
+    <radialGradient id="csp-glow-bottom" cx="80%" cy="84%" r="64%">
+      <stop offset="0%" stop-color="#FF4081" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#0F1420" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- macOS 3D Glass Bevel Border -->
+    <linearGradient id="csp-glass-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#B3E5FC" stop-opacity="0.6" />
+      <stop offset="30%" stop-color="#4FC3F7" stop-opacity="0.25" />
+      <stop offset="75%" stop-color="#1A237E" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#F48FB1" stop-opacity="0.38" />
+    </linearGradient>
+
+    <!-- Top Specular Sheen -->
+    <linearGradient id="csp-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Prism Ribbon Gradients -->
+    <linearGradient id="csp-facet-cyan" x1="70" y1="48" x2="176" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#40C4FF" />
+      <stop offset="100%" stop-color="#0288D1" />
+    </linearGradient>
+
+    <linearGradient id="csp-facet-green" x1="56" y1="72" x2="104" y2="132" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#69F0AE" />
+      <stop offset="100%" stop-color="#00BFA5" />
+    </linearGradient>
+
+    <linearGradient id="csp-facet-warm" x1="72" y1="102" x2="188" y2="152" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFD740" />
+      <stop offset="52%" stop-color="#FF6E40" />
+      <stop offset="100%" stop-color="#FF1744" />
+    </linearGradient>
+
+    <linearGradient id="csp-facet-purple" x1="150" y1="132" x2="192" y2="198" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E040FB" />
+      <stop offset="100%" stop-color="#651FFF" />
+    </linearGradient>
+
+    <linearGradient id="csp-facet-silver" x1="62" y1="164" x2="164" y2="206" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#B0BEC5" />
+    </linearGradient>
+
+    <!-- EX Gold Badge Gradient -->
+    <linearGradient id="csp-ex-badge" x1="168" y1="176" x2="228" y2="222" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFE57F" />
+      <stop offset="50%" stop-color="#FFB300" />
+      <stop offset="100%" stop-color="#FF8F00" />
+    </linearGradient>
+
+    <!-- macOS Squircle Clip -->
+    <clipPath id="csp-squircle-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+  </defs>
+
+  <!-- Base Squircle & Internal Lighting (Χωρίς εξωτερικό shadow) -->
+  <g clip-path="url(#csp-squircle-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#csp-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#csp-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#csp-glow-bottom)" />
+    <!-- Top Glass Reflection Curve -->
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#csp-sheen)" />
+  </g>
+
+  <!-- 3D Inner Glass Rim -->
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#csp-glass-rim)" stroke-width="3" />
+
+  <!-- Clip Studio 3D Prism Ribbon Emblem -->
+  <g filter="url(#csp-emblem-shadow)">
+    <!-- 1. Top Cyan Arch -->
+    <path d="M178 72L154 90C142 74 120 68 102 76C90 81 84 91 86 102L56 96C52 74 66 54 90 45C122 33 160 44 178 72Z" fill="url(#csp-facet-cyan)" />
+
+    <!-- 2. Upper-Left Emerald Facet -->
+    <path d="M56 96L86 102C88 111 95 118 108 124L92 150C68 139 54 119 56 96Z" fill="url(#csp-facet-green)" />
+
+    <!-- 3. Center Diagonal Gold-to-Coral Ribbon -->
+    <path d="M78 102L174 138C188 143 196 154 194 168L162 162C161 157 156 153 148 150L66 119C58 116 55 106 60 99C64 95 71 99 78 102Z" fill="url(#csp-facet-warm)" />
+
+    <!-- 4. Lower-Right Violet Loop -->
+    <path d="M194 156C200 178 186 200 160 210C148 214 134 216 120 214L124 184C135 185 145 184 152 180C163 175 167 166 164 156L194 156Z" fill="url(#csp-facet-purple)" />
+
+    <!-- 5. Bottom-Left Silver-Pearl Tail -->
+    <path d="M132 215C98 215 68 198 54 170L82 154C92 173 112 184 136 184L132 215Z" fill="url(#csp-facet-silver)" />
+
+    <!-- "EX" Pill Badge (Bottom Right) -->
+    <rect x="162" y="178" width="64" height="38" rx="12" fill="url(#csp-ex-badge)" />
+    <!-- 'E' and 'X' Vector Cutouts -->
+    <path d="M174 187H191V191.5H179.2V194.8H189.5V199H179.2V202.5H191.5V207H174V187ZM195 187H201L205.5 193.8L210 187H215.8L208.8 196.8L216.2 207H210.2L205.3 199.8L200.4 207H194.5L202 196.8L195 187Z" fill="#10141F" />
+  </g>
+</svg>

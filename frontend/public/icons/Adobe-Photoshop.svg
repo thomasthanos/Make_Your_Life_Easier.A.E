@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <!-- Glyph Subtle Shadow (μόνο μέσα στα γράμματα για 3D βάθος) -->
+    <filter id="ps-glyph-shadow" x="30" y="52" width="196" height="155" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000B18" flood-opacity="0.7" />
+    </filter>
+
+    <!-- Main Deep Navy-Blue 2026 Background -->
+    <linearGradient id="ps-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#002645" />
+      <stop offset="50%" stop-color="#001629" />
+      <stop offset="100%" stop-color="#000912" />
+    </linearGradient>
+
+    <!-- Ambient Electric-Blue Glow -->
+    <radialGradient id="ps-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#31A8FF" stop-opacity="0.44" />
+      <stop offset="55%" stop-color="#005A9E" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#001E36" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Bottom-Right Secondary Glow -->
+    <radialGradient id="ps-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#49B8FF" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#001E36" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- macOS 3D Glass Bevel Border -->
+    <linearGradient id="ps-glass-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A6DCFF" stop-opacity="0.65" />
+      <stop offset="25%" stop-color="#31A8FF" stop-opacity="0.32" />
+      <stop offset="80%" stop-color="#003666" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#59BFFF" stop-opacity="0.42" />
+    </linearGradient>
+
+    <!-- Top Specular Sheen -->
+    <linearGradient id="ps-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- "Ps" 2026 Vibrant Sky-Blue Gradient -->
+    <linearGradient id="ps-text-grad" x1="128" y1="68" x2="128" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8FD4FF" />
+      <stop offset="45%" stop-color="#31A8FF" />
+      <stop offset="100%" stop-color="#1793EB" />
+    </linearGradient>
+
+    <!-- macOS Squircle Clip -->
+    <clipPath id="ps-squircle-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+  </defs>
+
+  <!-- Base Squircle & Internal Lighting (Χωρίς εξωτερικό shadow) -->
+  <g clip-path="url(#ps-squircle-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#ps-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#ps-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#ps-glow-bottom)" />
+    <!-- Top Glass Reflection Curve -->
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#ps-sheen)" />
+  </g>
+
+  <!-- 3D Inner Glass Rim -->
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#ps-glass-rim)" stroke-width="3" />
+
+  <!-- "Ps" Vector Typography -->
+  <g filter="url(#ps-glyph-shadow)" fill="url(#ps-text-grad)">
+    <!-- Letter 'P' -->
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M50 68H91.5C119.5 68 134.5 82 134.5 105.8C134.5 130.2 118.5 144.5 90 144.5H74V186H50V68ZM74 87.2V125.2H90C103.5 125.2 110.5 118.2 110.5 106C110.5 93.8 103.5 87.2 90 87.2H74Z" />
+
+    <!-- Letter 's' -->
+    <path d="M203.5 117.2C196.8 113.8 188 111.5 179.5 111.5C170.5 111.5 166 114.8 166 120C166 125.2 170.2 127.8 182.5 132C200.5 138 208.5 145.8 208.5 160.2C208.5 177.8 194.2 188.2 172 188.2C159.8 188.2 149.2 185.2 142.5 180.8L146.5 163.2C153.5 167.8 163 170.8 172.2 170.8C181.8 170.8 186.8 167.2 186.8 161.5C186.8 156 182.5 153.2 170.2 149C152.5 143 144.5 134.8 144.5 121.2C144.5 105.5 158 97 179 97C189.8 97 199.2 99.2 206.5 102.8L203.5 117.2Z" />
+  </g>
+</svg>

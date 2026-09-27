@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <filter id="btw-shadow" x="20" y="20" width="216" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#020617" flood-opacity="0.72" />
+    </filter>
+    <linearGradient id="btw-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0A1E46" />
+      <stop offset="52%" stop-color="#051129" />
+      <stop offset="100%" stop-color="#020814" />
+    </linearGradient>
+    <radialGradient id="btw-glow-top" cx="28%" cy="18%" r="78%">
+      <stop offset="0%" stop-color="#175DDC" stop-opacity="0.4" />
+      <stop offset="55%" stop-color="#1E40AF" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#051129" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="btw-glow-bottom" cx="82%" cy="86%" r="62%">
+      <stop offset="0%" stop-color="#60A5FA" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#051129" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="btw-rim" x1="128" y1="0" x2="128" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BFDBFE" stop-opacity="0.62" />
+      <stop offset="25%" stop-color="#175DDC" stop-opacity="0.3" />
+      <stop offset="80%" stop-color="#1E3A8A" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#60A5FA" stop-opacity="0.4" />
+    </linearGradient>
+    <linearGradient id="btw-sheen" x1="128" y1="0" x2="128" y2="115" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="btw-clip">
+      <rect x="0" y="0" width="256" height="256" rx="58" />
+    </clipPath>
+    
+  </defs>
+  <g clip-path="url(#btw-clip)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#btw-bg)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#btw-glow-top)" />
+    <rect x="0" y="0" width="256" height="256" fill="url(#btw-glow-bottom)" />
+    <ellipse cx="128" cy="4" rx="126" ry="64" fill="url(#btw-sheen)" />
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="56.5" stroke="url(#btw-rim)" stroke-width="3" />
+  <g filter="url(#btw-shadow)">
+    <svg x="50" y="50" width="156" height="156" viewBox="0 0 182 218" preserveAspectRatio="xMidYMid meet"><path fill="#175ddc" d="M179.304 2.69C177.498.887 175.358 0 172.913 0H9.086c-2.473 0-4.585.887-6.39 2.69C.888 4.492 0 6.627 0 9.067v109q0 12.187 4.751 24.207c3.168 7.986 7.114 15.084 11.81 21.295c4.695 6.184 10.28 12.229 16.782 18.107s12.504 10.731 17.978 14.613a230 230 0 0 0 17.2 11.008c5.974 3.466 10.225 5.795 12.726 7.015c2.5 1.22 4.529 2.191 6.03 2.828c1.139.555 2.361.86 3.695.86s2.556-.277 3.696-.86c1.528-.665 3.528-1.608 6.057-2.828c2.501-1.22 6.752-3.577 12.726-7.015a230 230 0 0 0 17.2-11.008c5.501-3.882 11.503-8.762 18.005-14.613c6.502-5.878 12.087-11.896 16.783-18.107s8.614-13.282 11.809-21.295q4.752-11.979 4.751-24.207V9.095c.028-2.468-.889-4.603-2.695-6.405m-21.117 116.403c0 39.458-67.187 73.452-67.187 73.452V23.347h67.187z"/></svg>
+  </g>
+</svg>
