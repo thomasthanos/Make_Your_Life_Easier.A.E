@@ -271,15 +271,23 @@ async fn setup_uninstall(
     Ok(())
 }
 
-#[tauri::command(async)]
-fn setup_launch(context: State<'_, Context>) -> Result<(), String> {
+/// Opens the installed app and returns once its first window is on screen
+/// (or after a while regardless), so the setup never closes onto an empty
+/// desktop.
+#[tauri::command]
+async fn setup_launch(context: State<'_, Context>) -> Result<(), String> {
     let exe = context
         .installed_exe
         .lock()
         .unwrap_or_else(|p| p.into_inner())
         .clone()
         .ok_or("Nothing was installed yet.")?;
-    shell::launch(&exe)
+    let pid = shell::launch(&exe)?;
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        processes::wait_for_window(pid, Duration::from_secs(12))
+    })
+    .await;
+    Ok(())
 }
 
 #[tauri::command]

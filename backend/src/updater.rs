@@ -281,16 +281,69 @@ pub async fn install_update(
     // window, which starts at once, waits for this app to quit, and opens the
     // new version half a second before it closes itself. `/UPDATE` keeps
     // shortcuts as the user left them; `/R` asks for the relaunch.
-    std::process::Command::new(&path)
+    let setup = std::process::Command::new(&path)
         .args(["/P", "/UPDATE", "/R"])
         .spawn()
         .map_err(err)?;
 
-    // Let the splash paint its last line before the app goes away; the setup
-    // window takes about as long to appear.
-    tokio::time::sleep(Duration::from_millis(600)).await;
+    // Stay on screen until the setup's window is up, so there is never a
+    // moment with neither; the setup waits for us to quit before it copies.
+    let pid = setup.id();
+    let shown = tokio::task::spawn_blocking(move || wait_for_window(pid, Duration::from_secs(10)))
+        .await
+        .unwrap_or(false);
+    if !shown {
+        tokio::time::sleep(Duration::from_millis(600)).await;
+    }
     app.exit(0);
     Ok(())
+}
+
+/// Waits until `pid` has a visible window, for at most `timeout`. False if it
+/// never did, or exited first.
+fn wait_for_window(pid: u32, timeout: Duration) -> bool {
+    use windows_sys::Win32::Foundation::{CloseHandle, HWND, LPARAM, WAIT_OBJECT_0};
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, GetWindowThreadProcessId, IsWindowVisible,
+    };
+
+    struct Search {
+        pid: u32,
+        found: bool,
+    }
+    unsafe extern "system" fn visit(window: HWND, search: LPARAM) -> i32 {
+        // SAFETY: `search` is the struct passed to EnumWindows below.
+        let search = unsafe { &mut *(search as *mut Search) };
+        let mut pid = 0u32;
+        unsafe { GetWindowThreadProcessId(window, &mut pid) };
+        if pid == search.pid && unsafe { IsWindowVisible(window) } != 0 {
+            search.found = true;
+            return 0;
+        }
+        1
+    }
+
+    // SAFETY: the handle is closed before returning.
+    let process = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
+    if process.is_null() {
+        return false;
+    }
+    let deadline = std::time::Instant::now() + timeout;
+    let shown = loop {
+        let mut search = Search { pid, found: false };
+        // SAFETY: `search` outlives the synchronous enumeration.
+        unsafe { EnumWindows(Some(visit), &mut search as *mut Search as LPARAM) };
+        if search.found {
+            break true;
+        }
+        let exited = unsafe { WaitForSingleObject(process, 50) } == WAIT_OBJECT_0;
+        if exited || std::time::Instant::now() >= deadline {
+            break false;
+        }
+    };
+    unsafe { CloseHandle(process) };
+    shown
 }
 
 /// Clears the flag however `install_update` ends.

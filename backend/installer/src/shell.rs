@@ -367,11 +367,12 @@ impl Drop for SingleInstance {
 }
 
 /// Starts the installed app, detached from this process.
-pub fn launch(exe: &Path) -> Result<(), String> {
+/// Starts the app and returns its process ID.
+pub fn launch(exe: &Path) -> Result<u32, String> {
     std::process::Command::new(exe)
         .current_dir(exe.parent().unwrap_or(exe))
         .spawn()
-        .map(drop)
+        .map(|child| child.id())
         .map_err(|e| format!("The app could not be started: {e}"))
 }
 

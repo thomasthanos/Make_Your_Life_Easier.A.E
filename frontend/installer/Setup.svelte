@@ -45,7 +45,7 @@
   ];
 
   /** Passive mode: how long "Updated to …" shows, then how long the setup
-   *  stays after opening the app. */
+   *  stays once the app's window is on screen (`launch` waits for it). */
   const PASSIVE_SHOW_MS = 700;
   const PASSIVE_HANDOVER_MS = 500;
 
@@ -280,7 +280,8 @@
   }
 
   /** Passive (`/P`, the in-app updater): show the result for a moment, open
-   *  the app, and close half a second later so its window takes over. */
+   *  the app, and close half a second after its window is up, so something
+   *  is always on screen. */
   async function finishPassive() {
     await sleep(PASSIVE_SHOW_MS);
     if (!api || !info || finishing) return;
