@@ -82,8 +82,8 @@ pub fn default_dir() -> PathBuf {
     shell::local_app_data()
         .or_else(|| std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
         .unwrap_or_else(std::env::temp_dir)
-        .join(product::PUBLISHER)
-        .join(product::BINARY)
+        .join("Programs")
+        .join(product::NAME)
 }
 
 /// Refuses folders an app must never be installed straight into.
@@ -426,9 +426,11 @@ pub fn existing_shortcuts(dir: &Path) -> [bool; 3] {
 pub fn data_folders() -> Vec<PathBuf> {
     let mut folders = Vec::new();
     if let Some(roaming) = shell::roaming_app_data() {
+        folders.push(roaming.join(product::NAME));
         folders.push(roaming.join(product::IDENTIFIER));
     }
     if let Some(local) = shell::local_app_data() {
+        folders.push(local.join(product::NAME));
         folders.push(local.join(product::IDENTIFIER));
     }
     folders.push(std::env::temp_dir().join(product::BINARY));
@@ -557,6 +559,29 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("myle-engine-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         dir
+    }
+
+    #[test]
+    fn default_install_uses_the_standard_programs_folder_and_product_name() {
+        let expected = shell::local_app_data()
+            .or_else(|| std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
+            .unwrap_or_else(std::env::temp_dir)
+            .join("Programs")
+            .join(product::NAME);
+        assert_eq!(default_dir(), expected);
+    }
+
+    #[test]
+    fn uninstall_knows_the_branded_and_legacy_data_folders() {
+        let folders = data_folders();
+        if let Some(roaming) = shell::roaming_app_data() {
+            assert!(folders.contains(&roaming.join(product::NAME)));
+            assert!(folders.contains(&roaming.join(product::IDENTIFIER)));
+        }
+        if let Some(local) = shell::local_app_data() {
+            assert!(folders.contains(&local.join(product::NAME)));
+            assert!(folders.contains(&local.join(product::IDENTIFIER)));
+        }
     }
 
     fn packed(files: &[(&str, &[u8])], version: &str) -> Vec<u8> {

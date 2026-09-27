@@ -107,7 +107,7 @@ App store πάνω από το **winget**, στον φάκελο `frontend/app/p
 - **Hash mismatch:**
   - η εφαρμογή ρωτά πρώτα
   - αν δεχτείς, ένα UAC ανοίγει προσωρινά το `InstallerHashOverride`, εγκαθιστά και το ξανακλείνει
-- **Ειδικές εφαρμογές:** ο resolver βρίσκει το πιο πρόσφατο link (cache 6 ωρών). Αν το GitHub δίνει SHA-256, ελέγχεται.
+- **Ειδικές εφαρμογές:** ο resolver βρίσκει το πιο πρόσφατο link (cache 6 ωρών). Ένα malformed SHA-256 απορρίπτεται πάντα. Οι executable installers απαιτούν είτε έγκυρο SHA-256 είτε έγκυρη Authenticode υπογραφή από publisher που είναι pinned στον catalog (π.χ. NVIDIA Corporation).
 - **Ασφάλεια:** το UI στέλνει μόνο IDs. Τα URLs και οι εντολές υπάρχουν μόνο στο JSON που είναι μέσα στο binary.
 - **Vencord / BetterDiscord:**
   - Το Install κατεβάζει το επίσημο εργαλείο (`VencordInstallerCli.exe` / `bdcli.exe`) και «πειράζει» αμέσως το Discord Stable.
@@ -235,7 +235,7 @@ Frontend: `frontend/app/pages/creative-hub/`. Backend: `backend/src/apps/creativ
 Το setup είναι δικό μας: το crate `backend/installer` (Rust) με παράθυρο Svelte (`frontend/installer/`, `frontend/installer.html`) στο ίδιο σκούρο στυλ με την εφαρμογή. Βγάζει δύο προγράμματα:
 
 - **`setup.exe`**: κουβαλά την εφαρμογή ως ένα συμπαγές XZ payload (`installer/src/payload.rs`). Δείχνει φάκελο εγκατάστασης, διακόπτες για Desktop / Start menu / εκκίνηση με τα Windows / άνοιγμα στο τέλος, πρόοδο ανά αρχείο και οθόνη ολοκλήρωσης. Στην ίδια έκδοση εμφανίζει καθαρά «Reinstall» και διατηρεί ρυθμίσεις και δεδομένα. Επιδιορθώνει τα αναγνωρισμένα shortcuts της εφαρμογής και ελέγχει τους προορισμούς τους· το Startup shortcut ξεκινά με `--autostart`. Αν η εφαρμογή τρέχει, ζητά να την κλείσεις πριν αλλάξει αρχεία. Με επιλεγμένο το «Open when finished», ανοίγει την εφαρμογή και κλείνει το setup μετά την επιτυχή εγκατάσταση.
-- **`uninstall.exe`**: μπαίνει δίπλα στην εφαρμογή και το τρέχουν τα Windows από τα «Installed apps». Ρωτά αν θα σβηστούν **και** οι ρυθμίσεις/δεδομένα (`%APPDATA%` / `%LOCALAPPDATA%\com.thomasthanos.makeyourlifeeasier`, cache). Τα backups του Game Saves δεν αγγίζονται ποτέ. Επειδή ένα πρόγραμμα δεν μπορεί να σβήσει το αρχείο του όσο τρέχει, το `uninstall.exe` (όπως και του NSIS) αντιγράφεται σε νέο φάκελο στο `%TEMP%` και τρέχει από εκεί (`installer/src/relocate.rs`): το αντίγραφο κάνει τη δουλειά, και όταν κλείσει το αρχικό σβήνει κι αυτό και τον φάκελο. Το exit code του `/S` φτάνει κανονικά σε όποιον το έτρεξε. Τα παλιά αντίγραφα στο `%TEMP%` σβήνονται στο επόμενο uninstall.
+- **`uninstall.exe`**: μπαίνει δίπλα στην εφαρμογή και το τρέχουν τα Windows από τα «Installed apps». Ρωτά αν θα σβηστούν **και** οι ρυθμίσεις/δεδομένα (`%APPDATA%\Make Your Life Easier` / `%LOCALAPPDATA%\Make Your Life Easier`, cache). Κατά τη μετάβαση καθαρίζει και τους παλιούς φακέλους `com.thomasthanos.makeyourlifeeasier`. Τα backups του Game Saves δεν αγγίζονται ποτέ. Επειδή ένα πρόγραμμα δεν μπορεί να σβήσει το αρχείο του όσο τρέχει, το `uninstall.exe` (όπως και του NSIS) αντιγράφεται σε νέο φάκελο στο `%TEMP%` και τρέχει από εκεί (`installer/src/relocate.rs`): το αντίγραφο κάνει τη δουλειά, και όταν κλείσει το αρχικό σβήνει κι αυτό και τον φάκελο. Το exit code του `/S` φτάνει κανονικά σε όποιον το έτρεξε. Τα παλιά αντίγραφα στο `%TEMP%` σβήνονται στο επόμενο uninstall.
 
 Η εγκατάσταση είναι «όλα ή τίποτα»: κάθε αρχείο γράφεται δίπλα στο παλιό, και αν κάτι αποτύχει στη μέση επιστρέφει η προηγούμενη έκδοση. Το `install.json` στον φάκελο λέει ποια αρχεία έβαλε το setup, ώστε update και uninstall να σβήνουν μόνο αυτά.
 
@@ -256,7 +256,7 @@ Frontend: `frontend/app/pages/creative-hub/`. Backend: `backend/src/apps/creativ
 
 | Τι | Πού |
 |---|---|
-| Πρόγραμμα | `%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier\MakeYourLifeEasier.exe` |
+| Πρόγραμμα | `%LOCALAPPDATA%\Programs\Make Your Life Easier\MakeYourLifeEasier.exe` |
 | Desktop | Windows Desktop known folder (μπορεί να ανακατευθύνεται στο OneDrive) · `Make Your Life Easier.lnk` |
 | Start Menu | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Make Your Life Easier.lnk` |
 | Εκκίνηση με τα Windows | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Make Your Life Easier.lnk` (με `--autostart`) |

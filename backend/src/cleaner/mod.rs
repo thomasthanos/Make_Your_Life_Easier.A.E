@@ -7,6 +7,8 @@ mod elevated;
 mod recycle_bin;
 mod targets;
 
+pub use elevated::run_helper_from_args as run_elevated_helper_from_args;
+
 use serde::Serialize;
 use tauri::State;
 use tauri::ipc::Channel;

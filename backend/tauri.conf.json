@@ -11,37 +11,7 @@
     "frontendDist": "target/web"
   },
   "app": {
-    "windows": [
-      {
-        "label": "splash",
-        "url": "splash.html",
-        "title": "Make Your Life Easier",
-        "width": 300,
-        "height": 380,
-        "center": true,
-        "resizable": false,
-        "maximizable": false,
-        "decorations": false,
-        "shadow": true,
-        "visible": false,
-        "backgroundColor": "#0a0c12"
-      },
-      {
-        "label": "main",
-        "url": "index.html",
-        "title": "Make Your Life Easier",
-        "width": 1280,
-        "height": 720,
-        "minWidth": 800,
-        "minHeight": 500,
-        "center": true,
-        "decorations": false,
-        "transparent": true,
-        "shadow": false,
-        "visible": false,
-        "backgroundColor": "#00000000"
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost",
       "dangerousDisableAssetCspModification": ["style-src"]

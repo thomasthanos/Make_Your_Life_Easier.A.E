@@ -2,6 +2,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    if let Some(exit_code) = myle_lib::cleaner::run_elevated_helper_from_args() {
+        std::process::exit(exit_code);
+    }
     if let Some(exit_code) = myle_lib::run_windows_auto_logon_helper() {
         std::process::exit(exit_code);
     }

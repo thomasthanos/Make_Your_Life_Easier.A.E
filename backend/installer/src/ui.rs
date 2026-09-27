@@ -169,7 +169,7 @@ impl Drop for Busy<'_> {
 }
 
 /// Where the app goes. It is not the user's choice: always the app's own
-/// folder (%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier), or wherever an
+/// folder (%LOCALAPPDATA%\Programs\Make Your Life Easier), or wherever an
 /// earlier install already is. Only `/D=` on the command line (tests) moves it.
 fn install_dir(context: &Context) -> PathBuf {
     context

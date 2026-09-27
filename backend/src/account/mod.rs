@@ -116,7 +116,8 @@ impl AccountState {
 }
 
 fn vault_path(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(app.path().app_config_dir().map_err(err)?.join(VAULT_FILE))
+    let _ = app;
+    Ok(crate::storage::roaming_dir()?.join(VAULT_FILE))
 }
 
 fn now() -> u64 {

@@ -3,7 +3,7 @@ use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use crate::download::err;
 
@@ -27,10 +27,8 @@ struct Metadata {
 }
 
 pub fn root(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_local_data_dir()
-        .map(|path| path.join("windows-optimization").join("sparkle"))
-        .map_err(err)
+    let _ = app;
+    crate::storage::local_dir().map(|path| path.join("windows-optimization").join("sparkle"))
 }
 
 pub fn detect(app: &AppHandle) -> Result<CachedSparkle, String> {

@@ -91,7 +91,7 @@ async function stage(onEvent: (e: Progress) => void, name: Extract<Progress, { e
   await sleep(ms);
 }
 
-const DIR = String.raw`C:\Users\Thomas\AppData\Local\ThomasThanos\MakeYourLifeEasier`;
+const DIR = String.raw`C:\Users\Thomas\AppData\Local\Programs\Make Your Life Easier`;
 const FILES: [string, number][] = [
   ["MakeYourLifeEasier.exe", 14_200_000],
   ["install.json", 2_000],

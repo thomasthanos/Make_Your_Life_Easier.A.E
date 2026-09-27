@@ -8,7 +8,7 @@
 #>
 param([switch]$Removed)
 
-$installDir = Join-Path $env:LOCALAPPDATA "ThomasThanos\MakeYourLifeEasier"
+$installDir = Join-Path $env:LOCALAPPDATA "Programs\Make Your Life Easier"
 $exe = Join-Path $installDir "MakeYourLifeEasier.exe"
 $shortcuts = [ordered]@{
   "Desktop"    = Join-Path ([Environment]::GetFolderPath("Desktop")) "Make Your Life Easier.lnk"
