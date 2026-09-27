@@ -7,9 +7,17 @@
   import ScanSearch from "@lucide/svelte/icons/scan-search";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
+  import Select, { type SelectOption } from "../../../lib/components/Select.svelte";
   import type { OperationStage } from "./api";
-  import { formatBytes, gameSavesState as state, type GameSavesFilter } from "./state.svelte";
+  import { formatBytes, gameSavesState as gameSaves, type GameSavesFilter } from "./state.svelte";
 
+  const filterOptions: SelectOption<GameSavesFilter>[] = [
+    { value: "all", label: "All statuses" },
+    { value: "changed", label: "Changed since backup" },
+    { value: "notBackedUp", label: "Not backed up" },
+    { value: "backedUp", label: "Backed up" },
+    { value: "problems", label: "Needs attention" },
+  ];
   const stageLabels: Record<OperationStage, string> = {
     preparing: "Preparing…",
     scanning: "Scanning save locations…",
@@ -20,8 +28,31 @@
     finishing: "Finishing…",
   };
   const progress = $derived(
-    state.operation?.total ? Math.max(0, Math.min(100, (state.operation.done / state.operation.total) * 100)) : null,
+    gameSaves.operation?.total
+      ? Math.max(0, Math.min(100, (gameSaves.operation.done / gameSaves.operation.total) * 100))
+      : null,
   );
+
+  /** After this long the engine is still at it: say why that can happen. */
+  const SLOW_AFTER_S = 20;
+
+  // The engine reports nothing while it scans or copies, so show that time
+  // passes: seconds so far, and a hint once it gets slow.
+  let startedAt = $state(0);
+  let now = $state(0);
+  $effect(() => {
+    const operation = gameSaves.operation;
+    if (!operation) return;
+    startedAt = Date.now();
+    now = startedAt;
+    const timer = setInterval(() => (now = Date.now()), 1000);
+    return () => clearInterval(timer);
+  });
+  const elapsed = $derived(Math.max(0, Math.round((now - startedAt) / 1000)));
+
+  function formatElapsed(seconds: number) {
+    return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
+  }
 </script>
 
 <div class="toolbar surface">
@@ -31,81 +62,89 @@
       <input
         class="input"
         type="search"
-        value={state.query}
+        value={gameSaves.query}
         placeholder="Search games…"
         autocomplete="off"
         spellcheck="false"
-        oninput={(event) => state.setQuery(event.currentTarget.value)}
+        oninput={(event) => gameSaves.setQuery(event.currentTarget.value)}
       />
-      {#if state.query}
-        <button class="clear icon-btn" aria-label="Clear search" onclick={() => state.setQuery("")}><X size={13} /></button>
+      {#if gameSaves.query}
+        <button class="clear icon-btn" aria-label="Clear search" onclick={() => gameSaves.setQuery("")}><X size={13} /></button>
       {/if}
     </label>
 
-    <label class="filter">
-      <span class="sr-only">Status filter</span>
-      <select value={state.filter} onchange={(event) => state.setFilter(event.currentTarget.value as GameSavesFilter)}>
-        <option value="all">All statuses</option>
-        <option value="changed">Changed since backup</option>
-        <option value="notBackedUp">Not backed up</option>
-        <option value="backedUp">Backed up</option>
-        <option value="problems">Needs attention</option>
-      </select>
-    </label>
+    <Select
+      value={gameSaves.filter}
+      options={filterOptions}
+      ariaLabel="Status filter"
+      minWidth="172px"
+      onchange={(filter) => gameSaves.setFilter(filter)}
+    />
 
     <span class="spacer"></span>
 
-    <button class="btn" disabled={state.busy} onclick={() => state.scan()}>
+    <button class="btn" disabled={gameSaves.busy} onclick={() => gameSaves.scan()}>
       <ScanSearch size={15} /> Scan again
     </button>
-    <button class="btn" disabled={state.busy} onclick={() => state.updateDatabase()}>
+    <button class="btn" disabled={gameSaves.busy} onclick={() => gameSaves.updateDatabase()}>
       <DatabaseZap size={15} /> Update database
     </button>
   </div>
 
   <div class="action-row">
-    <span class="shown">{state.visibleGames.length} {state.visibleGames.length === 1 ? "game" : "games"}</span>
-    {#if state.discovering}
+    <span class="shown">{gameSaves.visibleGames.length} {gameSaves.visibleGames.length === 1 ? "game" : "games"}</span>
+    {#if gameSaves.discovering}
       <span class="discovering" title="A full scan runs in the background; actions stop it first.">
         <LoaderCircle size={12} class="spin" /> Looking for new games…
       </span>
     {/if}
-    <button class="btn ghost" disabled={!state.visibleGames.length || state.busy} onclick={() => state.toggleAllVisible()}>
-      <CheckCheck size={14} /> {state.allVisibleSelected ? "Deselect shown" : "Select all shown"}
+    <button class="btn ghost" disabled={!gameSaves.visibleGames.length || gameSaves.busy} onclick={() => gameSaves.toggleAllVisible()}>
+      <CheckCheck size={14} /> {gameSaves.allVisibleSelected ? "Deselect shown" : "Select all shown"}
     </button>
-    {#if state.selectedGames.length}
-      <button class="btn ghost" disabled={state.busy} onclick={() => state.clearSelection()}>Clear</button>
+    {#if gameSaves.selectedGames.length}
+      <button class="btn ghost" disabled={gameSaves.busy} onclick={() => gameSaves.clearSelection()}>Clear</button>
     {/if}
     <span class="selection" aria-live="polite">
-      {state.selectedGames.length} selected{state.selectedGames.length ? ` · ${formatBytes(state.selectedBytes)}` : ""}
+      {gameSaves.selectedGames.length} selected{gameSaves.selectedGames.length ? ` · ${formatBytes(gameSaves.selectedBytes)}` : ""}
     </span>
     <span class="spacer"></span>
-    {#if state.tab === "pc"}
-      <button class="btn primary action" disabled={!state.selectedGames.length || state.busy} onclick={() => state.backupSelected()}>
-        <Archive size={15} /> Back up ({state.selectedGames.length})
+    {#if gameSaves.tab === "pc"}
+      <button class="btn primary action" disabled={!gameSaves.selectedGames.length || gameSaves.busy} onclick={() => gameSaves.backupSelected()}>
+        <Archive size={15} /> Back up ({gameSaves.selectedGames.length})
       </button>
     {:else}
-      <button class="btn primary action" disabled={!state.selectedGames.length || state.busy} onclick={() => state.openRestorePicker()}>
-        <RotateCcw size={15} /> Restore ({state.selectedGames.length})
+      <button class="btn primary action" disabled={!gameSaves.selectedGames.length || gameSaves.busy} onclick={() => gameSaves.openRestorePicker()}>
+        <RotateCcw size={15} /> Restore ({gameSaves.selectedGames.length})
       </button>
     {/if}
   </div>
 
-  {#if state.operation}
+  {#if gameSaves.operation}
     <div class="operation" aria-live="polite">
       <LoaderCircle size={14} class="spin" />
       <span class="operation-text">
-        <strong>{stageLabels[state.operation.stage]}</strong>
-        {#if state.operation.current}<small>{state.operation.current}</small>{/if}
-        {#if state.operation.note}<small>{state.operation.note}</small>{/if}
+        <strong>{stageLabels[gameSaves.operation.stage]}</strong>
+        {#if gameSaves.operation.current}<small>{gameSaves.operation.current}</small>{/if}
+        {#if gameSaves.operation.note}<small>{gameSaves.operation.note}</small>{/if}
+        {#if elapsed >= SLOW_AFTER_S && !gameSaves.operation.total}
+          <small class="slow">
+            Still working. Many games, or saves in OneDrive that are online-only (they download first), make this take
+            longer.
+          </small>
+        {/if}
       </span>
-      {#if state.operation.total}
-        <span class="numbers">{state.operation.done}/{state.operation.total}</span>
+      {#if gameSaves.operation.total}
+        <span class="numbers">{gameSaves.operation.done}/{gameSaves.operation.total}</span>
       {/if}
-      <button class="btn small" disabled={state.cancelling} onclick={() => state.cancel()}>
-        {state.cancelling ? "Cancelling…" : "Cancel"}
+      {#if elapsed >= 2}
+        <span class="numbers">{formatElapsed(elapsed)}</span>
+      {/if}
+      <button class="btn small" disabled={gameSaves.cancelling} onclick={() => gameSaves.cancel()}>
+        {gameSaves.cancelling ? "Cancelling…" : "Cancel"}
       </button>
-      <span class="progress" aria-hidden="true"><span style:width={`${progress ?? 0}%`}></span></span>
+      <span class="progress" class:indeterminate={progress === null} aria-hidden="true">
+        <span style:width={progress === null ? undefined : `${progress}%`}></span>
+      </span>
     </div>
   {/if}
 </div>
@@ -164,17 +203,6 @@
     height: 28px;
   }
 
-  select {
-    height: 34px;
-    padding: 0 28px 0 10px;
-    border: 1px solid rgb(255 255 255 / 0.075);
-    border-radius: 10px;
-    background: rgb(9 12 20 / 0.7);
-    color: var(--text-2);
-    font: inherit;
-    font-size: 12px;
-  }
-
   .spacer {
     flex: 1;
   }
@@ -195,7 +223,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    color: rgb(166 176 255 / 0.75);
+    color: rgb(var(--accent-soft-rgb) / 0.75);
     font-size: 11px;
   }
 
@@ -211,7 +239,7 @@
     min-width: 0;
     padding: 7px 8px 9px;
     border-radius: 9px;
-    background: rgb(139 151 255 / 0.045);
+    background: rgb(var(--accent-rgb) / 0.045);
     color: var(--accent);
   }
 
@@ -254,6 +282,15 @@
     background: rgb(255 255 255 / 0.06);
   }
 
+  .numbers + .numbers {
+    margin-left: 0;
+  }
+
+  .operation-text small.slow {
+    color: rgb(245 188 95 / 0.8);
+    white-space: normal;
+  }
+
   .progress > span {
     display: block;
     height: 100%;
@@ -262,16 +299,20 @@
     transition: width var(--dur-med) var(--ease-out);
   }
 
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+  /* The engine gives no count while it scans: a moving band, not a bar
+     frozen at zero. */
+  .progress.indeterminate > span {
+    width: 30%;
+    animation: sweep 1.3s var(--ease-in-out) infinite;
+  }
+
+  @keyframes sweep {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(340%);
+    }
   }
 
   button:disabled {

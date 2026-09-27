@@ -56,6 +56,9 @@
       <span class="label">Selected</span>
       <strong class="value accent">{formatSize(cleanerState.selectedBytes)}</strong>
     </div>
+  </div>
+
+  <div class="bar">
     <p class="status">
       {#if cleanerState.phase !== "idle"}
         <LoaderCircle size={13} class="spin" />
@@ -64,25 +67,25 @@
       {/if}
       {cleanerState.status}
     </p>
-  </div>
 
-  <div class="actions">
-    <button class="btn" disabled={cleanerState.busy} onclick={() => cleanerState.scan()}>
-      <RadarIcon size={15} />
-      Scan
-    </button>
-    <button class="btn" disabled={cleanerState.busy || !cleanerState.categories.length} onclick={() => cleanerState.toggleAll()}>
-      <CheckCheck size={15} />
-      {cleanerState.allSelected ? "Deselect all" : "Select all"}
-    </button>
-    <button
-      class="btn primary"
-      disabled={cleanerState.busy || !cleanerState.selected.size}
-      onclick={() => cleanerState.clean()}
-    >
-      <Sparkles size={15} />
-      {cleanLabel}
-    </button>
+    <div class="actions">
+      <button class="btn" disabled={cleanerState.busy} onclick={() => cleanerState.scan()}>
+        <RadarIcon size={15} />
+        Scan
+      </button>
+      <button class="btn" disabled={cleanerState.busy || !cleanerState.categories.length} onclick={() => cleanerState.toggleAll()}>
+        <CheckCheck size={15} />
+        {cleanerState.allSelected ? "Deselect all" : "Select all"}
+      </button>
+      <button
+        class="btn primary"
+        disabled={cleanerState.busy || !cleanerState.selected.size}
+        onclick={() => cleanerState.clean()}
+      >
+        <Sparkles size={15} />
+        {cleanLabel}
+      </button>
+    </div>
   </div>
 </section>
 
@@ -105,16 +108,16 @@
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 18px;
+    gap: 14px 24px;
     margin-bottom: 16px;
-    padding: 18px 20px;
+    padding: 16px 20px;
   }
 
   .stats {
     display: flex;
     align-items: flex-end;
     flex-wrap: wrap;
-    gap: 26px;
+    gap: 12px 28px;
   }
 
   .stat {
@@ -124,14 +127,14 @@
 
   .label {
     color: var(--text-3);
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
 
   .value {
-    font-size: 24px;
+    font-size: 23px;
     font-weight: 600;
     line-height: 1.15;
     letter-spacing: -0.02em;
@@ -141,17 +144,26 @@
   .value.small {
     font-size: 15px;
     font-weight: 500;
+    line-height: 1.35;
   }
 
   .value.accent {
     color: var(--accent);
   }
 
-  .status {
+  .bar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    flex: 1 1 380px;
+    gap: 10px 16px;
+  }
+
+  .status {
+    display: inline-flex;
+    align-items: center;
     gap: 6px;
-    width: 100%;
     color: var(--text-3);
     font-size: 12px;
   }
@@ -159,6 +171,7 @@
   .actions {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
     margin-left: auto;
   }
@@ -174,14 +187,22 @@
     font-size: 13px;
   }
 
-  /* Two columns, as specified; one on a narrow window. */
   .grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
     gap: 12px;
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 860px) {
+    .bar {
+      flex-basis: 100%;
+      padding-top: 12px;
+      border-top: 1px solid rgb(255 255 255 / 0.06);
+    }
+  }
+
+  @media (max-width: 680px) {
     .grid {
       grid-template-columns: 1fr;
     }

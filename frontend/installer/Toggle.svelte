@@ -70,8 +70,8 @@
 
   .toggle.checked .icon {
     color: #dce0ff;
-    background: rgb(139 151 255 / 0.16);
-    box-shadow: inset 0 0 0 1px rgb(139 151 255 / 0.12);
+    background: rgb(var(--accent-rgb) / 0.16);
+    box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.12);
   }
 
   .toggle.disabled {
@@ -98,7 +98,7 @@
   }
 
   .switch:focus-visible {
-    outline: 2px solid rgb(139 151 255 / 0.7);
+    outline: 2px solid rgb(var(--accent-rgb) / 0.7);
     outline-offset: 2px;
   }
 

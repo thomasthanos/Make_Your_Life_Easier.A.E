@@ -7,6 +7,7 @@
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import X from "@lucide/svelte/icons/x";
+  import Select from "../../../lib/components/Select.svelte";
   import { portal } from "../../../lib/portal";
   import { formatBytes, formatDate, gameSavesState as gs } from "./state.svelte";
 
@@ -57,19 +58,19 @@
           </div>
 
           {#if game.snapshots.length}
-            <label class="snapshot-field">
+            <div class="snapshot-field">
               <span>Restore from</span>
-              <select
+              <Select
                 value={gs.snapshotFor(game)}
-                onchange={(event) => gs.setSnapshot(game.id, event.currentTarget.value)}
-              >
-                {#each game.snapshots as snapshot (snapshot.id)}
-                  <option value={snapshot.id}>
-                    {formatDate(snapshot.timestamp)} · {formatBytes(snapshot.bytes)}{snapshot.label ? ` · ${snapshot.label}` : ""}{snapshot.isSafety ? " · Safety" : ""}
-                  </option>
-                {/each}
-              </select>
-            </label>
+                options={game.snapshots.map((snapshot) => ({
+                  value: snapshot.id,
+                  label: `${formatDate(snapshot.timestamp)} · ${formatBytes(snapshot.bytes)}${snapshot.label ? ` · ${snapshot.label}` : ""}${snapshot.isSafety ? " · Safety" : ""}`,
+                }))}
+                ariaLabel={`Restore snapshot for ${game.title}`}
+                fullWidth
+                onchange={(id) => gs.setSnapshot(game.id, id)}
+              />
+            </div>
           {:else}
             <p class="problem">No restorable snapshot is available.</p>
           {/if}
@@ -144,9 +145,9 @@
     width: 34px;
     height: 34px;
     flex: none;
-    border: 1px solid rgb(139 151 255 / 0.17);
+    border: 1px solid rgb(var(--accent-rgb) / 0.17);
     border-radius: 10px;
-    background: rgb(139 151 255 / 0.08);
+    background: rgb(var(--accent-rgb) / 0.08);
     color: var(--accent);
   }
 
@@ -198,6 +199,7 @@
   .snapshot-field {
     display: grid;
     gap: 4px;
+    min-width: 0;
   }
 
   .snapshot-field > span,
@@ -207,18 +209,6 @@
     font-weight: 600;
     letter-spacing: 0.035em;
     text-transform: uppercase;
-  }
-
-  select {
-    width: 100%;
-    height: 32px;
-    padding: 0 9px;
-    border: 1px solid rgb(255 255 255 / 0.075);
-    border-radius: 9px;
-    background: rgb(9 12 20 / 0.75);
-    color: var(--text-2);
-    font: inherit;
-    font-size: 11px;
   }
 
   .destination {

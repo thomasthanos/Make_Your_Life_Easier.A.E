@@ -24,3 +24,13 @@
   background-image: var(--noise);
   opacity: 0.035;
 }
+
+/* Solid look (the default): the same light, far quieter, so it reads as a
+   soft glow around the window instead of colour showing through. */
+:root.solid .app-backdrop {
+  background:
+    radial-gradient(46% 56% at 8% 4%, rgb(var(--accent-rgb) / 0.16), transparent 72%),
+    radial-gradient(36% 44% at 94% 8%, rgb(106 170 196 / 0.1), transparent 72%),
+    radial-gradient(52% 58% at 78% 104%, rgb(122 108 200 / 0.09), transparent 72%),
+    linear-gradient(180deg, #0c0f16 0%, #090b10 100%);
+}

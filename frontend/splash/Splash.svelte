@@ -17,6 +17,8 @@
 
   /** Keep the splash up long enough to read, even when the check is instant. */
   const MIN_VISIBLE_MS = 1100;
+  /** After an update the previous version was on screen until now. */
+  const JUST_UPDATED_MS = 700;
   /** How long an error stays on screen before the app starts anyway. */
   const ERROR_HOLD_MS = 2200;
   /** Time for the bar to fill and the logo to pop before the app opens. */
@@ -69,9 +71,11 @@
   async function run() {
     const startedAt = performance.now();
     let upToDate = false;
+    let justUpdated: string | null = null;
     try {
       const result = await updater.checkForUpdate();
       upToDate = result.status === "upToDate";
+      if (result.status === "justUpdated") justUpdated = result.current;
       if (result.status === "available") await applyUpdate(result.current, result.latest, result.asset);
     } catch (err) {
       showError(phase === "checking" ? "Couldn't check for updates" : "Update failed", err);
@@ -80,13 +84,16 @@
 
     phase = "starting";
     title = "Starting…";
-    detail = upToDate ? "You're on the latest version" : "";
+    detail = justUpdated ? `Updated to v${justUpdated}` : upToDate ? "You're on the latest version" : "";
     progress = 1;
     percent = null;
     transfer = "";
     rate = "";
     const elapsed = performance.now() - startedAt;
-    await sleep(Math.max(MIN_VISIBLE_MS - elapsed, DONE_MS));
+    // Just updated: the previous version was on screen until now, so only
+    // long enough to read the line.
+    const minimum = justUpdated ? JUST_UPDATED_MS : MIN_VISIBLE_MS;
+    await sleep(Math.max(minimum - elapsed, DONE_MS));
     await updater.finishStartup();
   }
 
@@ -127,8 +134,14 @@
       case "installing":
         phase = "installing";
         title = "Installing update…";
-        detail = "The app will restart by itself";
+        detail = "It opens again by itself when it's done";
         clearTransfer();
+        break;
+      case "restarting":
+        phase = "installing";
+        title = "Restarting…";
+        detail = e.data.version ? `Opening v${e.data.version}` : "Opening the new version";
+        progress = 1;
         break;
     }
   }
@@ -269,8 +282,8 @@
     font-size: 12px;
     font-weight: 600;
     color: #cfd6ff;
-    background: rgb(139 151 255 / 0.16);
-    box-shadow: inset 0 0 0 1px rgb(139 151 255 / 0.28);
+    background: rgb(var(--accent-rgb) / 0.16);
+    box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.28);
   }
 
   .detail {

@@ -19,7 +19,7 @@ use windows_sys::Win32::System::Threading::{
     PROCESS_TERMINATE, QueryFullProcessImageNameW, TerminateProcess, WaitForSingleObject,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetWindowThreadProcessId, PostMessageW, WM_CLOSE,
+    EnumWindows, GetWindowThreadProcessId, IsWindowVisible, PostMessageW, WM_CLOSE,
 };
 
 use crate::shell;
@@ -131,6 +131,46 @@ fn ask_to_close(pids: &[u32]) {
     unsafe { EnumWindows(Some(visit), &targets as *const Vec<u32> as LPARAM) };
 }
 
+/// Waits until `pid` has a window on screen, for at most `timeout`. The
+/// app's windows show themselves only once they have painted, so this is the
+/// moment it can be seen. False if it never did, or exited first.
+pub fn wait_for_window(pid: u32, timeout: Duration) -> bool {
+    let Some(process) = Process::open(pid) else {
+        return false;
+    };
+    let deadline = Instant::now() + timeout;
+    loop {
+        if has_visible_window(pid) {
+            return true;
+        }
+        if Instant::now() >= deadline || process.wait(Duration::from_millis(50)) {
+            return false;
+        }
+    }
+}
+
+fn has_visible_window(pid: u32) -> bool {
+    struct Search {
+        pid: u32,
+        found: bool,
+    }
+    unsafe extern "system" fn visit(window: HWND, search: LPARAM) -> i32 {
+        // SAFETY: `search` is the struct passed to EnumWindows below.
+        let search = unsafe { &mut *(search as *mut Search) };
+        let mut pid = 0u32;
+        unsafe { GetWindowThreadProcessId(window, &mut pid) };
+        if pid == search.pid && unsafe { IsWindowVisible(window) } != 0 {
+            search.found = true;
+            return 0; // stop
+        }
+        1
+    }
+    let mut search = Search { pid, found: false };
+    // SAFETY: `search` outlives the synchronous enumeration.
+    unsafe { EnumWindows(Some(visit), &mut search as *mut Search as LPARAM) };
+    search.found
+}
+
 fn wait_exit(pid: u32, timeout: Duration) -> bool {
     // SAFETY: the handle is closed before returning.
     let process = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
@@ -183,4 +223,22 @@ pub fn close_all(dir: &Path, grace: Duration) -> Vec<Running> {
         terminate(process.pid);
     }
     running_in(dir)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn waiting_for_a_window_ends_when_the_program_exits_without_one() {
+        let mut child = std::process::Command::new(shell::system32("cmd.exe"))
+            .args(["/c", "exit"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let started = Instant::now();
+        assert!(!wait_for_window(child.id(), Duration::from_secs(10)));
+        assert!(started.elapsed() < Duration::from_secs(5));
+        let _ = child.wait();
+    }
 }

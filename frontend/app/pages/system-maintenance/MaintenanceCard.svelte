@@ -98,13 +98,12 @@
 
 <style>
   .card {
-    --tone: #8b97ff;
-    --tone-soft: rgb(139 151 255 / 0.12);
+    --tone: var(--accent);
+    --tone-soft: rgb(var(--accent-rgb) / 0.12);
 
     position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    align-content: start;
+    display: flex;
+    flex-direction: column;
     gap: 12px;
     min-width: 0;
     padding: 16px;
@@ -139,8 +138,8 @@
   }
 
   .card[data-section="health"] {
-    --tone: #9aa5ff;
-    --tone-soft: rgb(139 151 255 / 0.12);
+    --tone: rgb(var(--accent-soft-rgb));
+    --tone-soft: rgb(var(--accent-rgb) / 0.12);
   }
 
   .card[data-section="software"] {
@@ -240,6 +239,7 @@
     justify-content: space-between;
     gap: 12px;
     min-width: 0;
+    margin-top: auto;
     padding-top: 11px;
     border-top: 1px solid rgb(255 255 255 / 0.06);
   }
@@ -305,14 +305,17 @@
     gap: 8px;
   }
 
-  /* The console spans the whole card, under all three columns. */
+  /* The console spans the whole card, under all columns. */
   .console-slot {
     grid-column: 1 / -1;
   }
 
   .card.list,
   .card.wide {
+    grid-column: 1 / -1;
+    display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     column-gap: 18px;
   }
 
@@ -320,12 +323,12 @@
   .card.wide .footer {
     grid-column: 2;
     grid-row: 1 / span 2;
-    flex-direction: column;
-    align-items: flex-end;
-    justify-content: center;
-    min-width: 190px;
+    align-self: stretch;
+    justify-content: flex-end;
+    gap: 16px;
+    margin-top: 0;
     padding-top: 0;
-    padding-left: 16px;
+    padding-left: 18px;
     border-top: 0;
     border-left: 1px solid rgb(255 255 255 / 0.06);
   }
@@ -358,36 +361,29 @@
   @container maintenance (max-width: 650px) {
     .card.list,
     .card.wide {
-      grid-template-columns: minmax(0, 1fr);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
     }
 
     .card.list .footer,
     .card.wide .footer {
-      grid-column: 1;
-      grid-row: auto;
-      flex-direction: row;
-      align-items: center;
       justify-content: space-between;
-      min-width: 0;
+      margin-top: auto;
       padding-top: 11px;
       padding-left: 0;
       border-top: 1px solid rgb(255 255 255 / 0.06);
       border-left: 0;
     }
-
-    .card.list .console-slot,
-    .card.wide .console-slot {
-      grid-row: auto;
-    }
   }
 
-  :global(:root.perf-lite) .card,
-  :global(:root.perf-lite) .card:hover {
+  :global(:root.solid) .card,
+  :global(:root.solid) .card:hover {
     transform: none;
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
   }
 
-  :global(:root.perf-lite) .status.running .status-dot {
+  :global(:root.solid) .status.running .status-dot {
     animation: none;
   }
 

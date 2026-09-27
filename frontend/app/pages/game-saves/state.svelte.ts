@@ -8,12 +8,16 @@ import { nav } from "../../../lib/nav.svelte";
 import { notifyChange, readFlag, readJson, writeFlag, writeJson } from "../../../lib/storage";
 import { toast } from "../../../lib/toast.svelte";
 import {
+  CLOUD_PROVIDERS,
   gameSavesApi,
   type BackupSchedule,
+  type CloudProvider,
   type CustomGame,
+  type DetectedFolder,
   type GameSaveEntry,
   type GameSaveStatus,
   type GameSavesEvent,
+  type GameFailure,
   type GameSavesOperationResult,
   type GameSavesPageState,
   type GameSavesScan,
@@ -26,6 +30,12 @@ import {
   type RootStore,
   type ScheduleWeekday,
 } from "./api";
+
+/** Windows paths, compared as Windows does: case and a trailing slash aside. */
+export function samePath(a: string, b: string) {
+  const normal = (path: string) => path.replace(/[\\/]+$/, "").toLowerCase();
+  return normal(a) === normal(b);
+}
 
 export type GameSavesFilter = "all" | "changed" | "notBackedUp" | "backedUp" | "problems";
 
@@ -105,6 +115,9 @@ class GameSavesState {
   scanResult = $state<GameSavesScan | null>(null);
   loading = $state(true);
   error = $state<string | null>(null);
+  /** The games the last backup or restore could not handle, and why. Stays
+   *  on the page until dismissed or the next operation. */
+  failures = $state<{ kind: "backup" | "restore"; items: GameFailure[] } | null>(null);
   settingsOpen = $state(readFlag(KEY.settingsOpen, false));
   tab = $state<GameSavesTab>(readJson(KEY.tab, "pc", oneOf("pc", "backup")));
   filter = $state<GameSavesFilter>(
@@ -576,10 +589,19 @@ class GameSavesState {
     });
   }
 
-  async useDetectedBackupFolder(path: string) {
+  /** Backs up into a cloud folder: a detected one, or one the user points to. */
+  async useCloudFolder(provider: CloudProvider, folder: DetectedFolder | null) {
+    const before = this.page.settings.backupFolder;
     await this.setting("backupFolder", async () => {
-      this.page.settings = await gameSavesApi.setBackupFolder(path);
-      toast.success("Backup folder updated.");
+      const settings = await gameSavesApi.useCloudFolder(provider, folder?.path ?? null);
+      if (!settings) return;
+      this.page.settings = settings;
+      const name = folder?.label ?? CLOUD_PROVIDERS.find((item) => item.id === provider)?.name ?? provider;
+      const moved = !!before && !samePath(before, settings.backupFolder ?? "");
+      toast.success(
+        `Backups now go to ${name}: ${settings.backupFolder}` +
+          (moved ? ". Earlier backups stay in the previous folder." : ""),
+      );
     });
   }
 
@@ -594,7 +616,8 @@ class GameSavesState {
   async detectCloudFolders() {
     await this.setting("cloudFolders", async () => {
       this.page.cloudFolders = await gameSavesApi.detectCloudFolders();
-      if (!this.page.cloudFolders.length) toast.info("No cloud folders were detected.");
+      const count = this.page.cloudFolders.length;
+      toast.info(count ? `Found ${count} cloud folder${count === 1 ? "" : "s"}.` : "No cloud folders were found on this PC.");
     });
   }
 
@@ -728,22 +751,49 @@ class GameSavesState {
 
   private beginOperation(kind: OperationKind, stage: OperationStage) {
     this.operation = { kind, stage, done: 0, total: 0, current: null, note: null };
+    this.error = null;
+    if (kind !== "scan") this.failures = null;
   }
 
   private readonly onEvent = (event: GameSavesEvent) => {
     if (!this.operation) return;
-    if (event.event === "stage") this.operation.stage = event.data.stage;
-    else if (event.event === "progress") {
+    if (event.event === "stage") {
+      if (this.operation.stage !== event.data.stage) {
+        // A completed count belongs only to the stage that produced it. In
+        // particular, restore preview must not leave the safety-copy stage
+        // looking frozen at 100%.
+        this.operation.stage = event.data.stage;
+        this.operation.done = 0;
+        this.operation.total = 0;
+        this.operation.current = null;
+        this.operation.note = null;
+      }
+    } else if (event.event === "progress") {
       this.operation.done = event.data.done;
       this.operation.total = event.data.total;
       this.operation.current = event.data.current;
+      this.operation.note = null;
     } else this.operation.note = event.data.text;
   };
 
   private reportResult(result: GameSavesOperationResult) {
     const verb = result.kind === "backup" ? "Backed up" : "Restored";
+    const failed = result.failedGames.length;
     if (result.processedGames) toast.success(`${verb} ${result.processedGames} ${result.processedGames === 1 ? "game" : "games"}.`);
-    if (result.failedGames.length) toast.error(`${result.failedGames.length} ${result.failedGames.length === 1 ? "game failed" : "games failed"}: ${result.failedGames.join(", ")}`);
+    if (!failed) {
+      this.failures = null;
+      return;
+    }
+    const reasons = new Map((result.failures ?? []).map((failure) => [failure.game, failure.reason]));
+    this.failures = {
+      kind: result.kind,
+      items: result.failedGames.map((game) => ({ game, reason: reasons.get(game) ?? "No reason was given." })),
+    };
+    toast.error(`${failed} ${failed === 1 ? "game" : "games"} could not be ${result.kind === "backup" ? "backed up" : "restored"}. See the details on the page.`);
+  }
+
+  dismissFailures() {
+    this.failures = null;
   }
 
   private fail(label: string, error: unknown) {

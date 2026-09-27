@@ -31,9 +31,13 @@
   const locked = $derived(measured?.locked ?? false);
   // Emptied since the last scan: off until the next one measures it again.
   const done = $derived(cleanerState.isCleaned(category.id));
+  const outcome = $derived(cleanerState.outcome[category.id]);
+  // Cleaned, but not everything could go: files in use, or system files
+  // without administrator approval. Say so instead of a plain "Cleaned".
+  const partly = $derived(done && (measured?.bytes ?? 0) > 0);
 </script>
 
-<article class="card" class:on={checked} class:done class:working={cleanerState.phase === "cleaning" && checked}>
+<article class="card" class:on={checked} class:done class:partly class:working={cleanerState.phase === "cleaning" && checked}>
   <div class="head">
     <span class="icon"><Icon size={21} strokeWidth={1.6} /></span>
     <div class="titles">
@@ -54,8 +58,15 @@
     <div class="amount">
       <strong class:shimmer={pending}>{measured ? formatSize(measured.bytes) : "0 B"}</strong>
       <span class="hint" title={category.hint}>
-        {#if done}
-          <CheckCheck size={11} /> Cleaned · scan again to re-check
+        {#if partly}
+          <TriangleAlert size={11} />
+          {outcome?.freed ? `Freed ${formatSize(outcome.freed)} · ` : ""}the rest is in use{locked ||
+          category.mayNeedAdmin
+            ? " or needs administrator"
+            : ""}{outcome?.skipped ? ` (${outcome.skipped.toLocaleString()} files)` : ""}
+        {:else if done}
+          <CheckCheck size={11} />
+          {outcome?.freed ? `Freed ${formatSize(outcome.freed)}` : "Cleaned"} · scan again to re-check
         {:else if locked}
           <Lock size={11} /> System files skipped (no administrator)
         {:else if measured?.files}
@@ -108,11 +119,11 @@
   }
 
   .card.on {
-    border-color: rgb(139 151 255 / 0.32);
+    border-color: rgb(var(--accent-rgb) / 0.32);
   }
 
   .card.working {
-    border-color: rgb(139 151 255 / 0.5);
+    border-color: rgb(var(--accent-rgb) / 0.5);
   }
 
   .card.done .head,
@@ -122,6 +133,10 @@
 
   .card.done .hint {
     color: var(--ok);
+  }
+
+  .card.partly .hint {
+    color: rgb(245 188 95 / 0.9);
   }
 
   .head {
@@ -149,14 +164,15 @@
   }
 
   h3 {
-    font-size: 14.5px;
+    font-size: 14px;
+    line-height: 1.25;
   }
 
   .titles p {
     margin-top: 3px;
     color: var(--text-2);
-    font-size: 12.5px;
-    line-height: 1.45;
+    font-size: 12px;
+    line-height: 1.42;
   }
 
   .foot {
@@ -165,6 +181,8 @@
     justify-content: space-between;
     gap: 10px;
     margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid rgb(255 255 255 / 0.055);
   }
 
   .amount {

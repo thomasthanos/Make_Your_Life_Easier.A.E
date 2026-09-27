@@ -78,9 +78,23 @@ export interface PathMapping {
   target: string;
 }
 
+export type CloudProvider = "dropbox" | "googleDrive" | "mega" | "oneDrive";
+
+export const CLOUD_PROVIDERS: { id: CloudProvider; name: string }[] = [
+  { id: "dropbox", name: "Dropbox" },
+  { id: "googleDrive", name: "Google Drive" },
+  { id: "mega", name: "MEGA" },
+  { id: "oneDrive", name: "OneDrive" },
+];
+
 export interface DetectedFolder {
-  provider: string;
+  provider: CloudProvider;
+  /** Which account, when a provider has several ("Dropbox Business"). */
+  label: string;
+  /** The provider's synced folder. */
   path: string;
+  /** Where backups go inside it (created when chosen). */
+  backupPath: string;
 }
 
 export interface GameSavesPageState {
@@ -152,11 +166,18 @@ export interface RestoreSelection {
   snapshotId: string;
 }
 
+export interface GameFailure {
+  game: string;
+  reason: string;
+}
+
 export interface GameSavesOperationResult {
   kind: "backup" | "restore";
   processedGames: number;
   processedBytes: number;
   failedGames: string[];
+  /** Why each failed game failed, as far as the engine said. */
+  failures: GameFailure[];
   safetyBackupPath: string | null;
 }
 
@@ -179,7 +200,10 @@ function channel(onEvent: (event: GameSavesEvent) => void): Channel<GameSavesEve
 export const gameSavesApi = {
   getState: () => invoke<GameSavesPageState>("game_saves_get_state"),
   pickBackupFolder: () => invoke<GameSavesSettings | null>("game_saves_pick_backup_folder"),
-  setBackupFolder: (path: string) => invoke<GameSavesSettings>("game_saves_set_backup_folder", { path }),
+  /** Backs up into `<folder>\\Make Your Life Easier\\Game Saves Backups`, creating it. Without a
+   *  detected `path` the user is asked where the provider's folder is; null when cancelled. */
+  useCloudFolder: (provider: CloudProvider, path: string | null) =>
+    invoke<GameSavesSettings | null>("game_saves_use_cloud_folder", { provider, path }),
   openBackupFolder: () => invoke<void>("game_saves_open_backup_folder"),
   openGameFolder: (gameId: string) => invoke<void>("game_saves_open_game_folder", { gameId }),
   detectCloudFolders: () => invoke<DetectedFolder[]>("game_saves_detect_cloud_folders"),

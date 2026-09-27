@@ -1,17 +1,45 @@
-//! The administrator half of the cleaner: one UAC prompt runs a PowerShell
-//! script over the folders that a normal user cannot even read.
+//! The administrator half of the cleaner.
 //!
-//! The script is built from the same fixed table as everything else, so no text
-//! from the page ever reaches it.
+//! The elevated helper opens each configured root without following reparse
+//! points and traverses its descendants by Windows file ID. Descendant paths
+//! are never used for deletion, so replacing a checked folder with a junction
+//! cannot redirect the cleaner elsewhere.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::ffi::OsString;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::mem::{size_of, zeroed};
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
+use std::path::{Path, PathBuf};
+use std::ptr::{null, null_mut};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use windows_sys::Win32::Foundation::{
+    CloseHandle, ERROR_NO_MORE_FILES, GetLastError, HANDLE, INVALID_HANDLE_VALUE,
+};
+use windows_sys::Win32::Storage::FileSystem::{
+    BY_HANDLE_FILE_INFORMATION, CreateFileW, DELETE, FILE_ATTRIBUTE_DIRECTORY,
+    FILE_ATTRIBUTE_REPARSE_POINT, FILE_DISPOSITION_FLAG_DELETE,
+    FILE_DISPOSITION_FLAG_IGNORE_READONLY_ATTRIBUTE, FILE_DISPOSITION_INFO,
+    FILE_DISPOSITION_INFO_EX, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
+    FILE_ID_BOTH_DIR_INFO, FILE_ID_DESCRIPTOR, FILE_ID_DESCRIPTOR_0, FILE_LIST_DIRECTORY,
+    FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+    FILE_WRITE_ATTRIBUTES, FileDispositionInfo, FileDispositionInfoEx, FileIdBothDirectoryInfo,
+    FileIdBothDirectoryRestartInfo, FileIdType, GetFileInformationByHandle,
+    GetFileInformationByHandleEx, GetFinalPathNameByHandleW, OPEN_EXISTING, OpenFileById,
+    SetFileInformationByHandle,
+};
+use windows_sys::Win32::System::Com::CoTaskMemFree;
+use windows_sys::Win32::UI::Shell::{FOLDERID_ProgramData, KF_FLAG_DEFAULT, SHGetKnownFolderPath};
 
-use super::targets::{Category, Target};
+use super::targets::{self, Category, Target};
 use crate::apps::process::{ERROR_CANCELLED, run_elevated};
 use crate::download::err;
+
+const HELPER_FLAG: &str = "--cleaner-elevated-helper";
+const MAX_DEPTH: usize = 128;
+const SHARE_WITHOUT_RENAME: u32 = FILE_SHARE_READ | FILE_SHARE_WRITE;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
@@ -19,7 +47,24 @@ pub enum Action {
     Clean,
 }
 
-#[derive(Debug, Default, Clone, Copy, Deserialize, PartialEq, Eq)]
+impl Action {
+    fn as_arg(self) -> &'static str {
+        match self {
+            Self::Measure => "measure",
+            Self::Clean => "clean",
+        }
+    }
+
+    fn from_arg(value: &str) -> Option<Self> {
+        match value {
+            "measure" => Some(Self::Measure),
+            "clean" => Some(Self::Clean),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Totals {
     #[serde(default)]
     pub bytes: u64,
@@ -35,197 +80,609 @@ pub async fn run(
     categories: &[&'static Category],
     action: Action,
 ) -> Result<HashMap<String, Totals>, String> {
-    let jobs: Vec<(&str, Vec<&'static Target>)> = categories
+    let ids: Vec<&str> = categories
         .iter()
-        .map(|c| {
-            (
-                c.id,
-                c.targets().iter().filter(|t| t.admin).collect::<Vec<_>>(),
-            )
-        })
-        .filter(|(_, targets)| !targets.is_empty())
+        .filter(|category| category.targets().iter().any(|target| target.admin))
+        .map(|category| category.id)
         .collect();
-    if jobs.is_empty() {
+    if ids.is_empty() {
         return Ok(HashMap::new());
     }
 
-    // Unguessable, so nothing can be waiting at this path for the elevated
-    // process to write through.
     let out_file = std::env::temp_dir().join(format!(
         "myle-cleaner-{}-{}.json",
         std::process::id(),
         uuid::Uuid::new_v4().simple()
     ));
-    let _ = std::fs::remove_file(&out_file);
-    let script = build_script(&jobs, action, &out_file);
+    let executable = std::env::current_exe().map_err(err)?;
+    let executable = executable
+        .to_str()
+        .ok_or_else(|| "The application path is not valid Unicode.".to_string())?;
+    let mut args = vec![
+        HELPER_FLAG.into(),
+        action.as_arg().into(),
+        out_file.to_string_lossy().into_owned(),
+    ];
+    args.extend(ids.into_iter().map(str::to_string));
 
-    let args: Vec<String> = [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-EncodedCommand",
-    ]
-    .into_iter()
-    .map(String::from)
-    .chain([crate::apps::process::encode_command(&script)])
-    .collect();
-    let code = run_elevated("powershell.exe", &args, true).await?;
+    let code = run_elevated(executable, &args, true).await?;
     if code == ERROR_CANCELLED {
         return Err("Administrator approval was declined.".into());
     }
-
-    let text = std::fs::read_to_string(&out_file)
-        .map_err(|_| "the administrator step returned nothing".to_string())?;
-    let _ = std::fs::remove_file(&out_file);
-    // Windows PowerShell writes a UTF-8 BOM, which serde_json will not skip.
-    serde_json::from_str(text.trim_start_matches('\u{feff}').trim()).map_err(err)
-}
-
-/// Walks one folder without ever following a junction or symbolic link, and
-/// measures or deletes the files it finds. Windows PowerShell 5.1 (the one
-/// that ships with Windows) follows links under `Get-ChildItem -Recurse`, and
-/// users can create junctions inside `C:\Windows\Temp`: an administrator
-/// sweep that followed one would delete whatever it points at. So the walk is
-/// done by hand, links are skipped, and each folder's chain up to the root is
-/// re-checked right before it is read.
-const WALKER: &str = r#"$reparse = [IO.FileAttributes]::ReparsePoint
-function Test-Linked([IO.DirectoryInfo]$dir, [string]$root) {
-  $cursor = $dir
-  while ($null -ne $cursor) {
-    $cursor.Refresh()
-    if ($cursor.Attributes -band $reparse) { return $true }
-    if ($cursor.FullName.TrimEnd('\') -ieq $root.TrimEnd('\')) { return $false }
-    $cursor = $cursor.Parent
-  }
-  return $true
-}
-function Invoke-Target([string]$root, [bool]$clean) {
-  $totals = @{ bytes = 0; files = 0; skipped = 0 }
-  if (-not (Test-Path -LiteralPath $root -PathType Container)) { return $totals }
-  $stack = New-Object System.Collections.Generic.Stack[string]
-  $stack.Push($root)
-  while ($stack.Count -gt 0) {
-    $dir = New-Object IO.DirectoryInfo($stack.Pop())
-    if (Test-Linked $dir $root) { continue }
-    foreach ($item in @(Get-ChildItem -LiteralPath $dir.FullName -Force -ErrorAction SilentlyContinue)) {
-      if ($item.Attributes -band $reparse) { continue }
-      if ($item.PSIsContainer) { $stack.Push($item.FullName); continue }
-      $len = $item.Length
-      if ($clean) {
-        try { Remove-Item -LiteralPath $item.FullName -Force -ErrorAction Stop; $totals.bytes += $len; $totals.files += 1 }
-        catch { $totals.skipped += 1 }
-      } else { $totals.bytes += $len; $totals.files += 1 }
-    }
-  }
-  return $totals
-}
-"#;
-
-/// PowerShell that measures or deletes, then writes one JSON object.
-fn build_script(jobs: &[(&str, Vec<&'static Target>)], action: Action, out_file: &Path) -> String {
-    let clean = match action {
-        Action::Measure => "$false",
-        Action::Clean => "$true",
-    };
-    let mut script = String::from(WALKER);
-    script.push_str("$result = @{}\n");
-    for (id, targets) in jobs {
-        script.push_str("$bytes = 0; $files = 0; $skipped = 0\n");
-        for target in targets {
-            script.push_str(&format!(
-                "$t = Invoke-Target {} {clean}; $bytes += $t.bytes; $files += $t.files; $skipped += $t.skipped\n",
-                ps_quote(&target.path().to_string_lossy())
-            ));
-        }
-        script.push_str(&format!(
-            "$result[{}] = @{{ bytes = $bytes; files = $files; skipped = $skipped }}\n",
-            ps_quote(id)
+    if code != 0 {
+        let _ = std::fs::remove_file(&out_file);
+        return Err(format!(
+            "The administrator cleaner stopped safely (exit code {code})."
         ));
     }
-    // WriteAllText with a BOM-less encoding: Set-Content -Encoding UTF8 adds one.
-    script.push_str(&format!(
-        "$json = $result | ConvertTo-Json -Compress -Depth 4\n\
-         [System.IO.File]::WriteAllText({}, $json, (New-Object System.Text.UTF8Encoding($false)))\n",
-        ps_quote(&out_file.to_string_lossy())
-    ));
-    script
+
+    let text = std::fs::read_to_string(&out_file)
+        .map_err(|_| "the administrator step returned nothing".to_string());
+    let _ = std::fs::remove_file(&out_file);
+    serde_json::from_str(text?.trim()).map_err(err)
 }
 
-fn ps_quote(text: &str) -> String {
-    format!("'{}'", text.replace('\'', "''"))
+/// Called before Tauri starts. Returns `None` for a normal launch and an exit
+/// code for the tightly scoped elevated helper mode.
+pub fn run_helper_from_args() -> Option<i32> {
+    let mut args = std::env::args_os();
+    let _executable = args.next();
+    if args.next().as_deref() != Some(std::ffi::OsStr::new(HELPER_FLAG)) {
+        return None;
+    }
+    Some(match run_helper(args.collect()) {
+        Ok(()) => 0,
+        Err(error) => {
+            // Release builds have no console, but this remains useful in tests
+            // and when the executable is launched from a diagnostic terminal.
+            eprintln!("Elevated cleaner: {error}");
+            2
+        }
+    })
+}
+
+fn run_helper(args: Vec<OsString>) -> Result<(), String> {
+    let [action, output, ids @ ..] = args.as_slice() else {
+        return Err("Invalid elevated-cleaner arguments.".into());
+    };
+    let action = Action::from_arg(&action.to_string_lossy())
+        .ok_or_else(|| "Invalid elevated-cleaner action.".to_string())?;
+    let output = PathBuf::from(output);
+    validate_output_path(&output)?;
+
+    let mut result = HashMap::new();
+    for id in ids {
+        let id = id.to_string_lossy();
+        let Some(category) = targets::find(&id) else {
+            return Err("Unknown cleaner category.".into());
+        };
+        let mut total = Totals::default();
+        for target in category.targets().iter().filter(|target| target.admin) {
+            let one = visit_target(target, action)?;
+            total.bytes += one.bytes;
+            total.files += one.files;
+            total.skipped += one.skipped;
+        }
+        result.insert(category.id.to_string(), total);
+    }
+
+    // create_new prevents an attacker from replacing the result destination
+    // with an existing file between the normal and elevated processes.
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&output)
+        .map_err(err)?;
+    serde_json::to_writer(&mut file, &result).map_err(err)?;
+    file.flush().map_err(err)
+}
+
+fn validate_output_path(path: &Path) -> Result<(), String> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| "Invalid cleaner result path.".to_string())?;
+    let expected = std::env::temp_dir().canonicalize().map_err(err)?;
+    let actual = parent.canonicalize().map_err(err)?;
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    if actual != expected
+        || !name.starts_with("myle-cleaner-")
+        || !name.ends_with(".json")
+        || name.contains(['/', '\\'])
+    {
+        return Err("Invalid cleaner result path.".into());
+    }
+    Ok(())
+}
+
+fn visit_target(target: &Target, action: Action) -> Result<Totals, String> {
+    let root_path = elevated_target_path(target)?;
+    let root = match OwnedHandle::open_root(&root_path) {
+        Ok(root) => root,
+        Err(error) if error.raw_os_error() == Some(2) || error.raw_os_error() == Some(3) => {
+            return Ok(Totals::default());
+        }
+        Err(error) => return Err(error.to_string()),
+    };
+    let info = root.info()?;
+    if info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)
+        != FILE_ATTRIBUTE_DIRECTORY
+    {
+        return Err("A cleaner root is not a normal directory.".into());
+    }
+    let root_path = normalized_final_path(root.0)?;
+    let mut totals = Totals::default();
+    visit_directory(&root, &root_path, target.patterns, action, 0, &mut totals)?;
+    Ok(totals)
+}
+
+/// The elevated process must not trust inherited environment variables for
+/// administrator-only roots. `%PROGRAMDATA%` is resolved through Windows'
+/// Known Folders API; every other admin target is a compiled absolute path.
+fn elevated_target_path(target: &Target) -> Result<PathBuf, String> {
+    if let Some(suffix) = target.dir.strip_prefix("%PROGRAMDATA%") {
+        return Ok(known_program_data()?.join(suffix.trim_start_matches(['\\', '/'])));
+    }
+    if target.dir.contains('%') {
+        return Err("An elevated cleaner target uses an unsupported variable.".into());
+    }
+    Ok(PathBuf::from(target.dir))
+}
+
+fn known_program_data() -> Result<PathBuf, String> {
+    let mut raw = null_mut();
+    let status = unsafe {
+        SHGetKnownFolderPath(
+            &FOLDERID_ProgramData,
+            KF_FLAG_DEFAULT as u32,
+            null_mut(),
+            &mut raw,
+        )
+    };
+    if status < 0 || raw.is_null() {
+        return Err(format!(
+            "Windows could not locate ProgramData (HRESULT 0x{:08x}).",
+            status as u32
+        ));
+    }
+    let mut length = 0usize;
+    unsafe {
+        while *raw.add(length) != 0 {
+            length += 1;
+        }
+    }
+    let path = PathBuf::from(OsString::from_wide(unsafe {
+        std::slice::from_raw_parts(raw, length)
+    }));
+    unsafe { CoTaskMemFree(raw.cast()) };
+    Ok(path)
+}
+
+fn visit_directory(
+    directory: &OwnedHandle,
+    root_path: &str,
+    patterns: &[&str],
+    action: Action,
+    depth: usize,
+    totals: &mut Totals,
+) -> Result<(), String> {
+    if depth >= MAX_DEPTH {
+        totals.skipped += 1;
+        return Ok(());
+    }
+
+    let mut restart = true;
+    loop {
+        // usize gives the variable-length directory records their required
+        // alignment. The API marks the final record with NextEntryOffset = 0.
+        let mut buffer = [0usize; 8192];
+        let class = if restart {
+            FileIdBothDirectoryRestartInfo
+        } else {
+            FileIdBothDirectoryInfo
+        };
+        restart = false;
+        let ok = unsafe {
+            GetFileInformationByHandleEx(
+                directory.0,
+                class,
+                buffer.as_mut_ptr().cast(),
+                size_of_val(&buffer) as u32,
+            )
+        };
+        if ok == 0 {
+            let code = unsafe { GetLastError() };
+            if code == ERROR_NO_MORE_FILES {
+                break;
+            }
+            return Err(std::io::Error::from_raw_os_error(code as i32).to_string());
+        }
+
+        let bytes = size_of_val(&buffer);
+        let base = buffer.as_ptr().cast::<u8>();
+        let mut offset = 0usize;
+        loop {
+            if offset + size_of::<FILE_ID_BOTH_DIR_INFO>() > bytes {
+                return Err("Windows returned an invalid directory record.".into());
+            }
+            let entry = unsafe { &*base.add(offset).cast::<FILE_ID_BOTH_DIR_INFO>() };
+            let name_bytes = entry.FileNameLength as usize;
+            let name_offset =
+                (std::ptr::addr_of!(entry.FileName) as usize).saturating_sub(base as usize);
+            if !name_bytes.is_multiple_of(2) || name_offset + name_bytes > bytes {
+                return Err("Windows returned an invalid directory name.".into());
+            }
+            let name =
+                unsafe { std::slice::from_raw_parts(entry.FileName.as_ptr(), name_bytes / 2) };
+            let name = String::from_utf16_lossy(name);
+            if name != "." && name != ".." {
+                visit_entry(
+                    directory, root_path, patterns, action, depth, entry, &name, totals,
+                );
+            }
+
+            if entry.NextEntryOffset == 0 {
+                break;
+            }
+            let next = entry.NextEntryOffset as usize;
+            if next < size_of::<FILE_ID_BOTH_DIR_INFO>() || offset + next >= bytes {
+                return Err("Windows returned an invalid directory offset.".into());
+            }
+            offset += next;
+        }
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn visit_entry(
+    parent: &OwnedHandle,
+    root_path: &str,
+    patterns: &[&str],
+    action: Action,
+    depth: usize,
+    entry: &FILE_ID_BOTH_DIR_INFO,
+    listed_name: &str,
+    totals: &mut Totals,
+) {
+    if entry.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+        return;
+    }
+    let listed_directory = entry.FileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0;
+    let access = FILE_READ_ATTRIBUTES
+        | if listed_directory {
+            FILE_LIST_DIRECTORY
+        } else {
+            0
+        }
+        | if action == Action::Clean {
+            DELETE | FILE_WRITE_ATTRIBUTES
+        } else {
+            0
+        };
+    let Ok(child) = OwnedHandle::open_id(parent.0, entry.FileId, access) else {
+        totals.skipped += 1;
+        return;
+    };
+    let Ok(info) = child.info() else {
+        totals.skipped += 1;
+        return;
+    };
+    if info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+        return;
+    }
+    let is_directory = info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0;
+    if is_directory != listed_directory {
+        totals.skipped += 1;
+        return;
+    }
+    let Ok(final_path) = normalized_final_path(child.0) else {
+        totals.skipped += 1;
+        return;
+    };
+    if !is_below(root_path, &final_path) {
+        // The entry moved outside the allowed root after enumeration and must
+        // not be touched. The identity check below closes the remaining race
+        // between this observation and acquiring the pinned path handle.
+        totals.skipped += 1;
+        return;
+    }
+    // Open the discovered name without delete sharing and prove it still
+    // names the same volume/file ID. This second handle pins the name against
+    // rename and is the exact handle later passed to the delete API.
+    let Ok(pinned) = OwnedHandle::open_path(Path::new(&final_path), access) else {
+        totals.skipped += 1;
+        return;
+    };
+    let Ok(pinned_info) = pinned.info() else {
+        totals.skipped += 1;
+        return;
+    };
+    if !same_file(&info, &pinned_info)
+        || pinned_info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
+    {
+        totals.skipped += 1;
+        return;
+    }
+    drop(child);
+    let child = pinned;
+    let info = pinned_info;
+
+    if is_directory {
+        if patterns.is_empty() {
+            if visit_directory(&child, root_path, patterns, action, depth + 1, totals).is_err() {
+                totals.skipped += 1;
+            }
+            if action == Action::Clean {
+                let _ = child.delete(); // only succeeds when now empty
+            }
+        }
+        return;
+    }
+
+    let actual_name = Path::new(&final_path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(listed_name);
+    if !targets::matches(actual_name, patterns) {
+        return;
+    }
+    let size = ((info.nFileSizeHigh as u64) << 32) | info.nFileSizeLow as u64;
+    match action {
+        Action::Measure => {
+            totals.bytes += size;
+            totals.files += 1;
+        }
+        Action::Clean if info.nNumberOfLinks > 1 => {
+            // OpenFileById does not identify which hard-link name will be
+            // removed. Never let an outside link make that choice ambiguous.
+            totals.skipped += 1;
+        }
+        Action::Clean => match child.delete() {
+            Ok(()) => {
+                totals.bytes += size;
+                totals.files += 1;
+            }
+            Err(_error) => {
+                #[cfg(test)]
+                eprintln!("delete failed for {final_path}: {_error}");
+                totals.skipped += 1;
+            }
+        },
+    }
+}
+
+fn is_below(root: &str, candidate: &str) -> bool {
+    candidate.len() > root.len()
+        && candidate.starts_with(root)
+        && candidate.as_bytes().get(root.len()) == Some(&b'\\')
+}
+
+fn same_file(left: &BY_HANDLE_FILE_INFORMATION, right: &BY_HANDLE_FILE_INFORMATION) -> bool {
+    left.dwVolumeSerialNumber == right.dwVolumeSerialNumber
+        && left.nFileIndexHigh == right.nFileIndexHigh
+        && left.nFileIndexLow == right.nFileIndexLow
+}
+
+fn normalized_final_path(handle: HANDLE) -> Result<String, String> {
+    let needed = unsafe { GetFinalPathNameByHandleW(handle, null_mut(), 0, 0) };
+    if needed == 0 {
+        return Err(std::io::Error::last_os_error().to_string());
+    }
+    let mut buffer = vec![0u16; needed as usize + 1];
+    let written =
+        unsafe { GetFinalPathNameByHandleW(handle, buffer.as_mut_ptr(), buffer.len() as u32, 0) };
+    if written == 0 || written as usize >= buffer.len() {
+        return Err(std::io::Error::last_os_error().to_string());
+    }
+    Ok(String::from_utf16_lossy(&buffer[..written as usize])
+        .replace('/', "\\")
+        .trim_end_matches('\\')
+        .to_ascii_lowercase())
+}
+
+struct OwnedHandle(HANDLE);
+
+impl OwnedHandle {
+    fn open_root(path: &Path) -> std::io::Result<Self> {
+        Self::open_path(path, FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES)
+    }
+
+    fn open_path(path: &Path, access: u32) -> std::io::Result<Self> {
+        let wide: Vec<u16> = path.as_os_str().encode_wide().chain([0]).collect();
+        let handle = unsafe {
+            CreateFileW(
+                wide.as_ptr(),
+                access,
+                SHARE_WITHOUT_RENAME,
+                null(),
+                OPEN_EXISTING,
+                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                null_mut(),
+            )
+        };
+        Self::from_raw(handle)
+    }
+
+    fn open_id(volume_hint: HANDLE, id: i64, access: u32) -> std::io::Result<Self> {
+        let descriptor = FILE_ID_DESCRIPTOR {
+            dwSize: size_of::<FILE_ID_DESCRIPTOR>() as u32,
+            Type: FileIdType,
+            Anonymous: FILE_ID_DESCRIPTOR_0 { FileId: id },
+        };
+        let handle = unsafe {
+            OpenFileById(
+                volume_hint,
+                &descriptor,
+                access,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                null(),
+                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+            )
+        };
+        Self::from_raw(handle)
+    }
+
+    fn from_raw(handle: HANDLE) -> std::io::Result<Self> {
+        if handle == INVALID_HANDLE_VALUE {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(Self(handle))
+        }
+    }
+
+    fn info(&self) -> Result<BY_HANDLE_FILE_INFORMATION, String> {
+        let mut info = unsafe { zeroed::<BY_HANDLE_FILE_INFORMATION>() };
+        if unsafe { GetFileInformationByHandle(self.0, &mut info) } == 0 {
+            Err(std::io::Error::last_os_error().to_string())
+        } else {
+            Ok(info)
+        }
+    }
+
+    fn delete(&self) -> std::io::Result<()> {
+        let extended = FILE_DISPOSITION_INFO_EX {
+            Flags: FILE_DISPOSITION_FLAG_DELETE | FILE_DISPOSITION_FLAG_IGNORE_READONLY_ATTRIBUTE,
+        };
+        if unsafe {
+            SetFileInformationByHandle(
+                self.0,
+                FileDispositionInfoEx,
+                (&extended as *const FILE_DISPOSITION_INFO_EX).cast(),
+                size_of::<FILE_DISPOSITION_INFO_EX>() as u32,
+            )
+        } != 0
+        {
+            return Ok(());
+        }
+
+        // Older file systems may not implement FileDispositionInfoEx.
+        let legacy = FILE_DISPOSITION_INFO { DeleteFile: true };
+        if unsafe {
+            SetFileInformationByHandle(
+                self.0,
+                FileDispositionInfo,
+                (&legacy as *const FILE_DISPOSITION_INFO).cast(),
+                size_of::<FILE_DISPOSITION_INFO>() as u32,
+            )
+        } != 0
+        {
+            Ok(())
+        } else {
+            Err(std::io::Error::last_os_error())
+        }
+    }
+}
+
+impl Drop for OwnedHandle {
+    fn drop(&mut self) {
+        unsafe {
+            CloseHandle(self.0);
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cleaner::targets;
 
-    #[test]
-    fn the_script_only_ever_names_folders_from_the_table() {
-        let categories: Vec<&'static Category> = targets::CATEGORIES.iter().collect();
-        let jobs: Vec<(&str, Vec<&'static Target>)> = categories
-            .iter()
-            .map(|c| {
-                (
-                    c.id,
-                    c.targets().iter().filter(|t| t.admin).collect::<Vec<_>>(),
-                )
-            })
-            .filter(|(_, t)| !t.is_empty())
-            .collect();
-        let script = build_script(&jobs, Action::Clean, Path::new(r"C:\Temp\out.json"));
-
-        // Every quoted path in the script belongs to the fixed table.
-        let known: Vec<String> = targets::CATEGORIES
-            .iter()
-            .flat_map(|c| c.targets())
-            .map(|t| t.path().to_string_lossy().to_ascii_lowercase())
-            .collect();
-        let calls: Vec<&str> = script
-            .lines()
-            .filter(|l| l.starts_with("$t = Invoke-Target"))
-            .collect();
-        assert!(!calls.is_empty());
-        for line in calls {
-            let quoted = line.split('\'').nth(1).unwrap().to_ascii_lowercase();
-            assert!(
-                known.contains(&quoted),
-                "unexpected path in the script: {quoted}"
-            );
-        }
-        assert!(script.contains("Remove-Item"));
-        assert!(script.contains("ConvertTo-Json"));
-        // Categories with no admin folders are left out entirely.
-        assert!(!script.contains("recycle-bin"));
+    fn temp_target(label: &str) -> (PathBuf, Target) {
+        let root = std::env::temp_dir().join(format!(
+            "myle-elevated-{label}-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let dir = Box::leak(root.to_string_lossy().into_owned().into_boxed_str());
+        (
+            root,
+            Target {
+                dir,
+                patterns: &[],
+                admin: true,
+            },
+        )
     }
 
     #[test]
-    fn measuring_never_deletes() {
-        let category = targets::find("prefetch").unwrap();
-        let jobs = vec![(category.id, category.targets().iter().collect::<Vec<_>>())];
-        let script = build_script(&jobs, Action::Measure, Path::new(r"C:\Temp\out.json"));
-        // The walker defines the delete branch; measuring never takes it.
-        assert!(script.contains("Invoke-Target 'C:\\Windows\\Prefetch' $false"));
-        assert!(!script.contains("$true;"));
-    }
+    fn handle_walk_measures_and_deletes_normal_descendants() {
+        let (root, target) = temp_target("normal");
+        std::fs::create_dir_all(root.join("nested")).unwrap();
+        std::fs::write(root.join("a.tmp"), vec![1; 20]).unwrap();
+        std::fs::write(root.join("nested").join("b.tmp"), vec![2; 30]).unwrap();
 
-    #[test]
-    fn links_are_never_followed() {
-        let category = targets::find("temp").unwrap();
-        let admin: Vec<&'static Target> = category.targets().iter().filter(|t| t.admin).collect();
-        let script = build_script(
-            &[(category.id, admin)],
-            Action::Clean,
-            Path::new(r"C:\Temp\o.json"),
+        assert_eq!(
+            visit_target(&target, Action::Measure).unwrap(),
+            Totals {
+                bytes: 50,
+                files: 2,
+                skipped: 0
+            }
         );
-        // Windows PowerShell 5.1 follows junctions under -Recurse.
-        assert!(!script.contains("-Recurse"));
-        assert!(script.contains("ReparsePoint"));
-        assert!(script.contains("Test-Linked $dir $root"));
+        let cleaned = visit_target(&target, Action::Clean).unwrap();
+        assert_eq!(cleaned.files, 2, "cleaned: {cleaned:?}");
+        assert!(root.exists(), "the configured root itself stays");
+        assert!(std::fs::read_dir(&root).unwrap().next().is_none());
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]
-    fn quotes_are_escaped() {
-        assert_eq!(ps_quote(r"C:\it's\here"), r"'C:\it''s\here'");
+    fn handle_walk_does_not_follow_a_junction() {
+        use std::os::windows::process::CommandExt;
+
+        let (root, target) = temp_target("junction-root");
+        let (outside, _) = temp_target("junction-outside");
+        let sentinel = outside.join("keep.txt");
+        std::fs::write(&sentinel, b"keep me").unwrap();
+        let link = root.join("redirect");
+        let status = std::process::Command::new("cmd.exe")
+            .args([
+                "/d",
+                "/c",
+                "mklink",
+                "/J",
+                &link.to_string_lossy(),
+                &outside.to_string_lossy(),
+            ])
+            .creation_flags(0x0800_0000)
+            .status()
+            .unwrap();
+        if status.success() {
+            let total = visit_target(&target, Action::Clean).unwrap();
+            assert_eq!(total.files, 0);
+            assert_eq!(std::fs::read(&sentinel).unwrap(), b"keep me");
+        }
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(outside);
+    }
+
+    #[test]
+    fn only_random_result_files_directly_in_temp_are_accepted() {
+        let valid = std::env::temp_dir().join("myle-cleaner-1-abc.json");
+        assert!(validate_output_path(&valid).is_ok());
+        assert!(validate_output_path(&std::env::temp_dir().join("other.json")).is_err());
+        assert!(validate_output_path(Path::new(r"C:\Windows\myle-cleaner-x.json")).is_err());
+    }
+
+    #[test]
+    fn containment_requires_a_real_path_boundary() {
+        assert!(is_below(r"\\?\c:\temp", r"\\?\c:\temp\a.txt"));
+        assert!(!is_below(r"\\?\c:\temp", r"\\?\c:\temporary\a.txt"));
+        assert!(!is_below(r"\\?\c:\temp", r"\\?\c:\temp"));
+    }
+
+    #[test]
+    fn elevated_targets_do_not_depend_on_inherited_environment_paths() {
+        for target in targets::CATEGORIES
+            .iter()
+            .flat_map(Category::targets)
+            .filter(|target| target.admin)
+        {
+            let resolved = elevated_target_path(target).unwrap();
+            assert!(resolved.is_absolute(), "{}", resolved.display());
+            assert!(!resolved.to_string_lossy().contains('%'));
+        }
     }
 }

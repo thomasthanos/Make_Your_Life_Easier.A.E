@@ -4,6 +4,8 @@ import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { toast } from "../../../lib/toast.svelte";
 import type { JobEvent, JobOutcome, Stage } from "../install-apps/api";
 
+export const CLIP_STUDIO_ID = "creative.clipstudiopaint.5.1.4";
+
 export interface CreativeApp {
   id: string;
   name: string;
@@ -41,6 +43,8 @@ class CreativeState {
   loading = $state(false);
   error = $state<string | null>(null);
   jobs = $state<Record<string, Job>>({});
+  /** True when the Clip Studio restore exe is present in Downloads. */
+  clipStudioRestoreReady = $state(false);
   #loaded = false;
 
   async load() {
@@ -50,6 +54,10 @@ class CreativeState {
       this.apps = await invoke<CreativeApp[]>("creative_catalog");
       this.error = null;
       this.#loaded = true;
+      // Quick synchronous fs check — no perceptible delay.
+      this.clipStudioRestoreReady = await invoke<boolean>(
+        "creative_clip_studio_restore_available",
+      );
     } catch (err) {
       this.error = message(err);
     } finally {
@@ -103,11 +111,26 @@ class CreativeState {
       toast.error(`${app.name}: ${message(err)}`);
     } finally {
       delete this.jobs[app.id];
+      // Re-check immediately after any install — no polling, no delay.
+      if (app.id === CLIP_STUDIO_ID) {
+        this.clipStudioRestoreReady = await invoke<boolean>(
+          "creative_clip_studio_restore_available",
+        );
+      }
     }
   }
 
   cancel(app: CreativeApp) {
     void invoke("apps_cancel", { id: app.id });
+  }
+
+  async swapExe() {
+    try {
+      const note = await invoke<string>("creative_clip_studio_swap_exe");
+      toast.success(note);
+    } catch (err) {
+      toast.error(`Swap failed: ${message(err)}`);
+    }
   }
 }
 

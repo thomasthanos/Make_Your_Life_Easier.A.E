@@ -7,13 +7,9 @@ use super::models::{GAME_SAVES_SETTINGS_VERSION, GameSavesSettings, RootSource};
 use super::{atomic, detection};
 
 const SETTINGS_FILE: &str = "settings.json";
-const APP_IDENTIFIER: &str = "com.thomasthanos.makeyourlifeeasier";
-
 pub(crate) fn config_root(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_config_dir()
-        .map(|path| path.join("game-saves"))
-        .map_err(|e| e.to_string())
+    let _ = app;
+    crate::storage::roaming_dir().map(|path| path.join("game-saves"))
 }
 
 pub(crate) fn engine_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -30,10 +26,7 @@ pub(crate) fn headless_config_root() -> Result<PathBuf, String> {
     {
         return Ok(PathBuf::from(path));
     }
-    std::env::var_os("APPDATA")
-        .map(PathBuf::from)
-        .map(|path| path.join(APP_IDENTIFIER).join("game-saves"))
-        .ok_or_else(|| "The Windows application-data folder could not be located.".into())
+    crate::storage::roaming_dir().map(|path| path.join("game-saves"))
 }
 
 fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -77,8 +70,7 @@ pub(crate) fn initialize(app: &AppHandle) -> Result<GameSavesSettings, String> {
         let base = app
             .path()
             .document_dir()
-            .or_else(|_| app.path().app_data_dir())
-            .map_err(|e| e.to_string())?;
+            .unwrap_or(crate::storage::roaming_dir()?);
         settings.backup_folder = Some(
             base.join("Make Your Life Easier")
                 .join("Game Saves Backups")

@@ -68,16 +68,16 @@
     flex: none;
     align-self: center;
     padding: 3px 9px;
-    border: 1px solid rgb(139 151 255 / 0.3);
+    border: 1px solid rgb(var(--accent-rgb) / 0.3);
     border-radius: 999px;
-    background: rgb(139 151 255 / 0.12);
+    background: rgb(var(--accent-rgb) / 0.12);
     color: var(--text-1);
     font-size: 11.5px;
     font-weight: 600;
   }
 
   .action:hover {
-    background: rgb(139 151 255 / 0.22);
+    background: rgb(var(--accent-rgb) / 0.22);
   }
 
   .success .icon {

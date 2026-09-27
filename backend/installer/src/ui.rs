@@ -198,12 +198,19 @@ async fn setup_install(
         return Err("This is the uninstaller.".into());
     };
     let _busy = Busy::start(&context.busy)?;
+    // The in-app updater quits by itself right after starting us.
+    let grace = if context.cli.update {
+        Duration::from_secs(20)
+    } else {
+        Duration::ZERO
+    };
     let options = InstallOptions {
         dir: install_dir(&context),
         desktop: request.desktop,
         start_menu: request.start_menu,
         startup: request.startup,
         keep_shortcuts: false,
+        live: false,
     };
     let exe = tauri::async_runtime::spawn_blocking(move || {
         let mut report = |event: Progress| {
@@ -212,7 +219,7 @@ async fn setup_install(
         report(Progress::Stage {
             stage: engine::Stage::ClosingApp,
         });
-        engine::close_running(&options.dir, Duration::ZERO)?;
+        engine::close_running(&options.dir, grace)?;
         engine::install(bytes, &options, &mut report)
     })
     .await
@@ -265,15 +272,23 @@ async fn setup_uninstall(
     Ok(())
 }
 
-#[tauri::command(async)]
-fn setup_launch(context: State<'_, Context>) -> Result<(), String> {
+/// Opens the installed app and returns once its first window is on screen
+/// (or after a while regardless), so the setup never closes onto an empty
+/// desktop.
+#[tauri::command]
+async fn setup_launch(context: State<'_, Context>) -> Result<(), String> {
     let exe = context
         .installed_exe
         .lock()
         .unwrap_or_else(|p| p.into_inner())
         .clone()
         .ok_or("Nothing was installed yet.")?;
-    shell::launch(&exe)
+    let pid = shell::launch(&exe)?;
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        processes::wait_for_window(pid, Duration::from_secs(12))
+    })
+    .await;
+    Ok(())
 }
 
 #[tauri::command]

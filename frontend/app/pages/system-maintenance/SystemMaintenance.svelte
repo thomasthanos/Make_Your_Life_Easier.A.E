@@ -92,9 +92,13 @@
             <span class="section-count">{section.cards.length}</span>
             <span class="section-divider" aria-hidden="true"></span>
           </div>
-          <div class="cards {s.view}" class:single={section.cards.length === 1}>
-            {#each section.cards as card (card.id)}
-              <MaintenanceCard {card} view={s.view} wide={s.view === "grid" && section.cards.length === 1} />
+          <div class="cards {s.view}">
+            {#each section.cards as card, i (card.id)}
+              <MaintenanceCard
+                {card}
+                view={s.view}
+                wide={s.view === "grid" && section.cards.length % 2 === 1 && i === section.cards.length - 1}
+              />
             {/each}
           </div>
         </section>
@@ -130,9 +134,9 @@
     align-items: center;
     gap: 6px;
     padding: 5px 11px;
-    border: 1px solid rgb(139 151 255 / 0.18);
+    border: 1px solid rgb(var(--accent-rgb) / 0.18);
     border-radius: 999px;
-    background: rgb(139 151 255 / 0.065);
+    background: rgb(var(--accent-rgb) / 0.065);
     color: var(--text-2);
     font-size: 11.5px;
     font-weight: 500;
@@ -164,12 +168,12 @@
   }
 
   section {
-    --section-tone: #9aa5ff;
+    --section-tone: rgb(var(--accent-soft-rgb));
     margin-bottom: 24px;
   }
 
   section[data-section="network"] { --section-tone: #63d7e9; }
-  section[data-section="health"] { --section-tone: #9aa5ff; }
+  section[data-section="health"] { --section-tone: rgb(var(--accent-soft-rgb)); }
   section[data-section="software"] { --section-tone: #54d6a0; }
 
   .section-heading {
@@ -213,16 +217,16 @@
   .cards {
     display: grid;
     gap: 12px;
-    /* A card with its console open must not stretch the one beside it. */
+    align-items: stretch;
+  }
+
+  /* A card with its console open must not stretch the one beside it. */
+  .cards:has(:global(.console.expanded)) {
     align-items: start;
   }
 
   .cards.grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .cards.grid.single {
-    grid-template-columns: 1fr;
   }
 
   .cards.list {
@@ -293,7 +297,7 @@
     }
   }
 
-  :global(:root.perf-lite) .shimmer::after {
+  :global(:root.solid) .shimmer::after {
     animation: none;
     opacity: 0.3;
   }

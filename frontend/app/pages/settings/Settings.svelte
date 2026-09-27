@@ -10,6 +10,8 @@
   import Palette from "@lucide/svelte/icons/palette";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Rocket from "@lucide/svelte/icons/rocket";
+  import Sparkles from "@lucide/svelte/icons/sparkles";
+  import Logo from "../../../lib/components/Logo.svelte";
   import PageHeader from "../../../lib/components/PageHeader.svelte";
   import { settings } from "../../../lib/settings.svelte";
   import { toast } from "../../../lib/toast.svelte";
@@ -45,6 +47,7 @@
       const result = await checkForUpdate();
       if (result.status === "available") update = { state: "available", latest: result.latest, asset: result.asset };
       else if (result.status === "upToDate") update = { state: "upToDate", latest: result.latest };
+      else if (result.status === "justUpdated") update = { state: "upToDate", latest: result.current };
       else update = { state: "error", message: "Updates are not configured in this build." };
     } catch (error) {
       update = { state: "error", message: message(error) };
@@ -90,63 +93,97 @@
 
   <div class="column">
     <section class="panel" aria-labelledby="appearance-title">
-      <h2 id="appearance-title"><Palette size={15} /> Appearance</h2>
+      <header class="head">
+        <div class="head-left">
+          <span class="card-icon"><Palette size={16} /></span>
+          <div>
+            <h2 id="appearance-title">Appearance</h2>
+            <p class="sub">Visual surfaces and window effects</p>
+          </div>
+        </div>
+      </header>
+
       <label class="row">
+        <span class="row-icon"><Sparkles size={15} /></span>
         <span class="text">
-          <strong>Reduce transparency</strong>
-          <small>Turns off the blur and softens animations. Useful on older graphics hardware.</small>
+          <strong>Glass effects</strong>
+          <small>Translucent, blurred panels with glow and motion. Uses more graphics power.</small>
         </span>
         <input
           type="checkbox"
           class="switch"
-          checked={settings.perfLite}
-          onchange={(e) => settings.setPerfLite(e.currentTarget.checked)}
+          checked={settings.glass}
+          onchange={(e) => settings.setGlass(e.currentTarget.checked)}
         />
       </label>
     </section>
 
     <section class="panel" aria-labelledby="updates-title">
-      <h2 id="updates-title"><Rocket size={15} /> Updates</h2>
-      <div class="version">
+      <header class="head">
+        <div class="head-left">
+          <span class="card-icon"><Rocket size={16} /></span>
+          <div>
+            <h2 id="updates-title">Updates</h2>
+            <p class="sub">Automatic release checks at launch</p>
+          </div>
+        </div>
+        <span class="version-pill">{version ? `v${version}` : "dev preview"}</span>
+      </header>
+
+      <div class="surface">
         <span class="text">
           <strong>Make Your Life Easier {version ? `v${version}` : "(dev preview)"}</strong>
           <small>Checked at every start. Downloads from downloads.thomast.uk, with GitHub as the fallback.</small>
         </span>
-      </div>
 
-      <div class="update" aria-live="polite">
-        {#if update.state === "checking"}
-          <span class="status"><LoaderCircle size={14} class="spin" /> Checking…</span>
-        {:else if update.state === "upToDate"}
-          <span class="status ok"><CircleCheck size={14} /> You're on the latest version.</span>
-        {:else if update.state === "available"}
-          {@const available = update}
-          <span class="status accent"><Download size={14} /> Version {available.latest} is available.</span>
-          <button class="btn small primary" onclick={() => install(available.latest, available.asset)}>
-            Install and restart
-          </button>
-        {:else if update.state === "downloading"}
-          <span class="status"><LoaderCircle size={14} class="spin" /> Downloading {update.latest}… {update.detail}</span>
-          <span class="bar" class:indeterminate={update.progress === null}>
-            <span style:transform={update.progress === null ? undefined : `scaleX(${update.progress})`}></span>
-          </span>
-        {:else if update.state === "installing"}
-          <span class="status"><LoaderCircle size={14} class="spin" /> Installing; the app will restart by itself.</span>
-        {:else if update.state === "error"}
-          <span class="status error" title={update.message}>{update.message}</span>
-        {/if}
-        {#if update.state === "idle" || update.state === "upToDate" || update.state === "error"}
-          <button class="btn small" onclick={check}><RefreshCw size={13} /> Check for updates</button>
-        {/if}
+        <div class="update" aria-live="polite">
+          {#if update.state === "idle"}
+            <span class="status"><span class="ok-dot" aria-hidden="true"></span> Automatic updates enabled</span>
+          {:else if update.state === "checking"}
+            <span class="status"><LoaderCircle size={14} class="spin" /> Checking…</span>
+          {:else if update.state === "upToDate"}
+            <span class="status ok"><CircleCheck size={14} /> You're on the latest version.</span>
+          {:else if update.state === "available"}
+            {@const available = update}
+            <span class="status accent"><Download size={14} /> Version {available.latest} is available.</span>
+            <button class="btn small primary" onclick={() => install(available.latest, available.asset)}>
+              Install and restart
+            </button>
+          {:else if update.state === "downloading"}
+            <span class="status">
+              <LoaderCircle size={14} class="spin" /> Downloading {update.latest}… {update.detail}
+            </span>
+            <span class="bar" class:indeterminate={update.progress === null}>
+              <span style:transform={update.progress === null ? undefined : `scaleX(${update.progress})`}></span>
+            </span>
+          {:else if update.state === "installing"}
+            <span class="status">
+              <LoaderCircle size={14} class="spin" /> Installing; the app will restart by itself.
+            </span>
+          {:else if update.state === "error"}
+            <span class="status error" title={update.message}>{update.message}</span>
+          {/if}
+          {#if update.state === "idle" || update.state === "upToDate" || update.state === "error"}
+            <button class="btn small" onclick={check}><RefreshCw size={13} /> Check for updates</button>
+          {/if}
+        </div>
       </div>
     </section>
 
     <section class="panel" aria-labelledby="about-title">
-      <h2 id="about-title">About</h2>
-      <p class="about">Make Your Life Easier · © 2026 ThomasThanos</p>
+      <div class="about-row">
+        <span class="brand-mark"><Logo size={38} /></span>
+        <div class="text">
+          <h2 id="about-title">Make Your Life Easier</h2>
+          <small>Windows utility &amp; optimization suite · © 2026 ThomasThanos</small>
+        </div>
+      </div>
+
       <div class="links">
-        <button class="btn small ghost" onclick={() => open(REPO_URL)}><ExternalLink size={13} /> GitHub</button>
-        <button class="btn small ghost" onclick={() => open(`${REPO_URL}/releases`)}>
+        <button class="btn small" onclick={() => open(REPO_URL)}>
+          <ExternalLink size={13} /> GitHub repository
+        </button>
+        <button class="btn small" onclick={() => open(`${REPO_URL}/releases`)}>
           <ExternalLink size={13} /> Release notes
         </button>
       </div>
@@ -157,10 +194,9 @@
 <style>
   .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
     align-items: start;
     gap: 14px;
-    max-width: 1180px;
   }
 
   .column {
@@ -171,7 +207,7 @@
 
   .panel {
     display: grid;
-    gap: 12px;
+    gap: 14px;
     padding: 18px;
     border: 1px solid rgb(255 255 255 / 0.07);
     border-radius: var(--radius-lg);
@@ -179,28 +215,97 @@
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
   }
 
-  h2 {
+  .head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
-    font-size: 14.5px;
+    justify-content: space-between;
+    gap: 10px;
   }
 
-  h2 :global(svg) {
-    color: rgb(166 176 255 / 0.85);
+  .head-left {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+  }
+
+  .card-icon {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    border: 1px solid rgb(var(--accent-rgb) / 0.22);
+    border-radius: 10px;
+    background: linear-gradient(160deg, rgb(var(--accent-rgb) / 0.16), rgb(var(--accent-rgb) / 0.04));
+    color: rgb(var(--accent-soft-rgb));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1);
+  }
+
+  h2 {
+    font-size: 14.5px;
+    line-height: 1.2;
+  }
+
+  .sub {
+    margin-top: 2px;
+    color: var(--text-3);
+    font-size: 11.5px;
+  }
+
+  .version-pill {
+    padding: 3px 10px;
+    border: 1px solid rgb(var(--accent-rgb) / 0.28);
+    border-radius: 999px;
+    background: rgb(var(--accent-rgb) / 0.1);
+    color: rgb(var(--accent-soft-rgb));
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
   }
 
   .row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 18px;
+    gap: 12px;
+    padding: 11px 13px;
+    border: 1px solid rgb(255 255 255 / 0.055);
+    border-radius: 11px;
+    background: rgb(0 0 0 / 0.16);
     cursor: pointer;
+    transition: border-color var(--dur-fast);
+  }
+
+  .row:hover {
+    border-color: rgb(var(--accent-rgb) / 0.22);
+  }
+
+  .row-icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border: 1px solid rgb(var(--accent-rgb) / 0.18);
+    border-radius: 9px;
+    background: rgb(var(--accent-rgb) / 0.08);
+    color: rgb(var(--accent-soft-rgb) / 0.92);
+  }
+
+  .surface {
+    display: grid;
+    gap: 12px;
+    padding: 12px 13px;
+    border: 1px solid rgb(255 255 255 / 0.055);
+    border-radius: 11px;
+    background: rgb(0 0 0 / 0.16);
   }
 
   .text {
     display: grid;
     gap: 2px;
+    flex: 1;
     min-width: 0;
   }
 
@@ -219,8 +324,10 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
-    min-height: 30px;
+    padding-top: 10px;
+    border-top: 1px solid rgb(255 255 255 / 0.055);
   }
 
   .status {
@@ -238,7 +345,7 @@
   }
 
   .status.accent {
-    color: rgb(178 186 255);
+    color: rgb(var(--accent-soft-rgb));
   }
 
   .status.error {
@@ -246,6 +353,15 @@
     color: rgb(255 170 150 / 0.9);
     white-space: nowrap;
     text-overflow: ellipsis;
+  }
+
+  .ok-dot {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 8px var(--ok-glow);
   }
 
   .bar {
@@ -280,14 +396,25 @@
     }
   }
 
-  .about {
-    color: var(--text-2);
-    font-size: 12px;
+  .about-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-mark {
+    display: grid;
+    place-items: center;
+    flex: none;
+    filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.35));
   }
 
   .links {
     display: flex;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgb(255 255 255 / 0.055);
   }
 
   @media (max-width: 1000px) {

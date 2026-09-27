@@ -37,6 +37,8 @@ class CleanerState {
   readonly selected = new SvelteSet<string>(readJson<string[]>(KEY.selected, [], isStringArray));
   /** Emptied since the last scan: unchecked and switched off until then. */
   readonly cleaned = new SvelteSet<string>();
+  /** What the last clean removed and left, per category, until the next scan. */
+  outcome = $state<Record<string, { freed: number; skipped: number }>>({});
   phase = $state<Phase>("idle");
   /** False until the first scan finishes, so sizes stay blank instead of "0 B". */
   scanned = $state(false);
@@ -116,6 +118,7 @@ class CleanerState {
     this.error = null;
     this.sizes = {};
     this.cleaned.clear();
+    this.outcome = {};
 
     // The elevated pass reports the whole category (the user's folders
     // included), so it wins over the normal pass whichever finishes first.
@@ -207,7 +210,7 @@ class CleanerState {
     try {
       const summary = await cleanerApi.clean(ids, (e) => {
         if (e.event === "progress") this.progress = e.data;
-        else this.#applyCleaned(e.data.id, e.data.bytes, e.data.files);
+        else this.#applyCleaned(e.data.id, e.data.bytes, e.data.files, e.data.skipped);
       });
       freed += summary.freed;
       skipped += summary.skipped;
@@ -220,7 +223,7 @@ class CleanerState {
         try {
           const elevated = await cleanerApi.cleanElevated(adminIds, (e) => {
             if (e.event === "progress") this.progress = e.data;
-            else this.#applyCleaned(e.data.id, e.data.bytes, e.data.files);
+            else this.#applyCleaned(e.data.id, e.data.bytes, e.data.files, e.data.skipped, true);
           });
           freed += elevated.freed;
           // Files the user pass could not delete were retried as administrator.
@@ -248,8 +251,15 @@ class CleanerState {
     }
   }
 
-  /** Subtracts what a pass freed from a category's measured size. */
-  #applyCleaned(id: string, bytes: number, files: number) {
+  /** Subtracts what a pass freed from a category's measured size, and keeps
+   *  what it removed and left for the card. The administrator pass retries
+   *  what the first one left, so its count replaces the first one's. */
+  #applyCleaned(id: string, bytes: number, files: number, skipped: number, retry = false) {
+    const seen = this.outcome[id];
+    this.outcome[id] = {
+      freed: (seen?.freed ?? 0) + bytes,
+      skipped: retry ? skipped : (seen?.skipped ?? 0) + skipped,
+    };
     const before = this.sizes[id];
     if (!before) return;
     this.sizes[id] = {

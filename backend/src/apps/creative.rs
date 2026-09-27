@@ -474,6 +474,122 @@ fn folder_name(name: &str) -> String {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Clip Studio Paint: exe swap (revert to bundled version after a CELSYS update)
+
+/// The source exe that our zip ships — extracted into Downloads by `creative_install`.
+const CSP_RESTORE_EXE: &str = "CLIPStudioPaint-restoreversion.exe";
+/// The canonical exe that Clip Studio runs.
+const CSP_LIVE_EXE: &str = "CLIPStudioPaint.exe";
+/// Parent company folder under Program Files.
+const CSP_VENDOR: &str = "CELSYS";
+/// Sub-folder that holds the actual paint exe. Version prefix changes on updates.
+const CSP_SUBFOLDER_SUFFIX: &str = "CLIP STUDIO PAINT";
+/// The zip unpacks into a folder named after the catalog entry.
+const CSP_UNPACK_FOLDER: &str = "Clip Studio Paint EX";
+
+/// Finds the Clip Studio install directory, ignoring the version number in the
+/// path (`CLIP STUDIO 1.5`, `CLIP STUDIO 2.0`, …).
+///
+/// Returns the directory that contains `CLIPStudioPaint.exe`, or an error.
+fn find_clip_studio_paint_dir() -> Result<std::path::PathBuf, String> {
+    let vendor = PathBuf::from(r"C:\Program Files").join(CSP_VENDOR);
+    let entries = std::fs::read_dir(&vendor)
+        .map_err(|_| format!("Cannot read {:?} — is Clip Studio installed?", vendor))?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_uppercase();
+        if !name.starts_with("CLIP STUDIO") {
+            continue;
+        }
+        let paint_dir = path.join(CSP_SUBFOLDER_SUFFIX);
+        if paint_dir.join(CSP_LIVE_EXE).exists() {
+            return Ok(paint_dir);
+        }
+    }
+    Err(format!(
+        "Clip Studio Paint installation not found under {:?}. \
+         Please install it first.",
+        vendor
+    ))
+}
+
+/// Returns `true` when the restore exe (extracted by `creative_install`) is
+/// present in Downloads and the swap button should be shown.
+#[tauri::command]
+pub fn creative_clip_studio_restore_available() -> bool {
+    downloads_dir()
+        .join(CSP_UNPACK_FOLDER)
+        .join(CSP_RESTORE_EXE)
+        .exists()
+}
+
+/// Swaps the live `CLIPStudioPaint.exe` with the bundled restore version.
+///
+/// The source exe is the one extracted into Downloads when the user ran
+/// "Download & Setup" for Clip Studio. Elevation is required because the
+/// target lives under `C:\Program Files`.
+#[tauri::command]
+pub async fn creative_clip_studio_swap_exe() -> Result<String, String> {
+    // Where the zip was unpacked — mirrors `downloads_dir()` + `folder_name()`.
+    let source = downloads_dir()
+        .join(CSP_UNPACK_FOLDER)
+        .join(CSP_RESTORE_EXE);
+
+    if !source.exists() {
+        return Err(format!(
+            "Restore exe not found at {:?}.\n\
+             Run \"Download & Setup\" for Clip Studio Paint first so the file \
+             is available in your Downloads folder.",
+            source
+        ));
+    }
+
+    let paint_dir = find_clip_studio_paint_dir()?;
+    let target = paint_dir.join(CSP_LIVE_EXE);
+
+    // Build a PowerShell snippet that copies the file with admin rights.
+    // Both paths are fixed — no user input ever reaches this script.
+    let script = format!(
+        "Copy-Item -LiteralPath '{src}' -Destination '{dst}' -Force",
+        src = source.to_string_lossy().replace('\'', "''"),
+        dst = target.to_string_lossy().replace('\'', "''"),
+    );
+    let script = format!(
+        "try {{ {script}; exit 0 }} catch {{ Write-Error $_.Exception.Message; exit 1 }}"
+    );
+
+    let args: Vec<String> = [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-EncodedCommand",
+    ]
+    .into_iter()
+    .map(String::from)
+    .chain([super::process::encode_command(&script)])
+    .collect();
+
+    let code = super::process::run_elevated("powershell.exe", &args, true).await?;
+    match code {
+        0 => Ok(format!(
+            "Done — {} replaced with the bundled version.",
+            CSP_LIVE_EXE
+        )),
+        super::process::ERROR_CANCELLED => Err("UAC prompt was cancelled.".into()),
+        c => Err(format!("PowerShell exited with code {c}.")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

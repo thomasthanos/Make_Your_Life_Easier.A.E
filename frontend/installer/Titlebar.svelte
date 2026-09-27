@@ -68,8 +68,8 @@
     font-size: 11px;
     font-weight: 600;
     color: #cfd6ff;
-    background: rgb(139 151 255 / 0.14);
-    box-shadow: inset 0 0 0 1px rgb(139 151 255 / 0.22);
+    background: rgb(var(--accent-rgb) / 0.14);
+    box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.22);
   }
 
   .controls {

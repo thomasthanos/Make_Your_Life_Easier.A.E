@@ -55,6 +55,12 @@ pub struct InstallOptions {
     /// when present, never re-created when deleted).
     #[serde(default)]
     pub keep_shortcuts: bool,
+    /// The in-app updater's seamless update (`/LIVE`): the app is still
+    /// running. Files are swapped by renaming, which Windows allows even for
+    /// a running program, and the old copies still in use stay behind as
+    /// `*.myle-old` for the new version to sweep (see `sweep_leftovers`).
+    #[serde(default)]
+    pub live: bool,
 }
 
 /// What the install folder holds, written by the setup: the uninstaller and
@@ -132,7 +138,7 @@ pub fn install(
     report(Progress::Stage {
         stage: Stage::Preparing,
     });
-    if !processes::running_in(dir).is_empty() {
+    if !options.live && !processes::running_in(dir).is_empty() {
         return Err(format!(
             "{} is still running. Close it and try again.",
             product::NAME
@@ -141,6 +147,7 @@ pub fn install(
     std::fs::create_dir_all(dir)
         .map_err(|e| format!("The folder {} could not be created: {e}", dir.display()))?;
     probe_writable(dir)?;
+    sweep_leftovers(dir);
 
     let (header, mut reader) =
         payload::open(payload).map_err(|e| format!("The setup file is damaged: {e}"))?;
@@ -150,7 +157,7 @@ pub fn install(
         stage: Stage::Copying,
     });
     let placed = copy_files(dir, &header, &mut reader, report)?;
-    commit(placed);
+    commit(placed, options.live);
 
     // Files the previous version had and this one does not.
     let current: Vec<String> = header.files.iter().map(|f| f.path.clone()).collect();
@@ -317,10 +324,36 @@ fn roll_back(placed: Vec<Placed>) {
 }
 
 /// The install worked: the previous files can go (a virus scanner may hold
-/// one for a moment).
-fn commit(placed: Vec<Placed>) {
+/// one for a moment). In a live update the running app still holds its own
+/// files: one try each, and what is left is swept later.
+fn commit(placed: Vec<Placed>, live: bool) {
     for backup in placed.into_iter().filter_map(|file| file.backup) {
-        remove_patiently(&backup);
+        if live {
+            let _ = std::fs::remove_file(&backup);
+        } else {
+            remove_patiently(&backup);
+        }
+    }
+}
+
+/// Deletes the `*.myle-old` copies a live update could not remove while the
+/// previous version was still running. One try each: whatever is still in
+/// use goes next time.
+pub fn sweep_leftovers(dir: &Path) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let suffix = format!(".{OLD}");
+    for entry in entries.flatten() {
+        let path = entry.path();
+        match entry.file_type() {
+            Ok(kind) if kind.is_dir() && entry.file_name() == DATA_DIR => {}
+            Ok(kind) if kind.is_dir() => sweep_leftovers(&path),
+            Ok(_) if entry.file_name().to_string_lossy().ends_with(&suffix) => {
+                let _ = std::fs::remove_file(&path);
+            }
+            _ => {}
+        }
     }
 }
 
@@ -391,17 +424,29 @@ pub fn existing_shortcuts(dir: &Path) -> [bool; 3] {
 /// account, Game Saves setup and restore safety copies, caches, the web
 /// view's storage. Game Saves backups live in a folder the user chose and
 /// are never touched.
+///
+/// Where they are: `%APPDATA%\ThomasThanos\MakeYourLifeEasier` and
+/// `%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier\data` (see the app's
+/// `storage.rs`), plus the folders earlier versions used.
 pub fn data_folders() -> Vec<PathBuf> {
     let mut folders = Vec::new();
     if let Some(roaming) = shell::roaming_app_data() {
+        folders.push(roaming.join(product::PUBLISHER).join(product::BINARY));
+        folders.push(roaming.join(product::NAME));
         folders.push(roaming.join(product::IDENTIFIER));
     }
     if let Some(local) = shell::local_app_data() {
+        folders.push(local.join(product::PUBLISHER).join(product::BINARY).join(DATA_DIR));
+        folders.push(local.join(product::NAME));
         folders.push(local.join(product::IDENTIFIER));
     }
     folders.push(std::env::temp_dir().join(product::BINARY));
     folders
 }
+
+/// The app's local data inside its install folder; installs, updates and the
+/// sweep of old copies leave it alone.
+const DATA_DIR: &str = "data";
 
 pub fn uninstall(
     dir: &Path,
@@ -497,7 +542,15 @@ pub fn uninstall(
             if folder.exists() && std::fs::remove_dir_all(&folder).is_err() {
                 // Something still holds a file (the web view shutting down):
                 // finish once this program is gone.
-                after_exit.remove.push(folder);
+                after_exit.remove.push(folder.clone());
+            }
+            // %APPDATA%\ThomasThanos, when it held nothing else.
+            if let Some(parent) = folder.parent()
+                && parent
+                    .file_name()
+                    .is_some_and(|name| name.eq_ignore_ascii_case(product::PUBLISHER))
+            {
+                after_exit.remove_if_empty.push(parent.to_path_buf());
             }
         }
     }
@@ -525,6 +578,46 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("myle-engine-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         dir
+    }
+
+    #[test]
+    fn the_default_install_folder_is_the_old_apps_one() {
+        let local = shell::local_app_data()
+            .or_else(|| std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
+            .unwrap();
+        assert_eq!(default_dir(), local.join("ThomasThanos").join("MakeYourLifeEasier"));
+    }
+
+    #[test]
+    fn uninstall_knows_the_data_folders_old_and_new() {
+        let folders = data_folders();
+        if let Some(roaming) = shell::roaming_app_data() {
+            assert!(folders.contains(&roaming.join("ThomasThanos").join("MakeYourLifeEasier")));
+            assert!(folders.contains(&roaming.join(product::NAME)));
+            assert!(folders.contains(&roaming.join(product::IDENTIFIER)));
+        }
+        if let Some(local) = shell::local_app_data() {
+            assert!(folders.contains(&default_dir().join("data")));
+            assert!(folders.contains(&local.join(product::NAME)));
+            assert!(folders.contains(&local.join(product::IDENTIFIER)));
+        }
+        assert!(
+            !folders.contains(&default_dir()),
+            "never the whole install folder"
+        );
+    }
+
+    #[test]
+    fn the_sweep_of_old_copies_leaves_the_data_folder_alone() {
+        let dir = temp("sweep-data");
+        std::fs::create_dir_all(dir.join("data")).unwrap();
+        std::fs::create_dir_all(dir.join("res")).unwrap();
+        std::fs::write(dir.join("data").join("x.myle-old"), b"user data").unwrap();
+        std::fs::write(dir.join("res").join("y.myle-old"), b"old copy").unwrap();
+        sweep_leftovers(&dir);
+        assert!(dir.join("data").join("x.myle-old").exists());
+        assert!(!dir.join("res").join("y.myle-old").exists());
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     fn packed(files: &[(&str, &[u8])], version: &str) -> Vec<u8> {
@@ -559,7 +652,7 @@ mod tests {
             dir.join("App.exe.myle-old").exists(),
             "kept until committed"
         );
-        commit(placed);
+        commit(placed, false);
         assert_eq!(std::fs::read(dir.join("App.exe")).unwrap(), b"new app");
         assert_eq!(
             std::fs::read(dir.join("ludusavi").join("l.exe")).unwrap(),
@@ -590,6 +683,43 @@ mod tests {
         assert_eq!(std::fs::read(dir.join("App.exe")).unwrap(), b"old");
         assert!(!dir.join("App.exe.myle-old").exists());
         assert!(!dir.join("App.exe.myle-new").exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_live_update_replaces_a_running_program_and_sweeps_its_old_copy_later() {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let dir = temp("live");
+        std::fs::create_dir_all(dir.join("res")).unwrap();
+        // A real running program from the install folder, as the app is
+        // while its updater runs us.
+        std::fs::copy(shell::system32("PING.EXE"), dir.join("App.exe")).unwrap();
+        std::fs::write(dir.join("res").join("r.dat"), b"old res").unwrap();
+        let mut running = std::process::Command::new(dir.join("App.exe"))
+            .args(["-n", "30", "127.0.0.1"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+
+        let bytes = packed(&[("App.exe", b"new app"), ("res/r.dat", b"new res")], "2.0.0");
+        let (header, mut reader) = payload::open(&bytes).unwrap();
+        let placed = copy_files(&dir, &header, &mut reader, &mut |_| {}).unwrap();
+        commit(placed, true);
+        assert_eq!(std::fs::read(dir.join("App.exe")).unwrap(), b"new app");
+        assert_eq!(std::fs::read(dir.join("res").join("r.dat")).unwrap(), b"new res");
+        assert!(
+            dir.join("App.exe.myle-old").exists(),
+            "still running, left for the sweep"
+        );
+        assert!(!dir.join("res").join("r.dat.myle-old").exists());
+
+        let _ = running.kill();
+        let _ = running.wait();
+        sweep_leftovers(&dir);
+        assert!(!dir.join("App.exe.myle-old").exists());
+        assert_eq!(std::fs::read(dir.join("App.exe")).unwrap(), b"new app");
         let _ = std::fs::remove_dir_all(dir);
     }
 

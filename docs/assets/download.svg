@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="92" viewBox="0 0 440 92" role="img" aria-labelledby="t">
+  <title id="t">Download Make Your Life Easier for Windows</title>
+  <style>
+    text { font-family: 'Segoe UI Variable Display', 'Segoe UI', Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif; }
+    .shine { animation: shine 3.6s cubic-bezier(.4,0,.2,1) infinite; }
+    .arrow { animation: drop 1.6s ease-in-out infinite; }
+    .aura { transform-box: fill-box; transform-origin: center; animation: aura 3s ease-in-out infinite; }
+    @keyframes shine { 0% { transform: translateX(-160px); } 55%, 100% { transform: translateX(560px); } }
+    @keyframes drop { 0%, 100% { transform: translateY(-2.5px); } 50% { transform: translateY(2.5px); } }
+    @keyframes aura { 0%, 100% { opacity: .45; transform: scale(.96); } 50% { opacity: .85; transform: scale(1.02); } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <defs>
+    <linearGradient id="fill" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#8b83ff" />
+      <stop offset=".6" stop-color="#6a8cff" />
+      <stop offset="1" stop-color="#45c8e6" />
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#fff" stop-opacity=".28" />
+      <stop offset=".5" stop-color="#fff" stop-opacity=".04" />
+      <stop offset="1" stop-color="#fff" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#fff" stop-opacity="0" />
+      <stop offset=".5" stop-color="#fff" stop-opacity=".38" />
+      <stop offset="1" stop-color="#fff" stop-opacity="0" />
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="9" /></filter>
+    <clipPath id="pill"><rect x="10" y="10" width="420" height="68" rx="34" /></clipPath>
+  </defs>
+  <rect class="aura" x="26" y="26" width="388" height="54" rx="27" fill="#7a86ff" filter="url(#soft)" />
+  <rect x="10" y="10" width="420" height="68" rx="34" fill="url(#fill)" />
+  <g clip-path="url(#pill)">
+    <rect x="10" y="10" width="420" height="68" fill="url(#gloss)" />
+    <g class="shine"><rect x="0" y="0" width="90" height="92" fill="url(#band)" transform="skewX(-18)" /></g>
+  </g>
+  <rect x="10.75" y="10.75" width="418.5" height="66.5" rx="33.25" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1.5" />
+
+  <circle cx="54" cy="44" r="22" fill="#0b1020" fill-opacity=".28" stroke="#fff" stroke-opacity=".25" />
+  <g class="arrow" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M54 33v18M46.5 44l7.5 7.5 7.5-7.5" />
+  </g>
+  <path d="M45 56h18" stroke="#fff" stroke-opacity=".75" stroke-width="2.6" stroke-linecap="round" />
+
+  <text x="92" y="41" font-size="20" font-weight="700" fill="#fff" letter-spacing="-.2">Κατέβασε για Windows</text>
+  <text x="92" y="61" font-size="12.5" fill="#eef1ff" fill-opacity=".85">Windows 10 / 11 · x64 · χωρίς admin</text>
+
+  <g transform="translate(382 32)" fill="#fff" fill-opacity=".92">
+    <rect width="11" height="11" rx="1.5" /><rect x="13" width="11" height="11" rx="1.5" />
+    <rect y="13" width="11" height="11" rx="1.5" /><rect x="13" y="13" width="11" height="11" rx="1.5" />
+  </g>
+</svg>

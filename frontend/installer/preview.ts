@@ -80,6 +80,7 @@ export function previewApi(mode: string): SetupApi {
     },
     async launch() {
       if (mode === "launch-fail") throw "Windows could not start the app.";
+      await sleep(900); // the real one returns once the app's window is up
     },
     async exit() {},
   };

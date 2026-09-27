@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use regex_lite::Regex;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use crate::download::{self, err};
 
@@ -63,13 +63,13 @@ fn is_fresh(fetched_at: u64, now: u64) -> bool {
 }
 
 fn cache_file(app: &AppHandle) -> Option<PathBuf> {
-    app.path()
-        .app_cache_dir()
+    let _ = app;
+    crate::storage::local_dir()
         .ok()
         .map(|d| d.join("resolver-cache.json"))
 }
 
-fn cached(app: &AppHandle, key: &str) -> Option<Resolved> {
+fn cached(app: &AppHandle, key: &str, resolver: &Resolver) -> Option<Resolved> {
     let mut cache = CACHE.lock().unwrap_or_else(|p| p.into_inner());
     let map = cache.get_or_insert_with(|| {
         cache_file(app)
@@ -79,7 +79,42 @@ fn cached(app: &AppHandle, key: &str) -> Option<Resolved> {
     });
     map.get(key)
         .filter(|r| is_fresh(r.fetched_at, now_secs()))
+        .filter(|r| conforms_to(r, resolver))
         .cloned()
+}
+
+/// Cache files are user-writable and therefore only a performance hint. A
+/// cached result must obey the same URL/name constraints as a live resolver.
+fn conforms_to(resolved: &Resolved, resolver: &Resolver) -> bool {
+    if !resolved.url.starts_with("https://")
+        || download::file_name_from(&resolved.file_name, "setup.exe") != resolved.file_name
+    {
+        return false;
+    }
+    match resolver {
+        Resolver::Github { repo, asset } => {
+            resolved
+                .url
+                .starts_with(&format!("https://github.com/{repo}/releases/download/"))
+                && Regex::new(asset)
+                    .is_ok_and(|pattern| full_match(&pattern, &resolved.file_name))
+        }
+        Resolver::Page { pattern, .. } => {
+            Regex::new(pattern).is_ok_and(|pattern| full_match(&pattern, &resolved.url))
+        }
+        Resolver::Static { url } => resolved.url == *url,
+        Resolver::Gdrive { file_id, file_name } => {
+            gdrive_url(file_id).as_deref() == Ok(resolved.url.as_str())
+                && download::file_name_from(file_name.as_deref().unwrap_or(""), "package.zip")
+                    == resolved.file_name
+        }
+    }
+}
+
+fn full_match(pattern: &Regex, value: &str) -> bool {
+    pattern
+        .find(value)
+        .is_some_and(|matched| matched.start() == 0 && matched.end() == value.len())
 }
 
 fn store(app: &AppHandle, key: &str, resolved: &Resolved) {
@@ -95,7 +130,7 @@ fn store(app: &AppHandle, key: &str, resolved: &Resolved) {
 }
 
 pub async fn resolve(app: &AppHandle, key: &str, resolver: &Resolver) -> Result<Resolved, String> {
-    if let Some(hit) = cached(app, key) {
+    if let Some(hit) = cached(app, key, resolver) {
         return Ok(hit);
     }
     let client = download::http_client(USER_AGENT)?;
@@ -326,5 +361,44 @@ mod tests {
         assert!(is_fresh(1000, 1000 + CACHE_TTL_SECS - 1));
         assert!(!is_fresh(1000, 1000 + CACHE_TTL_SECS));
         assert!(!is_fresh(2000, 1000)); // clock went backwards
+    }
+
+    #[test]
+    fn cached_results_must_still_match_the_configured_resolver() {
+        let page = Resolver::Page {
+            url: "https://www.nvidia.com/en-us/software/nvidia-app/".into(),
+            pattern: r"https://us\.download\.nvidia\.com/nvapp/client/[\d.]+/NVIDIA_app_v[\d.]+\.exe".into(),
+        };
+        let valid = Resolved {
+            url: "https://us.download.nvidia.com/nvapp/client/11.0/NVIDIA_app_v11.0.exe".into(),
+            file_name: "NVIDIA_app_v11.0.exe".into(),
+            version: None,
+            digest: None,
+            size: None,
+            fetched_at: 1,
+        };
+        assert!(conforms_to(&valid, &page));
+        assert!(!conforms_to(
+            &Resolved {
+                url: "https://attacker.invalid/payload.exe".into(),
+                digest: Some(format!("sha256:{}", "a".repeat(64))),
+                ..valid.clone()
+            },
+            &page
+        ));
+        assert!(!conforms_to(
+            &Resolved {
+                url: format!("https://attacker.invalid/?next={}", valid.url),
+                ..valid.clone()
+            },
+            &page
+        ));
+        assert!(!conforms_to(
+            &Resolved {
+                file_name: r"..\..\payload.exe".into(),
+                ..valid
+            },
+            &page
+        ));
     }
 }

@@ -1,10 +1,16 @@
 import { readFlag, writeFlag } from "./storage";
 
-const PERF_LITE_KEY = "myle.perfLite";
+const GLASS_KEY = "myle.glass";
 
-/** Visual preferences that apply to the whole document. */
+/**
+ * Visual preferences that apply to the whole document.
+ *
+ * Solid panels are the design; "Glass effects" turns on the translucent,
+ * blurred look instead. `:root.solid` is set whenever glass is off, and the
+ * splash and the setup window always use it.
+ */
 class Settings {
-  perfLite = $state(readFlag(PERF_LITE_KEY, false));
+  glass = $state(readFlag(GLASS_KEY, false));
 
   constructor() {
     this.apply();
@@ -12,18 +18,18 @@ class Settings {
 
   /** Re-reads the saved value (after account sync replaced it). */
   reload() {
-    this.perfLite = readFlag(PERF_LITE_KEY, this.perfLite);
+    this.glass = readFlag(GLASS_KEY, this.glass);
     this.apply();
   }
 
-  setPerfLite(value: boolean) {
-    this.perfLite = value;
-    writeFlag(PERF_LITE_KEY, value);
+  setGlass(value: boolean) {
+    this.glass = value;
+    writeFlag(GLASS_KEY, value);
     this.apply();
   }
 
   private apply() {
-    document.documentElement.classList.toggle("perf-lite", this.perfLite);
+    document.documentElement.classList.toggle("solid", !this.glass);
   }
 }
 

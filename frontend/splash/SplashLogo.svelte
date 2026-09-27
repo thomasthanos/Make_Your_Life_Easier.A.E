@@ -25,7 +25,7 @@
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: radial-gradient(closest-side, rgb(118 134 255 / 0.55), rgb(79 209 232 / 0.12) 62%, transparent);
+    background: radial-gradient(closest-side, rgb(var(--accent-rgb) / 0.55), rgb(79 209 232 / 0.12) 62%, transparent);
     transition: opacity var(--dur-slow) var(--ease-out);
     will-change: transform, opacity;
   }

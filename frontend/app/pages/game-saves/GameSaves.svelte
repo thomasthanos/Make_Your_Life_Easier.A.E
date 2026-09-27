@@ -91,6 +91,25 @@
     </div>
   {/if}
 
+  {#if state.failures}
+    {@const failures = state.failures}
+    <div class="banner warning surface failures" role="alert">
+      <CircleAlert size={18} />
+      <div class="failures-body">
+        <strong>
+          {failures.items.length}
+          {failures.items.length === 1 ? "game" : "games"} could not be {failures.kind === "backup" ? "backed up" : "restored"}
+        </strong>
+        <ul>
+          {#each failures.items as failure (failure.game)}
+            <li><b>{failure.game}</b> <span class="selectable">{failure.reason}</span></li>
+          {/each}
+        </ul>
+      </div>
+      <button class="btn small ghost" onclick={() => state.dismissFailures()}>Dismiss</button>
+    </div>
+  {/if}
+
   <div class="tabs-wrap">
     <div class="tabs" role="tablist" aria-label="Game save location">
       {#each tabs as tab (tab.id)}
@@ -215,7 +234,7 @@
   }
 
   .metric :global(svg) {
-    color: rgb(166 176 255 / 0.72);
+    color: rgb(var(--accent-soft-rgb) / 0.72);
   }
 
   .metric strong {
@@ -229,7 +248,7 @@
   }
 
   .settings-button.active {
-    border-color: rgb(139 151 255 / 0.25);
+    border-color: rgb(var(--accent-rgb) / 0.25);
     background: var(--selected);
   }
 
@@ -254,6 +273,34 @@
   .banner.error {
     border-color: rgb(229 72 77 / 0.28);
     color: rgb(255 145 145 / 0.82);
+  }
+
+  .failures-body {
+    display: grid;
+    flex: 1;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .failures ul {
+    display: grid;
+    gap: 4px;
+    max-height: 168px;
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+    list-style: none;
+  }
+
+  .failures li {
+    color: var(--text-2);
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .failures li b {
+    color: var(--text-1);
+    font-weight: 600;
   }
 
   .tabs-wrap {
@@ -376,6 +423,10 @@
     contain-intrinsic-size: auto 92px;
   }
 
+  .game-list > :global(article:focus-within) {
+    content-visibility: visible;
+  }
+
   .empty {
     display: grid;
     justify-items: center;
@@ -390,9 +441,9 @@
     width: 50px;
     height: 50px;
     margin-bottom: 2px;
-    border: 1px solid rgb(139 151 255 / 0.12);
+    border: 1px solid rgb(var(--accent-rgb) / 0.12);
     border-radius: 15px;
-    background: rgb(139 151 255 / 0.045);
+    background: rgb(var(--accent-rgb) / 0.045);
     color: rgb(169 179 255 / 0.7);
   }
 

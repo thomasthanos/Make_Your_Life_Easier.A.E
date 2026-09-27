@@ -40,7 +40,7 @@
     onfocus={(e) => showTip(e, label)}
     onblur={hideTip}
   >
-    <span class="icon"><Icon size={18} strokeWidth={1.75} />{#if badge}<i class="dot" aria-hidden="true"></i>{/if}</span>
+    <span class="icon"><Icon size={20} strokeWidth={1.75} />{#if badge}<i class="dot" aria-hidden="true"></i>{/if}</span>
     <span class="label">{label}</span>
     {#if badge}<span class="badge" aria-hidden="true">{badge > 99 ? "99+" : badge}</span>{/if}
   </button>
@@ -136,6 +136,25 @@
     display: grid;
     place-items: center;
     width: 48px;
+  }
+
+  .icon :global(.custom-nav-icon) {
+    opacity: 0.78;
+    filter: saturate(0.72);
+    transition:
+      opacity var(--dur-fast),
+      filter var(--dur-fast),
+      transform var(--dur-fast) var(--ease-out);
+  }
+
+  .item:hover .icon :global(.custom-nav-icon),
+  .item.active .icon :global(.custom-nav-icon) {
+    opacity: 1;
+    filter: saturate(1) drop-shadow(0 2px 6px rgb(var(--accent-rgb) / 0.3));
+  }
+
+  .item.active .icon :global(.custom-nav-icon) {
+    transform: scale(1.05);
   }
 
   /* Count on the right while expanded; a dot on the icon while collapsed. */

@@ -1,11 +1,12 @@
 mod account;
 mod apps;
-mod cleaner;
+pub mod cleaner;
 mod console;
 mod download;
 pub mod game_saves;
 mod maintenance;
 mod spotify_hub;
+mod storage;
 mod updater;
 mod window_sizing;
 mod windows_optimization;
@@ -16,7 +17,42 @@ pub fn run_windows_auto_logon_helper() -> Option<i32> {
     windows_optimization::run_auto_logon_helper_from_args()
 }
 
-use tauri::{AppHandle, Manager, WindowEvent};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+
+fn create_windows(app: &mut tauri::App) -> tauri::Result<()> {
+    use tauri::window::Color;
+
+    let data_dir = storage::webview_dir().map_err(std::io::Error::other)?;
+    WebviewWindowBuilder::new(
+        app,
+        "splash",
+        WebviewUrl::App("splash.html".into()),
+    )
+    .title("Make Your Life Easier")
+    .inner_size(300.0, 380.0)
+    .center()
+    .resizable(false)
+    .maximizable(false)
+    .decorations(false)
+    .shadow(true)
+    .visible(false)
+    .background_color(Color(10, 12, 18, 255))
+    .data_directory(data_dir.clone())
+    .build()?;
+    WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+        .title("Make Your Life Easier")
+        .inner_size(1280.0, 720.0)
+        .min_inner_size(800.0, 500.0)
+        .center()
+        .decorations(false)
+        .transparent(true)
+        .shadow(false)
+        .visible(false)
+        .background_color(Color(0, 0, 0, 0))
+        .data_directory(data_dir)
+        .build()?;
+    Ok(())
+}
 
 /// Called by the splash once the update check is done: sizes and shows the
 /// main window (preloaded while hidden), then removes the splash.
@@ -47,6 +83,9 @@ fn show_main(app: &AppHandle) -> tauri::Result<()> {
 }
 
 pub fn run() {
+    if let Err(error) = storage::prepare() {
+        eprintln!("Application-data migration failed: {error}");
+    }
     let account_state = account::AccountState::default();
     let cleanup = apps::Cleanup::default();
     let jobs = apps::Jobs::default();
@@ -78,9 +117,10 @@ pub fn run() {
         .setup({
             let cleanup = cleanup.clone();
             move |app| {
+                create_windows(app)?;
                 // Sweeps anything a previous run could not delete. Off the main
                 // thread: a locked file costs a retry delay.
-                if let Ok(dir) = app.path().app_config_dir() {
+                if let Ok(dir) = storage::roaming_dir() {
                     std::thread::spawn(move || cleanup.init(dir.join("pending-cleanup.json")));
                 }
                 // The installer of the last update, if any. This runs before
@@ -88,6 +128,7 @@ pub fn run() {
                 // An installer still exiting after relaunching us stays
                 // locked and goes on a later start.
                 let _ = std::fs::remove_dir_all(updater::update_dir());
+                updater::sweep_leftovers_later();
                 // If the splash never gets to call finish_startup (a failed
                 // update check, a broken page), show the window anyway.
                 let handle = app.handle().clone();
@@ -141,6 +182,8 @@ pub fn run() {
             apps::io::apps_import_list,
             apps::creative::creative_catalog,
             apps::creative::creative_install,
+            apps::creative::creative_clip_studio_restore_available,
+            apps::creative::creative_clip_studio_swap_exe,
             cleaner::cleaner_categories,
             cleaner::cleaner_scan,
             cleaner::cleaner_scan_elevated,
@@ -161,7 +204,7 @@ pub fn run() {
             windows_optimization::windows_optimization_restart_to_firmware,
             game_saves::commands::game_saves_get_state,
             game_saves::commands::game_saves_pick_backup_folder,
-            game_saves::commands::game_saves_set_backup_folder,
+            game_saves::commands::game_saves_use_cloud_folder,
             game_saves::commands::game_saves_open_backup_folder,
             game_saves::commands::game_saves_open_game_folder,
             game_saves::commands::game_saves_detect_cloud_folders,

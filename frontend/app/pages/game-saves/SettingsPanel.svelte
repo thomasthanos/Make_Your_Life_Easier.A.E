@@ -1,5 +1,6 @@
 <script lang="ts">
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
+  import Check from "@lucide/svelte/icons/check";
   import Cloud from "@lucide/svelte/icons/cloud";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import FolderSearch from "@lucide/svelte/icons/folder-search";
@@ -7,28 +8,60 @@
   import Plus from "@lucide/svelte/icons/plus";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import type { BackupSchedule, RootStore, ScheduleWeekday } from "./api";
-  import { formatDate, gameSavesState as gs } from "./state.svelte";
+  import { CLOUD_PROVIDERS, type BackupSchedule, type CloudProvider, type DetectedFolder, type RootStore, type ScheduleWeekday } from "./api";
+  import Select, { type SelectOption } from "../../../lib/components/Select.svelte";
+  import CloudLogo from "./CloudLogo.svelte";
+  import { formatDate, gameSavesState as gs, samePath } from "./state.svelte";
 
-  const storeOptions: { id: RootStore; label: string }[] = [
-    { id: "steam", label: "Steam" },
-    { id: "epic", label: "Epic Games" },
-    { id: "gog", label: "GOG" },
-    { id: "gogGalaxy", label: "GOG Galaxy" },
-    { id: "uplay", label: "Ubisoft Connect" },
-    { id: "origin", label: "EA app / Origin" },
-    { id: "otherWindows", label: "Other folder" },
+  const scheduleOptions: SelectOption<BackupSchedule>[] = [
+    { value: "off", label: "Off" },
+    { value: "daily", label: "Daily" },
+    { value: "weekly", label: "Weekly" },
   ];
-  const weekdays: { id: ScheduleWeekday; label: string }[] = [
-    { id: "monday", label: "Monday" },
-    { id: "tuesday", label: "Tuesday" },
-    { id: "wednesday", label: "Wednesday" },
-    { id: "thursday", label: "Thursday" },
-    { id: "friday", label: "Friday" },
-    { id: "saturday", label: "Saturday" },
-    { id: "sunday", label: "Sunday" },
+  const storeOptions: SelectOption<RootStore>[] = [
+    { value: "steam", label: "Steam" },
+    { value: "epic", label: "Epic Games" },
+    { value: "gog", label: "GOG" },
+    { value: "gogGalaxy", label: "GOG Galaxy" },
+    { value: "uplay", label: "Ubisoft Connect" },
+    { value: "origin", label: "EA app / Origin" },
+    { value: "otherWindows", label: "Other folder" },
   ];
-  const storeLabel = (store: RootStore) => storeOptions.find((item) => item.id === store)?.label ?? store;
+  const weekdays: SelectOption<ScheduleWeekday>[] = [
+    { value: "monday", label: "Monday" },
+    { value: "tuesday", label: "Tuesday" },
+    { value: "wednesday", label: "Wednesday" },
+    { value: "thursday", label: "Thursday" },
+    { value: "friday", label: "Friday" },
+    { value: "saturday", label: "Saturday" },
+    { value: "sunday", label: "Sunday" },
+  ];
+  const BASE_TIMES = Array.from(
+    { length: 48 },
+    (_, i) => `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`,
+  );
+  const timeOptions = $derived.by((): SelectOption<string>[] => {
+    const current = gs.page.settings.scheduleTime;
+    const times = current && !BASE_TIMES.includes(current) ? [...BASE_TIMES, current].sort() : BASE_TIMES;
+    return times.map((time) => ({ value: time, label: time }));
+  });
+  /** One tile per detected folder (a provider can have several accounts),
+   *  and one for each provider not found, which asks where its folder is. */
+  interface CloudTile {
+    key: string;
+    provider: CloudProvider;
+    name: string;
+    folder: DetectedFolder | null;
+  }
+  const cloudTiles = $derived.by(() =>
+    CLOUD_PROVIDERS.flatMap(({ id, name }): CloudTile[] => {
+      const found = gs.page.cloudFolders.filter((folder) => folder.provider === id);
+      return found.length
+        ? found.map((folder) => ({ key: folder.path, provider: id, name: folder.label, folder }))
+        : [{ key: id, provider: id, name, folder: null }];
+    }),
+  );
+  const storeLabel = (store: RootStore) => storeOptions.find((item) => item.value === store)?.label ?? store;
   let newRootStore = $state<RootStore>("steam");
   const scheduledFailure = $derived(
     gs.page.settings.lastScheduledResult?.error ??
@@ -42,19 +75,6 @@
         (gs.page.settings.lastScheduledSuccess === null ||
           gs.page.settings.lastScheduledAttempt > gs.page.settings.lastScheduledSuccess)),
   );
-
-  /** Saves the schedule, then shows what was actually stored: a refused
-   *  change (or one skipped while busy) must not stay visible in the control. */
-  async function changeSchedule(
-    control: HTMLInputElement | HTMLSelectElement,
-    stored: () => string,
-    schedule: BackupSchedule,
-    time = gs.page.settings.scheduleTime,
-    weekday = gs.page.settings.scheduleWeekday,
-  ) {
-    await gs.setSchedule(schedule, time, weekday);
-    control.value = stored();
-  }
 </script>
 
 <section id="game-saves-settings" class="settings" aria-label="Backup settings">
@@ -85,25 +105,40 @@
     </div>
 
     <div class="clouds">
-      <span class="sub-label">Cloud folders</span>
-      {#if gs.page.cloudFolders.length}
-        <div class="cloud-list">
-          {#each gs.page.cloudFolders as folder (`${folder.provider}:${folder.path}`)}
-            <button
-              class="cloud-chip"
-              title={`${folder.provider}: ${folder.path}`}
-              disabled={!!gs.settingsBusy || gs.busy}
-              onclick={() => gs.useDetectedBackupFolder(folder.path)}
-            >
-              <Cloud size={12} /> {folder.provider}
-            </button>
-          {/each}
-        </div>
-      {:else}
-        <button class="link" disabled={!!gs.settingsBusy || gs.busy} onclick={() => gs.detectCloudFolders()}>
-          Detect cloud folders
+      <div class="clouds-head">
+        <span class="sub-label">Back up to the cloud</span>
+        <button
+          class="icon-btn"
+          title="Look for cloud folders again"
+          aria-label="Look for cloud folders again"
+          disabled={!!gs.settingsBusy || gs.busy}
+          onclick={() => gs.detectCloudFolders()}
+        >
+          <RefreshCw size={13} class={gs.settingsBusy === "cloudFolders" ? "spin" : ""} />
         </button>
-      {/if}
+      </div>
+      <div class="cloud-list">
+        {#each cloudTiles as tile (tile.key)}
+          {@const inUse = !!tile.folder && !!gs.page.settings.backupFolder && samePath(tile.folder.backupPath, gs.page.settings.backupFolder)}
+          <button
+            class="cloud-tile"
+            class:found={!!tile.folder}
+            class:in-use={inUse}
+            title={tile.folder
+              ? `Backups go to ${tile.folder.backupPath}`
+              : `${tile.name} was not found on this PC. Choose its folder and a backup folder is made inside it.`}
+            disabled={!!gs.settingsBusy || gs.busy}
+            onclick={() => gs.useCloudFolder(tile.provider, tile.folder)}
+          >
+            <CloudLogo provider={tile.provider} />
+            <span class="cloud-text">
+              <strong>{tile.name}</strong>
+              <small>{inUse ? "In use" : tile.folder ? "Found" : "Choose folder…"}</small>
+            </span>
+            {#if inUse}<Check size={14} class="cloud-check" />{/if}
+          </button>
+        {/each}
+      </div>
     </div>
   </article>
 
@@ -116,58 +151,46 @@
       </span>
     </div>
 
-    <label class="field">
+    <div class="field">
       <span>Frequency</span>
-      <select
+      <Select
         value={gs.page.settings.schedule}
+        options={scheduleOptions}
+        ariaLabel="Backup frequency"
+        fullWidth
         disabled={!!gs.settingsBusy || gs.busy}
-        onchange={(event) =>
-          changeSchedule(event.currentTarget, () => gs.page.settings.schedule, event.currentTarget.value as BackupSchedule)}
-      >
-        <option value="off">Off</option>
-        <option value="daily">Daily</option>
-        <option value="weekly">Weekly</option>
-      </select>
-    </label>
+        onchange={(schedule) =>
+          void gs.setSchedule(schedule, gs.page.settings.scheduleTime, gs.page.settings.scheduleWeekday)}
+      />
+    </div>
 
     {#if gs.page.settings.schedule !== "off"}
       <div class="schedule-fields">
         {#if gs.page.settings.schedule === "weekly"}
-          <label class="field compact">
+          <div class="field compact">
             <span>Day</span>
-            <select
+            <Select
               value={gs.page.settings.scheduleWeekday}
+              options={weekdays}
+              ariaLabel="Backup day"
               disabled={!!gs.settingsBusy || gs.busy}
-              onchange={(event) =>
-                changeSchedule(
-                  event.currentTarget,
-                  () => gs.page.settings.scheduleWeekday,
-                  gs.page.settings.schedule,
-                  gs.page.settings.scheduleTime,
-                  event.currentTarget.value as ScheduleWeekday,
-                )}
-            >
-              {#each weekdays as day (day.id)}<option value={day.id}>{day.label}</option>{/each}
-            </select>
-          </label>
+              onchange={(weekday) =>
+                void gs.setSchedule(gs.page.settings.schedule, gs.page.settings.scheduleTime, weekday)}
+            />
+          </div>
         {/if}
-        <label class="field compact">
+        <div class="field compact">
           <span>Time</span>
-          <input
-            class="input time"
-            type="time"
+          <Select
             value={gs.page.settings.scheduleTime}
+            options={timeOptions}
+            ariaLabel="Backup time"
+            minWidth="104px"
             disabled={!!gs.settingsBusy || gs.busy}
-            onchange={(event) =>
-              changeSchedule(
-                event.currentTarget,
-                () => gs.page.settings.scheduleTime,
-                gs.page.settings.schedule,
-                event.currentTarget.value,
-                gs.page.settings.scheduleWeekday,
-              )}
+            onchange={(time) =>
+              void gs.setSchedule(gs.page.settings.schedule, time, gs.page.settings.scheduleWeekday)}
           />
-        </label>
+        </div>
       </div>
     {/if}
 
@@ -228,9 +251,13 @@
     </div>
 
     <div class="add-root">
-      <select bind:value={newRootStore} aria-label="Launcher for new folder">
-        {#each storeOptions as store (store.id)}<option value={store.id}>{store.label}</option>{/each}
-      </select>
+      <Select
+        bind:value={newRootStore}
+        options={storeOptions}
+        ariaLabel="Launcher for new folder"
+        minWidth="148px"
+        disabled={!!gs.settingsBusy || gs.busy}
+      />
       <button class="btn" disabled={!!gs.settingsBusy || gs.busy} onclick={() => gs.addRoot(newRootStore)}>
         <Plus size={15} /> Add folder
       </button>
@@ -266,7 +293,9 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
     gap: 10px;
-    margin: -10px 0 20px;
+    /* Never pulled up: when the header wraps, the summary chips sit right
+       above and a negative margin slid the panel over them. */
+    margin: 0 0 20px;
   }
 
   .setting-card {
@@ -294,9 +323,9 @@
     width: 31px;
     height: 31px;
     flex: none;
-    border: 1px solid rgb(139 151 255 / 0.15);
+    border: 1px solid rgb(var(--accent-rgb) / 0.15);
     border-radius: 9px;
-    background: rgb(139 151 255 / 0.07);
+    background: rgb(var(--accent-rgb) / 0.07);
     color: rgb(169 179 255 / 0.86);
   }
 
@@ -357,32 +386,83 @@
     text-transform: uppercase;
   }
 
-  .cloud-list {
+  .clouds-head {
     display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-  }
-
-  .cloud-chip {
-    display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 4px 8px;
-    border: 1px solid rgb(79 209 232 / 0.12);
-    border-radius: 999px;
-    background: rgb(79 209 232 / 0.035);
-    color: rgb(139 210 224 / 0.78);
-    font-size: 11px;
+    justify-content: space-between;
   }
 
-  .cloud-chip:hover {
-    background: rgb(79 209 232 / 0.075);
+  .cloud-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+    gap: 6px;
   }
 
-  .link {
-    justify-self: start;
-    color: var(--accent);
-    font-size: 11.5px;
+  .cloud-tile {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1px dashed rgb(255 255 255 / 0.09);
+    border-radius: 10px;
+    background: rgb(0 0 0 / 0.1);
+    color: var(--text-3);
+    text-align: left;
+    transition:
+      background 140ms var(--ease-out),
+      border-color 140ms var(--ease-out);
+  }
+
+  .cloud-tile.found {
+    border-style: solid;
+    border-color: rgb(255 255 255 / 0.075);
+    background: rgb(255 255 255 / 0.025);
+    color: var(--text-2);
+  }
+
+  .cloud-tile:hover:not(:disabled) {
+    border-color: rgb(var(--accent-rgb) / 0.28);
+    background: rgb(var(--accent-rgb) / 0.07);
+  }
+
+  .cloud-tile.in-use {
+    border-color: rgb(52 211 153 / 0.35);
+    background: rgb(52 211 153 / 0.07);
+  }
+
+  .cloud-tile:not(.found) :global(svg:first-child) {
+    opacity: 0.55;
+    filter: grayscale(0.5);
+  }
+
+  .cloud-text {
+    display: grid;
+    min-width: 0;
+  }
+
+  .cloud-text strong {
+    overflow: hidden;
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .cloud-text small {
+    color: var(--text-3);
+    font-size: 10.5px;
+  }
+
+  .cloud-tile.in-use small {
+    color: rgb(110 231 183 / 0.9);
+  }
+
+  .cloud-tile :global(.cloud-check) {
+    flex: none;
+    margin-left: auto;
+    color: rgb(110 231 183);
   }
 
   .field {
@@ -392,22 +472,6 @@
 
   .field:not(.compact) {
     width: 100%;
-  }
-
-  select {
-    height: 32px;
-    min-width: 130px;
-    padding: 0 28px 0 9px;
-    border: 1px solid rgb(255 255 255 / 0.075);
-    border-radius: 9px;
-    background: rgb(9 12 20 / 0.72);
-    color: var(--text-2);
-    font: inherit;
-    font-size: 12px;
-  }
-
-  .time {
-    width: 112px;
   }
 
   .last-run strong {
@@ -511,8 +575,7 @@
     text-overflow: ellipsis;
   }
 
-  button:disabled,
-  select:disabled {
+  button:disabled {
     opacity: 0.45;
     pointer-events: none;
   }

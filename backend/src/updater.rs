@@ -101,6 +101,11 @@ pub enum UpdateCheck {
     NotConfigured {
         current: String,
     },
+    /// Started by the previous version right after it updated us: no need to
+    /// ask the network again.
+    JustUpdated {
+        current: String,
+    },
 }
 
 #[derive(Clone, Serialize)]
@@ -110,7 +115,15 @@ pub enum DownloadEvent {
     Progress { downloaded: u64, total: Option<u64> },
     Verifying,
     Installing,
+    /// The new version is in place and starting; this one closes once its
+    /// window is up.
+    Restarting { version: String },
 }
+
+/// The argument the previous version starts us with after a live update.
+const JUST_UPDATED_ARG: &str = "--just-updated";
+/// Answered once: a later "Check for updates" really checks.
+static JUST_UPDATED_SEEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// `latest.json` on R2, written by `release.yml`.
 #[derive(Debug, Deserialize)]
@@ -156,6 +169,14 @@ pub async fn check_for_update(app: AppHandle) -> Result<UpdateCheck, String> {
     #[cfg(debug_assertions)]
     if let Some(mode) = demo::mode() {
         return demo::check(&current, &mode);
+    }
+
+    if std::env::args().any(|arg| arg == JUST_UPDATED_ARG)
+        && !JUST_UPDATED_SEEN.swap(true, std::sync::atomic::Ordering::Relaxed)
+    {
+        return Ok(UpdateCheck::JustUpdated {
+            current: current.to_string(),
+        });
     }
 
     if GITHUB_REPO.starts_with("OWNER/") {
@@ -277,17 +298,186 @@ pub async fn install_update(
     }
 
     let _ = on_event.send(DownloadEvent::Installing);
-    // Per-user install: no UAC prompt. `/UPDATE` keeps shortcuts as the user
-    // left them and `/R` relaunches the app when the installer finishes.
-    std::process::Command::new(&path)
-        .args(["/S", "/UPDATE", "/R"])
+
+    // The seamless way, as the old app's updater did it: everything slow
+    // happens while we are still on screen. The setup swaps the files in
+    // place while we run (Windows lets a running program be renamed), the
+    // new version starts, and we close once its window is up.
+    if let Some(exe) = installed_exe() {
+        match live_install(&path).await {
+            Ok(()) => {
+                let _ = on_event.send(DownloadEvent::Restarting {
+                    version: asset_version(&asset.name),
+                });
+                return hand_over(&app, &exe).await;
+            }
+            Err(error) => eprintln!("live update failed, using the setup window: {error}"),
+        }
+    }
+
+    // Per-user install: no UAC prompt. `/P` shows the setup's progress
+    // window, which starts at once, waits for this app to quit, and opens the
+    // new version half a second before it closes itself. `/UPDATE` keeps
+    // shortcuts as the user left them; `/R` asks for the relaunch.
+    let setup = std::process::Command::new(&path)
+        .args(["/P", "/UPDATE", "/R"])
         .spawn()
         .map_err(err)?;
 
-    // Let the splash paint "Installing update…" before the app goes away.
-    tokio::time::sleep(Duration::from_millis(600)).await;
+    // Stay on screen until the setup's window is up, so there is never a
+    // moment with neither; the setup waits for us to quit before it copies.
+    let pid = setup.id();
+    let shown = tokio::task::spawn_blocking(move || wait_for_window(pid, Duration::from_secs(10)))
+        .await
+        .unwrap_or(false);
+    if !shown {
+        tokio::time::sleep(Duration::from_millis(600)).await;
+    }
     app.exit(0);
     Ok(())
+}
+
+/// This program, when it runs from its install folder (the setup leaves its
+/// file list there). A copy elsewhere, a dev build, would only restart itself.
+fn installed_exe() -> Option<std::path::PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    exe.parent()?.join("install.json").is_file().then_some(exe)
+}
+
+/// Runs the setup silently in live mode and waits for it: it only swaps
+/// files, so a minute is far more than it needs.
+async fn live_install(setup: &std::path::Path) -> Result<(), String> {
+    let setup = setup.to_path_buf();
+    let run = tokio::task::spawn_blocking(move || {
+        std::process::Command::new(&setup)
+            .args(["/S", "/UPDATE", "/LIVE"])
+            .status()
+    });
+    let status = tokio::time::timeout(Duration::from_secs(60), run)
+        .await
+        .map_err(|_| "the setup took too long".to_string())?
+        .map_err(err)?
+        .map_err(err)?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("the setup exited with {status}"))
+    }
+}
+
+/// After a live update the previous version's files that were still in use
+/// stay behind as `*.myle-old`. Once it has quit they can go: a few tries,
+/// off the main thread.
+pub fn sweep_leftovers_later() {
+    let Some(dir) = installed_exe().and_then(|exe| exe.parent().map(std::path::Path::to_path_buf))
+    else {
+        return;
+    };
+    std::thread::spawn(move || {
+        for wait in [3, 20, 90] {
+            std::thread::sleep(Duration::from_secs(wait));
+            if !sweep(&dir) {
+                return;
+            }
+        }
+    });
+}
+
+/// Deletes `*.myle-old` under `dir`; true if any is still there.
+fn sweep(dir: &std::path::Path) -> bool {
+    let mut left = false;
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        match entry.file_type() {
+            // The app's own data lives in the install folder too.
+            Ok(kind) if kind.is_dir() && entry.file_name() == "data" => {}
+            Ok(kind) if kind.is_dir() => left |= sweep(&path),
+            Ok(_) if entry.file_name().to_string_lossy().ends_with(".myle-old") => {
+                left |= std::fs::remove_file(&path).is_err();
+            }
+            _ => {}
+        }
+    }
+    left
+}
+
+/// The version in `MakeYourLifeEasier_7.1.0_x64-setup.exe`, for the splash.
+fn asset_version(name: &str) -> String {
+    name.split('_').nth(1).unwrap_or_default().to_string()
+}
+
+/// Starts the new version and quits once its window is on screen, so one of
+/// the two is always visible. The single-instance lock goes first, or the new
+/// version would just hand its arguments to us and exit.
+async fn hand_over(app: &AppHandle, exe: &std::path::Path) -> Result<(), String> {
+    let (done, released) = tokio::sync::oneshot::channel();
+    let handle = app.clone();
+    app.run_on_main_thread(move || {
+        tauri_plugin_single_instance::destroy(&handle);
+        let _ = done.send(());
+    })
+    .map_err(err)?;
+    let _ = released.await;
+
+    let child = std::process::Command::new(exe)
+        .arg(JUST_UPDATED_ARG)
+        .current_dir(exe.parent().unwrap_or(exe))
+        .spawn()
+        .map_err(|e| format!("the new version could not be started: {e}"))?;
+    let pid = child.id();
+    let _ = tokio::task::spawn_blocking(move || wait_for_window(pid, Duration::from_secs(15))).await;
+    app.exit(0);
+    Ok(())
+}
+
+/// Waits until `pid` has a visible window, for at most `timeout`. False if it
+/// never did, or exited first.
+fn wait_for_window(pid: u32, timeout: Duration) -> bool {
+    use windows_sys::Win32::Foundation::{CloseHandle, HWND, LPARAM, WAIT_OBJECT_0};
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, GetWindowThreadProcessId, IsWindowVisible,
+    };
+
+    struct Search {
+        pid: u32,
+        found: bool,
+    }
+    unsafe extern "system" fn visit(window: HWND, search: LPARAM) -> i32 {
+        // SAFETY: `search` is the struct passed to EnumWindows below.
+        let search = unsafe { &mut *(search as *mut Search) };
+        let mut pid = 0u32;
+        unsafe { GetWindowThreadProcessId(window, &mut pid) };
+        if pid == search.pid && unsafe { IsWindowVisible(window) } != 0 {
+            search.found = true;
+            return 0;
+        }
+        1
+    }
+
+    // SAFETY: the handle is closed before returning.
+    let process = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
+    if process.is_null() {
+        return false;
+    }
+    let deadline = std::time::Instant::now() + timeout;
+    let shown = loop {
+        let mut search = Search { pid, found: false };
+        // SAFETY: `search` outlives the synchronous enumeration.
+        unsafe { EnumWindows(Some(visit), &mut search as *mut Search as LPARAM) };
+        if search.found {
+            break true;
+        }
+        let exited = unsafe { WaitForSingleObject(process, 50) } == WAIT_OBJECT_0;
+        if exited || std::time::Instant::now() >= deadline {
+            break false;
+        }
+    };
+    unsafe { CloseHandle(process) };
+    shown
 }
 
 /// Clears the flag however `install_update` ends.
@@ -407,6 +597,10 @@ mod demo {
         tokio::time::sleep(Duration::from_millis(500)).await;
         let _ = on_event.send(DownloadEvent::Installing);
         tokio::time::sleep(Duration::from_millis(900)).await;
+        let _ = on_event.send(DownloadEvent::Restarting {
+            version: "9.9.9".into(),
+        });
+        tokio::time::sleep(Duration::from_millis(700)).await;
         Ok(())
     }
 }
@@ -414,6 +608,12 @@ mod demo {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_version_is_read_from_the_installer_name() {
+        assert_eq!(asset_version("MakeYourLifeEasier_7.1.0_x64-setup.exe"), "7.1.0");
+        assert_eq!(asset_version("setup.exe"), "");
+    }
 
     fn release(tag: &str, assets: serde_json::Value) -> GhRelease {
         serde_json::from_value(

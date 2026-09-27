@@ -27,8 +27,16 @@
   onMount(() => {
     if (!win) return;
     void syncMaximized();
-    const unlisten = win.onResized(() => void syncMaximized());
-    return () => void unlisten.then((off) => off());
+    // Dragging an edge sends a resize event per mouse move: ask once it settles.
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    const unlisten = win.onResized(() => {
+      clearTimeout(settle);
+      settle = setTimeout(() => void syncMaximized(), 80);
+    });
+    return () => {
+      clearTimeout(settle);
+      void unlisten.then((off) => off());
+    };
   });
 </script>
 

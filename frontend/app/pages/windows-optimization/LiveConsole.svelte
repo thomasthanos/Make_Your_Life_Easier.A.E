@@ -102,5 +102,5 @@
   .muted, .stop-note { color: var(--text-3); font-size: 10.5px; }
   .stop-note { margin-top: 7px; color: rgb(245 188 95 / 0.78); }
   .jump { position: absolute; right: 10px; bottom: 28px; }
-  :global(:root.perf-lite) .collapse { transition: none; }
+  :global(:root.solid) .collapse { transition: none; }
 </style>

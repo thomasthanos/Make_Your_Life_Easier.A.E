@@ -11,13 +11,16 @@ use std::sync::LazyLock;
 
 use regex_lite::Regex;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tauri::AppHandle;
 use tauri::State;
 use tauri::ipc::Channel;
 
 use super::jobs::{JobHandle, Jobs};
-use super::process::{ERROR_CANCELLED, ERROR_ELEVATION_REQUIRED, hidden, run_elevated};
-use super::resolver::{self, Resolver};
+use super::process::{
+    ERROR_CANCELLED, ERROR_ELEVATION_REQUIRED, encode_command, hidden, run_elevated,
+};
+use super::resolver::{self, Resolved, Resolver};
 use super::{JobEvent, JobOutcome, Stage};
 use crate::download::{self, CANCELLED, err, parse_sha256_digest};
 
@@ -54,6 +57,8 @@ enum InstallKind {
     Installer {
         #[serde(default)]
         args: Vec<String>,
+        /// Authenticode signer used when the vendor does not publish SHA-256.
+        publisher: Option<String>,
     },
     /// Copies the downloaded exe to `%LOCALAPPDATA%\Programs\<dir>\<exe>`.
     Portable { dir: String, exe: String },
@@ -366,6 +371,7 @@ async fn install(
         stage: Stage::Resolving,
     });
     let resolved = resolver::resolve(app, &entry.id, &entry.resolver).await?;
+    let integrity = integrity_requirement(entry, &resolved)?;
 
     let _ = on_event.send(JobEvent::Stage {
         stage: Stage::Downloading,
@@ -375,7 +381,7 @@ async fn install(
         .join("apps")
         .join(&resolved.file_name);
     let mut last = -1.0f64;
-    let hash = download::download_to(
+    let downloaded_hash = download::download_to(
         &download::http_client(USER_AGENT)?,
         &resolved.url,
         &file,
@@ -397,13 +403,50 @@ async fn install(
     )
     .await?;
 
-    if let Some(expected) = resolved.digest.as_deref().and_then(parse_sha256_digest) {
+    // Pin every directory in the temporary namespace plus the executable
+    // itself until the installer exits. Neither the checked file nor a parent
+    // can be renamed and replaced between verification and CreateProcess.
+    let installer_guard = if matches!(&entry.install, InstallKind::Installer { .. }) {
+        Some(lock_installer(&file)?)
+    } else {
+        None
+    };
+    if !matches!(integrity, IntegrityRequirement::None) {
         let _ = on_event.send(JobEvent::Stage {
             stage: Stage::Verifying,
         });
-        if hash != expected {
+        let verification = match &integrity {
+            IntegrityRequirement::Sha256(expected) => {
+                let actual = match installer_guard.as_ref() {
+                    Some(guard) => hash_open_file(&guard.file).await?,
+                    None => downloaded_hash.clone(),
+                };
+                if &actual == expected {
+                    Ok(())
+                } else {
+                    Err("The download failed its SHA-256 check.".into())
+                }
+            }
+            IntegrityRequirement::Authenticode(publisher) => {
+                verify_authenticode(&file, publisher).await
+            }
+            IntegrityRequirement::Sha256AndAuthenticode(expected, publisher) => {
+                let guard = installer_guard
+                    .as_ref()
+                    .ok_or_else(|| "The installer namespace was not locked.".to_string())?;
+                let actual = hash_open_file(&guard.file).await?;
+                if &actual != expected {
+                    Err("The download failed its SHA-256 check.".into())
+                } else {
+                    verify_authenticode(&file, publisher).await
+                }
+            }
+            IntegrityRequirement::None => Ok(()),
+        };
+        if let Err(error) = verification {
+            drop(installer_guard);
             let _ = tokio::fs::remove_file(&file).await;
-            return Err("The download failed its SHA-256 check.".into());
+            return Err(error);
         }
     }
 
@@ -412,7 +455,7 @@ async fn install(
     });
     let installed: Result<Option<String>, String> = async {
         Ok(match &entry.install {
-            InstallKind::Installer { args } => run_installer(job, &file, args).await?,
+            InstallKind::Installer { args, .. } => run_installer(job, &file, args).await?,
             InstallKind::Portable { dir, exe } => {
                 let target = programs_dir(dir);
                 tokio::fs::create_dir_all(&target).await.map_err(err)?;
@@ -440,6 +483,7 @@ async fn install(
         })
     }
     .await;
+    drop(installer_guard);
     // The download is only needed until it has been installed, whether that
     // worked or not; a failed install used to leave it in %TEMP%.
     let _ = tokio::fs::remove_file(&file).await;
@@ -454,6 +498,197 @@ async fn install(
             .map_err(|e| format!("Downloaded, but \"{}\" failed: {e}", activate.label))?;
     }
     Ok(JobOutcome::Done { note })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum IntegrityRequirement {
+    Sha256(String),
+    Authenticode(String),
+    Sha256AndAuthenticode(String, String),
+    None,
+}
+
+/// Selects a fail-closed authenticity check before any downloaded installer
+/// can run. Portable/zip tools retain their existing optional SHA-256 policy.
+fn integrity_requirement(
+    entry: &CustomApp,
+    resolved: &Resolved,
+) -> Result<IntegrityRequirement, String> {
+    let digest = resolved
+        .digest
+        .as_deref()
+        .map(|digest| {
+            parse_sha256_digest(digest)
+                .ok_or_else(|| "The download source supplied an invalid SHA-256 digest.".to_string())
+        })
+        .transpose()?;
+    let publisher = match &entry.install {
+        InstallKind::Installer {
+            publisher: Some(publisher),
+            ..
+        } if !publisher.trim().is_empty() => Some(publisher.trim().to_string()),
+        _ => None,
+    };
+    match (&entry.install, digest, publisher) {
+        (InstallKind::Installer { .. }, Some(digest), Some(publisher)) => Ok(
+            IntegrityRequirement::Sha256AndAuthenticode(digest, publisher),
+        ),
+        (InstallKind::Installer { .. }, None, Some(publisher)) => {
+            Ok(IntegrityRequirement::Authenticode(publisher))
+        }
+        (InstallKind::Installer { .. }, Some(digest), None) => {
+            Ok(IntegrityRequirement::Sha256(digest))
+        }
+        (InstallKind::Installer { .. }, None, None) => Err(format!(
+            "{} has neither SHA-256 nor a trusted Authenticode publisher; installation was blocked.",
+            entry.name
+        )),
+        (_, Some(digest), _) => Ok(IntegrityRequirement::Sha256(digest)),
+        _ => Ok(IntegrityRequirement::None),
+    }
+}
+
+struct InstallerGuard {
+    file: std::fs::File,
+    _directories: Vec<std::fs::File>,
+}
+
+/// Opens the temporary root and every descendant directory without delete
+/// sharing, then opens the installer without write/delete sharing. Holding
+/// only the leaf is insufficient: an attacker could rename a parent and put a
+/// different file at the same pathname before CreateProcess resolves it.
+fn lock_installer(path: &Path) -> Result<InstallerGuard, String> {
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows_sys::Win32::Storage::FileSystem::FILE_SHARE_READ;
+
+    let temp = std::env::temp_dir();
+    let parent = path
+        .parent()
+        .ok_or_else(|| "The downloaded installer has no parent folder.".to_string())?;
+    let relative = parent
+        .strip_prefix(&temp)
+        .map_err(|_| "The downloaded installer is outside the temporary folder.".to_string())?;
+    let mut directories = vec![lock_directory(&temp)?];
+    let mut current = temp;
+    for component in relative.components() {
+        if !matches!(component, std::path::Component::Normal(_)) {
+            return Err("The downloaded installer path is not safe.".into());
+        }
+        current.push(component);
+        directories.push(lock_directory(&current)?);
+    }
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(FILE_SHARE_READ)
+        .open(path)
+        .map_err(|error| format!("The downloaded installer could not be locked: {error}"))?;
+    Ok(InstallerGuard {
+        file,
+        _directories: directories,
+    })
+}
+
+fn lock_directory(path: &Path) -> Result<std::fs::File, String> {
+    use std::os::windows::ffi::OsStrExt;
+    use std::os::windows::io::FromRawHandle;
+    use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
+    use windows_sys::Win32::Storage::FileSystem::{
+        BY_HANDLE_FILE_INFORMATION, CreateFileW, FILE_ATTRIBUTE_DIRECTORY,
+        FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
+        FILE_READ_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE, GetFileInformationByHandle,
+        OPEN_EXISTING,
+    };
+
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain([0]).collect();
+    let handle = unsafe {
+        CreateFileW(
+            wide.as_ptr(),
+            FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            std::ptr::null(),
+            OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+            std::ptr::null_mut(),
+        )
+    };
+    if handle == INVALID_HANDLE_VALUE {
+        return Err(format!(
+            "The installer folder {} could not be locked: {}",
+            path.display(),
+            std::io::Error::last_os_error()
+        ));
+    }
+    let file = unsafe { std::fs::File::from_raw_handle(handle) };
+    let mut info = BY_HANDLE_FILE_INFORMATION::default();
+    if unsafe { GetFileInformationByHandle(handle, &mut info) } == 0
+        || info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)
+            != FILE_ATTRIBUTE_DIRECTORY
+    {
+        return Err(format!(
+            "The installer folder {} is not a normal directory.",
+            path.display()
+        ));
+    }
+    Ok(file)
+}
+
+async fn hash_open_file(file: &std::fs::File) -> Result<String, String> {
+    use std::io::{Read, Seek};
+
+    let mut file = file.try_clone().map_err(err)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        file.rewind().map_err(err)?;
+        let mut hasher = Sha256::new();
+        let mut buffer = [0u8; 128 * 1024];
+        loop {
+            let read = file.read(&mut buffer).map_err(err)?;
+            if read == 0 {
+                break;
+            }
+            hasher.update(&buffer[..read]);
+        }
+        Ok(download::to_hex(&hasher.finalize()))
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Uses Windows' Authenticode trust evaluation and pins the leaf certificate's
+/// simple name. `Valid` includes chain and revocation-policy evaluation by the
+/// local Windows trust provider.
+async fn verify_authenticode(path: &Path, publisher: &str) -> Result<(), String> {
+    let quote = |value: &str| format!("'{}'", value.replace('\'', "''"));
+    let script = format!(
+        "$ErrorActionPreference = 'Stop'\n\
+         $signature = Get-AuthenticodeSignature -LiteralPath {}\n\
+         if ($signature.Status -ne 'Valid' -or $null -eq $signature.SignerCertificate) {{ exit 11 }}\n\
+         $name = $signature.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)\n\
+         if ($name -ine {}) {{ exit 12 }}\n\
+         exit 0\n",
+        quote(&path.to_string_lossy()),
+        quote(publisher),
+    );
+    let output = hidden("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-EncodedCommand",
+        ])
+        .arg(encode_command(&script))
+        .output()
+        .await
+        .map_err(err)?;
+    match output.status.code() {
+        Some(0) => Ok(()),
+        Some(12) => Err(format!(
+            "The installer is signed by an unexpected publisher; expected {publisher}."
+        )),
+        _ => Err(format!(
+            "Windows could not validate the installer signature from {publisher}."
+        )),
+    }
 }
 
 /// Runs an installer and waits. Falls back to a UAC prompt when the installer
@@ -729,6 +964,17 @@ pub(crate) fn expand_env(input: &str) -> String {
 mod tests {
     use super::*;
 
+    fn resolved_with_digest(digest: Option<&str>) -> Resolved {
+        Resolved {
+            url: "https://example.invalid/setup.exe".into(),
+            file_name: "setup.exe".into(),
+            version: None,
+            digest: digest.map(str::to_string),
+            size: None,
+            fetched_at: 0,
+        }
+    }
+
     #[test]
     fn bundled_catalog_parses_and_patterns_compile() {
         assert!(!CATALOG.is_empty());
@@ -746,7 +992,83 @@ mod tests {
                 Resolver::Page { pattern, .. } => drop(Regex::new(pattern).unwrap()),
                 _ => {}
             }
+            if let InstallKind::Installer { publisher, .. } = &app.install {
+                assert!(
+                    publisher.as_deref().is_some_and(|name| !name.trim().is_empty()),
+                    "{} must pin an Authenticode publisher for digest-less downloads",
+                    app.id
+                );
+            }
         }
+    }
+
+    #[test]
+    fn nvidia_requires_its_pinned_authenticode_publisher_without_a_digest() {
+        let nvidia = CATALOG
+            .iter()
+            .find(|app| app.id == "Custom.NvidiaApp")
+            .expect("NVIDIA App must be in the bundled catalog");
+        assert_eq!(
+            integrity_requirement(nvidia, &resolved_with_digest(None)).unwrap(),
+            IntegrityRequirement::Authenticode("NVIDIA Corporation".into())
+        );
+    }
+
+    #[test]
+    fn a_malformed_vendor_digest_blocks_the_install_instead_of_falling_back() {
+        let nvidia = CATALOG
+            .iter()
+            .find(|app| app.id == "Custom.NvidiaApp")
+            .unwrap();
+        let error = integrity_requirement(nvidia, &resolved_with_digest(Some("sha256:nope")))
+            .unwrap_err();
+        assert!(error.contains("invalid SHA-256"), "{error}");
+    }
+
+    #[test]
+    fn nvidia_keeps_its_publisher_pin_even_when_a_digest_exists() {
+        let nvidia = CATALOG
+            .iter()
+            .find(|app| app.id == "Custom.NvidiaApp")
+            .unwrap();
+        let hash = "a".repeat(64);
+        assert_eq!(
+            integrity_requirement(
+                nvidia,
+                &resolved_with_digest(Some(&format!("sha256:{hash}")))
+            )
+            .unwrap(),
+            IntegrityRequirement::Sha256AndAuthenticode(
+                hash,
+                "NVIDIA Corporation".into()
+            )
+        );
+    }
+
+    #[test]
+    fn installer_guard_pins_the_file_and_its_namespace() {
+        let root = std::env::temp_dir().join(format!(
+            "myle-installer-guard-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4().simple()
+        ));
+        let apps = root.join("apps");
+        std::fs::create_dir_all(&apps).unwrap();
+        let installer = apps.join("setup.exe");
+        std::fs::write(&installer, b"signed bytes would be here").unwrap();
+
+        let guard = lock_installer(&installer).unwrap();
+        assert!(
+            std::fs::rename(&root, root.with_extension("swapped")).is_err(),
+            "a parent directory must not be replaceable while verification and execution run"
+        );
+        assert!(
+            std::fs::write(&installer, b"replacement").is_err(),
+            "the verified leaf must not be writable through another handle"
+        );
+
+        drop(guard);
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]

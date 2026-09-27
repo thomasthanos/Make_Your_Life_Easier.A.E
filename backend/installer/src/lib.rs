@@ -2,8 +2,8 @@
 //!
 //! One crate, two programs sharing everything but the payload:
 //! - `setup.exe` carries the app (see `payload`) and installs it per user,
-//!   with a window (`ui`), a progress-only window (`/P`) or none (`/S`, which
-//!   the in-app updater uses as `/S /UPDATE /R`);
+//!   with a window (`ui`), a progress-only window (`/P`, which the in-app
+//!   updater uses as `/P /UPDATE /R`) or none (`/S`);
 //! - `uninstall.exe` is installed next to the app and removes it again,
 //!   running from a copy of itself in %TEMP% (see `relocate`).
 
@@ -79,13 +79,15 @@ fn silent_install(payload: &'static [u8], cli: &Cli) -> i32 {
         .clone()
         .or_else(registry::install_dir)
         .unwrap_or_else(engine::default_dir);
-    // The updater quits the app right after starting us: give it time.
+    // `/LIVE`: the app stays open and restarts itself once we are done.
+    let live = cli.live && cli.update;
+    // Otherwise the updater quits the app right after starting us: give it time.
     let grace = if cli.update {
         Duration::from_secs(20)
     } else {
         Duration::from_secs(3)
     };
-    if engine::close_running(&dir, grace).is_err() {
+    if !live && engine::close_running(&dir, grace).is_err() {
         return STILL_RUNNING;
     }
     if !cli.update && !webview2::installed() && webview2::install(true).is_err() {
@@ -98,10 +100,11 @@ fn silent_install(payload: &'static [u8], cli: &Cli) -> i32 {
         start_menu: fresh,
         startup: fresh,
         keep_shortcuts: cli.update || cli.no_shortcuts,
+        live,
     };
     match engine::install(payload, &options, &mut |_| {}) {
         Ok(exe) => {
-            if cli.relaunch {
+            if cli.relaunch && !live {
                 let _ = shell::launch(&exe);
             }
             0

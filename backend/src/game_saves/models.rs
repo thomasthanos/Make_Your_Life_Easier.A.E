@@ -183,11 +183,37 @@ pub struct ScheduledBackupResult {
     pub error: Option<String>,
 }
 
+/// Cloud storage whose desktop app syncs a local folder.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CloudProvider {
+    Dropbox,
+    GoogleDrive,
+    Mega,
+    OneDrive,
+}
+
+impl CloudProvider {
+    pub fn name(self) -> &'static str {
+        match self {
+            CloudProvider::Dropbox => "Dropbox",
+            CloudProvider::GoogleDrive => "Google Drive",
+            CloudProvider::Mega => "MEGA",
+            CloudProvider::OneDrive => "OneDrive",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DetectedFolder {
-    pub provider: String,
+    pub provider: CloudProvider,
+    /// Which account, when a provider has several ("Dropbox Business").
+    pub label: String,
+    /// The provider's synced folder.
     pub path: String,
+    /// Where backups go inside it (created when chosen).
+    pub backup_path: String,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -332,7 +358,17 @@ pub struct GameSavesOperationResult {
     pub processed_games: u64,
     pub processed_bytes: u64,
     pub failed_games: Vec<String>,
+    /// Why each failed game failed, as far as the engine said.
+    #[serde(default)]
+    pub failures: Vec<GameFailure>,
     pub safety_backup_path: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameFailure {
+    pub game: String,
+    pub reason: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
