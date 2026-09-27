@@ -4,7 +4,7 @@
   each step leaves on disk and in the registry. CI runs it on every change.
 
 .EXAMPLE
-  ./scripts/smoke-test-setup.ps1 -Setup backend/target/release/bundle/setup/MakeYourLifeEasier_7.0.1_x64-setup.exe
+  ./scripts/smoke-test-setup.ps1 -Setup backend/target/release/bundle/setup/MakeYourLifeEasier.exe
 #>
 param([Parameter(Mandatory = $true)][string]$Setup)
 

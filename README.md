@@ -15,7 +15,7 @@
 ```bash
 npm install
 npm run dev             # η εφαρμογή σε ανάπτυξη με hot reload
-npm run build           # installer: εφαρμογή + uninstaller + setup στο backend/target/release/bundle/setup/
+npm run build           # installer: backend/target/release/bundle/setup/MakeYourLifeEasier.exe
 npm run check           # έλεγχος τύπων (Svelte + TS) και του site/
 npm test                # Rust tests (εφαρμογή και setup)
 npm run lint            # cargo clippy -D warnings
@@ -24,7 +24,7 @@ npm run lint            # cargo clippy -D warnings
 | Script | Τι κάνει |
 | --- | --- |
 | `dev` | `tauri dev`: ανοίγει την εφαρμογή με hot reload |
-| `build` | ολόκληρο το setup (`scripts/build-setup.ps1`): `MakeYourLifeEasier_<version>_x64-setup.exe` |
+| `build` | ολόκληρο το setup (`scripts/build-setup.ps1`): `backend/target/release/bundle/setup/MakeYourLifeEasier.exe` |
 | `build:app` | μόνο το release exe της εφαρμογής, χωρίς setup |
 | `check` | svelte-check, tsc και `check:site` |
 | `test` / `lint` | `cargo test` / `cargo clippy` σε όλο το workspace του `backend` |

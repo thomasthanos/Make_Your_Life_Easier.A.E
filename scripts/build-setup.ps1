@@ -10,7 +10,8 @@
      (bundle.resources in backend/tauri.conf.json says where each file goes)
   4. that folder packed into one XZ payload, then setup.exe built around it
 
-  Output: backend/target/release/bundle/setup/<mainBinaryName>_<version>_x64-setup.exe
+  Output: backend/target/release/bundle/setup/<mainBinaryName>.exe (MakeYourLifeEasier.exe).
+  release.yml gives the published copy its versioned name.
 
   The app, the uninstaller and the setup are signed when MYLE_SIGN_PFX is set
   (release.yml sets it from the certificate secrets); see scripts/sign.ps1.
@@ -89,8 +90,10 @@ try {
   }
 
   $out = Join-Path $release "bundle\setup"
+  # Only this build's setup in there, under the product's plain name.
+  if (Test-Path $out) { Remove-Item (Join-Path $out "*.exe") -Force }
   New-Item -ItemType Directory -Force $out | Out-Null
-  $setup = Join-Path $out "${binary}_${version}_x64-setup.exe"
+  $setup = Join-Path $out "$binary.exe"
   Copy-Item (Join-Path $release "setup.exe") $setup -Force
   Set-Signature $setup
   $size = [math]::Round((Get-Item $setup).Length / 1MB, 1)

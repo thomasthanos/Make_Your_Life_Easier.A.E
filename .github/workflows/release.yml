@@ -100,10 +100,11 @@ jobs:
       - name: Collect the installer
         shell: pwsh
         run: |
-          $setup = Get-ChildItem "backend/target/release/bundle/setup/*_x64-setup.exe" | Select-Object -First 1
+          $setup = Get-ChildItem "backend/target/release/bundle/setup/MakeYourLifeEasier.exe" | Select-Object -First 1
           if (-not $setup) { throw "The setup was not produced." }
           # No spaces: GitHub would rename "Make Your Life Easier_…" anyway.
-          # The updater looks for the "_x64-setup.exe" ending.
+          # The updater looks for the "_x64-setup.exe" ending, so the published
+          # copy keeps the version in its name (the local build is MakeYourLifeEasier.exe).
           $name = "MakeYourLifeEasier_${env:VERSION}_x64-setup.exe"
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item $setup.FullName "out/$name"
