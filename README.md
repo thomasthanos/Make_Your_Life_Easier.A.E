@@ -1,53 +1,89 @@
 # Make Your Life Easier
 
-Βάση για desktop εφαρμογή Windows: **Tauri 2** (Rust + WebView2) με **Svelte 5 + TypeScript + Vite**.
-Σκούρο UI σε στυλ 3D glass, custom titlebar, sidebar που ανοιγοκλείνει, splash για updates σε στυλ Discord (Cloudflare R2, με τα GitHub Releases ως εφεδρεία) και δικό της σκούρο setup/uninstaller (όχι πια NSIS). Το setup περιλαμβάνει επίσης το pinned Ludusavi engine και offline manifest για τη σελίδα Game Saves, επομένως το τελικό μέγεθος εξαρτάται από αυτά τα bundled resources.
+<p align="center">
+  <img src="docs/assets/readme-hero.svg" alt="Make Your Life Easier — apps, cleanup, game saves and Windows tools in one dark desktop app" width="100%" />
+</p>
 
-## Εργαλεία (μία φορά)
+<p align="center">
+  <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/thomasthanos/Make_Your_Life_Easier.A.E?display_name=tag&style=for-the-badge&color=8b83ff" /></a>
+  <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/actions/workflows/ci.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/thomasthanos/Make_Your_Life_Easier.A.E/ci.yml?branch=main&style=for-the-badge&label=build" /></a>
+  <img alt="Windows 10 and 11" src="https://img.shields.io/badge/WINDOWS-10%20%2F%2011-36c5d8?style=for-the-badge" />
+  <img alt="Proprietary license" src="https://img.shields.io/badge/LICENSE-proprietary-f0b86e?style=for-the-badge" />
+</p>
+
+<p align="center"><strong>Ένα σκοτεινό, προσεγμένο control center για τα Windows.</strong><br />Εγκατάστησε εφαρμογές, φρόντισε τα saves σου και κράτα τα καθημερινά εργαλεία συγκεντρωμένα.</p>
+
+<p align="center">
+  <a href="https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe"><strong>⬇ Λήψη για Windows</strong></a>
+  &nbsp; · &nbsp;
+  <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest">Όλες οι εκδόσεις</a>
+  &nbsp; · &nbsp;
+  <a href="docs/assets/readme-hero.svg">Animated SVG source</a>
+</p>
+
+> Το banner περιλαμβάνει SVG animation. Το GitHub εμφανίζει τα SVG στατικά· άνοιξε ή κατέβασε το αρχείο για να δεις την κίνηση σε browser που το υποστηρίζει.
+
+## Τι θα βρεις μέσα
+
+<table>
+  <tr>
+    <td width="50%"><strong>▦ &nbsp; Install Apps</strong><br />Αναζήτηση και ενημέρωση εφαρμογών με winget, μαζί με επιλεγμένα custom εργαλεία.</td>
+    <td width="50%"><strong>◈ &nbsp; Game Saves</strong><br />Offline εντοπισμός saves, προγραμματισμένα backups και προσεκτική επαναφορά με safety copy.</td>
+  </tr>
+  <tr>
+    <td width="50%"><strong>✦ &nbsp; Creative Hub</strong><br />Τα δικά σου πακέτα και εργαλεία, σε ένα σημείο με πρόοδο λήψης και εγκατάστασης.</td>
+    <td width="50%"><strong>⌘ &nbsp; Καθημερινά εργαλεία</strong><br />Καθαρισμός, Spotify Hub και ρυθμίσεις Windows μέσα στο ίδιο dark interface.</td>
+  </tr>
+</table>
+
+## Εγκατάσταση
+
+Κατέβασε τον επίσημο installer και άνοιξέ τον. Η εγκατάσταση γίνεται για τον λογαριασμό σου, χωρίς δικαιώματα administrator. Επίλεξε Desktop, Start Menu και εκκίνηση με τα Windows όπως θέλεις· το setup επιδιορθώνει τα shortcuts της εφαρμογής σε επανεγκατάσταση και κρατά τις ρυθμίσεις και τα δεδομένα σου.
+
+<p align="center"><a href="https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe"><strong>ΚΑΤΕΒΑΣΕ ΤΟ MAKE YOUR LIFE EASIER</strong></a></p>
+
+Αν το WebView2 Runtime λείπει, το setup σε καθοδηγεί να το εγκαταστήσεις από τη Microsoft. Για λεπτομέρειες εγκατάστασης και απεγκατάστασης, δες την ενότητα [Setup και uninstall](#setup-και-uninstall-ανά-χρήστη-χωρίς-admin).
+
+## Ανάπτυξη
+
+### Απαιτήσεις
 
 - Node.js 20+
-- Rust (stable MSVC): `winget install Rustlang.Rustup`
-- Visual Studio 2022 Build Tools με το workload «Desktop development with C++»
-- Το WebView2 υπάρχει ήδη στα Windows 10/11· αν λείπει, το setup το κατεβάζει από τη Microsoft πριν ανοίξει το παράθυρό του.
+- Rust stable με MSVC: `winget install Rustlang.Rustup`
+- Visual Studio 2022 Build Tools με το workload `Desktop development with C++`
+- Windows 10/11 και WebView2 Runtime
 
-## Εντολές
+### Βασικές εντολές
 
-```bash
+~~~powershell
 npm install
-npm run dev             # η εφαρμογή σε ανάπτυξη με hot reload
-npm run build           # installer: backend/target/release/bundle/setup/MakeYourLifeEasier.exe
-npm run check           # έλεγχος τύπων (Svelte + TS) και του site/
-npm test                # Rust tests (εφαρμογή και setup)
-npm run lint            # cargo clippy -D warnings
-```
+npm run dev       # εφαρμογή με hot reload
+npm run build     # πλήρες Windows setup
+npm run check     # svelte-check, TypeScript και site checks
+npm test          # Rust tests για εφαρμογή και setup
+npm run lint      # cargo clippy -D warnings
+~~~
 
 | Script | Τι κάνει |
 | --- | --- |
-| `dev` | `tauri dev`: ανοίγει την εφαρμογή με hot reload |
-| `build` | ολόκληρο το setup (`scripts/build-setup.ps1`): `backend/target/release/bundle/setup/MakeYourLifeEasier.exe` |
-| `build:app` | μόνο το release exe της εφαρμογής, χωρίς setup |
-| `check` | svelte-check, tsc και `check:site` |
-| `test` / `lint` | `cargo test` / `cargo clippy` σε όλο το workspace του `backend` |
-| `verify:install` | ελέγχει ότι η εγκατάσταση (ή με `-- -Removed` η απεγκατάσταση) άφησε τα σωστά αρχεία, συντομεύσεις και registry |
-| `web:dev` / `web:build` | μόνο το Vite της εφαρμογής (τα τρέχει το Tauri από μόνο του· το `web:dev` χρησιμεύει και για προεπισκόπηση στον browser) |
-| `web:setup` | η σελίδα του παραθύρου του setup (`backend/target/web-setup/`) |
-| `prepare:game-saves` | κατεβάζει/επαληθεύει τα pinned Game Saves resources |
-| `tauri` | το Tauri CLI όπως είναι, π.χ. `npm run tauri icon backend/icons/app-icon.svg` |
+| <code>build</code> | Ολόκληρο setup: backend/target/release/bundle/setup/MakeYourLifeEasier.exe |
+| <code>build:app</code> | Release exe της εφαρμογής, χωρίς setup |
+| <code>verify:install</code> | Ελέγχει εγκατάσταση ή, με <code>-- -Removed</code>, απεγκατάσταση |
+| <code>web:dev</code> / <code>web:build</code> | Vite της εφαρμογής· το <code>web:dev</code> ανοίγει και τοπικό preview |
+| <code>web:setup</code> | Χτίζει το UI του setup/uninstaller |
+| <code>prepare:game-saves</code> | Κατεβάζει και επαληθεύει τα pinned Game Saves resources |
 
-Κάθε push στο `main` και κάθε pull request περνά από το `.github/workflows/ci.yml`, σε Windows: `npm run check`, build των frontends, `cargo clippy -D warnings` και `cargo test` για εφαρμογή και setup, και ένα δεύτερο job που χτίζει το setup, το εγκαθιστά, το ενημερώνει και το απεγκαθιστά σιωπηλά (`scripts/smoke-test-setup.ps1`). Το setup του κάθε run μένει 7 μέρες ως artifact.
+Κάθε push στο main και κάθε pull request περνά από το .github/workflows/ci.yml: frontend checks, Rust lint/tests και Windows smoke test εγκατάστασης. Το setup κάθε CI run μένει ως artifact για 7 ημέρες.
 
-Τα `dev`, `build`, `build:app` και `tauri` εκτελούν πρώτα αυτόματα το `prepare:game-saves`. Το script χρησιμοποιεί SHA-256 μέσω .NET ώστε να λειτουργεί και σε παλαιότερο Windows PowerShell όπου δεν υπάρχει το `Get-FileHash`.
+Τα dev, build, build:app και tauri τρέχουν αυτόματα το prepare:game-saves. Για preview του installer άνοιξε npm run web:dev και το http://localhost:1420/installer.html?demo=reinstall.
 
-Για να δεις το splash να «κατεβάζει» update χωρίς πραγματικό release (λειτουργεί μόνο σε dev):
+Το κύριο εικονίδιο βρίσκεται στο backend/icons/app-icon.svg. Τα app logo και splash μοιράζονται τα σχήματα του frontend/lib/brand.ts.
 
-```powershell
-$env:MYLE_UPDATER_DEMO = "1"; npm run dev        # ψεύτικο download
-$env:MYLE_UPDATER_DEMO = "offline"; npm run dev  # ψεύτικο σφάλμα δικτύου
-```
+## Ιδιόκτητη άδεια
 
-Ή σκέτο στον browser, με `npm run web:dev` και `http://localhost:1420/splash.html?demo=update` (ή `=offline`, `=latest`).
+Το Make Your Life Easier είναι ιδιόκτητο έργο του **ThomasThanos**. Επιτρέπεται η προσωπική χρήση επίσημων, αμετάβλητων binaries. Δεν επιτρέπονται αντιγραφή, τροποποίηση, παράγωγα έργα, αναδημοσίευση ή εμπορική χρήση του κώδικα χωρίς προηγούμενη γραπτή άδεια. Δες το [LICENSE](LICENSE) για τους πλήρεις όρους· τα third-party components εξακολουθούν να διέπονται από τις δικές τους άδειες.
 
-Το εικονίδιο (ο hooded coder) ζει στο `backend/icons/app-icon.svg`. Μετά από αλλαγή του, ξαναφτιάξε τα PNG/ICO με `npm run tauri icon backend/icons/app-icon.svg` και κράτα από το `backend/icons/` μόνο όσα δηλώνει το `tauri.conf.json`. Το λογότυπο μέσα στην εφαρμογή (`frontend/lib/components/Logo.svelte`) και η κινούμενη εκδοχή του splash (`frontend/splash/CoderScene.svelte`) διαβάζουν τα ίδια σχήματα από το `frontend/lib/brand.ts`, οπότε άλλαξέ τα και εκεί.
+Το repository και ο κώδικας παραμένουν ορατά όσο το GitHub project είναι δημόσιο. Η άδεια ορίζει τους όρους χρήσης· η ορατότητα και η δυνατότητα fork ελέγχονται από τις ρυθμίσεις ιδιωτικότητας και τους όρους της πλατφόρμας.
 
 ## Δομή
 
@@ -204,12 +240,12 @@ Frontend: `frontend/app/pages/creative-hub/`. Backend: `backend/src/apps/creativ
 
 **Release:**
 
-1. Ανέβασε την έκδοση **και** στο `package.json` **και** στο `backend/Cargo.toml` (π.χ. `7.0.1`) και κάνε commit.
-2. `git tag v7.0.1 && git push origin main v7.0.1`
+1. Ανέβασε την έκδοση **και** στο `package.json` **και** στο `backend/Cargo.toml` (π.χ. `7.0.2`) και κάνε commit.
+2. `git tag v7.0.2 && git push origin main v7.0.2`
 3. Το `.github/workflows/release.yml`:
    - ελέγχει ότι tag και εκδόσεις ταιριάζουν, τρέχει `svelte-check` και χτίζει (κατεβάζει και το Ludusavi)
    - **υπογράφει** exe, installer και uninstaller με το πιστοποιητικό των secrets `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` (`scripts/sign.ps1`)
-   - ανεβάζει στο **Cloudflare R2** (`downloads.thomast.uk`, secrets `R2_*`) τον `MakeYourLifeEasier_7.0.1_x64-setup.exe`, το σταθερό link `MakeYourLifeEasier-installer.exe` και στο τέλος το `latest.json`, και ελέγχει ότι το R2 σερβίρει ακριβώς τα ίδια bytes
+   - ανεβάζει στο **Cloudflare R2** (`downloads.thomast.uk`, secrets `R2_*`) τον `MakeYourLifeEasier_7.0.2_x64-setup.exe`, το σταθερό link `MakeYourLifeEasier-installer.exe` και στο τέλος το `latest.json`, και ελέγχει ότι το R2 σερβίρει ακριβώς τα ίδια bytes
    - δημοσιεύει και το GitHub release
 
 Για δοκιμή χωρίς release: Actions → Release → **Run workflow**. Χτίζει και υπογράφει το ίδιο, κρατά τον installer ως artifact και δεν ανεβάζει/δημοσιεύει τίποτα.
@@ -239,7 +275,7 @@ Frontend: `frontend/app/pages/creative-hub/`. Backend: `backend/src/apps/creativ
 
 Το setup είναι δικό μας: το crate `backend/installer` (Rust) με παράθυρο Svelte (`frontend/installer/`, `frontend/installer.html`) στο ίδιο σκούρο στυλ με την εφαρμογή. Βγάζει δύο προγράμματα:
 
-- **`setup.exe`**: κουβαλά την εφαρμογή ως ένα συμπαγές XZ payload (`installer/src/payload.rs`). Δείχνει φάκελο εγκατάστασης, διακόπτες για Desktop / Start menu / εκκίνηση με τα Windows / άνοιγμα στο τέλος, πρόοδο ανά αρχείο και οθόνη ολοκλήρωσης. Σε υπάρχουσα εγκατάσταση λέει «Update»/«Reinstall» και κρατά ρυθμίσεις και shortcuts. Αν η εφαρμογή τρέχει, ρωτά και την κλείνει ομαλά (και με τη βία μόνο αν δεν κλείσει).
+- **`setup.exe`**: κουβαλά την εφαρμογή ως ένα συμπαγές XZ payload (`installer/src/payload.rs`). Δείχνει φάκελο εγκατάστασης, διακόπτες για Desktop / Start menu / εκκίνηση με τα Windows / άνοιγμα στο τέλος, πρόοδο ανά αρχείο και οθόνη ολοκλήρωσης. Στην ίδια έκδοση εμφανίζει καθαρά «Reinstall» και διατηρεί ρυθμίσεις και δεδομένα. Επιδιορθώνει τα αναγνωρισμένα shortcuts της εφαρμογής και ελέγχει τους προορισμούς τους· το Startup shortcut ξεκινά με `--autostart`. Αν η εφαρμογή τρέχει, ζητά να την κλείσεις πριν αλλάξει αρχεία. Με επιλεγμένο το «Open when finished», ανοίγει την εφαρμογή και κλείνει το setup μετά την επιτυχή εγκατάσταση.
 - **`uninstall.exe`**: μπαίνει δίπλα στην εφαρμογή και το τρέχουν τα Windows από τα «Installed apps». Ρωτά αν θα σβηστούν **και** οι ρυθμίσεις/δεδομένα (`%APPDATA%` / `%LOCALAPPDATA%\com.thomasthanos.makeyourlifeeasier`, cache). Τα backups του Game Saves δεν αγγίζονται ποτέ. Επειδή ένα πρόγραμμα δεν μπορεί να σβήσει το αρχείο του όσο τρέχει, το `uninstall.exe` (όπως και του NSIS) αντιγράφεται σε νέο φάκελο στο `%TEMP%` και τρέχει από εκεί (`installer/src/relocate.rs`): το αντίγραφο κάνει τη δουλειά, και όταν κλείσει το αρχικό σβήνει κι αυτό και τον φάκελο. Το exit code του `/S` φτάνει κανονικά σε όποιον το έτρεξε. Τα παλιά αντίγραφα στο `%TEMP%` σβήνονται στο επόμενο uninstall.
 
 Η εγκατάσταση είναι «όλα ή τίποτα»: κάθε αρχείο γράφεται δίπλα στο παλιό, και αν κάτι αποτύχει στη μέση επιστρέφει η προηγούμενη έκδοση. Το `install.json` στον φάκελο λέει ποια αρχεία έβαλε το setup, ώστε update και uninstall να σβήνουν μόνο αυτά.
@@ -256,12 +292,12 @@ Frontend: `frontend/app/pages/creative-hub/`. Backend: `backend/src/apps/creativ
 | `/D=<φάκελος>` | άλλος φάκελος (τελευταίο, χωρίς εισαγωγικά) |
 | `/PURGE` | (uninstall) σβήνει και ρυθμίσεις/δεδομένα |
 
-Προεπισκόπηση του παραθύρου στον browser: `npm run web:dev` και `http://localhost:1420/installer.html?demo=install` (ή `=update`, `=uninstall`, `=running`, `=error`, `=passive`).
+Προεπισκόπηση του παραθύρου στον browser: `npm run web:dev` και `http://localhost:1420/installer.html?demo=install` (ή `=update`, `=reinstall`, `=uninstall`, `=running`, `=error`, `=launch-fail`, `=passive`).
 
 | Τι | Πού |
 |---|---|
 | Πρόγραμμα | `%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier\MakeYourLifeEasier.exe` |
-| Desktop | `%USERPROFILE%\Desktop\Make Your Life Easier.lnk` |
+| Desktop | Windows Desktop known folder (μπορεί να ανακατευθύνεται στο OneDrive) · `Make Your Life Easier.lnk` |
 | Start Menu | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Make Your Life Easier.lnk` |
 | Εκκίνηση με τα Windows | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Make Your Life Easier.lnk` (με `--autostart`) |
 | Registry | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier` |

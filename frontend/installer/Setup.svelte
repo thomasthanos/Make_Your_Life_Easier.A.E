@@ -4,6 +4,12 @@
   import { fade, fly, scale } from "svelte/transition";
   import { isTauri } from "@tauri-apps/api/core";
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import LayoutGrid from "@lucide/svelte/icons/layout-grid";
+  import Monitor from "@lucide/svelte/icons/monitor";
+  import Power from "@lucide/svelte/icons/power";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
+  import Rocket from "@lucide/svelte/icons/rocket";
   import { formatBytes } from "../lib/updater";
   import { loadApi, type Progress, type SetupApi, type SetupState, type Stage } from "./api";
   import Brand from "./Brand.svelte";
@@ -51,6 +57,8 @@
   let removeData = $state(false);
 
   let folderError = $state<string | null>(null);
+  let launchError = $state<string | null>(null);
+  let finishing = $state(false);
   /** Programs to close before going on; set, it shows the question. */
   let running = $state<string[] | null>(null);
   /** Uninstall: the app is open right now (a heads-up, not a question). */
@@ -87,9 +95,9 @@
         };
       case "same":
         return {
-          title: `Reinstall ${version}`,
-          lead: "Puts every file back as it shipped. Your settings and data are kept.",
-          action: "Reinstall",
+          title: `Reinstall version ${version}`,
+          lead: `Version ${version} is already installed. Reinstalling restores the app files; your settings and data are kept.`,
+          action: `Reinstall ${version}`,
           working: "Reinstalling…",
           done: "Reinstalled",
         };
@@ -230,6 +238,7 @@
   async function run() {
     if (!api || !info) return;
     running = null;
+    launchError = null;
     screen = "working";
     stage = "closingApp";
     files = { done: 0, total: 0, file: "" };
@@ -243,6 +252,7 @@
       else installedDir = await api.install({ desktop, startMenu, startup }, onEvent);
       screen = "done";
       if (info.passive) setTimeout(() => void finish(), 1200);
+      else if (!uninstalling && launchAfter) void finish();
     } catch (err) {
       error = message(err);
       screen = "error";
@@ -250,9 +260,22 @@
   }
 
   async function finish() {
-    if (!api || !info) return;
-    if (!uninstalling && (launchAfter || info.passive)) await api.launch().catch(() => {});
+    if (!api || !info || finishing) return;
+    finishing = true;
+    if (!uninstalling && (launchAfter || info.passive)) {
+      try {
+        await api.launch();
+      } catch (err) {
+        launchError = message(err);
+        finishing = false;
+        return;
+      }
+    }
     await api.exit();
+  }
+
+  function closeAfterInstall() {
+    if (api) void api.exit();
   }
 
   function close() {
@@ -324,25 +347,37 @@
                 </p>
               {/if}
             {:else}
-              <h2>{copy.title}</h2>
+              <div class="title-row">
+                <h2>{copy.title}</h2>
+                {#if relation === "same"}
+                  <span class="version-pill"><RefreshCw size={12} strokeWidth={2} /> Same version installed</span>
+                {/if}
+              </div>
               <p class="lead">{copy.lead}</p>
 
-              <span class="label">Install location</span>
+              <div class="section-heading location-heading">
+                <span class="label">Install location</span>
+                <span class="section-note">This account only</span>
+              </div>
               <div class="location" class:invalid={folderError}>
+                <span class="location-icon"><FolderOpen size={16} strokeWidth={1.8} /></span>
                 <span class="path selectable" title={dir}>{dir}</span>
               </div>
               {#if folderError}
                 <p class="field-error" transition:fade={{ duration: 150 }}>{folderError}</p>
               {:else}
-                <p class="field-note">Needs {formatBytes(info.size)} · installs for your account only</p>
+                <p class="field-note">Needs {formatBytes(info.size)}</p>
               {/if}
 
-              <span class="label">Shortcuts and startup</span>
+              <div class="section-heading shortcut-heading">
+                <span class="label">Shortcuts and startup</span>
+                <span class="section-note">Choose how to access the app</span>
+              </div>
               <div class="toggles">
-                <Toggle bind:checked={desktop} label="Desktop shortcut" />
-                <Toggle bind:checked={startMenu} label="Start menu" />
-                <Toggle bind:checked={startup} label="Start with Windows" hint="Opens minimized at sign-in" />
-                <Toggle bind:checked={launchAfter} label="Open when finished" />
+                <Toggle bind:checked={desktop} icon={Monitor} label="Desktop shortcut" />
+                <Toggle bind:checked={startMenu} icon={LayoutGrid} label="Start menu" />
+                <Toggle bind:checked={startup} icon={Power} label="Start with Windows" hint="Minimized at sign-in" />
+                <Toggle bind:checked={launchAfter} icon={Rocket} label="Open when finished" />
               </div>
             {/if}
 
@@ -378,14 +413,22 @@
                   <span class="path selectable" title={installedDir}>{installedDir}</span>
                 {/if}
               </p>
+              {#if launchError}
+                <div class="launch-error" role="alert">
+                  <strong>Installed successfully, but the app did not open.</strong>
+                  <span>{launchError}</span>
+                </div>
+              {/if}
             </div>
             <div class="footer">
-              {#if !uninstalling}
-                <Toggle bind:checked={launchAfter} label="Open {info.product}" />
+              {#if !uninstalling && !launchError}
+                <Toggle bind:checked={launchAfter} icon={Rocket} label="Open {info.product}" />
+              {:else if launchError}
+                <button class="btn" onclick={closeAfterInstall}>Close setup</button>
               {/if}
               <span class="spacer"></span>
-              <button class="btn primary big" onclick={finish}>
-                {!uninstalling && launchAfter ? "Finish and open" : "Finish"}
+              <button class="btn primary big" onclick={finish} disabled={finishing}>
+                {launchError ? "Try again" : !uninstalling && launchAfter ? "Finish and open" : "Finish"}
               </button>
             </div>
           {:else if screen === "error"}
@@ -442,7 +485,7 @@
   .main {
     flex: 1;
     min-width: 0;
-    padding: 26px 28px 20px;
+    padding: 22px 25px 17px;
   }
 
   .screen {
@@ -453,17 +496,57 @@
 
   h2 {
     font-size: 20px;
+    line-height: 1.2;
+  }
+
+  .title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 9px;
+    min-width: 0;
+  }
+
+  .version-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: none;
+    padding: 5px 8px;
+    border: 1px solid rgb(139 151 255 / 0.2);
+    border-radius: 999px;
+    background: rgb(139 151 255 / 0.1);
+    color: #cfd6ff;
+    font-size: 10.5px;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
   .lead {
-    margin-top: 6px;
+    margin-top: 7px;
     font-size: 13px;
     color: var(--text-2);
-    line-height: 1.5;
+    line-height: 1.45;
+  }
+
+  .section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .location-heading {
+    margin-top: 16px;
+  }
+
+  .shortcut-heading {
+    margin-top: 14px;
+    margin-bottom: 7px;
   }
 
   .label {
-    margin: 20px 0 8px;
+    margin: 0;
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.06em;
@@ -471,18 +554,38 @@
     color: var(--text-3);
   }
 
+  .section-note {
+    font-size: 10.5px;
+    color: var(--text-3);
+    white-space: nowrap;
+  }
+
   .location {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 6px 6px 12px;
-    border-radius: 11px;
-    background: rgb(0 0 0 / 0.22);
-    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
+    gap: 10px;
+    min-height: 38px;
+    padding: 7px 11px;
+    border: 1px solid rgb(255 255 255 / 0.065);
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgb(255 255 255 / 0.04), rgb(0 0 0 / 0.16));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.025);
   }
 
   .location.invalid {
-    box-shadow: inset 0 0 0 1px rgb(229 72 77 / 0.6);
+    border-color: rgb(229 72 77 / 0.6);
+    box-shadow: 0 0 0 2px rgb(229 72 77 / 0.08);
+  }
+
+  .location-icon {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex: none;
+    border-radius: 8px;
+    color: #bfc8ff;
+    background: rgb(139 151 255 / 0.1);
   }
 
   .location .path {
@@ -507,8 +610,8 @@
 
   .field-note,
   .field-error {
-    margin-top: 6px;
-    font-size: 11.5px;
+    margin-top: 4px;
+    font-size: 10.5px;
     color: var(--text-3);
   }
 
@@ -519,8 +622,17 @@
   .toggles {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2px 6px;
-    margin: 0 -12px;
+    gap: 7px;
+    margin: 0;
+  }
+
+  .toggles :global(.toggle) {
+    min-height: 55px;
+  }
+
+  .toggles :global(.toggle .label) {
+    color: var(--text-1);
+    font-size: 12px;
   }
 
   .card {
@@ -557,7 +669,7 @@
   }
 
   .footer :global(.toggle) {
-    margin-left: -12px;
+    margin-left: 0;
   }
 
   .spacer {
@@ -611,6 +723,30 @@
 
   .result .lead {
     max-width: 380px;
+  }
+
+  .launch-error {
+    display: grid;
+    gap: 5px;
+    width: min(100%, 400px);
+    margin-top: 16px;
+    padding: 11px 13px;
+    border: 1px solid rgb(255 180 84 / 0.22);
+    border-radius: 12px;
+    background: rgb(255 180 84 / 0.065);
+    color: #ffd6a1;
+    text-align: left;
+  }
+
+  .launch-error strong {
+    font-size: 12px;
+  }
+
+  .launch-error span {
+    overflow-wrap: anywhere;
+    color: var(--text-2);
+    font-size: 11.5px;
+    line-height: 1.45;
   }
 
   .mark-ok,

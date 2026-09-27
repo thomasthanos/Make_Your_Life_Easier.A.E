@@ -7,7 +7,13 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 
 export function previewApi(mode: string): SetupApi {
   const uninstall = mode === "uninstall";
-  const installed = mode === "update" || uninstall ? { version: "7.0.1", dir: DIR } : null;
+  const installed = uninstall
+    ? { version: "7.0.1", dir: DIR }
+    : mode === "reinstall"
+      ? { version: "7.1.0", dir: DIR }
+      : mode === "update"
+        ? { version: "7.0.1", dir: DIR }
+        : null;
   const state: SetupState = {
     mode: uninstall ? "uninstall" : "install",
     product: "Make Your Life Easier",
@@ -72,10 +78,10 @@ export function previewApi(mode: string): SetupApi {
       if (removeData) await stage(onEvent, "removingData", 600);
       await stage(onEvent, "finishing", 250);
     },
-    async launch() {},
-    async exit() {
-      location.reload();
+    async launch() {
+      if (mode === "launch-fail") throw "Windows could not start the app.";
     },
+    async exit() {},
   };
 }
 

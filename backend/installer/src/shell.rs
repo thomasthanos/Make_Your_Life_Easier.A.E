@@ -75,11 +75,31 @@ impl Shortcut {
         Some(folder.join(format!("{}.lnk", product::NAME)))
     }
 
+    fn fallback_path(self) -> Option<PathBuf> {
+        let primary = self.path()?;
+        Some(primary.with_file_name(format!("{} - {}.lnk", product::NAME, product::PUBLISHER)))
+    }
+
+    fn paths(self) -> Vec<PathBuf> {
+        self.path()
+            .into_iter()
+            .chain(self.fallback_path())
+            .collect()
+    }
+
     fn arguments(self) -> &'static str {
         match self {
             // The app minimizes itself when it sees this (backend/src/lib.rs).
             Shortcut::Startup => "--autostart",
             _ => "",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Shortcut::Desktop => "Desktop",
+            Shortcut::StartMenu => "Start Menu",
+            Shortcut::Startup => "Startup",
         }
     }
 }
@@ -96,15 +116,111 @@ fn with_com<T>(work: impl FnOnce() -> windows::core::Result<T>) -> Result<T, Str
     result
 }
 
-/// Writes (or rewrites) a shortcut to `exe`.
+/// The details Windows has saved for one shortcut.
+struct ShortcutDetails {
+    target: PathBuf,
+    working_directory: PathBuf,
+    description: String,
+    icon: PathBuf,
+    arguments: String,
+}
+
+fn text(buffer: &[u16]) -> String {
+    let length = buffer
+        .iter()
+        .position(|&unit| unit == 0)
+        .unwrap_or(buffer.len());
+    String::from_utf16_lossy(&buffer[..length])
+}
+
+fn path(buffer: &[u16]) -> PathBuf {
+    let length = buffer
+        .iter()
+        .position(|&unit| unit == 0)
+        .unwrap_or(buffer.len());
+    PathBuf::from(OsString::from_wide(&buffer[..length]))
+}
+
+fn icon_file(icon: &str) -> PathBuf {
+    let path = icon
+        .rsplit_once(',')
+        .filter(|(_, index)| index.trim().parse::<i32>().is_ok())
+        .map_or(icon, |(path, _)| path);
+    PathBuf::from(path)
+}
+
+fn managed_link(link: &ShortcutDetails, exe: &Path) -> bool {
+    same_file(&link.target, exe)
+        || (link.description.eq_ignore_ascii_case(product::NAME)
+            && exe
+                .parent()
+                .is_some_and(|folder| same_file(&link.working_directory, folder))
+            && same_file(&link.icon, exe))
+}
+
+fn valid_link(link: &ShortcutDetails, kind: Shortcut, exe: &Path) -> bool {
+    same_file(&link.target, exe) && link.arguments == kind.arguments()
+}
+
+fn details_at(link_path: &Path) -> Option<ShortcutDetails> {
+    use windows::Win32::System::Com::{
+        CLSCTX_INPROC_SERVER, CoCreateInstance, IPersistFile, STGM_READ,
+    };
+    use windows::Win32::UI::Shell::{IShellLinkW, SLGP_RAWPATH, ShellLink};
+    use windows::core::{HSTRING, Interface};
+
+    if !link_path.is_file() {
+        return None;
+    }
+    with_com(|| unsafe {
+        let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
+        link.cast::<IPersistFile>()?
+            .Load(&HSTRING::from(link_path.as_os_str()), STGM_READ)?;
+
+        let mut target = [0u16; 32_768];
+        let mut working_directory = [0u16; 32_768];
+        let mut description = [0u16; 1_024];
+        let mut icon = [0u16; 32_768];
+        let mut arguments = [0u16; 32_768];
+        let mut icon_index = 0;
+        link.GetPath(&mut target, std::ptr::null_mut(), SLGP_RAWPATH.0 as u32)?;
+        link.GetWorkingDirectory(&mut working_directory)?;
+        link.GetDescription(&mut description)?;
+        link.GetIconLocation(&mut icon, &mut icon_index)?;
+        link.GetArguments(&mut arguments)?;
+
+        Ok(ShortcutDetails {
+            target: path(&target),
+            working_directory: PathBuf::from(text(&working_directory)),
+            description: text(&description),
+            icon: icon_file(&text(&icon)),
+            arguments: text(&arguments),
+        })
+    })
+    .ok()
+}
+
+/// Writes (or rewrites) a shortcut and checks what Windows persisted.
 pub fn create_shortcut(kind: Shortcut, exe: &Path) -> Result<(), String> {
     use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, CoCreateInstance, IPersistFile};
     use windows::Win32::UI::Shell::{IShellLinkW, ShellLink};
     use windows::core::{HSTRING, Interface};
 
-    let link_path = kind
-        .path()
-        .ok_or("the shortcut folder could not be found")?;
+    let paths = kind.paths();
+    if paths.is_empty() {
+        return Err("the shortcut folder could not be found".into());
+    }
+    let link_path = paths
+        .into_iter()
+        .find(|path| {
+            !path.exists() || details_at(path).is_some_and(|link| managed_link(&link, exe))
+        })
+        .ok_or_else(|| {
+            format!(
+                "A different shortcut already uses the {} shortcut name. Rename it and try again.",
+                kind.label()
+            )
+        })?;
     if let Some(folder) = link_path.parent() {
         std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
     }
@@ -118,36 +234,39 @@ pub fn create_shortcut(kind: Shortcut, exe: &Path) -> Result<(), String> {
         link.SetDescription(&HSTRING::from(product::NAME))?;
         link.cast::<IPersistFile>()?
             .Save(&HSTRING::from(link_path.as_os_str()), true)
-    })
+    })?;
+
+    if !shortcut_is_valid(kind, exe) {
+        return Err(format!(
+            "Windows saved the {} shortcut without a working target. Try the install again.",
+            kind.label()
+        ));
+    }
+    Ok(())
 }
 
-/// Whether a shortcut exists and opens `exe` (so a same-named shortcut the
-/// user made for something else is never touched).
-pub fn shortcut_points_to(kind: Shortcut, exe: &Path) -> bool {
-    use windows::Win32::System::Com::{
-        CLSCTX_INPROC_SERVER, CoCreateInstance, IPersistFile, STGM_READ,
-    };
-    use windows::Win32::UI::Shell::{IShellLinkW, SLGP_RAWPATH, ShellLink};
-    use windows::core::{HSTRING, Interface};
-
-    let Some(link_path) = kind.path().filter(|path| path.is_file()) else {
-        return false;
-    };
-    let target = with_com(|| unsafe {
-        let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
-        link.cast::<IPersistFile>()?
-            .Load(&HSTRING::from(link_path.as_os_str()), STGM_READ)?;
-        let mut buffer = [0u16; 1024];
-        link.GetPath(&mut buffer, std::ptr::null_mut(), SLGP_RAWPATH.0 as u32)?;
-        let length = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
-        Ok(PathBuf::from(OsString::from_wide(&buffer[..length])))
-    });
-    target.is_ok_and(|target| same_file(&target, exe))
+/// Whether the shortcut opens `exe` with the arguments expected for its role.
+pub fn shortcut_is_valid(kind: Shortcut, exe: &Path) -> bool {
+    kind.paths()
+        .iter()
+        .filter_map(|path| details_at(path))
+        .any(|link| valid_link(&link, kind, exe))
 }
 
-pub fn remove_shortcut(kind: Shortcut) {
-    if let Some(path) = kind.path() {
-        let _ = std::fs::remove_file(path);
+/// Whether a shortcut is ours, including old broken links which still have
+/// our description, icon, and working directory but no target.
+pub fn shortcut_is_managed(kind: Shortcut, exe: &Path) -> bool {
+    kind.paths()
+        .iter()
+        .filter_map(|path| details_at(path))
+        .any(|link| managed_link(&link, exe))
+}
+
+pub fn remove_shortcut(kind: Shortcut, exe: &Path) {
+    for path in kind.paths() {
+        if details_at(&path).is_some_and(|link| managed_link(&link, exe)) {
+            let _ = std::fs::remove_file(path);
+        }
     }
 }
 
@@ -275,6 +394,77 @@ pub fn system32(program: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn link(
+        target: &str,
+        folder: &str,
+        description: &str,
+        icon: &str,
+        arguments: &str,
+    ) -> ShortcutDetails {
+        ShortcutDetails {
+            target: PathBuf::from(target),
+            working_directory: PathBuf::from(folder),
+            description: description.to_string(),
+            icon: icon_file(icon),
+            arguments: arguments.to_string(),
+        }
+    }
+
+    #[test]
+    fn recognizes_our_old_targetless_shortcut_for_repair() {
+        let exe = Path::new(
+            r"C:\Users\Thomas\AppData\Local\ThomasThanos\MakeYourLifeEasier\MakeYourLifeEasier.exe",
+        );
+        let folder = exe.parent().unwrap().to_string_lossy();
+        let broken = link(
+            "",
+            &folder,
+            product::NAME,
+            &format!("{},0", exe.display()),
+            "--autostart",
+        );
+        assert!(managed_link(&broken, exe));
+        assert!(!valid_link(&broken, Shortcut::Startup, exe));
+    }
+
+    #[test]
+    fn does_not_claim_a_different_shortcut_with_the_same_name() {
+        let exe = Path::new(
+            r"C:\Users\Thomas\AppData\Local\ThomasThanos\MakeYourLifeEasier\MakeYourLifeEasier.exe",
+        );
+        let other = link(
+            r"C:\Tools\Other.exe",
+            r"C:\Tools",
+            "Other app",
+            r"C:\Tools\Other.exe,0",
+            "",
+        );
+        assert!(!managed_link(&other, exe));
+    }
+
+    #[test]
+    fn validates_startup_arguments_and_strips_the_icon_index() {
+        let exe = Path::new(r"C:\Apps\MakeYourLifeEasier.exe");
+        let folder = exe.parent().unwrap().to_string_lossy();
+        let startup = link(
+            exe.to_str().unwrap(),
+            &folder,
+            product::NAME,
+            &format!("{},0", exe.display()),
+            "--autostart",
+        );
+        let start_menu = link(
+            exe.to_str().unwrap(),
+            &folder,
+            product::NAME,
+            &format!("{},0", exe.display()),
+            "",
+        );
+        assert!(valid_link(&startup, Shortcut::Startup, exe));
+        assert!(valid_link(&start_menu, Shortcut::StartMenu, exe));
+        assert_eq!(icon_file(r"C:\Apps\MakeYourLifeEasier.exe,0"), exe);
+    }
 
     #[test]
     fn paths_compare_like_windows_does() {

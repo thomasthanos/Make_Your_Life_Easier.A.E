@@ -366,7 +366,7 @@ fn apply_shortcuts(exe: &Path, options: &InstallOptions) -> Result<(), String> {
             Shortcut::StartMenu => options.start_menu,
             Shortcut::Startup => options.startup,
         };
-        let ours = shell::shortcut_points_to(kind, exe);
+        let ours = shell::shortcut_is_managed(kind, exe);
         if options.keep_shortcuts {
             // Refresh what the user kept (its icon may have changed).
             if ours {
@@ -375,7 +375,7 @@ fn apply_shortcuts(exe: &Path, options: &InstallOptions) -> Result<(), String> {
         } else if wanted {
             shell::create_shortcut(kind, exe)?;
         } else if ours {
-            shell::remove_shortcut(kind);
+            shell::remove_shortcut(kind, exe);
         }
     }
     Ok(())
@@ -384,7 +384,7 @@ fn apply_shortcuts(exe: &Path, options: &InstallOptions) -> Result<(), String> {
 /// Which shortcuts an existing install has, for the setup's defaults.
 pub fn existing_shortcuts(dir: &Path) -> [bool; 3] {
     let exe = dir.join(product::exe_name());
-    Shortcut::ALL.map(|kind| shell::shortcut_points_to(kind, &exe))
+    Shortcut::ALL.map(|kind| shell::shortcut_is_managed(kind, &exe))
 }
 
 /// The app's own data, removed only when asked: settings, the signed-in
@@ -438,8 +438,8 @@ pub fn uninstall(
     });
     let exe = dir.join(product::exe_name());
     for kind in Shortcut::ALL {
-        if shell::shortcut_points_to(kind, &exe) {
-            shell::remove_shortcut(kind);
+        if shell::shortcut_is_managed(kind, &exe) {
+            shell::remove_shortcut(kind, &exe);
         }
     }
 

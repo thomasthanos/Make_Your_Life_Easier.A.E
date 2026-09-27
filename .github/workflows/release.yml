@@ -1,7 +1,7 @@
 # Builds, signs and publishes a release of the Windows app.
 #
 # Release: bump "version" in package.json and backend/Cargo.toml, commit,
-# then push a matching tag:   git tag v7.0.1 && git push origin main v7.0.1
+# then push a matching tag:   git tag v7.0.2 && git push origin main v7.0.2
 #
 # Where updates come from (backend/src/updater.rs):
 #   1. latest.json on Cloudflare R2 (downloads.thomast.uk), uploaded here
