@@ -186,8 +186,14 @@ jobs:
           # GitHub's generated list of changes otherwise.
           $notes = "docs/release-notes/${env:VERSION}.md"
           $body = if (Test-Path $notes) { @("--notes-file", $notes) } else { @("--generate-notes") }
-          gh release create "${{ github.ref_name }}" (Get-ChildItem out).FullName `
-            --title "Make Your Life Easier ${{ github.ref_name }}" `
-            @body `
-            --latest
+          $files = (Get-ChildItem out).FullName
+          gh release view "${{ github.ref_name }}" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload "${{ github.ref_name }}" $files --clobber
+          } else {
+            gh release create "${{ github.ref_name }}" $files `
+              --title "Make Your Life Easier ${{ github.ref_name }}" `
+              @body `
+              --latest
+          }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

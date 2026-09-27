@@ -1,6 +1,6 @@
 [package]
 name = "make-your-life-easier"
-version = "8.0.0"
+version = "8.0.1"
 description = "Make Your Life Easier"
 authors = ["ThomasThanos"]
 edition = "2024"

@@ -101,6 +101,7 @@ try {
   New-Item -ItemType Directory -Force $out | Out-Null
   $setup = Join-Path $out "$binary.exe"
   Copy-Item (Join-Path $release "setup.exe") $setup -Force
+  Remove-Item (Join-Path $release "setup.exe"), (Join-Path $release "uninstall.exe"), (Join-Path $release "myle-pack.exe"), (Join-Path $release "myle_pack.exe") -Force -ErrorAction SilentlyContinue
   Set-Signature $setup
   $size = [math]::Round((Get-Item $setup).Length / 1MB, 1)
   Write-Host "==> Done: $setup ($size MB)"
