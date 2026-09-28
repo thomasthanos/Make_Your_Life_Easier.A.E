@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="Make Your Life Easier: apps, game saves, cleanup and Windows tools in one place" width="100%" />
+  <picture>
+    <source media="(max-width: 600px)" srcset="docs/assets/hero-mobile.svg" />
+    <img src="docs/assets/hero.svg" alt="Make Your Life Easier: apps, game saves, cleanup and Windows tools in one place" width="100%" />
+  </picture>
 </p>
 
 <p align="center">
@@ -13,9 +16,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest"><img src="docs/assets/link-releases.svg" alt="Latest releases and changelog" width="255" /></a>
-  <a href="docs/DEVELOPMENT.md"><img src="docs/assets/link-development.svg" alt="Development guide" width="255" /></a>
-  <a href="LICENSE"><img src="docs/assets/link-license.svg" alt="License and terms" width="255" /></a>
+  <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest"><img src="docs/assets/link-releases.svg" alt="Latest releases and changelog" width="90" /></a>
+  <a href="docs/DEVELOPMENT.md"><img src="docs/assets/link-development.svg" alt="Development guide" width="90" /></a>
+  <a href="LICENSE"><img src="docs/assets/link-license.svg" alt="License and terms" width="90" /></a>
 </p>
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />
@@ -52,13 +55,13 @@ npm run build    # installer → backend/target/release/bundle/setup/MakeYourLif
 
 You'll need Node.js 20+, Rust (MSVC), and the Visual Studio Build Tools. The development guide covers the structure, pages, updater and setup.
 
-<p><a href="docs/DEVELOPMENT.md"><img src="docs/assets/link-development.svg" alt="Read the development guide" width="255" /></a></p>
+<p><a href="docs/DEVELOPMENT.md"><img src="docs/assets/link-development.svg" alt="Read the development guide" width="90" /></a></p>
 
 ## License
 
 A proprietary project by **ThomasThanos**. You're free to use the official, unmodified builds for personal use. Copying, modifying, or redistributing the code needs written permission.
 
-<p><a href="LICENSE"><img src="docs/assets/link-license.svg" alt="Read the full license terms" width="255" /></a></p>
+<p><a href="LICENSE"><img src="docs/assets/link-license.svg" alt="Read the full license terms" width="90" /></a></p>
 
 <br />
 
