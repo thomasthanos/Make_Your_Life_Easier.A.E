@@ -64,7 +64,6 @@
       <stop offset=".45" stop-color="#c9c3ff" />
       <stop offset=".75" stop-color="#8fe6f6" />
       <stop offset="1" stop-color="#f5f6ff" />
-      <animateTransform attributeName="gradientTransform" type="translate" values="0 0; 480 0" dur="7s" repeatCount="indefinite" />
     </linearGradient>
     <linearGradient id="frame" x1="0" y1="0" x2="0" y2="1">
       <stop stop-color="#aab4ff" stop-opacity=".32" />
@@ -167,7 +166,7 @@
     </g>
 
     <!-- The icon: 896px tile scaled to 170px, centred on x=600 -->
-    <g transform="translate(502.7 36) scale(.19)" filter="url(#shadow)">
+    <g transform="translate(502.7 36) scale(.19)">
       <rect x="64" y="64" width="896" height="896" rx="220" fill="url(#i-bg)" />
       <g clip-path="url(#i-tile)">
         <rect x="64" y="64" width="896" height="896" fill="url(#i-spill)" />
@@ -211,7 +210,7 @@
     </g>
 
     <g font-family="'Segoe UI Variable Display', 'Segoe UI', Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif" text-anchor="middle">
-      <text class="rise" x="600" y="296" font-size="58" font-weight="800" letter-spacing="-1.2" fill="url(#title)">Make Your Life Easier<tspan fill="#5ad8ee">.</tspan></text>
+      <text x="600" y="296" font-size="58" font-weight="800" letter-spacing="-1.2" fill="#f5f6ff" text-rendering="geometricPrecision">Make Your Life Easier<tspan fill="#5ad8ee">.</tspan></text>
       <text class="rise" x="600" y="336" font-size="19" fill="#aab3d4" style="animation-delay:.15s">Apps, game saves, cleanup and Windows tools — all in one quiet place.</text>
     </g>
 

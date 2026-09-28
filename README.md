@@ -13,7 +13,9 @@
 </p>
 
 <p align="center">
-  <sub><a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest">All releases</a> &nbsp;·&nbsp; <a href="docs/DEVELOPMENT.md">For developers</a> &nbsp;·&nbsp; <a href="LICENSE">License</a></sub>
+  <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest"><img src="docs/assets/link-releases.svg" alt="Latest releases and changelog" width="90" /></a>
+  <a href="docs/DEVELOPMENT.md"><img src="docs/assets/link-development.svg" alt="Development guide" width="90" /></a>
+  <a href="LICENSE"><img src="docs/assets/link-license.svg" alt="License and terms" width="90" /></a>
 </p>
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />
@@ -48,15 +50,18 @@ npm run dev      # the app with hot reload
 npm run build    # installer → backend/target/release/bundle/setup/MakeYourLifeEasier.exe
 ```
 
-You'll need Node.js 20+, Rust (MSVC), and the Visual Studio Build Tools. Structure, pages, updater and setup: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+You'll need Node.js 20+, Rust (MSVC), and the Visual Studio Build Tools. The development guide covers the structure, pages, updater and setup.
+
+<p><a href="docs/DEVELOPMENT.md"><img src="docs/assets/link-development.svg" alt="Read the development guide" width="90" /></a></p>
 
 ## License
 
-A proprietary project by **ThomasThanos**. You're free to use the official, unmodified builds for personal use. Copying, modifying, or redistributing the code needs written permission. Full terms in [LICENSE](LICENSE).
+A proprietary project by **ThomasThanos**. You're free to use the official, unmodified builds for personal use. Copying, modifying, or redistributing the code needs written permission.
+
+<p><a href="LICENSE"><img src="docs/assets/link-license.svg" alt="Read the full license terms" width="90" /></a></p>
 
 <br />
 
 <p align="center">
-  <img src="backend/icons/app-icon.svg" alt="" width="56" /><br />
-  <sub>Made with ☕ by <a href="https://github.com/thomasthanos">ThomasThanos</a></sub>
+  <a href="https://github.com/thomasthanos"><img src="docs/assets/footer.svg" alt="Made to make the little things easier. Built with care and coffee by ThomasThanos. Visit the GitHub profile." width="100%" /></a>
 </p>
