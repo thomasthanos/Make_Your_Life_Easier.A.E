@@ -825,9 +825,15 @@ mod tests {
             };
             assert!(matches!(session.ask(&unknown).await.unwrap(), Response::Error(_)));
 
-            // Closing the pipe (the app exiting) ends the helper.
+            // Closing the pipe (the app exiting) ends the helper. The runtime
+            // has to keep running meanwhile: it finishes closing the pipe.
             drop(session);
-            assert!(helper.join().unwrap().is_ok());
+            let ended = tokio::task::spawn_blocking(move || helper.join().unwrap());
+            let ended = tokio::time::timeout(Duration::from_secs(20), ended)
+                .await
+                .expect("the helper did not end when the pipe closed")
+                .unwrap();
+            assert!(ended.is_ok());
         });
     }
 

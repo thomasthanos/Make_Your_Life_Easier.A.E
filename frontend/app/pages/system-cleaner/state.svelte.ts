@@ -187,8 +187,12 @@ class CleanerState {
     // otherwise they are skipped here without asking again.
     const adminIds = chosen.filter((c) => c.mayNeedAdmin).map((c) => c.id);
     const withAdmin = this.adminGranted === true && adminIds.length > 0;
+    // The helper approved during the scan is still running: no second prompt.
+    const adminReady = withAdmin && (await cleanerApi.adminReady().catch(() => false));
     const adminLine = withAdmin
-      ? "\n\nWindows will ask for administrator approval once more to empty the system folders."
+      ? adminReady
+        ? "\n\nThe system folders are emptied with the administrator approval from the scan."
+        : "\n\nWindows will ask for administrator approval again to empty the system folders."
       : adminIds.length
         ? "\n\nSystem folders are skipped: administrator approval was not given during the scan."
         : "";
@@ -233,6 +237,11 @@ class CleanerState {
         }
       }
 
+      // What is really left, measured again, rather than the scan minus
+      // what was freed: files still in use show as what they are.
+      this.progress = { done: ids.length, total: ids.length, current: "Checking what is left" };
+      await this.#remeasure(ids, withAdmin && adminNote === null);
+
       for (const id of ids) {
         this.cleaned.add(id);
         this.selected.delete(id);
@@ -267,6 +276,27 @@ class CleanerState {
       files: Math.max(0, before.files - files),
       locked: before.locked,
     };
+  }
+
+  /** Measures `ids` again after a clean. The system folders only through the
+   *  helper that is still running, so this never asks for approval. Keeps the
+   *  estimate when a measurement fails. */
+  async #remeasure(ids: string[], admin: boolean) {
+    const wanted = new Set(ids);
+    const next: Record<string, Measured> = {};
+    try {
+      await cleanerApi.scan((e) => {
+        if (wanted.has(e.data.id)) next[e.data.id] = { bytes: e.data.bytes, files: e.data.files, locked: e.data.locked };
+      });
+      if (admin && (await cleanerApi.adminReady())) {
+        await cleanerApi.scanElevated((e) => {
+          if (wanted.has(e.data.id)) next[e.data.id] = { bytes: e.data.bytes, files: e.data.files, locked: false };
+        });
+      }
+    } catch {
+      return;
+    }
+    for (const [id, measured] of Object.entries(next)) this.sizes[id] = measured;
   }
 
   #persistSelection() {

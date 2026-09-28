@@ -61,7 +61,7 @@
         {#if partly}
           <TriangleAlert size={11} />
           {outcome?.freed ? `Freed ${formatSize(outcome.freed)} · ` : ""}the rest is in use{locked ||
-          category.mayNeedAdmin
+          (category.mayNeedAdmin && !cleanerState.adminGranted)
             ? " or needs administrator"
             : ""}{outcome?.skipped ? ` (${outcome.skipped.toLocaleString()} files)` : ""}
         {:else if done}

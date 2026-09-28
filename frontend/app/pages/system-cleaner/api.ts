@@ -42,6 +42,8 @@ function channel<T>(onEvent: (e: T) => void): Channel<T> {
 export const cleanerApi = {
   categories: () => invoke<CleanerCategory[]>("cleaner_categories"),
   scan: (onEvent: (e: ScanEvent) => void) => invoke<ScanSummary>("cleaner_scan", { onEvent: channel(onEvent) }),
+  /** The administrator helper approved during a scan is still running. */
+  adminReady: () => invoke<boolean>("cleaner_admin_ready"),
   scanElevated: (onEvent: (e: ScanEvent) => void) =>
     invoke<ScanSummary>("cleaner_scan_elevated", { onEvent: channel(onEvent) }),
   clean: (ids: string[], onEvent: (e: CleanEvent) => void) =>
