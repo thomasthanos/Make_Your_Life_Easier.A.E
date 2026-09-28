@@ -43,7 +43,7 @@
     <path d="M72 62h23" stroke="#9d94ff" stroke-width="3" stroke-linecap="round"/>
     <text x="110" y="68" font-size="14" font-weight="700" letter-spacing="3" fill="#a9b5dc">YOUR WINDOWS TOOLKIT</text>
     <text x="70" y="160" font-size="68" font-weight="800" letter-spacing="-2.8" fill="#f5f6ff">Make Your</text>
-    <text x="70" y="231" font-size="68" font-weight="800" letter-spacing="-2.8" fill="url(#accent)">Life Easier<tspan fill="#62d9ed">.</tspan></text>
+    <text x="70" y="231" font-size="68" font-weight="800" letter-spacing="-2.8" fill="#f5f6ff">Life Easier<tspan fill="#62d9ed">.</tspan></text>
     <text x="73" y="277" font-size="19" fill="#bac5e4">Apps, game saves, cleanup and Windows tools.</text>
     <text x="73" y="305" font-size="19" fill="#bac5e4">Everything in one quiet place.</text>
     <g font-size="13" font-weight="700" letter-spacing="1.1">
