@@ -13,7 +13,7 @@ use tauri::{Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 use crate::cleanup::AfterExit;
 use crate::cli::Cli;
-use crate::engine::{self, InstallOptions, Progress};
+use crate::engine::{self, InstallOptions, Progress, ShortcutChoice, ShortcutMode};
 use crate::{payload, processes, product, registry, shell};
 
 pub enum Mode {
@@ -38,12 +38,40 @@ struct Installed {
     dir: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Shortcuts {
     desktop: bool,
     start_menu: bool,
     startup: bool,
+    /// Started by Windows at sign-in: minimized to the taskbar, or on screen.
+    #[serde(default = "minimized_by_default")]
+    start_minimized: bool,
+}
+
+fn minimized_by_default() -> bool {
+    true
+}
+
+impl From<ShortcutChoice> for Shortcuts {
+    fn from(choice: ShortcutChoice) -> Self {
+        Self {
+            desktop: choice.desktop,
+            start_menu: choice.start_menu,
+            startup: choice.startup,
+            start_minimized: registry::start_minimized(),
+        }
+    }
+}
+
+impl From<Shortcuts> for ShortcutChoice {
+    fn from(shortcuts: Shortcuts) -> Self {
+        Self {
+            desktop: shortcuts.desktop,
+            start_menu: shortcuts.start_menu,
+            startup: shortcuts.startup,
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -75,12 +103,9 @@ fn setup_state(context: State<'_, Context>) -> SetupState {
         Mode::Install { payload: bytes } => {
             let header = payload::open(bytes).ok().map(|(header, _)| header);
             let dir = install_dir(&context);
-            // A fresh install offers every shortcut, as the old setup made
-            // them all; a reinstall starts from what the user kept.
-            let [desktop, start_menu, startup] = match &existing {
-                Some(dir) => engine::existing_shortcuts(dir),
-                None => [true; 3],
-            };
+            // The user's last choices; a fresh install offers the Desktop and
+            // Start menu shortcuts, and leaves starting with Windows off.
+            let shortcuts = engine::default_shortcuts(existing.as_deref()).into();
             SetupState {
                 mode: "install",
                 product: product::NAME,
@@ -90,11 +115,7 @@ fn setup_state(context: State<'_, Context>) -> SetupState {
                 installed,
                 dir: dir.display().to_string(),
                 size: header.as_ref().map_or(0, payload::Header::total_size),
-                shortcuts: Shortcuts {
-                    desktop,
-                    start_menu,
-                    startup,
-                },
+                shortcuts,
                 passive: context.cli.passive,
                 ready: header.is_some(),
             }
@@ -106,11 +127,7 @@ fn setup_state(context: State<'_, Context>) -> SetupState {
             installed,
             dir: dir.display().to_string(),
             size: folder_size(dir),
-            shortcuts: Shortcuts {
-                desktop: false,
-                start_menu: false,
-                startup: false,
-            },
+            shortcuts: ShortcutChoice::from_array([false; 3]).into(),
             passive: context.cli.passive,
             ready: true,
         },
@@ -180,20 +197,21 @@ fn install_dir(context: &Context) -> PathBuf {
         .unwrap_or_else(engine::default_dir)
 }
 
-#[derive(Deserialize)]
+/// What the window shows once the install is done.
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct InstallRequest {
-    desktop: bool,
-    start_menu: bool,
-    startup: bool,
+struct InstallDone {
+    dir: String,
+    /// Shortcuts that could not be created; the app itself is installed.
+    warnings: Vec<String>,
 }
 
 #[tauri::command]
 async fn setup_install(
     context: State<'_, Context>,
-    request: InstallRequest,
+    request: Shortcuts,
     on_event: Channel<Progress>,
-) -> Result<String, String> {
+) -> Result<InstallDone, String> {
     let Mode::Install { payload: bytes } = context.mode else {
         return Err("This is the uninstaller.".into());
     };
@@ -204,15 +222,13 @@ async fn setup_install(
     } else {
         Duration::ZERO
     };
+    let start_minimized = request.start_minimized;
     let options = InstallOptions {
         dir: install_dir(&context),
-        desktop: request.desktop,
-        start_menu: request.start_menu,
-        startup: request.startup,
-        keep_shortcuts: false,
+        shortcuts: ShortcutMode::Choose(request.into()),
         live: false,
     };
-    let exe = tauri::async_runtime::spawn_blocking(move || {
+    let installed = tauri::async_runtime::spawn_blocking(move || {
         let mut report = |event: Progress| {
             let _ = on_event.send(event);
         };
@@ -224,15 +240,20 @@ async fn setup_install(
     })
     .await
     .map_err(|e| e.to_string())??;
-    let shown = exe
+    registry::set_start_minimized(start_minimized);
+    let dir = installed
+        .exe
         .parent()
         .map(|dir| dir.display().to_string())
         .unwrap_or_default();
     *context
         .installed_exe
         .lock()
-        .unwrap_or_else(|p| p.into_inner()) = Some(exe);
-    Ok(shown)
+        .unwrap_or_else(|p| p.into_inner()) = Some(installed.exe);
+    Ok(InstallDone {
+        dir,
+        warnings: installed.warnings,
+    })
 }
 
 #[derive(Deserialize)]

@@ -93,19 +93,24 @@ fn silent_install(payload: &'static [u8], cli: &Cli) -> i32 {
     if !cli.update && !webview2::installed() && webview2::install(true).is_err() {
         return FAILED;
     }
-    let fresh = !cli.no_shortcuts && !cli.update;
+    let shortcuts = if cli.no_shortcuts {
+        engine::ShortcutMode::RefreshOnly
+    } else if cli.update {
+        engine::ShortcutMode::Keep
+    } else {
+        engine::ShortcutMode::Choose(engine::ShortcutChoice::NEW_INSTALL)
+    };
     let options = engine::InstallOptions {
         dir,
-        desktop: fresh,
-        start_menu: fresh,
-        startup: fresh,
-        keep_shortcuts: cli.update || cli.no_shortcuts,
+        shortcuts,
         live,
     };
+    // A shortcut Windows refused does not fail a silent install: the app is
+    // in place, and the updater could do nothing about it anyway.
     match engine::install(payload, &options, &mut |_| {}) {
-        Ok(exe) => {
+        Ok(installed) => {
             if cli.relaunch && !live {
-                let _ = shell::launch(&exe);
+                let _ = shell::launch(&installed.exe);
             }
             0
         }

@@ -4,6 +4,7 @@
   import { fade, fly, scale } from "svelte/transition";
   import { isTauri } from "@tauri-apps/api/core";
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import ArrowLeftRight from "@lucide/svelte/icons/arrow-left-right";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import Monitor from "@lucide/svelte/icons/monitor";
@@ -57,12 +58,15 @@
   let dir = $state("");
   let desktop = $state(true);
   let startMenu = $state(true);
-  let startup = $state(true);
+  let startup = $state(false);
+  let startMinimized = $state(true);
   let launchAfter = $state(true);
   let removeData = $state(false);
 
   let folderError = $state<string | null>(null);
   let launchError = $state<string | null>(null);
+  /** Shortcuts that could not be made; the install itself worked. */
+  let shortcutWarnings = $state<string[]>([]);
   let finishing = $state(false);
   /** Programs to close before going on; set, it shows the question. */
   let running = $state<string[] | null>(null);
@@ -209,6 +213,7 @@
     desktop = state.shortcuts.desktop;
     startMenu = state.shortcuts.startMenu;
     startup = state.shortcuts.startup;
+    startMinimized = state.shortcuts.startMinimized;
     if (!state.ready) {
       screen = "unavailable";
       return;
@@ -244,6 +249,7 @@
     if (!api || !info) return;
     running = null;
     launchError = null;
+    shortcutWarnings = [];
     screen = "working";
     stage = "closingApp";
     files = { done: 0, total: 0, file: "" };
@@ -254,7 +260,11 @@
     };
     try {
       if (uninstalling) await api.uninstall(removeData, onEvent);
-      else installedDir = await api.install({ desktop, startMenu, startup }, onEvent);
+      else {
+        const done = await api.install({ desktop, startMenu, startup, startMinimized }, onEvent);
+        installedDir = done.dir;
+        shortcutWarnings = done.warnings;
+      }
       screen = "done";
       if (info.passive) void finishPassive();
       else if (!uninstalling && launchAfter) void finish();
@@ -405,7 +415,21 @@
               <div class="toggles">
                 <Toggle bind:checked={desktop} icon={Monitor} label="Desktop shortcut" />
                 <Toggle bind:checked={startMenu} icon={LayoutGrid} label="Start menu" />
-                <Toggle bind:checked={startup} icon={Power} label="Start with Windows" hint="Minimized at sign-in" />
+                <Toggle bind:checked={startup} icon={Power} label="Start with Windows">
+                  {#snippet extra()}
+                    <button
+                      type="button"
+                      class="start-mode"
+                      disabled={!startup}
+                      title={`At sign-in the app opens ${startMinimized ? "minimized in the taskbar" : "on screen"}. Click to switch.`}
+                      aria-label={`At sign-in: ${startMinimized ? "minimized" : "on screen"}. Click to switch.`}
+                      onclick={() => (startMinimized = !startMinimized)}
+                    >
+                      <ArrowLeftRight size={10} strokeWidth={2.2} />
+                      {startMinimized ? "Minimized" : "On screen"}
+                    </button>
+                  {/snippet}
+                </Toggle>
                 <Toggle bind:checked={launchAfter} icon={Rocket} label="Open when finished" />
               </div>
             {/if}
@@ -442,6 +466,13 @@
                   <span class="path selectable" title={installedDir}>{installedDir}</span>
                 {/if}
               </p>
+              {#if shortcutWarnings.length}
+                <div class="launch-error" role="status">
+                  <strong>Installed, but some shortcuts are missing.</strong>
+                  {#each shortcutWarnings as warning (warning)}<span>{warning}</span>{/each}
+                  <span>Run the setup again to retry them.</span>
+                </div>
+              {/if}
               {#if launchError}
                 <div class="launch-error" role="alert">
                   <strong>Installed successfully, but the app did not open.</strong>
@@ -669,6 +700,37 @@
   .toggles :global(.toggle .label) {
     color: var(--text-1);
     font-size: 12px;
+  }
+
+  /* "Minimized / On screen at sign-in", under "Start with Windows". */
+  .start-mode {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    justify-self: start;
+    margin-top: 2px;
+    padding: 1px 7px 1px 6px;
+    border: 1px solid rgb(var(--accent-rgb) / 0.22);
+    border-radius: 999px;
+    background: rgb(var(--accent-rgb) / 0.1);
+    color: #c9cffa;
+    font-size: 10.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition:
+      background var(--dur-fast),
+      border-color var(--dur-fast);
+  }
+
+  .start-mode:hover {
+    border-color: rgb(var(--accent-rgb) / 0.4);
+    background: rgb(var(--accent-rgb) / 0.18);
+  }
+
+  .start-mode:disabled {
+    border-color: rgb(255 255 255 / 0.06);
+    background: none;
+    color: var(--text-3);
   }
 
   .card {

@@ -80,6 +80,12 @@ try {
   }
   if (Test-Path -LiteralPath $dir) { Remove-Item -LiteralPath $dir -Recurse -Force }
 
+  # A dead Start menu link under our name, as an earlier install leaves
+  # behind: the setup must take the name over, not add a second entry.
+  $dead = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcutPaths.StartMenu)
+  $dead.TargetPath = Join-Path $dir "gone\$binary.exe"
+  $dead.Save()
+
 # Install
 Assert ((Invoke-Silently $Setup @("/S", "/D=$dir")) -eq 0) "silent install exits 0"
 foreach ($file in @("$binary.exe", "uninstall.exe", "install.json")) {
@@ -94,8 +100,8 @@ Assert ($entry.UninstallString -like "*uninstall.exe*") "Installed apps knows th
 Assert ($entry.QuietUninstallString -like "*/S") "Installed apps has a quiet uninstall"
 $shell = New-Object -ComObject WScript.Shell
 $expectedExe = Join-Path $dir "$binary.exe"
-function Assert-Shortcuts([string]$ExpectedTarget) {
-  foreach ($name in $shortcutPaths.Keys) {
+function Assert-Shortcuts([string]$ExpectedTarget, [string[]]$Names) {
+  foreach ($name in $Names) {
     $path = $shortcutPaths[$name]
     Assert (Test-Path -LiteralPath $path) "$name shortcut created"
     $link = $shell.CreateShortcut($path)
@@ -104,7 +110,27 @@ function Assert-Shortcuts([string]$ExpectedTarget) {
     Assert ($link.Arguments -eq $expectedArguments) "$name shortcut has the expected arguments"
   }
 }
-Assert-Shortcuts $expectedExe
+# A new install: Desktop and Start menu; starting with Windows is opt-in.
+Assert-Shortcuts $expectedExe @("Desktop", "StartMenu")
+Assert (-not (Test-Path -LiteralPath $shortcutPaths.Startup)) "no Startup shortcut unless chosen"
+$startMenuFallback = Join-Path ([Environment]::GetFolderPath("Programs")) "$($config.productName) - $publisher.lnk"
+Assert (-not (Test-Path -LiteralPath $startMenuFallback)) "no second Start menu entry beside the replaced dead link"
+$choices = Get-ItemProperty -LiteralPath $productKey
+foreach ($name in @("DesktopShortcut", "StartMenuShortcut")) {
+  Assert ($choices.$name -eq 2) "shortcut $name remembered as wanted and made"
+}
+Assert ($choices.StartupShortcut -eq 0) "starting with Windows remembered as off"
+
+# The user switches "Start with Windows" on in Settings, which writes the
+# same shortcut the setup does and records it as made (backend/src/startup.rs).
+$link = $shell.CreateShortcut($shortcutPaths.Startup)
+$link.TargetPath = $expectedExe
+$link.Arguments = "--autostart"
+$link.WorkingDirectory = $dir
+$link.IconLocation = "$expectedExe,0"
+$link.Description = $config.productName
+$link.Save()
+Set-ItemProperty -LiteralPath $productKey -Name StartupShortcut -Value 2 -Type DWord
 
 # Simulate old links which retain our icon and working folder but have lost
 # their executable target.
@@ -113,11 +139,16 @@ foreach ($name in @("StartMenu", "Startup")) {
   $link.TargetPath = ""
   $link.Save()
 }
+# And the user deletes the Desktop shortcut the setup made: the update must
+# respect that and remember it, not bring it back.
+Remove-Item -LiteralPath $shortcutPaths.Desktop
 
 # Update over it, as the in-app updater does (without relaunching)
 Assert ((Invoke-Silently $Setup @("/S", "/UPDATE")) -eq 0) "silent update exits 0"
 Assert (-not (Get-ChildItem $dir -Recurse -Filter "*.myle-*")) "no leftovers from the update"
-Assert-Shortcuts $expectedExe
+Assert-Shortcuts $expectedExe @("StartMenu", "Startup")
+Assert (-not (Test-Path -LiteralPath $shortcutPaths.Desktop)) "the Desktop shortcut the user deleted stays deleted"
+Assert ((Get-ItemProperty -LiteralPath $productKey).DesktopShortcut -eq 0) "the deletion is remembered as unticked"
 
 # Uninstall
 Assert ((Invoke-Silently (Join-Path $dir "uninstall.exe") @("/S")) -eq 0) "silent uninstall exits 0"

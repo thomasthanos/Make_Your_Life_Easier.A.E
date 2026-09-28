@@ -80,13 +80,6 @@ impl Shortcut {
         Some(primary.with_file_name(format!("{} - {}.lnk", product::NAME, product::PUBLISHER)))
     }
 
-    fn paths(self) -> Vec<PathBuf> {
-        self.path()
-            .into_iter()
-            .chain(self.fallback_path())
-            .collect()
-    }
-
     fn arguments(self) -> &'static str {
         match self {
             // The app minimizes itself when it sees this (backend/src/lib.rs).
@@ -162,6 +155,20 @@ fn valid_link(link: &ShortcutDetails, kind: Shortcut, exe: &Path) -> bool {
     same_file(&link.target, exe) && link.arguments == kind.arguments()
 }
 
+/// A shortcut with our name that is not ours but may be taken over: one an
+/// earlier install of the app left elsewhere (same program name), or a dead
+/// link whose program is gone. Without this a new install put its shortcut
+/// under the fallback name, next to the old one, which the Start menu then
+/// listed (or hid, when dead) instead of ours.
+fn replaceable_link(link: &ShortcutDetails, exe: &Path) -> bool {
+    let same_program = match (link.target.file_name(), exe.file_name()) {
+        (Some(target), Some(ours)) => target.eq_ignore_ascii_case(ours),
+        _ => false,
+    };
+    let dead = link.target.as_os_str().is_empty() || !link.target.is_file();
+    same_program || dead
+}
+
 fn details_at(link_path: &Path) -> Option<ShortcutDetails> {
     use windows::Win32::System::Com::{
         CLSCTX_INPROC_SERVER, CoCreateInstance, IPersistFile, STGM_READ,
@@ -202,32 +209,53 @@ fn details_at(link_path: &Path) -> Option<ShortcutDetails> {
     .ok()
 }
 
-/// Writes (or rewrites) a shortcut and checks what Windows persisted.
-pub fn create_shortcut(kind: Shortcut, exe: &Path) -> Result<(), String> {
-    use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, CoCreateInstance, IPersistFile};
-    use windows::Win32::UI::Shell::{IShellLinkW, ShellLink};
-    use windows::core::{HSTRING, Interface};
-
-    let paths = kind.paths();
-    if paths.is_empty() {
-        return Err("the shortcut folder could not be found".into());
+/// Where a new shortcut of this kind goes: the usual name when it is free,
+/// ours, or replaceable; else the fallback name when that is free or ours.
+fn link_path_for(kind: Shortcut, exe: &Path) -> Result<PathBuf, String> {
+    let main = kind
+        .path()
+        .ok_or("the shortcut folder could not be found")?;
+    let main_usable = match details_patiently(&main) {
+        Some(link) => managed_link(&link, exe) || replaceable_link(&link, exe),
+        // Not a shortcut Windows can read: only usable if nothing is there.
+        None => !main.exists(),
+    };
+    if main_usable {
+        return Ok(main);
     }
-    // Ours first, wherever it is: rewriting the fallback name when the main
-    // one has since become free would leave two shortcuts.
-    let link_path = paths
-        .iter()
-        .find(|path| details_at(path).is_some_and(|link| managed_link(&link, exe)))
-        .or_else(|| paths.iter().find(|path| !path.exists()))
-        .cloned()
+    kind.fallback_path()
+        .filter(|fallback| {
+            details_patiently(fallback).map_or(!fallback.exists(), |link| managed_link(&link, exe))
+        })
         .ok_or_else(|| {
             format!(
                 "A different shortcut already uses the {} shortcut name. Rename it and try again.",
                 kind.label()
             )
-        })?;
-    if let Some(folder) = link_path.parent() {
-        std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
+        })
+}
+
+/// A shortcut that is there but could not be read yet (the shell or a
+/// scanner has it open) is read again before it counts as someone else's.
+fn details_patiently(link_path: &Path) -> Option<ShortcutDetails> {
+    for attempt in 0..SHORTCUT_ATTEMPTS {
+        if !link_path.is_file() {
+            return None;
+        }
+        if let Some(details) = details_at(link_path) {
+            return Some(details);
+        }
+        std::thread::sleep(SHORTCUT_RETRY_WAIT * (attempt as u32 + 1));
     }
+    None
+}
+
+/// One `IShellLinkW` write.
+fn write_link(kind: Shortcut, exe: &Path, link_path: &Path) -> Result<(), String> {
+    use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, CoCreateInstance, IPersistFile};
+    use windows::Win32::UI::Shell::{IShellLinkW, ShellLink};
+    use windows::core::{HSTRING, Interface};
+
     let folder = exe.parent().unwrap_or(exe);
     with_com(|| unsafe {
         let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
@@ -238,39 +266,75 @@ pub fn create_shortcut(kind: Shortcut, exe: &Path) -> Result<(), String> {
         link.SetDescription(&HSTRING::from(product::NAME))?;
         link.cast::<IPersistFile>()?
             .Save(&HSTRING::from(link_path.as_os_str()), true)
-    })?;
+    })
+}
 
-    if !shortcut_is_valid(kind, exe) {
-        return Err(format!(
-            "Windows saved the {} shortcut without a working target. Try the install again.",
-            kind.label()
-        ));
+/// Tries per shortcut. The Start menu, the Startup folder and virus scanners
+/// all open a new `.lnk` the moment it appears, which can make the save or
+/// the read-back fail for a short while.
+const SHORTCUT_ATTEMPTS: u64 = 4;
+const SHORTCUT_RETRY_WAIT: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// Writes (or rewrites) a shortcut and checks what Windows persisted.
+pub fn create_shortcut(kind: Shortcut, exe: &Path) -> Result<(), String> {
+    let link_path = link_path_for(kind, exe)?;
+    if let Some(folder) = link_path.parent() {
+        std::fs::create_dir_all(folder)
+            .map_err(|e| format!("The {} folder could not be created: {e}", kind.label()))?;
     }
-    Ok(())
+
+    let mut last_error = String::new();
+    for attempt in 0..SHORTCUT_ATTEMPTS {
+        if attempt > 0 {
+            std::thread::sleep(SHORTCUT_RETRY_WAIT * attempt as u32);
+        }
+        match write_link(kind, exe, &link_path) {
+            Ok(()) if details_at(&link_path).is_some_and(|link| valid_link(&link, kind, exe)) => {
+                // Written under the usual name: an older copy of ours under
+                // the fallback name would now be a second entry.
+                if let Some(fallback) = kind.fallback_path()
+                    && fallback != link_path
+                    && details_at(&fallback).is_some_and(|link| managed_link(&link, exe))
+                {
+                    let _ = std::fs::remove_file(fallback);
+                }
+                return Ok(());
+            }
+            Ok(()) => {
+                last_error = "Windows saved it without a working target".into();
+            }
+            Err(error) => last_error = error,
+        }
+    }
+    Err(format!(
+        "The {} shortcut could not be created: {last_error}.",
+        kind.label()
+    ))
 }
 
-/// Whether the shortcut opens `exe` with the arguments expected for its role.
-pub fn shortcut_is_valid(kind: Shortcut, exe: &Path) -> bool {
-    kind.paths()
-        .iter()
-        .filter_map(|path| details_at(path))
-        .any(|link| valid_link(&link, kind, exe))
+/// The shortcuts of this kind that belong to the app: ours under either
+/// name, including old broken links which still have our description, icon
+/// and working directory but no target, and a replaceable one under the
+/// usual name (see `replaceable_link`).
+fn our_links(kind: Shortcut, exe: &Path) -> Vec<PathBuf> {
+    let main = kind.path().filter(|main| {
+        details_at(main)
+            .is_some_and(|link| managed_link(&link, exe) || replaceable_link(&link, exe))
+    });
+    let fallback = kind
+        .fallback_path()
+        .filter(|fallback| details_at(fallback).is_some_and(|link| managed_link(&link, exe)));
+    main.into_iter().chain(fallback).collect()
 }
 
-/// Whether a shortcut is ours, including old broken links which still have
-/// our description, icon, and working directory but no target.
-pub fn shortcut_is_managed(kind: Shortcut, exe: &Path) -> bool {
-    kind.paths()
-        .iter()
-        .filter_map(|path| details_at(path))
-        .any(|link| managed_link(&link, exe))
+/// Whether the app has this kind of shortcut, working or not.
+pub fn shortcut_present(kind: Shortcut, exe: &Path) -> bool {
+    !our_links(kind, exe).is_empty()
 }
 
 pub fn remove_shortcut(kind: Shortcut, exe: &Path) {
-    for path in kind.paths() {
-        if details_at(&path).is_some_and(|link| managed_link(&link, exe)) {
-            let _ = std::fs::remove_file(path);
-        }
+    for path in our_links(kind, exe) {
+        let _ = std::fs::remove_file(path);
     }
 }
 
@@ -469,6 +533,39 @@ mod tests {
         assert!(valid_link(&startup, Shortcut::Startup, exe));
         assert!(valid_link(&start_menu, Shortcut::StartMenu, exe));
         assert_eq!(icon_file(r"C:\Apps\MakeYourLifeEasier.exe,0"), exe);
+    }
+
+    #[test]
+    fn takes_over_old_or_dead_links_but_not_a_working_other_app() {
+        let exe = Path::new(
+            r"C:\Users\Thomas\AppData\Local\ThomasThanos\MakeYourLifeEasier\MakeYourLifeEasier.exe",
+        );
+        // An earlier install of the app in another folder.
+        let older = link(
+            r"C:\Users\Thomas\AppData\Local\Make Your Life Easier\MakeYourLifeEasier.exe",
+            r"C:\Users\Thomas\AppData\Local\Make Your Life Easier",
+            "",
+            "",
+            "",
+        );
+        assert!(!managed_link(&older, exe));
+        assert!(replaceable_link(&older, exe));
+
+        // A dead link: its program is gone.
+        let dead = link(r"C:\Nowhere\Gone\Missing.exe", r"C:\Nowhere", "", "", "");
+        assert!(replaceable_link(&dead, exe));
+        assert!(replaceable_link(&link("", "", "", "", ""), exe));
+
+        // Someone else's working shortcut that happens to share the name.
+        let cmd = system32("cmd.exe");
+        let other = link(
+            cmd.to_str().unwrap(),
+            cmd.parent().unwrap().to_str().unwrap(),
+            "Notes",
+            "",
+            "",
+        );
+        assert!(!replaceable_link(&other, exe));
     }
 
     #[test]

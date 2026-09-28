@@ -1,13 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getVersion } from "@tauri-apps/api/app";
-  import { isTauri } from "@tauri-apps/api/core";
+  import { invoke, isTauri } from "@tauri-apps/api/core";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import Download from "@lucide/svelte/icons/download";
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
+  import Minimize2 from "@lucide/svelte/icons/minimize-2";
   import Palette from "@lucide/svelte/icons/palette";
+  import Power from "@lucide/svelte/icons/power";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Rocket from "@lucide/svelte/icons/rocket";
   import Sparkles from "@lucide/svelte/icons/sparkles";
@@ -32,10 +34,29 @@
 
   let version = $state("");
   let update = $state<UpdateView>({ state: "idle" });
+  /** Starting with Windows (the Startup shortcut), and how the app opens then. */
+  let startup = $state({ enabled: false, minimized: true, canChange: false });
+  let startupBusy = $state(false);
 
   onMount(() => {
-    if (isTauri()) void getVersion().then((v) => (version = v));
+    if (!isTauri()) return;
+    void getVersion().then((v) => (version = v));
+    void invoke<typeof startup>("startup_get").then((value) => (startup = value));
   });
+
+  async function setStartup(field: "enabled" | "minimized", value: boolean) {
+    startup[field] = value;
+    startupBusy = true;
+    try {
+      if (field === "enabled") await invoke("startup_set_enabled", { enabled: value });
+      else await invoke("startup_set_minimized", { minimized: value });
+    } catch (error) {
+      startup[field] = !value;
+      toast.error(`Could not save the setting: ${message(error)}`);
+    } finally {
+      startupBusy = false;
+    }
+  }
 
   function message(error: unknown) {
     return error instanceof Error ? error.message : String(error);
@@ -98,7 +119,7 @@
           <span class="card-icon"><Palette size={16} /></span>
           <div>
             <h2 id="appearance-title">Appearance</h2>
-            <p class="sub">Visual surfaces and window effects</p>
+            <p class="sub">Visual surfaces and how the window opens</p>
           </div>
         </div>
       </header>
@@ -114,6 +135,40 @@
           class="switch"
           checked={settings.glass}
           onchange={(e) => settings.setGlass(e.currentTarget.checked)}
+        />
+      </label>
+
+      <label class="row">
+        <span class="row-icon"><Power size={15} /></span>
+        <span class="text">
+          <strong>Start with Windows</strong>
+          <small>
+            {startup.canChange
+              ? "Open the app when you sign in. Game Saves' scheduled backups run without it."
+              : "Available in the installed app."}
+          </small>
+        </span>
+        <input
+          type="checkbox"
+          class="switch"
+          checked={startup.enabled}
+          disabled={!startup.canChange || startupBusy}
+          onchange={(e) => void setStartup("enabled", e.currentTarget.checked)}
+        />
+      </label>
+
+      <label class="row">
+        <span class="row-icon"><Minimize2 size={15} /></span>
+        <span class="text">
+          <strong>Start minimized</strong>
+          <small>When it starts with Windows, the app waits in the taskbar instead of opening on screen.</small>
+        </span>
+        <input
+          type="checkbox"
+          class="switch"
+          checked={startup.minimized}
+          disabled={!startup.enabled || startupBusy}
+          onchange={(e) => void setStartup("minimized", e.currentTarget.checked)}
         />
       </label>
     </section>

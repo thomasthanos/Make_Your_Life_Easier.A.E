@@ -1,6 +1,6 @@
 // Dev-only stand-in for the setup crate, so the window can be worked on in a
 // browser: `npm run web:dev`, then /installer.html?demo=install (or =update,
-// =uninstall, =running, =error).
+// =uninstall, =running, =error, =shortcut-warning).
 import type { Progress, SetupApi, SetupState } from "./api";
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -21,7 +21,7 @@ export function previewApi(mode: string): SetupApi {
     installed,
     dir: DIR,
     size: 44_310_528,
-    shortcuts: { desktop: true, startMenu: true, startup: mode !== "update" },
+    shortcuts: { desktop: true, startMenu: true, startup: mode !== "update", startMinimized: true },
     passive: mode === "passive",
     ready: true,
   };
@@ -62,7 +62,11 @@ export function previewApi(mode: string): SetupApi {
       await stage(onEvent, "registering", 400);
       await stage(onEvent, "shortcuts", 450);
       await stage(onEvent, "finishing", 300);
-      return DIR;
+      const warnings =
+        mode === "shortcut-warning"
+          ? ["The Start Menu shortcut could not be created: Access is denied. (0x80070005)."]
+          : [];
+      return { dir: DIR, warnings };
     },
     async uninstall(removeData, onEvent) {
       await stage(onEvent, "closingApp", 350);

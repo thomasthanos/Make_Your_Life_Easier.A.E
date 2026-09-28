@@ -339,7 +339,7 @@ pub async fn install_update(
 
 /// This program, when it runs from its install folder (the setup leaves its
 /// file list there). A copy elsewhere, a dev build, would only restart itself.
-fn installed_exe() -> Option<std::path::PathBuf> {
+pub(crate) fn installed_exe() -> Option<std::path::PathBuf> {
     let exe = std::env::current_exe().ok()?;
     exe.parent()?.join("install.json").is_file().then_some(exe)
 }

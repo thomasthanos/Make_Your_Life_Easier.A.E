@@ -59,7 +59,7 @@ pub fn encode_command(script: &str) -> String {
 }
 
 /// A PowerShell single-quoted string literal.
-fn ps_quote(s: &str) -> String {
+pub(crate) fn ps_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "''"))
 }
 

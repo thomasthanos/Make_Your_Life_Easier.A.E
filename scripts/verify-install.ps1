@@ -41,6 +41,11 @@ foreach ($name in $shortcuts.Keys) {
       $failures++
     }
   }
+  # Starting with Windows is opt-in: only checked when there, or after uninstall.
+  if ($name -eq "Startup" -and -not $present -and -not $Removed) {
+    Write-Host ("[OK  ] {0,-14} {1,-8} {2}" -f $name, "absent", "(not chosen)")
+    continue
+  }
   Check $name $present $detail
 }
 

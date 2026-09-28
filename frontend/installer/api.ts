@@ -10,7 +10,7 @@ export interface SetupState {
   dir: string;
   /** Bytes on disk once installed. */
   size: number;
-  shortcuts: { desktop: boolean; startMenu: boolean; startup: boolean };
+  shortcuts: { desktop: boolean; startMenu: boolean; startup: boolean; startMinimized: boolean };
   /** `/P`: installs at once and closes by itself. */
   passive: boolean;
   /** False for a setup built without the app inside. */
@@ -35,14 +35,22 @@ export interface InstallRequest {
   desktop: boolean;
   startMenu: boolean;
   startup: boolean;
+  /** Started by Windows at sign-in: minimized to the taskbar, or on screen. */
+  startMinimized: boolean;
+}
+
+export interface InstallDone {
+  /** The install folder. */
+  dir: string;
+  /** Shortcuts Windows would not take; the app itself is installed. */
+  warnings: string[];
 }
 
 export interface SetupApi {
   state(): Promise<SetupState>;
   running(dir: string): Promise<string[]>;
   checkFolder(dir: string): Promise<void>;
-  /** Resolves with the install folder. */
-  install(request: InstallRequest, onEvent: (e: Progress) => void): Promise<string>;
+  install(request: InstallRequest, onEvent: (e: Progress) => void): Promise<InstallDone>;
   uninstall(removeData: boolean, onEvent: (e: Progress) => void): Promise<void>;
   launch(): Promise<void>;
   exit(): Promise<void>;

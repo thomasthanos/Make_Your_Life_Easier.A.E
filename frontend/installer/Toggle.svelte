@@ -1,16 +1,19 @@
 <script lang="ts">
-  import type { Component } from "svelte";
+  import type { Component, Snippet } from "svelte";
 
   let {
     checked = $bindable(false),
     label,
     hint,
+    extra,
     disabled = false,
     icon: Icon,
   }: {
     checked?: boolean;
     label: string;
     hint?: string;
+    /** In place of the hint: a small control of its own (a click on it does not flip the switch). */
+    extra?: Snippet;
     disabled?: boolean;
     icon?: Component;
   } = $props();
@@ -20,7 +23,7 @@
   {#if Icon}<span class="icon"><Icon size={16} strokeWidth={1.8} /></span>{/if}
   <span class="text">
     <span class="label">{label}</span>
-    {#if hint}<span class="hint">{hint}</span>{/if}
+    {#if extra}{@render extra()}{:else if hint}<span class="hint">{hint}</span>{/if}
   </span>
   <!-- The app's own switch (styles/controls.css), as in Settings. -->
   <input class="switch" type="checkbox" role="switch" bind:checked {disabled} />

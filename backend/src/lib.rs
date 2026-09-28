@@ -6,6 +6,7 @@ mod download;
 pub mod game_saves;
 mod maintenance;
 mod spotify_hub;
+mod startup;
 mod storage;
 mod updater;
 mod window_sizing;
@@ -68,8 +69,9 @@ fn show_main(app: &AppHandle) -> tauri::Result<()> {
     if !main.is_visible()? {
         window_sizing::fit_to_screen(&main)?;
         main.show()?;
-        // Launched by the Startup shortcut: stay out of the way in the taskbar.
-        if std::env::args().any(|a| a == "--autostart") {
+        // Launched by the Startup shortcut: stay out of the way in the
+        // taskbar, unless the user chose to have it open at sign-in.
+        if startup::launched_at_sign_in() && startup::start_minimized() {
             main.minimize()?;
         } else {
             main.set_focus()?;
@@ -161,6 +163,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             finish_startup,
+            startup::startup_get,
+            startup::startup_set_enabled,
+            startup::startup_set_minimized,
             updater::check_for_update,
             updater::install_update,
             account::account_profile,

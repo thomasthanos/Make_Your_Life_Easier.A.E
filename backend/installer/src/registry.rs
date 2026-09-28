@@ -85,17 +85,75 @@ pub fn register(dir: &Path, version: &str, size_kb: u32) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Where the setup remembers what became of each shortcut (desktop, Start
+/// menu, startup), next to the install folder, so a reinstall or an update
+/// follows the user instead of guessing from whichever `.lnk` files happen
+/// to exist. The values are `engine::ShortcutState` numbers.
+const STATE_VALUES: [&str; 3] = ["DesktopShortcut", "StartMenuShortcut", "StartupShortcut"];
+
+/// The remembered shortcut states, if an install has saved them.
+pub fn shortcut_states() -> Option<[u32; 3]> {
+    let key = hkcu()
+        .open_subkey_with_flags(product::product_key(), KEY_READ)
+        .ok()?;
+    let mut states = [0; 3];
+    for (state, name) in states.iter_mut().zip(STATE_VALUES) {
+        *state = key.get_value::<u32, _>(name).ok()?;
+    }
+    Some(states)
+}
+
+pub fn remember_shortcut_states(states: [u32; 3]) {
+    let Ok((key, _)) = hkcu().create_subkey(product::product_key()) else {
+        return;
+    };
+    for (state, name) in states.into_iter().zip(STATE_VALUES) {
+        let _ = key.set_value(name, &state);
+    }
+}
+
+/// Whether the app, when Windows starts it at sign-in, waits minimized in
+/// the taskbar. Read by the app (`backend/src/startup.rs`), which can also
+/// change it from Settings. Unset means minimized.
+const START_MINIMIZED: &str = "StartMinimized";
+
+pub fn start_minimized() -> bool {
+    hkcu()
+        .open_subkey_with_flags(product::product_key(), KEY_READ)
+        .and_then(|key| key.get_value::<u32, _>(START_MINIMIZED))
+        .map_or(true, |value| value != 0)
+}
+
+pub fn set_start_minimized(minimized: bool) {
+    if let Ok((key, _)) = hkcu().create_subkey(product::product_key()) {
+        let _ = key.set_value(START_MINIMIZED, &u32::from(minimized));
+    }
+}
+
+const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+
+/// Whether the old app's own "start with Windows" (a `Run` value, not a
+/// Startup shortcut) is still set.
+pub fn legacy_autostart() -> bool {
+    hkcu()
+        .open_subkey_with_flags(RUN_KEY, KEY_READ)
+        .is_ok_and(|run| run.get_raw_value(product::NAME).is_ok())
+}
+
+/// Drops the old `Run` value: the Startup shortcut (with `--autostart`, so
+/// the app starts minimized) replaces it. Both would start the app twice.
+pub fn remove_legacy_autostart() {
+    if let Ok(run) = hkcu().open_subkey_with_flags(RUN_KEY, KEY_READ | KEY_WRITE) {
+        let _ = run.delete_value(product::NAME);
+    }
+}
+
 /// Removes the "Installed apps" entry and the login-launch value the NSIS
 /// setup's uninstaller also cleared. `forget_folder` drops the remembered
 /// install folder too (a full clean-up); otherwise a reinstall reuses it.
 pub fn unregister(forget_folder: bool) {
     let _ = hkcu().delete_subkey_all(product::uninstall_key());
-    if let Ok(run) = hkcu().open_subkey_with_flags(
-        r"Software\Microsoft\Windows\CurrentVersion\Run",
-        KEY_READ | KEY_WRITE,
-    ) {
-        let _ = run.delete_value(product::NAME);
-    }
+    remove_legacy_autostart();
     if forget_folder {
         let _ = hkcu().delete_subkey_all(product::product_key());
         // The publisher key only if nothing else of ours lives under it.
