@@ -1,10 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="270" height="68" viewBox="0 0 270 68" role="img" aria-labelledby="t d">
-  <title id="t">LATEST RELEASES</title><desc id="d">Versions &amp; changelog</desc>
-  <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#1c2844"/><stop offset="1" stop-color="#111a30"/></linearGradient></defs>
-  <rect x="1" y="1" width="268" height="66" rx="16" fill="url(#bg)" stroke="#76e1ee" stroke-opacity=".58" stroke-width="2"/>
-  <rect x="11" y="11" width="46" height="46" rx="12" fill="#76e1ee" fill-opacity=".13"/>
-  <g transform="translate(18 17)" fill="none" stroke="#76e1ee" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4v17m-6-6 6 6 6-6M7 27h18"/></g>
-  <text x="70" y="31" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" letter-spacing=".65" fill="#f3f5ff">LATEST RELEASES</text>
-  <text x="70" y="49" font-family="Segoe UI,Arial,sans-serif" font-size="11.5" fill="#b0bedf">Versions &amp; changelog</text>
-  <path d="m247 29 6 5-6 5" fill="none" stroke="#76e1ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="42" viewBox="0 0 90 42" role="img" aria-labelledby="t"><title id="t">RELEASES</title>
+  <rect x="1" y="1" width="88" height="40" rx="12" fill="#17223a" stroke="#76e1ee" stroke-opacity=".72" stroke-width="1.5"/>
+  <g transform="translate(7 7) scale(.75)" fill="none" stroke="#76e1ee" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5v15m-6-5 6 6 6-6M7 26h18"/></g>
+  <text x="34" y="25" font-family="Segoe UI,Arial,sans-serif" font-size="9" font-weight="700" letter-spacing=".25" fill="#f1f4ff">RELEASES</text>
 </svg>
