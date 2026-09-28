@@ -212,7 +212,7 @@
 
     <g font-family="'Segoe UI Variable Display', 'Segoe UI', Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif" text-anchor="middle">
       <text class="rise" x="600" y="296" font-size="58" font-weight="800" letter-spacing="-1.2" fill="url(#title)">Make Your Life Easier<tspan fill="#5ad8ee">.</tspan></text>
-      <text class="rise" x="600" y="336" font-size="19" fill="#aab3d4" style="animation-delay:.15s">Εφαρμογές, game saves, καθαρισμός και εργαλεία Windows — σε ένα ήσυχο μέρος.</text>
+      <text class="rise" x="600" y="336" font-size="19" fill="#aab3d4" style="animation-delay:.15s">Apps, game saves, cleanup and Windows tools — all in one quiet place.</text>
     </g>
 
     <!-- Chips, centred as a row of 503px -->

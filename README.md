@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="Make Your Life Easier: εφαρμογές, game saves, καθαρισμός και εργαλεία Windows σε ένα μέρος" width="100%" />
+  <img src="docs/assets/hero.svg" alt="Make Your Life Easier: apps, game saves, cleanup and Windows tools in one place" width="100%" />
 </p>
 
 <p align="center">
@@ -9,54 +9,54 @@
 </p>
 
 <p align="center">
-  <a href="https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe"><img src="docs/assets/download.svg" alt="Κατέβασε το Make Your Life Easier για Windows" width="380" /></a>
+  <a href="https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe"><img src="docs/assets/download.svg" alt="Download Make Your Life Easier for Windows" width="380" /></a>
 </p>
 
 <p align="center">
-  <sub><a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest">Όλες οι εκδόσεις</a> &nbsp;·&nbsp; <a href="docs/DEVELOPMENT.md">Για developers</a> &nbsp;·&nbsp; <a href="LICENSE">Άδεια</a></sub>
+  <sub><a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest">All releases</a> &nbsp;·&nbsp; <a href="docs/DEVELOPMENT.md">For developers</a> &nbsp;·&nbsp; <a href="LICENSE">License</a></sub>
 </p>
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
-<h2 align="center">Τι έχει μέσα</h2>
+<h2 align="center">What's inside</h2>
 
 <p align="center">
-  <img src="docs/assets/features.svg" alt="Install Apps, Game Saves, Spotify Hub, Creative Hub, Windows Optimization, System Cleaner, System Maintenance, Sync &amp; Updates" width="100%" />
+  <img src="docs/assets/features.svg" alt="Install Apps, Game Saves, Spotify Hub, Creative Suite, Windows Optimization, System Cleaner, System Maintenance, Sync &amp; Updates" width="100%" />
 </p>
 
-<h2 align="center">Εγκατάσταση</h2>
+<h2 align="center">Install</h2>
 
 <p align="center">
-  <img src="docs/assets/install-steps.svg" alt="Κατέβασε, εγκατάστησε για τον λογαριασμό σου χωρίς admin, και ενημερώνεται μόνο του" width="100%" />
+  <img src="docs/assets/install-steps.svg" alt="Download, install for your account without admin rights, and it updates itself" width="100%" />
 </p>
 
-<p align="center"><sub>Αν λείπει το WebView2 Runtime, το setup το εγκαθιστά από τη Microsoft. Οι ρυθμίσεις και τα δεδομένα σου μένουν σε κάθε update.</sub></p>
+<p align="center"><sub>If the WebView2 Runtime is missing, the setup installs it from Microsoft. Your settings and data are kept across every update.</sub></p>
 
-<h2 align="center">Πώς δουλεύει</h2>
+<h2 align="center">How it works</h2>
 
 <p align="center">
-  <img src="docs/assets/how-it-works.svg" alt="Svelte frontend, Rust και Tauri backend, εργαλεία Windows, και updates με έλεγχο SHA-256" width="100%" />
+  <img src="docs/assets/how-it-works.svg" alt="Svelte frontend, Rust and Tauri backend, Windows tools, and updates verified with SHA-256" width="100%" />
 </p>
 
 <img src="docs/assets/divider.svg" alt="" width="100%" />
 
-## Για developers
+## For developers
 
 ```powershell
 npm install
-npm run dev      # η εφαρμογή με hot reload
+npm run dev      # the app with hot reload
 npm run build    # installer → backend/target/release/bundle/setup/MakeYourLifeEasier.exe
 ```
 
-Χρειάζεσαι Node.js 20+, Rust (MSVC) και τα Visual Studio Build Tools. Δομή, σελίδες, updater και setup: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+You'll need Node.js 20+, Rust (MSVC), and the Visual Studio Build Tools. Structure, pages, updater and setup: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-## Άδεια
+## License
 
-Ιδιόκτητο έργο του **ThomasThanos**. Μπορείς να χρησιμοποιείς δωρεάν τα επίσημα, αμετάβλητα builds για προσωπική χρήση. Αντιγραφή, τροποποίηση ή αναδημοσίευση του κώδικα χρειάζεται γραπτή άδεια. Πλήρεις όροι στο [LICENSE](LICENSE).
+A proprietary project by **ThomasThanos**. You're free to use the official, unmodified builds for personal use. Copying, modifying, or redistributing the code needs written permission. Full terms in [LICENSE](LICENSE).
 
 <br />
 
 <p align="center">
   <img src="backend/icons/app-icon.svg" alt="" width="56" /><br />
-  <sub>Φτιαγμένο με ☕ από τον <a href="https://github.com/thomasthanos">ThomasThanos</a></sub>
+  <sub>Made with ☕ by <a href="https://github.com/thomasthanos">ThomasThanos</a></sub>
 </p>

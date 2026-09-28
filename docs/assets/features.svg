@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="524" viewBox="0 0 1200 524" role="img" aria-labelledby="t d">
   <title id="t">What's inside Make Your Life Easier</title>
-  <desc id="d">Eight tools: Install Apps, Game Saves, Spotify Hub, Creative Hub, Windows Optimization, System Cleaner, System Maintenance, and Sync and Updates.</desc>
+  <desc id="d">Eight tools: Install Apps, Game Saves, Spotify Hub, Creative Suite, Windows Optimization, System Cleaner, System Maintenance, and Sync and Updates.</desc>
   <style>
     text { font-family: 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif; }
     .title { font-size: 19.5px; font-weight: 700; fill: #eef0ff; letter-spacing: -.2px; }
@@ -54,9 +54,9 @@
       <path d="M16 16h6M19 13v6M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14M7.5 4.27l9 5.15M3.29 7 12 12l8.71-5M12 22V12" />
     </g>
     <text class="title" x="24" y="112">Install Apps</text>
-    <text class="desc" x="24" y="140">Εφαρμογές με ένα κλικ μέσω</text>
-    <text class="desc" x="24" y="161">winget, με ενημερώσεις και</text>
-    <text class="desc" x="24" y="182">έτοιμα packs.</text>
+    <text class="desc" x="24" y="140">One-click app installs via</text>
+    <text class="desc" x="24" y="161">winget, with updates and</text>
+    <text class="desc" x="24" y="182">ready-made packs.</text>
     <text class="mono" x="24" y="211" fill="#b3adff">winget install</text>
     <rect x="24" y="220" width="234" height="6" rx="3" fill="#fff" fill-opacity=".07" />
     <rect x="24" y="220" width="0" height="6" rx="3" fill="#8b83ff">
@@ -74,9 +74,9 @@
       <path d="M6 11h4M8 9v4M15 12h.01M18 10h.01M17.32 5H6.68a4 4 0 0 0-3.978 3.59C2.6 9.4 2 14.46 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258A4 4 0 0 0 17.32 5z" />
     </g>
     <text class="title" x="24" y="112">Game Saves</text>
-    <text class="desc" x="24" y="140">Backups των saves σου, σε</text>
-    <text class="desc" x="24" y="161">πρόγραμμα ή στο cloud, με</text>
-    <text class="desc" x="24" y="182">ασφαλή επαναφορά.</text>
+    <text class="desc" x="24" y="140">Backs up your saves, on this</text>
+    <text class="desc" x="24" y="161">PC or in the cloud, with</text>
+    <text class="desc" x="24" y="182">safe restore.</text>
     <g fill="#58d39a">
       <rect class="snap" x="24" y="206" width="22" height="22" rx="6" />
       <rect class="snap" x="52" y="206" width="22" height="22" rx="6" style="animation-delay:.35s" />
@@ -95,9 +95,9 @@
       <circle cx="8" cy="18" r="4" /><path d="M12 18V2l7 4" />
     </g>
     <text class="title" x="24" y="112">Spotify Hub</text>
-    <text class="desc" x="24" y="140">Spotify και Spicetify:</text>
-    <text class="desc" x="24" y="161">εγκατάσταση, επιδιόρθωση</text>
-    <text class="desc" x="24" y="182">ή πλήρης αφαίρεση.</text>
+    <text class="desc" x="24" y="140">Spotify and Spicetify:</text>
+    <text class="desc" x="24" y="161">install, repair, or a</text>
+    <text class="desc" x="24" y="182">full removal.</text>
     <g fill="#1ed760">
       <rect class="eq" x="24" y="204" width="6" height="24" rx="3" />
       <rect class="eq" x="34" y="204" width="6" height="24" rx="3" style="animation-delay:-.4s" />
@@ -120,10 +120,10 @@
       <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.55-2.5 5.55-5.55C21.97 6.01 17.46 2 12 2z" />
       <circle cx="13.5" cy="6.5" r=".6" fill="#f6cd92" /><circle cx="17.5" cy="10.5" r=".6" fill="#f6cd92" /><circle cx="8.5" cy="7.5" r=".6" fill="#f6cd92" /><circle cx="6.5" cy="12.5" r=".6" fill="#f6cd92" />
     </g>
-    <text class="title" x="24" y="112">Creative Hub</text>
-    <text class="desc" x="24" y="140">Τα δικά σου πακέτα: γρήγορη</text>
-    <text class="desc" x="24" y="161">λήψη, αποσυμπίεση και</text>
-    <text class="desc" x="24" y="182">εγκατάσταση.</text>
+    <text class="title" x="24" y="112">Creative Suite</text>
+    <text class="desc" x="24" y="140">Your own packages: fast</text>
+    <text class="desc" x="24" y="161">download, extraction, and</text>
+    <text class="desc" x="24" y="182">install.</text>
     <g class="bounce" fill="none" stroke="#f0b86e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M33 207v14M27 215l6 6 6-6" />
     </g>
@@ -143,9 +143,9 @@
       <path d="m12 14 4-4M3.34 19a10 10 0 1 1 17.32 0" />
     </g>
     <text class="title" x="24" y="112">Windows Optimization</text>
-    <text class="desc" x="24" y="140">Sparkle, επανεκκίνηση στο</text>
-    <text class="desc" x="24" y="161">BIOS/UEFI και αυτόματη</text>
-    <text class="desc" x="24" y="182">σύνδεση (AutoLogon).</text>
+    <text class="desc" x="24" y="140">Sparkle, restart to</text>
+    <text class="desc" x="24" y="161">BIOS/UEFI, and automatic</text>
+    <text class="desc" x="24" y="182">sign-in (AutoLogon).</text>
     <path d="M26 226a24 24 0 0 1 48 0" fill="none" stroke="#fff" stroke-opacity=".1" stroke-width="5" stroke-linecap="round" />
     <path d="M26 226a24 24 0 0 1 48 0" fill="none" stroke="#54d6ef" stroke-width="5" stroke-linecap="round" stroke-dasharray="76" stroke-dashoffset="76">
       <animate attributeName="stroke-dashoffset" values="76;8;76" dur="6.4s" repeatCount="indefinite" />
@@ -165,9 +165,9 @@
       <path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14a2 2 0 0 0 1.44 1.44l6.14 1.58a.5.5 0 0 1 0 .96l-6.14 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0zM20 3v4M22 5h-4M4 17v2M5 18H3" />
     </g>
     <text class="title" x="24" y="112">System Cleaner</text>
-    <text class="desc" x="24" y="140">Καθαρίζει temp, cache και</text>
-    <text class="desc" x="24" y="161">Prefetch, ζητώντας admin</text>
-    <text class="desc" x="24" y="182">μόνο μία φορά.</text>
+    <text class="desc" x="24" y="140">Clears temp, cache and</text>
+    <text class="desc" x="24" y="161">Prefetch, asking for admin</text>
+    <text class="desc" x="24" y="182">only once.</text>
     <g fill="#ff8fb1">
       <rect class="shrink" x="24" y="203" width="150" height="6" rx="3" />
       <rect class="shrink" x="24" y="213" width="110" height="6" rx="3" fill-opacity=".75" style="animation-delay:.2s" />
@@ -189,9 +189,9 @@
       <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
     </g>
     <text class="title" x="24" y="112">System Maintenance</text>
-    <text class="desc" x="24" y="140">DNS, δίκτυο, Bluetooth, ήχος,</text>
-    <text class="desc" x="24" y="161">SFC/DISM και έλεγχος</text>
-    <text class="desc" x="24" y="182">δίσκου, με ένα κλικ.</text>
+    <text class="desc" x="24" y="140">DNS, network, Bluetooth,</text>
+    <text class="desc" x="24" y="161">audio, SFC/DISM and a disk</text>
+    <text class="desc" x="24" y="182">check, in one click.</text>
     <g fill="none" stroke="#ffb46b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle class="ring" cx="35" cy="217" r="10" />
       <path class="tick" d="M30 217l3.5 3.5L40 214" />
@@ -217,9 +217,9 @@
       <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5" />
     </g>
     <text class="title" x="24" y="112">Sync &amp; Updates</text>
-    <text class="desc" x="24" y="140">Σύνδεση με Discord ή Google</text>
-    <text class="desc" x="24" y="161">για sync ρυθμίσεων, και</text>
-    <text class="desc" x="24" y="182">αυτόματα, ελεγμένα updates.</text>
+    <text class="desc" x="24" y="140">Sign in with Discord or</text>
+    <text class="desc" x="24" y="161">Google to sync settings, and</text>
+    <text class="desc" x="24" y="182">automatic, verified updates.</text>
     <g fill="none" stroke="#cdbcff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="24" y="206" width="26" height="17" rx="3" /><path d="M31 228h12M37 223v5" />
       <path d="M232 224h14a6 6 0 0 0 .5-12 8 8 0 0 0-15.3-1.8A5.5 5.5 0 0 0 232 224z" />

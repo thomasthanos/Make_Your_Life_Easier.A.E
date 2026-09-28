@@ -40,8 +40,8 @@
   <g fill="none" stroke="#c3beff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
     <path d="M200 54v17M193 64l7 7 7-7M191 78h18" />
   </g>
-  <text class="title" x="200" y="134">Κατέβασε</text>
-  <text class="desc" x="200" y="160">το MakeYourLifeEasier.exe</text>
+  <text class="title" x="200" y="134">Download</text>
+  <text class="desc" x="200" y="160">MakeYourLifeEasier.exe</text>
 
   <!-- 2 · Install -->
   <circle class="halo" cx="600" cy="66" r="34" fill="#58d39a" style="animation-delay:1.5s" />
@@ -49,13 +49,13 @@
   <g fill="none" stroke="#9fe8c4" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
     <rect x="587" y="54" width="26" height="24" rx="4" /><path d="M587 61h26M593 70l4 4 7-7" />
   </g>
-  <text class="title" x="600" y="134">Εγκατάστησε</text>
-  <text class="desc" x="600" y="160">για τον λογαριασμό σου, χωρίς admin</text>
+  <text class="title" x="600" y="134">Install</text>
+  <text class="desc" x="600" y="160">for your account, no admin needed</text>
 
   <!-- 3 · Ready -->
   <circle class="halo" cx="1000" cy="66" r="34" fill="#5ad8ee" style="animation-delay:3s" />
   <circle class="node" cx="1000" cy="66" r="30" fill="#10162a" stroke="#5ad8ee" stroke-width="2" style="animation-delay:3s" />
   <path d="M1000 50c1.6 10.4 5.6 14.4 16 16-10.4 1.6-14.4 5.6-16 16-1.6-10.4-5.6-14.4-16-16 10.4-1.6 14.4-5.6 16-16z" fill="#b5eef8" />
-  <text class="title" x="1000" y="134">Έτοιμο</text>
-  <text class="desc" x="1000" y="160">ενημερώνεται μόνο του σε κάθε εκκίνηση</text>
+  <text class="title" x="1000" y="134">Ready</text>
+  <text class="desc" x="1000" y="160">updates itself on every launch</text>
 </svg>
