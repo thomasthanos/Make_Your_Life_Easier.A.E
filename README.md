@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(max-width: 600px)" srcset="docs/assets/hero-mobile.svg" />
-    <img src="docs/assets/hero.svg" alt="Make Your Life Easier: apps, game saves, cleanup and Windows tools in one place" width="100%" />
-  </picture>
+  <img src="docs/assets/hero.svg" alt="Make Your Life Easier: apps, game saves, cleanup and Windows tools in one place" width="100%" />
 </p>
 
 <p align="center">
