@@ -291,8 +291,8 @@
 <style>
   .settings {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(min(390px, 100%), 1fr));
+    gap: 16px;
     /* Never pulled up: when the header wraps, the summary chips sit right
        above and a negative margin slid the panel over them. */
     margin: 0 0 20px;
@@ -303,11 +303,11 @@
     flex-direction: column;
     gap: 13px;
     min-width: 0;
-    padding: 15px;
+    padding: 18px;
   }
 
   .wide {
-    grid-column: span 2;
+    grid-column: 1 / -1;
   }
 
   .card-head {
@@ -580,13 +580,7 @@
     pointer-events: none;
   }
 
-  @media (max-width: 1080px) {
-    .wide {
-      grid-column: auto;
-    }
-  }
-
-  @media (max-width: 720px) {
+  @container (max-width: 600px) {
     .root {
       grid-template-columns: 88px minmax(0, 1fr) 28px;
     }

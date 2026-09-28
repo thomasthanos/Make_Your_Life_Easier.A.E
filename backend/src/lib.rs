@@ -192,6 +192,7 @@ pub fn run() {
             cleaner::cleaner_categories,
             cleaner::cleaner_scan,
             cleaner::cleaner_scan_elevated,
+            cleaner::cleaner_admin_ready,
             cleaner::cleaner_clean,
             cleaner::cleaner_clean_elevated,
             maintenance::maintenance_cards,

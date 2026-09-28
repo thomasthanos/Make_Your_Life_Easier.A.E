@@ -51,6 +51,34 @@ pub async fn run_elevated(
     Ok(status.code().unwrap_or(-1))
 }
 
+/// Starts `program args` through a UAC prompt and returns once it is running
+/// (0), or `ERROR_CANCELLED` if the user declined the prompt. Does not wait
+/// for the program: for a helper that keeps running and is talked to.
+pub async fn start_elevated(program: &str, args: &[String]) -> Result<i32, String> {
+    let list: Vec<String> = args.iter().map(|a| ps_quote(a)).collect();
+    let mut script = format!(
+        "Start-Process -FilePath {} -Verb RunAs -WindowStyle Hidden",
+        ps_quote(program)
+    );
+    if !list.is_empty() {
+        script.push_str(&format!(" -ArgumentList {}", list.join(",")));
+    }
+    let script = format!("try {{ {script}; exit 0 }} catch {{ exit {ERROR_CANCELLED} }}");
+    let status = hidden("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-EncodedCommand",
+        ])
+        .arg(encode_command(&script))
+        .status()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(status.code().unwrap_or(-1))
+}
+
 /// PowerShell `-EncodedCommand` payload: base64 of the UTF-16LE script.
 /// Sidesteps every command-line quoting rule.
 pub fn encode_command(script: &str) -> String {

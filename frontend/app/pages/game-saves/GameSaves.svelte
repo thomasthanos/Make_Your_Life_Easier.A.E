@@ -509,7 +509,7 @@
       width: 100%;
       justify-content: flex-start;
       margin-top: -16px;
-      margin-bottom: 12px;
+      margin-bottom: 20px;
     }
 
     .metrics {

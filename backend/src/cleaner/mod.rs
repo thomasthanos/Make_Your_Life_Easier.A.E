@@ -120,7 +120,15 @@ pub async fn cleaner_scan(on_event: Channel<ScanEvent>) -> Result<ScanSummary, S
     handle.await.map_err(|e| e.to_string())
 }
 
-/// Second pass for the folders that needed administrator rights: one UAC prompt.
+/// Whether the administrator helper approved earlier is still running, so the
+/// next scan or clean will not ask again.
+#[tauri::command]
+pub async fn cleaner_admin_ready() -> bool {
+    elevated::is_running().await
+}
+
+/// Second pass for the folders that needed administrator rights. The first
+/// one asks for approval; the helper then stays up for later scans and cleans.
 #[tauri::command]
 pub async fn cleaner_scan_elevated(on_event: Channel<ScanEvent>) -> Result<ScanSummary, String> {
     let locked: Vec<&'static Category> = targets::CATEGORIES
