@@ -13,6 +13,8 @@
 mod catalog;
 mod detect;
 mod helper;
+#[cfg(test)]
+mod sandbox_tests;
 mod system;
 mod undo;
 
