@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/thomasthanos/Make_Your_Life_Easier.A.E?display_name=tag&style=for-the-badge&color=8b83ff&labelColor=151c31" /></a>
-  <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/actions/workflows/ci.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/thomasthanos/Make_Your_Life_Easier.A.E/ci.yml?branch=main&style=for-the-badge&label=build&labelColor=151c31" /></a>
+  <a href="https://github.com/thomasthanos/MYLE/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/thomasthanos/MYLE?display_name=tag&style=for-the-badge&color=8b83ff&labelColor=151c31" /></a>
+  <a href="https://github.com/thomasthanos/MYLE/actions/workflows/ci.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/thomasthanos/MYLE/ci.yml?branch=main&style=for-the-badge&label=build&labelColor=151c31" /></a>
   <img alt="Windows 10 and 11" src="https://img.shields.io/badge/windows-10%20%2F%2011-45c8e6?style=for-the-badge&labelColor=151c31" />
 </p>
 
@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest"><img src="docs/assets/link-releases.svg" alt="Latest releases and changelog" width="90" /></a>
+  <a href="https://github.com/thomasthanos/MYLE/releases/latest"><img src="docs/assets/link-releases.svg" alt="Latest releases and changelog" width="90" /></a>
   <a href="docs/DEVELOPMENT.md"><img src="docs/assets/link-development.svg" alt="Development guide" width="90" /></a>
   <a href="LICENSE"><img src="docs/assets/link-license.svg" alt="License and terms" width="90" /></a>
 </p>

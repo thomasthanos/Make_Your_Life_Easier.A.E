@@ -209,7 +209,7 @@ To test without a release: Actions → Release → **Run workflow**. It builds a
 
 **On every launch, the splash:**
 
-- reads `https://downloads.thomast.uk/latest.json` (`UPDATE_FEED` in `backend/src/updater.rs`); if that doesn't answer, it asks `api.github.com/repos/thomasthanos/Make_Your_Life_Easier.A.E/releases/latest`
+- reads `https://downloads.thomast.uk/latest.json` (`UPDATE_FEED` in `backend/src/updater.rs`); if that doesn't answer, it asks `api.github.com/repos/thomasthanos/MYLE/releases/latest`
 - if a newer version is found, downloads the installer (only from `downloads.thomast.uk` or `github.com`) and checks its SHA-256 (from the feed or GitHub's digest; with no hash it won't install)
 - runs the setup silently with `/S /UPDATE /LIVE` **while the app is still open**: files are swapped in with a rename (Windows allows this even for a running exe), the old ones stay as `*.myle-old`, and the new version deletes them once it starts
 - opens the new version with `--just-updated` (it doesn't ask the network again, and shows "Updated to v…"), and closes as soon as its window appears; before that it drops the single-instance lock, otherwise the new copy would just hand its arguments to the old one and quit

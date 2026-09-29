@@ -22,7 +22,7 @@ use crate::download::{self, err, parse_sha256_digest};
 /// GitHub repository ("owner/name") whose Releases are checked.
 /// It also holds the releases of the old Electron app (v4.x); this rewrite
 /// starts at 7.0.0, so those always compare as older.
-pub const GITHUB_REPO: &str = "thomasthanos/Make_Your_Life_Easier.A.E";
+pub const GITHUB_REPO: &str = "thomasthanos/MYLE";
 
 /// Set while an update is downloading, so the startup watchdog does not show
 /// the main window on top of the splash mid-update.

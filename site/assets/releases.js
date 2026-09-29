@@ -1,4 +1,4 @@
-const repository = "thomasthanos/Make_Your_Life_Easier.A.E";
+const repository = "thomasthanos/MYLE";
 const releasesUrl = `https://api.github.com/repos/${repository}/releases?per_page=20`;
 const status = document.getElementById("release-status");
 const list = document.getElementById("releases");

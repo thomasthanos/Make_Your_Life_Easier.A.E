@@ -21,7 +21,7 @@
   import AccountCard from "./AccountCard.svelte";
   import SyncedData from "./SyncedData.svelte";
 
-  const REPO_URL = "https://github.com/thomasthanos/Make_Your_Life_Easier.A.E";
+  const REPO_URL = "https://github.com/thomasthanos/MYLE";
 
   type UpdateView =
     | { state: "idle" }
