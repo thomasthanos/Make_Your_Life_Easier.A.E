@@ -61,8 +61,8 @@ impl Drop for CheckingGuard {
 /// that is left alone.
 pub const UPDATE_FEED: &str = "https://downloads.thomast.uk/latest.json";
 
-/// Release asset to install. `release.yml` publishes it with this suffix.
-const ASSET_SUFFIX: &str = "_x64-setup.exe";
+/// Release asset to install. Its version comes from the tag or update feed.
+const ASSET_NAME: &str = "MYLE.exe";
 /// Installers are only ever downloaded from these two places.
 const DOWNLOAD_PREFIXES: [&str; 2] = ["https://downloads.thomast.uk/", "https://github.com/"];
 const CHECK_TIMEOUT: Duration = Duration::from_secs(8);
@@ -79,6 +79,9 @@ pub fn update_dir() -> std::path::PathBuf {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UpdateAsset {
     pub name: String,
+    /// Version is separate because the release filename stays MYLE.exe.
+    #[serde(default)]
+    pub version: Option<String>,
     pub url: String,
     pub size: u64,
     /// `"sha256:<hex>"`, as reported by GitHub.
@@ -269,7 +272,7 @@ pub async fn install_update(
     UPDATING.store(true, std::sync::atomic::Ordering::Relaxed);
     let _reset = ResetUpdating;
 
-    let file_name = download::file_name_from(&asset.name, "MYLE-setup.exe");
+    let file_name = download::file_name_from(&asset.name, ASSET_NAME);
     let path = update_dir().join(file_name);
 
     let mut started = false;
@@ -307,7 +310,7 @@ pub async fn install_update(
         match live_install(&path).await {
             Ok(()) => {
                 let _ = on_event.send(DownloadEvent::Restarting {
-                    version: asset_version(&asset.name),
+                    version: asset.version.clone().unwrap_or_else(|| asset_version(&asset.name)),
                 });
                 return hand_over(&app, &exe).await;
             }
@@ -404,7 +407,7 @@ fn sweep(dir: &std::path::Path) -> bool {
     left
 }
 
-/// The version in `MYLE_8.2.0_x64-setup.exe`, for the splash.
+/// Supports older feeds whose installer filename contained the version.
 fn asset_version(name: &str) -> String {
     name.split('_').nth(1).unwrap_or_default().to_string()
 }
@@ -515,6 +518,7 @@ fn evaluate_feed(current: &Version, feed: Feed) -> Result<UpdateCheck, String> {
         notes: feed.notes,
         asset: UpdateAsset {
             name: installer.name,
+            version: Some(latest.to_string()),
             url: installer.url,
             size: installer.size,
             digest: Some(digest),
@@ -533,14 +537,15 @@ fn evaluate(current: &Version, release: GhRelease) -> Result<UpdateCheck, String
     let asset = release
         .assets
         .into_iter()
-        .find(|a| a.name.to_ascii_lowercase().ends_with(ASSET_SUFFIX))
-        .ok_or_else(|| format!("release {} has no *{ASSET_SUFFIX} asset", release.tag_name))?;
+        .find(|a| a.name.eq_ignore_ascii_case(ASSET_NAME))
+        .ok_or_else(|| format!("release {} has no {ASSET_NAME} asset", release.tag_name))?;
     Ok(UpdateCheck::Available {
         current: current.to_string(),
         latest: latest.to_string(),
         notes: release.body.unwrap_or_default(),
         asset: UpdateAsset {
             name: asset.name,
+            version: Some(latest.to_string()),
             url: asset.browser_download_url,
             size: asset.size,
             digest: asset.digest,
@@ -575,7 +580,8 @@ mod demo {
             latest: "9.9.9".into(),
             notes: String::new(),
             asset: UpdateAsset {
-                name: "MYLE_9.9.9_x64-setup.exe".into(),
+                name: ASSET_NAME.into(),
+                version: Some("9.9.9".into()),
                 url: String::new(),
                 size: 7_400_000,
                 digest: None,
@@ -626,8 +632,8 @@ mod tests {
         serde_json::json!([
             { "name": "latest.json", "browser_download_url": "https://github.com/o/r/latest.json", "size": 1, "digest": null },
             {
-                "name": "MYLE_1.2.0_x64-setup.exe",
-                "browser_download_url": "https://github.com/o/r/releases/download/v1.2.0/MYLE_1.2.0_x64-setup.exe",
+                "name": "MYLE.exe",
+                "browser_download_url": "https://github.com/o/r/releases/download/v1.2.0/MYLE.exe",
                 "size": 4200000,
                 "digest": "sha256:ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
             }
@@ -648,7 +654,8 @@ mod tests {
         };
         assert_eq!(latest, "1.2.0");
         assert_eq!(notes, "notes");
-        assert_eq!(asset.name, "MYLE_1.2.0_x64-setup.exe");
+        assert_eq!(asset.name, "MYLE.exe");
+        assert_eq!(asset.version.as_deref(), Some("1.2.0"));
         assert_eq!(asset.size, 4_200_000);
     }
 
@@ -699,7 +706,7 @@ mod tests {
             "notes": "notes",
             "pubDate": "2026-09-27T00:00:00Z",
             "installer": {
-                "name": format!("MYLE_{version}_x64-setup.exe"),
+                "name": "MYLE.exe",
                 "url": url,
                 "size": 13_606_875,
                 "sha256": sha256
@@ -712,7 +719,7 @@ mod tests {
 
     #[test]
     fn a_newer_feed_offers_the_r2_installer_with_its_hash() {
-        let url = "https://downloads.thomast.uk/MYLE_7.1.0_x64-setup.exe";
+        let url = "https://downloads.thomast.uk/MYLE.exe";
         let UpdateCheck::Available { latest, asset, .. } =
             evaluate_feed(&Version::new(7, 0, 0), feed("7.1.0", url, SHA)).unwrap()
         else {
@@ -720,13 +727,15 @@ mod tests {
         };
         assert_eq!(latest, "7.1.0");
         assert_eq!(asset.url, url);
+        assert_eq!(asset.name, "MYLE.exe");
+        assert_eq!(asset.version.as_deref(), Some("7.1.0"));
         assert_eq!(asset.digest.as_deref(), Some(&*format!("sha256:{SHA}")));
     }
 
     #[test]
     fn the_feed_is_not_trusted_blindly() {
         let current = Version::new(7, 0, 0);
-        let good = "https://downloads.thomast.uk/x_x64-setup.exe";
+        let good = "https://downloads.thomast.uk/MYLE.exe";
         assert!(matches!(
             evaluate_feed(&current, feed("7.0.0", good, SHA)),
             Ok(UpdateCheck::UpToDate { .. })

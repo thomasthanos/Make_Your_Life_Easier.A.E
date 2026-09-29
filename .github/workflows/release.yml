@@ -102,9 +102,8 @@ jobs:
         run: |
           $setup = Get-ChildItem "backend/target/release/bundle/setup/MYLE.exe" | Select-Object -First 1
           if (-not $setup) { throw "The setup was not produced." }
-          # The updater looks for the "_x64-setup.exe" ending, so the published
-          # copy keeps the version in its name (the local build is MYLE.exe).
-          $name = "MYLE_${env:VERSION}_x64-setup.exe"
+          # The app version is in the release tag and latest.json, not the filename.
+          $name = "MYLE.exe"
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item $setup.FullName "out/$name"
           $signature = Get-AuthenticodeSignature "out/$name"
@@ -118,7 +117,7 @@ jobs:
         if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
-          name: MYLE-${{ env.VERSION }}-setup
+          name: MYLE
           path: out/*
           retention-days: 7
 
@@ -151,16 +150,14 @@ jobs:
             Write-Host "Verified $env:FEED_BASE/$Key"
           }
 
-          $exe = @('--content-type', 'application/vnd.microsoft.portable-executable')
-          # The versioned installer the app downloads...
-          Publish $setup.FullName $setup.Name $exe
-          Assert-Served $setup.Name $sha256
-          # ...and the fixed "latest installer" link for downloads from the web.
-          Publish $setup.FullName "MYLE-installer.exe" ($exe + @('--cache-control', 'no-cache'))
-          # Existing README/site links stay valid until they move to MYLE.
-          Publish $setup.FullName "MakeYourLifeEasier-installer.exe" ($exe + @('--cache-control', 'no-cache'))
+          $exe = @('--content-type', 'application/vnd.microsoft.portable-executable', '--cache-control', 'no-cache')
+          Publish $setup.FullName "MYLE.exe" $exe
+          Assert-Served "MYLE.exe" $sha256
+          # Keep the existing website links working until the public download
+          # pages can be switched after MYLE.exe has been published.
+          Publish $setup.FullName "MakeYourLifeEasier-installer.exe" $exe
 
-          # The feed goes last: clients only see a version once its installer is live.
+          # The feed goes last: clients only see a version once MYLE.exe is live.
           $feed = [ordered]@{
             version   = $env:VERSION
             notes     = "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"

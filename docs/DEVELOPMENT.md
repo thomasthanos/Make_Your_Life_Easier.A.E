@@ -202,7 +202,7 @@ The old Electron app (v4.x) lives on the `old` branch and no longer receives upd
 3. `.github/workflows/release.yml`:
    - checks the tag and versions match, runs `svelte-check`, and builds (also downloading Ludusavi)
    - **signs** the exe, installer and uninstaller with the certificate from the `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` secrets (`scripts/sign.ps1`)
-   - uploads `MYLE_<version>_x64-setup.exe` to **Cloudflare R2** (`downloads.thomast.uk`, `R2_*` secrets), the stable links `MYLE-installer.exe` and the legacy `MakeYourLifeEasier-installer.exe`, and finally `latest.json`, and checks R2 serves the exact same bytes
+   - uploads `MYLE.exe` to **Cloudflare R2** (`downloads.thomast.uk`, `R2_*` secrets), preserves the old `MakeYourLifeEasier-installer.exe` URL for existing links, and finally publishes `latest.json`, and checks R2 serves the exact same bytes
    - publishes the GitHub release too
 
 To test without a release: Actions → Release → **Run workflow**. It builds and signs the same way, keeps the installer as an artifact, and doesn't upload or publish anything.

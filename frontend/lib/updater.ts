@@ -3,6 +3,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 
 export interface UpdateAsset {
   name: string;
+  version?: string;
   url: string;
   size: number;
   digest: string | null;
