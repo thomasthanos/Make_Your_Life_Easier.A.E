@@ -8,6 +8,7 @@
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import Minimize2 from "@lucide/svelte/icons/minimize-2";
+  import PanelBottomClose from "@lucide/svelte/icons/panel-bottom-close";
   import Palette from "@lucide/svelte/icons/palette";
   import Power from "@lucide/svelte/icons/power";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
@@ -37,12 +38,25 @@
   /** Starting with Windows (the Startup shortcut), and how the app opens then. */
   let startup = $state({ enabled: false, minimized: true, canChange: false });
   let startupBusy = $state(false);
+  /** Closing the window keeps the app running next to the clock. */
+  let keepInTray = $state(true);
 
   onMount(() => {
     if (!isTauri()) return;
     void getVersion().then((v) => (version = v));
     void invoke<typeof startup>("startup_get").then((value) => (startup = value));
+    void invoke<boolean>("tray_get").then((value) => (keepInTray = value));
   });
+
+  async function setKeepInTray(value: boolean) {
+    keepInTray = value;
+    try {
+      await invoke("tray_set", { enabled: value });
+    } catch (error) {
+      keepInTray = !value;
+      toast.error(`Could not save the setting: ${message(error)}`);
+    }
+  }
 
   async function setStartup(field: "enabled" | "minimized", value: boolean) {
     startup[field] = value;
@@ -161,7 +175,7 @@
         <span class="row-icon"><Minimize2 size={15} /></span>
         <span class="text">
           <strong>Start minimized</strong>
-          <small>When it starts with Windows, the app waits in the taskbar instead of opening on screen.</small>
+          <small>When it starts with Windows, the app waits in the tray (or the taskbar) instead of opening on screen.</small>
         </span>
         <input
           type="checkbox"
@@ -169,6 +183,23 @@
           checked={startup.minimized}
           disabled={!startup.enabled || startupBusy}
           onchange={(e) => void setStartup("minimized", e.currentTarget.checked)}
+        />
+      </label>
+
+      <label class="row">
+        <span class="row-icon"><PanelBottomClose size={15} /></span>
+        <span class="text">
+          <strong>Keep running in the tray</strong>
+          <small>
+            With a password vault, closing the window leaves the app next to the clock, so Ctrl+Shift+L and browser
+            filling keep working. Quit from the tray icon.
+          </small>
+        </span>
+        <input
+          type="checkbox"
+          class="switch"
+          checked={keepInTray}
+          onchange={(e) => void setKeepInTray(e.currentTarget.checked)}
         />
       </label>
     </section>

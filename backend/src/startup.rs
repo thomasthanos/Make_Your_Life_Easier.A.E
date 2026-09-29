@@ -34,12 +34,21 @@ pub fn launched_at_sign_in() -> bool {
     std::env::args().any(|arg| arg == "--autostart")
 }
 
-/// Unset (an install from before the switch) means minimized, as it was.
-pub fn start_minimized() -> bool {
+/// A yes/no setting in the app's registry key; `default` when unset.
+pub(crate) fn flag(name: &str, default: bool) -> bool {
     RegKey::predef(HKEY_CURRENT_USER)
         .open_subkey(key())
-        .and_then(|key| key.get_value::<u32, _>(START_MINIMIZED))
-        .map_or(true, |value| value != 0)
+        .and_then(|key| key.get_value::<u32, _>(name))
+        .map_or(default, |value| value != 0)
+}
+
+pub(crate) fn set_flag(name: &str, value: bool) -> Result<(), String> {
+    set_value(name, u32::from(value))
+}
+
+/// Unset (an install from before the switch) means minimized, as it was.
+pub fn start_minimized() -> bool {
+    flag(START_MINIMIZED, true)
 }
 
 fn set_value(name: &str, value: u32) -> Result<(), String> {

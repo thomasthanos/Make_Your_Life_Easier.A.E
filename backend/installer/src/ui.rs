@@ -90,6 +90,8 @@ struct SetupState {
     passive: bool,
     /// Whether this setup carries the app at all (a dev build may not).
     ready: bool,
+    /// The browser extension's download page, offered when there is one.
+    extension_url: Option<&'static str>,
 }
 
 #[tauri::command(async)]
@@ -120,6 +122,7 @@ fn setup_state(context: State<'_, Context>) -> SetupState {
                 shortcuts,
                 passive: context.cli.passive,
                 ready: header.is_some(),
+                extension_url: product::extension_url(),
             }
         }
         Mode::Uninstall { dir } => SetupState {
@@ -132,6 +135,7 @@ fn setup_state(context: State<'_, Context>) -> SetupState {
             shortcuts: ShortcutChoice::from_array([false; 3]).into(),
             passive: context.cli.passive,
             ready: true,
+            extension_url: None,
         },
     }
 }
@@ -316,6 +320,12 @@ async fn setup_launch(context: State<'_, Context>) -> Result<(), String> {
     Ok(())
 }
 
+/// Opens the browser extension's download page in the default browser.
+#[tauri::command(async)]
+fn setup_open_extension() -> Result<(), String> {
+    shell::open_url(product::extension_url().ok_or("The extension has no page yet.")?)
+}
+
 #[tauri::command]
 fn setup_exit(app: tauri::AppHandle, context: State<'_, Context>) {
     if !context.busy.load(Ordering::SeqCst) {
@@ -383,6 +393,7 @@ pub fn run(mode: Mode, cli: Cli) -> (i32, AfterExit) {
             setup_install,
             setup_uninstall,
             setup_launch,
+            setup_open_extension,
             setup_exit
         ])
         .build(tauri::generate_context!());

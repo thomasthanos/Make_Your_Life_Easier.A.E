@@ -9,7 +9,7 @@
 //!   next to whatever the old app stored there, which is left untouched.
 
 mod oauth;
-mod vault;
+pub(crate) mod vault;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -129,6 +129,43 @@ fn now() -> u64 {
 
 fn client() -> Result<reqwest::Client, String> {
     crate::download::http_client(USER_AGENT)
+}
+
+/// A signed-in connection to the app's other tables (the Password
+/// Manager's), with the same token and row security as the settings.
+pub(crate) struct Cloud {
+    pub user_id: String,
+    token: String,
+    client: reqwest::Client,
+}
+
+impl Cloud {
+    /// `rest/v1/<path>` with `query` parameters.
+    pub fn url(&self, path: &str, query: &[(&str, String)]) -> Result<reqwest::Url, String> {
+        reqwest::Url::parse_with_params(&format!("{SUPABASE_URL}/rest/v1/{path}"), query).map_err(err)
+    }
+
+    pub fn request(&self, method: reqwest::Method, url: reqwest::Url) -> reqwest::RequestBuilder {
+        self.client
+            .request(method, url)
+            .header("apikey", SUPABASE_ANON_KEY)
+            .bearer_auth(&self.token)
+            .timeout(Duration::from_secs(20))
+    }
+}
+
+/// `None` when nobody is signed in.
+pub(crate) async fn cloud(app: &AppHandle) -> Result<Option<Cloud>, String> {
+    let state = app.state::<AccountState>();
+    if state.session(app).is_none() {
+        return Ok(None);
+    }
+    let session = fresh_session(app, &state).await?;
+    Ok(Some(Cloud {
+        user_id: session.profile.id,
+        token: session.access_token,
+        client: client()?,
+    }))
 }
 
 // ---------------------------------------------------------------------------

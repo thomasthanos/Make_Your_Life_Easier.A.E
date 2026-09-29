@@ -15,6 +15,8 @@ export interface SetupState {
   passive: boolean;
   /** False for a setup built without the app inside. */
   ready: boolean;
+  /** The browser extension's download page, offered when there is one. */
+  extensionUrl: string | null;
 }
 
 export type Stage =
@@ -53,6 +55,8 @@ export interface SetupApi {
   install(request: InstallRequest, onEvent: (e: Progress) => void): Promise<InstallDone>;
   uninstall(removeData: boolean, onEvent: (e: Progress) => void): Promise<void>;
   launch(): Promise<void>;
+  /** Opens the extension's download page in the default browser. */
+  openExtension(): Promise<void>;
   exit(): Promise<void>;
 }
 
@@ -70,6 +74,7 @@ const tauriApi: SetupApi = {
   uninstall: (removeData, onEvent) =>
     invoke("setup_uninstall", { request: { removeData }, onEvent: channel(onEvent) }),
   launch: () => invoke("setup_launch"),
+  openExtension: () => invoke("setup_open_extension"),
   exit: () => invoke("setup_exit"),
 };
 

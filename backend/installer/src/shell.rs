@@ -10,10 +10,10 @@ use windows_sys::Win32::System::Com::CoTaskMemFree;
 use windows_sys::Win32::System::Threading::CreateMutexW;
 use windows_sys::Win32::UI::Shell::{
     FOLDERID_Desktop, FOLDERID_LocalAppData, FOLDERID_Programs, FOLDERID_RoamingAppData,
-    FOLDERID_Startup, KF_FLAG_DEFAULT, SHGetKnownFolderPath,
+    FOLDERID_Startup, KF_FLAG_DEFAULT, SHGetKnownFolderPath, ShellExecuteW,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    IDYES, MB_ICONERROR, MB_ICONWARNING, MB_OK, MB_YESNO, MessageBoxW,
+    IDYES, MB_ICONERROR, MB_ICONWARNING, MB_OK, MB_YESNO, MessageBoxW, SW_SHOWNORMAL,
 };
 use windows_sys::core::GUID;
 
@@ -452,6 +452,31 @@ impl Drop for SingleInstance {
         if !self.0.is_null() {
             unsafe { CloseHandle(self.0) };
         }
+    }
+}
+
+/// Opens an https page in the user's default browser.
+pub fn open_url(url: &str) -> Result<(), String> {
+    if !url.starts_with("https://") {
+        return Err("Only https pages are opened.".into());
+    }
+    let (verb, file) = (wide("open"), wide(url));
+    // SAFETY: both strings are NUL-terminated and outlive the call.
+    let result = unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            verb.as_ptr(),
+            file.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+    // Values above 32 mean it worked.
+    if result as isize > 32 {
+        Ok(())
+    } else {
+        Err("The browser could not be opened.".into())
     }
 }
 

@@ -5,12 +5,20 @@ mod console;
 mod download;
 pub mod game_saves;
 mod maintenance;
+mod passwords;
 mod spotify_hub;
 mod startup;
 mod storage;
+mod tray;
 mod updater;
 mod window_sizing;
 mod windows_optimization;
+
+/// Handles a browser starting this program as the password extension's
+/// native messaging host. `None` means this is not such a start.
+pub fn run_passwords_native_host() -> Option<i32> {
+    passwords::browser::run_native_host()
+}
 
 /// Handles the privileged Auto-Logon helper before Tauri and the
 /// single-instance plugin start. `None` means this is a normal app launch.
@@ -62,19 +70,34 @@ async fn finish_startup(app: AppHandle) -> Result<(), String> {
     show_main(&app).map_err(|e| e.to_string())
 }
 
+/// The page to open on start: the Password Manager when the browser
+/// extension started the app (`--open-passwords`).
+#[tauri::command]
+fn start_page() -> Option<&'static str> {
+    std::env::args()
+        .any(|a| a == "--open-passwords")
+        .then_some("password-manager")
+}
+
 fn show_main(app: &AppHandle) -> tauri::Result<()> {
     let Some(main) = app.get_webview_window("main") else {
         return Ok(());
     };
     if !main.is_visible()? {
         window_sizing::fit_to_screen(&main)?;
-        main.show()?;
-        // Launched by the Startup shortcut: stay out of the way in the
-        // taskbar, unless the user chose to have it open at sign-in.
-        if startup::launched_at_sign_in() && startup::start_minimized() {
-            main.minimize()?;
+        // Launched by the Startup shortcut: stay out of the way, unless the
+        // user chose to have it open at sign-in. With the tray icon, out of
+        // the way means there; otherwise minimized in the taskbar.
+        let quietly = startup::launched_at_sign_in() && startup::start_minimized();
+        if quietly && tray::keep_running(app) {
+            let _ = tray::ensure(app);
         } else {
-            main.set_focus()?;
+            main.show()?;
+            if quietly {
+                main.minimize()?;
+            } else {
+                main.set_focus()?;
+            }
         }
     }
     if let Some(splash) = app.get_webview_window("splash") {
@@ -95,16 +118,21 @@ pub fn run() {
     let game_saves_state = game_saves::GameSavesState::default();
     let spotify_hub_state = spotify_hub::SpotifyHubState::default();
     let windows_optimization_state = windows_optimization::WindowsOptimizationState::default();
+    let passwords_state = passwords::PasswordsState::default();
+    let passwords_windows_state = passwords::WindowsFillState::default();
     let app = tauri::Builder::default()
         // Must be registered first. A second launch focuses the running app.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            let window = ["main", "splash"]
-                .into_iter()
-                .filter_map(|label| app.get_webview_window(label))
-                .find(|w| w.is_visible().unwrap_or(false));
-            if let Some(window) = window {
-                let _ = window.unminimize();
-                let _ = window.set_focus();
+            // Still starting: the splash. Otherwise the main window, also
+            // when it waits in the tray.
+            let splash = app
+                .get_webview_window("splash")
+                .filter(|w| w.is_visible().unwrap_or(false));
+            match splash {
+                Some(splash) => {
+                    let _ = splash.set_focus();
+                }
+                None => tray::show_window(app),
             }
         }))
         .plugin(tauri_plugin_opener::init())
@@ -116,10 +144,17 @@ pub fn run() {
         .manage(game_saves_state.clone())
         .manage(spotify_hub_state.clone())
         .manage(windows_optimization_state.clone())
+        .manage(passwords_state.clone())
+        .manage(passwords_windows_state.clone())
         .setup({
             let cleanup = cleanup.clone();
             move |app| {
                 create_windows(app)?;
+                passwords::watch(app.handle().clone(), passwords_state.clone());
+                passwords::serve_browser(app.handle().clone(), passwords_state.clone());
+                passwords::start_windows_fill(app.handle().clone(), passwords_windows_state.clone());
+                tray::init(app.handle());
+                tray::watch_quit(app.handle().clone());
                 // Sweeps anything a previous run could not delete. Off the main
                 // thread: a locked file costs a retry delay.
                 if let Ok(dir) = storage::roaming_dir() {
@@ -155,14 +190,60 @@ pub fn run() {
             }
         })
         .on_window_event(|window, event| {
-            // Closing the splash (Alt+F4) before the main window is shown would
-            // leave a hidden, running app behind, so quit instead.
-            if window.label() == "splash" && matches!(event, WindowEvent::CloseRequested { .. }) {
-                window.app_handle().exit(0);
+            let WindowEvent::CloseRequested { api, .. } = event else {
+                return;
+            };
+            match window.label() {
+                // Closing the splash (Alt+F4) before the main window is shown
+                // would leave a hidden, running app behind, so quit instead.
+                "splash" => window.app_handle().exit(0),
+                // With a password vault, the app keeps running in the tray so
+                // Ctrl+Shift+L and browser filling keep working.
+                "main" if tray::keep_running(window.app_handle()) => {
+                    api.prevent_close();
+                    let _ = tray::ensure(window.app_handle());
+                    let _ = window.hide();
+                }
+                _ => {}
             }
         })
         .invoke_handler(tauri::generate_handler![
             finish_startup,
+            start_page,
+            passwords::passwords_browser_get,
+            passwords::passwords_browser_set,
+            passwords::passwords_open_extension_dir,
+            passwords::windows_fill::passwords_windows_hotkey_status,
+            passwords::windows_fill::passwords_windows_fill,
+            passwords::passwords_status,
+            passwords::passwords_create,
+            passwords::passwords_unlock,
+            passwords::passwords_hello_status,
+            passwords::passwords_hello_enable,
+            passwords::passwords_hello_disable,
+            passwords::passwords_hello_unlock,
+            passwords::passwords_recover,
+            passwords::passwords_change_master,
+            passwords::passwords_sync,
+            passwords::passwords_use_account_vault,
+            passwords::passwords_lock,
+            passwords::passwords_set_auto_lock,
+            passwords::passwords_set_website_icons,
+            passwords::icons::passwords_icons,
+            passwords::passwords_list,
+            passwords::passwords_reveal,
+            passwords::passwords_history,
+            passwords::passwords_copy,
+            passwords::passwords_copy_text,
+            passwords::passwords_save,
+            passwords::passwords_delete,
+            passwords::passwords_generate,
+            passwords::passwords_strength,
+            passwords::passwords_import_pick,
+            passwords::passwords_import,
+            passwords::passwords_export,
+            tray::tray_get,
+            tray::tray_set,
             startup::startup_get,
             startup::startup_set_enabled,
             startup::startup_set_minimized,

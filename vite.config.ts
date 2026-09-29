@@ -1,5 +1,6 @@
 import { defineConfig, type UserConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const host = process.env.TAURI_DEV_HOST;
@@ -7,6 +8,9 @@ const project = import.meta.dirname;
 const frontend = resolve(project, "frontend");
 // Next to the Rust builds, so every build output lives in one ignored folder.
 const target = resolve(project, "backend/target");
+// The browser extension's download page (`myle.extensionUrl` in package.json),
+// the same one the setup offers. Empty until the extension is published.
+const extensionUrl: string = JSON.parse(readFileSync(resolve(project, "package.json"), "utf8")).myle?.extensionUrl ?? "";
 
 // https://v2.tauri.app/start/frontend/vite/
 //
@@ -23,6 +27,7 @@ export default defineConfig(({ mode }): UserConfig => {
     root: frontend,
     envDir: project,
     plugins: [svelte()],
+    define: { "import.meta.env.VITE_EXTENSION_URL": JSON.stringify(extensionUrl) },
     clearScreen: false,
     server: {
       port: 1420,

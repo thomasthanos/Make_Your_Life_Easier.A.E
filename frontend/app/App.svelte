@@ -2,9 +2,13 @@
   import ConfirmHost from "../lib/components/ConfirmHost.svelte";
   import Toaster from "../lib/components/Toaster.svelte";
   import { onMount } from "svelte";
+  import { invoke, isTauri } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
+  import type { PageId } from "./pages/registry";
   import { nav } from "../lib/nav.svelte";
   import { account } from "./account/account.svelte";
   import { gameSavesState } from "./pages/game-saves/state.svelte";
+  import { passwords, type WindowsTarget } from "./pages/password-manager/state.svelte";
   import ContentArea from "./shell/ContentArea.svelte";
   import Sidebar from "./shell/Sidebar.svelte";
   import Titlebar from "./shell/Titlebar.svelte";
@@ -16,6 +20,19 @@
     gameSavesState.startWatcher();
     // Restores the signed-in account and syncs settings with it.
     void account.init();
+    if (!isTauri()) return;
+    // The browser extension asked for the vault (to unlock it, or when it
+    // started the app).
+    void invoke<PageId | null>("start_page").then((page) => page && nav.go(page));
+    const unlisten = listen<PageId>("myle-navigate", (event) => nav.go(event.payload));
+    const unlistenWindows = listen<WindowsTarget>("passwords-windows-target", (event) => {
+      passwords.windowsTarget = event.payload;
+      nav.go("password-manager");
+    });
+    return () => {
+      void unlisten.then((off) => off());
+      void unlistenWindows.then((off) => off());
+    };
   });
 
   function onKeydown(e: KeyboardEvent) {

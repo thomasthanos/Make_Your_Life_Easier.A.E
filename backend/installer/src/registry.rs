@@ -151,9 +151,21 @@ pub fn remove_legacy_autostart() {
 /// Removes the "Installed apps" entry and the login-launch value the NSIS
 /// setup's uninstaller also cleared. `forget_folder` drops the remembered
 /// install folder too (a full clean-up); otherwise a reinstall reuses it.
+/// Where the app registers the password extension's native messaging host
+/// (`backend/src/passwords/browser.rs`): the browsers forget it on uninstall.
+const NATIVE_HOSTS: [&str; 4] = [
+    r"Software\Google\Chrome\NativeMessagingHosts\com.thomasthanos.myle",
+    r"Software\Microsoft\Edge\NativeMessagingHosts\com.thomasthanos.myle",
+    r"Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.thomasthanos.myle",
+    r"Software\Mozilla\NativeMessagingHosts\com.thomasthanos.myle",
+];
+
 pub fn unregister(forget_folder: bool) {
     let _ = hkcu().delete_subkey_all(product::uninstall_key());
     remove_legacy_autostart();
+    for key in NATIVE_HOSTS {
+        let _ = hkcu().delete_subkey_all(key);
+    }
     if forget_folder {
         let _ = hkcu().delete_subkey_all(product::product_key());
         // The publisher key only if nothing else of ours lives under it.

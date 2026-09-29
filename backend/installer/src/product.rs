@@ -12,6 +12,14 @@ pub const IDENTIFIER: &str = env!("MYLE_IDENTIFIER");
 pub const PUBLISHER: &str = env!("MYLE_PUBLISHER");
 /// The version this setup installs (and the uninstaller shipped with).
 pub const VERSION: &str = env!("MYLE_APP_VERSION");
+/// The browser extension's download page: `myle.extensionUrl` in
+/// package.json. Empty until the extension is published.
+const EXTENSION_URL: &str = env!("MYLE_EXTENSION_URL");
+
+/// The extension's page, when there is one (and it is https).
+pub fn extension_url() -> Option<&'static str> {
+    EXTENSION_URL.starts_with("https://").then_some(EXTENSION_URL)
+}
 
 pub const UNINSTALLER: &str = "uninstall.exe";
 /// Written into the install folder: what this setup put there.

@@ -40,11 +40,14 @@ fn main() {
             .unwrap_or_else(|| panic!("tauri.conf.json has no {what}"))
             .to_string()
     };
-    let version = text(
-        &read_json(&package_json)["version"],
-        "version in package.json",
-    );
+    let package = read_json(&package_json);
+    let version = text(&package["version"], "version in package.json");
     env("MYLE_APP_VERSION", &version);
+    // Where the browser extension is downloaded; empty until it is published.
+    env(
+        "MYLE_EXTENSION_URL",
+        package["myle"]["extensionUrl"].as_str().unwrap_or_default(),
+    );
     env(
         "MYLE_PRODUCT_NAME",
         &text(&config["productName"], "productName"),

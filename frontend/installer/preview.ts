@@ -24,6 +24,7 @@ export function previewApi(mode: string): SetupApi {
     shortcuts: { desktop: true, startMenu: true, startup: mode !== "update", startMinimized: true },
     passive: mode === "passive",
     ready: true,
+    extensionUrl: uninstall ? null : "https://example.com/myle-passwords",
   };
   let runningAsked = false;
 
@@ -86,6 +87,7 @@ export function previewApi(mode: string): SetupApi {
       if (mode === "launch-fail") throw "Windows could not start the app.";
       await sleep(900); // the real one returns once the app's window is up
     },
+    async openExtension() {},
     async exit() {},
   };
 }

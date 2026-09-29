@@ -15,8 +15,9 @@ use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
 use windows_sys::Win32::System::Threading::{
-    GetCurrentProcessId, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
-    PROCESS_TERMINATE, QueryFullProcessImageNameW, TerminateProcess, WaitForSingleObject,
+    EVENT_MODIFY_STATE, GetCurrentProcessId, OpenEventW, OpenProcess,
+    PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
+    QueryFullProcessImageNameW, SetEvent, TerminateProcess, WaitForSingleObject,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowThreadProcessId, IsWindowVisible, PostMessageW, WM_CLOSE,
@@ -113,9 +114,33 @@ fn image_path(pid: u32) -> Option<PathBuf> {
     (ok != 0).then(|| PathBuf::from(OsString::from_wide(&buffer[..length as usize])))
 }
 
+/// The event the app waits on to quit (`backend/src/tray.rs`). Closing its
+/// window may only hide it to the tray, so the setup asks through this first.
+fn quit_event_name() -> Vec<u16> {
+    format!(r"Local\{}-Quit", crate::product::LEGACY_BINARY)
+        .encode_utf16()
+        .chain(Some(0))
+        .collect()
+}
+
+/// Tells a running app (version 8.2 and later) to quit.
+fn signal_quit() {
+    let name = quit_event_name();
+    // SAFETY: the handle is closed right after use.
+    unsafe {
+        let event = OpenEventW(EVENT_MODIFY_STATE, 0, name.as_ptr());
+        if !event.is_null() {
+            SetEvent(event);
+            CloseHandle(event);
+        }
+    }
+}
+
 /// Asks each process's windows to close, as the title bar's close button
-/// would. The app shuts down cleanly when its window closes.
+/// would. The app shuts down cleanly when its window closes; one that keeps
+/// running in the tray is told to quit first.
 fn ask_to_close(pids: &[u32]) {
+    signal_quit();
     unsafe extern "system" fn visit(window: HWND, targets: LPARAM) -> i32 {
         // SAFETY: `targets` is the slice passed to EnumWindows below.
         let targets = unsafe { &*(targets as *const Vec<u32>) };
@@ -228,6 +253,14 @@ pub fn close_all(dir: &Path, grace: Duration) -> Vec<Running> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_quit_event_is_the_one_the_app_waits_on() {
+        let name = quit_event_name();
+        let text = String::from_utf16(&name[..name.len() - 1]).unwrap();
+        // backend/src/tray.rs waits on the same name.
+        assert_eq!(text, r"Local\MakeYourLifeEasier-Quit");
+    }
 
     #[test]
     fn waiting_for_a_window_ends_when_the_program_exits_without_one() {

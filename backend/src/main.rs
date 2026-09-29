@@ -2,6 +2,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    // Before anything else: a browser starting us as the password
+    // extension's host talks on stdin/stdout and never shows a window.
+    if let Some(exit_code) = myle_lib::run_passwords_native_host() {
+        std::process::exit(exit_code);
+    }
     if let Some(exit_code) = myle_lib::cleaner::run_elevated_helper_from_args() {
         std::process::exit(exit_code);
     }

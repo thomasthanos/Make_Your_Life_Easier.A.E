@@ -1,0 +1,42 @@
+<script lang="ts">
+  import { onMount } from "svelte";
+  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
+  import PageHeader from "../../../lib/components/PageHeader.svelte";
+  import SetupVault from "./SetupVault.svelte";
+  import { passwords as p } from "./state.svelte";
+  import UnlockVault from "./UnlockVault.svelte";
+  import VaultView from "./VaultView.svelte";
+
+  onMount(() => {
+    p.error = null;
+    p.pageOpened();
+    void p.load();
+  });
+</script>
+
+<PageHeader title="Password Manager" subtitle="Your logins, encrypted on this PC before they are saved or synced." />
+
+{#if p.status === null || (p.status === "new" && !p.checkedAccount)}
+  <div class="loading">
+    <LoaderCircle size={20} class="spin" />
+    {#if p.status === "new"}<span>Checking your account for a vault…</span>{/if}
+  </div>
+{:else if p.status === "new"}
+  <SetupVault />
+{:else if p.status === "locked"}
+  <UnlockVault />
+{:else}
+  <VaultView />
+{/if}
+
+<style>
+  .loading {
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 10px;
+    height: 200px;
+    color: var(--text-3);
+    font-size: 12.5px;
+  }
+</style>

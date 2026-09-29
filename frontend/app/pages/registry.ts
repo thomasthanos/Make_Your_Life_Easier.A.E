@@ -7,10 +7,12 @@ import IconCreativeHub from "../../lib/icons/IconCreativeHub.svelte";
 import IconWindowsOpt from "../../lib/icons/IconWindowsOpt.svelte";
 import IconSystemCleaner from "../../lib/icons/IconSystemCleaner.svelte";
 import IconSystemMaint from "../../lib/icons/IconSystemMaint.svelte";
+import IconPasswords from "../../lib/icons/IconPasswords.svelte";
 import IconSettings from "../../lib/icons/IconSettings.svelte";
 import CreativeHub from "./creative-hub/CreativeHub.svelte";
 import GameSaves from "./game-saves/GameSaves.svelte";
 import InstallApps from "./install-apps/InstallApps.svelte";
+import PasswordManager from "./password-manager/PasswordManager.svelte";
 import SpotifyHub from "./spotify-hub/SpotifyHub.svelte";
 import Settings from "./settings/Settings.svelte";
 import SystemCleaner from "./system-cleaner/SystemCleaner.svelte";
@@ -34,6 +36,7 @@ const defs = [
   { id: "windows-optimization", label: "Windows Optimization",  icon: IconWindowsOpt,    component: WindowsOptimization },
   { id: "system-cleaner",       label: "System Cleaner",        icon: IconSystemCleaner, component: SystemCleaner },
   { id: "system-maintenance",   label: "System Maintenance",    icon: IconSystemMaint,   component: SystemMaintenance },
+  { id: "password-manager",     label: "Password Manager",      icon: IconPasswords,     component: PasswordManager },
   { id: "settings",             label: "Settings",              icon: IconSettings,      component: Settings, bottom: true },
 ] as const satisfies readonly PageDef[];
 

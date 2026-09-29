@@ -1,6 +1,6 @@
 [package]
 name = "make-your-life-easier"
-version = "8.1.0"
+version = "9.0.0"
 description = "MYLE — Make Your Life Easier"
 authors = ["ThomasThanos"]
 edition = "2024"
@@ -18,7 +18,7 @@ members = ["installer"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
@@ -47,16 +47,29 @@ windows-sys = { version = "0.61", features = [
     "Win32_Security_Cryptography",
     "Win32_Storage_FileSystem",
     "Win32_System_Com",
+    "Win32_System_DataExchange",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Memory",
     "Win32_System_Pipes",
+    "Win32_System_RemoteDesktop",
     "Win32_System_Registry",
     "Win32_System_SystemInformation",
     "Win32_System_Threading",
     "Win32_System_WindowsProgramming",
     "Win32_UI_Shell",
+    "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_WindowsAndMessaging",
 ] }
 base64 = "0.22"
 uuid = { version = "1", features = ["v4"] }
+# Password Manager: Argon2id for the master key, XChaCha20-Poly1305 for the
+# vault, and key material that is wiped from memory when dropped.
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
+zeroize = { version = "1", features = ["derive"] }
+# Windows Hello (KeyCredentialManager) for opening the password vault.
+windows = { version = "0.61", features = ["Foundation", "Security_Credentials", "Security_Cryptography", "Storage_Streams"] }
+psl = "2"
 
 # Dev builds optimize the dependencies (not our crate, so rebuilds stay fast):
 # unoptimized SHA-256, zip and zlib made downloads and unpacking crawl.

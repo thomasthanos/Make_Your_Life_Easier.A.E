@@ -5,10 +5,12 @@
   import { isTauri } from "@tauri-apps/api/core";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import ArrowLeftRight from "@lucide/svelte/icons/arrow-left-right";
+  import Check from "@lucide/svelte/icons/check";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import Monitor from "@lucide/svelte/icons/monitor";
   import Power from "@lucide/svelte/icons/power";
+  import Puzzle from "@lucide/svelte/icons/puzzle";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Rocket from "@lucide/svelte/icons/rocket";
   import { formatBytes } from "../lib/updater";
@@ -61,6 +63,8 @@
   let startup = $state(false);
   let startMinimized = $state(true);
   let launchAfter = $state(true);
+  /** Open the browser extension's page when done: offered on a first install. */
+  let getExtension = $state(false);
   let removeData = $state(false);
 
   let folderError = $state<string | null>(null);
@@ -214,6 +218,7 @@
     startMenu = state.shortcuts.startMenu;
     startup = state.shortcuts.startup;
     startMinimized = state.shortcuts.startMinimized;
+    getExtension = !!state.extensionUrl && !state.installed;
     if (!state.ready) {
       screen = "unavailable";
       return;
@@ -285,6 +290,10 @@
         finishing = false;
         return;
       }
+    }
+    // The page opens in the browser, over the app: a nicety, never a blocker.
+    if (!uninstalling && !info.passive && getExtension && info.extensionUrl) {
+      await api.openExtension().catch(() => {});
     }
     await api.exit();
   }
@@ -432,9 +441,25 @@
                 </Toggle>
                 <Toggle bind:checked={launchAfter} icon={Rocket} label="Open when finished" />
               </div>
+
             {/if}
 
             <div class="footer">
+              {#if !uninstalling && info.extensionUrl}
+                <!-- In the footer's free corner: the window keeps its size. -->
+                <button
+                  type="button"
+                  class="extension"
+                  class:on={getExtension}
+                  aria-pressed={getExtension}
+                  title="MYLE Passwords fills your saved logins in Chrome, Edge and Firefox. Its page opens in your browser when setup finishes."
+                  onclick={() => (getExtension = !getExtension)}
+                >
+                  <Puzzle size={14} strokeWidth={1.9} />
+                  Browser extension
+                  <span class="tick" aria-hidden="true">{#if getExtension}<Check size={11} strokeWidth={3} />{/if}</span>
+                </button>
+              {/if}
               <span class="spacer"></span>
               <button class="btn" onclick={close}>Cancel</button>
               <button class="btn primary big" class:danger={uninstalling} onclick={start}>
@@ -700,6 +725,56 @@
   .toggles :global(.toggle .label) {
     color: var(--text-1);
     font-size: 12px;
+  }
+
+  /* "Get the browser extension": its page opens once setup is done. */
+  .extension {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 10px 0 11px;
+    border: 1px solid rgb(255 255 255 / 0.08);
+    border-radius: 11px;
+    background: rgb(255 255 255 / 0.03);
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 560;
+    transition:
+      background var(--dur-fast),
+      border-color var(--dur-fast),
+      color var(--dur-fast);
+  }
+
+  .extension:hover {
+    border-color: rgb(255 255 255 / 0.14);
+    color: var(--text-1);
+  }
+
+  .extension.on {
+    border-color: rgb(var(--accent-rgb) / 0.4);
+    background: rgb(var(--accent-rgb) / 0.12);
+    color: #dce0ff;
+  }
+
+  .extension:focus-visible {
+    outline: 2px solid rgb(var(--accent-rgb) / 0.75);
+    outline-offset: 2px;
+  }
+
+  .tick {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid rgb(255 255 255 / 0.25);
+    border-radius: 5px;
+  }
+
+  .extension.on .tick {
+    border-color: transparent;
+    background: rgb(var(--accent-rgb));
+    color: #fff;
   }
 
   /* "Minimized / On screen at sign-in", under "Start with Windows". */

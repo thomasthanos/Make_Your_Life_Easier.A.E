@@ -1,0 +1,816 @@
+// MYLE Passwords: on the page.
+//
+// Finds login fields, and when one is clicked shows the logins saved for
+// this site; a click on one fills it in. Nothing is filled without a click.
+// After a login form is sent, the next page offers to save it.
+//
+// The page's own scripts share this document, so this assumes they may be
+// hostile:
+// - only the user's real input counts (event.isTrusted), never events a
+//   script makes up;
+// - the menu is drawn in a closed shadow root in the browser's top layer,
+//   styled so the page cannot hide or restyle it, and a click on it counts
+//   only once it has been on screen, still and untouched, for half a second,
+//   and (where the browser can tell) while nothing is drawn over it;
+// - nothing is filled into hidden fields or into a form that sends over
+//   plain http, and only a password the user typed (or picked in the menu)
+//   is offered for saving.
+(() => {
+  const ext = globalThis.browser ?? globalThis.chrome;
+  if (window.__myleFill || !(document.documentElement instanceof HTMLHtmlElement)) return;
+  window.__myleFill = true;
+
+  const send = (message) => ext.runtime.sendMessage(message).catch(() => ({ ok: false, error: "noHost" }));
+  const LOCAL = ["localhost", "127.0.0.1", "[::1]"];
+  const siteName = location.hostname.replace(/^www\./, "");
+
+  // A page can shadow a form's methods and properties with fields named after
+  // them (<input name="action">), so these come from the prototypes.
+  const getAttr = (el, name) => Element.prototype.getAttribute.call(el, name);
+  const queryAll = (scope, selector) => [
+    ...(scope instanceof Document ? Document.prototype : Element.prototype).querySelectorAll.call(scope, selector),
+  ];
+
+  // --- Fields -------------------------------------------------------------
+
+  /** On screen for the user: not hidden, see-through, tiny or off the page. */
+  function visible(el) {
+    const r = el.getBoundingClientRect();
+    if (r.width <= 20 || r.height <= 10 || r.right + scrollX <= 0 || r.bottom + scrollY <= 0) return false;
+    if (typeof el.checkVisibility === "function") {
+      return el.checkVisibility({
+        opacityProperty: true,
+        visibilityProperty: true,
+        checkOpacity: true,
+        checkVisibilityCSS: true,
+      });
+    }
+    const s = getComputedStyle(el);
+    return s.visibility !== "hidden" && s.display !== "none" && Number(s.opacity) > 0;
+  }
+
+  const usable = (el) =>
+    el instanceof HTMLInputElement && el.isConnected && !el.disabled && !el.readOnly && visible(el);
+
+  const passwordFields = () => queryAll(document, 'input[type="password"]').filter(usable);
+
+  const marked = (el, token) => new RegExp(`\\b${token}\\b`, "i").test(getAttr(el, "autocomplete") ?? "");
+
+  // Some sites ask for the email before showing a password field.
+  function isUsernameOnly(field) {
+    if (!(field instanceof HTMLInputElement) || !["text", "email", "tel"].includes(field.type)) return false;
+    if (!usable(field)) return false;
+    const hint = `${field.name} ${field.id} ${field.autocomplete} ${field.placeholder} ${getAttr(field, "aria-label") ?? ""}`;
+    return !/search|query|captcha|verification|one.time|otp|code/i.test(hint) &&
+      (marked(field, "username") || field.type === "email" || /user|mail|login|account/i.test(hint));
+  }
+
+  /** The user name field that goes with a password field: the nearest
+   *  visible text or email field before it, in the same form if there is one. */
+  function usernameFor(password) {
+    const fields = queryAll(password.form ?? document, "input").filter(
+      (el) => ["text", "email", "tel"].includes(el.type) && usable(el),
+    );
+    const before = fields.filter((el) => el.compareDocumentPosition(password) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const preferred = before.filter((el) => /user|mail|login|account|name|id/i.test(`${el.name} ${el.id} ${el.autocomplete}`));
+    return preferred.at(-1) ?? before.at(-1) ?? null;
+  }
+
+  function isLoginField(field) {
+    if (!usable(field)) return false;
+    const passwords = passwordFields();
+    return passwords.includes(field) || passwords.some((p) => usernameFor(p) === field) ||
+      (passwords.length === 0 && isUsernameOnly(field));
+  }
+
+  /** In a sign-up or password-change form, the fields a new password goes
+   *  into (the new one and its repeat), when the clicked field is one of
+   *  them. `marked`: the site says so (autocomplete="new-password"). */
+  function newPasswordFields(field) {
+    const none = { fields: [], marked: false };
+    if (!(field instanceof HTMLInputElement) || field.type !== "password") return none;
+    const all = passwordFields().filter((el) => el.form === field.form);
+    const flagged = all.filter((el) => marked(el, "new-password"));
+    if (flagged.length) return flagged.includes(field) ? { fields: flagged, marked: true } : none;
+    // Unmarked: new and repeat, or current, new and repeat.
+    const fields = all.length === 2 ? all : all.length === 3 ? all.slice(1) : [];
+    return fields.includes(field) ? { fields, marked: false } : none;
+  }
+
+  /** A form that would send what is typed in it over plain http. */
+  function insecureForm(field) {
+    const form = field?.form;
+    if (!form) return false;
+    const targets = [getAttr(form, "action"), ...queryAll(form, "[formaction]").map((el) => getAttr(el, "formaction"))];
+    return targets.some((target) => {
+      if (!target) return false;
+      try {
+        const url = new URL(target, document.baseURI);
+        return url.protocol === "http:" && !LOCAL.includes(url.hostname);
+      } catch {
+        return false;
+      }
+    });
+  }
+
+  /** Sets a value the way typing does, so the page's own code notices. */
+  function setValue(input, value) {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    input.focus();
+    setter.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function fill(credentials, chosen) {
+    const passwords = passwordFields();
+    const selected = [chosen, document.activeElement].find(usable);
+    const inForm = selected?.form ? passwords.filter((field) => field.form === selected.form) : [];
+    const afterSelected = selected && !selected.form ? passwords.filter(
+      (field) => selected.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ) : [];
+    const password = selected?.type === "password" && passwords.includes(selected) ? selected :
+      selected?.form ? (inForm.length === 1 ? inForm[0] : null) :
+        afterSelected.length === 1 ? afterSelected[0] :
+          passwords.length === 1 ? passwords[0] : null;
+    const username = password ? usernameFor(password) :
+      (selected && isUsernameOnly(selected) ? selected : (() => {
+        const candidates = queryAll(document, "input").filter(isUsernameOnly);
+        return candidates.length === 1 ? candidates[0] : null;
+      })());
+    // An email-only sign-in step can coexist with an unrelated password form.
+    // A clicked email field in its own form is still an unambiguous target.
+    const emailOnlyStep = selected?.form && isUsernameOnly(selected) && inForm.length === 0;
+    // Other multi-password pages may be registration or password-change
+    // forms. Filling only the user name there would falsely report success.
+    if (passwords.length > 0 && credentials.password && !password && !emailOnlyStep)
+      return { applied: false, error: "ambiguousFields" };
+    if (insecureForm(password ?? username)) return { applied: false, error: "insecureForm" };
+    let applied = false;
+    if (username && credentials.username) {
+      setValue(username, credentials.username);
+      applied = true;
+    }
+    if (password && credentials.password) {
+      setValue(password, credentials.password);
+      applied = true;
+    }
+    return { applied, error: applied ? undefined : "noFields" };
+  }
+
+  // --- The menu ---------------------------------------------------------------
+
+  /** How long the menu must be on screen, still, before a click on it counts. */
+  const ARM_MS = 500;
+  /** MYLE's mark: a shield with a keyhole on the app's violet. */
+  const MARK = '<svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><defs>' +
+    '<linearGradient id="myle-mark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a3acff"/>' +
+    '<stop offset="1" stop-color="#6b5cf2"/></linearGradient></defs>' +
+    '<rect x="1" y="1" width="22" height="22" rx="7" fill="url(#myle-mark)"/>' +
+    '<path d="M12 5.2 17.4 7.3v4.3c0 3.3-2.2 5.8-5.4 7.1-3.2-1.3-5.4-3.8-5.4-7.1V7.3z" fill="#fff" fill-opacity=".96"/>' +
+    '<circle cx="12" cy="10.7" r="1.7" fill="#6b5cf2"/><path d="M11.2 11.9h1.6l.45 2.7h-2.5z" fill="#6b5cf2"/></svg>';
+  /** Line icons for the menu's own items. */
+  const GLYPHS = {
+    lock: '<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/>',
+    open: '<path d="M14 4h6v6"/><path d="m20 4-8.5 8.5"/><path d="M18 14.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4.5"/>',
+    sparkle: '<path d="M12 3.5 13.9 9 19.5 11 13.9 13 12 18.5 10.1 13 4.5 11 10.1 9z"/><path d="M19 3v4M17 5h4"/>',
+    more: '<path d="m6 9 6 6 6-6"/>',
+  };
+  const glyph = (name) =>
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" ` +
+    `stroke-linejoin="round" aria-hidden="true">${GLYPHS[name]}</svg>`;
+  const STYLE = `
+    :host {
+      all: initial !important; display: block !important; position: fixed !important;
+      inset: 0 auto auto 0 !important; width: 0 !important; height: 0 !important;
+      min-width: 0 !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important;
+      border: 0 !important; overflow: visible !important; z-index: 2147483647 !important;
+      opacity: 1 !important; visibility: visible !important; transform: none !important;
+      filter: none !important; clip-path: none !important; mask: none !important;
+      mix-blend-mode: normal !important; transition: none !important; animation: none !important;
+      background: none !important;
+    }
+    :host(:not(:popover-open)) { display: none !important; }
+    [hidden] { display: none !important; }
+    .panel, .bar { position: fixed; box-sizing: border-box; color: #e8ebf7; background: #171b27;
+      font: 13px/1.35 system-ui, "Segoe UI", sans-serif; border: 1px solid rgba(255,255,255,.1);
+      box-shadow: 0 18px 44px -14px rgba(0,0,0,.75); color-scheme: dark; }
+    .panel { width: 304px; max-width: calc(100vw - 16px); max-height: min(360px, calc(100vh - 16px));
+      overflow: auto; padding: 5px; border-radius: 12px; }
+    .mark { width: 16px; height: 16px; flex: none; }
+    .head { display: flex; align-items: center; gap: 7px; padding: 6px 8px 7px; color: #c4c9ec;
+      font-size: 11.5px; font-weight: 650; letter-spacing: .02em; }
+    .head span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      color: #6f7799; font-weight: 500; }
+    button { all: unset; box-sizing: border-box; cursor: pointer; }
+    .item { display: flex; width: 100%; align-items: center; gap: 10px; padding: 8px 9px; border-radius: 8px; }
+    .item:hover, .item:focus-visible { background: rgba(132,142,222,.16); }
+    .item:focus-visible { box-shadow: inset 0 0 0 2px rgba(132,142,222,.55); }
+    .avatar { --hue: 235; flex: none; display: grid; place-items: center; width: 28px; height: 28px;
+      overflow: hidden; border-radius: 8px; border: 1px solid hsl(var(--hue) 55% 70% / .22);
+      background: linear-gradient(145deg, hsl(var(--hue) 55% 62% / .38), hsl(var(--hue) 55% 50% / .12));
+      color: hsl(var(--hue) 75% 88%); font-weight: 650; font-size: 12.5px; }
+    .avatar.image { border-color: rgba(255,255,255,.16); background: linear-gradient(160deg, #fbfbfe, #e9ebf3); }
+    .avatar img { width: 64%; height: 64%; object-fit: contain; }
+    .avatar svg { width: 15px; height: 15px; }
+    .avatar.glyph { color: #cdd1ff; }
+    .suggest .avatar { --hue: 150; color: #bff2d8; }
+    .item.more { justify-content: center; gap: 6px; min-height: 0; padding: 7px 9px; color: #9aa3c7; font-size: 12px; }
+    .item.more svg { width: 14px; height: 14px; }
+    .label { padding: 4px 9px 2px; color: #7d86ab; font-size: 10.5px; font-weight: 650;
+      letter-spacing: .06em; text-transform: uppercase; }
+    .text { display: grid; min-width: 0; }
+    .text b, .text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .text b { font-weight: 600; }
+    .text small { color: #8d95b8; font-size: 11.5px; }
+    .text .other { color: #f2c27a; }
+    .note { padding: 8px 9px 9px; color: #aab2d4; font-size: 12px; }
+    .bar { right: 16px; top: 16px; width: 332px; max-width: calc(100vw - 32px); padding: 14px;
+      border-radius: 14px; line-height: 1.4; }
+    .bar .title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+    .bar p { margin: 6px 0 12px; color: #aab2d4; overflow-wrap: anywhere; }
+    .bar .row { display: flex; gap: 8px; justify-content: flex-end; }
+    .bar button { padding: 7px 12px; border-radius: 8px; background: rgba(255,255,255,.07); }
+    .bar button:hover { background: rgba(255,255,255,.12); }
+    .bar button:focus-visible { box-shadow: 0 0 0 2px rgba(132,142,222,.6); }
+    .bar button.primary { background: #848ede; color: #fff; font-weight: 600; }
+    .bar button:disabled { opacity: .6; cursor: default; }`;
+
+  // A random tag name: a page cannot define it before the menu is made.
+  const host = document.createElement(`myle-${crypto.getRandomValues(new Uint32Array(2)).join("-")}`);
+  const topLayer = typeof host.showPopover === "function";
+  if (topLayer) host.setAttribute("popover", "manual");
+  const root = host.attachShadow({ mode: "closed" });
+  root.innerHTML = `<style>${STYLE}</style><div class="panel" role="menu" hidden></div>` +
+    '<div class="bar" role="dialog" aria-label="MYLE Passwords" hidden></div>';
+  const panel = root.querySelector(".panel");
+  const bar = root.querySelector(".bar");
+  /** When each part last appeared, moved or changed. */
+  const since = new Map([[panel, 0], [bar, 0]]);
+  /** The parts the browser last saw fully visible, nothing over them
+   *  (Chromium's IntersectionObserver v2; other browsers cannot tell). */
+  const unobscured = new Set();
+  const tracker = "isVisible" in (globalThis.IntersectionObserverEntry?.prototype ?? {}) ?
+    new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isVisible) unobscured.add(entry.target);
+        else unobscured.delete(entry.target);
+      }
+    }, { trackVisibility: true, delay: 100 }) :
+    null;
+  let anchor = null;
+  let spot = "";
+
+  function mount(field) {
+    // A login form in a modal dialog: the menu goes inside the dialog, or the
+    // dialog would leave it unclickable.
+    let parent = document.documentElement;
+    try {
+      const dialog = field?.closest("dialog");
+      if (dialog?.matches(":modal")) parent = dialog;
+    } catch {
+      // No :modal in this browser.
+    }
+    if (host.parentNode !== parent) {
+      closeLayer();
+      parent.append(host);
+    }
+  }
+
+  function openLayer() {
+    if (!topLayer) return;
+    try {
+      // Shown again, it goes back above anything the page put in the top layer.
+      if (host.matches(":popover-open")) host.hidePopover();
+      host.showPopover();
+    } catch {
+      // Not connected, or the page cancelled it: the menu stays hidden.
+    }
+  }
+
+  function closeLayer() {
+    if (!topLayer) return;
+    try {
+      if (host.matches(":popover-open")) host.hidePopover();
+    } catch {
+      // Already closed.
+    }
+  }
+
+  function show(part) {
+    part.hidden = false;
+    since.set(part, performance.now());
+    tracker?.observe(part);
+    openLayer();
+  }
+
+  function hide(part) {
+    part.hidden = true;
+    tracker?.unobserve(part);
+    unobscured.delete(part);
+    if (panel.hidden && bar.hidden) closeLayer();
+  }
+
+  function hidePanel() {
+    hide(panel);
+    anchor = null;
+    spot = "";
+  }
+
+  // The page changing the menu's element (its style, or its place in the top
+  // layer) closes the menu, and the element is put back as it was.
+  const guard = new MutationObserver(() => {
+    guard.disconnect();
+    for (const name of host.getAttributeNames()) if (name !== "popover") host.removeAttribute(name);
+    if (topLayer) host.setAttribute("popover", "manual");
+    hidePanel();
+    hide(bar);
+    guard.observe(host, { attributes: true });
+  });
+  guard.observe(host, { attributes: true });
+  host.addEventListener("toggle", (event) => {
+    // Closed by the page rather than by us.
+    if (event.isTrusted && topLayer && !host.matches(":popover-open") && !(panel.hidden && bar.hidden)) {
+      hidePanel();
+      hide(bar);
+    }
+  });
+
+  function place(field) {
+    if (!field?.isConnected) return hidePanel();
+    const r = field.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > innerHeight) return hidePanel();
+    const width = panel.offsetWidth;
+    const height = panel.offsetHeight;
+    const viewport = document.documentElement.clientWidth || innerWidth;
+    const left = Math.round(Math.max(8, Math.min(r.left, viewport - width - 8)));
+    const below = r.bottom + 6;
+    const top = Math.round(below + height > innerHeight - 8 ? Math.max(8, r.top - 6 - height) : below);
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+    // A menu that moved (the page scrolled, or moved the field) waits again.
+    if (`${left},${top}` !== spot) {
+      spot = `${left},${top}`;
+      since.set(panel, performance.now());
+    }
+  }
+
+  /** Why a click (or Enter) on the menu does not count, or "" when it is the
+   *  user's own, on the menu as they could see it: not made up by a script,
+   *  not the second click of a double click, not on a menu that just
+   *  appeared or moved under the pointer, and not through something drawn
+   *  over it ("covered"). */
+  function refusal(event, part, button) {
+    if (!event.isTrusted || event.detail > 1) return "fake";
+    if (part.hidden || performance.now() - since.get(part) < ARM_MS) return "early";
+    if (!host.isConnected || (topLayer && !host.matches(":popover-open"))) return "fake";
+    if (tracker && !unobscured.has(part)) return "covered";
+    if (!topLayer) {
+      const page = getComputedStyle(document.documentElement);
+      if (Number(page.opacity) < 1 || page.visibility !== "visible") return "covered";
+    }
+    // Enter or Space on the focused item, or a pointer on the menu itself.
+    if (event.detail === 0) return root.activeElement === button ? "" : "fake";
+    return document.elementFromPoint(event.clientX, event.clientY) === host ? "" : "covered";
+  }
+
+  /** Whether a click on the menu counts; if something covered the menu, says
+   *  so (shown again, the menu comes back on top). */
+  function genuine(event, part, button) {
+    const why = refusal(event, part, button);
+    if (why === "covered" && part === panel && anchor) {
+      showNote(anchor, "Something on this page covered MYLE's menu, so nothing was filled. " +
+        "Click the field again, or use the MYLE button in the toolbar.");
+    }
+    return !why;
+  }
+
+  /** A site's colour, the same every time (as in the app). */
+  function hueOf(text) {
+    let hash = 7;
+    for (const char of text) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+    return hash % 360;
+  }
+
+  /** A login's avatar: its website's icon when the app has one, else its
+   *  first letter on its site's colour. */
+  function avatarFor(login, title) {
+    const avatar = document.createElement("span");
+    avatar.className = "avatar";
+    avatar.style.setProperty("--hue", String(hueOf(login.site || title.toLowerCase())));
+    const letter = (title.match(/[\p{L}\p{N}]/u)?.[0] ?? "?").toUpperCase();
+    if (typeof login.icon === "string" && login.icon.startsWith("data:image/")) {
+      const img = document.createElement("img");
+      img.alt = "";
+      img.draggable = false;
+      // A page whose rules forbid such images: the letter instead.
+      img.addEventListener("error", () => {
+        avatar.classList.remove("image");
+        avatar.replaceChildren(letter);
+      });
+      img.src = login.icon;
+      avatar.classList.add("image");
+      avatar.append(img);
+    } else {
+      avatar.textContent = letter;
+    }
+    return avatar;
+  }
+
+  function glyphAvatar(name) {
+    const avatar = document.createElement("span");
+    avatar.className = "avatar glyph";
+    avatar.innerHTML = glyph(name);
+    return avatar;
+  }
+
+  function item(title, sub, avatar, other) {
+    const button = document.createElement("button");
+    button.className = "item";
+    button.setAttribute("role", "menuitem");
+    const text = document.createElement("span");
+    text.className = "text";
+    const name = document.createElement("b");
+    name.textContent = title;
+    const small = document.createElement("small");
+    small.textContent = sub;
+    if (other) {
+      // Saved for another host of this site: say which.
+      const where = document.createElement("span");
+      where.className = "other";
+      where.textContent = ` · ${other}`;
+      small.append(where);
+    }
+    text.append(name, small);
+    button.append(avatar, text);
+    button.title = [title, sub, other].filter(Boolean).join(" · ");
+    return button;
+  }
+
+  function header() {
+    const head = document.createElement("div");
+    head.className = "head";
+    head.innerHTML = MARK;
+    const site = document.createElement("span");
+    site.textContent = siteName;
+    head.append("MYLE", site);
+    return head;
+  }
+
+  function note(text) {
+    const box = document.createElement("div");
+    box.className = "note";
+    box.textContent = text;
+    return box;
+  }
+
+  function render(field, children) {
+    anchor = field;
+    mount(field);
+    panel.replaceChildren(header(), ...children);
+    show(panel);
+    place(field);
+  }
+
+  function showNote(field, text, fade) {
+    if (!field?.isConnected) return;
+    render(field, [note(text)]);
+    const shown = panel.lastChild;
+    if (fade) setTimeout(() => panel.lastChild === shown && anchor === field && hidePanel(), 6000);
+  }
+
+  const problems = {
+    ambiguousFields: "This page has several password fields. Click the one to fill, then pick the login again.",
+    insecureForm: "This form would send your password over plain http, so MYLE does not fill it.",
+    locked: "Your vault is locked. Unlock it in MYLE, then try again.",
+    busy: "Too many requests just now. Try again in a minute.",
+    wrongSite: "That login is saved for another website.",
+    notFound: "That login is no longer in your vault.",
+    notRunning: "MYLE is not running. Open it, then try again.",
+  };
+
+  function entryButton(login) {
+    const title = login.title || login.site || "Login";
+    const button = item(title, login.username || "No user name", avatarFor(login, title),
+      login.exact ? "" : login.site);
+    button.addEventListener("click", async (event) => {
+      if (!genuine(event, panel, button)) return;
+      const field = anchor;
+      hidePanel();
+      // Checked before the password is even asked for.
+      if (insecureForm(field)) return showNote(field, problems.insecureForm);
+      const answer = await send({ type: "fill", id: login.id });
+      const result = answer?.ok ? fill(answer, field) : { applied: false, error: answer?.error };
+      if (!result.applied) {
+        showNote(field, problems[result.error] ?? (answer?.ok ?
+          "That sign-in field changed. Click it again and retry." :
+          "Could not fill this login. Check its website in MYLE."));
+      }
+    });
+    return button;
+  }
+
+  function suggestButton(fields) {
+    const button = item("Suggest a strong password", "20 characters, made by MYLE", glyphAvatar("sparkle"));
+    button.classList.add("suggest");
+    button.addEventListener("click", async (event) => {
+      if (!genuine(event, panel, button)) return;
+      const field = anchor;
+      hidePanel();
+      if (insecureForm(fields[0])) return showNote(field, problems.insecureForm);
+      const answer = await send({ type: "generate" });
+      if (!answer?.ok || typeof answer.password !== "string") {
+        return showNote(field, problems[answer?.error] ?? "MYLE could not make a password just now.");
+      }
+      if (!fields.every(usable)) return showNote(field, "The form changed. Click the password field again.");
+      for (const target of fields) {
+        setValue(target, answer.password);
+        approved.set(target, answer.password);
+      }
+      showNote(field, "A strong password is filled in. When you send the form, MYLE offers to save it.", true);
+    });
+    return button;
+  }
+
+  function openButton(label, glyphName) {
+    const button = item(label, "Opens MYLE on this PC", glyphAvatar(glyphName));
+    button.addEventListener("click", (event) => {
+      if (!genuine(event, panel, button)) return;
+      hidePanel();
+      void send({ type: "open" });
+    });
+    return button;
+  }
+
+  /** The logins whose user name this page already shows: on a password step
+   *  (Google's, say) the account chosen before, from a user name field,
+   *  visible or hidden, or the page's own text. Empty when none, or all. */
+  function accountsOnPage(logins, field) {
+    const typed = queryAll(document, "input")
+      .filter((el) => el !== field && el.type !== "password" && el.value &&
+        (marked(el, "username") || marked(el, "email") || /user|mail|login|identifier|account/i.test(`${el.name} ${el.id}`)))
+      .map((el) => el.value.trim().toLowerCase());
+    const text = (document.body?.innerText ?? "").slice(0, 60_000).toLowerCase();
+    const named = logins.filter((login) => {
+      const name = (login.username ?? "").trim().toLowerCase();
+      if (name.length < 3) return false;
+      if (typed.includes(name)) return true;
+      // A whole word of the page, not part of a longer one.
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`(^|[^\\p{L}\\p{N}._@-])${escaped}($|[^\\p{L}\\p{N}._@-])`, "u").test(text);
+    });
+    return named.length < logins.length ? named : [];
+  }
+
+  function moreButton(count, reveal) {
+    const button = document.createElement("button");
+    button.className = "item more";
+    button.innerHTML = glyph("more");
+    button.append(`${count} other ${count === 1 ? "login" : "logins"} for this site`);
+    button.addEventListener("click", (event) => {
+      if (event.isTrusted) reveal();
+    });
+    return button;
+  }
+
+  async function showFor(field) {
+    anchor = field;
+    const fresh = newPasswordFields(field);
+    const answer = await send({ type: "logins" });
+    if (anchor !== field || !field.isConnected) return;
+    const items = [];
+    if (answer?.ok) {
+      const logins = answer.logins ?? [];
+      // A new password only while the vault is open, so it can be saved.
+      const suggestion = fresh.fields.length ? suggestButton(fresh.fields) : null;
+      if (suggestion && fresh.marked) items.push(suggestion);
+      // The account the page already names comes alone; the rest on request.
+      const named = accountsOnPage(logins, field);
+      if (named.length) {
+        items.push(...named.map(entryButton));
+        items.push(moreButton(logins.length - named.length, () => {
+          if (anchor !== field) return;
+          const rest = logins.filter((login) => !named.includes(login));
+          render(field, [...named, ...rest].slice(0, 8).map(entryButton));
+        }));
+      } else {
+        items.push(...logins.slice(0, 6).map(entryButton));
+        if (logins.length > 6) items.push(note(`${logins.length - 6} more: use the MYLE button in the toolbar.`));
+      }
+      if (suggestion && !fresh.marked) items.push(suggestion);
+      if (!items.length) items.push(note(`No saved login for ${siteName}. Add this website to a login in MYLE.`));
+    } else if (answer?.error === "locked") {
+      items.push(openButton("Unlock your vault in MYLE", "lock"));
+    } else if (answer?.error === "noVault") {
+      items.push(openButton("Create your vault in MYLE", "lock"));
+    } else if (answer?.error === "notRunning") {
+      items.push(openButton("Open MYLE to fill in", "open"));
+    } else if (answer?.error === "noHost" || answer?.error === "disabled") {
+      items.push(note("Turn on Browser filling in MYLE: Password Manager → ⋯ → Browser filling."));
+    } else if (answer?.error === "embedded") {
+      items.push(note(`This sign-in form comes from ${answer.site}, inside ${answer.top}. ` +
+        "To fill it, use the MYLE button in the browser's toolbar."));
+    } else if (answer?.error === "busy") {
+      items.push(note(problems.busy));
+    } else {
+      return hidePanel();
+    }
+    render(field, items);
+  }
+
+  // A click (not mere focus, which pages move around by themselves) opens it.
+  document.addEventListener(
+    "mousedown",
+    (event) => {
+      if (!event.isTrusted || event.button !== 0) return;
+      const path = event.composedPath();
+      if (path.includes(host)) return;
+      const field = path.find((el) => el instanceof HTMLInputElement);
+      if (field && isLoginField(field)) {
+        // Clicked again while the menu shows only a note: look again.
+        if (anchor !== field || panel.hidden || !panel.querySelector(".item")) void showFor(field);
+      } else {
+        hidePanel();
+      }
+    },
+    true,
+  );
+
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (!event.isTrusted) return;
+      const target = event.composedPath()[0];
+      if (target === host) return; // Keys inside the menu: below.
+      if (event.key === "Escape" && !panel.hidden) {
+        hidePanel();
+      } else if (event.key === "ArrowDown" && !panel.hidden && target === anchor) {
+        // From the field into the menu.
+        const first = panel.querySelector(".item");
+        if (first) {
+          event.preventDefault();
+          first.focus();
+        }
+      } else if (event.key === "Enter" && target instanceof HTMLInputElement && target.type === "password") {
+        captureFrom(target.form);
+      }
+    },
+    true,
+  );
+
+  root.addEventListener("keydown", (event) => {
+    if (!event.isTrusted || panel.hidden) return;
+    const items = [...panel.querySelectorAll(".item")];
+    const at = items.indexOf(root.activeElement);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!items.length) return;
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      const next = at < 0 ? (step > 0 ? 0 : items.length - 1) : (at + step + items.length) % items.length;
+      items[next].focus();
+    } else if (event.key === "Escape" || event.key === "Tab") {
+      event.preventDefault();
+      event.stopPropagation();
+      const field = anchor;
+      hidePanel();
+      field?.focus();
+    }
+  });
+
+  addEventListener("scroll", () => !panel.hidden && anchor && place(anchor), true);
+  addEventListener("resize", () => !panel.hidden && anchor && place(anchor));
+  addEventListener("pagehide", () => {
+    hidePanel();
+    hide(bar);
+  });
+
+  // The popup's "Fill" lands here.
+  ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (sender.id !== ext.runtime.id) return;
+    if (message?.type === "inspect") {
+      const passwords = passwordFields();
+      const usernames = queryAll(document, "input").filter(isUsernameOnly);
+      const fields = [...passwords, ...usernames];
+      const active = document.activeElement;
+      sendResponse({
+        fields: fields.length > 0,
+        password: passwords.length > 0,
+        focused: fields.includes(active),
+        // Every sign-in field here sends over plain http: not worth a password.
+        insecure: fields.length > 0 && fields.every(insecureForm),
+      });
+    } else if (message?.type === "apply") {
+      sendResponse(message.origin === location.origin ?
+        fill(message, null) : { applied: false, error: "pageChanged" });
+    }
+  });
+
+  // --- Offering to save -------------------------------------------------------
+
+  /** What the user typed (or picked in the menu) into each password field. */
+  const approved = new WeakMap();
+  document.addEventListener(
+    "input",
+    (event) => {
+      const field = event.composedPath()[0];
+      if (event.isTrusted && field instanceof HTMLInputElement && field.type === "password") {
+        approved.set(field, field.value);
+      }
+    },
+    true,
+  );
+
+  /** In a sign-up or password-change form, the new password; else the one. */
+  function sentPassword(fields) {
+    const flagged = fields.find((el) => marked(el, "new-password"));
+    if (flagged) return flagged;
+    const [last, before] = [fields.at(-1), fields.at(-2)];
+    return before && before.value === last.value ? last : fields[0];
+  }
+
+  let lastSent = "";
+
+  function captureFrom(form) {
+    const fields = queryAll(form ?? document, 'input[type="password"]').filter((el) => el.value);
+    if (!fields.length) return;
+    const password = sentPassword(fields);
+    // Only what the user typed: a value a script put there is never offered.
+    if (approved.get(password) !== password.value) return;
+    const username = usernameFor(fields[0])?.value ?? "";
+    // The click on the button and the form's submit are one sending.
+    const key = `${username}\n${password.value}`;
+    if (key === lastSent) return;
+    lastSent = key;
+    setTimeout(() => lastSent === key && (lastSent = ""), 5000);
+    void send({ type: "submitted", username, password: password.value });
+  }
+
+  document.addEventListener(
+    "submit",
+    (event) => event.isTrusted && event.target instanceof HTMLFormElement && captureFrom(event.target),
+    true,
+  );
+  // Many sign-in pages send with a script, not a form: a click on a submit
+  // button, or Enter in the password field, counts too.
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (!event.isTrusted) return;
+      const button = event.composedPath().find(
+        (el) => el instanceof HTMLButtonElement || (el instanceof HTMLInputElement && el.type === "submit"),
+      );
+      if (button && (button.type === "submit" || /log ?in|sign ?in|continue|next|σύνδεση|είσοδος/i.test(button.textContent ?? "")))
+        captureFrom(button.form);
+    },
+    true,
+  );
+
+  async function offerSave() {
+    const pending = await send({ type: "pending" });
+    if (typeof pending?.nonce !== "string") return;
+    mount(null);
+    const title = document.createElement("div");
+    title.className = "title";
+    title.innerHTML = MARK;
+    title.append(pending.update ? "Update the saved password?" : "Save this login?");
+    const text = document.createElement("p");
+    text.textContent = `${pending.username || "A login without a user name"} for ${pending.site}, in your MYLE vault.`;
+    const row = document.createElement("div");
+    row.className = "row";
+    const later = document.createElement("button");
+    later.textContent = "Not now";
+    later.addEventListener("click", (event) => {
+      if (!event.isTrusted) return;
+      hide(bar);
+      void send({ type: "dismiss", nonce: pending.nonce });
+    });
+    const save = document.createElement("button");
+    save.className = "primary";
+    save.textContent = pending.update ? "Update" : "Save";
+    save.addEventListener("click", async (event) => {
+      if (save.disabled || !genuine(event, bar, save)) return;
+      save.disabled = true;
+      const answer = await send({ type: "save", nonce: pending.nonce });
+      if (answer?.ok) {
+        text.textContent = "Saved to your vault.";
+        row.remove();
+        setTimeout(() => hide(bar), 1800);
+      } else if (answer?.error === "expired") {
+        text.textContent = "This offer has expired. Add the login in MYLE instead.";
+        row.remove();
+      } else {
+        save.disabled = false;
+        text.textContent = answer?.error === "locked" ?
+          "Your vault is locked. Unlock it in MYLE, then press Save again." :
+          "It could not be saved. Try again, or add it in MYLE.";
+      }
+    });
+    row.append(later, save);
+    bar.replaceChildren(title, text, row);
+    show(bar);
+  }
+
+  // The offer shows once, in the page itself, not in its frames.
+  if (window === window.top) void offerSave();
+})();
