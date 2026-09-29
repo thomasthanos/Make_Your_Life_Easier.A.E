@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Checks that Make Your Life Easier is installed (or fully removed) at the expected locations.
+  Checks that MYLE is installed (or fully removed) at the expected locations.
 
 .EXAMPLE
   ./scripts/verify-install.ps1            # after running the setup
@@ -9,11 +9,11 @@
 param([switch]$Removed)
 
 $installDir = Join-Path $env:LOCALAPPDATA "ThomasThanos\MakeYourLifeEasier"
-$exe = Join-Path $installDir "MakeYourLifeEasier.exe"
+$exe = Join-Path $installDir "MYLE.exe"
 $shortcuts = [ordered]@{
-  "Desktop"    = Join-Path ([Environment]::GetFolderPath("Desktop")) "Make Your Life Easier.lnk"
-  "Start Menu" = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Make Your Life Easier.lnk"
-  "Startup"    = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup\Make Your Life Easier.lnk"
+  "Desktop"    = Join-Path ([Environment]::GetFolderPath("Desktop")) "MYLE.lnk"
+  "Start Menu" = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\MYLE.lnk"
+  "Startup"    = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup\MYLE.lnk"
 }
 $uninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier"
 

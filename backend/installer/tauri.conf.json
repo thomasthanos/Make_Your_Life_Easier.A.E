@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Make Your Life Easier Setup",
+  "productName": "MYLE Setup",
   "version": "../../package.json",
   "identifier": "com.thomasthanos.makeyourlifeeasier.setup",
   "build": {

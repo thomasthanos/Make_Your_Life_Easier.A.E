@@ -64,7 +64,7 @@ pub enum Shortcut {
 impl Shortcut {
     pub const ALL: [Shortcut; 3] = [Shortcut::Desktop, Shortcut::StartMenu, Shortcut::Startup];
 
-    /// `<folder>\Make Your Life Easier.lnk`. The desktop follows OneDrive
+    /// `<folder>\MYLE.lnk`. The desktop follows OneDrive
     /// or any other redirection, which `%USERPROFILE%\Desktop` would miss.
     pub fn path(self) -> Option<PathBuf> {
         let folder = match self {
@@ -78,6 +78,14 @@ impl Shortcut {
     fn fallback_path(self) -> Option<PathBuf> {
         let primary = self.path()?;
         Some(primary.with_file_name(format!("{} - {}.lnk", product::NAME, product::PUBLISHER)))
+    }
+
+    fn legacy_paths(self) -> Option<[PathBuf; 2]> {
+        let primary = self.path()?;
+        Some([
+            primary.with_file_name(format!("{}.lnk", product::LEGACY_NAME)),
+            primary.with_file_name(format!("{} - {}.lnk", product::LEGACY_NAME, product::PUBLISHER)),
+        ])
     }
 
     fn arguments(self) -> &'static str {
@@ -149,6 +157,14 @@ fn managed_link(link: &ShortcutDetails, exe: &Path) -> bool {
                 .parent()
                 .is_some_and(|folder| same_file(&link.working_directory, folder))
             && same_file(&link.icon, exe))
+}
+
+fn legacy_managed_link(link: &ShortcutDetails, exe: &Path) -> bool {
+    let old = exe.with_file_name(product::legacy_exe_name());
+    same_file(&link.target, &old)
+        || (link.description.eq_ignore_ascii_case(product::LEGACY_NAME)
+            && exe.parent().is_some_and(|folder| same_file(&link.working_directory, folder))
+            && same_file(&link.icon, &old))
 }
 
 fn valid_link(link: &ShortcutDetails, kind: Shortcut, exe: &Path) -> bool {
@@ -298,6 +314,12 @@ pub fn create_shortcut(kind: Shortcut, exe: &Path) -> Result<(), String> {
                 {
                     let _ = std::fs::remove_file(fallback);
                 }
+                // A renamed shortcut must not leave the old app name beside it.
+                for legacy in kind.legacy_paths().into_iter().flatten() {
+                    if details_at(&legacy).is_some_and(|link| legacy_managed_link(&link, exe)) {
+                        let _ = std::fs::remove_file(legacy);
+                    }
+                }
                 return Ok(());
             }
             Ok(()) => {
@@ -324,7 +346,10 @@ fn our_links(kind: Shortcut, exe: &Path) -> Vec<PathBuf> {
     let fallback = kind
         .fallback_path()
         .filter(|fallback| details_at(fallback).is_some_and(|link| managed_link(&link, exe)));
-    main.into_iter().chain(fallback).collect()
+    let legacy = kind.legacy_paths().into_iter().flatten().filter(|path| {
+        details_at(path).is_some_and(|link| legacy_managed_link(&link, exe))
+    });
+    main.into_iter().chain(fallback).chain(legacy).collect()
 }
 
 /// Whether the app has this kind of shortcut, working or not.
@@ -407,7 +432,7 @@ pub struct SingleInstance(HANDLE);
 
 impl SingleInstance {
     pub fn acquire() -> Option<Self> {
-        let name = wide(format!("Local\\{}.Setup", product::BINARY));
+        let name = wide(format!("Local\\{}.Setup", product::LEGACY_BINARY));
         // SAFETY: a named mutex; the handle is closed on drop.
         let handle = unsafe { CreateMutexW(std::ptr::null(), 1, name.as_ptr()) };
         if handle.is_null() {
@@ -495,6 +520,28 @@ mod tests {
         );
         assert!(managed_link(&broken, exe));
         assert!(!valid_link(&broken, Shortcut::Startup, exe));
+    }
+
+    #[test]
+    fn recognizes_the_previous_name_only_for_our_install() {
+        let exe = Path::new(r"C:\Apps\MakeYourLifeEasier\MYLE.exe");
+        let old = exe.with_file_name(product::legacy_exe_name());
+        let same_install = link(
+            old.to_str().unwrap(),
+            exe.parent().unwrap().to_str().unwrap(),
+            product::LEGACY_NAME,
+            &format!("{},0", old.display()),
+            "",
+        );
+        assert!(legacy_managed_link(&same_install, exe));
+        let unrelated = link(
+            r"C:\Other\MakeYourLifeEasier.exe",
+            r"C:\Other",
+            product::LEGACY_NAME,
+            r"C:\Other\MakeYourLifeEasier.exe,0",
+            "",
+        );
+        assert!(!legacy_managed_link(&unrelated, exe));
     }
 
     #[test]

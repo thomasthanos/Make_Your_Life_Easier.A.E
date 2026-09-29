@@ -137,14 +137,14 @@ const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 pub fn legacy_autostart() -> bool {
     hkcu()
         .open_subkey_with_flags(RUN_KEY, KEY_READ)
-        .is_ok_and(|run| run.get_raw_value(product::NAME).is_ok())
+        .is_ok_and(|run| run.get_raw_value(product::LEGACY_NAME).is_ok())
 }
 
 /// Drops the old `Run` value: the Startup shortcut (with `--autostart`, so
 /// the app starts minimized) replaces it. Both would start the app twice.
 pub fn remove_legacy_autostart() {
     if let Ok(run) = hkcu().open_subkey_with_flags(RUN_KEY, KEY_READ | KEY_WRITE) {
-        let _ = run.delete_value(product::NAME);
+        let _ = run.delete_value(product::LEGACY_NAME);
     }
 }
 

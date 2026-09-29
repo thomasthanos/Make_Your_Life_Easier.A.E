@@ -138,7 +138,7 @@ pub fn default_dir() -> PathBuf {
         .or_else(|| std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
         .unwrap_or_else(std::env::temp_dir)
         .join(product::PUBLISHER)
-        .join(product::BINARY)
+        .join(product::LEGACY_BINARY)
 }
 
 /// Refuses folders an app must never be installed straight into.
@@ -212,10 +212,29 @@ pub fn install(
         stage: Stage::Copying,
     });
     let placed = copy_files(dir, &header, &mut reader, report)?;
+    // An older updater restarts the executable path it was launched from.
+    // Give that path the new binary on the first upgrade, including /LIVE.
+    let bridged = if product::BINARY != product::LEGACY_BINARY
+        && dir.join(product::legacy_exe_name()).is_file()
+    {
+        if let Err(error) = bridge_legacy_exe(dir) {
+            roll_back(placed);
+            return Err(error);
+        }
+        true
+    } else {
+        false
+    };
     commit(placed, options.live);
+    if bridged && !options.live {
+        remove_patiently(&sibling(&dir.join(product::legacy_exe_name()), OLD));
+    }
 
     // Files the previous version had and this one does not.
-    let current: Vec<String> = header.files.iter().map(|f| f.path.clone()).collect();
+    let mut current: Vec<String> = header.files.iter().map(|f| f.path.clone()).collect();
+    if bridged {
+        current.push(product::legacy_exe_name());
+    }
     if let Some(previous) = previous {
         let stale: Vec<&String> = previous
             .files
@@ -354,6 +373,27 @@ fn copy_files(
         file: String::new(),
     });
     Ok(placed)
+}
+
+/// Replaces the old executable with a compatibility launcher for the old
+/// updater and any existing scheduled backup. Normal shortcuts use MYLE.exe.
+fn bridge_legacy_exe(dir: &Path) -> Result<(), String> {
+    let legacy = dir.join(product::legacy_exe_name());
+    let fresh = sibling(&legacy, NEW);
+    let backup = sibling(&legacy, OLD);
+    std::fs::copy(dir.join(product::exe_name()), &fresh)
+        .map_err(|e| format!("Could not prepare the previous executable name: {e}"))?;
+    let _ = std::fs::remove_file(&backup);
+    if let Err(error) = rename_patiently(&legacy, &backup) {
+        let _ = std::fs::remove_file(&fresh);
+        return Err(format!("Could not replace the previous executable: {error}"));
+    }
+    if let Err(error) = rename_patiently(&fresh, &legacy) {
+        let _ = std::fs::rename(&backup, &legacy);
+        let _ = std::fs::remove_file(&fresh);
+        return Err(format!("Could not finish the executable rename: {error}"));
+    }
+    Ok(())
 }
 
 fn rename_patiently(from: &Path, to: &Path) -> std::io::Result<()> {
@@ -599,15 +639,18 @@ pub fn default_shortcuts(existing: Option<&Path>) -> ShortcutChoice {
 pub fn data_folders() -> Vec<PathBuf> {
     let mut folders = Vec::new();
     if let Some(roaming) = shell::roaming_app_data() {
-        folders.push(roaming.join(product::PUBLISHER).join(product::BINARY));
+        folders.push(roaming.join(product::PUBLISHER).join(product::LEGACY_BINARY));
+        folders.push(roaming.join(product::LEGACY_NAME));
         folders.push(roaming.join(product::NAME));
         folders.push(roaming.join(product::IDENTIFIER));
     }
     if let Some(local) = shell::local_app_data() {
-        folders.push(local.join(product::PUBLISHER).join(product::BINARY).join(DATA_DIR));
+        folders.push(local.join(product::PUBLISHER).join(product::LEGACY_BINARY).join(DATA_DIR));
+        folders.push(local.join(product::LEGACY_NAME));
         folders.push(local.join(product::NAME));
         folders.push(local.join(product::IDENTIFIER));
     }
+    folders.push(std::env::temp_dir().join(product::LEGACY_BINARY));
     folders.push(std::env::temp_dir().join(product::BINARY));
     folders
 }
@@ -751,6 +794,19 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("myle-engine-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         dir
+    }
+
+    #[test]
+    fn a_legacy_executable_starts_the_new_build_after_an_update() {
+        let dir = temp("legacy-binary");
+        std::fs::create_dir_all(&dir).unwrap();
+        let old = dir.join(product::legacy_exe_name());
+        std::fs::write(&old, b"old build").unwrap();
+        std::fs::write(dir.join(product::exe_name()), b"new build").unwrap();
+        bridge_legacy_exe(&dir).unwrap();
+        assert_eq!(std::fs::read(&old).unwrap(), b"new build");
+        assert_eq!(std::fs::read(sibling(&old, OLD)).unwrap(), b"old build");
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

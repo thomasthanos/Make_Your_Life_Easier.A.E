@@ -12,7 +12,8 @@ use crate::storage::{FOLDER, PUBLISHER};
 
 /// The shortcut's name, as the setup names it (`product::NAME`), and its
 /// fallback name for when another file already had that one.
-const NAME: &str = "Make Your Life Easier";
+const NAME: &str = "MYLE";
+const LEGACY_NAME: &str = "Make Your Life Easier";
 
 /// Shared with the setup (`backend/installer/src/registry.rs`), in the key it
 /// keeps the install folder in.
@@ -59,7 +60,12 @@ fn startup_links() -> Vec<PathBuf> {
     let Some(folder) = startup_folder() else {
         return Vec::new();
     };
-    [format!("{NAME}.lnk"), format!("{NAME} - {PUBLISHER}.lnk")]
+    [
+        format!("{NAME}.lnk"),
+        format!("{NAME} - {PUBLISHER}.lnk"),
+        format!("{LEGACY_NAME}.lnk"),
+        format!("{LEGACY_NAME} - {PUBLISHER}.lnk"),
+    ]
         .into_iter()
         .map(|name| folder.join(name))
         .filter(|path| path.is_file())

@@ -84,7 +84,7 @@ function Test-OutputReady {
 function Get-VerifiedDownload([string]$Uri, [string]$Sha256, [string]$Destination) {
   Write-Host "Downloading $Uri"
   Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $Destination -Headers @{
-    "User-Agent" = "MakeYourLifeEasier-build/$ludusaviVersion"
+    "User-Agent" = "MYLE-build/$ludusaviVersion"
   }
   Assert-Sha256 $Destination $Sha256
 }

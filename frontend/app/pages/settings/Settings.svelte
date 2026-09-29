@@ -187,7 +187,7 @@
 
       <div class="surface">
         <span class="text">
-          <strong>Make Your Life Easier {version ? `v${version}` : "(dev preview)"}</strong>
+          <strong>MYLE {version ? `v${version}` : "(dev preview)"}</strong>
           <small>Checked at every start. Downloads from downloads.thomast.uk, with GitHub as the fallback.</small>
         </span>
 
@@ -229,7 +229,7 @@
       <div class="about-row">
         <span class="brand-mark"><Logo size={38} /></span>
         <div class="text">
-          <h2 id="about-title">Make Your Life Easier</h2>
+          <h2 id="about-title">MYLE</h2>
           <small>Windows utility &amp; optimization suite · © 2026 ThomasThanos</small>
         </div>
       </div>

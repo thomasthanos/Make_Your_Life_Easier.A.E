@@ -100,12 +100,11 @@ jobs:
       - name: Collect the installer
         shell: pwsh
         run: |
-          $setup = Get-ChildItem "backend/target/release/bundle/setup/MakeYourLifeEasier.exe" | Select-Object -First 1
+          $setup = Get-ChildItem "backend/target/release/bundle/setup/MYLE.exe" | Select-Object -First 1
           if (-not $setup) { throw "The setup was not produced." }
-          # No spaces: GitHub would rename "Make Your Life Easier_…" anyway.
           # The updater looks for the "_x64-setup.exe" ending, so the published
-          # copy keeps the version in its name (the local build is MakeYourLifeEasier.exe).
-          $name = "MakeYourLifeEasier_${env:VERSION}_x64-setup.exe"
+          # copy keeps the version in its name (the local build is MYLE.exe).
+          $name = "MYLE_${env:VERSION}_x64-setup.exe"
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item $setup.FullName "out/$name"
           $signature = Get-AuthenticodeSignature "out/$name"
@@ -119,7 +118,7 @@ jobs:
         if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
-          name: MakeYourLifeEasier-${{ env.VERSION }}-setup
+          name: MYLE-${{ env.VERSION }}-setup
           path: out/*
           retention-days: 7
 
@@ -157,6 +156,8 @@ jobs:
           Publish $setup.FullName $setup.Name $exe
           Assert-Served $setup.Name $sha256
           # ...and the fixed "latest installer" link for downloads from the web.
+          Publish $setup.FullName "MYLE-installer.exe" ($exe + @('--cache-control', 'no-cache'))
+          # Existing README/site links stay valid until they move to MYLE.
           Publish $setup.FullName "MakeYourLifeEasier-installer.exe" ($exe + @('--cache-control', 'no-cache'))
 
           # The feed goes last: clients only see a version once its installer is live.
@@ -192,7 +193,7 @@ jobs:
             gh release upload "${{ github.ref_name }}" $files --clobber
           } else {
             gh release create "${{ github.ref_name }}" $files `
-              --title "Make Your Life Easier ${{ github.ref_name }}" `
+              --title "MYLE ${{ github.ref_name }}" `
               @body `
               --latest
           }

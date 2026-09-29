@@ -12,7 +12,7 @@
 <aside class="brand">
   <div class="halo" aria-hidden="true"></div>
   <div class="scene"><CoderScene size={132} {paused} /></div>
-  <h1>Make Your Life Easier</h1>
+  <h1>MYLE</h1>
   <span class="version">Version {version}</span>
   <p class="note">{note}</p>
   <p class="copyright">© 2026 ThomasThanos</p>

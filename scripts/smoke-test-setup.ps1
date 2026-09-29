@@ -4,7 +4,7 @@
   each step leaves on disk and in the registry. CI runs it on every change.
 
 .EXAMPLE
-  ./scripts/smoke-test-setup.ps1 -Setup backend/target/release/bundle/setup/MakeYourLifeEasier.exe
+  ./scripts/smoke-test-setup.ps1 -Setup backend/target/release/bundle/setup/MYLE.exe
 #>
 param([Parameter(Mandatory = $true)][string]$Setup)
 
@@ -16,9 +16,9 @@ $config = Get-Content (Join-Path $root "backend/tauri.conf.json") -Raw | Convert
 $version = (Get-Content (Join-Path $root "package.json") -Raw | ConvertFrom-Json).version
 $binary = $config.mainBinaryName
 $publisher = $config.bundle.publisher
-$productKey = "HKCU:\Software\$publisher\$binary"
+$productKey = "HKCU:\Software\$publisher\MakeYourLifeEasier"
 $publisherKey = "HKCU:\Software\$publisher"
-$uninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$binary"
+$uninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier"
 # RUNNER_TEMP on CI; %TEMP% may be spelled with 8.3 short names elsewhere.
 $base = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
 $dir = Join-Path $base "myle-setup-smoke-test\$binary"
@@ -49,8 +49,8 @@ function Invoke-Silently([string]$Program, [string[]]$Arguments) {
 }
 
 $registryEntries = @(
-  @{ Name = "product"; Path = $productKey; NativePath = "HKEY_CURRENT_USER\Software\$publisher\$binary" }
-  @{ Name = "uninstall"; Path = $uninstallKey; NativePath = "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\$binary" }
+  @{ Name = "product"; Path = $productKey; NativePath = "HKEY_CURRENT_USER\Software\$publisher\MakeYourLifeEasier" }
+  @{ Name = "uninstall"; Path = $uninstallKey; NativePath = "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier" }
 )
 New-Item -ItemType Directory -Path $backup -Force | Out-Null
 $shortcutWasPresent = @{}
@@ -96,6 +96,7 @@ foreach ($resource in $config.bundle.resources.PSObject.Properties) {
 }
 $entry = Get-ItemProperty $uninstallKey
 Assert ($entry.DisplayVersion -eq $version) "Installed apps lists version $version"
+Assert ($entry.DisplayName -eq "MYLE") "Installed apps displays MYLE"
 Assert ($entry.UninstallString -like "*uninstall.exe*") "Installed apps knows the uninstaller"
 Assert ($entry.QuietUninstallString -like "*/S") "Installed apps has a quiet uninstall"
 $shell = New-Object -ComObject WScript.Shell
@@ -143,8 +144,15 @@ foreach ($name in @("StartMenu", "Startup")) {
 # respect that and remember it, not bring it back.
 Remove-Item -LiteralPath $shortcutPaths.Desktop
 
+# Simulate an existing installation with the old executable name. The new
+# setup must replace it with a working compatibility copy for the old updater.
+$legacyExe = Join-Path $dir "MakeYourLifeEasier.exe"
+[IO.File]::WriteAllBytes($legacyExe, [byte[]](1, 2, 3, 4))
+
 # Update over it, as the in-app updater does (without relaunching)
 Assert ((Invoke-Silently $Setup @("/S", "/UPDATE")) -eq 0) "silent update exits 0"
+Assert ((Get-FileHash $legacyExe).Hash -eq (Get-FileHash $expectedExe).Hash) "old executable launches the new build"
+Assert ((Get-Content (Join-Path $dir "install.json") -Raw) -match '"MakeYourLifeEasier.exe"') "legacy executable is tracked for uninstall"
 Assert (-not (Get-ChildItem $dir -Recurse -Filter "*.myle-*")) "no leftovers from the update"
 Assert-Shortcuts $expectedExe @("StartMenu", "Startup")
 Assert (-not (Test-Path -LiteralPath $shortcutPaths.Desktop)) "the Desktop shortcut the user deleted stays deleted"

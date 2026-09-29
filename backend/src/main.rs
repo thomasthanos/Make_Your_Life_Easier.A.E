@@ -11,5 +11,21 @@ fn main() {
     if std::env::args().any(|argument| argument == "--game-saves-auto-backup") {
         std::process::exit(myle_lib::game_saves::run_headless_auto_backup());
     }
+    // Existing updaters and scheduled tasks may still start the old file.
+    // The installer keeps a copy there; ordinary launches switch to MYLE.exe.
+    if let Ok(current) = std::env::current_exe()
+        && current.file_name().is_some_and(|name| name.eq_ignore_ascii_case("MakeYourLifeEasier.exe"))
+    {
+        let renamed = current.with_file_name("MYLE.exe");
+        if renamed.is_file()
+            && std::process::Command::new(&renamed)
+                .args(std::env::args_os().skip(1))
+                .current_dir(renamed.parent().unwrap_or(&renamed))
+                .spawn()
+                .is_ok()
+        {
+            return;
+        }
+    }
     myle_lib::run()
 }

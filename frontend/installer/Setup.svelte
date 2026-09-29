@@ -120,7 +120,7 @@
         };
       default:
         return {
-          title: "Install Make Your Life Easier",
+          title: "Install MYLE",
           lead: "Choose where it goes and how it starts. No administrator rights needed.",
           action: "Install",
           working: "Installing…",

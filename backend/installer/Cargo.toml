@@ -3,7 +3,7 @@ name = "myle-setup"
 # The version users see comes from package.json (tauri.conf.json); this one
 # never ships anywhere.
 version = "0.0.0"
-description = "Make Your Life Easier Setup"
+description = "MYLE Setup"
 authors = ["ThomasThanos"]
 edition = "2024"
 publish = false

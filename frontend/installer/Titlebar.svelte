@@ -16,7 +16,7 @@
 <header class="titlebar" data-tauri-drag-region>
   <div class="brand">
     <Logo size={18} />
-    <span class="name">Make Your Life Easier</span>
+    <span class="name">MYLE</span>
     <span class="badge">{label}</span>
   </div>
   <div class="controls">

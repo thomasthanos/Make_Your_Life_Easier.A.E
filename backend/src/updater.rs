@@ -66,7 +66,7 @@ const ASSET_SUFFIX: &str = "_x64-setup.exe";
 /// Installers are only ever downloaded from these two places.
 const DOWNLOAD_PREFIXES: [&str; 2] = ["https://downloads.thomast.uk/", "https://github.com/"];
 const CHECK_TIMEOUT: Duration = Duration::from_secs(8);
-const USER_AGENT: &str = "MakeYourLifeEasier-Updater";
+const USER_AGENT: &str = "MYLE-Updater";
 
 /// Where downloaded installers wait to run. The installer relaunches the app,
 /// so the file can only be removed on a later start.
@@ -269,7 +269,7 @@ pub async fn install_update(
     UPDATING.store(true, std::sync::atomic::Ordering::Relaxed);
     let _reset = ResetUpdating;
 
-    let file_name = download::file_name_from(&asset.name, "MakeYourLifeEasier-setup.exe");
+    let file_name = download::file_name_from(&asset.name, "MYLE-setup.exe");
     let path = update_dir().join(file_name);
 
     let mut started = false;
@@ -404,7 +404,7 @@ fn sweep(dir: &std::path::Path) -> bool {
     left
 }
 
-/// The version in `MakeYourLifeEasier_7.1.0_x64-setup.exe`, for the splash.
+/// The version in `MYLE_8.2.0_x64-setup.exe`, for the splash.
 fn asset_version(name: &str) -> String {
     name.split('_').nth(1).unwrap_or_default().to_string()
 }
@@ -575,7 +575,7 @@ mod demo {
             latest: "9.9.9".into(),
             notes: String::new(),
             asset: UpdateAsset {
-                name: "MakeYourLifeEasier_9.9.9_x64-setup.exe".into(),
+                name: "MYLE_9.9.9_x64-setup.exe".into(),
                 url: String::new(),
                 size: 7_400_000,
                 digest: None,
@@ -611,7 +611,7 @@ mod tests {
 
     #[test]
     fn the_version_is_read_from_the_installer_name() {
-        assert_eq!(asset_version("MakeYourLifeEasier_7.1.0_x64-setup.exe"), "7.1.0");
+        assert_eq!(asset_version("MYLE_8.2.0_x64-setup.exe"), "8.2.0");
         assert_eq!(asset_version("setup.exe"), "");
     }
 
@@ -626,8 +626,8 @@ mod tests {
         serde_json::json!([
             { "name": "latest.json", "browser_download_url": "https://github.com/o/r/latest.json", "size": 1, "digest": null },
             {
-                "name": "MakeYourLifeEasier_1.2.0_x64-setup.exe",
-                "browser_download_url": "https://github.com/o/r/releases/download/v1.2.0/MakeYourLifeEasier_1.2.0_x64-setup.exe",
+                "name": "MYLE_1.2.0_x64-setup.exe",
+                "browser_download_url": "https://github.com/o/r/releases/download/v1.2.0/MYLE_1.2.0_x64-setup.exe",
                 "size": 4200000,
                 "digest": "sha256:ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
             }
@@ -648,7 +648,7 @@ mod tests {
         };
         assert_eq!(latest, "1.2.0");
         assert_eq!(notes, "notes");
-        assert_eq!(asset.name, "MakeYourLifeEasier_1.2.0_x64-setup.exe");
+        assert_eq!(asset.name, "MYLE_1.2.0_x64-setup.exe");
         assert_eq!(asset.size, 4_200_000);
     }
 
@@ -699,7 +699,7 @@ mod tests {
             "notes": "notes",
             "pubDate": "2026-09-27T00:00:00Z",
             "installer": {
-                "name": format!("MakeYourLifeEasier_{version}_x64-setup.exe"),
+                "name": format!("MYLE_{version}_x64-setup.exe"),
                 "url": url,
                 "size": 13_606_875,
                 "sha256": sha256
@@ -712,7 +712,7 @@ mod tests {
 
     #[test]
     fn a_newer_feed_offers_the_r2_installer_with_its_hash() {
-        let url = "https://downloads.thomast.uk/MakeYourLifeEasier_7.1.0_x64-setup.exe";
+        let url = "https://downloads.thomast.uk/MYLE_7.1.0_x64-setup.exe";
         let UpdateCheck::Available { latest, asset, .. } =
             evaluate_feed(&Version::new(7, 0, 0), feed("7.1.0", url, SHA)).unwrap()
         else {

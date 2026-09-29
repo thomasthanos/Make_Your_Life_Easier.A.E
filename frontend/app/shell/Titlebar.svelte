@@ -44,7 +44,7 @@
 <header class="titlebar" data-tauri-drag-region>
   <div class="brand">
     <Logo size={20} />
-    <span class="name">Make Your Life Easier</span>
+    <span class="name">MYLE</span>
     {#if pageTitle}
       <span class="breadcrumb" aria-label={`Current page: ${pageTitle}`}>
         <span class="sep" aria-hidden="true">/</span>

@@ -29,7 +29,7 @@ fn create_windows(app: &mut tauri::App) -> tauri::Result<()> {
         "splash",
         WebviewUrl::App("splash.html".into()),
     )
-    .title("Make Your Life Easier")
+    .title("MYLE")
     .inner_size(300.0, 380.0)
     .center()
     .resizable(false)
@@ -41,7 +41,7 @@ fn create_windows(app: &mut tauri::App) -> tauri::Result<()> {
     .data_directory(data_dir.clone())
     .build()?;
     WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-        .title("Make Your Life Easier")
+        .title("MYLE")
         .inner_size(1280.0, 720.0)
         .min_inner_size(800.0, 500.0)
         .center()

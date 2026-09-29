@@ -94,7 +94,9 @@ struct SetupState {
 
 #[tauri::command(async)]
 fn setup_state(context: State<'_, Context>) -> SetupState {
-    let existing = registry::install_dir().filter(|dir| dir.join(product::exe_name()).is_file());
+    let existing = registry::install_dir().filter(|dir| {
+            dir.join(product::exe_name()).is_file() || dir.join(product::legacy_exe_name()).is_file()
+        });
     let installed = existing.as_ref().map(|dir| Installed {
         version: registry::installed_version(),
         dir: dir.display().to_string(),
@@ -193,7 +195,9 @@ fn install_dir(context: &Context) -> PathBuf {
         .cli
         .dir
         .clone()
-        .or_else(|| registry::install_dir().filter(|dir| dir.join(product::exe_name()).is_file()))
+        .or_else(|| registry::install_dir().filter(|dir| {
+            dir.join(product::exe_name()).is_file() || dir.join(product::legacy_exe_name()).is_file()
+        }))
         .unwrap_or_else(engine::default_dir)
 }
 

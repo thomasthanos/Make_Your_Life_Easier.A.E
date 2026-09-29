@@ -19,7 +19,7 @@ export function previewUpdater(mode: string) {
         current,
         latest: "7.1.0",
         notes: "",
-        asset: { name: "MakeYourLifeEasier_7.1.0_x64-setup.exe", url: "", size: 13_606_875, digest: null },
+        asset: { name: "MYLE_7.1.0_x64-setup.exe", url: "", size: 13_606_875, digest: null },
       };
     },
 

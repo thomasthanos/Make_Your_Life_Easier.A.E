@@ -47,7 +47,7 @@
 ```powershell
 npm install
 npm run dev      # the app with hot reload
-npm run build    # installer → backend/target/release/bundle/setup/MakeYourLifeEasier.exe
+npm run build    # installer → backend/target/release/bundle/setup/MYLE.exe
 ```
 
 You'll need Node.js 20+, Rust (MSVC), and the Visual Studio Build Tools. The development guide covers the structure, pages, updater and setup.

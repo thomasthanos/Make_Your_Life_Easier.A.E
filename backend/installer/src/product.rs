@@ -1,10 +1,12 @@
 //! Facts about the app being installed, read from its `tauri.conf.json` and
 //! `package.json` by the build script.
 
-/// "Make Your Life Easier": shortcut names, the "Installed apps" entry.
+/// The visible Windows name and the executable stem.
 pub const NAME: &str = env!("MYLE_PRODUCT_NAME");
-/// "MakeYourLifeEasier": the exe's stem and the Uninstall key's name.
 pub const BINARY: &str = env!("MYLE_MAIN_BINARY");
+/// Keep existing install/data/registry locations so an update does not strand them.
+pub const LEGACY_NAME: &str = "Make Your Life Easier";
+pub const LEGACY_BINARY: &str = "MakeYourLifeEasier";
 /// The app's own data folders are named after it.
 pub const IDENTIFIER: &str = env!("MYLE_IDENTIFIER");
 pub const PUBLISHER: &str = env!("MYLE_PUBLISHER");
@@ -21,13 +23,17 @@ pub fn exe_name() -> String {
     format!("{BINARY}.exe")
 }
 
+pub fn legacy_exe_name() -> String {
+    format!("{LEGACY_BINARY}.exe")
+}
+
 pub fn uninstall_key() -> String {
-    format!(r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{BINARY}")
+    format!(r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{LEGACY_BINARY}")
 }
 
 /// Where the install folder is remembered (the same key the NSIS setup used).
 pub fn product_key() -> String {
-    format!(r"Software\{PUBLISHER}\{BINARY}")
+    format!(r"Software\{PUBLISHER}\{LEGACY_BINARY}")
 }
 
 pub fn publisher_key() -> String {
@@ -36,7 +42,7 @@ pub fn publisher_key() -> String {
 
 /// Files an install made by the old NSIS setup has, which left no list.
 pub fn legacy_files() -> Vec<String> {
-    let mut files = vec![exe_name(), UNINSTALLER.to_string()];
+    let mut files = vec![exe_name(), legacy_exe_name(), UNINSTALLER.to_string()];
     files.extend(
         env!("MYLE_RESOURCE_FILES")
             .split('|')

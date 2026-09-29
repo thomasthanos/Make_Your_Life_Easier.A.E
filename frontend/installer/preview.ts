@@ -16,7 +16,7 @@ export function previewApi(mode: string): SetupApi {
         : null;
   const state: SetupState = {
     mode: uninstall ? "uninstall" : "install",
-    product: "Make Your Life Easier",
+    product: "MYLE",
     version: uninstall ? "7.0.1" : "7.1.0",
     installed,
     dir: DIR,
@@ -35,7 +35,7 @@ export function previewApi(mode: string): SetupApi {
     async running() {
       if (mode === "running" && !runningAsked) {
         runningAsked = true;
-        return ["MakeYourLifeEasier.exe"];
+        return ["MYLE.exe"];
       }
       return [];
     },
@@ -97,7 +97,7 @@ async function stage(onEvent: (e: Progress) => void, name: Extract<Progress, { e
 
 const DIR = String.raw`C:\Users\Thomas\AppData\Local\ThomasThanos\MakeYourLifeEasier`;
 const FILES: [string, number][] = [
-  ["MakeYourLifeEasier.exe", 14_200_000],
+  ["MYLE.exe", 14_200_000],
   ["install.json", 2_000],
   ["ludusavi/LICENSE", 1_100],
   ["ludusavi/ludusavi.exe", 9_800_000],

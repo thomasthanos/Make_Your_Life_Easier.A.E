@@ -10,7 +10,7 @@
      (bundle.resources in backend/tauri.conf.json says where each file goes)
   4. that folder packed into one XZ payload, then setup.exe built around it
 
-  Output: backend/target/release/bundle/setup/<mainBinaryName>.exe (MakeYourLifeEasier.exe).
+  Output: backend/target/release/bundle/setup/<mainBinaryName>.exe (MYLE.exe).
   release.yml gives the published copy its versioned name.
 
   The app, the uninstaller and the setup are signed when MYLE_SIGN_PFX is set

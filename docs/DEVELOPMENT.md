@@ -24,7 +24,7 @@ npm run lint      # cargo clippy -D warnings
 
 | Script | What it does |
 | --- | --- |
-| <code>build</code> | The whole setup: backend/target/release/bundle/setup/MakeYourLifeEasier.exe |
+| <code>build</code> | The whole setup: backend/target/release/bundle/setup/MYLE.exe |
 | <code>build:app</code> | Release exe of the app, without the setup |
 | <code>verify:install</code> | Checks an install, or with <code>-- -Removed</code>, an uninstall |
 | <code>web:dev</code> / <code>web:build</code> | Vite for the app; <code>web:dev</code> also opens a local preview |
@@ -202,7 +202,7 @@ The old Electron app (v4.x) lives on the `old` branch and no longer receives upd
 3. `.github/workflows/release.yml`:
    - checks the tag and versions match, runs `svelte-check`, and builds (also downloading Ludusavi)
    - **signs** the exe, installer and uninstaller with the certificate from the `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` secrets (`scripts/sign.ps1`)
-   - uploads `MakeYourLifeEasier_7.0.2_x64-setup.exe` to **Cloudflare R2** (`downloads.thomast.uk`, `R2_*` secrets), the stable link `MakeYourLifeEasier-installer.exe`, and finally `latest.json`, and checks R2 serves the exact same bytes
+   - uploads `MYLE_<version>_x64-setup.exe` to **Cloudflare R2** (`downloads.thomast.uk`, `R2_*` secrets), the stable links `MYLE-installer.exe` and the legacy `MakeYourLifeEasier-installer.exe`, and finally `latest.json`, and checks R2 serves the exact same bytes
    - publishes the GitHub release too
 
 To test without a release: Actions → Release → **Run workflow**. It builds and signs the same way, keeps the installer as an artifact, and doesn't upload or publish anything.
@@ -256,14 +256,16 @@ Preview the window in a browser: `npm run web:dev` and `http://localhost:1420/in
 
 | What | Where |
 |---|---|
-| Program | `%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier\MakeYourLifeEasier.exe` (same as the old app) |
+| Program | `%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier\MYLE.exe` (existing installs keep this folder) |
 | Settings, account, Game Saves | `%APPDATA%\ThomasThanos\MakeYourLifeEasier` |
 | Cache and WebView2 (localStorage) | `%LOCALAPPDATA%\ThomasThanos\MakeYourLifeEasier\data` |
-| Desktop | Windows Desktop known folder (may redirect to OneDrive) · `Make Your Life Easier.lnk` |
-| Start Menu | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Make Your Life Easier.lnk` |
-| Launch with Windows (opt-in) | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Make Your Life Easier.lnk` (with `--autostart`) |
+| Desktop | Windows Desktop known folder (may redirect to OneDrive) · `MYLE.lnk` |
+| Start Menu | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\MYLE.lnk` |
+| Launch with Windows (opt-in) | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\MYLE.lnk` (with `--autostart`) |
 | Registry | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\MakeYourLifeEasier` |
-| Game Saves task | `MakeYourLifeEasier Game Saves Backup` (only when the schedule is Daily/Weekly) |
+| Game Saves task | `MakeYourLifeEasier Game Saves Backup` (legacy task name preserved for existing schedules) |
+
+Existing installs may also keep a `MakeYourLifeEasier.exe` compatibility copy. It hands normal launches to `MYLE.exe` and keeps an old updater or scheduled backup working through the transition. New installs contain only `MYLE.exe`.
 
 Versions up to 7.0.x kept their data in `com.thomasthanos.makeyourlifeeasier` folders. The app moves them once, whole, with a single rename (`backend/src/storage.rs`). If a folder is in use (during a live update, the old version is still running), that time it uses the old one instead, and retries the move on the next launch. A half-finished move never happens, since that would corrupt the WebView2 profile.
 
