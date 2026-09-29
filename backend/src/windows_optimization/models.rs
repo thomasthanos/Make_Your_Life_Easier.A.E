@@ -1,109 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum WindowsOptimizationAction {
-    LaunchCtt,
-    LaunchSparkle,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum WindowsOptimizationStage {
-    Preparing,
-    WaitingForAdmin,
-    ResolvingRelease,
-    Downloading,
-    Verifying,
-    Extracting,
-    Launching,
-    Running,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(
-    tag = "event",
-    content = "data",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-pub enum WindowsOptimizationEvent {
-    Stage {
-        job_id: String,
-        stage: WindowsOptimizationStage,
-    },
-    Progress {
-        job_id: String,
-        fraction: f64,
-        downloaded: Option<u64>,
-        total: Option<u64>,
-    },
-    Line {
-        job_id: String,
-        text: String,
-        replace: bool,
-    },
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum WindowsOptimizationResult {
-    Done,
-    Cancelled,
-    NeedsAdmin,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WindowsOptimizationOutcome {
-    pub result: WindowsOptimizationResult,
-    pub job_id: String,
-    pub action: WindowsOptimizationAction,
-    pub note: Option<String>,
-}
-
-impl WindowsOptimizationOutcome {
-    pub fn new(
-        result: WindowsOptimizationResult,
-        job_id: impl Into<String>,
-        action: WindowsOptimizationAction,
-        note: Option<String>,
-    ) -> Self {
-        Self {
-            result,
-            job_id: job_id.into(),
-            action,
-            note,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SparkleCacheState {
-    pub cached: bool,
-    pub version: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ActiveJob {
-    pub job_id: String,
-    pub action: WindowsOptimizationAction,
-    pub stage: WindowsOptimizationStage,
-    pub progress: Option<f64>,
-    pub downloaded: Option<u64>,
-    pub total: Option<u64>,
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WindowsOptimizationSnapshot {
-    pub sparkle: SparkleCacheState,
     pub auto_logon: AutoLogonSnapshot,
     pub firmware_restart: FirmwareRestartSnapshot,
-    pub active_job: Option<ActiveJob>,
-    pub last_outcome: Option<WindowsOptimizationOutcome>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]

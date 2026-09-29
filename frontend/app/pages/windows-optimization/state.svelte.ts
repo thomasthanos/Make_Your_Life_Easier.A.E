@@ -1,5 +1,5 @@
+// The Tools tab's state: Auto-Logon and the restart to BIOS / UEFI.
 import { isTauri } from "@tauri-apps/api/core";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { tick } from "svelte";
 import { confirm } from "../../../lib/confirm.svelte";
 import { operationGate } from "../../../lib/operation-gate.svelte";
@@ -10,36 +10,10 @@ import {
   type AutoLogonOperation,
   type AutoLogonState,
   type FirmwareRestartOutcome,
-  type WindowsOptimizationAction,
-  type WindowsOptimizationEvent,
-  type WindowsOptimizationJob,
-  type WindowsOptimizationOutcome,
   type WindowsOptimizationSnapshot,
-  type WindowsOptimizationStage,
 } from "./api";
 
-export type ToolStatus = "Ready" | "Completed" | "Cancelled" | "Error";
-
-export interface ConsoleBuffer {
-  lines: string[];
-  open: boolean;
-  dropped: number;
-}
-
-const MAX_LINES = 1200;
-const TRIM_TO = 1000;
 const POLL_MS = 1500;
-
-export const STAGE_LABELS: Record<WindowsOptimizationStage, string> = {
-  preparing: "Preparing",
-  waitingForAdmin: "Waiting for UAC",
-  resolvingRelease: "Resolving release",
-  downloading: "Downloading",
-  verifying: "Verifying",
-  extracting: "Extracting",
-  launching: "Launching",
-  running: "Running",
-};
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -49,31 +23,19 @@ class WindowsOptimizationState {
   snapshot = $state<WindowsOptimizationSnapshot | null>(null);
   loading = $state(false);
   error = $state<string | null>(null);
-  startingAction = $state<WindowsOptimizationAction | null>(null);
   autoLogonRequest = $state<AutoLogonOperation | null>(null);
   firmwareRestartRequest = $state(false);
   biosDialogOpen = $state(false);
-  liveJob = $state<WindowsOptimizationJob | null>(null);
-  stopping = $state(false);
-  console = $state<ConsoleBuffer>({ lines: [], open: false, dropped: 0 });
-  statuses = $state<Record<WindowsOptimizationAction, ToolStatus>>({
-    launchCtt: "Ready",
-    launchSparkle: "Ready",
-  });
 
   #pollTimer: ReturnType<typeof setTimeout> | null = null;
 
-  readonly activeJob = $derived(this.liveJob ?? this.snapshot?.activeJob ?? null);
-  readonly activeAction = $derived(this.startingAction ?? this.activeJob?.action ?? null);
   readonly autoLogonBusy = $derived(
     this.autoLogonRequest !== null || isAutoLogonActive(this.snapshot?.autoLogon),
   );
   readonly firmwareRestartBusy = $derived(
     this.firmwareRestartRequest || this.snapshot?.firmwareRestart.active === true,
   );
-  readonly ownBusy = $derived(
-    this.activeAction !== null || this.autoLogonBusy || this.firmwareRestartBusy,
-  );
+  readonly ownBusy = $derived(this.autoLogonBusy || this.firmwareRestartBusy);
   readonly externallyLocked = $derived(operationGate.lockedFor("windows-optimization"));
   readonly locked = $derived(this.ownBusy || this.externallyLocked);
 
@@ -88,22 +50,6 @@ class WindowsOptimizationState {
     } finally {
       this.loading = false;
     }
-  }
-
-  statusOf(action: WindowsOptimizationAction): string {
-    if (this.activeAction !== action) return this.statuses[action];
-    return this.activeJob ? STAGE_LABELS[this.activeJob.stage] : "Preparing";
-  }
-
-  progressOf(action: WindowsOptimizationAction): number | null {
-    return this.activeAction === action ? (this.activeJob?.progress ?? null) : null;
-  }
-
-  transferOf(action: WindowsOptimizationAction): string | null {
-    if (this.activeAction !== action || !this.activeJob?.downloaded) return null;
-    const downloaded = formatBytes(this.activeJob.downloaded);
-    const total = this.activeJob.total ? formatBytes(this.activeJob.total) : null;
-    return total ? `${downloaded} / ${total}` : downloaded;
   }
 
   autoLogonStatus(): string {
@@ -207,70 +153,13 @@ class WindowsOptimizationState {
     }
   }
 
-  async launchCtt() {
-    if (this.locked) return;
-    const approved = await confirm({
-      title: "Run remote administrator script?",
-      message:
-        "Chris Titus Utility's official command downloads and executes its current remote PowerShell script in one step. This app cannot verify that script with a checksum before it runs. Continue only if you trust christitus.com and GitHub project ChrisTitusTech/winutil.",
-      confirmLabel: "Launch as administrator",
-      cancelLabel: "Cancel",
-      danger: true,
-    });
-    if (approved && !this.locked) await this.run("launchCtt");
-  }
-
-  async launchSparkle() {
-    if (!this.locked) await this.run("launchSparkle");
-  }
-
-  async cancel() {
-    const job = this.activeJob;
-    if (!job || this.stopping) return;
-    this.stopping = true;
-    try {
-      await windowsOptimizationApi.cancel(job.jobId);
-    } catch (error) {
-      this.stopping = false;
-      toast.error(`Could not request cancellation: ${message(error)}`);
-    }
-  }
-
-  toggleConsole() {
-    this.console.open = !this.console.open;
-  }
-
-  async openGithub(tool: "ctt" | "sparkle") {
-    const url =
-      tool === "ctt"
-        ? "https://github.com/ChrisTitusTech/winutil"
-        : "https://github.com/thedogecraft/sparkle";
-    try {
-      await openUrl(url);
-    } catch (error) {
-      toast.error(`Could not open the project page: ${message(error)}`);
-    }
-  }
-
   private applySnapshot(snapshot: WindowsOptimizationSnapshot) {
     this.snapshot = snapshot;
-    if (
-      snapshot.activeJob ||
-      isAutoLogonActive(snapshot.autoLogon) ||
-      snapshot.firmwareRestart.active
-    ) {
-      this.liveJob = snapshot.activeJob;
-      if (snapshot.activeJob?.action === "launchCtt") this.console.open = true;
+    if (isAutoLogonActive(snapshot.autoLogon) || snapshot.firmwareRestart.active) {
       operationGate.begin("windows-optimization");
       this.watchBackendOperation();
-    } else if (
-      !this.startingAction &&
-      !this.autoLogonRequest &&
-      !this.firmwareRestartRequest
-    ) {
-      this.liveJob = null;
+    } else if (!this.autoLogonRequest && !this.firmwareRestartRequest) {
       operationGate.end("windows-optimization");
-      if (snapshot.lastOutcome) this.applyOutcome(snapshot.lastOutcome);
     }
   }
 
@@ -279,27 +168,16 @@ class WindowsOptimizationState {
     const poll = async () => {
       this.#pollTimer = null;
       if (
-        (!this.activeJob &&
-          !isAutoLogonActive(this.snapshot?.autoLogon) &&
-          !this.snapshot?.firmwareRestart.active) ||
-        this.startingAction ||
+        (!isAutoLogonActive(this.snapshot?.autoLogon) && !this.snapshot?.firmwareRestart.active) ||
         this.autoLogonRequest ||
         this.firmwareRestartRequest
       ) return;
       try {
         const snapshot = await windowsOptimizationApi.getState();
-        const previous = this.activeAction;
         this.snapshot = snapshot;
-        this.liveJob = snapshot.activeJob;
-        if (
-          snapshot.activeJob ||
-          isAutoLogonActive(snapshot.autoLogon) ||
-          snapshot.firmwareRestart.active
-        ) {
+        if (isAutoLogonActive(snapshot.autoLogon) || snapshot.firmwareRestart.active) {
           this.#pollTimer = setTimeout(poll, POLL_MS);
         } else {
-          if (snapshot.lastOutcome) this.applyOutcome(snapshot.lastOutcome);
-          else if (previous) this.statuses[previous] = "Error";
           operationGate.end("windows-optimization");
         }
       } catch {
@@ -307,93 +185,6 @@ class WindowsOptimizationState {
       }
     };
     this.#pollTimer = setTimeout(poll, POLL_MS);
-  }
-
-  private async run(action: WindowsOptimizationAction) {
-    if (this.locked || !operationGate.begin("windows-optimization")) {
-      toast.info("Finish the current app task before launching another tool.");
-      return;
-    }
-    this.startingAction = action;
-    this.statuses[action] = "Ready";
-    this.stopping = false;
-    this.error = null;
-    if (action === "launchCtt") {
-      this.console = { lines: ["Launch requested."], open: true, dropped: 0 };
-    }
-    try {
-      const outcome = await windowsOptimizationApi.run(action, (event) =>
-        this.onEvent(action, event),
-      );
-      this.applyOutcome(outcome);
-      this.reportOutcome(outcome);
-    } catch (error) {
-      const text = message(error);
-      this.statuses[action] = "Error";
-      if (action === "launchCtt") this.append(`Error: ${text}`);
-      toast.error(`${titleOf(action)}: ${text}`);
-    } finally {
-      this.startingAction = null;
-      this.liveJob = null;
-      this.stopping = false;
-      operationGate.end("windows-optimization");
-      await this.load();
-    }
-  }
-
-  private onEvent(
-    action: WindowsOptimizationAction,
-    event: WindowsOptimizationEvent,
-  ) {
-    if (event.event === "stage") {
-      this.liveJob = {
-        jobId: event.data.jobId,
-        action,
-        stage: event.data.stage,
-        progress: null,
-        downloaded: null,
-        total: null,
-      };
-      if (action === "launchCtt") this.append(`${STAGE_LABELS[event.data.stage]}…`);
-    } else if (event.event === "progress") {
-      if (this.liveJob?.jobId === event.data.jobId) {
-        this.liveJob.progress = Math.max(0, Math.min(1, event.data.fraction));
-        this.liveJob.downloaded = event.data.downloaded;
-        this.liveJob.total = event.data.total;
-      }
-    } else if (action === "launchCtt") {
-      this.append(event.data.text, event.data.replace);
-    }
-  }
-
-  private append(text: string, replace = false) {
-    const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
-    if (replace && this.console.lines.length && lines.length) {
-      this.console.lines[this.console.lines.length - 1] = lines.shift()!;
-    }
-    this.console.lines.push(...lines);
-    if (this.console.lines.length > MAX_LINES) {
-      const remove = this.console.lines.length - TRIM_TO;
-      this.console.lines.splice(0, remove);
-      this.console.dropped += remove;
-    }
-  }
-
-  private applyOutcome(outcome: WindowsOptimizationOutcome) {
-    if (outcome.result === "done") this.statuses[outcome.action] = "Completed";
-    else if (outcome.result === "cancelled") this.statuses[outcome.action] = "Cancelled";
-    else this.statuses[outcome.action] = "Error";
-  }
-
-  private reportOutcome(outcome: WindowsOptimizationOutcome) {
-    const title = titleOf(outcome.action);
-    if (outcome.result === "done") {
-      toast.success(`${title} finished.${outcome.note ? ` ${outcome.note}` : ""}`);
-    } else if (outcome.result === "cancelled") {
-      toast.info(`${title} was stopped. Changes already applied by the tool were not reverted.`);
-    } else {
-      toast.info(`${title} needs administrator approval to start.`);
-    }
   }
 
   private reportAutoLogonOutcome(outcome: AutoLogonOutcome) {
@@ -429,22 +220,6 @@ class WindowsOptimizationState {
 
 function isAutoLogonActive(state: AutoLogonState | null | undefined): boolean {
   return state?.status === "working" || state?.activeOperation != null;
-}
-
-function titleOf(action: WindowsOptimizationAction): string {
-  return action === "launchCtt" ? "Chris Titus Utility" : "Sparkle";
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB"];
-  let value = bytes / 1024;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit++;
-  }
-  return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[unit]}`;
 }
 
 export const windowsOptimizationState = new WindowsOptimizationState();

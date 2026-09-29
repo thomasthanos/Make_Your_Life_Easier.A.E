@@ -297,8 +297,6 @@ pub fn run() {
             spotify_hub::spotify_hub_run,
             spotify_hub::spotify_hub_cancel,
             windows_optimization::windows_optimization_get_state,
-            windows_optimization::windows_optimization_run,
-            windows_optimization::windows_optimization_cancel,
             windows_optimization::windows_optimization_set_auto_logon,
             windows_optimization::windows_optimization_restart_to_firmware,
             game_saves::commands::game_saves_get_state,
@@ -337,7 +335,6 @@ pub fn run() {
             running.stop_all();
             game_saves_state.cancel();
             spotify_hub_state.cancel_all();
-            windows_optimization_state.cancel_all();
             jobs.cancel_all();
             cleanup.run();
         }

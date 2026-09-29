@@ -1,49 +1,43 @@
-//! Launches two allowlisted Windows optimization tools: Chris Titus WinUtil
-//! and the portable Sparkle release. The webview can select only an action ID;
-//! commands, URLs, download targets and process arguments remain backend-owned.
+//! The Windows Optimization page's Tools: Auto-Logon and the restart to the
+//! BIOS/UEFI. (Debloating is `crate::debloat`.)
 
-mod actions;
 mod autologon;
-mod cache;
 mod elevated;
 mod firmware_restart;
 mod models;
-mod release;
-mod runner;
 mod state;
 
-use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
 use uuid::Uuid;
 
-use crate::apps::{Cleanup, Jobs};
-use crate::download::{self, CANCELLED};
+use crate::apps::Jobs;
+use crate::download;
 
-pub use models::{
-    AutoLogonOutcome, FirmwareRestartOutcome, WindowsOptimizationAction, WindowsOptimizationEvent,
-    WindowsOptimizationOutcome, WindowsOptimizationResult, WindowsOptimizationSnapshot,
-};
+pub use models::{AutoLogonOutcome, FirmwareRestartOutcome, WindowsOptimizationSnapshot};
 pub use state::WindowsOptimizationState;
+
+/// What the removed WinUtil/Sparkle launchers downloaded, deleted once.
+fn remove_old_tool_cache() {
+    if let Ok(dir) = crate::storage::local_dir().map(|dir| dir.join("windows-optimization")) {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
 
 #[tauri::command]
 pub async fn windows_optimization_get_state(
     app: AppHandle,
     state: State<'_, WindowsOptimizationState>,
 ) -> Result<WindowsOptimizationSnapshot, String> {
-    let auto_app = app.clone();
     let operation = state.active_auto_logon();
-    let auto_logon =
-        tauri::async_runtime::spawn_blocking(move || autologon::snapshot(&auto_app, operation));
-    let cached = tauri::async_runtime::spawn_blocking(move || cache::detect(&app))
-        .await
-        .map_err(download::err)??;
-    let auto_logon = auto_logon.await.map_err(download::err)?;
+    let auto_logon = tauri::async_runtime::spawn_blocking(move || {
+        remove_old_tool_cache();
+        autologon::snapshot(&app, operation)
+    })
+    .await
+    .map_err(download::err)?;
     Ok(WindowsOptimizationSnapshot {
-        sparkle: cached.state,
         auto_logon,
         firmware_restart: firmware_restart::snapshot(state.firmware_restart_active()),
-        active_job: state.active(),
-        last_outcome: state.last_outcome(),
     })
 }
 
@@ -103,87 +97,9 @@ pub(crate) fn run_auto_logon_helper_from_args() -> Option<i32> {
     autologon::run_helper_from_args()
 }
 
-#[tauri::command]
-pub async fn windows_optimization_run(
-    app: AppHandle,
-    state: State<'_, WindowsOptimizationState>,
-    jobs: State<'_, Jobs>,
-    cleanup: State<'_, Cleanup>,
-    action: WindowsOptimizationAction,
-    on_event: Channel<WindowsOptimizationEvent>,
-) -> Result<WindowsOptimizationOutcome, String> {
-    let job_id = format!("windows-optimization-{}", Uuid::new_v4().simple());
-    let app_job = jobs.start_exclusive(&job_id)?;
-    let cancellation = state.begin(job_id.clone(), action)?;
-    let reporter = runner::Reporter {
-        job_id: &job_id,
-        channel: &on_event,
-        state: &state,
-    };
-    reporter.stage(models::WindowsOptimizationStage::Preparing);
-
-    let result = match action {
-        WindowsOptimizationAction::LaunchCtt => actions::launch_ctt(&cancellation, &reporter).await,
-        WindowsOptimizationAction::LaunchSparkle => {
-            actions::launch_sparkle(&app, &app_job, &cancellation, &reporter, &cleanup).await
-        }
-    };
-
-    match result {
-        Ok(outcome) => {
-            state.finish(outcome.clone());
-            Ok(outcome)
-        }
-        Err(error) if error == CANCELLED || cancellation.is_cancelled() => {
-            let outcome = WindowsOptimizationOutcome::new(
-                WindowsOptimizationResult::Cancelled,
-                job_id,
-                action,
-                None,
-            );
-            state.finish(outcome.clone());
-            Ok(outcome)
-        }
-        Err(error) => {
-            state.fail(&job_id);
-            Err(error)
-        }
-    }
-}
-
-#[tauri::command(async)]
-pub fn windows_optimization_cancel(
-    state: State<'_, WindowsOptimizationState>,
-    jobs: State<'_, Jobs>,
-    job_id: String,
-) {
-    state.cancel(&job_id);
-    jobs.cancel(&job_id);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn events_and_actions_use_camel_case() {
-        let value = serde_json::to_value(WindowsOptimizationEvent::Stage {
-            job_id: "job".into(),
-            stage: models::WindowsOptimizationStage::WaitingForAdmin,
-        })
-        .unwrap();
-        assert_eq!(
-            value,
-            serde_json::json!({
-                "event": "stage",
-                "data": { "jobId": "job", "stage": "waitingForAdmin" }
-            })
-        );
-        assert_eq!(
-            serde_json::to_value(WindowsOptimizationAction::LaunchSparkle).unwrap(),
-            serde_json::json!("launchSparkle")
-        );
-    }
 
     #[test]
     fn firmware_restart_preflight_rejects_an_active_updater() {

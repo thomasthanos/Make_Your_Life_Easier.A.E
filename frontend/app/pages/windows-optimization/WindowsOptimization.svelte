@@ -1,31 +1,38 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
-  import Download from "@lucide/svelte/icons/download";
-  import ExternalLink from "@lucide/svelte/icons/external-link";
   import Gauge from "@lucide/svelte/icons/gauge";
-  import GitFork from "@lucide/svelte/icons/git-fork";
   import KeyRound from "@lucide/svelte/icons/key-round";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import LogIn from "@lucide/svelte/icons/log-in";
   import Power from "@lucide/svelte/icons/power";
-  import Play from "@lucide/svelte/icons/play";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
-  import Sparkles from "@lucide/svelte/icons/sparkles";
   import UserRound from "@lucide/svelte/icons/user-round";
+  import Package from "@lucide/svelte/icons/package";
+  import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
+  import WandSparkles from "@lucide/svelte/icons/wand-sparkles";
+  import Wrench from "@lucide/svelte/icons/wrench";
   import BiosRestartDialog from "./BiosRestartDialog.svelte";
-  import LiveConsole from "./LiveConsole.svelte";
+  import AppsTab from "./debloat/AppsTab.svelte";
+  import DebloatTab from "./debloat/DebloatTab.svelte";
+  import { debloat, type Tab } from "./debloat/state.svelte";
+  import TweaksTab from "./debloat/TweaksTab.svelte";
   import { windowsOptimizationState as tools } from "./state.svelte";
 
   onMount(() => {
     void tools.load();
+    void debloat.load();
   });
 
+  const tabs: { id: Tab; label: string; icon: typeof Wrench }[] = [
+    { id: "debloat", label: "Debloat", icon: WandSparkles },
+    { id: "tweaks", label: "Tweaks", icon: SlidersHorizontal },
+    { id: "apps", label: "Apps", icon: Package },
+    { id: "tools", label: "Tools", icon: Wrench },
+  ];
+
   const state = $derived(tools.snapshot);
-  const sparkleProgress = $derived(tools.progressOf("launchSparkle"));
-  const sparkleActive = $derived(tools.activeAction === "launchSparkle");
-  const cttActive = $derived(tools.activeAction === "launchCtt");
   const autoLogon = $derived(state?.autoLogon);
   const autoLogonActive = $derived(tools.autoLogonBusy);
   const autoLogonAction = $derived(
@@ -33,12 +40,6 @@
   );
   const firmwareRestart = $derived(state?.firmwareRestart);
   const firmwareStatus = $derived(tools.firmwareRestartStatus());
-  const cancellableDownload = $derived(
-    sparkleActive &&
-      ["resolvingRelease", "downloading", "verifying", "extracting"].includes(
-        tools.activeJob?.stage ?? "",
-      ),
-  );
 
   function statusTone(status: string) {
     if (status === "Completed" || status === "Enabled") return "ok";
@@ -64,130 +65,44 @@
         <span class="title-icon"><Gauge size={19} /></span>
         <h1>Windows Optimization &amp; Debloat</h1>
       </div>
-      <p>Use built-in Windows controls or launch trusted tools for system optimization. You stay in control of every change.</p>
+      <p>Debloat, tweak and tune Windows with MYLE's own tools. A restore point comes first, and every change can be undone.</p>
     </header>
-    <span class="mutex"><ShieldCheck size={13} /> One privileged tool at a time</span>
+    <span class="mutex"><ShieldCheck size={13} /> One administrator prompt per session</span>
   </div>
 
-  <div class="warning surface" role="note">
-    <CircleAlert size={16} />
-    <span>These actions can make system-wide changes. Review every option and create a restore point before applying tweaks.</span>
+  <div class="tabs" role="tablist" aria-label="Windows Optimization">
+    {#each tabs as tab (tab.id)}
+      <button
+        role="tab"
+        class="tab"
+        class:active={debloat.tab === tab.id}
+        aria-selected={debloat.tab === tab.id}
+        onclick={() => (debloat.tab = tab.id)}
+      >
+        <tab.icon size={14} /> {tab.label}
+      </button>
+    {/each}
   </div>
 
   {#if tools.error}
     <div class="error-banner surface" role="alert"><CircleAlert size={16} /><span>{tools.error}</span></div>
   {/if}
-  {#if tools.externallyLocked && !tools.ownBusy}
+  {#if debloat.error}
+    <div class="error-banner surface" role="alert"><CircleAlert size={16} /><span>{debloat.error}</span></div>
+  {/if}
+  {#if tools.externallyLocked && !tools.ownBusy && !debloat.busy}
     <div class="lock-banner surface"><LoaderCircle size={14} class="spin" /><span>Another app task is running. Optimization tools are temporarily locked.</span></div>
   {/if}
 
+  <div class="panel">
+  {#if debloat.tab === "debloat"}
+    <DebloatTab />
+  {:else if debloat.tab === "tweaks"}
+    <TweaksTab />
+  {:else if debloat.tab === "apps"}
+    <AppsTab />
+  {:else}
   <div class="cards">
-    <article class="tool-card surface ctt" class:active={cttActive}>
-      <span class="rim"></span>
-      <div class="card-head">
-        <span class="tool-icon"><img src="/icons/Chris-Titus-Windows-Utility.svg" alt="" width="42" height="42" /></span>
-        <div class="identity">
-          <div class="name-row"><h2>Chris Titus Utility</h2><span class="badge admin"><ShieldCheck size={11} /> Admin required</span></div>
-          <p>Complete Windows toolbox for performance, privacy, software and maintenance.</p>
-        </div>
-        <span class="status {statusTone(tools.statusOf('launchCtt'))}"><i></i>{tools.statusOf("launchCtt")}</span>
-      </div>
-
-      <div class="feature-grid ctt-grid">
-        <div>
-          <div class="cell-top"><strong>System Tweaks</strong><em>01</em></div>
-          <span>Responsiveness &amp; OS config</span>
-        </div>
-        <div>
-          <div class="cell-top"><strong>Privacy &amp; Security</strong><em>02</em></div>
-          <span>Telemetry &amp; policy controls</span>
-        </div>
-        <div>
-          <div class="cell-top"><strong>Bloatware Removal</strong><em>03</em></div>
-          <span>Remove preinstalled apps</span>
-        </div>
-        <div>
-          <div class="cell-top"><strong>Fixes &amp; Updates</strong><em>04</em></div>
-          <span>Maintenance &amp; repair tools</span>
-        </div>
-      </div>
-
-      <div class="info-box trust-note">
-        <CircleAlert size={15} />
-        <div>
-          <strong>Official remote bootstrap</strong>
-          <p>Executes the official script directly. Confirmation is required before launch.</p>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button class="btn primary launch" disabled={tools.locked} onclick={() => tools.launchCtt()}>
-          {#if cttActive}<LoaderCircle size={14} class="spin" /> Running{:else}<Play size={14} /> Launch Tool{/if}
-        </button>
-        <button class="btn github" disabled={tools.ownBusy} onclick={() => tools.openGithub("ctt")}><GitFork size={14} /> GitHub <ExternalLink size={11} /></button>
-      </div>
-    </article>
-
-    <article class="tool-card surface sparkle" class:active={sparkleActive}>
-      <span class="rim"></span>
-      <div class="card-head">
-        <span class="tool-icon"><img src="/icons/Sparkle.svg" alt="" width="42" height="42" /></span>
-        <div class="identity">
-          <div class="name-row"><h2>Sparkle</h2><span class="badge portable">Portable Tool</span><span class="badge beta">Beta</span></div>
-          <p>Debloat and optimize Windows through a verified portable release.</p>
-        </div>
-        <span class="status {statusTone(tools.statusOf('launchSparkle'))}"><i></i>{tools.statusOf("launchSparkle")}</span>
-      </div>
-
-      <div class="feature-grid sparkle-grid">
-        <div>
-          <div class="cell-top"><strong>Remove Bloatware</strong><em>01</em></div>
-          <span>Windows and OEM apps</span>
-        </div>
-        <div>
-          <div class="cell-top"><strong>Privacy &amp; Telemetry</strong><em>02</em></div>
-          <span>Tracking and suggestions</span>
-        </div>
-        <div>
-          <div class="cell-top"><strong>Performance Tweaks</strong><em>03</em></div>
-          <span>Background and startup load</span>
-        </div>
-        <div>
-          <div class="cell-top"><strong>Portable Release</strong><em>04</em></div>
-          <span>Verified local GitHub cache</span>
-        </div>
-      </div>
-
-      <div class="info-box cache surface">
-        <span class="cache-icon" class:ready={state?.sparkle.cached}>{#if state?.sparkle.cached}<ShieldCheck size={15} />{:else}<Download size={15} />{/if}</span>
-        <div>
-          <strong>{tools.loading && !state ? "Checking portable cache…" : state?.sparkle.cached ? "Ready to launch" : "Downloads automatically on first use"}</strong>
-          <p>{state?.sparkle.cached ? `Verified Sparkle ${state.sparkle.version ?? "build"}` : "The latest stable portable ZIP will be verified before extraction."}</p>
-        </div>
-      </div>
-
-      {#if sparkleActive}
-        <div class="progress-block">
-          <div class="progress-label"><span>{tools.statusOf("launchSparkle")}</span><strong>{sparkleProgress !== null ? `${Math.round(sparkleProgress * 100)}%` : tools.transferOf("launchSparkle") ?? "Working…"}</strong></div>
-          <div class="track" role="progressbar" aria-label="Sparkle operation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={sparkleProgress !== null ? Math.round(sparkleProgress * 100) : undefined}>
-            <span class:indeterminate={sparkleProgress === null} style:width={sparkleProgress !== null ? `${sparkleProgress * 100}%` : "28%"}></span>
-          </div>
-          {#if tools.transferOf("launchSparkle")}<small>{tools.transferOf("launchSparkle")}</small>{/if}
-        </div>
-      {/if}
-
-      <div class="actions">
-        {#if sparkleActive}
-          <button class="btn danger launch" disabled={tools.stopping || !tools.activeJob} onclick={() => tools.cancel()}>
-            {tools.stopping ? "Stopping…" : cancellableDownload ? "Cancel download" : "Stop"}
-          </button>
-        {:else}
-          <button class="btn primary launch" disabled={tools.locked} onclick={() => tools.launchSparkle()}><Sparkles size={14} /> Launch Sparkle</button>
-        {/if}
-        <button class="btn github" disabled={tools.ownBusy} onclick={() => tools.openGithub("sparkle")}><GitFork size={14} /> GitHub <ExternalLink size={11} /></button>
-      </div>
-    </article>
-
     <article class="tool-card surface autologon" class:active={autoLogonActive}>
       <span class="rim"></span>
       <div class="card-head">
@@ -274,10 +189,6 @@
     </article>
   </div>
 
-  <section class="console-drawer surface" aria-label="Chris Titus Utility live console">
-    <LiveConsole />
-  </section>
-
   <section
     class="firmware-action surface"
     class:active={tools.firmwareRestartBusy}
@@ -314,12 +225,20 @@
       {/if}
     </button>
   </section>
+  {/if}
+  </div>
 </div>
 
 {#if tools.biosDialogOpen}<BiosRestartDialog />{/if}
 
 <style>
   .page { min-width: 0; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; padding: 4px; width: fit-content; border: 1px solid rgb(255 255 255 / 0.06); border-radius: 12px; background: rgb(0 0 0 / 0.18); }
+  .tab { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px; border-radius: 9px; color: var(--text-2); font-size: 12.5px; font-weight: 560; transition: background var(--dur-fast), color var(--dur-fast); }
+  .tab:hover { color: var(--text-1); background: var(--hover); }
+  .tab.active { color: #fff; background: linear-gradient(145deg, rgb(var(--accent-rgb) / 0.42), rgb(var(--accent-rgb) / 0.2)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1); }
+  .tab:focus-visible { outline: 2px solid rgb(var(--accent-rgb) / 0.75); outline-offset: 1px; }
+  .panel { margin-top: 16px; }
   .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
   header { min-width: 0; }
   .title { display: flex; align-items: center; gap: 10px; }
@@ -335,10 +254,9 @@
   /* 3-Column Equal Height Grid */
   .cards {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 560px);
     align-items: stretch;
     gap: 14px;
-    margin-top: 16px;
   }
   .tool-card {
     position: relative;
@@ -354,8 +272,6 @@
   .tool-card.active { border-color: rgb(125 151 255 / 0.22); }
 
   .rim { position: absolute; inset: 0 14% auto; height: 1px; pointer-events: none; }
-  .ctt .rim { background: linear-gradient(90deg, transparent, rgb(99 194 255 / 0.62), transparent); box-shadow: 0 0 15px rgb(81 179 255 / 0.25); }
-  .sparkle .rim { background: linear-gradient(90deg, transparent, rgb(167 126 255 / 0.66), transparent); box-shadow: 0 0 15px rgb(143 103 255 / 0.25); }
   .autologon .rim { background: linear-gradient(90deg, transparent, rgb(71 217 166 / 0.62), transparent); box-shadow: 0 0 15px rgb(48 199 148 / 0.22); }
 
   .card-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 11px; position: relative; padding-right: 82px; }
@@ -377,56 +293,7 @@
   .status.warn i { background: #e8ad55; }
   .status.error i { background: var(--danger); }
 
-  /* Unified 2x2 Feature Grids */
-  .feature-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    margin-top: 15px;
-  }
-  .feature-grid > div {
-    display: grid;
-    gap: 3px;
-    min-width: 0;
-    padding: 10px 11px;
-    border: 1px solid rgb(255 255 255 / 0.05);
-    border-radius: 10px;
-  }
-  .ctt-grid > div {
-    background: linear-gradient(145deg, rgb(76 169 255 / 0.045), rgb(255 255 255 / 0.014));
-  }
-  .sparkle-grid > div {
-    background: linear-gradient(145deg, rgb(152 116 255 / 0.045), rgb(255 255 255 / 0.015));
-  }
-  .cell-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-  }
-  .feature-grid strong {
-    color: rgb(231 236 251 / 0.88);
-    font-size: 11px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .cell-top em {
-    font-style: normal;
-    font-family: var(--font-mono);
-    font-size: 8.5px;
-    color: rgb(148 163 184 / 0.45);
-  }
-  .feature-grid span {
-    color: var(--text-3);
-    font-size: 9.5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* Unified Info Strip across all 3 cards */
+  /* Info strip */
   .info-box {
     display: flex;
     align-items: center;
@@ -448,30 +315,6 @@
     line-height: 1.4;
     color: var(--text-3);
   }
-
-  .trust-note {
-    border: 1px solid rgb(96 179 255 / 0.12);
-    background: rgb(72 158 245 / 0.04);
-  }
-  .trust-note :global(svg) {
-    flex: none;
-    color: rgb(110 190 255 / 0.85);
-  }
-
-  .cache {
-    border: 1px solid rgb(255 255 255 / 0.055);
-    background: rgb(255 255 255 / 0.02);
-  }
-  .cache-icon { display: grid; place-items: center; width: 28px; height: 28px; flex: none; border-radius: 8px; background: rgb(105 139 255 / 0.09); color: rgb(139 169 255 / 0.85); }
-  .cache-icon.ready { background: rgb(62 207 142 / 0.08); color: rgb(80 214 157 / 0.88); }
-
-  .progress-block { margin-top: 12px; }
-  .progress-label { display: flex; justify-content: space-between; gap: 12px; color: var(--text-3); font-size: 10px; }
-  .progress-label strong { color: var(--text-2); font-variant-numeric: tabular-nums; }
-  .track { overflow: hidden; height: 4px; margin-top: 6px; border-radius: 999px; background: rgb(255 255 255 / 0.06); }
-  .track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8c78ff, #55cae6); transition: width var(--dur-med) var(--ease-out); }
-  .track > span.indeterminate { animation: seek 1.2s ease-in-out infinite alternate; }
-  .progress-block > small { display: block; margin-top: 5px; color: var(--text-3); font-size: 9.5px; text-align: right; }
 
   /* Auto-Logon Specifics */
   .account {
@@ -534,21 +377,6 @@
   .github { color: var(--text-2); }
   .disable { color: rgb(225 230 240 / 0.72); }
 
-  /* Full-width Console Drawer */
-  .console-drawer {
-    margin-top: 12px;
-    padding: 4px 14px 8px;
-    box-shadow: var(--elev-1);
-  }
-  .console-drawer :global(.console) {
-    margin-top: 0;
-    border-top: none;
-  }
-  .console-drawer :global(.bar) {
-    min-height: 36px;
-    padding-top: 4px;
-  }
-
   /* Restart to BIOS / UEFI Card */
   .firmware-action {
     position: relative;
@@ -587,14 +415,11 @@
   .firmware-status.status { position: static; white-space: nowrap; }
   .firmware-button { min-width: 146px; white-space: nowrap; }
 
-  @keyframes seek { from { transform: translateX(-40%); } to { transform: translateX(300%); } }
   :global(:root.solid) .tool-card, :global(:root.solid) .tool-card:hover:not(.active) { transform: none; box-shadow: none; }
   :global(:root.solid) .rim { box-shadow: none; }
   :global(:root.solid) .firmware-action { box-shadow: none; }
   :global(:root.solid) .firmware-rim { box-shadow: none; }
-  :global(:root.solid) .track > span.indeterminate { animation: none; }
 
-  @media (max-width: 1150px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 860px) { .cards { grid-template-columns: 1fr; } }
   @media (max-width: 720px) {
     .top { display: block; }
@@ -606,7 +431,7 @@
     .firmware-button { grid-column: 3; grid-row: 1 / span 2; }
   }
   @media (max-width: 520px) {
-    .feature-grid, .auto-details { grid-template-columns: 1fr; }
+    .auto-details { grid-template-columns: 1fr; }
     .account { grid-template-columns: auto minmax(0, 1fr); }
     .account .account-type { grid-column: 2; justify-self: start; }
     .actions { align-items: stretch; flex-direction: column; }
@@ -618,8 +443,7 @@
     .firmware-copy p { white-space: normal; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .tool-card, .track > span { transition: none; }
+    .tool-card { transition: none; }
     .tool-card:hover:not(.active) { transform: none; }
-    .track > span.indeterminate { animation: none; }
   }
 </style>
