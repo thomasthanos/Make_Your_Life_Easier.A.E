@@ -2,7 +2,9 @@ mod account;
 mod apps;
 pub mod cleaner;
 mod console;
+mod debloat;
 mod download;
+mod elevated_pipe;
 pub mod game_saves;
 mod maintenance;
 mod passwords;
@@ -24,6 +26,11 @@ pub fn run_passwords_native_host() -> Option<i32> {
 /// single-instance plugin start. `None` means this is a normal app launch.
 pub fn run_windows_auto_logon_helper() -> Option<i32> {
     windows_optimization::run_auto_logon_helper_from_args()
+}
+
+/// Handles the debloater's administrator helper before Tauri starts.
+pub fn run_debloat_helper() -> Option<i32> {
+    debloat::run_elevated_helper_from_args()
 }
 
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
@@ -276,6 +283,11 @@ pub fn run() {
             cleaner::cleaner_admin_ready,
             cleaner::cleaner_clean,
             cleaner::cleaner_clean_elevated,
+            debloat::debloat_status,
+            debloat::debloat_restore_point,
+            debloat::debloat_run,
+            debloat::debloat_undo,
+            debloat::debloat_open_store,
             maintenance::maintenance_cards,
             maintenance::maintenance_run,
             maintenance::maintenance_cancel,

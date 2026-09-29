@@ -7,17 +7,12 @@
 
 use std::collections::HashMap;
 use std::ffi::OsString;
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::mem::{size_of, zeroed};
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut};
-use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::windows::named_pipe::{NamedPipeServer, ServerOptions};
 use windows_sys::Win32::Foundation::{
     CloseHandle, ERROR_NO_MORE_FILES, GetLastError, HANDLE, INVALID_HANDLE_VALUE,
 };
@@ -34,14 +29,17 @@ use windows_sys::Win32::Storage::FileSystem::{
     SetFileInformationByHandle,
 };
 use windows_sys::Win32::System::Com::CoTaskMemFree;
-use windows_sys::Win32::System::Pipes::GetNamedPipeServerProcessId;
 use windows_sys::Win32::UI::Shell::{FOLDERID_ProgramData, KF_FLAG_DEFAULT, SHGetKnownFolderPath};
 
 use super::targets::{self, Category, Target};
-use crate::apps::process::{ERROR_CANCELLED, start_elevated};
-use crate::download::err;
+use crate::elevated_pipe::{self, Helper, Session};
 
-const HELPER_FLAG: &str = "--cleaner-elevated-helper";
+/// `\\.\pipe\myle-cleaner-<32 hex digits>`, created by the app.
+const HELPER: Helper = Helper {
+    flag: "--cleaner-elevated-helper",
+    pipe_prefix: r"\\.\pipe\myle-cleaner-",
+    what: "administrator cleaner",
+};
 const MAX_DEPTH: usize = 128;
 const SHARE_WITHOUT_RENAME: u32 = FILE_SHARE_READ | FILE_SHARE_WRITE;
 
@@ -77,77 +75,9 @@ enum Response {
     Error(String),
 }
 
-/// `\\.\pipe\myle-cleaner-<32 hex digits>`: created by the app, which the
-/// helper checks is the pipe's server before it takes any request.
-const PIPE_PREFIX: &str = r"\\.\pipe\myle-cleaner-";
-/// The helper waits this long for the next request, then exits. The next
-/// scan or clean asks for approval again.
-const HELPER_IDLE: Duration = Duration::from_secs(30 * 60);
-/// From an approved prompt to the helper connecting.
-const CONNECT_WAIT: Duration = Duration::from_secs(60);
-
-pub const DECLINED: &str = "Administrator approval was declined.";
-
 /// The running helper: one UAC prompt, then every scan and clean of this app
 /// session goes through it.
-struct Session {
-    pipe: BufReader<NamedPipeServer>,
-}
-
 static SESSION: tokio::sync::Mutex<Option<Session>> = tokio::sync::Mutex::const_new(None);
-
-impl Session {
-    async fn start() -> Result<Self, String> {
-        let name = format!("{PIPE_PREFIX}{}", uuid::Uuid::new_v4().simple());
-        // First instance: the name is ours before the helper even starts,
-        // so nothing else can pose as the app to it.
-        let server = ServerOptions::new()
-            .first_pipe_instance(true)
-            .reject_remote_clients(true)
-            .create(&name)
-            .map_err(err)?;
-        let executable = std::env::current_exe().map_err(err)?;
-        let executable = executable
-            .to_str()
-            .ok_or_else(|| "The application path is not valid Unicode.".to_string())?;
-        let args = [
-            HELPER_FLAG.to_string(),
-            "serve".into(),
-            name,
-            std::process::id().to_string(),
-        ];
-        match start_elevated(executable, &args).await? {
-            0 => {}
-            ERROR_CANCELLED => return Err(DECLINED.into()),
-            code => {
-                return Err(format!(
-                    "The administrator cleaner could not start (exit code {code})."
-                ));
-            }
-        }
-        tokio::time::timeout(CONNECT_WAIT, server.connect())
-            .await
-            .map_err(|_| "The administrator cleaner did not start.".to_string())?
-            .map_err(err)?;
-        Ok(Self {
-            pipe: BufReader::new(server),
-        })
-    }
-
-    /// `Err` when the helper is gone (it exited after being idle, or was
-    /// closed); the answer to the request otherwise.
-    async fn ask(&mut self, request: &Request) -> std::io::Result<Response> {
-        let mut line = serde_json::to_string(request)?;
-        line.push('\n');
-        self.pipe.get_mut().write_all(line.as_bytes()).await?;
-        self.pipe.get_mut().flush().await?;
-        let mut answer = String::new();
-        if self.pipe.read_line(&mut answer).await? == 0 {
-            return Err(std::io::ErrorKind::UnexpectedEof.into());
-        }
-        Ok(serde_json::from_str(answer.trim())?)
-    }
-}
 
 /// Runs `action` over the admin-only folders of `categories` and returns the
 /// totals per category id. The first call asks for administrator approval;
@@ -174,7 +104,7 @@ pub async fn run(
             Err(_) => *session = None,
         }
     }
-    let mut fresh = Session::start().await?;
+    let mut fresh = Session::start(&HELPER).await?;
     let response = fresh
         .ask(&request)
         .await
@@ -198,12 +128,9 @@ fn answer(response: Response) -> Result<HashMap<String, Totals>, String> {
 /// Called before Tauri starts. Returns `None` for a normal launch and an exit
 /// code for the tightly scoped elevated helper mode.
 pub fn run_helper_from_args() -> Option<i32> {
-    let mut args = std::env::args_os();
-    let _executable = args.next();
-    if args.next().as_deref() != Some(std::ffi::OsStr::new(HELPER_FLAG)) {
-        return None;
-    }
-    Some(match run_helper(args.collect()) {
+    let args = elevated_pipe::helper_args(&HELPER)?;
+    let served = elevated_pipe::parse_serve_args(&HELPER, &args).and_then(|(pipe, app_pid)| serve(&pipe, app_pid));
+    Some(match served {
         Ok(()) => 0,
         Err(error) => {
             // Release builds have no console, but this remains useful in tests
@@ -214,79 +141,17 @@ pub fn run_helper_from_args() -> Option<i32> {
     })
 }
 
-fn run_helper(args: Vec<OsString>) -> Result<(), String> {
-    let [mode, pipe, app_pid] = args.as_slice() else {
-        return Err("Invalid elevated-cleaner arguments.".into());
-    };
-    if mode != "serve" {
-        return Err("Invalid elevated-cleaner mode.".into());
-    }
-    let app_pid: u32 = app_pid
-        .to_string_lossy()
-        .parse()
-        .map_err(|_| "Invalid elevated-cleaner arguments.".to_string())?;
-    serve(&pipe.to_string_lossy(), app_pid)
-}
-
-/// The helper's loop: connects to the app's pipe, checks that the app is its
-/// server, then answers requests until the app closes the pipe (or exits),
-/// or none comes for `HELPER_IDLE`.
 fn serve(pipe: &str, app_pid: u32) -> Result<(), String> {
-    use std::io::{BufRead, BufReader};
-    use std::os::windows::io::AsRawHandle;
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::{Arc, Mutex};
-    use std::time::Instant;
-
-    validate_pipe_name(pipe)?;
-    let file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(pipe)
-        .map_err(err)?;
-    let mut server_pid = 0u32;
-    let ok = unsafe { GetNamedPipeServerProcessId(file.as_raw_handle() as HANDLE, &mut server_pid) };
-    if ok == 0 || server_pid != app_pid {
-        return Err("The cleaner pipe does not belong to the app.".into());
-    }
-
-    let last = Arc::new(Mutex::new(Instant::now()));
-    let busy = Arc::new(AtomicBool::new(false));
-    {
-        let (last, busy) = (Arc::clone(&last), Arc::clone(&busy));
-        std::thread::spawn(move || loop {
-            std::thread::sleep(Duration::from_secs(30));
-            let idle = last.lock().map(|at| at.elapsed()).unwrap_or_default();
-            if !busy.load(Ordering::SeqCst) && idle >= HELPER_IDLE {
-                std::process::exit(0);
-            }
-        });
-    }
-
-    let mut writer = file.try_clone().map_err(err)?;
-    for line in BufReader::new(file).lines() {
-        // A broken pipe: the app has closed it or exited.
-        let Ok(line) = line else { break };
-        busy.store(true, Ordering::SeqCst);
-        let response = match serde_json::from_str::<Request>(&line) {
-            Ok(request) => match handle(&request) {
-                Ok(totals) => Response::Ok(totals),
-                Err(error) => Response::Error(error),
-            },
-            Err(_) => Response::Error("Invalid cleaner request.".into()),
-        };
-        let mut out = serde_json::to_string(&response).map_err(err)?;
-        out.push('\n');
-        let sent = writer.write_all(out.as_bytes()).and_then(|()| writer.flush());
-        if let Ok(mut at) = last.lock() {
-            *at = Instant::now();
-        }
-        busy.store(false, Ordering::SeqCst);
-        if sent.is_err() {
-            break;
-        }
-    }
-    Ok(())
+    elevated_pipe::serve(
+        &HELPER,
+        pipe,
+        app_pid,
+        |request: Request| match handle(&request) {
+            Ok(totals) => Response::Ok(totals),
+            Err(error) => Response::Error(error),
+        },
+        || Response::Error("Invalid cleaner request.".into()),
+    )
 }
 
 fn handle(request: &Request) -> Result<HashMap<String, Totals>, String> {
@@ -305,17 +170,6 @@ fn handle(request: &Request) -> Result<HashMap<String, Totals>, String> {
         result.insert(category.id.to_string(), total);
     }
     Ok(result)
-}
-
-fn validate_pipe_name(pipe: &str) -> Result<(), String> {
-    let valid = pipe.strip_prefix(PIPE_PREFIX).is_some_and(|id| {
-        id.len() == 32 && id.bytes().all(|byte| byte.is_ascii_hexdigit())
-    });
-    if valid {
-        Ok(())
-    } else {
-        Err("Invalid cleaner pipe.".into())
-    }
 }
 
 fn visit_target(target: &Target, action: Action) -> Result<Totals, String> {
@@ -708,6 +562,9 @@ impl Drop for OwnedHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::elevated_pipe::tests::{connect_to, runtime};
+    use std::time::Duration;
+    use tokio::net::windows::named_pipe::ServerOptions;
 
     fn temp_target(label: &str) -> (PathBuf, Target) {
         let root = std::env::temp_dir().join(format!(
@@ -780,26 +637,9 @@ mod tests {
     }
 
     #[test]
-    fn only_the_apps_random_pipe_names_are_accepted() {
-        let id = uuid::Uuid::new_v4().simple().to_string();
-        assert!(validate_pipe_name(&format!("{PIPE_PREFIX}{id}")).is_ok());
-        assert!(validate_pipe_name(&format!("{PIPE_PREFIX}{id}x")).is_err());
-        assert!(validate_pipe_name(r"\\.\pipe\other").is_err());
-        assert!(validate_pipe_name(&format!(r"\\server\pipe\myle-cleaner-{id}")).is_err());
-    }
-
-    /// A runtime for the app's side of the pipe.
-    fn runtime() -> tokio::runtime::Runtime {
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap()
-    }
-
-    #[test]
     fn the_helper_answers_the_app_over_its_pipe() {
         runtime().block_on(async {
-            let name = format!("{PIPE_PREFIX}{}", uuid::Uuid::new_v4().simple());
+            let name = format!("{}{}", HELPER.pipe_prefix, uuid::Uuid::new_v4().simple());
             let server = ServerOptions::new()
                 .first_pipe_instance(true)
                 .create(&name)
@@ -809,21 +649,20 @@ mod tests {
                 let name = name.clone();
                 std::thread::spawn(move || serve(&name, std::process::id()))
             };
-            server.connect().await.unwrap();
-            let mut session = Session {
-                pipe: BufReader::new(server),
-            };
+            let mut session = connect_to(server).await;
 
             let empty = Request {
                 action: Action::Measure,
                 ids: Vec::new(),
             };
-            assert!(matches!(session.ask(&empty).await.unwrap(), Response::Ok(t) if t.is_empty()));
+            let answer: Response = session.ask(&empty).await.unwrap();
+            assert!(matches!(answer, Response::Ok(t) if t.is_empty()));
             let unknown = Request {
                 action: Action::Clean,
                 ids: vec!["../../etc".into()],
             };
-            assert!(matches!(session.ask(&unknown).await.unwrap(), Response::Error(_)));
+            let answer: Response = session.ask(&unknown).await.unwrap();
+            assert!(matches!(answer, Response::Error(_)));
 
             // Closing the pipe (the app exiting) ends the helper. The runtime
             // has to keep running meanwhile: it finishes closing the pipe.
@@ -840,7 +679,7 @@ mod tests {
     #[test]
     fn the_helper_refuses_a_pipe_the_app_does_not_serve() {
         runtime().block_on(async {
-            let name = format!("{PIPE_PREFIX}{}", uuid::Uuid::new_v4().simple());
+            let name = format!("{}{}", HELPER.pipe_prefix, uuid::Uuid::new_v4().simple());
             let server = ServerOptions::new()
                 .first_pipe_instance(true)
                 .create(&name)
