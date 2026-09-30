@@ -326,7 +326,9 @@ class InstallAppsState {
       this.checkedOnce = true;
       this.#lastCheck = Date.now();
       writeJson(KEY.statuses, next);
-      if (report.wingetError && report.wingetError !== this.wingetError) toast.error(report.wingetError);
+      // Shown on the page itself, not as a toast: without winget (LTSC,
+      // Windows Sandbox) an error that stays would greet every start, on
+      // whatever page is open.
       this.wingetError = report.wingetError;
       if (announce) toast.info("Installed apps refreshed.");
     } catch (err) {
