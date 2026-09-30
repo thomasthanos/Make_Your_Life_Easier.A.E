@@ -11,7 +11,7 @@ use tauri_plugin_dialog::DialogExt;
 
 use super::atomic;
 use super::cloud;
-use super::detection;
+use super::detection::{self, same_title};
 use super::engine::{Engine, EngineOutput, failure_detail};
 use super::models::{
     BackupSchedule, CloudProvider, CustomGame, DatabaseUpdate, DetectedFolder, GameFailure, GameRoot,
@@ -40,6 +40,21 @@ static SETTINGS_EDIT: Mutex<()> = Mutex::new(());
 
 fn settings_edit() -> std::sync::MutexGuard<'static, ()> {
     SETTINGS_EDIT.lock().unwrap_or_else(|p| p.into_inner())
+}
+
+/// Reads the settings afresh, lets `change` change them and saves them, all
+/// under the edit lock. For the commands that wait on something first (a
+/// folder picker, a scan, the task scheduler): what was saved meanwhile is
+/// kept rather than overwritten by the copy they read before waiting.
+fn edit_settings(
+    app: &AppHandle,
+    change: impl FnOnce(&mut GameSavesSettings) -> Result<(), String>,
+) -> Result<GameSavesSettings, String> {
+    let _edit = settings_edit();
+    let mut value = settings::initialize(app)?;
+    change(&mut value)?;
+    settings::save(app, &value)?;
+    Ok(value)
 }
 
 #[tauri::command]
@@ -135,10 +150,9 @@ pub async fn game_saves_use_cloud_folder(
         }
     };
     tauri::async_runtime::spawn_blocking(move || {
-        let _edit = settings_edit();
         let folder = detection::cloud_backup_folder(&root);
         let value = settings::initialize(&app)?;
-        // Checked before anything is created on disk.
+        // Checked before anything is created on disk (and again as it is set).
         settings::validate_backup_folder(&app, &folder, &value)?;
         fs::create_dir_all(&folder)
             .map_err(|e| format!("{} could not be created: {e}", folder.display()))?;
@@ -214,25 +228,25 @@ pub async fn game_saves_add_root(
     if !path.is_dir() {
         return Err("Choose an existing game installation folder.".into());
     }
-    let mut value = settings::initialize(&app)?;
-    if let Some(backup) = &value.backup_folder
-        && settings::overlaps(&path, Path::new(backup))
-    {
-        return Err("A game installation folder cannot overlap the backup folder.".into());
-    }
-    let display = path.to_string_lossy().into_owned();
-    let root = GameRoot {
-        id: detection::stable_id(store.ludusavi_name(), &display),
-        path: display,
-        store,
-        source: RootSource::Manual,
-    };
-    if !value.roots.iter().any(|known| known.id == root.id) {
-        value.roots.push(root);
-    }
-    validate_current_backup(&app, &value)?;
-    settings::save(&app, &value)?;
-    Ok(Some(value))
+    edit_settings(&app, |value| {
+        if let Some(backup) = &value.backup_folder
+            && settings::overlaps(&path, Path::new(backup))
+        {
+            return Err("A game installation folder cannot overlap the backup folder.".into());
+        }
+        let display = path.to_string_lossy().into_owned();
+        let root = GameRoot {
+            id: detection::stable_id(store.ludusavi_name(), &display),
+            path: display,
+            store,
+            source: RootSource::Manual,
+        };
+        if !value.roots.iter().any(|known| known.id == root.id) {
+            value.roots.push(root);
+        }
+        validate_current_backup(&app, value)
+    })
+    .map(Some)
 }
 
 #[tauri::command(async)]
@@ -265,15 +279,27 @@ pub async fn game_saves_set_schedule(
     if !settings::valid_schedule_time(&time) {
         return Err("Use a valid 24-hour schedule time in HH:mm format.".into());
     }
-    let previous = settings::initialize(&app)?;
-    let mut value = previous.clone();
-    value.schedule = schedule;
-    value.schedule_time = time;
-    value.schedule_weekday = weekday;
-    settings::save(&app, &value)?;
-    if let Err(error) = configure_scheduled_task(schedule, &value.schedule_time, weekday).await {
-        // Keep the persisted settings and the Windows task in agreement.
-        let _ = settings::save(&app, &previous);
+    let mut previous = None;
+    let value = edit_settings(&app, |value| {
+        previous = Some((value.schedule, value.schedule_time.clone(), value.schedule_weekday));
+        value.schedule = schedule;
+        value.schedule_time = time.clone();
+        value.schedule_weekday = weekday;
+        Ok(())
+    })?;
+    if let Err(error) = configure_scheduled_task(schedule, &time, weekday).await {
+        // Keep the persisted settings and the Windows task in agreement,
+        // unless another change of the schedule came in meanwhile.
+        if let Some((old_schedule, old_time, old_weekday)) = previous {
+            let _ = edit_settings(&app, |value| {
+                if value.schedule == schedule && value.schedule_time == time && value.schedule_weekday == weekday {
+                    value.schedule = old_schedule;
+                    value.schedule_time = old_time;
+                    value.schedule_weekday = old_weekday;
+                }
+                Ok(())
+            });
+        }
         return Err(error);
     }
     Ok(value)
@@ -301,7 +327,7 @@ pub fn game_saves_set_game_auto_backup(
     if let Some(custom) = value
         .custom_games
         .iter_mut()
-        .find(|item| item.name == game.title)
+        .find(|item| same_title(&item.name, &game.title))
     {
         custom.auto_backup = enabled;
     }
@@ -393,7 +419,7 @@ pub fn game_saves_upsert_custom_game(
         value.auto_backup_excluded_game_ids.push(scanned_id);
     }
     if value.custom_games.iter().enumerate().any(|(index, known)| {
-        Some(index) != existing && known.name.eq_ignore_ascii_case(&game.name)
+        Some(index) != existing && same_title(&known.name, &game.name)
     }) {
         return Err("A custom game with this name already exists.".into());
     }
@@ -505,7 +531,10 @@ pub async fn game_saves_scan(
         validate_current_backup(&app, &value)?;
     }
     if value.roots != known_roots {
-        settings::save(&app, &value)?;
+        edit_settings(&app, |fresh| {
+            settings::merge_detected_roots(fresh);
+            Ok(())
+        })?;
     }
     let engine = Engine::for_app(&app)?;
     engine.prepare(&value)?;
@@ -528,7 +557,10 @@ pub async fn game_saves_scan(
     }
     if metadata.supported_games > 0 && value.database_games != metadata.supported_games {
         value.database_games = metadata.supported_games;
-        settings::save(&app, &value)?;
+        edit_settings(&app, |fresh| {
+            fresh.database_games = metadata.supported_games;
+            Ok(())
+        })?;
     }
 
     // A quick refresh keeps the full scan's fingerprint and time: it did not
@@ -561,7 +593,7 @@ pub async fn game_saves_update_database(
     let root = settings::config_root(&app)?;
     let operation = state.begin(&root, OperationKind::UpdateDatabase)?;
     send_stage(&on_event, OperationStage::UpdatingDatabase);
-    let mut value = settings::initialize(&app)?;
+    let value = settings::initialize(&app)?;
     let engine = Engine::for_app(&app)?;
     engine.prepare(&value)?;
     let manifest_path = engine.manifest_path();
@@ -593,9 +625,12 @@ pub async fn game_saves_update_database(
         }
     };
     let updated_at = parser::now();
-    value.database_games = metadata.supported_games;
-    value.database_updated_at = Some(updated_at);
-    if let Err(error) = settings::save(&app, &value) {
+    let saved = edit_settings(&app, |fresh| {
+        fresh.database_games = metadata.supported_games;
+        fresh.database_updated_at = Some(updated_at);
+        Ok(())
+    });
+    if let Err(error) = saved {
         let _ = atomic::write(&manifest_path, &previous_manifest);
         return Err(format!(
             "The updated database could not be committed: {error}"
@@ -994,33 +1029,37 @@ pub async fn game_saves_sync_import(
     synced: SyncedGameSaves,
 ) -> Result<GameSavesSettings, String> {
     state.ensure_idle()?;
-    let mut value = settings::initialize(&app)?;
-    value.auto_backup_excluded_game_ids = synced.auto_backup_excluded_game_ids;
-    merge_synced_custom_games(&mut value.custom_games, synced.custom_games);
-    if let Some(backup) = value.backup_folder.as_deref() {
-        value.custom_games.retain(|game| {
-            !game
-                .paths
-                .iter()
-                .any(|path| settings::overlaps(Path::new(path), Path::new(backup)))
-        });
-    }
-
-    let schedule_changed = value.schedule != synced.schedule
-        || value.schedule_time != synced.schedule_time
-        || value.schedule_weekday != synced.schedule_weekday;
-    if schedule_changed && settings::valid_schedule_time(&synced.schedule_time) {
+    let current = settings::initialize(&app)?;
+    let schedule_changed = (current.schedule != synced.schedule
+        || current.schedule_time != synced.schedule_time
+        || current.schedule_weekday != synced.schedule_weekday)
+        && settings::valid_schedule_time(&synced.schedule_time);
+    if schedule_changed {
         configure_scheduled_task(
             synced.schedule,
             &synced.schedule_time,
             synced.schedule_weekday,
         )
         .await?;
-        value.schedule = synced.schedule;
-        value.schedule_time = synced.schedule_time;
-        value.schedule_weekday = synced.schedule_weekday;
     }
-    settings::save(&app, &value)?;
+    edit_settings(&app, |value| {
+        value.auto_backup_excluded_game_ids = synced.auto_backup_excluded_game_ids;
+        merge_synced_custom_games(&mut value.custom_games, synced.custom_games);
+        if let Some(backup) = value.backup_folder.as_deref() {
+            value.custom_games.retain(|game| {
+                !game
+                    .paths
+                    .iter()
+                    .any(|path| settings::overlaps(Path::new(path), Path::new(backup)))
+            });
+        }
+        if schedule_changed {
+            value.schedule = synced.schedule;
+            value.schedule_time = synced.schedule_time;
+            value.schedule_weekday = synced.schedule_weekday;
+        }
+        Ok(())
+    })?;
     settings::initialize(&app)
 }
 
@@ -1038,7 +1077,7 @@ fn merge_synced_custom_games(local: &mut Vec<CustomGame>, synced: Vec<CustomGame
             continue;
         }
         // The same game (by id, or by name from an older copy) is replaced.
-        local.retain(|known| known.id != game.id && !known.name.eq_ignore_ascii_case(&game.name));
+        local.retain(|known| known.id != game.id && !same_title(&known.name, &game.name));
         local.push(game);
     }
 }
@@ -1432,11 +1471,11 @@ fn set_backup_folder(app: &AppHandle, path: &Path) -> Result<GameSavesSettings, 
     if !path.is_dir() {
         return Err("Choose an existing backup folder.".into());
     }
-    let mut value = settings::initialize(app)?;
-    settings::validate_backup_folder(app, path, &value)?;
-    value.backup_folder = Some(path.to_string_lossy().into_owned());
-    settings::save(app, &value)?;
-    Ok(value)
+    edit_settings(app, |value| {
+        settings::validate_backup_folder(app, path, value)?;
+        value.backup_folder = Some(path.to_string_lossy().into_owned());
+        Ok(())
+    })
 }
 
 fn validate_current_backup(app: &AppHandle, value: &GameSavesSettings) -> Result<(), String> {

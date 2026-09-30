@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
 
-use super::detection::stable_id;
+use super::detection::{same_title, stable_id};
 use super::models::{
     GameSaveEntry, GameSaveSnapshot, GameSaveStatus, GameSavesScan, GameSavesSettings,
     GameSavesStats,
@@ -316,7 +316,7 @@ fn entry_from(
     };
 
     let mut platform_badges = metadata.badges.get(title).cloned().unwrap_or_default();
-    if settings.custom_games.iter().any(|game| game.name == title) {
+    if settings.custom_games.iter().any(|game| same_title(&game.name, title)) {
         platform_badges.push("Added by you".into());
     }
     platform_badges.sort();
@@ -325,7 +325,7 @@ fn entry_from(
         && settings
             .custom_games
             .iter()
-            .find(|game| game.name == title)
+            .find(|game| same_title(&game.name, title))
             .is_none_or(|game| game.auto_backup);
 
     GameSaveEntry {
@@ -511,6 +511,36 @@ Registry Game:
         if let Ok(text) = fs::read_to_string(path) {
             assert_eq!(parse_manifest_metadata(&text).supported_games, 22_976);
         }
+    }
+
+    /// The engine may spell a custom game's title with other capitals than
+    /// the user did: it is still the user's game, with the user's choices.
+    #[test]
+    fn a_custom_game_is_known_whatever_the_capitals() {
+        let local = parse_api(
+            r#"{"games":{"auditfoo":{"change":"New","decision":"Processed","files":{"C:/save.dat":{"bytes":10,"failed":false,"ignored":false}},"registry":{}}}}"#,
+        )
+        .unwrap();
+        let settings = GameSavesSettings {
+            custom_games: vec![crate::game_saves::models::CustomGame {
+                id: "custom-1".into(),
+                name: "AuditFoo".into(),
+                paths: Vec::new(),
+                install_path: None,
+                auto_backup: false,
+            }],
+            ..Default::default()
+        };
+        let scan = build_scan(
+            local,
+            ApiOutput::default(),
+            ApiOutput::default(),
+            &ManifestMetadata::default(),
+            &settings,
+        );
+        let game = &scan.on_this_pc[0];
+        assert!(game.platform_badges.iter().any(|badge| badge == "Added by you"));
+        assert!(!game.auto_backup);
     }
 
     #[test]

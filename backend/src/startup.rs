@@ -2,7 +2,7 @@
 //! app with `--autostart`), and how the app opens then. Settings can switch
 //! both; the setup reads the same registry values.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use winreg::RegKey;
@@ -109,26 +109,13 @@ pub async fn startup_set_enabled(enabled: bool) -> Result<(), String> {
         let folder = startup_folder().ok_or("The Startup folder could not be found.")?;
         std::fs::create_dir_all(&folder).map_err(|error| error.to_string())?;
         let link = folder.join(format!("{NAME}.lnk"));
-        let dir = exe.parent().unwrap_or(&exe);
-        // The same shortcut the setup writes, so the setup and uninstaller
-        // recognise it as the app's.
-        let script = format!(
-            "$l = (New-Object -ComObject WScript.Shell).CreateShortcut({link}); \
-             $l.TargetPath = {exe}; $l.Arguments = '--autostart'; \
-             $l.WorkingDirectory = {dir}; $l.IconLocation = {icon}; \
-             $l.Description = {name}; $l.Save()",
-            link = crate::apps::process::ps_quote(&link.to_string_lossy()),
-            exe = crate::apps::process::ps_quote(&exe.to_string_lossy()),
-            dir = crate::apps::process::ps_quote(&dir.to_string_lossy()),
-            icon = crate::apps::process::ps_quote(&format!("{},0", exe.display())),
-            name = crate::apps::process::ps_quote(NAME),
-        );
-        let status = crate::apps::process::hidden("powershell.exe")
-            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
-            .status()
-            .await
-            .map_err(|error| error.to_string())?;
-        if !status.success() || !link.is_file() {
+        let written = {
+            let link = link.clone();
+            tauri::async_runtime::spawn_blocking(move || write_link(&exe, &link))
+                .await
+                .map_err(|error| error.to_string())?
+        };
+        if written.is_err() || !link.is_file() {
             return Err("Windows would not create the Startup shortcut.".into());
         }
         set_value(STARTUP_STATE, STATE_MADE)
@@ -140,7 +127,98 @@ pub async fn startup_set_enabled(enabled: bool) -> Result<(), String> {
     }
 }
 
+/// The same shortcut the setup writes (`write_link` in the installer), so the
+/// setup and the uninstaller recognise it as the app's. Written through the
+/// shell's own COM object, in place: any path, Greek user names included,
+/// and no PowerShell to start.
+fn write_link(exe: &Path, link_path: &Path) -> Result<(), String> {
+    use windows::Win32::System::Com::{
+        CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx, CoUninitialize,
+        IPersistFile,
+    };
+    use windows::Win32::UI::Shell::{IShellLinkW, ShellLink};
+    use windows::core::{HSTRING, Interface};
+
+    let folder = exe.parent().unwrap_or(exe);
+    // SAFETY: balanced below when initialization succeeded (S_OK or S_FALSE).
+    let initialized = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) }.is_ok();
+    let saved = (|| unsafe {
+        let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
+        link.SetPath(&HSTRING::from(exe.as_os_str()))?;
+        link.SetWorkingDirectory(&HSTRING::from(folder.as_os_str()))?;
+        link.SetArguments(&HSTRING::from("--autostart"))?;
+        link.SetIconLocation(&HSTRING::from(exe.as_os_str()), 0)?;
+        link.SetDescription(&HSTRING::from(NAME))?;
+        link.cast::<IPersistFile>()?
+            .Save(&HSTRING::from(link_path.as_os_str()), true)
+    })()
+    // Read (and the COM error dropped) before COM is uninitialized.
+    .map_err(|error| error.message());
+    if initialized {
+        unsafe { CoUninitialize() };
+    }
+    saved
+}
+
 #[tauri::command]
 pub fn startup_set_minimized(minimized: bool) -> Result<(), String> {
     set_value(START_MINIMIZED, u32::from(minimized))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Target, arguments, working folder and description, as the shell reads them.
+    fn read_link(link_path: &Path) -> (PathBuf, String, PathBuf, String) {
+        use windows::Win32::System::Com::{
+            CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx, IPersistFile, STGM_READ,
+        };
+        use windows::Win32::UI::Shell::{IShellLinkW, SLGP_RAWPATH, ShellLink};
+        use windows::core::{HSTRING, Interface};
+
+        let text = |buffer: &[u16]| {
+            String::from_utf16_lossy(&buffer[..buffer.iter().position(|&unit| unit == 0).unwrap_or(buffer.len())])
+        };
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+            let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).unwrap();
+            link.cast::<IPersistFile>()
+                .unwrap()
+                .Load(&HSTRING::from(link_path.as_os_str()), STGM_READ)
+                .unwrap();
+            let (mut target, mut arguments, mut folder, mut description) =
+                (vec![0u16; 1024], vec![0u16; 1024], vec![0u16; 1024], vec![0u16; 1024]);
+            link.GetPath(&mut target, std::ptr::null_mut(), SLGP_RAWPATH.0 as u32).unwrap();
+            link.GetArguments(&mut arguments).unwrap();
+            link.GetWorkingDirectory(&mut folder).unwrap();
+            link.GetDescription(&mut description).unwrap();
+            (
+                PathBuf::from(text(&target)),
+                text(&arguments),
+                PathBuf::from(text(&folder)),
+                text(&description),
+            )
+        }
+    }
+
+    /// Written where the path has Greek letters (a user name, say), and read
+    /// back by the shell with every detail as the setup writes it.
+    #[test]
+    fn the_startup_shortcut_is_written_for_any_path() {
+        let folder = std::env::temp_dir().join(format!("myle-startup-Θωμάς-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        let exe = folder.join("MYLE.exe");
+        let system = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+        std::fs::copy(PathBuf::from(system).join("System32").join("whoami.exe"), &exe).unwrap();
+        let link = folder.join("MYLE.lnk");
+        write_link(&exe, &link).unwrap();
+
+        assert_eq!(
+            read_link(&link),
+            (exe.clone(), "--autostart".to_string(), folder.clone(), NAME.to_string())
+        );
+        let _ = std::fs::remove_dir_all(&folder);
+    }
 }

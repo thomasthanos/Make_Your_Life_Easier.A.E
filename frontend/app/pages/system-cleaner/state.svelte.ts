@@ -38,7 +38,7 @@ class CleanerState {
   /** Emptied since the last scan: unchecked and switched off until then. */
   readonly cleaned = new SvelteSet<string>();
   /** What the last clean removed and left, per category, until the next scan. */
-  outcome = $state<Record<string, { freed: number; skipped: number }>>({});
+  outcome = $state<Record<string, { freed: number; skipped: number; adminSkipped: number }>>({});
   phase = $state<Phase>("idle");
   /** False until the first scan finishes, so sizes stay blank instead of "0 B". */
   scanned = $state(false);
@@ -214,7 +214,7 @@ class CleanerState {
     try {
       const summary = await cleanerApi.clean(ids, (e) => {
         if (e.event === "progress") this.progress = e.data;
-        else this.#applyCleaned(e.data.id, e.data.bytes, e.data.files, e.data.skipped);
+        else this.#applyCleaned(e.data);
       });
       freed += summary.freed;
       skipped += summary.skipped;
@@ -227,11 +227,12 @@ class CleanerState {
         try {
           const elevated = await cleanerApi.cleanElevated(adminIds, (e) => {
             if (e.event === "progress") this.progress = e.data;
-            else this.#applyCleaned(e.data.id, e.data.bytes, e.data.files, e.data.skipped, true);
+            else this.#applyCleaned(e.data, true);
           });
           freed += elevated.freed;
-          // Files the user pass could not delete were retried as administrator.
-          skipped = elevated.skipped + Math.max(0, skipped - elevated.files);
+          // What the user pass left in the administrator folders was tried
+          // again as administrator: from there, only what that pass left.
+          skipped = skipped - summary.adminSkipped + elevated.skipped;
         } catch (err) {
           adminNote = `The system folders were skipped: ${message(err)}`;
         }
@@ -262,12 +263,18 @@ class CleanerState {
 
   /** Subtracts what a pass freed from a category's measured size, and keeps
    *  what it removed and left for the card. The administrator pass retries
-   *  what the first one left, so its count replaces the first one's. */
-  #applyCleaned(id: string, bytes: number, files: number, skipped: number, retry = false) {
+   *  what the first one left in the administrator folders, so its count
+   *  replaces that part of the first one's. */
+  #applyCleaned(
+    { id, bytes, files, skipped, adminSkipped }: { id: string; bytes: number; files: number; skipped: number; adminSkipped: number },
+    retry = false,
+  ) {
     const seen = this.outcome[id];
+    const left = seen?.skipped ?? 0;
     this.outcome[id] = {
       freed: (seen?.freed ?? 0) + bytes,
-      skipped: retry ? skipped : (seen?.skipped ?? 0) + skipped,
+      skipped: retry ? left - (seen?.adminSkipped ?? 0) + skipped : left + skipped,
+      adminSkipped: retry ? 0 : (seen?.adminSkipped ?? 0) + adminSkipped,
     };
     const before = this.sizes[id];
     if (!before) return;

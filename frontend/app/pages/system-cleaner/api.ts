@@ -18,7 +18,7 @@ export type ScanEvent = {
 
 export type CleanEvent =
   | { event: "progress"; data: { done: number; total: number; current: string } }
-  | { event: "category"; data: { id: string; bytes: number; files: number; skipped: number; locked: boolean } };
+  | { event: "category"; data: { id: string; bytes: number; files: number; skipped: number; adminSkipped: number; locked: boolean } };
 
 export interface ScanSummary {
   bytes: number;
@@ -30,6 +30,8 @@ export interface CleanSummary {
   freed: number;
   files: number;
   skipped: number;
+  /** Of `skipped`, those in administrator folders, which the administrator pass tries again. */
+  adminSkipped: number;
   locked: string[];
 }
 

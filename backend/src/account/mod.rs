@@ -81,8 +81,9 @@ struct Inner {
     signing_in: Option<Arc<Notify>>,
 }
 
+/// The session, and a gate that lets one refresh run at a time.
 #[derive(Clone, Default)]
-pub struct AccountState(Arc<Mutex<Inner>>);
+pub struct AccountState(Arc<Mutex<Inner>>, Arc<tokio::sync::Mutex<()>>);
 
 impl AccountState {
     fn lock(&self) -> std::sync::MutexGuard<'_, Inner> {
@@ -315,23 +316,50 @@ async fn sign_in(provider: Provider, cancel: &Notify) -> Result<Session, String>
 
 /// A session with at least a minute left, refreshed (and saved) if needed.
 async fn fresh_session(app: &AppHandle, state: &AccountState) -> Result<Session, String> {
-    let session = state.session(app).ok_or("You are not signed in.")?;
-    if session.expires_at > now() + REFRESH_MARGIN_SECS {
-        return Ok(session);
-    }
-    match token_request(
-        "refresh_token",
-        serde_json::json!({ "refresh_token": session.refresh_token }),
+    renew(
+        &state.1,
+        || state.session(app),
+        |session| state.store(app, session),
+        |token| token_request("refresh_token", serde_json::json!({ "refresh_token": token })),
     )
     .await
-    {
+}
+
+/// `fresh_session` without the app: one refresh at a time (two at once would
+/// send the same refresh token twice), and a refusal signs out only the
+/// session it was about, never one renewed or signed in meanwhile.
+async fn renew<Refresh, Refreshing>(
+    gate: &tokio::sync::Mutex<()>,
+    current: impl Fn() -> Option<Session>,
+    store: impl Fn(Option<Session>) -> Result<(), String>,
+    refresh: Refresh,
+) -> Result<Session, String>
+where
+    Refresh: FnOnce(String) -> Refreshing,
+    Refreshing: std::future::Future<Output = Result<Session, TokenError>>,
+{
+    let fresh_enough = |session: &Session| session.expires_at > now() + REFRESH_MARGIN_SECS;
+    let session = current().ok_or("You are not signed in.")?;
+    if fresh_enough(&session) {
+        return Ok(session);
+    }
+    let _one_at_a_time = gate.lock().await;
+    // Another request may have refreshed it while this one waited.
+    let session = current().ok_or("You are not signed in.")?;
+    if fresh_enough(&session) {
+        return Ok(session);
+    }
+    let sent = session.refresh_token;
+    match refresh(sent.clone()).await {
         Ok(fresh) => {
-            state.store(app, Some(fresh.clone()))?;
+            store(Some(fresh.clone()))?;
             Ok(fresh)
         }
         Err(TokenError::Rejected(_)) => {
             // Revoked, or expired after long disuse: sign out cleanly.
-            state.store(app, None)?;
+            if current().is_some_and(|now| now.refresh_token == sent) {
+                store(None)?;
+            }
             Err("Your session has expired. Sign in again.".into())
         }
         Err(TokenError::Network(e)) => Err(e),
@@ -497,6 +525,74 @@ mod tests {
         assert_eq!(session.profile.name.as_deref(), Some("Thomas"));
         assert_eq!(session.profile.provider.as_deref(), Some("discord"));
         assert!(session_from(&serde_json::json!({ "access_token": "a" })).is_none());
+    }
+
+    fn session(refresh_token: &str, expires_at: u64) -> Session {
+        Session {
+            access_token: format!("access-{refresh_token}"),
+            refresh_token: refresh_token.into(),
+            expires_at,
+            profile: Profile {
+                id: "uuid-1".into(),
+                name: None,
+                email: None,
+                avatar_url: None,
+                provider: None,
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn requests_at_once_share_one_refresh() {
+        let stored = &Mutex::new(Some(session("old", 0)));
+        let gate = tokio::sync::Mutex::new(());
+        let calls = &std::sync::atomic::AtomicUsize::new(0);
+        let current = || stored.lock().unwrap().clone();
+        let store = |value| {
+            *stored.lock().unwrap() = value;
+            Ok(())
+        };
+        let refresh = |token: String| async move {
+            calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            assert_eq!(token, "old");
+            Ok(session("new", now() + 3600))
+        };
+        let (a, b) = tokio::join!(
+            renew(&gate, current, store, refresh),
+            renew(&gate, current, store, refresh)
+        );
+        assert_eq!(a.unwrap().refresh_token, "new");
+        assert_eq!(b.unwrap().refresh_token, "new");
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn a_late_refusal_keeps_a_session_signed_in_meanwhile() {
+        let stored = &Mutex::new(Some(session("old", 0)));
+        let gate = tokio::sync::Mutex::new(());
+        let current = || stored.lock().unwrap().clone();
+        let store = |value| {
+            *stored.lock().unwrap() = value;
+            Ok(())
+        };
+        let refused = renew(&gate, current, store, |_| async move {
+            // The user signs in again while the old token is being refused.
+            *stored.lock().unwrap() = Some(session("signed-in-again", now() + 3600));
+            Err(TokenError::Rejected("invalid refresh token".into()))
+        })
+        .await;
+        assert!(refused.is_err());
+        assert_eq!(current().unwrap().refresh_token, "signed-in-again");
+
+        // Refused with nothing newer: signed out.
+        *stored.lock().unwrap() = Some(session("old", 0));
+        let refused = renew(&gate, current, store, |_| async move {
+            Err(TokenError::Rejected("invalid refresh token".into()))
+        })
+        .await;
+        assert!(refused.is_err());
+        assert!(current().is_none());
     }
 
     #[test]

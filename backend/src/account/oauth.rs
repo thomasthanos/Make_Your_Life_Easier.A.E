@@ -74,9 +74,16 @@ async fn accept_optional(
 /// Answers one request. A code or an error is handed on only after the
 /// browser has its page, so the tab never hangs on a closed app.
 async fn serve(mut stream: TcpStream, found: tokio::sync::mpsc::Sender<Callback>) {
-    let Some(target) = read_request_target(&mut stream).await else {
+    let Some((target, opened_as_page)) = read_request(&mut stream).await else {
         return;
     };
+    // The redirect opens a page in the tab. A web page elsewhere could load
+    // this address unseen (an image, a frame, a fetch), and that must not end
+    // the sign-in with a made-up error.
+    if !opened_as_page {
+        respond(&mut stream, 404, "").await;
+        return;
+    }
     match parse_callback(&target) {
         Some(Callback::Code(code)) => {
             respond(&mut stream, 200, &page(true, "")).await;
@@ -113,7 +120,9 @@ pub fn parse_callback(target: &str) -> Option<Callback> {
     code.map(Callback::Code)
 }
 
-async fn read_request_target(stream: &mut TcpStream) -> Option<String> {
+/// The request's target, and whether the browser opened it as a page (by
+/// `Sec-Fetch-Dest`; a browser too old to send it counts as a page).
+async fn read_request(stream: &mut TcpStream) -> Option<(String, bool)> {
     let mut request = Vec::new();
     let mut buffer = [0u8; 2048];
     while !request.windows(4).any(|w| w == b"\r\n\r\n") {
@@ -126,9 +135,21 @@ async fn read_request_target(stream: &mut TcpStream) -> Option<String> {
         }
         request.extend_from_slice(&buffer[..read]);
     }
-    let line = String::from_utf8_lossy(&request);
-    let mut parts = line.lines().next()?.split_whitespace();
-    (parts.next()? == "GET").then(|| parts.next().map(str::to_string))?
+    let text = String::from_utf8_lossy(&request);
+    let mut lines = text.lines();
+    let mut parts = lines.next()?.split_whitespace();
+    if parts.next()? != "GET" {
+        return None;
+    }
+    let target = parts.next()?.to_string();
+    Some((target, opened_as_page(lines)))
+}
+
+fn opened_as_page<'a>(headers: impl Iterator<Item = &'a str>) -> bool {
+    headers
+        .filter_map(|line| line.split_once(':'))
+        .find(|(name, _)| name.trim().eq_ignore_ascii_case("sec-fetch-dest"))
+        .is_none_or(|(_, value)| value.trim().eq_ignore_ascii_case("document"))
 }
 
 async fn respond(stream: &mut TcpStream, status: u16, body: &str) {
@@ -198,6 +219,37 @@ mod tests {
         );
         assert_eq!(parse_callback("/favicon.ico"), None);
         assert_eq!(parse_callback("/"), None);
+    }
+
+    #[test]
+    fn only_a_page_the_browser_opens_counts() {
+        assert!(opened_as_page(["Host: localhost", "Sec-Fetch-Dest: document"].into_iter()));
+        assert!(opened_as_page(["Host: localhost"].into_iter()), "an older browser");
+        assert!(!opened_as_page(["sec-fetch-dest: image"].into_iter()));
+        assert!(!opened_as_page(["Sec-Fetch-Dest: empty"].into_iter()), "fetch()");
+        assert!(!opened_as_page(["Sec-Fetch-Dest: script"].into_iter()));
+        assert!(!opened_as_page(["Sec-Fetch-Dest: iframe"].into_iter()), "a hidden frame");
+    }
+
+    /// Another website loading `localhost:5252/?error=…` in the background
+    /// cannot cut a sign-in short; the real redirect still gets through.
+    #[tokio::test]
+    async fn a_background_request_cannot_end_the_sign_in() {
+        let server = Loopback::bind(0).await.unwrap();
+        let port = server.v4.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            for (target, dest) in [("/?error=access_denied", "image"), ("/?code=real", "document")] {
+                let mut stream = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+                let request = format!("GET {target} HTTP/1.1\r\nHost: localhost\r\nSec-Fetch-Dest: {dest}\r\n\r\n");
+                stream.write_all(request.as_bytes()).await.unwrap();
+                let mut reply = Vec::new();
+                let _ = stream.read_to_end(&mut reply).await;
+            }
+        });
+        let callback = tokio::time::timeout(std::time::Duration::from_secs(2), server.next_callback())
+            .await
+            .unwrap();
+        assert_eq!(callback, Callback::Code("real".into()));
     }
 
     #[test]

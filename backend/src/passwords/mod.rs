@@ -195,7 +195,7 @@ pub struct StatusInfo {
     damaged: usize,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_status(state: State<'_, PasswordsState>) -> Result<StatusInfo, String> {
     state.with(|vault| {
         Ok(StatusInfo {
@@ -321,7 +321,7 @@ pub async fn passwords_hello_unlock(state: State<'_, PasswordsState>) -> Result<
     state.with(|vault| vault.unlock_with_key(key))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_lock(state: State<'_, PasswordsState>) -> Result<(), String> {
     state.with(|vault| {
         vault.lock();
@@ -329,7 +329,7 @@ pub fn passwords_lock(state: State<'_, PasswordsState>) -> Result<(), String> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_set_auto_lock(
     state: State<'_, PasswordsState>,
     minutes: u32,
@@ -342,7 +342,7 @@ pub fn passwords_set_auto_lock(
 }
 
 /// Shows each website's icon in the list, or stops and forgets them all.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_set_website_icons(state: State<'_, PasswordsState>, on: bool) -> Result<(), String> {
     state.with(|vault| {
         let mut prefs = vault.prefs();
@@ -385,7 +385,7 @@ fn extension_dir(app: &AppHandle) -> Option<PathBuf> {
         .then(|| clean(source.canonicalize().unwrap_or(source)))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_browser_get(app: AppHandle, state: State<'_, PasswordsState>) -> Result<BrowserSetup, String> {
     let enabled = state.with(|vault| Ok(vault.prefs().browser_filling))?;
     let registration_error = if enabled {
@@ -402,7 +402,7 @@ pub fn passwords_browser_get(app: AppHandle, state: State<'_, PasswordsState>) -
 
 /// Browser filling on or off: registers the native messaging host with the
 /// browsers, or removes it.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_browser_set(state: State<'_, PasswordsState>, enabled: bool) -> Result<(), String> {
     if enabled {
         browser::register_hosts()?;
@@ -423,7 +423,7 @@ pub fn passwords_browser_set(state: State<'_, PasswordsState>, enabled: bool) ->
 }
 
 /// Shows the extension's folder in File Explorer, for "Load unpacked".
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_open_extension_dir(app: AppHandle) -> Result<(), String> {
     let dir = extension_dir(&app).ok_or("The extension's folder was not found.")?;
     std::process::Command::new("explorer.exe")
@@ -445,18 +445,18 @@ pub fn serve_browser(app: AppHandle, state: PasswordsState) {
     browser::serve(app, state);
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_list(state: State<'_, PasswordsState>) -> Result<Vec<Summary>, String> {
     state.with(Vault::summaries)
 }
 
 /// The password itself, for the page to show while "Show" is on.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_reveal(state: State<'_, PasswordsState>, id: String) -> Result<String, String> {
     state.with(|vault| Ok(vault.password(&id)?.to_string()))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_history(
     state: State<'_, PasswordsState>,
     id: String,
@@ -465,7 +465,7 @@ pub fn passwords_history(
 }
 
 /// Copies an entry's password or user name straight from the vault.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_copy(
     state: State<'_, PasswordsState>,
     id: String,
@@ -480,12 +480,12 @@ pub fn passwords_copy(
 }
 
 /// Copies text the page already has (a generated password), the same way.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_copy_text(text: String) -> Result<(), String> {
     clipboard::copy_secret(&zeroize::Zeroizing::new(text))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_save(
     state: State<'_, PasswordsState>,
     entry: EntryInput,
@@ -493,17 +493,17 @@ pub fn passwords_save(
     state.with(|vault| vault.save(&entry))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_delete(state: State<'_, PasswordsState>, id: String) -> Result<(), String> {
     state.with(|vault| vault.delete(&id))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_generate(options: generator::Options) -> Result<String, String> {
     Ok(generator::generate(&options)?.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn passwords_strength(password: String) -> generator::Strength {
     generator::strength(&zeroize::Zeroizing::new(password))
 }

@@ -149,6 +149,16 @@ fn start_bin_backup_path() -> Option<PathBuf> {
     Some(local.join(r"Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\LocalState\start2.bin.myle-backup"))
 }
 
+/// These are Windows 11's Start Menu settings: on another Windows they are
+/// never written, whatever the page asks.
+pub fn ensure_supported() -> Result<(), String> {
+    if system::windows_info().windows11 {
+        Ok(())
+    } else {
+        Err("Start Menu customization needs Windows 11.".into())
+    }
+}
+
 pub fn status() -> StartMenuStatus {
     let info = system::windows_info();
     let alignment = match read_dword(Hive::User, ADVANCED, "TaskbarAl") {

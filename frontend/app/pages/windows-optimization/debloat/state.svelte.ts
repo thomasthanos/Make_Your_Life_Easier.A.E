@@ -5,6 +5,8 @@ import { confirm } from "../../../../lib/confirm.svelte";
 import { operationGate } from "../../../../lib/operation-gate.svelte";
 import { toast } from "../../../../lib/toast.svelte";
 import { debloatApi as api, type AppStatus, type DebloatEvent, type DebloatOutcome, type DebloatStatus, type StartMenuUpdate, type Step, type TweakStatus } from "./api";
+import { pinCatalog } from "./catalog";
+import { appPresetIds, initialSkipped, pendingTweakIds, tweakPresetSkipped, type SelectionPreset } from "./selection";
 
 const SKIPPED_KEY = "myle.debloat.skipped";
 const APPS_KEY = "myle.debloat.apps";
@@ -32,6 +34,7 @@ function saveSet(key: string, set: Set<string>) {
 }
 
 export type Tab = "debloat" | "tweaks" | "startMenu" | "apps" | "tools";
+const savedSkipped = loadSet(SKIPPED_KEY);
 
 class DebloatState {
   tab = $state<Tab>("debloat");
@@ -39,7 +42,14 @@ class DebloatState {
   loading = $state(false);
   error = $state<string | null>(null);
   /** Debloat tweaks the user switched off for the one-click run. */
-  skipped = new SvelteSet<string>(loadSet(SKIPPED_KEY) ?? []);
+  skipped = new SvelteSet<string>(savedSkipped ?? []);
+  #tweakDefaultsPending = savedSkipped === null;
+  readonly selectedPins = new SvelteSet<string>(pinCatalog.filter((item) => item.essential).map((item) => item.id));
+  views = $state({
+    debloat: { query: "", filter: "all" },
+    tweaks: { query: "", filter: "all" },
+    apps: { query: "", filter: "all" },
+  });
   /** Apps chosen for removal; `null` until the status tells which are recommended. */
   #apps: SvelteSet<string> | null = null;
   appsVersion = $state(0);
@@ -65,9 +75,10 @@ class DebloatState {
   });
 
   /** The one-click run: the switched-on tweaks not already in place. */
-  readonly plannedTweaks = $derived(
-    this.debloatTweaks.filter((tweak) => !this.skipped.has(tweak.id) && tweak.state !== "applied"),
-  );
+  readonly plannedTweaks = $derived.by(() => {
+    const ids = new Set(pendingTweakIds(this.debloatTweaks, this.skipped));
+    return this.debloatTweaks.filter((tweak) => ids.has(tweak.id));
+  });
 
   readonly installedApps = $derived((this.status?.apps ?? []).filter((app) => app.packages.length > 0));
 
@@ -76,9 +87,14 @@ class DebloatState {
     try {
       this.status = await api.status();
       this.error = null;
+      if (this.#tweakDefaultsPending) {
+        for (const id of initialSkipped(this.status.tweaks, null)) this.skipped.add(id);
+        saveSet(SKIPPED_KEY, this.skipped);
+        this.#tweakDefaultsPending = false;
+      }
       if (!this.#apps) {
         const saved = loadSet(APPS_KEY);
-        this.#apps = new SvelteSet(saved ?? this.status.apps.filter((app) => app.recommended).map((app) => app.id));
+        this.#apps = new SvelteSet(saved ?? appPresetIds(this.status.apps, "recommended"));
         this.appsVersion++;
       }
     } catch (error) {
@@ -94,7 +110,7 @@ class DebloatState {
   }
 
   setApp(id: string, on: boolean) {
-    if (!this.#apps) return;
+    if (this.locked || !this.#apps || !this.installedApps.some((app) => app.id === id)) return;
     if (on) this.#apps.add(id);
     else this.#apps.delete(id);
     saveSet(APPS_KEY, this.#apps);
@@ -102,19 +118,40 @@ class DebloatState {
   }
 
   selectApps(which: "recommended" | "all" | "none") {
-    if (!this.#apps || !this.status) return;
+    if (this.locked || !this.#apps || !this.status) return;
     this.#apps.clear();
-    for (const app of this.status.apps) {
-      if (which === "all" || (which === "recommended" && app.recommended)) this.#apps.add(app.id);
-    }
+    for (const id of appPresetIds(this.status.apps, which)) this.#apps.add(id);
     saveSet(APPS_KEY, this.#apps);
     this.appsVersion++;
   }
 
   setTweak(id: string, on: boolean) {
+    if (this.locked || !this.debloatTweaks.some((tweak) => tweak.id === id && tweak.state !== "applied")) return;
     if (on) this.skipped.delete(id);
     else this.skipped.add(id);
     saveSet(SKIPPED_KEY, this.skipped);
+  }
+
+  selectTweaks(preset: SelectionPreset) {
+    if (this.locked || !this.status) return;
+    const next = tweakPresetSkipped(this.status.tweaks, this.skipped, preset);
+    this.skipped.clear();
+    for (const id of next) this.skipped.add(id);
+    saveSet(SKIPPED_KEY, this.skipped);
+  }
+
+  togglePin(id: string) {
+    if (this.locked || !this.status?.startMenu.supported) return;
+    if (this.selectedPins.has(id)) this.selectedPins.delete(id);
+    else this.selectedPins.add(id);
+  }
+
+  selectPins(preset: "essential" | "all" | "none") {
+    if (this.locked || !this.status?.startMenu.supported) return;
+    this.selectedPins.clear();
+    for (const item of pinCatalog) {
+      if (preset === "all" || (preset === "essential" && item.essential)) this.selectedPins.add(item.id);
+    }
   }
 
   #onStep = (step: Step) => {
@@ -214,6 +251,7 @@ class DebloatState {
 
   /** The one-click Debloat. */
   async debloat() {
+    if (this.locked) return;
     const apps = this.chosenApps;
     const tweaks = this.plannedTweaks;
     if (!tweaks.length && !apps.length) {
@@ -225,26 +263,28 @@ class DebloatState {
       ...(apps.length ? [`• Remove ${apps.length} app${apps.length === 1 ? "" : "s"}: ${apps.map((app) => app.title).join(", ")}`] : []),
     ];
     const ok = await confirm({
-      title: "Debloat Windows?",
+      title: "Apply selected changes?",
       message: `A restore point is created first, then:\n${lines.join("\n")}`,
-      confirmLabel: "Debloat",
+      confirmLabel: "Apply selected",
     });
     if (!ok) return;
     const chosen = await this.#confirmEach(tweaks);
     if (!chosen) return;
     const ids = chosen.map((tweak) => tweak.id);
     const appIds = apps.map((app) => app.id);
+    if (!ids.length && !appIds.length) return;
     await this.#perform(() => api.run(ids, appIds, this.#onEvent), true, ids.length + appIds.length);
   }
 
   async apply(tweak: TweakStatus) {
+    if (this.locked || tweak.state === "unavailable") return;
     const chosen = await this.#confirmEach([tweak]);
     if (!chosen?.length) return;
     await this.#perform(() => api.run([tweak.id], [], this.#onEvent), false, 1);
   }
 
   async undo(tweaks: TweakStatus[]): Promise<boolean> {
-    if (!tweaks.length) return false;
+    if (this.locked || !tweaks.length) return false;
     const single = tweaks.length === 1 ? tweaks[0] : null;
     const isUndo = single ? single.canUndo : true;
     const ok = await confirm({
@@ -262,7 +302,7 @@ class DebloatState {
   }
 
   async removeApps(apps: AppStatus[]) {
-    if (!apps.length) return;
+    if (this.locked || !apps.length) return;
     const ok = await confirm({
       title: `Remove ${apps.length} app${apps.length === 1 ? "" : "s"}?`,
       message: `For every user of this PC, and for new ones:\n${apps.map((app) => `• ${app.title}`).join("\n")}\n\nApps removed here can be installed again from the Microsoft Store.`,
@@ -282,17 +322,21 @@ class DebloatState {
   }
 
   async setStartMenu(update: StartMenuUpdate) {
-    if (this.locked) return;
+    if (this.locked || !this.status?.startMenu.supported || !operationGate.begin("windows-optimization")) return;
+    this.startMenuBusy = true;
     try {
       const next = await api.startMenuSet(update);
       if (this.status) this.status.startMenu = next;
     } catch (error) {
       toast.error(message(error));
+    } finally {
+      this.startMenuBusy = false;
+      operationGate.end("windows-optimization");
     }
   }
 
   async setHideRecommended(hide: boolean) {
-    if (this.locked || !operationGate.begin("windows-optimization")) return;
+    if (this.locked || !this.status?.startMenu.supported || !operationGate.begin("windows-optimization")) return;
     this.startMenuBusy = true;
     try {
       const next = await api.startMenuHideRecommended(hide);
@@ -307,6 +351,7 @@ class DebloatState {
   }
 
   async applyStartPins(pins: string[], label: string) {
+    if (this.locked || !this.status?.startMenu.supported) return;
     const ok = await confirm({
       title: `${label}?`,
       message:
@@ -331,7 +376,7 @@ class DebloatState {
   }
 
   async restoreStartPins() {
-    if (this.locked || !operationGate.begin("windows-optimization")) return;
+    if (this.locked || !this.status?.startMenu.supported || !operationGate.begin("windows-optimization")) return;
     this.startMenuBusy = true;
     try {
       const next = await api.startMenuRestorePins();

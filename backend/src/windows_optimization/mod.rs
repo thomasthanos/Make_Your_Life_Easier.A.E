@@ -87,10 +87,8 @@ pub async fn windows_optimization_set_auto_logon(
     } else {
         models::AutoLogonOperation::Disable
     };
-    state.begin_auto_logon(operation)?;
-    let result = autologon::set_auto_logon(&app, enabled).await;
-    state.finish_auto_logon();
-    result
+    let _running = state.begin_auto_logon(operation)?;
+    autologon::set_auto_logon(&app, enabled).await
 }
 
 pub(crate) fn run_auto_logon_helper_from_args() -> Option<i32> {

@@ -24,6 +24,12 @@ pub(crate) fn stable_id(prefix: &str, value: &str) -> String {
     format!("{prefix}-{}", &digest[..16])
 }
 
+/// Whether two titles name the same game, as its id (`stable_id`) does:
+/// casing and surrounding spaces aside.
+pub(crate) fn same_title(a: &str, b: &str) -> bool {
+    a.trim().to_lowercase() == b.trim().to_lowercase()
+}
+
 /// Where backups go inside a cloud folder: never its root, and the same
 /// place on every PC signed in to the same account.
 const CLOUD_SUBFOLDER: [&str; 2] = ["Make Your Life Easier", "Game Saves Backups"];

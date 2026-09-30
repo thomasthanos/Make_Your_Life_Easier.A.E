@@ -57,7 +57,7 @@ pub enum ScanEvent {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(tag = "event", content = "data", rename_all = "camelCase")]
+#[serde(tag = "event", content = "data", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum CleanEvent {
     Progress {
         done: usize,
@@ -69,6 +69,8 @@ pub enum CleanEvent {
         bytes: u64,
         files: u64,
         skipped: u64,
+        /// Of `skipped`, those the administrator pass tries again.
+        admin_skipped: u64,
         locked: bool,
     },
 }
@@ -87,6 +89,9 @@ pub struct CleanSummary {
     freed: u64,
     files: u64,
     skipped: u64,
+    /// Of `skipped`, those in administrator folders: the administrator pass
+    /// tries them again and counts what it still leaves.
+    admin_skipped: u64,
     /// Categories that still hold data only an administrator can remove.
     locked: Vec<String>,
 }
@@ -202,12 +207,12 @@ pub async fn cleaner_clean(
     on_event: Channel<CleanEvent>,
 ) -> Result<CleanSummary, String> {
     // winget and our own downloads keep installers in %TEMP% between the
-    // download and the install; emptying it then breaks the install.
-    if !jobs.is_idle() {
-        return Err("Wait for the running app installs or updates to finish, then clean.".into());
-    }
+    // download and the install; emptying it then breaks the install. Held
+    // until the cleaning ends, so no install can start meanwhile either.
+    let reservation = reserve(&jobs)?;
     let categories = pick(&ids);
     let handle = tauri::async_runtime::spawn_blocking(move || {
+        let _reservation = reservation;
         let total = categories.len();
         let mut summary = CleanSummary::default();
         for (index, category) in categories.iter().enumerate() {
@@ -220,6 +225,7 @@ pub async fn cleaner_clean(
             summary.freed += cleaned.bytes;
             summary.files += cleaned.files;
             summary.skipped += cleaned.skipped;
+            summary.admin_skipped += cleaned.admin_skipped;
             if cleaned.locked {
                 summary.locked.push(category.id.into());
             }
@@ -228,6 +234,7 @@ pub async fn cleaner_clean(
                 bytes: cleaned.bytes,
                 files: cleaned.files,
                 skipped: cleaned.skipped,
+                admin_skipped: cleaned.admin_skipped,
                 locked: cleaned.locked,
             });
         }
@@ -248,9 +255,7 @@ pub async fn cleaner_clean_elevated(
     ids: Vec<String>,
     on_event: Channel<CleanEvent>,
 ) -> Result<CleanSummary, String> {
-    if !jobs.is_idle() {
-        return Err("Wait for the running app installs or updates to finish, then clean.".into());
-    }
+    let _reservation = reserve(&jobs)?;
     let categories: Vec<&'static Category> = pick(&ids)
         .into_iter()
         .filter(|c| c.targets().iter().any(|t| t.admin))
@@ -268,10 +273,18 @@ pub async fn cleaner_clean_elevated(
             bytes: entry.bytes,
             files: entry.files,
             skipped: entry.skipped,
+            admin_skipped: 0,
             locked: false,
         });
     }
     Ok(summary)
+}
+
+/// The whole job registry, for as long as the cleaning takes: no app install
+/// or update is running, and none can start until this is dropped.
+fn reserve(jobs: &Jobs) -> Result<crate::apps::JobHandle, String> {
+    jobs.start_exclusive(&format!("system-cleaner-{}", uuid::Uuid::new_v4().simple()))
+        .map_err(|_| "Wait for the running app installs or updates to finish, then clean.".to_string())
 }
 
 fn clean(category: &Category) -> targets::Cleaned {
@@ -282,8 +295,7 @@ fn clean(category: &Category) -> targets::Cleaned {
                 Ok(()) => targets::Cleaned {
                     bytes,
                     files,
-                    skipped: 0,
-                    locked: false,
+                    ..Default::default()
                 },
                 Err(_) => targets::Cleaned {
                     skipped: files,
@@ -298,6 +310,9 @@ fn clean(category: &Category) -> targets::Cleaned {
                 acc.bytes += one.bytes;
                 acc.files += one.files;
                 acc.skipped += one.skipped;
+                if target.admin {
+                    acc.admin_skipped += one.skipped;
+                }
                 acc.locked |= one.locked;
                 acc
             }),
@@ -307,6 +322,18 @@ fn clean(category: &Category) -> targets::Cleaned {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn no_install_starts_while_cleaning_and_none_is_cut_short() {
+        let jobs = Jobs::default();
+        let cleaning = reserve(&jobs).unwrap();
+        assert!(jobs.start("some-app").is_err());
+        drop(cleaning);
+        let install = jobs.start("some-app").unwrap();
+        assert!(reserve(&jobs).is_err());
+        drop(install);
+        assert!(reserve(&jobs).is_ok());
+    }
 
     #[test]
     fn cards_describe_every_category_and_flag_the_admin_ones() {
@@ -341,5 +368,17 @@ mod tests {
             json,
             serde_json::json!({ "event": "category", "data": { "id": "temp", "bytes": 10, "files": 2, "locked": true } })
         );
+        let cleaned = serde_json::to_value(CleanEvent::Category {
+            id: "temp".into(),
+            bytes: 10,
+            files: 2,
+            skipped: 3,
+            admin_skipped: 1,
+            locked: false,
+        })
+        .unwrap();
+        assert_eq!(cleaned["data"]["adminSkipped"], 1);
+        let summary = serde_json::to_value(CleanSummary { admin_skipped: 4, ..Default::default() }).unwrap();
+        assert_eq!(summary["adminSkipped"], 4);
     }
 }

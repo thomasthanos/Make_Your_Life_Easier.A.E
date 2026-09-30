@@ -58,6 +58,9 @@ jobs:
         working-directory: backend
         run: cargo test --locked --workspace
 
+      - name: Script tests
+        run: node --test "scripts/tests/*.test.mjs"
+
   setup:
     runs-on: windows-latest
     steps:

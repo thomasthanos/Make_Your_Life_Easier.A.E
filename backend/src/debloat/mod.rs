@@ -539,6 +539,7 @@ fn open(url: &str) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn debloat_start_menu_set(update: start_menu::StartMenuUpdate) -> Result<start_menu::StartMenuStatus, String> {
+    start_menu::ensure_supported()?;
     tauri::async_runtime::spawn_blocking(move || start_menu::apply_user_update(update))
         .await
         .map_err(download::err)?
@@ -546,6 +547,7 @@ pub async fn debloat_start_menu_set(update: start_menu::StartMenuUpdate) -> Resu
 
 #[tauri::command]
 pub async fn debloat_start_menu_hide_recommended(hide: bool) -> Result<start_menu::StartMenuStatus, String> {
+    start_menu::ensure_supported()?;
     tauri::async_runtime::spawn_blocking(move || start_menu::apply_user_hide_recommended(hide))
         .await
         .map_err(download::err)??;
@@ -564,6 +566,7 @@ pub async fn debloat_start_menu_hide_recommended(hide: bool) -> Result<start_men
 
 #[tauri::command]
 pub async fn debloat_start_menu_apply_pins(pins: Vec<String>) -> Result<start_menu::StartMenuStatus, String> {
+    start_menu::ensure_supported()?;
     let json = start_menu::build_pins_json(&pins)?;
     tauri::async_runtime::spawn_blocking(start_menu::backup_start_bin)
         .await

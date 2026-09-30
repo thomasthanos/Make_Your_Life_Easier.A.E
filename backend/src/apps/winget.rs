@@ -131,22 +131,17 @@ pub async fn apps_install_ignoring_hash(
     on_event: Channel<JobEvent>,
 ) -> Result<JobOutcome, String> {
     validate_id(&id)?;
-    let _job = jobs.start(&id)?;
+    let job = jobs.start(&id)?;
     let _ = on_event.send(JobEvent::Stage {
         stage: Stage::Installing,
     });
     let _ = on_event.send(JobEvent::Note {
         text: "Waiting for administrator approval…".into(),
     });
-    let script = format!(
-        "winget settings --enable InstallerHashOverride | Out-Null; \
-         winget {verb} --id '{id}' --exact --source winget --ignore-security-hash --silent \
-         --accept-package-agreements --accept-source-agreements --disable-interactivity; \
-         $code = $LASTEXITCODE; \
-         winget settings --disable InstallerHashOverride | Out-Null; \
-         exit $code",
-        verb = mode.verb()
-    );
+    // This process cannot stop an elevated one: Cancel leaves this file, and
+    // the elevated script stops winget when it sees it.
+    let stop = StopFile::new()?;
+    let script = hash_override_script(mode.verb(), &id, &stop.path);
     let args: Vec<String> = [
         "-NoProfile",
         "-ExecutionPolicy",
@@ -157,9 +152,23 @@ pub async fn apps_install_ignoring_hash(
     .map(String::from)
     .chain([super::process::encode_command(&script)])
     .collect();
-    let code = run_elevated("powershell.exe", &args, true).await?;
+    let run = run_elevated("powershell.exe", &args, true);
+    tokio::pin!(run);
+    let code = loop {
+        tokio::select! {
+            code = &mut run => break code?,
+            () = tokio::time::sleep(std::time::Duration::from_millis(200)) => {
+                if job.is_cancelled() && !stop.path.exists() {
+                    let _ = std::fs::write(&stop.path, b"");
+                }
+            }
+        }
+    };
     if code == ERROR_CANCELLED {
         return Err("Administrator approval was declined.".into());
+    }
+    if job.is_cancelled() {
+        return Ok(JobOutcome::Cancelled);
     }
     match classify(code, mode) {
         Classified::Success(note) => Ok(JobOutcome::Done { note }),
@@ -168,6 +177,55 @@ pub async fn apps_install_ignoring_hash(
         Classified::HashMismatch => Err(describe(code)),
         Classified::Fatal(msg) | Classified::Retry(msg) => Err(msg),
     }
+}
+
+/// The file that asks an elevated script to stop, in a folder of its own that
+/// goes when this is dropped.
+struct StopFile {
+    folder: std::path::PathBuf,
+    path: std::path::PathBuf,
+}
+
+impl StopFile {
+    fn new() -> Result<Self, String> {
+        let folder = std::env::temp_dir().join(format!("myle-winget-{}", uuid::Uuid::new_v4().simple()));
+        std::fs::create_dir(&folder).map_err(err)?;
+        Ok(Self { path: folder.join("stop"), folder })
+    }
+}
+
+impl Drop for StopFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+        let _ = std::fs::remove_dir(&self.folder);
+    }
+}
+
+/// Installs with the hash check off, watching `stop`; the setting is turned
+/// back off however winget ends, stopped or failed.
+fn hash_override_script(verb: &str, id: &str, stop: &std::path::Path) -> String {
+    let stop = format!("'{}'", stop.to_string_lossy().replace('\'', "''"));
+    format!(
+        "$ErrorActionPreference = 'SilentlyContinue'\n\
+         $code = 1\n\
+         winget settings --enable InstallerHashOverride | Out-Null\n\
+         try {{\n\
+           $p = Start-Process -FilePath 'winget' -NoNewWindow -PassThru -ArgumentList \
+         '{verb} --id {id} --exact --source winget --ignore-security-hash --silent \
+         --accept-package-agreements --accept-source-agreements --disable-interactivity'\n\
+           if (-not $p) {{ exit $code }}\n\
+           $null = $p.Handle\n\
+           while (-not $p.HasExited) {{\n\
+             if (Test-Path -LiteralPath {stop}) {{ & \"$env:SystemRoot\\System32\\taskkill.exe\" /PID $p.Id /T /F | Out-Null }}\n\
+             Start-Sleep -Milliseconds 200\n\
+           }}\n\
+           $p.WaitForExit()\n\
+           $code = $p.ExitCode\n\
+         }} finally {{\n\
+           winget settings --disable InstallerHashOverride | Out-Null\n\
+         }}\n\
+         exit $code\n"
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -672,6 +730,29 @@ pub fn parse_fraction(line: &str) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_hash_override_is_always_turned_off_and_winget_can_be_stopped() {
+        let script = hash_override_script("install", "Some.App", std::path::Path::new(r"C:\Temp\it's\stop"));
+        let enable = script.find("--enable InstallerHashOverride").unwrap();
+        let install = script.find("install --id Some.App --exact").unwrap();
+        let finally = script.find("} finally {").unwrap();
+        let disable = script.find("--disable InstallerHashOverride").unwrap();
+        assert!(enable < install && install < finally && finally < disable);
+        assert!(script.contains(r"Test-Path -LiteralPath 'C:\Temp\it''s\stop'"));
+        assert!(script.contains(r"System32\taskkill.exe"));
+        assert!(script.trim_end().ends_with("exit $code"));
+
+        // Parsed by PowerShell itself, never run.
+        let parse = "$e = $null; [void][System.Management.Automation.Language.Parser]::ParseInput(\
+                     $env:MYLE_SCRIPT, [ref]$null, [ref]$e); exit $e.Count";
+        let status = std::process::Command::new("powershell.exe")
+            .args(["-NoProfile", "-NonInteractive", "-Command", parse])
+            .env("MYLE_SCRIPT", &script)
+            .status()
+            .unwrap();
+        assert!(status.success(), "{script}");
+    }
 
     // Real `winget search --query obs --count 6` output (CJK names are 2 cells wide).
     const SEARCH: &str = "Name           Id                        Version                 Match\r\n\

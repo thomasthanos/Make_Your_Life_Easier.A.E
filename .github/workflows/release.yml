@@ -153,8 +153,8 @@ jobs:
           $exe = @('--content-type', 'application/vnd.microsoft.portable-executable', '--cache-control', 'no-cache')
           Publish $setup.FullName "MYLE.exe" $exe
           Assert-Served "MYLE.exe" $sha256
-          # Keep the existing website links working until the public download
-          # pages can be switched after MYLE.exe has been published.
+          # The site and README link to MYLE.exe; the old name stays for links
+          # already shared (and older copies of the pages).
           Publish $setup.FullName "MakeYourLifeEasier-installer.exe" $exe
 
           # The feed goes last: clients only see a version once MYLE.exe is live.

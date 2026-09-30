@@ -18,6 +18,7 @@
   import Brand from "./Brand.svelte";
   import Titlebar from "./Titlebar.svelte";
   import Toggle from "./Toggle.svelte";
+  import { compareVersions } from "./versions";
   import Working, { type Step } from "./Working.svelte";
 
   type Screen = "loading" | "options" | "working" | "done" | "error" | "unavailable";
@@ -183,16 +184,6 @@
     }
   }
 
-  function compareVersions(a: string, b: string): number {
-    const parts = (v: string) => v.split(/[.+-]/).map((p) => Number.parseInt(p, 10) || 0);
-    const [x, y] = [parts(a), parts(b)];
-    for (let i = 0; i < Math.max(x.length, y.length); i++) {
-      const diff = (x[i] ?? 0) - (y[i] ?? 0);
-      if (diff) return Math.sign(diff);
-    }
-    return 0;
-  }
-
   function message(err: unknown): string {
     return err instanceof Error ? err.message : String(err);
   }
@@ -206,6 +197,16 @@
   });
 
   async function load() {
+    try {
+      await loadState();
+    } catch (err) {
+      // Nothing to show without the setup's answer: say why, and let it ask again.
+      error = message(err);
+      screen = "error";
+    }
+  }
+
+  async function loadState() {
     api = await loadApi();
     if (!api) {
       screen = "unavailable";
@@ -228,6 +229,17 @@
       openNow = (await api.running(state.dir).catch(() => [])).length > 0;
     }
     if (state.passive) void start();
+  }
+
+  /** "Try again": the install (or uninstall) again, or the first question
+   *  to the setup when even that failed. */
+  function retry() {
+    if (info) {
+      void start();
+    } else {
+      screen = "loading";
+      void load();
+    }
   }
 
   async function start() {
@@ -529,13 +541,13 @@
                 <circle cx="32" cy="32" r="29" />
                 <path d="M23 23l18 18m0-18L23 41" />
               </svg>
-              <h2>{uninstalling ? "Uninstall could not finish" : "Setup could not finish"}</h2>
+              <h2>{!info ? "Setup could not start" : uninstalling ? "Uninstall could not finish" : "Setup could not finish"}</h2>
               <p class="error-text selectable">{error}</p>
             </div>
             <div class="footer">
               <span class="spacer"></span>
               <button class="btn" onclick={close}>Close</button>
-              <button class="btn primary big" onclick={start}>Try again</button>
+              <button class="btn primary big" onclick={retry}>Try again</button>
             </div>
           {/if}
         </div>

@@ -5,7 +5,9 @@
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import LockKeyholeOpen from "@lucide/svelte/icons/lock-keyhole-open";
   import LockKeyhole from "@lucide/svelte/icons/lock-keyhole";
+  import { passwordsApi as api, type Strength } from "./api";
   import { passwords as p } from "./state.svelte";
+  import StrengthMeter from "./StrengthMeter.svelte";
 
   let recovering = $state(false);
   let master = $state("");
@@ -14,6 +16,16 @@
   /** The new master password again: one typo would lock the vault. */
   let newAgain = $state("");
   const mismatch = $derived(newAgain.length > 0 && newAgain !== newMaster);
+  let strength = $state<Strength>("none");
+  /** What the vault accepts for a master password: 10 characters, not weak. */
+  const newReady = $derived(newMaster.length >= 10 && strength !== "weak" && newAgain === newMaster);
+
+  $effect(() => {
+    const value = newMaster;
+    void api.strength(value).then((s) => {
+      if (value === newMaster) strength = s;
+    });
+  });
   let input = $state<HTMLInputElement>();
   let helloButton = $state<HTMLButtonElement>();
 
@@ -39,7 +51,7 @@
 
   async function recover(event: SubmitEvent) {
     event.preventDefault();
-    if (!code || !newMaster || newAgain !== newMaster || p.busy) return;
+    if (!code || !newReady || p.busy) return;
     if (await p.recover(code, newMaster)) {
       code = "";
       newMaster = "";
@@ -87,10 +99,13 @@
     <form onsubmit={recover}>
       <input class="input mono" placeholder="XXXX-XXXX-XXXX-…" bind:value={code} spellcheck="false" />
       <input class="input" type="password" autocomplete="new-password" placeholder="New master password (10+ characters)" bind:value={newMaster} />
+      {#if newMaster}<StrengthMeter {strength} />{/if}
       <input class="input" type="password" autocomplete="new-password" placeholder="Type it again" bind:value={newAgain} />
-      {#if mismatch}<p class="error">The two passwords are not the same.</p>
+      {#if newMaster && newMaster.length < 10}<p class="error">Use at least 10 characters.</p>
+      {:else if newMaster && strength === "weak"}<p class="error">That is too easy to guess. Make it longer or mix in other characters.</p>
+      {:else if mismatch}<p class="error">The two passwords are not the same.</p>
       {:else if p.error}<p class="error">{p.error}</p>{/if}
-      <button class="btn primary" type="submit" disabled={!code || !newMaster || newAgain !== newMaster || p.busy}>
+      <button class="btn primary" type="submit" disabled={!code || !newReady || p.busy}>
         {#if p.busy}<LoaderCircle size={15} class="spin" /> Opening…{:else}Open and set new password{/if}
       </button>
     </form>

@@ -1,7 +1,7 @@
 {
   "name": "make-your-life-easier",
   "private": true,
-  "version": "9.0.0",
+  "version": "9.1.0",
   "type": "module",
   "myle": {
     "extensionUrl": "https://chromewebstore.google.com/detail/mifjffbnaeeljjfboiglbcoaokgdilca"
@@ -10,7 +10,7 @@
     "dev": "tauri dev",
     "build": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-setup.ps1",
     "check": "node scripts/check-site.mjs && svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
-    "test": "cargo test --manifest-path backend/Cargo.toml --locked --workspace",
+    "test": "cargo test --manifest-path backend/Cargo.toml --locked --workspace && node --test \"scripts/tests/*.test.mjs\"",
     "lint": "cargo clippy --manifest-path backend/Cargo.toml --locked --workspace --all-targets -- -D warnings"
   },
   "dependencies": {

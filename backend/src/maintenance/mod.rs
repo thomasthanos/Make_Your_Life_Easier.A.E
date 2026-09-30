@@ -240,8 +240,9 @@ pub async fn maintenance_run(
         );
     }
 
-    let workspace =
-        (!matches!(action.run, Run::WingetUpgradeAll)).then(|| runner::Workspace::new(action.id));
+    let workspace = (!matches!(action.run, Run::WingetUpgradeAll))
+        .then(|| runner::Workspace::new(action.id))
+        .transpose()?;
     let stop = workspace.as_ref().map(|w| w.stop.clone());
     let _guard = running
         .claim(&id, stop)

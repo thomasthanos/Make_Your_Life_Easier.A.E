@@ -49,9 +49,11 @@
     const exe = raw.split("\\").pop() ?? "";
     if (!exe) return;
     const linked = /^(?:[a-z]:\\|\\\\)/i.test(raw) ? raw : exe;
-    const file = linked.toLowerCase().endsWith(".exe") ? linked : `${linked}.exe`;
+    const withExe = (name: string) => (name.toLowerCase().endsWith(".exe") ? name : `${name}.exe`);
+    const file = withExe(linked);
+    // A full path takes the place of the same program added by name only.
     if (linked !== exe) {
-      apps = apps.filter((app) => app.exe.toLowerCase() !== exe.toLowerCase());
+      apps = apps.filter((app) => app.exe.toLowerCase() !== withExe(exe).toLowerCase());
     }
     if (!apps.some((a) => a.exe.toLowerCase() === file.toLowerCase())) {
       apps = [...apps, { exe: file, name: exe.replace(/\.exe$/i, "") }];

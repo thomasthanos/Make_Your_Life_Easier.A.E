@@ -12,7 +12,8 @@
   const providerNames = { discord: "Discord", google: "Google" } as const;
 
   let now = $state(Date.now());
-  let avatarFailed = $state(false);
+  /** The picture that would not load: a new one (another sign-in) is tried. */
+  let failedAvatar = $state<string | null>(null);
 
   onMount(() => {
     const timer = setInterval(() => (now = Date.now()), 30_000);
@@ -52,8 +53,8 @@
   {#if profile}
     <div class="profile">
       <span class="avatar">
-        {#if profile.avatarUrl && !avatarFailed}
-          <img src={profile.avatarUrl} alt="" referrerpolicy="no-referrer" onerror={() => (avatarFailed = true)} />
+        {#if profile.avatarUrl && profile.avatarUrl !== failedAvatar}
+          <img src={profile.avatarUrl} alt="" referrerpolicy="no-referrer" onerror={() => (failedAvatar = profile.avatarUrl ?? null)} />
         {:else}
           <span class="initials">{initials}</span>
         {/if}

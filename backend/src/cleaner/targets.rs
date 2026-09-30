@@ -4,7 +4,10 @@
 //! nothing else, and each file is checked against these roots before it is
 //! deleted. Only the *contents* of a folder are removed, never the folder.
 
+use std::os::windows::fs::MetadataExt;
 use std::path::{Path, PathBuf};
+
+use windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_DIRECTORY;
 
 use crate::apps::custom::expand_env;
 
@@ -158,11 +161,29 @@ impl Allowed {
         {
             return false;
         }
-        let candidate = normalize(path);
+        self.holds(&normalize(path))
+    }
+
+    /// `contains` for a link (a symlink or a junction) itself, wherever it
+    /// points: only its own place counts, since only it is removed.
+    pub fn contains_link(&self, path: &Path) -> bool {
+        let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
+            return false;
+        };
+        if path
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
+        {
+            return false;
+        }
+        self.holds(&normalize(parent).join(name.to_string_lossy().to_ascii_lowercase()))
+    }
+
+    fn holds(&self, candidate: &Path) -> bool {
         // A root itself is not a target: only what is inside it.
         self.0
             .iter()
-            .any(|root| candidate.starts_with(root) && &candidate != root)
+            .any(|root| candidate.starts_with(root) && candidate != root)
     }
 }
 
@@ -250,6 +271,8 @@ pub struct Cleaned {
     pub files: u64,
     /// In use by another program, or not ours to delete.
     pub skipped: u64,
+    /// Of `skipped`, those in folders the administrator pass cleans again.
+    pub admin_skipped: u64,
     pub locked: bool,
 }
 
@@ -270,11 +293,27 @@ pub fn clean(target: &Target) -> Cleaned {
     );
 
     for (path, size) in files {
-        if !allowed.contains(&path) {
+        let link = path
+            .symlink_metadata()
+            .ok()
+            .filter(|meta| meta.file_type().is_symlink());
+        let inside = match link {
+            Some(_) => allowed.contains_link(&path),
+            None => allowed.contains(&path),
+        };
+        if !inside {
             out.skipped += 1;
             continue;
         }
-        match std::fs::remove_file(&path) {
+        let removed = match link {
+            // A link to a folder (a junction, say) is removed as a folder:
+            // the link itself goes, and what it points to is never touched.
+            Some(meta) if meta.file_attributes() & FILE_ATTRIBUTE_DIRECTORY != 0 => {
+                std::fs::remove_dir(&path)
+            }
+            _ => std::fs::remove_file(&path),
+        };
+        match removed {
             Ok(()) => {
                 out.bytes += size;
                 out.files += 1;
@@ -397,6 +436,55 @@ mod tests {
             r"%USERPROFILE%\Downloads"
         ))));
         assert!(!is_allowed(&temp.join("..").join("..").join("Documents")));
+    }
+
+    /// A junction is removed itself, wherever it points, and what it points
+    /// to is left as it was.
+    #[test]
+    fn links_are_removed_without_touching_what_they_point_to() {
+        let root = PathBuf::from(expand_env("%TEMP%")).join(format!("myle-clean-links-{}", std::process::id()));
+        // Outside every allowed folder.
+        let elsewhere = std::env::current_dir()
+            .unwrap()
+            .join("target")
+            .join(format!("myle-clean-elsewhere-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let _ = std::fs::remove_dir_all(&elsewhere);
+        std::fs::create_dir_all(root.join("kept")).unwrap();
+        std::fs::create_dir_all(&elsewhere).unwrap();
+        std::fs::write(elsewhere.join("sentinel.txt"), b"keep").unwrap();
+        std::fs::write(root.join("kept").join("inside.txt"), b"x").unwrap();
+        let junction = |link: &Path, to: &Path| {
+            let status = std::process::Command::new("cmd")
+                .args(["/d", "/c", "mklink", "/J"])
+                .arg(link)
+                .arg(to)
+                .stdout(std::process::Stdio::null())
+                .status()
+                .unwrap();
+            assert!(status.success());
+        };
+        junction(&root.join("to-elsewhere"), &elsewhere);
+        let sibling = PathBuf::from(expand_env("%TEMP%")).join(format!("myle-clean-sibling-{}", std::process::id()));
+        std::fs::create_dir_all(&sibling).unwrap();
+        std::fs::write(sibling.join("sentinel.txt"), b"keep").unwrap();
+        junction(&root.join("to-sibling"), &sibling);
+
+        let target = Target {
+            dir: Box::leak(root.to_string_lossy().into_owned().into_boxed_str()),
+            patterns: &[],
+            admin: false,
+        };
+        let cleaned = clean(&target);
+        assert_eq!(cleaned.skipped, 0, "{cleaned:?}");
+        assert!(!root.join("to-elsewhere").exists() && !root.join("to-sibling").exists());
+        assert!(!root.join("kept").exists());
+        assert_eq!(std::fs::read(elsewhere.join("sentinel.txt")).unwrap(), b"keep");
+        assert_eq!(std::fs::read(sibling.join("sentinel.txt")).unwrap(), b"keep");
+
+        let _ = std::fs::remove_dir_all(&root);
+        let _ = std::fs::remove_dir_all(&elsewhere);
+        let _ = std::fs::remove_dir_all(&sibling);
     }
 
     #[test]

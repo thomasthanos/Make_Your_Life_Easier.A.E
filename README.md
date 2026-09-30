@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe"><img src="docs/assets/download.svg" alt="Download Make Your Life Easier for Windows" width="380" /></a>
+  <a href="https://downloads.thomast.uk/MYLE.exe"><img src="docs/assets/download.svg" alt="Download Make Your Life Easier for Windows" width="380" /></a>
 </p>
 
 <p align="center">

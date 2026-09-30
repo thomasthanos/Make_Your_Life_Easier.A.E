@@ -4,9 +4,9 @@
 //! The app creates `\\.\pipe\<prefix><32 hex digits>` as its first instance
 //! (so nothing can pose as the app), then starts this same program elevated
 //! with the helper's flag, the pipe's name and the app's process id. The
-//! helper serves only a pipe whose server is that process; the app answers
-//! only a client that is this same program. Each request is one JSON line,
-//! and so is each answer.
+//! helper serves only a pipe whose server is that process, running this same
+//! program; the app answers only a client that is this same program. Each
+//! request is one JSON line, and so is each answer.
 //!
 //! What a request may ask for is up to each helper: only ids of fixed,
 //! compiled tables, never paths or commands from the page.
@@ -218,7 +218,9 @@ where
     let mut server_pid = 0u32;
     // SAFETY: the handle is the open pipe; `server_pid` receives the id.
     let ok = unsafe { GetNamedPipeServerProcessId(file.as_raw_handle() as HANDLE, &mut server_pid) };
-    if ok == 0 || server_pid != app_pid {
+    // The process named on the command line, and running this same program:
+    // whoever started the helper cannot point it at a pipe of their own.
+    if ok == 0 || server_pid != app_pid || !is_this_program(server_pid) {
         return Err(format!("The {} pipe does not belong to the app.", helper.what));
     }
 

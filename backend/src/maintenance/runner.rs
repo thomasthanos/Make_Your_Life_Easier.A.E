@@ -31,31 +31,29 @@ pub enum Phase {
     Started,
 }
 
-/// The temporary files of one run. Both are removed when this is dropped.
+/// The temporary files of one run, in a folder of its own that is removed
+/// with them when this is dropped.
 pub struct Workspace {
+    dir: PathBuf,
     pub log: PathBuf,
     pub stop: PathBuf,
 }
 
 impl Workspace {
-    pub fn new(action: &str) -> Self {
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.subsec_nanos())
-            .unwrap_or_default();
-        let base = std::env::temp_dir().join(format!(
-            "myle-maint-{action}-{}-{nonce}",
-            std::process::id()
+    /// The folder is named at random and made here, never reused: nothing can
+    /// be waiting in its place (such as a link planted to steer where the
+    /// elevated program writes its output).
+    pub fn new(action: &str) -> Result<Self, String> {
+        let dir = std::env::temp_dir().join(format!(
+            "myle-maint-{action}-{}",
+            uuid::Uuid::new_v4().simple()
         ));
-        let workspace = Workspace {
-            log: base.with_extension("log"),
-            stop: base.with_extension("stop"),
-        };
-        // Cleared here rather than in the runner: the task is cancellable from
-        // the moment it is claimed, which is before the program is launched.
-        let _ = std::fs::remove_file(&workspace.log);
-        let _ = std::fs::remove_file(&workspace.stop);
-        workspace
+        std::fs::create_dir(&dir).map_err(err)?;
+        Ok(Workspace {
+            log: dir.join("output.log"),
+            stop: dir.join("stop"),
+            dir,
+        })
     }
 }
 
@@ -63,6 +61,7 @@ impl Drop for Workspace {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.log);
         let _ = std::fs::remove_file(&self.stop);
+        let _ = std::fs::remove_dir(&self.dir);
     }
 }
 
@@ -272,9 +271,24 @@ fn start_process(tail: &str, extra: &str) -> String {
     )
 }
 
+/// The start of every script: runs nothing unless the run's folder is still
+/// the plain, empty folder `Workspace::new` made (a link swapped in for it
+/// would steer the elevated writes elsewhere).
+fn script_start(log: &Path) -> String {
+    let dir = log.parent().unwrap_or(log);
+    format!(
+        "$ErrorActionPreference = 'SilentlyContinue'\n\
+         $d = Get-Item -LiteralPath {} -Force\n\
+         if (-not $d -or -not $d.PSIsContainer -or ($d.Attributes -band [IO.FileAttributes]::ReparsePoint) -or \
+         (Test-Path -LiteralPath {})) {{ exit 5 }}\n",
+        ps_quote(&dir.to_string_lossy()),
+        ps_quote(&log.to_string_lossy()),
+    )
+}
+
 /// Every step in order; the first hard failure ends the script with its code.
 fn batch_script(steps: &[Step], log: &Path) -> String {
-    let mut script = String::from("$ErrorActionPreference = 'SilentlyContinue'\n");
+    let mut script = script_start(log);
     for step in steps {
         script.push_str(&start_process(
             &cmd_tail(&system32(step.exe), step.args, log),
@@ -292,7 +306,7 @@ fn batch_script(steps: &[Step], log: &Path) -> String {
 /// elevated child itself, so it drops a sentinel file and the elevated script
 /// does the killing. Cancelling that way needs no second UAC prompt.
 fn stream_script(step: &Step, log: &Path, stop: &Path) -> String {
-    let mut script = String::from("$ErrorActionPreference = 'SilentlyContinue'\n");
+    let mut script = script_start(log);
     script.push_str(&start_process(
         &cmd_tail(&system32(step.exe), step.args, log),
         "",
@@ -440,7 +454,7 @@ mod tests {
             args: "/?",
             allow_failure: true,
         };
-        let workspace = Workspace::new("selftest-output");
+        let workspace = Workspace::new("selftest-output").unwrap();
         let mut lines: Vec<String> = Vec::new();
         let mut phases = 0;
         stream(
@@ -485,7 +499,7 @@ mod tests {
             args: "127.0.0.1 -n 30",
             allow_failure: true,
         };
-        let workspace = Workspace::new("selftest-stop");
+        let workspace = Workspace::new("selftest-stop").unwrap();
         let stop = workspace.stop.clone();
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(1500)).await;
@@ -505,11 +519,36 @@ mod tests {
 
     #[test]
     fn a_workspace_cleans_up_after_itself() {
-        let workspace = Workspace::new("test");
+        let workspace = Workspace::new("test").unwrap();
         std::fs::write(&workspace.log, b"x").unwrap();
         std::fs::write(&workspace.stop, b"").unwrap();
-        let (log, stop) = (workspace.log.clone(), workspace.stop.clone());
+        let (dir, log, stop) = (workspace.dir.clone(), workspace.log.clone(), workspace.stop.clone());
         drop(workspace);
-        assert!(!log.exists() && !stop.exists());
+        assert!(!log.exists() && !stop.exists() && !dir.exists());
+    }
+
+    #[test]
+    fn every_run_gets_a_new_folder_of_its_own() {
+        let first = Workspace::new("test").unwrap();
+        let second = Workspace::new("test").unwrap();
+        assert_ne!(first.dir, second.dir);
+        assert_eq!(first.log.parent(), Some(first.dir.as_path()));
+        assert_eq!(first.stop.parent(), Some(first.dir.as_path()));
+    }
+
+    /// A log already there, or a folder that is gone (or was swapped for a
+    /// link), stops the script before it runs anything.
+    #[tokio::test]
+    async fn nothing_runs_where_the_folder_is_not_ours() {
+        let step = Step {
+            exe: "sfc.exe",
+            args: "/?",
+            allow_failure: true,
+        };
+        let workspace = Workspace::new("selftest-check").unwrap();
+        std::fs::write(&workspace.log, b"planted").unwrap();
+        let code = stream(&step, &workspace, false, &mut |_| {}, &mut |_| {}).await.unwrap();
+        assert_eq!(code, 5);
+        assert_eq!(std::fs::read(&workspace.log).unwrap(), b"planted");
     }
 }

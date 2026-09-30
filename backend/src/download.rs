@@ -199,6 +199,15 @@ async fn stream(
     is_cancelled: impl Fn() -> bool,
     want_hash: bool,
 ) -> Result<Option<String>, String> {
+    // Checked on every answer that is saved, not only the first: a server
+    // may answer a second request (without a range) with a web page.
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok());
+    if is_html(content_type) {
+        return Err(html_instead_of_file(response.url().as_str()));
+    }
     // What the server itself says the file holds, as opposed to a guess.
     let exact = match response.status() {
         StatusCode::OK => response.content_length(),
@@ -777,6 +786,66 @@ mod tests {
             .expect("the whole file is asked for again");
         assert_eq!(std::fs::read(&dest).unwrap(), body);
         let _ = std::fs::remove_file(&dest);
+    }
+
+    /// Answers a range with the first KB of the file, and a plain request
+    /// with a web page (a host's "quota exceeded" page, say).
+    async fn serve_page_on_the_second_try(total: usize) -> String {
+        use tokio::io::AsyncReadExt;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    return;
+                };
+                tokio::spawn(async move {
+                    let mut request = Vec::new();
+                    let mut buffer = [0u8; 1024];
+                    while !request.windows(4).any(|w| w == b"\r\n\r\n") {
+                        let Ok(read) = socket.read(&mut buffer).await else {
+                            return;
+                        };
+                        if read == 0 {
+                            return;
+                        }
+                        request.extend_from_slice(&buffer[..read]);
+                    }
+                    let ranged = String::from_utf8_lossy(&request).to_ascii_lowercase().contains("range: bytes=");
+                    let page = b"<!doctype html><html><body>Quota exceeded</body></html>";
+                    let (head, body): (String, &[u8]) = if ranged {
+                        (
+                            format!(
+                                "HTTP/1.1 206 Partial Content\r\nContent-Type: application/zip\r\nContent-Length: 1024\r\nContent-Range: bytes 0-1023/{total}\r\nConnection: close\r\n\r\n"
+                            ),
+                            &[b'P'; 1024],
+                        )
+                    } else {
+                        (
+                            format!(
+                                "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                                page.len()
+                            ),
+                            page,
+                        )
+                    };
+                    let _ = socket.write_all(head.as_bytes()).await;
+                    let _ = socket.write_all(body).await;
+                });
+            }
+        });
+        format!("http://{address}/app.zip")
+    }
+
+    #[tokio::test]
+    async fn a_web_page_on_the_second_try_is_not_saved_as_the_file() {
+        let url = serve_page_on_the_second_try(200_000).await;
+        let dest = std::env::temp_dir().join(format!("myle-page-{}.zip", std::process::id()));
+        let client = http_client("test").unwrap();
+        let result = download_file(&client, &url, &dest, None, |_, _| {}, || false, false).await;
+        let error = result.unwrap_err();
+        assert!(error.contains("web page"), "{error}");
+        assert!(!dest.exists());
     }
 
     #[tokio::test]

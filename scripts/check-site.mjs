@@ -21,7 +21,7 @@ const checkedTextFiles = [
   "assets/site.css",
   "assets/releases.js",
 ];
-const expectedInstaller = "https://downloads.thomast.uk/MakeYourLifeEasier-installer.exe";
+const expectedInstaller = "https://downloads.thomast.uk/MYLE.exe";
 const allowedHosts = new Set([
   "downloads.thomast.uk",
   "github.com",
