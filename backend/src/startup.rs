@@ -215,10 +215,13 @@ mod tests {
         let link = folder.join("MYLE.lnk");
         write_link(&exe, &link).unwrap();
 
-        assert_eq!(
-            read_link(&link),
-            (exe.clone(), "--autostart".to_string(), folder.clone(), NAME.to_string())
-        );
+        let (target, arguments, working_folder, description) = read_link(&link);
+        // The shell may expand an 8.3 path (RUNNER~1 on CI). Compare the
+        // resolved locations while still checking every shortcut property.
+        assert_eq!(target.canonicalize().unwrap(), exe.canonicalize().unwrap());
+        assert_eq!(working_folder.canonicalize().unwrap(), folder.canonicalize().unwrap());
+        assert_eq!(arguments, "--autostart");
+        assert_eq!(description, NAME);
         let _ = std::fs::remove_dir_all(&folder);
     }
 }
