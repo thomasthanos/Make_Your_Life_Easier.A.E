@@ -7,20 +7,11 @@
     "extensionUrl": "https://chromewebstore.google.com/detail/mifjffbnaeeljjfboiglbcoaokgdilca"
   },
   "scripts": {
-    "dev": "npm run prepare:game-saves && npm run prepare:extension && tauri dev",
+    "dev": "tauri dev",
     "build": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-setup.ps1",
-    "build:app": "npm run prepare:game-saves && tauri build --no-bundle",
-    "check": "npm run check:site && svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "check": "node scripts/check-site.mjs && svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "cargo test --manifest-path backend/Cargo.toml --locked --workspace",
-    "lint": "cargo clippy --manifest-path backend/Cargo.toml --locked --workspace --all-targets -- -D warnings",
-    "verify:install": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-install.ps1",
-    "web:dev": "vite",
-    "web:build": "npm run prepare:extension && vite build",
-    "web:setup": "vite build --mode setup",
-    "check:site": "node scripts/check-site.mjs",
-    "prepare:game-saves": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bootstrap-game-saves.ps1",
-    "prepare:extension": "node scripts/prepare-extension.mjs",
-    "tauri": "npm run prepare:game-saves && npm run prepare:extension && tauri"
+    "lint": "cargo clippy --manifest-path backend/Cargo.toml --locked --workspace --all-targets -- -D warnings"
   },
   "dependencies": {
     "@fontsource-variable/outfit": "^5.3.0",

@@ -122,7 +122,7 @@ const tauriApi: DebloatApi = {
   startMenuRestorePins: () => invoke("debloat_start_menu_restore_pins"),
 };
 
-/** In a plain browser (`npm run web:dev`): a pretend PC, to work on the page. */
+/** In a plain browser (`npx vite`): a pretend PC, to work on the page. */
 function previewApi(): DebloatApi {
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
   const tweak = (id: string, title: string, summary: string, category: Category, debloat: boolean, state: TweakState, extra: Partial<TweakStatus> = {}): TweakStatus => ({

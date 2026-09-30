@@ -5,9 +5,9 @@
   "version": "../package.json",
   "identifier": "com.thomasthanos.makeyourlifeeasier",
   "build": {
-    "beforeDevCommand": "npm run web:dev",
+    "beforeDevCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bootstrap-game-saves.ps1 && node scripts/prepare-extension.mjs && npx vite",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run web:build",
+    "beforeBuildCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bootstrap-game-saves.ps1 && node scripts/prepare-extension.mjs && npx vite build",
     "frontendDist": "target/web"
   },
   "app": {

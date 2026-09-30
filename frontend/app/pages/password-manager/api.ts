@@ -184,7 +184,7 @@ const tauriApi: PasswordsApi = {
   onSynced: (handler) => listen<SyncResult>("passwords-synced", (event) => handler(event.payload)),
 };
 
-/** In a plain browser (`npm run web:dev`): a vault in memory, to work on the page. */
+/** In a plain browser (`npx vite`): a vault in memory, to work on the page. */
 function previewApi(): PasswordsApi {
   let status: VaultStatus = new URLSearchParams(location.search).has("new-vault") ? "new" : "locked";
   let websiteIcons = true;

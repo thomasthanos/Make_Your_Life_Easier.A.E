@@ -47,13 +47,13 @@ $binary = $config.mainBinaryName
 
 Push-Location $root
 try {
-  # 1. The app. `npm run tauri` fetches and verifies the pinned Ludusavi first.
-  Invoke-Step "App $version" { npm run tauri -- build --no-bundle }
+  # 1. The app. Tauri's build hook prepares and verifies the bundled resources.
+  Invoke-Step "App $version" { npx tauri build --no-bundle }
   $appExe = Join-Path $release "$binary.exe"
   Set-Signature $appExe
 
   # 2. The uninstaller, which the setup carries inside it.
-  Invoke-Step "Setup window" { npm run web:setup }
+  Invoke-Step "Setup window" { npx vite build --mode setup }
   Invoke-Step "Uninstaller" {
     cargo build --release --locked --manifest-path $manifest -p myle-setup --bin uninstall --bin myle-pack
   }
