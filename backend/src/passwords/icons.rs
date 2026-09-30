@@ -8,6 +8,7 @@
 //! (`vault.rs`), so the cache on disk does not give the sites away either.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -51,16 +52,86 @@ fn now() -> u64 {
 /// which asking for would only leak the name).
 pub fn icon_host(url: &str) -> Option<String> {
     let host = super::browser::saved_host(url)?;
-    if host.parse::<std::net::IpAddr>().is_ok() || host.starts_with('[') || !host.contains('.') {
-        return None;
+    public_name(&host).then_some(host)
+}
+
+fn public_name(host: &str) -> bool {
+    if host.parse::<IpAddr>().is_ok() || host.starts_with('[') || !host.contains('.') {
+        return false;
     }
-    let top = host.rsplit('.').next().unwrap_or_default();
+    let top = host.trim_end_matches('.').rsplit('.').next().unwrap_or_default();
     if matches!(top, "arpa" | "onion" | "localhost" | "local" | "internal") {
-        return None;
+        return false;
     }
-    psl::suffix(host.as_bytes())
-        .is_some_and(|suffix| suffix.is_known())
-        .then_some(host)
+    psl::suffix(host.as_bytes()).is_some_and(|suffix| suffix.is_known())
+}
+
+/// Whether the app may ask `url`: https, to a public name. Checked for every
+/// address asked, the site's own and those its answers point to (redirects,
+/// its page's links), so none of them can send the app to this PC or the
+/// local network.
+fn may_ask(url: &Url) -> bool {
+    url.scheme() == "https" && url.host_str().is_some_and(public_name)
+}
+
+/// Whether `ip` is on the internet: not this PC, not the local network, not
+/// an address set aside for anything else.
+fn is_public(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            let [a, b, c, _] = v4.octets();
+            !(v4.is_unspecified()
+                || v4.is_loopback()
+                || v4.is_private()
+                || v4.is_link_local()
+                || v4.is_broadcast()
+                || v4.is_documentation()
+                || v4.is_multicast()
+                || a == 0
+                // Carrier-grade NAT, the IETF's own block, benchmarking, reserved.
+                || (a == 100 && (64..128).contains(&b))
+                || (a == 192 && b == 0 && c == 0)
+                || (a == 198 && (b == 18 || b == 19))
+                || a >= 240)
+        }
+        IpAddr::V6(v6) => {
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                return is_public(IpAddr::V4(v4));
+            }
+            let s = v6.segments();
+            // NAT64 (`64:ff9b::/96`) reaches the IPv4 address it carries.
+            if s[0] == 0x64 && s[1] == 0xff9b && s[2..6] == [0; 4] {
+                let v4 = (u32::from(s[6]) << 16) | u32::from(s[7]);
+                return is_public(IpAddr::V4(Ipv4Addr::from(v4)));
+            }
+            !(s[..6] == [0; 6] // unspecified, loopback, the old IPv4-compatible ones
+                || v6.is_multicast()
+                || (s[0] & 0xfe00) == 0xfc00 // unique local
+                || (s[0] & 0xffc0) == 0xfe80 // link-local
+                || (s[0] & 0xffc0) == 0xfec0 // site-local
+                || (s[0] == 0x2001 && s[1] == 0x0db8)) // documentation
+        }
+    }
+}
+
+/// Resolves only to public addresses: a public name that points at this PC
+/// or the local network (a rebinding trick) is never asked.
+struct PublicOnly;
+
+impl reqwest::dns::Resolve for PublicOnly {
+    fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+        let host = name.as_str().to_string();
+        Box::pin(async move {
+            let found: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), 0))
+                .await?
+                .filter(|addr| is_public(addr.ip()))
+                .collect();
+            if found.is_empty() {
+                return Err(format!("{host} has no public address").into());
+            }
+            Ok(Box::new(found.into_iter()) as reqwest::dns::Addrs)
+        })
+    }
 }
 
 /// The icons already known for the vault's websites, but those the page has
@@ -165,17 +236,22 @@ fn client() -> Result<reqwest::Client, reqwest::Error> {
         .https_only(true)
         .connect_timeout(Duration::from_secs(5))
         .timeout(Duration::from_secs(10))
-        // Followed by `get`, which keeps every request on https.
+        // Followed by `get`, which checks where each one goes.
         .redirect(reqwest::redirect::Policy::none())
+        .dns_resolver(PublicOnly)
         .build()
 }
 
 /// A GET that follows up to five redirects itself, turning an `http://` one
 /// into `https://` (as a browser does for a site that asks for https), so
-/// nothing ever goes out unencrypted.
+/// nothing ever goes out unencrypted, and never to a place `may_ask` turns
+/// down.
 async fn get(client: &reqwest::Client, url: &Url, accept: &str) -> Option<reqwest::Response> {
     let mut url = url.clone();
     for _ in 0..=5 {
+        if !may_ask(&url) {
+            return None;
+        }
         let response = client.get(url.clone()).header(ACCEPT, accept).send().await.ok()?;
         if !response.status().is_redirection() {
             return Some(response);
@@ -187,9 +263,6 @@ async fn get(client: &reqwest::Client, url: &Url, accept: &str) -> Option<reqwes
             if next.port() == Some(80) {
                 next.set_port(None).ok()?;
             }
-        }
-        if next.scheme() != "https" {
-            return None;
         }
         url = next;
     }
@@ -496,6 +569,56 @@ mod tests {
         assert_eq!(icon_host("https://nas.home.arpa"), None);
         assert_eq!(icon_host("https://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion"), None);
         assert_eq!(icon_host("https://[::1]/"), None);
+    }
+
+    #[test]
+    fn nothing_on_this_pc_or_the_local_network_is_asked() {
+        for url in ["https://github.com/favicon.ico", "https://cdn.example.com/icon.png"] {
+            assert!(may_ask(&Url::parse(url).unwrap()), "{url}");
+        }
+        for url in [
+            "http://github.com/",
+            "https://127.0.0.1/",
+            "https://10.0.0.8/icon.png",
+            "https://[fd00::1]/icon.png",
+            "https://[::ffff:192.168.1.1]/",
+            "https://localhost/",
+            "https://printer/",
+            "https://router.local/",
+            "https://intranet.internal/",
+            "https://nas.home.arpa/",
+        ] {
+            assert!(!may_ask(&Url::parse(url).unwrap()), "{url}");
+        }
+        for ip in ["8.8.8.8", "140.82.112.3", "2606:4700::1111", "::ffff:8.8.8.8", "64:ff9b::808:808"] {
+            assert!(is_public(ip.parse().unwrap()), "{ip}");
+        }
+        for ip in [
+            "127.0.0.1",
+            "10.1.2.3",
+            "172.16.0.1",
+            "192.168.1.1",
+            "169.254.169.254",
+            "100.64.0.1",
+            "0.0.0.0",
+            "255.255.255.255",
+            "::",
+            "::1",
+            "::127.0.0.1",
+            "fe80::1",
+            "fd12:3456::1",
+            "::ffff:127.0.0.1",
+            "64:ff9b::a00:1",
+        ] {
+            assert!(!is_public(ip.parse().unwrap()), "{ip}");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_name_that_points_at_this_pc_is_not_asked() {
+        use reqwest::dns::Resolve;
+        let name: reqwest::dns::Name = "localhost".parse().unwrap();
+        assert!(PublicOnly.resolve(name).await.is_err());
     }
 
     #[test]
