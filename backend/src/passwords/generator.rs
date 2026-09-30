@@ -82,8 +82,69 @@ pub enum Strength {
     Strong,
 }
 
+/// The words most leaked passwords are built on. A password that is one of
+/// them with digits or symbols around it ("Password123!", "Summer2024")
+/// falls within the first guesses, whatever its length.
+const COMMON: &[&str] = &[
+    "password", "passwort", "passwd", "pass", "secret", "letmein", "welcome", "admin", "administrator", "login",
+    "user", "guest", "root", "test", "testing", "default", "changeme", "master", "access", "trustno", "iloveyou",
+    "love", "lovely", "loveme", "hello", "freedom", "whatever", "sunshine", "princess", "shadow", "monkey",
+    "dragon", "superman", "batman", "spiderman", "pokemon", "starwars", "matrix", "killer", "ninja", "football",
+    "baseball", "basketball", "soccer", "hockey", "summer", "winter", "spring", "autumn", "flower", "angel",
+    "baby", "family", "friend", "friends", "happy", "lucky", "cookie", "chocolate", "banana", "orange", "apple",
+    "google", "samsung", "computer", "internet", "michael", "jennifer", "jordan", "hunter", "ranger", "buster",
+    "harley", "charlie", "daniel", "andrew", "thomas", "jessica", "ashley", "nicole", "michelle", "tigger",
+    "maria", "george", "mustang", "ferrari", "liverpool", "chelsea", "arsenal", "barcelona", "juventus",
+    "greece", "hellas", "athens", "abc", "qwe", "zaq", "xsw",
+];
+
+/// Keyboard rows and the alphabet: "qwerty", "asdf", "abcd" and backwards.
+const WALKS: &[&str] = &["qwertyuiop", "asdfghjkl", "zxcvbnm", "qwertzuiop", "azertyuiop", "abcdefghijklmnopqrstuvwxyz"];
+
+/// The letter a character stands for in a password: itself, or what it
+/// replaces the way people write "P@ssw0rd".
+fn letter(c: char) -> Option<char> {
+    match c {
+        c if c.is_alphabetic() => c.to_lowercase().next(),
+        '4' | '@' => Some('a'),
+        '3' => Some('e'),
+        '1' | '!' => Some('i'),
+        '0' => Some('o'),
+        '5' | '$' => Some('s'),
+        '7' => Some('t'),
+        _ => None,
+    }
+}
+
+/// Bits of guessing for a well-known word or keyboard run with only digits
+/// and symbols around it; `None` for any other password.
+fn common_word_bits(password: &str) -> Option<f64> {
+    let chars: Vec<char> = password.chars().collect();
+    let start = chars.iter().position(|c| c.is_alphabetic())?;
+    let end = chars.iter().rposition(|c| c.is_alphabetic())? + 1;
+    let core = &chars[start..end];
+    let word: String = core.iter().map(|&c| letter(c)).collect::<Option<_>>()?;
+    let length = word.chars().count();
+    let walk = length >= 4 && WALKS.iter().any(|row| row.contains(&word) || row.chars().rev().collect::<String>().contains(&word));
+    if !COMMON.contains(&word.as_str()) && !walk {
+        return None;
+    }
+    // A capital first letter is the usual one; capitals elsewhere are not.
+    let capitals = core.iter().filter(|c| c.is_uppercase()).count();
+    if capitals > 1 || capitals == 1 && !core[0].is_uppercase() {
+        return None;
+    }
+    let around: f64 = chars[..start]
+        .iter()
+        .chain(&chars[end..])
+        .map(|c| if c.is_ascii_digit() { 10f64.log2() } else { 6.0 })
+        .sum();
+    Some(10.0 + capitals as f64 + around)
+}
+
 /// Bits of guessing from the length and the kinds of characters used,
-/// halved for passwords made of one repeated or sequential run.
+/// halved for passwords made of one repeated or sequential run, and far
+/// lower for a well-known word with digits or symbols around it.
 pub fn strength(password: &str) -> Strength {
     if password.is_empty() {
         return Strength::None;
@@ -110,6 +171,9 @@ pub fn strength(password: &str) -> Strength {
             .all(|w| (w[1] as i64 - w[0] as i64).abs() == 1);
     if repetitive {
         bits /= 2.0;
+    }
+    if let Some(common) = common_word_bits(password) {
+        bits = bits.min(common);
     }
     match bits {
         b if b < 45.0 => Strength::Weak,
@@ -170,5 +234,19 @@ mod tests {
         assert_eq!(strength("abcdefghijklmnop"), Strength::Weak);
         assert_eq!(strength("Tr0ub4dor&3"), Strength::Fair);
         assert_eq!(strength(&generate(&options(20)).unwrap()), Strength::Strong);
+    }
+
+    #[test]
+    fn well_known_words_with_digits_around_them_are_weak() {
+        for weak in ["password123", "Password123!", "P@ssw0rd!", "Summer2024!", "qwerty123", "iloveyou2", "1234asdf", "Welcome1"] {
+            assert_eq!(strength(weak), Strength::Weak, "{weak}");
+        }
+        // Words people do not share, or not just one word: the length counts.
+        assert_eq!(strength("river-copper-lantern-orbit-1234"), Strength::Strong);
+        assert_eq!(strength("correcthorsebatterystaple"), Strength::Strong);
+        assert_eq!(strength("pAssword123"), Strength::Fair, "a capital inside is not the usual pattern");
+        for _ in 0..200 {
+            assert_ne!(strength(&generate(&options(16)).unwrap()), Strength::Weak);
+        }
     }
 }

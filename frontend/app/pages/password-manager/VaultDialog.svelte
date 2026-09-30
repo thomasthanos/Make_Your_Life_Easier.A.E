@@ -18,6 +18,8 @@
 
   let first = $state("");
   let second = $state("");
+  /** The new master password again: one typo would lock the vault. */
+  let again = $state("");
   /** The master password again, before every password leaves in a backup. */
   let master = $state("");
   let working = $state(false);
@@ -39,7 +41,8 @@
         const count = await api.importFile(dialog.preview.path, dialog.preview.backup ? first : undefined);
         await p.refresh();
         afterImport();
-        toast.success(`Imported ${count} ${count === 1 ? "entry" : "entries"}.`);
+        if (count) toast.success(`Imported ${count} ${count === 1 ? "entry" : "entries"}.`);
+        else toast.info("Everything in the file is already in your vault.");
         onclose();
       } else if (dialog.kind === "export") {
         if (first !== second) throw new Error("The two passwords are not the same.");
@@ -50,6 +53,7 @@
         }
       } else {
         if (second.length < 10) throw new Error("Use at least 10 characters for the new master password.");
+        if (second !== again) throw new Error("The two new passwords are not the same.");
         if (await p.changeMaster(first, second)) onclose();
         else error = p.error;
       }
@@ -103,13 +107,14 @@
       <p>Your entries stay as they are; only the key that opens them is re-sealed.</p>
       <input class="input" type="password" autocomplete="current-password" bind:value={first} placeholder="Current master password" />
       <input class="input" type="password" autocomplete="new-password" bind:value={second} placeholder="New master password (10+ characters)" />
+      <input class="input" type="password" autocomplete="new-password" bind:value={again} placeholder="Type the new one again" />
     {/if}
 
     {#if error}<p class="error">{error}</p>{/if}
 
     <footer>
       <button type="button" class="btn ghost" onclick={onclose} disabled={working}>Cancel</button>
-      <button type="submit" class="btn primary" disabled={working || (dialog.kind !== "import" && (!first || !second)) || (dialog.kind === "export" && !master) || (dialog.kind === "import" && dialog.preview.backup && !first)}>
+      <button type="submit" class="btn primary" disabled={working || (dialog.kind !== "import" && (!first || !second)) || (dialog.kind === "export" && !master) || (dialog.kind === "master" && !again) || (dialog.kind === "import" && dialog.preview.backup && !first)}>
         {#if working}<LoaderCircle size={14} class="spin" />{/if}
         {dialog.kind === "import" ? "Import" : dialog.kind === "export" ? "Save backup" : "Change"}
       </button>

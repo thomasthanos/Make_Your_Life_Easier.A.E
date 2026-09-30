@@ -657,10 +657,29 @@ impl Vault {
     }
 
     /// Adds entries (an import). Returns how many.
+    /// Adds imported entries and returns how many. One the vault already has
+    /// (the same name, user name, password and sites) is left out, so a file
+    /// imported twice, or a backup put back into its own vault, makes no
+    /// copies.
     pub fn add_all(&mut self, entries: Vec<Entry>) -> Result<usize, String> {
-        self.unlocked()?;
-        let count = entries.len();
-        for mut entry in entries {
+        let unlocked = self.unlocked()?;
+        let same = |a: &Entry, b: &Entry| {
+            a.title.trim() == b.title.trim()
+                && a.username.trim().eq_ignore_ascii_case(b.username.trim())
+                && a.password == b.password
+                && a.urls == b.urls
+        };
+        let mut new: Vec<Entry> = Vec::new();
+        for entry in entries {
+            if !unlocked.entries.values().any(|had| same(had, &entry)) && !new.iter().any(|had| same(had, &entry)) {
+                new.push(entry);
+            }
+        }
+        let count = new.len();
+        if count == 0 {
+            return Ok(0);
+        }
+        for mut entry in new {
             let now = now();
             entry.created_at = if entry.created_at == 0 {
                 now
@@ -1129,6 +1148,33 @@ mod tests {
         assert!(vault.unlock("first").is_err());
         vault.unlock("second").unwrap();
         assert_eq!(vault.password(&id).unwrap().as_str(), "new-pass");
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn importing_what_the_vault_already_has_adds_no_copies() {
+        let (path, mut vault) = temp_vault();
+        vault.create("m", KdfParams::cheap_for_tests()).unwrap();
+        vault.save(&input("Mail", "p1")).unwrap();
+        let imported = |title: &str, password: &str| Entry {
+            title: title.into(),
+            username: "Me@Example.com ".into(),
+            password: password.into(),
+            urls: vec!["https://example.com".into()],
+            apps: Vec::new(),
+            notes: String::new(),
+            favorite: false,
+            folder: String::new(),
+            history: Vec::new(),
+            created_at: 0,
+            updated_at: 0,
+        };
+        // The same login again, twice in the file, and one really new.
+        let file = vec![imported("Mail", "p1"), imported("Bank", "p2"), imported("Bank", "p2")];
+        assert_eq!(vault.add_all(file).unwrap(), 1);
+        assert_eq!(vault.summaries().unwrap().len(), 2);
+        // A changed password is a different login: it is added.
+        assert_eq!(vault.add_all(vec![imported("Mail", "p3")]).unwrap(), 1);
         let _ = std::fs::remove_file(path);
     }
 
