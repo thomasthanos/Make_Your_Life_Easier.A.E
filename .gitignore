@@ -24,3 +24,7 @@ Thumbs.db
 # Generated browser store packages
 extension/*.zip
 
+# Copied from extension/ by scripts/prepare-extension.mjs; only its manifest is Firefox's own
+extension/firefox/*
+!extension/firefox/manifest.json
+

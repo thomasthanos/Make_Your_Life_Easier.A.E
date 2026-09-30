@@ -8,6 +8,10 @@
 // a new password, and saving what the user typed and sent there. A sign-in
 // form embedded from another site is filled only from the toolbar popup,
 // where the user sees whose it is. Only the popup looks across a tab's frames.
+// Chromium's service worker loads the Public Suffix List here; Firefox lists it
+// before this script in its manifest.
+if (!globalThis.MYLE_PUBLIC_SUFFIXES && typeof importScripts === "function") importScripts("psl.js");
+
 const ext = globalThis.browser ?? globalThis.chrome;
 const HOST = "com.thomasthanos.myle";
 const OWN_PAGES = ext.runtime.getURL("");
@@ -34,11 +38,36 @@ function hostOf(value) {
   }
 }
 
-/** The same host, or one inside the other (login.example.com, example.com). */
+/**
+ * The part of a host that one owner controls, by the Public Suffix List, as the
+ * app reckons it (`login.example.com` → `example.com`, `a.github.io` stays
+ * `a.github.io`, since each github.io name has its own owner).
+ */
+function siteOf(host) {
+  const labels = host.toLowerCase().replace(/\.$/, "").split(".");
+  if (labels.length < 2 || /^[\d.]+$/.test(host) || host.startsWith("[")) return host;
+  const rules = globalThis.MYLE_PUBLIC_SUFFIXES;
+  // The longest rule that fits wins; with none, the last label is the suffix.
+  let suffix = 1;
+  for (let i = 0; i < labels.length; i++) {
+    const name = labels.slice(i).join(".");
+    if (rules.has(`!${name}`)) {
+      suffix = labels.length - i - 1;
+      break;
+    }
+    if (rules.has(name) || (i + 1 < labels.length && rules.has(`*.${labels.slice(i + 1).join(".")}`))) {
+      suffix = labels.length - i;
+      break;
+    }
+  }
+  return labels.length > suffix ? labels.slice(-suffix - 1).join(".") : host;
+}
+
+/** The same site: the same host, or hosts of one owner (login.example.com, example.com). */
 function sameSite(a, b) {
   const ha = hostOf(a);
   const hb = hostOf(b);
-  return !!ha && !!hb && (ha === hb || ha.endsWith(`.${hb}`) || hb.endsWith(`.${ha}`));
+  return !!ha && !!hb && (ha === hb || siteOf(ha) === siteOf(hb));
 }
 
 function allowedUrl(value) {

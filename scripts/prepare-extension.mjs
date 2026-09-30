@@ -5,6 +5,7 @@ const source = new URL("../extension/", import.meta.url);
 const firefox = new URL("../extension/firefox/", import.meta.url);
 
 const sharedFiles = [
+  "psl.js",
   "background.js",
   "content.js",
   "popup.html",
