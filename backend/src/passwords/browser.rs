@@ -53,8 +53,10 @@ use super::vault::{EntryInput, Status};
 
 /// The native messaging host's name, as the extension asks for it.
 pub const HOST_NAME: &str = "com.thomasthanos.myle";
-/// The extension's id in Chrome and Edge (fixed by the `key` in its manifest).
-pub const CHROME_EXTENSION_ID: &str = "gaelkhdpkgnffkfmaaklknijinjmmopo";
+/// The extension's ids in Chrome, Edge and Brave: the Chrome Web Store's,
+/// and the one the `key` in its manifest fixes when it is loaded unpacked
+/// (the Store's zip leaves the `key` out, so the Store gives its own).
+pub const CHROME_EXTENSION_IDS: [&str; 2] = ["mifjffbnaeeljjfboiglbcoaokgdilca", "gaelkhdpkgnffkfmaaklknijinjmmopo"];
 /// Its id in Firefox (`browser_specific_settings.gecko.id`).
 pub const FIREFOX_EXTENSION_ID: &str = "myle-passwords@thomast.uk";
 /// Browsers the host may be started by (their program file names).
@@ -115,7 +117,7 @@ pub fn register_hosts() -> Result<(), String> {
         "description": description,
         "path": exe,
         "type": "stdio",
-        "allowed_origins": [format!("chrome-extension://{CHROME_EXTENSION_ID}/")],
+        "allowed_origins": CHROME_EXTENSION_IDS.map(|id| format!("chrome-extension://{id}/")),
     });
     let firefox = json!({
         "name": HOST_NAME,
@@ -230,22 +232,29 @@ fn ancestors() -> Vec<String> {
 /// native messaging host; `None` for a normal start.
 pub fn run_native_host() -> Option<i32> {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    // Chrome and Edge pass the extension's origin; Firefox the path of the
-    // manifest and the extension's id.
-    // Chrome may omit the trailing slash when passing the caller origin.
-    let chrome_origin = format!("chrome-extension://{CHROME_EXTENSION_ID}");
-    let ours = args.iter().any(|a| a == &chrome_origin || a == &format!("{chrome_origin}/") || a == FIREFOX_EXTENSION_ID);
     let asked = args.iter().any(|a| a.starts_with("chrome-extension://"))
         || args.iter().any(|a| a.ends_with(".json")) && args.iter().any(|a| a.contains('@'));
     if !asked {
         return None;
     }
-    if !ours || !ancestors().iter().any(|name| BROWSERS.contains(&name.as_str())) {
+    if !started_by_our_extension(&args) || !ancestors().iter().any(|name| BROWSERS.contains(&name.as_str())) {
         return Some(3);
     }
     Some(match host_loop() {
         Ok(()) => 0,
         Err(_) => 2,
+    })
+}
+
+/// Chrome and Edge pass the extension's origin, sometimes without the
+/// trailing slash; Firefox the path of the manifest and the extension's id.
+fn started_by_our_extension(args: &[String]) -> bool {
+    args.iter().any(|arg| {
+        let origin = arg.strip_suffix('/').unwrap_or(arg);
+        arg == FIREFOX_EXTENSION_ID
+            || origin
+                .strip_prefix("chrome-extension://")
+                .is_some_and(|id| CHROME_EXTENSION_IDS.contains(&id))
     })
 }
 
@@ -705,6 +714,19 @@ mod tests {
             assert!(allow(&bucket, 5));
         }
         assert!(!allow(&bucket, 5), "the sixth in the same minute is refused");
+    }
+
+    #[test]
+    fn only_our_extension_starts_the_host() {
+        let args = |list: &[&str]| list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
+        for id in CHROME_EXTENSION_IDS {
+            assert!(started_by_our_extension(&args(&[&format!("chrome-extension://{id}/")])));
+            assert!(started_by_our_extension(&args(&[&format!("chrome-extension://{id}"), "--parent-window=0"])));
+        }
+        assert!(started_by_our_extension(&args(&[r"C:\x\firefox.json", FIREFOX_EXTENSION_ID])));
+        assert!(!started_by_our_extension(&args(&["chrome-extension://abcdefghijklmnopabcdefghijklmnop/"])));
+        assert!(!started_by_our_extension(&args(&["chrome-extension://mifjffbnaeeljjfboiglbcoaokgdilca/x"])));
+        assert!(!started_by_our_extension(&args(&[r"C:\x\firefox.json", "evil@example.com"])));
     }
 
     #[test]
