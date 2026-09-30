@@ -1,6 +1,7 @@
 <script lang="ts">
   import ConfirmHost from "../lib/components/ConfirmHost.svelte";
   import Toaster from "../lib/components/Toaster.svelte";
+  import TooltipHost from "../lib/components/TooltipHost.svelte";
   import { onMount } from "svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
@@ -22,7 +23,7 @@
     void account.init();
     if (!isTauri()) return;
     // The browser extension asked for the vault (to unlock it, or when it
-    // started the app).
+    // started the app), or a scheduled backup's notice asked for Game Saves.
     void invoke<PageId | null>("start_page").then((page) => page && nav.go(page));
     const unlisten = listen<PageId>("myle-navigate", (event) => nav.go(event.payload));
     const unlistenWindows = listen<WindowsTarget>("passwords-windows-target", (event) => {
@@ -30,6 +31,7 @@
       nav.go("password-manager");
     });
     return () => {
+      gameSavesState.stopWatcher();
       void unlisten.then((off) => off());
       void unlistenWindows.then((off) => off());
     };
@@ -54,6 +56,7 @@
 
 <Toaster />
 <ConfirmHost />
+<TooltipHost />
 
 <style>
   .shell {

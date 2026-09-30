@@ -40,7 +40,7 @@
     onfocus={(e) => showTip(e, label)}
     onblur={hideTip}
   >
-    <span class="icon"><Icon size={20} strokeWidth={1.75} />{#if badge}<i class="dot" aria-hidden="true"></i>{/if}</span>
+    <span class="icon"><Icon size={20} strokeWidth={1.75} />{#if badge}<i class="dot" aria-hidden="true">{badge > 9 ? "9+" : badge}</i>{/if}</span>
     <span class="label">{label}</span>
     {#if badge}<span class="badge" aria-hidden="true">{badge > 99 ? "99+" : badge}</span>{/if}
   </button>
@@ -160,7 +160,7 @@
     transform: scale(1.05);
   }
 
-  /* Count on the right while expanded; a dot on the icon while collapsed. */
+  /* Count on the right while expanded; on the icon's corner while collapsed. */
   .badge {
     flex: none;
     min-width: 19px;
@@ -177,17 +177,34 @@
     transition: opacity var(--dur-med) var(--ease-out);
   }
 
+  /* The icon is 20px, centered in 48 x 40: the count sits on its top-right
+     corner, cut out of it by a ring in the sidebar's colour, the way badges
+     on icons look everywhere else, instead of a dot lying over the glyph. */
   .dot {
     position: absolute;
-    top: 7px;
-    right: 13px;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--accent);
-    box-shadow: 0 0 8px var(--accent-glow);
+    top: 4px;
+    left: 28px;
+    display: grid;
+    place-items: center;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--accent-grad);
+    color: #fff;
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    box-shadow:
+      0 0 0 2px var(--bg-1),
+      0 0 8px var(--accent-glow);
     opacity: 0;
-    transition: opacity var(--dur-med) var(--ease-out);
+    transform: scale(0.6);
+    transition:
+      opacity var(--dur-med) var(--ease-out),
+      transform var(--dur-med) var(--ease-out);
   }
 
   .collapsed .badge {
@@ -196,6 +213,7 @@
 
   .collapsed .dot {
     opacity: 1;
+    transform: scale(1);
   }
 
   .label {
