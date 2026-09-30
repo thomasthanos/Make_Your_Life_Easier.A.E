@@ -1,10 +1,9 @@
 <script lang="ts">
   import FolderOpen from "@lucide/svelte/icons/folder-open";
-  import HardDrive from "@lucide/svelte/icons/hard-drive";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Select, { type SelectOption } from "../../../lib/components/Select.svelte";
   import type { GameSaveEntry, GameSaveStatus, GameSavesTab } from "./api";
-  import { formatBytes, formatDate, gameSavesState as state } from "./state.svelte";
+  import { formatBytes, formatDate, formatRelative, gameSavesState as state } from "./state.svelte";
 
   let { game, tab }: { game: GameSaveEntry; tab: GameSavesTab } = $props();
   const uid = $props.id();
@@ -16,6 +15,39 @@
       label: `${formatDate(snapshot.timestamp)}${snapshot.label ? ` · ${snapshot.label}` : ""}${snapshot.isSafety ? " · Safety" : ""}`,
     })),
   );
+
+  /** The backend lists at most this many of a game's save folders. */
+  const PATHS_LISTED = 8;
+
+  /** The folder a game's save folders are all in: "…/DeathStrandingDC/1122762396"
+   *  for its eight autosave folders, rather than the first one and "+7",
+   *  which read as seven changes. Nothing when they share only the drive. */
+  function commonFolder(paths: string[]): string | null {
+    const split = paths.map((path) => path.split(/[\\/]/));
+    const first = split[0] ?? [];
+    let shared = 0;
+    while (shared < first.length && split.every((parts) => parts[shared]?.toLowerCase() === first[shared].toLowerCase())) {
+      shared++;
+    }
+    return shared > 1 ? first.slice(0, shared).join(paths[0].includes("\\") ? "\\" : "/") : null;
+  }
+
+  const shownPath = $derived(
+    game.paths.length > 1 ? (commonFolder(game.paths) ?? game.paths[0]) : (game.paths[0] ?? "No local path available"),
+  );
+  const folderCount = $derived(
+    game.paths.length > 1 ? `${game.paths.length >= PATHS_LISTED ? `${PATHS_LISTED}+` : game.paths.length} folders` : null,
+  );
+
+  /** Two letters and a colour of its own for each game, so the list is not
+   *  one icon repeated: "AC" for Assassin's Creed. */
+  const monogram = $derived.by(() => {
+    const words = game.title.match(/[\p{L}\p{N}]+/gu) ?? ["?"];
+    const letters = (words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 2)).toUpperCase();
+    let hash = 0;
+    for (const char of game.title) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+    return { letters, hue: hash % 360 };
+  });
 
   const statusInfo: Record<GameSaveStatus, { label: string; tone: string }> = {
     notBackedUp: { label: "Not backed up", tone: "warning" },
@@ -40,34 +72,39 @@
   />
 
   <label class="identity" for="{uid}-check">
-    <span class="game-icon" aria-hidden="true"><HardDrive size={19} strokeWidth={1.65} /></span>
+    <span class="monogram" style:--hue={monogram.hue} aria-hidden="true">{monogram.letters}</span>
     <span class="title-wrap">
-      <span class="title">{game.title}</span>
-      <span class="badges">
-        <span class="status {statusInfo[game.status].tone}">{statusInfo[game.status].label}</span>
+      <span class="title-line">
+        <span class="title" title={game.title}>{game.title}</span>
         {#each game.platformBadges as badge (badge)}
           <span class="platform">{badge}</span>
         {/each}
       </span>
+      <span class="meta-line">
+        <span class="status {statusInfo[game.status].tone}"><i aria-hidden="true"></i>{statusInfo[game.status].label}</span>
+        <span class="path selectable" title={game.paths.join("\n")}>{shownPath}</span>
+        {#if folderCount}<span class="more-paths" title={game.paths.join("\n")}>{folderCount}</span>{/if}
+      </span>
+      {#if game.error}
+        <span class="error" title={game.error}><TriangleAlert size={13} /> {game.error}</span>
+      {/if}
     </span>
   </label>
 
-  <div class="facts" aria-label={`Save details for ${game.title}`}>
-    <span><strong>{game.fileCount.toLocaleString()}</strong> {game.fileCount === 1 ? "file" : "files"}</span>
-    <span><strong>{formatBytes(game.totalBytes)}</strong></span>
-    <span title={formatDate(game.lastSaveAt)}>Last save <strong>{formatDate(game.lastSaveAt)}</strong></span>
-    <span title={formatDate(game.lastBackupAt)}>Backup <strong>{formatDate(game.lastBackupAt)}</strong></span>
-  </div>
-
-  <div class="path-row">
-    <span class="path selectable" title={game.paths.join("\n")}>
-      {game.paths[0] ?? "No local path available"}
-      {#if game.paths.length > 1}<span class="more-paths">+{game.paths.length - 1}</span>{/if}
-    </span>
-    {#if game.error}
-      <span class="error" title={game.error}><TriangleAlert size={13} /> {game.error}</span>
-    {/if}
-  </div>
+  <dl class="stats" aria-label={`Save details for ${game.title}`}>
+    <div>
+      <dt>Size</dt>
+      <dd>{formatBytes(game.totalBytes)} <small>· {game.fileCount.toLocaleString()} {game.fileCount === 1 ? "file" : "files"}</small></dd>
+    </div>
+    <div>
+      <dt>Last save</dt>
+      <dd title={formatDate(game.lastSaveAt)}>{formatRelative(game.lastSaveAt)}</dd>
+    </div>
+    <div>
+      <dt>Backup</dt>
+      <dd class:never={!game.lastBackupAt} title={formatDate(game.lastBackupAt)}>{formatRelative(game.lastBackupAt)}</dd>
+    </div>
+  </dl>
 
   <div class="actions">
     {#if tab === "backup" && game.snapshots.length}
@@ -85,8 +122,14 @@
       </div>
     {/if}
 
-    <label class="auto" title="Include this game in scheduled backups">
-      <span>Auto</span>
+    <label
+      class="auto"
+      class:on={game.autoBackup}
+      title={game.autoBackup
+        ? "Backed up by the schedule. Turn off to back it up only when you choose."
+        : "Backed up only when you choose. Turn on to include it in the schedule."}
+    >
+      <span class="auto-label">{game.autoBackup ? "Auto" : "Manual"}</span>
       <input
         class="switch"
         type="checkbox"
@@ -109,17 +152,17 @@
 </article>
 
 <style>
+  /* Identity takes what is left; the stats keep the same widths on every
+     row, so the columns line up down the list. */
   .card {
     container-type: inline-size;
     display: grid;
-    grid-template-columns: auto minmax(180px, 1.15fr) minmax(360px, 1.35fr) auto;
-    grid-template-areas:
-      "check identity facts actions"
-      ". path path actions";
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "check identity stats actions";
     align-items: center;
-    gap: 8px 12px;
+    gap: 10px 18px;
     min-width: 0;
-    padding: 13px 14px;
+    padding: 12px 14px;
     transition:
       border-color var(--dur-fast),
       background var(--dur-fast);
@@ -146,30 +189,44 @@
     grid-area: identity;
     display: flex;
     align-items: center;
-    gap: 11px;
+    gap: 12px;
     min-width: 0;
+    cursor: pointer;
   }
 
-  .game-icon {
+  .monogram {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     flex: none;
-    border: 1px solid rgb(255 255 255 / 0.07);
+    border: 1px solid hsl(var(--hue) 70% 70% / 0.18);
     border-radius: 11px;
-    background: linear-gradient(145deg, rgb(var(--accent-rgb) / 0.14), rgb(79 209 232 / 0.045));
-    color: rgb(175 184 255 / 0.86);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+    background: linear-gradient(145deg, hsl(var(--hue) 55% 55% / 0.3), hsl(var(--hue) 55% 35% / 0.12));
+    color: hsl(var(--hue) 85% 86%);
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
   }
 
   .title-wrap {
     display: grid;
-    gap: 5px;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .title-line,
+  .meta-line {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     min-width: 0;
   }
 
   .title {
+    min-width: 0;
     overflow: hidden;
     font-size: 14px;
     font-weight: 600;
@@ -177,16 +234,12 @@
     text-overflow: ellipsis;
   }
 
-  .badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-  }
-
   .status,
   .platform {
     display: inline-flex;
+    flex: none;
     align-items: center;
+    gap: 5px;
     min-height: 18px;
     padding: 1px 7px;
     border: 1px solid rgb(255 255 255 / 0.055);
@@ -199,68 +252,46 @@
     white-space: nowrap;
   }
 
-  .status.success {
-    border-color: rgb(62 207 142 / 0.12);
-    background: rgb(62 207 142 / 0.04);
-    color: rgb(92 218 166 / 0.78);
-  }
-
-  .status.warning {
-    border-color: rgb(245 176 65 / 0.15);
-    background: rgb(245 176 65 / 0.045);
-    color: rgb(245 188 95 / 0.82);
-  }
-
-  .status.changed {
-    border-color: rgb(77 163 255 / 0.14);
-    background: rgb(77 163 255 / 0.045);
-    color: rgb(112 183 255 / 0.82);
-  }
-
-  .status.danger {
-    border-color: rgb(229 72 77 / 0.18);
-    background: rgb(229 72 77 / 0.045);
-    color: rgb(255 145 145 / 0.84);
-  }
-
   .platform {
     font-weight: 500;
   }
 
-  .facts {
-    grid-area: facts;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(112px, 1fr));
-    gap: 4px 16px;
-    min-width: 0;
-    color: var(--text-3);
-    font-size: 11.5px;
+  .status i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.9;
   }
 
-  .facts span {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+  .status.success {
+    border-color: rgb(62 207 142 / 0.14);
+    background: rgb(62 207 142 / 0.05);
+    color: rgb(92 218 166 / 0.85);
   }
 
-  .facts strong {
-    color: var(--text-2);
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
+  .status.warning {
+    border-color: rgb(245 176 65 / 0.16);
+    background: rgb(245 176 65 / 0.05);
+    color: rgb(245 188 95 / 0.86);
   }
 
-  .path-row {
-    grid-area: path;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
+  .status.changed {
+    border-color: rgb(77 163 255 / 0.16);
+    background: rgb(77 163 255 / 0.05);
+    color: rgb(112 183 255 / 0.86);
+  }
+
+  .status.danger {
+    border-color: rgb(229 72 77 / 0.2);
+    background: rgb(229 72 77 / 0.05);
+    color: rgb(255 145 145 / 0.86);
   }
 
   .path {
     min-width: 0;
     overflow: hidden;
-    color: rgb(200 210 240 / 0.38);
+    color: rgb(200 210 240 / 0.4);
     font-family: var(--font-mono);
     font-size: 10.5px;
     white-space: nowrap;
@@ -268,20 +299,68 @@
   }
 
   .more-paths {
-    margin-left: 6px;
-    color: var(--accent);
+    flex: none;
+    padding: 1px 7px;
+    border: 1px solid rgb(255 255 255 / 0.06);
+    border-radius: 999px;
+    color: var(--text-3);
+    font-size: 10px;
+    white-space: nowrap;
   }
 
   .error {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    max-width: 240px;
+    min-width: 0;
     overflow: hidden;
-    color: rgb(255 145 145 / 0.76);
+    color: rgb(255 145 145 / 0.8);
     font-size: 11px;
     white-space: nowrap;
     text-overflow: ellipsis;
+  }
+
+  .stats {
+    grid-area: stats;
+    display: grid;
+    grid-template-columns: 124px 132px 132px;
+    gap: 18px;
+    margin: 0;
+  }
+
+  .stats div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  dt {
+    color: var(--text-3);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  dd {
+    margin: 0;
+    overflow: hidden;
+    color: var(--text-2);
+    font-size: 12.5px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  dd small {
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 400;
+  }
+
+  dd.never {
+    color: rgb(245 188 95 / 0.75);
   }
 
   .actions {
@@ -289,16 +368,37 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 8px;
-    align-self: stretch;
+    gap: 10px;
   }
 
   .auto {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
+    padding: 4px 4px 4px 10px;
+    border: 1px solid rgb(255 255 255 / 0.06);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.02);
     color: var(--text-3);
     font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      border-color var(--dur-fast),
+      background var(--dur-fast),
+      color var(--dur-fast);
+  }
+
+  .auto.on {
+    border-color: rgb(var(--accent-rgb) / 0.2);
+    background: rgb(var(--accent-rgb) / 0.06);
+    color: rgb(var(--accent-soft-rgb) / 0.95);
+  }
+
+  /* Both words take the same room, so the switch does not move. */
+  .auto-label {
+    min-width: 44px;
+    text-align: right;
   }
 
   .snapshot {
@@ -313,13 +413,17 @@
     pointer-events: none;
   }
 
-  @container (max-width: 860px) {
+  @container (max-width: 900px) {
     .card {
       grid-template-columns: auto minmax(0, 1fr) auto;
       grid-template-areas:
         "check identity actions"
-        ". facts actions"
-        ". path path";
+        ". stats stats";
+    }
+
+    .stats {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      padding-left: 50px;
     }
   }
 
@@ -328,13 +432,16 @@
       grid-template-columns: auto minmax(0, 1fr);
       grid-template-areas:
         "check identity"
-        ". facts"
-        ". path"
+        ". stats"
         ". actions";
     }
 
-    .facts {
-      grid-template-columns: 1fr;
+    .stats {
+      padding-left: 0;
+    }
+
+    .meta-line {
+      flex-wrap: wrap;
     }
 
     .actions {
@@ -343,4 +450,3 @@
     }
   }
 </style>
-

@@ -341,6 +341,24 @@ pub struct GameSavesScan {
     /// changed since the last full scan, or it is over a day old.
     #[serde(default)]
     pub discovery_due: bool,
+    /// The backup folder, when its drive is not connected (Google Drive not
+    /// running): the saves on this PC are listed, but nothing is known about
+    /// their backups.
+    #[serde(default)]
+    pub backup_unreachable: Option<String>,
+}
+
+impl GameSavesScan {
+    /// With the backup folder out of reach, no game can be said to have no
+    /// backup: its status is not known until the folder is back.
+    pub fn without_backups(&mut self, folder: &str) {
+        for game in &mut self.on_this_pc {
+            if game.status == GameSaveStatus::NotBackedUp {
+                game.status = GameSaveStatus::Unknown;
+            }
+        }
+        self.backup_unreachable = Some(folder.to_string());
+    }
 }
 
 /// How much a scan looks at: only the games already found (seconds), or
@@ -406,4 +424,40 @@ pub struct UndoRestore {
     pub created_at: u64,
     pub expires_at: u64,
     pub games: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn game(status: GameSaveStatus) -> GameSaveEntry {
+        GameSaveEntry {
+            id: "game".into(),
+            title: "Game".into(),
+            status,
+            platform_badges: Vec::new(),
+            file_count: 1,
+            total_bytes: 1,
+            last_save_at: None,
+            last_backup_at: None,
+            paths: Vec::new(),
+            auto_backup: true,
+            has_local_data: true,
+            has_backup: false,
+            error: None,
+            snapshots: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn without_its_backups_no_game_is_said_to_have_none() {
+        let mut scan = GameSavesScan {
+            on_this_pc: vec![game(GameSaveStatus::NotBackedUp), game(GameSaveStatus::Error)],
+            ..Default::default()
+        };
+        scan.without_backups(r"G:\My Drive\Backups");
+        assert_eq!(scan.on_this_pc[0].status, GameSaveStatus::Unknown);
+        assert_eq!(scan.on_this_pc[1].status, GameSaveStatus::Error);
+        assert_eq!(scan.backup_unreachable.as_deref(), Some(r"G:\My Drive\Backups"));
+    }
 }

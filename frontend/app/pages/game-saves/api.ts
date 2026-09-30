@@ -160,6 +160,8 @@ export interface GameSavesScan {
   quick: boolean;
   /** New games may be missing: a full scan should run in the background. */
   discoveryDue: boolean;
+  /** The backup folder, when its drive is not connected (Google Drive not running). */
+  backupUnreachable?: string | null;
 }
 
 export interface RestoreSelection {

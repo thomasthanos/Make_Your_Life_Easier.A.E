@@ -95,9 +95,12 @@
   <div class="action-row">
     <span class="shown">{gameSaves.visibleGames.length} {gameSaves.visibleGames.length === 1 ? "game" : "games"}</span>
     {#if gameSaves.discovering}
-      <span class="discovering" title="A full scan runs in the background; actions stop it first.">
+      <span class="discovering" title="A full scan for newly installed games. The list is back when it ends, or when you stop it.">
         <LoaderCircle size={12} class="spin" /> Looking for new games…
+        <button class="link" onclick={() => gameSaves.stopDiscovery()}>Stop</button>
       </span>
+    {:else if gameSaves.operation?.background}
+      <span class="discovering"><LoaderCircle size={12} class="spin" /> Checking for changed saves…</span>
     {/if}
     <button class="btn ghost" disabled={!gameSaves.visibleGames.length || gameSaves.busy} onclick={() => gameSaves.toggleAllVisible()}>
       <CheckCheck size={14} /> {gameSaves.allVisibleSelected ? "Deselect shown" : "Select all shown"}
@@ -120,7 +123,7 @@
     {/if}
   </div>
 
-  {#if gameSaves.operation}
+  {#if gameSaves.operation && !gameSaves.operation.background}
     <div class="operation" aria-live="polite">
       <LoaderCircle size={14} class="spin" />
       <span class="operation-text">
@@ -226,6 +229,16 @@
     gap: 5px;
     color: rgb(var(--accent-soft-rgb) / 0.75);
     font-size: 11px;
+  }
+
+  .discovering .link {
+    margin-left: 3px;
+    padding: 0;
+    color: rgb(var(--accent-soft-rgb) / 0.95);
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .action {

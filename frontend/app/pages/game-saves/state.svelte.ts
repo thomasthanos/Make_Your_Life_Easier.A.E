@@ -46,6 +46,9 @@ interface OperationView {
   total: number;
   current: string | null;
   note: string | null;
+  /** A check the app started by itself (every ten minutes, on coming back to
+   *  the window): a line in the toolbar, not the progress bar. */
+  background?: boolean;
 }
 
 const KEY = {
@@ -62,8 +65,9 @@ const SYNCED_SETTINGS = new Set(["schedule", "customGame"]);
 /** Background check for saves changed by playing, while the app is open. */
 const WATCH_EVERY_MS = 10 * 60 * 1000;
 const WATCH_FIRST_MS = 20 * 1000;
-/** Coming back to the window checks again, but not more often than this. */
-const FOCUS_CHECK_MS = 2 * 60 * 1000;
+/** Coming back to the window checks again, but not more often than this:
+ *  every Alt+Tab back was one more scan. */
+const FOCUS_CHECK_MS = 10 * 60 * 1000;
 
 const emptySettings = (): GameSavesSettings => ({
   backupFolder: null,
@@ -157,6 +161,9 @@ class GameSavesState {
   );
   readonly selectedBytes = $derived(this.selectedGames.reduce((sum, game) => sum + game.totalBytes, 0));
   readonly busy = $derived(this.operation !== null);
+  /** The list is being looked at again: it is shown, but cannot be used
+   *  until the result is in (a click would land on a row about to change). */
+  readonly listLocked = $derived(this.busy || this.discovering);
   readonly localGames = $derived(this.scanResult?.stats.localGames ?? 0);
   readonly backupGames = $derived(this.scanResult?.stats.backupGames ?? 0);
   readonly totalBytes = $derived(this.scanResult?.stats.totalBytes ?? 0);
@@ -334,6 +341,7 @@ class GameSavesState {
     if (this.busy || this.discovering || !this.page.engineAvailable || !this.scanResult) return;
     this.#lastRefresh = Date.now();
     this.beginOperation("scan", "scanning");
+    if (quiet && this.operation) this.operation.background = true;
     try {
       const result = await gameSavesApi.scan("quick", this.onEvent);
       this.#applyScan(result);
@@ -372,6 +380,11 @@ class GameSavesState {
     return this.#discovery;
   }
 
+  /** "Stop" on the background search for new games. */
+  async stopDiscovery() {
+    await this.#stopDiscovery();
+  }
+
   async #stopDiscovery() {
     const running = this.#discovery;
     if (!running) return;
@@ -387,12 +400,29 @@ class GameSavesState {
     if (this.#watching || !isTauri()) return;
     this.#watching = true;
     const check = () => void this.#backgroundCheck();
-    setTimeout(check, WATCH_FIRST_MS);
-    setInterval(check, WATCH_EVERY_MS);
-    window.addEventListener("focus", () => {
+    const onFocus = () => {
       if (Date.now() - this.#lastRefresh > FOCUS_CHECK_MS) check();
-    });
+    };
+    const first = setTimeout(check, WATCH_FIRST_MS);
+    const every = setInterval(check, WATCH_EVERY_MS);
+    window.addEventListener("focus", onFocus);
+    this.#stopWatching = () => {
+      clearTimeout(first);
+      clearInterval(every);
+      window.removeEventListener("focus", onFocus);
+      this.#watching = false;
+    };
   }
+
+  /** Ends the watcher: on a hot reload in development, the old copy of this
+   *  module would otherwise go on scanning next to the new one, one more
+   *  after every reload. */
+  stopWatcher() {
+    this.#stopWatching?.();
+    this.#stopWatching = null;
+  }
+
+  #stopWatching: (() => void) | null = null;
 
   async #backgroundCheck() {
     if (this.busy || this.discovering || this.settingsBusy) return;
@@ -827,6 +857,13 @@ class GameSavesState {
 
 export const gameSavesState = new GameSavesState();
 
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    gameSavesState.stopWatcher();
+    void gameSavesState.stopDiscovery();
+  });
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -840,9 +877,33 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(decimals)} ${units[unit]}`;
 }
 
+function toDate(value: number | string): Date {
+  return new Date(typeof value === "number" && value < 10_000_000_000 ? value * 1000 : value);
+}
+
 export function formatDate(value: number | string | null): string {
   if (value === null) return "Never";
-  const date = new Date(typeof value === "number" && value < 10_000_000_000 ? value * 1000 : value);
+  const date = toDate(value);
   if (Number.isNaN(date.getTime())) return "Unknown";
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+/** "5 minutes ago", "yesterday", "3 days ago"; the day itself after a month. */
+export function formatRelative(value: number | string | null): string {
+  if (value === null) return "Never";
+  const date = toDate(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  const seconds = (Date.now() - date.getTime()) / 1000;
+  if (seconds < 0 || seconds >= 30 * 86_400) {
+    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+  }
+  if (seconds < 60) return "Just now";
+  const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const text =
+    seconds < 3_600
+      ? relative.format(-Math.round(seconds / 60), "minute")
+      : seconds < 86_400
+        ? relative.format(-Math.round(seconds / 3_600), "hour")
+        : relative.format(-Math.round(seconds / 86_400), "day");
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

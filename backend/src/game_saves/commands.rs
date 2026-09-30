@@ -494,7 +494,16 @@ pub async fn game_saves_scan(
     // never scanned; they are re-detected here, manual roots are kept.
     let known_roots = value.roots.clone();
     settings::merge_detected_roots(&mut value);
-    validate_current_backup(&app, &value)?;
+    // A backup folder whose drive is not there (Google Drive not running) is
+    // not a reason to show nothing: a scan only reads, so the saves on this
+    // PC are listed, and the page says the backups are out of reach.
+    let unreachable = value
+        .backup_folder
+        .clone()
+        .filter(|folder| !settings::drive_connected(Path::new(folder)));
+    if unreachable.is_none() {
+        validate_current_backup(&app, &value)?;
+    }
     if value.roots != known_roots {
         settings::save(&app, &value)?;
     }
@@ -514,6 +523,9 @@ pub async fn game_saves_scan(
     let (mut scan, metadata) =
         scan_with_engine(&engine, &value, &operation, titles.as_deref()).await?;
     ensure_not_cancelled(&operation)?;
+    if let Some(folder) = &unreachable {
+        scan.without_backups(folder);
+    }
     if metadata.supported_games > 0 && value.database_games != metadata.supported_games {
         value.database_games = metadata.supported_games;
         settings::save(&app, &value)?;

@@ -3,10 +3,12 @@
   import { slide } from "svelte/transition";
   import Archive from "@lucide/svelte/icons/archive";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
+  import CloudOff from "@lucide/svelte/icons/cloud-off";
   import Database from "@lucide/svelte/icons/database";
   import Gamepad2 from "@lucide/svelte/icons/gamepad-2";
   import HardDrive from "@lucide/svelte/icons/hard-drive";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Settings2 from "@lucide/svelte/icons/settings-2";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import Undo2 from "@lucide/svelte/icons/undo-2";
@@ -88,6 +90,23 @@
         <strong>Game Saves engine is unavailable.</strong>
         Install or repair the bundled save database engine, then restart the app.
       </span>
+    </div>
+  {/if}
+
+  {#if state.scanResult?.backupUnreachable && !state.error}
+    <div class="banner warning surface" role="status">
+      <CloudOff size={18} />
+      <div class="unreachable-body">
+        <strong>Your backups are out of reach</strong>
+        <p>
+          <code class="selectable">{state.scanResult.backupUnreachable}</code> is on a drive that is not connected. If it is
+          in Google Drive, OneDrive or another cloud app, start the app. The saves on this PC are shown; their backups show
+          again once the folder is back.
+        </p>
+      </div>
+      <button class="btn small ghost" disabled={state.busy} onclick={() => state.refresh()}>
+        <RefreshCw size={13} /> Try again
+      </button>
     </div>
   {/if}
 
@@ -182,7 +201,13 @@
     >
       <GameSavesToolbar />
 
-      <div class="game-list">
+      <div
+        class="game-list"
+        class:locked={state.listLocked}
+        class:quietly={state.operation?.background && !state.discovering}
+        inert={state.listLocked}
+        aria-busy={state.listLocked}
+      >
         {#each state.visibleGames as game (game.id)}
           <GameSaveRow {game} tab={state.tab} />
         {:else}
@@ -290,6 +315,26 @@
   .banner.error {
     border-color: rgb(229 72 77 / 0.28);
     color: rgb(255 145 145 / 0.82);
+  }
+
+  .unreachable-body {
+    display: grid;
+    flex: 1;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .unreachable-body p {
+    margin: 0;
+    color: var(--text-2);
+    line-height: 1.5;
+  }
+
+  .unreachable-body code {
+    color: rgb(245 188 95 / 0.9);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    word-break: break-all;
   }
 
   .failures-body {
@@ -463,6 +508,17 @@
   .game-list {
     display: grid;
     gap: 7px;
+    transition: opacity var(--dur-med) var(--ease-out);
+  }
+
+  .game-list.locked {
+    opacity: 0.55;
+    cursor: progress;
+  }
+
+  /* The app's own check every ten minutes: a couple of seconds, barely seen. */
+  .game-list.locked.quietly {
+    opacity: 0.85;
   }
 
   .game-list > :global(article) {

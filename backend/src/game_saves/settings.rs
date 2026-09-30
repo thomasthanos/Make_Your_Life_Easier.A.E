@@ -43,7 +43,9 @@ pub(crate) fn load_from_root(root: &Path) -> Result<GameSavesSettings, String> {
 
 fn load_from_path(path: &Path) -> Result<GameSavesSettings, String> {
     let mut settings = match fs::read_to_string(path) {
-        Ok(text) => serde_json::from_str::<GameSavesSettings>(&text)
+        // A byte-order mark, as Notepad and PowerShell 5 save UTF-8, is not
+        // a reason to lose every setting.
+        Ok(text) => serde_json::from_str::<GameSavesSettings>(text.strip_prefix('\u{feff}').unwrap_or(&text))
             .map_err(|e| format!("Game Saves settings are invalid: {e}"))?,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => GameSavesSettings::default(),
         Err(e) => return Err(e.to_string()),
@@ -311,11 +313,32 @@ pub(crate) fn absolute_normalized(path: &Path) -> Result<PathBuf, String> {
     Ok(absolute.components().collect())
 }
 
+/// Whether the drive `path` is on is there right now. A cloud drive (Google
+/// Drive's G:) or a USB disk is there only while its app runs or it is
+/// plugged in.
+pub(crate) fn drive_connected(path: &Path) -> bool {
+    absolute_normalized(path)
+        .ok()
+        .and_then(|absolute| absolute.ancestors().last().map(Path::to_path_buf))
+        .is_some_and(|root| root.exists())
+}
+
+/// Why a folder on a drive that is not there cannot be used.
+pub(crate) fn drive_missing(path: &Path) -> String {
+    format!(
+        "{} cannot be reached: its drive is not connected. If it is in Google Drive, OneDrive or another cloud app, start the app and try again.",
+        path.display()
+    )
+}
+
 /// Resolve reparse points/junctions in the existing portion of a path before
 /// comparing protected locations. This prevents a visually harmless folder
 /// from redirecting backups or restores into the app, Windows, or save data.
 fn resolved_normalized(path: &Path) -> Result<PathBuf, String> {
     let absolute = absolute_normalized(path)?;
+    if !drive_connected(&absolute) {
+        return Err(drive_missing(path));
+    }
     let mut existing = absolute.as_path();
     let mut suffix = Vec::new();
     while !existing.exists() {
@@ -402,6 +425,33 @@ pub(crate) fn merge_detected_roots(settings: &mut GameSavesSettings) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settings_saved_with_a_byte_order_mark_still_load() {
+        let path = std::env::temp_dir().join(format!("myle-game-saves-bom-{}.json", uuid::Uuid::new_v4()));
+        let settings = GameSavesSettings {
+            backup_folder: Some(r"G:\My Drive\Backups".into()),
+            ..Default::default()
+        };
+        let text = serde_json::to_string(&settings).unwrap();
+        fs::write(&path, format!("\u{feff}{text}")).unwrap();
+        let loaded = load_from_path(&path);
+        let _ = fs::remove_file(&path);
+        assert_eq!(loaded.unwrap().backup_folder.as_deref(), Some(r"G:\My Drive\Backups"));
+    }
+
+    #[test]
+    fn a_folder_on_a_drive_that_is_not_there_says_so() {
+        // Google Drive's G: while Google Drive is not running.
+        let Some(letter) = ('D'..='Z').rev().find(|letter| !Path::new(&format!(r"{letter}:\")).exists()) else {
+            return;
+        };
+        let folder = PathBuf::from(format!(r"{letter}:\My Drive\Make Your Life Easier\Game Saves Backups"));
+        assert!(!drive_connected(&folder));
+        let error = resolved_normalized(&folder).unwrap_err();
+        assert!(error.contains("not connected") && error.contains("Google Drive"), "{error}");
+        assert!(drive_connected(&std::env::temp_dir().join("not-made-yet")));
+    }
 
     #[test]
     fn overlap_is_case_insensitive_and_segment_aware() {
