@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Window controls for the splash and main windows",
-  "windows": ["splash", "main"],
+  "description": "Window controls for the splash, main and notice windows",
+  "windows": ["splash", "main", "game-saves-notice"],
   "permissions": [
     "core:default",
     "core:window:allow-show",

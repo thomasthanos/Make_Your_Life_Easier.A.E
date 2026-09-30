@@ -49,9 +49,11 @@ export default defineConfig(({ mode }): UserConfig => {
         input: setup
           ? { installer: resolve(frontend, "installer.html") }
           : {
-              // Two windows, two entry pages: the updater splash and the main shell.
+              // One entry page per window: the updater splash, the main shell.
               main: resolve(frontend, "index.html"),
               splash: resolve(frontend, "splash.html"),
+              // A scheduled Game Saves backup's notice, a window of its own.
+              notice: resolve(frontend, "notice.html"),
             },
       },
     },

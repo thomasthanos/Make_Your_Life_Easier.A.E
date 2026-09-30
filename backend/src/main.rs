@@ -19,6 +19,10 @@ fn main() {
     if std::env::args().any(|argument| argument == "--game-saves-auto-backup") {
         std::process::exit(myle_lib::game_saves::run_headless_auto_backup());
     }
+    // The notice a scheduled backup leaves: only its small window.
+    if let Some(exit_code) = myle_lib::run_game_saves_notice() {
+        std::process::exit(exit_code);
+    }
     // Existing updaters and scheduled tasks may still start the old file.
     // The installer keeps a copy there; ordinary launches switch to MYLE.exe.
     if let Ok(current) = std::env::current_exe()

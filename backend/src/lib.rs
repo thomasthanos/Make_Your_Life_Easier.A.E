@@ -33,7 +33,7 @@ pub fn run_debloat_helper() -> Option<i32> {
     debloat::run_elevated_helper_from_args()
 }
 
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 fn create_windows(app: &mut tauri::App) -> tauri::Result<()> {
     use tauri::window::Color;
@@ -78,12 +78,62 @@ async fn finish_startup(app: AppHandle) -> Result<(), String> {
 }
 
 /// The page to open on start: the Password Manager when the browser
-/// extension started the app (`--open-passwords`).
+/// extension started the app (`--open-passwords`), Game Saves from a
+/// scheduled backup's notice.
 #[tauri::command]
 fn start_page() -> Option<&'static str> {
-    std::env::args()
-        .any(|a| a == "--open-passwords")
-        .then_some("password-manager")
+    page_asked(&std::env::args().collect::<Vec<_>>())
+}
+
+fn page_asked(args: &[String]) -> Option<&'static str> {
+    if args.iter().any(|a| a == "--open-passwords") {
+        Some("password-manager")
+    } else if args.iter().any(|a| a == game_saves::notice::OPEN_FLAG) {
+        Some("game-saves")
+    } else {
+        None
+    }
+}
+
+/// Everything the app is built from, for its normal run and for a notice.
+fn context() -> tauri::Context<tauri::Wry> {
+    tauri::generate_context!()
+}
+
+/// What the notice page shows.
+#[tauri::command]
+fn notice_data(notice: tauri::State<'_, game_saves::notice::Notice>) -> game_saves::notice::Notice {
+    notice.inner().clone()
+}
+
+/// The notice closes: by itself, by its ×, or clicked to open Game Saves.
+#[tauri::command]
+fn notice_done(app: AppHandle, open: bool) {
+    if open {
+        game_saves::notice::open_game_saves();
+    }
+    app.exit(0);
+}
+
+/// `Some(exit code)` when this run is a scheduled backup's notice: only its
+/// window, which is gone after a few seconds.
+pub fn run_game_saves_notice() -> Option<i32> {
+    let notice = game_saves::notice::from_args()?;
+    let built = tauri::Builder::default()
+        .manage(notice)
+        .setup(|app| {
+            game_saves::notice::create_window(app)?;
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![notice_data, notice_done])
+        .build(context());
+    Some(match built {
+        Ok(app) => {
+            app.run(|_, _| {});
+            0
+        }
+        Err(_) => 1,
+    })
 }
 
 fn show_main(app: &AppHandle) -> tauri::Result<()> {
@@ -129,7 +179,7 @@ pub fn run() {
     let passwords_windows_state = passwords::WindowsFillState::default();
     let app = tauri::Builder::default()
         // Must be registered first. A second launch focuses the running app.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             // Still starting: the splash. Otherwise the main window, also
             // when it waits in the tray.
             let splash = app
@@ -140,6 +190,10 @@ pub fn run() {
                     let _ = splash.set_focus();
                 }
                 None => tray::show_window(app),
+            }
+            // A scheduled backup's notice was clicked: go to Game Saves.
+            if args.iter().any(|a| a == game_saves::notice::OPEN_FLAG) {
+                let _ = app.emit("myle-navigate", "game-saves");
             }
         }))
         .plugin(tauri_plugin_opener::init())
@@ -328,7 +382,7 @@ pub fn run() {
             game_saves::commands::game_saves_sync_import,
             game_saves::commands::game_saves_cancel
         ])
-        .build(tauri::generate_context!())
+        .build(context())
         .expect("error while building the application");
 
     app.run(move |_app, event| {

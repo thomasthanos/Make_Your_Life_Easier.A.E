@@ -45,6 +45,8 @@ async fn run() -> i32 {
 
     let result = run_due(&root, &mut value, &operation).await;
     let completed = parser::now();
+    // What happened, on the screen: the backup is done either way.
+    super::notice::show(&super::notice::Notice::from_result(&result, completed));
     // A backup can take minutes, and the app may have changed the settings
     // meanwhile (a new custom game, another backup folder). Only the fields
     // this run owns are written onto a fresh copy, so none of that is lost.

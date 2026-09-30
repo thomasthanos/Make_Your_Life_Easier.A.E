@@ -5,6 +5,7 @@ mod detection;
 mod engine;
 mod headless;
 mod models;
+pub(crate) mod notice;
 mod parser;
 mod scan_cache;
 mod settings;
