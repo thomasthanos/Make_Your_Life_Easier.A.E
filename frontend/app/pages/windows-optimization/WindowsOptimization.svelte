@@ -3,6 +3,7 @@
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import Gauge from "@lucide/svelte/icons/gauge";
   import KeyRound from "@lucide/svelte/icons/key-round";
+  import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import LogIn from "@lucide/svelte/icons/log-in";
   import Power from "@lucide/svelte/icons/power";
@@ -16,6 +17,7 @@
   import BiosRestartDialog from "./BiosRestartDialog.svelte";
   import AppsTab from "./debloat/AppsTab.svelte";
   import DebloatTab from "./debloat/DebloatTab.svelte";
+  import StartMenuTab from "./debloat/StartMenuTab.svelte";
   import { debloat, type Tab } from "./debloat/state.svelte";
   import TweaksTab from "./debloat/TweaksTab.svelte";
   import { windowsOptimizationState as tools } from "./state.svelte";
@@ -28,6 +30,7 @@
   const tabs: { id: Tab; label: string; icon: typeof Wrench }[] = [
     { id: "debloat", label: "Debloat", icon: WandSparkles },
     { id: "tweaks", label: "Tweaks", icon: SlidersHorizontal },
+    { id: "startMenu", label: "Start Menu", icon: LayoutGrid },
     { id: "apps", label: "Apps", icon: Package },
     { id: "tools", label: "Tools", icon: Wrench },
   ];
@@ -90,7 +93,7 @@
   {#if debloat.error}
     <div class="error-banner surface" role="alert"><CircleAlert size={16} /><span>{debloat.error}</span></div>
   {/if}
-  {#if tools.externallyLocked && !tools.ownBusy && !debloat.busy}
+  {#if tools.externallyLocked && !tools.ownBusy && !debloat.busy && !debloat.startMenuBusy}
     <div class="lock-banner surface"><LoaderCircle size={14} class="spin" /><span>Another app task is running. Optimization tools are temporarily locked.</span></div>
   {/if}
 
@@ -99,6 +102,8 @@
     <DebloatTab />
   {:else if debloat.tab === "tweaks"}
     <TweaksTab />
+  {:else if debloat.tab === "startMenu"}
+    <StartMenuTab />
   {:else if debloat.tab === "apps"}
     <AppsTab />
   {:else}

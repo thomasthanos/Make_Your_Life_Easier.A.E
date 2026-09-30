@@ -102,10 +102,12 @@
                     </div>
                     <div class="tweak-controls">
                       <span class="state {tweak.state}">{#if tweak.state === "applied"}<ShieldCheck size={11} />{/if}{labels[tweak.state]}</span>
-                      {#if tweak.canUndo || tweak.state === "notApplied" || tweak.state === "partial"}
+                      {#if tweak.state !== "unavailable"}
                         <div class="actions">
-                          {#if tweak.canUndo}
-                            <button class="btn small ghost" disabled={debloat.locked} onclick={() => debloat.undo([tweak])}><Undo2 size={12} /> Undo</button>
+                          {#if tweak.state === "applied" || tweak.canUndo}
+                            <button class="btn small ghost" disabled={debloat.locked} onclick={() => debloat.undo([tweak])}>
+                              <Undo2 size={12} /> {tweak.canUndo ? "Undo" : "Turn off"}
+                            </button>
                           {/if}
                           {#if tweak.state === "notApplied" || tweak.state === "partial"}
                             <button class="btn small primary" disabled={debloat.locked} onclick={() => debloat.apply(tweak)}>Apply</button>

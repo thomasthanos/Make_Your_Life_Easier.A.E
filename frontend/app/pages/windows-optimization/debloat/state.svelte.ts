@@ -4,7 +4,7 @@ import { SvelteSet } from "svelte/reactivity";
 import { confirm } from "../../../../lib/confirm.svelte";
 import { operationGate } from "../../../../lib/operation-gate.svelte";
 import { toast } from "../../../../lib/toast.svelte";
-import { debloatApi as api, type AppStatus, type DebloatEvent, type DebloatOutcome, type DebloatStatus, type Step, type TweakStatus } from "./api";
+import { debloatApi as api, type AppStatus, type DebloatEvent, type DebloatOutcome, type DebloatStatus, type StartMenuUpdate, type Step, type TweakStatus } from "./api";
 
 const SKIPPED_KEY = "myle.debloat.skipped";
 const APPS_KEY = "myle.debloat.apps";
@@ -31,7 +31,7 @@ function saveSet(key: string, set: Set<string>) {
   }
 }
 
-export type Tab = "debloat" | "tweaks" | "apps" | "tools";
+export type Tab = "debloat" | "tweaks" | "startMenu" | "apps" | "tools";
 
 class DebloatState {
   tab = $state<Tab>("debloat");
@@ -44,6 +44,7 @@ class DebloatState {
   #apps: SvelteSet<string> | null = null;
   appsVersion = $state(0);
   busy = $state(false);
+  startMenuBusy = $state(false);
   /** What the current (or last) run did, step by step. */
   steps = $state<Step[]>([]);
   /** How many steps the current run has, known before they start. */
@@ -52,7 +53,7 @@ class DebloatState {
   /** The phase of a run: for the button and the progress header. */
   phase = $state<"idle" | "restorePoint" | "running" | "done">("idle");
 
-  readonly locked = $derived(this.busy || operationGate.lockedFor("windows-optimization"));
+  readonly locked = $derived(this.busy || this.startMenuBusy || operationGate.lockedFor("windows-optimization"));
 
   readonly debloatTweaks = $derived((this.status?.tweaks ?? []).filter((tweak) => tweak.debloat && tweak.state !== "unavailable"));
 
@@ -242,18 +243,22 @@ class DebloatState {
     await this.#perform(() => api.run([tweak.id], [], this.#onEvent), false, 1);
   }
 
-  async undo(tweaks: TweakStatus[]) {
-    if (!tweaks.length) return;
+  async undo(tweaks: TweakStatus[]): Promise<boolean> {
+    if (!tweaks.length) return false;
+    const single = tweaks.length === 1 ? tweaks[0] : null;
+    const isUndo = single ? single.canUndo : true;
     const ok = await confirm({
-      title: tweaks.length === 1 ? `Undo “${tweaks[0].title}”?` : `Undo ${tweaks.length} changes?`,
-      message:
-        tweaks.length === 1
+      title: single ? `${isUndo ? "Undo" : "Turn off"} “${single.title}”?` : `Undo ${tweaks.length} changes?`,
+      message: single
+        ? isUndo
           ? "What MYLE changed is put back exactly as it was before."
-          : `Everything MYLE changed is put back exactly as it was before:\n${tweaks.map((tweak) => `• ${tweak.title}`).join("\n")}`,
-      confirmLabel: "Undo",
+          : "This setting will be switched back to the Windows default."
+        : `Everything MYLE changed is put back exactly as it was before:\n${tweaks.map((tweak) => `• ${tweak.title}`).join("\n")}`,
+      confirmLabel: isUndo ? "Undo" : "Turn off",
     });
-    if (!ok) return;
+    if (!ok) return false;
     await this.#perform(() => api.undo(tweaks.map((tweak) => tweak.id), this.#onEvent), false, tweaks.length);
+    return true;
   }
 
   async removeApps(apps: AppStatus[]) {
@@ -273,6 +278,70 @@ class DebloatState {
       await api.openStore(app.id);
     } catch (error) {
       toast.error(message(error));
+    }
+  }
+
+  async setStartMenu(update: StartMenuUpdate) {
+    if (this.locked) return;
+    try {
+      const next = await api.startMenuSet(update);
+      if (this.status) this.status.startMenu = next;
+    } catch (error) {
+      toast.error(message(error));
+    }
+  }
+
+  async setHideRecommended(hide: boolean) {
+    if (this.locked || !operationGate.begin("windows-optimization")) return;
+    this.startMenuBusy = true;
+    try {
+      const next = await api.startMenuHideRecommended(hide);
+      if (this.status) this.status.startMenu = next;
+      toast.success(hide ? "Recommended section hidden." : "Recommended section restored.");
+    } catch (error) {
+      toast.error(message(error));
+    } finally {
+      this.startMenuBusy = false;
+      operationGate.end("windows-optimization");
+    }
+  }
+
+  async applyStartPins(pins: string[], label: string) {
+    const ok = await confirm({
+      title: `${label}?`,
+      message:
+        pins.length === 0
+          ? "Your current Start Menu pins will be backed up first, then all pinned apps will be cleared from the Start Menu."
+          : "Your current Start Menu pins will be backed up first, then the Start Menu will be updated with your selected apps.",
+      confirmLabel: "Apply",
+    });
+    if (!ok) return;
+    if (this.locked || !operationGate.begin("windows-optimization")) return;
+    this.startMenuBusy = true;
+    try {
+      const next = await api.startMenuApplyPins(pins);
+      if (this.status) this.status.startMenu = next;
+      toast.success("Start Menu pinned apps updated.");
+    } catch (error) {
+      toast.error(message(error));
+    } finally {
+      this.startMenuBusy = false;
+      operationGate.end("windows-optimization");
+    }
+  }
+
+  async restoreStartPins() {
+    if (this.locked || !operationGate.begin("windows-optimization")) return;
+    this.startMenuBusy = true;
+    try {
+      const next = await api.startMenuRestorePins();
+      if (this.status) this.status.startMenu = next;
+      toast.success("Previous Start Menu pins restored.");
+    } catch (error) {
+      toast.error(message(error));
+    } finally {
+      this.startMenuBusy = false;
+      operationGate.end("windows-optimization");
     }
   }
 }

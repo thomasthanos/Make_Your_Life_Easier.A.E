@@ -82,13 +82,12 @@
         <span class="section-icon"><Info size={15} /></span>
         <h3>What it does</h3>
       </div>
-      <span class="counter">{planned} of {debloat.debloatTweaks.length} selected</span>
+      <span class="counter">{debloat.debloatTweaks.filter((t) => t.state === "applied").length} of {debloat.debloatTweaks.length} enabled</span>
     </header>
     <ul class="rows">
       {#each debloat.debloatTweaks as tweak (tweak.id)}
         {@const done = tweak.state === "applied"}
-        {@const enabled = !done && !debloat.skipped.has(tweak.id)}
-        <li class:done class:enabled>
+        <li class:done class:enabled={done}>
           <label>
             <span class="text">
               <strong>
@@ -99,18 +98,28 @@
             </span>
             <span class="row-right">
               {#if done}
-                <span class="tag ok"><ShieldCheck size={11} /> Done</span>
+                <span class="tag ok"><ShieldCheck size={11} /> On</span>
+              {:else if tweak.state === "partial"}
+                <span class="tag partial">Partly</span>
               {:else}
-                {#if tweak.state === "partial"}<span class="tag partial">Partly</span>{/if}
-                <input
-                  type="checkbox"
-                  class="switch"
-                  role="switch"
-                  checked={!debloat.skipped.has(tweak.id)}
-                  disabled={debloat.busy}
-                  onchange={(event) => debloat.setTweak(tweak.id, event.currentTarget.checked)}
-                />
+                <span class="tag off">Off</span>
               {/if}
+              <input
+                type="checkbox"
+                class="switch"
+                role="switch"
+                checked={done}
+                disabled={debloat.busy}
+                onchange={async (event) => {
+                  const input = event.currentTarget;
+                  input.checked = done;
+                  if (done) {
+                    await debloat.undo([tweak]);
+                  } else {
+                    await debloat.apply(tweak);
+                  }
+                }}
+              />
             </span>
           </label>
         </li>
@@ -363,12 +372,16 @@
     transition: background var(--dur-fast), border-color var(--dur-fast);
   }
 
+  .rows li:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
   .rows li.enabled {
     border-color: rgb(var(--accent-rgb) / 0.14);
     background: rgb(var(--accent-rgb) / 0.03);
   }
 
-  .rows li:hover:not(.done) {
+  .rows li:hover {
     border-color: rgb(255 255 255 / 0.11);
     background: rgb(255 255 255 / 0.035);
   }
@@ -381,10 +394,6 @@
     height: 100%;
     padding: 10px 12px;
     cursor: pointer;
-  }
-
-  .rows li.done label {
-    cursor: default;
   }
 
   .text {
@@ -401,10 +410,6 @@
     gap: 6px;
     font-size: 12.5px;
     font-weight: 600;
-  }
-
-  .rows li.done .text strong {
-    color: var(--text-2);
   }
 
   .text small {
@@ -449,6 +454,10 @@
     border-color: rgb(237 170 73 / 0.2);
     background: rgb(237 170 73 / 0.04);
     color: rgb(239 191 111 / 0.85);
+  }
+
+  .tag.off {
+    color: var(--text-3);
   }
 
   /* ── Responsive ───────────────────────────────────────────────────────── */

@@ -15,6 +15,7 @@ mod detect;
 mod helper;
 #[cfg(test)]
 mod sandbox_tests;
+mod start_menu;
 mod system;
 mod undo;
 
@@ -63,6 +64,7 @@ pub struct DebloatStatus {
     windows: system::WindowsInfo,
     tweaks: Vec<detect::TweakStatus>,
     apps: Vec<detect::AppStatus>,
+    start_menu: start_menu::StartMenuStatus,
     /// The administrator helper is running: no prompt before the next change.
     admin_ready: bool,
 }
@@ -78,6 +80,7 @@ pub async fn debloat_status() -> Result<DebloatStatus, String> {
         DebloatStatus {
             tweaks: detect::tweaks(windows.build, &packages, &store),
             apps: detect::apps(&packages, &store),
+            start_menu: start_menu::status(),
             windows,
             admin_ready,
         }
@@ -187,6 +190,23 @@ fn apply_user(tweak: &'static Tweak) -> (Vec<Saved>, Vec<String>) {
         }
     }
     (saved, errors)
+}
+
+/// What turning a tweak off puts back: exactly what MYLE kept when it
+/// applied it, and nothing else (a part that was on before MYLE ran stays
+/// on). Only when MYLE kept nothing, the tweak being on before MYLE ever
+/// ran, the Windows default for each part that is on.
+fn undo_records(tweak: &Tweak, saved: Vec<Saved>, packages: &[String]) -> Vec<Saved> {
+    if !saved.is_empty() {
+        return saved;
+    }
+    tweak
+        .ops
+        .iter()
+        .enumerate()
+        .filter(|(_, op)| detect::op_applied(op, packages) == Some(true))
+        .filter_map(|(index, op)| detect::default_before(op).map(|before| Saved { op: index, before }))
+        .collect()
 }
 
 /// The user's own part of Undo; returns the operations put back.
@@ -374,6 +394,7 @@ async fn finish(progress: &Progress<'_>, clock: bool, restart_explorer: bool) {
         }
         system::broadcast_setting_change("Policy");
         system::broadcast_setting_change("TraySettings");
+        system::broadcast_setting_change("ImmersiveColorSet");
     })
     .await;
     if restart_explorer {
@@ -419,23 +440,27 @@ pub async fn debloat_undo(
 ) -> Result<DebloatOutcome, String> {
     let _exclusive = jobs.start_exclusive(&format!("debloat-undo-{}", Uuid::new_v4().simple()))?;
     let progress = Progress { channel: &on_event };
+    let (build, packages) = tauri::async_runtime::spawn_blocking(|| (system::windows_info().build, system::installed_packages()))
+        .await
+        .map_err(download::err)?;
     let mut store = Store::load();
     let mut outcome = DebloatOutcome::default();
     let mut restart_explorer = false;
     let mut clock = false;
-    let chosen: Vec<&'static Tweak> = catalog::TWEAKS
-        .iter()
-        .filter(|tweak| tweaks.iter().any(|id| id == tweak.id) && store.tweaks.contains_key(tweak.id))
-        .collect();
+    let chosen = chosen(&tweaks, build);
 
     for tweak in chosen {
         let label = format!("Undo: {}", tweak.title);
         progress.step(tweak.id, &label, StepState::Running, None);
-        let saved = store.saved(tweak.id);
-        let saved_for_user = saved.clone();
-        let (mut undone, mut errors) = tauri::async_runtime::spawn_blocking(move || undo_user(tweak, &saved_for_user))
-            .await
-            .map_err(download::err)?;
+        let saved_from_store = store.saved(tweak.id);
+        let packages_for_tweak = packages.clone();
+        let (saved, mut undone, mut errors) = tauri::async_runtime::spawn_blocking(move || {
+            let saved = undo_records(tweak, saved_from_store, &packages_for_tweak);
+            let (undone, errors) = undo_user(tweak, &saved);
+            (saved, undone, errors)
+        })
+        .await
+        .map_err(download::err)?;
         clock |= saved.iter().any(|record| matches!(record.before, Before::Clock { .. }) && undone.contains(&record.op));
 
         let for_helper: Vec<Saved> = saved
@@ -509,9 +534,81 @@ fn open(url: &str) -> Result<(), String> {
     if result as isize > 32 { Ok(()) } else { Err("The Microsoft Store could not be opened.".into()) }
 }
 
+// ---------------------------------------------------------------------------
+// Start Menu customization
+
+#[tauri::command]
+pub async fn debloat_start_menu_set(update: start_menu::StartMenuUpdate) -> Result<start_menu::StartMenuStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || start_menu::apply_user_update(update))
+        .await
+        .map_err(download::err)?
+}
+
+#[tauri::command]
+pub async fn debloat_start_menu_hide_recommended(hide: bool) -> Result<start_menu::StartMenuStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || start_menu::apply_user_hide_recommended(hide))
+        .await
+        .map_err(download::err)??;
+    let reply = ask(&Request::SetHideRecommended { hide }).await?;
+    if !reply.errors.is_empty() {
+        return Err(reply.errors.join(" "));
+    }
+    tauri::async_runtime::spawn_blocking(|| {
+        system::broadcast_setting_change("Policy");
+        start_menu::restart_start_menu();
+        start_menu::status()
+    })
+    .await
+    .map_err(download::err)
+}
+
+#[tauri::command]
+pub async fn debloat_start_menu_apply_pins(pins: Vec<String>) -> Result<start_menu::StartMenuStatus, String> {
+    let json = start_menu::build_pins_json(&pins)?;
+    tauri::async_runtime::spawn_blocking(start_menu::backup_start_bin)
+        .await
+        .map_err(download::err)?;
+    let reply = ask(&Request::SetStartPins { json: Some(json) }).await?;
+    if !reply.errors.is_empty() {
+        return Err(reply.errors.join(" "));
+    }
+    tauri::async_runtime::spawn_blocking(|| {
+        system::broadcast_setting_change("Policy");
+        start_menu::restart_start_menu();
+    })
+    .await
+    .map_err(download::err)?;
+    tokio::time::sleep(std::time::Duration::from_millis(1400)).await;
+    let _ = ask(&Request::SetStartPins { json: None }).await;
+    tauri::async_runtime::spawn_blocking(start_menu::status)
+        .await
+        .map_err(download::err)
+}
+
+#[tauri::command]
+pub async fn debloat_start_menu_restore_pins() -> Result<start_menu::StartMenuStatus, String> {
+    if SESSION.try_lock().map(|s| s.is_some()).unwrap_or(false) {
+        let _ = ask(&Request::SetStartPins { json: None }).await;
+    }
+    tauri::async_runtime::spawn_blocking(|| {
+        start_menu::restore_start_bin()?;
+        Ok(start_menu::status())
+    })
+    .await
+    .map_err(download::err)?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn undo_puts_back_only_what_myle_kept() {
+        // Whatever else of the tweak is on stays on: it was so before MYLE.
+        let tweak = catalog::find("location").unwrap();
+        let kept = vec![Saved { op: 0, before: Before::Reg { value: system::Value::Absent, created: None } }];
+        assert_eq!(undo_records(tweak, kept.clone(), &[]), kept);
+    }
 
     #[test]
     fn events_and_outcomes_keep_their_shape() {

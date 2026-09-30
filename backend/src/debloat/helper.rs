@@ -38,6 +38,10 @@ pub enum Request {
     /// A restore point before changes; `turn_on` first turns on System
     /// Protection for the Windows drive.
     RestorePoint { turn_on: bool },
+    /// Hides or shows the Start Menu Recommended section machine-wide.
+    SetHideRecommended { hide: bool },
+    /// Applies or clears the Start Menu `ConfigureStartPins` policy.
+    SetStartPins { json: Option<String> },
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -102,6 +106,14 @@ pub fn handle(request: Request) -> Reply {
         },
         Request::RemoveApps { packages } => remove_apps(&packages),
         Request::RestorePoint { turn_on } => Reply { restore_point: Some(restore_point(turn_on)), ..Reply::default() },
+        Request::SetHideRecommended { hide } => match super::start_menu::apply_machine_hide_recommended(hide) {
+            Ok(()) => Reply::default(),
+            Err(e) => Reply::error(e),
+        },
+        Request::SetStartPins { json } => match super::start_menu::apply_machine_start_pins(json.as_deref()) {
+            Ok(()) => Reply::default(),
+            Err(e) => Reply::error(e),
+        },
     }
 }
 
@@ -125,7 +137,7 @@ fn apply(tweak: &catalog::Tweak) -> Reply {
                     }
                 }
             }
-            Op::Service { name, to, from } => match system::start_type(name) {
+            Op::Service { name, to, from, .. } => match system::start_type(name) {
                 Ok(Some(current)) if from.contains(&current) => {
                     system::set_start_type(name, to).map(|()| Some(Before::Service { start: current }))
                 }

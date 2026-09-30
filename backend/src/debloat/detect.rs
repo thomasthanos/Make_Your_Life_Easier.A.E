@@ -4,9 +4,9 @@
 
 use serde::Serialize;
 
-use super::catalog::{self, Hive, Op, Tweak};
-use super::system;
-use super::undo::Store;
+use super::catalog::{self, Data, Hive, Op, Tweak};
+use super::system::{self, Value};
+use super::undo::{Before, Store};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,11 +50,11 @@ pub struct AppStatus {
 
 /// One operation's standing: `None` when it does not apply here (a
 /// service or task this PC does not have, or one the user set by hand).
-fn op_applied(op: &Op, packages: &[String]) -> Option<bool> {
+pub(super) fn op_applied(op: &Op, packages: &[String]) -> Option<bool> {
     match *op {
         Op::Reg { best_effort: true, .. } => None,
         Op::Reg { hive, path, name, data, .. } => Some(system::read(hive, path, name).matches(data)),
-        Op::Service { name, to, from } => {
+        Op::Service { name, to, from, .. } => {
             let current = system::start_type(name).ok()??;
             if current.rank() >= to.rank() {
                 Some(true)
@@ -71,6 +71,50 @@ fn op_applied(op: &Op, packages: &[String]) -> Option<bool> {
         }
         Op::Clock24 => system::time_formats().ok().map(|(short, _)| system::is_24h(&short)),
         Op::RemoveEdge => Some(!system::edge_installed()),
+    }
+}
+
+/// The Windows default ("Off" state) for an operation when turning off a
+/// tweak that was already in place on this PC before MYLE ran.
+pub(super) fn default_before(op: &Op) -> Option<Before> {
+    match *op {
+        Op::Reg { path, name, data, .. } => {
+            if path.contains(r"Policies\") || path.ends_with(r"Siuf\Rules") {
+                return Some(Before::Reg { value: Value::Absent, created: None });
+            }
+            if path.ends_with("InprocServer32") {
+                return Some(Before::Reg {
+                    value: Value::Absent,
+                    created: Some(r"Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}".into()),
+                });
+            }
+            let value = match (name, data) {
+                ("Hidden", Data::Dword(1)) => Value::Dword { value: 2 },
+                ("ShellFeedsTaskbarViewMode", Data::Dword(2)) => Value::Dword { value: 0 },
+                ("CortanaConsent", Data::Dword(0)) => Value::Absent,
+                (_, Data::Dword(0)) => Value::Dword { value: 1 },
+                (_, Data::Dword(1)) => Value::Dword { value: 0 },
+                ("Value", Data::Sz("Deny")) => Value::Sz { value: "Allow".into() },
+                ("MouseSpeed", Data::Sz("0")) => Value::Sz { value: "1".into() },
+                ("MouseThreshold1", Data::Sz("0")) => Value::Sz { value: "6".into() },
+                ("MouseThreshold2", Data::Sz("0")) => Value::Sz { value: "10".into() },
+                ("Flags", Data::Sz("506")) => Value::Sz { value: "510".into() },
+                _ => Value::Absent,
+            };
+            Some(Before::Reg { value, created: None })
+        }
+        // Never a service Windows itself keeps off (Remote Registry).
+        Op::Service { to, windows, .. } => (windows != to).then_some(Before::Service { start: windows }),
+        Op::Task { .. } => Some(Before::Task { enabled: true }),
+        Op::Clock24 => {
+            let (short, long) = system::time_formats().ok()?;
+            Some(Before::Clock {
+                short: system::to_12h(&short),
+                long: system::to_12h(&long),
+            })
+        }
+        Op::RemoveEdge => Some(Before::Edge),
+        Op::Appx { .. } => None,
     }
 }
 
@@ -154,11 +198,53 @@ mod tests {
     }
 
     #[test]
+    fn turning_services_off_never_starts_what_windows_keeps_off() {
+        let services = catalog::find("services").unwrap();
+        let start_of = |name: &str| {
+            let op = services.ops.iter().find(|op| matches!(op, Op::Service { name: n, .. } if *n == name)).unwrap();
+            default_before(op)
+        };
+        assert_eq!(start_of("RemoteRegistry"), None);
+        assert_eq!(start_of("RetailDemo"), Some(Before::Service { start: catalog::Start::Manual }));
+        assert_eq!(start_of("TrkWks"), Some(Before::Service { start: catalog::Start::Auto }));
+    }
+
+    #[test]
     fn what_runs_as_administrator() {
         assert!(needs_admin(catalog::find("telemetry").unwrap()));
         assert!(needs_admin(catalog::find("edge").unwrap()));
         assert!(!needs_admin(catalog::find("clock-24h").unwrap()));
         assert!(!needs_admin(catalog::find("taskbar-search").unwrap()));
         assert!(!needs_admin(catalog::find("classic-context-menu").unwrap()));
+    }
+
+    #[test]
+    fn default_before_turns_every_op_off() {
+        for tweak in catalog::TWEAKS {
+            for op in tweak.ops {
+                if matches!(op, Op::Appx { .. }) {
+                    continue;
+                }
+                let Some(before) = default_before(op) else {
+                    // Only a service Windows keeps off itself has nothing to go back to.
+                    assert!(matches!(op, Op::Service { to, windows, .. } if to == windows), "{}: missing default_before for {op:?}", tweak.id);
+                    continue;
+                };
+                match (*op, before) {
+                    (Op::Reg { data, .. }, Before::Reg { value, .. }) => {
+                        assert!(!value.matches(data), "{}: default_before {value:?} still matches {data:?}", tweak.id);
+                    }
+                    (Op::Service { to, from, windows, .. }, Before::Service { start }) => {
+                        assert!(start == windows && start.rank() < to.rank() && from.contains(&start), "{}", tweak.id);
+                    }
+                    (Op::Task { .. }, Before::Task { enabled }) => assert!(enabled, "{}", tweak.id),
+                    (Op::Clock24, Before::Clock { short, long }) => {
+                        assert!(!system::is_24h(&short) && !system::is_24h(&long), "{}", tweak.id);
+                    }
+                    (Op::RemoveEdge, Before::Edge) => {}
+                    _ => panic!("{}: mismatched default_before", tweak.id),
+                }
+            }
+        }
     }
 }

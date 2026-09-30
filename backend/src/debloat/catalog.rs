@@ -75,12 +75,15 @@ pub enum Op {
         /// Windows may refuse it (UserChoice protection); the rest goes on.
         best_effort: bool,
     },
-    /// A service's start type, changed only from one of `from` (the Windows
-    /// default), so a service the user set up by hand is left alone.
+    /// A service's start type, changed only from one of `from` (what Windows
+    /// may have), so a service the user set up by hand is left alone.
     Service {
         name: &'static str,
         to: Start,
         from: &'static [Start],
+        /// The start type Windows ships with: what turning the tweak off
+        /// puts back when MYLE kept nothing. Nothing when it is `to` already.
+        windows: Start,
     },
     /// A scheduled task, disabled: `folder` and `name` as Task Scheduler
     /// shows them.
@@ -185,7 +188,7 @@ pub const TWEAKS: &[Tweak] = &[
             machine(r"SOFTWARE\Policies\Microsoft\Windows\DataCollection", "AllowTelemetry", Dword(0)),
             machine(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection", "AllowTelemetry", Dword(0)),
             machine(r"SOFTWARE\Policies\Microsoft\Windows\DataCollection", "DoNotShowFeedbackNotifications", Dword(1)),
-            Op::Service { name: "DiagTrack", to: Start::Disabled, from: NOT_DISABLED },
+            Op::Service { name: "DiagTrack", to: Start::Disabled, from: NOT_DISABLED, windows: Start::Auto },
             task(APP_EXPERIENCE, "Microsoft Compatibility Appraiser"),
             task(APP_EXPERIENCE, "Microsoft Compatibility Appraiser Exp"),
             task(APP_EXPERIENCE, "ProgramDataUpdater"),
@@ -250,12 +253,12 @@ pub const TWEAKS: &[Tweak] = &[
         reboot: true,
         confirm: None,
         ops: &[
-            Op::Service { name: "MapsBroker", to: Start::Manual, from: AUTO_START },
-            Op::Service { name: "PcaSvc", to: Start::Manual, from: AUTO_START },
-            Op::Service { name: "TrkWks", to: Start::Manual, from: AUTO_START },
-            Op::Service { name: "StorSvc", to: Start::Manual, from: AUTO_START },
-            Op::Service { name: "RetailDemo", to: Start::Disabled, from: NOT_DISABLED },
-            Op::Service { name: "RemoteRegistry", to: Start::Disabled, from: NOT_DISABLED },
+            Op::Service { name: "MapsBroker", to: Start::Manual, from: AUTO_START, windows: Start::AutoDelayed },
+            Op::Service { name: "PcaSvc", to: Start::Manual, from: AUTO_START, windows: Start::Auto },
+            Op::Service { name: "TrkWks", to: Start::Manual, from: AUTO_START, windows: Start::Auto },
+            Op::Service { name: "StorSvc", to: Start::Manual, from: AUTO_START, windows: Start::Auto },
+            Op::Service { name: "RetailDemo", to: Start::Disabled, from: NOT_DISABLED, windows: Start::Manual },
+            Op::Service { name: "RemoteRegistry", to: Start::Disabled, from: NOT_DISABLED, windows: Start::Disabled },
         ],
     },
     Tweak {
@@ -280,7 +283,7 @@ pub const TWEAKS: &[Tweak] = &[
             user(r"Software\Policies\Microsoft\Windows\WindowsAI", "DisableClickToDo", Dword(1)),
             machine(r"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableClickToDo", Dword(1)),
             machine(r"SOFTWARE\Policies\WindowsNotepad", "DisableAIFeatures", Dword(1)),
-            Op::Service { name: "WSAIFabricSvc", to: Start::Manual, from: AUTO_START },
+            Op::Service { name: "WSAIFabricSvc", to: Start::Manual, from: AUTO_START, windows: Start::Auto },
         ],
     },
     Tweak {
@@ -295,7 +298,7 @@ pub const TWEAKS: &[Tweak] = &[
         reboot: false,
         confirm: None,
         ops: &[
-            Op::Service { name: "lfsvc", to: Start::Disabled, from: NOT_DISABLED },
+            Op::Service { name: "lfsvc", to: Start::Disabled, from: NOT_DISABLED, windows: Start::Manual },
             machine(r"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location", "Value", Sz("Deny")),
             user(r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location", "Value", Sz("Deny")),
             machine(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Sensor\Overrides\{BFA794E4-F964-4FDB-90F6-51056BFE4B44}", "SensorPermissionState", Dword(0)),
@@ -344,8 +347,9 @@ pub const TWEAKS: &[Tweak] = &[
             // Windows 11 protects TaskbarDa; the policy works regardless.
             user_best_effort(ADVANCED, "TaskbarDa", Dword(0)),
             machine(r"SOFTWARE\Policies\Microsoft\Dsh", "AllowNewsAndInterests", Dword(0)),
-            // Windows 10's "News and interests".
-            user(r"Software\Microsoft\Windows\CurrentVersion\Feeds", "ShellFeedsTaskbarViewMode", Dword(2)),
+            // Windows 10's "News and interests": Windows 11 24H2 refuses it
+            // (access denied); the policy below works regardless.
+            user_best_effort(r"Software\Microsoft\Windows\CurrentVersion\Feeds", "ShellFeedsTaskbarViewMode", Dword(2)),
             machine(r"SOFTWARE\Policies\Microsoft\Windows\Windows Feeds", "EnableFeeds", Dword(0)),
         ],
     },
@@ -816,8 +820,9 @@ mod tests {
                         assert!(allowed_machine_strings(path, name).contains(value), "{path}\\{name}");
                     }
                 }
-                if let Op::Service { to, from, .. } = op {
+                if let Op::Service { to, from, windows, .. } = op {
                     assert!(!from.contains(to), "{}: nothing to change", tweak.id);
+                    assert!(windows == to || from.contains(windows), "{}: Windows' own start type", tweak.id);
                 }
             }
         }

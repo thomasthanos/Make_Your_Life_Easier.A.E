@@ -344,8 +344,20 @@ pub use services::{set_start_type, start_type};
 mod tasks {
     use windows::Win32::Foundation::{VARIANT_FALSE, VARIANT_TRUE};
     use windows::Win32::System::Com::{
-        CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoUninitialize,
+        CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoIncrementMTAUsage, CoInitializeEx, CoUninitialize,
     };
+
+    /// Keeps COM's multithreaded apartment up for the rest of the process.
+    /// Without it, the `CoUninitialize` below can be the last one and tear
+    /// the apartment down while another thread (Shell calls, which use it
+    /// without initializing COM themselves) still has objects in it.
+    fn keep_mta() {
+        static ONCE: std::sync::Once = std::sync::Once::new();
+        // SAFETY: no arguments but the cookie, which is never given back.
+        ONCE.call_once(|| {
+            let _ = unsafe { CoIncrementMTAUsage() };
+        });
+    }
     use windows::Win32::System::TaskScheduler::{IRegisteredTask, ITaskService, TaskScheduler};
     use windows::Win32::System::Variant::VARIANT;
     use windows::core::BSTR;
@@ -357,26 +369,28 @@ mod tasks {
         act: impl FnOnce(&IRegisteredTask) -> windows::core::Result<T>,
     ) -> Result<Option<T>, String> {
         // SAFETY: COM is initialized for this thread for the duration, and
-        // every interface is dropped before it is uninitialized.
+        // every interface is dropped before it is uninitialized: the error's
+        // own error info too, which is read and let go inside the match.
+        keep_mta();
         unsafe {
             let initialized = CoInitializeEx(None, COINIT_MULTITHREADED).is_ok();
-            let result = (|| {
+            let result = match (|| {
                 let service: ITaskService = CoCreateInstance(&TaskScheduler, None, CLSCTX_INPROC_SERVER)?;
                 let empty = VARIANT::default();
                 service.Connect(&empty, &empty, &empty, &empty)?;
                 let folder = service.GetFolder(&BSTR::from(folder))?;
                 let task = folder.GetTask(&BSTR::from(name))?;
                 act(&task)
-            })();
-            if initialized {
-                CoUninitialize();
-            }
-            match result {
+            })() {
                 Ok(value) => Ok(Some(value)),
                 // Not found: the file, or the path.
                 Err(e) if matches!(e.code().0 as u32, 0x8007_0002 | 0x8007_0003) => Ok(None),
                 Err(e) => Err(format!("{folder}\\{name}: {}", e.message())),
+            };
+            if initialized {
+                CoUninitialize();
             }
+            result
         }
     }
 
@@ -477,6 +491,30 @@ pub fn to_24h(format: &str) -> String {
         }
     }
     out.trim().to_string()
+}
+
+/// The same format with 12 hours: "HH:mm" → "h:mm tt", "HH:mm:ss" → "h:mm:ss tt".
+pub fn to_12h(format: &str) -> String {
+    if !is_24h(format) {
+        return format.to_string();
+    }
+    if format.contains('\'') {
+        return if format.matches(':').count() >= 2 || format.contains('s') { "h:mm:ss tt".into() } else { "h:mm tt".into() };
+    }
+    let mut out = String::new();
+    let mut chars = format.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            'H' | 'h' => {
+                while chars.peek().is_some_and(|&n| n == 'H' || n == 'h') {
+                    chars.next();
+                }
+                out.push('h');
+            }
+            other => out.push(other),
+        }
+    }
+    format!("{} tt", out.trim())
 }
 
 // ---------------------------------------------------------------------------

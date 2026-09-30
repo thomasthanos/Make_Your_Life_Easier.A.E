@@ -33,10 +33,42 @@ export interface AppStatus {
   storeId: string | null;
 }
 
+export type StartAlignment = "left" | "center";
+export type StartLayout = "default" | "morePins" | "moreRecommendations";
+export type StartAllAppsView = "category" | "grid" | "list";
+
+export interface StartMenuStatus {
+  supported: boolean;
+  alignment: StartAlignment;
+  layout: StartLayout;
+  allAppsView: StartAllAppsView;
+  hideRecommended: boolean;
+  showRecentApps: boolean;
+  showMostUsedApps: boolean;
+  showRecentFiles: boolean;
+  showRecommendations: boolean;
+  showAccountNotifications: boolean;
+  folders: string[];
+  hasPinsBackup: boolean;
+}
+
+export interface StartMenuUpdate {
+  alignment?: StartAlignment;
+  layout?: StartLayout;
+  allAppsView?: StartAllAppsView;
+  showRecentApps?: boolean;
+  showMostUsedApps?: boolean;
+  showRecentFiles?: boolean;
+  showRecommendations?: boolean;
+  showAccountNotifications?: boolean;
+  folders?: string[];
+}
+
 export interface DebloatStatus {
   windows: { build: number; name: string; windows11: boolean };
   tweaks: TweakStatus[];
   apps: AppStatus[];
+  startMenu: StartMenuStatus;
   adminReady: boolean;
 }
 
@@ -66,6 +98,10 @@ export interface DebloatApi {
   run(tweaks: string[], apps: string[], onEvent: (event: DebloatEvent) => void): Promise<DebloatOutcome>;
   undo(tweaks: string[], onEvent: (event: DebloatEvent) => void): Promise<DebloatOutcome>;
   openStore(app: string): Promise<void>;
+  startMenuSet(update: StartMenuUpdate): Promise<StartMenuStatus>;
+  startMenuHideRecommended(hide: boolean): Promise<StartMenuStatus>;
+  startMenuApplyPins(pins: string[]): Promise<StartMenuStatus>;
+  startMenuRestorePins(): Promise<StartMenuStatus>;
 }
 
 function channel(onEvent: (event: DebloatEvent) => void): Channel<DebloatEvent> {
@@ -80,6 +116,10 @@ const tauriApi: DebloatApi = {
   run: (tweaks, apps, onEvent) => invoke("debloat_run", { tweaks, apps, onEvent: channel(onEvent) }),
   undo: (tweaks, onEvent) => invoke("debloat_undo", { tweaks, onEvent: channel(onEvent) }),
   openStore: (app) => invoke("debloat_open_store", { app }),
+  startMenuSet: (update) => invoke("debloat_start_menu_set", { update }),
+  startMenuHideRecommended: (hide) => invoke("debloat_start_menu_hide_recommended", { hide }),
+  startMenuApplyPins: (pins) => invoke("debloat_start_menu_apply_pins", { pins }),
+  startMenuRestorePins: () => invoke("debloat_start_menu_restore_pins"),
 };
 
 /** In a plain browser (`npm run web:dev`): a pretend PC, to work on the page. */
@@ -167,10 +207,24 @@ function previewApi(): DebloatApi {
     onEvent({ event: "step", data: { id: "explorer", label: "Restart Explorer", state: "done", detail: null } });
     return { changed, failed: [], reboot: ids.includes("services"), needsAdmin: false };
   };
+  let startMenu: StartMenuStatus = {
+    supported: true,
+    alignment: "center",
+    layout: "default",
+    allAppsView: "category",
+    hideRecommended: false,
+    showRecentApps: true,
+    showMostUsedApps: true,
+    showRecentFiles: true,
+    showRecommendations: true,
+    showAccountNotifications: true,
+    folders: ["downloads", "settings"],
+    hasPinsBackup: false,
+  };
   return {
     async status() {
       await wait(250);
-      return { windows: { build: 26200, name: "Windows 11 Pro 25H2 (26200.6584)", windows11: true }, tweaks, apps, adminReady: false };
+      return { windows: { build: 26200, name: "Windows 11 Pro 25H2 (26200.6584)", windows11: true }, tweaks, apps, startMenu, adminReady: false };
     },
     async restorePoint() {
       await wait(1200);
@@ -179,6 +233,29 @@ function previewApi(): DebloatApi {
     run: (tweaksToRun, appIds, onEvent) => run(tweaksToRun, appIds, onEvent, false),
     undo: (ids, onEvent) => run(ids, [], onEvent, true),
     async openStore() {},
+    async startMenuSet(update) {
+      await wait(150);
+      startMenu = { ...startMenu, ...update };
+      return startMenu;
+    },
+    async startMenuHideRecommended(hide) {
+      await wait(400);
+      startMenu = {
+        ...startMenu,
+        hideRecommended: hide,
+        ...(hide ? { showRecentApps: false, showRecentFiles: false, showRecommendations: false } : { showRecentApps: true, showRecentFiles: true }),
+      };
+      return startMenu;
+    },
+    async startMenuApplyPins() {
+      await wait(900);
+      startMenu = { ...startMenu, hasPinsBackup: true };
+      return startMenu;
+    },
+    async startMenuRestorePins() {
+      await wait(700);
+      return startMenu;
+    },
   };
 }
 
