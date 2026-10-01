@@ -4,7 +4,7 @@
   // first hover an element's title moves to `data-tip` (so Windows shows
   // nothing), and stays readable to screen readers as its label or
   // description. Lines in a title ("\n") are kept, and long paths wrap.
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
 
   const SHOW_AFTER_MS = 450;
   /** Moving from one tooltip to the next shows the next at once. */
@@ -128,10 +128,16 @@
       [window, "blur", hide],
       [window, "resize", hide],
     ];
-    for (const [on, name, listener] of listeners) on.addEventListener(name, listener, options);
+    // Removing a focused element can dispatch focusout during a Svelte
+    // render. Native event handlers must run outside that render's tracking.
+    const removeListeners = listeners.map(([on, name, listener]) => {
+      const handle: EventListener = (event) => untrack(() => listener(event));
+      on.addEventListener(name, handle, options);
+      return () => on.removeEventListener(name, handle, options);
+    });
     return () => {
       clearTimeout(timer);
-      for (const [on, name, listener] of listeners) on.removeEventListener(name, listener, options);
+      for (const remove of removeListeners) remove();
     };
   });
 </script>
