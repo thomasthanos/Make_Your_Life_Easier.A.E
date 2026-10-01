@@ -2,6 +2,7 @@
   import ConfirmHost from "../lib/components/ConfirmHost.svelte";
   import Toaster from "../lib/components/Toaster.svelte";
   import TooltipHost from "../lib/components/TooltipHost.svelte";
+  import ContextMenuHost from "../lib/components/ContextMenuHost.svelte";
   import { onMount } from "svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
@@ -57,6 +58,7 @@
 <Toaster />
 <ConfirmHost />
 <TooltipHost />
+<ContextMenuHost appActions />
 
 <style>
   .shell {

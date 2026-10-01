@@ -80,7 +80,7 @@
         it somewhere safe, away from this PC. It is shown only now.
       </p>
     </div>
-    <div class="code selectable">{code}</div>
+    <div class="code selectable" data-sensitive>{code}</div>
     <div class="code-actions">
       <button class="btn" onclick={() => code && p.copyText(code)}><Copy size={14} /> Copy</button>
     </div>

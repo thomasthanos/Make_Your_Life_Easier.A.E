@@ -1,19 +1,16 @@
-// Makes the webview behave like a native window in release builds:
-// no browser context menu and no reload/print/find shortcuts.
+import { blockedWebviewShortcut } from "./webview-policy";
+
+// Native WebView2 settings also disable its menu and release DevTools.
 export function hardenWebview(): void {
   if (import.meta.env.DEV) return;
 
   document.addEventListener("contextmenu", (e) => {
-    const target = e.target as HTMLElement | null;
-    if (!target?.closest("input, textarea, .selectable")) e.preventDefault();
-  });
+    e.preventDefault();
+  }, true);
 
   document.addEventListener("keydown", (e) => {
-    const key = e.key.toLowerCase();
-    const blocked =
-      key === "f5" ||
-      key === "f7" ||
-      (e.ctrlKey && (key === "r" || key === "p" || key === "f" || key === "g" || key === "u"));
-    if (blocked) e.preventDefault();
-  });
+    if (!blockedWebviewShortcut(e, false)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
 }

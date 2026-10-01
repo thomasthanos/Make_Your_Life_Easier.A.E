@@ -45,7 +45,8 @@
   }
 
   function tipTarget(node: EventTarget | null): HTMLElement | null {
-    return node instanceof Element ? node.closest<HTMLElement>("[title], [data-tip]") : null;
+    if (!(node instanceof Element) || node.closest("[data-no-tooltip]")) return null;
+    return node.closest<HTMLElement>("[title], [data-tip]");
   }
 
   /** Below the element, or above it without room; under the pointer, kept

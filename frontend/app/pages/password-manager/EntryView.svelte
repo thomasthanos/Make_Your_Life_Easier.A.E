@@ -125,7 +125,7 @@
         <History size={13} /> {history ? "Hide" : "Show"} {entry.historyCount} earlier password{entry.historyCount === 1 ? "" : "s"}
       </button>
       {#if history}
-        <ul class="history">
+        <ul class="history" data-sensitive>
           {#each history as old, i (i)}
             <li><code class="selectable">{old.password}</code><span>until {when(old.changedAt)}</span></li>
           {/each}

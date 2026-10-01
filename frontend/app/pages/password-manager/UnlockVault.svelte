@@ -127,6 +127,7 @@
         <label class="sr-only" for="{fieldId}-code">Recovery code</label>
         <input
           id="{fieldId}-code"
+          data-sensitive
           class="input mono"
           placeholder="Paste your recovery code"
           autocomplete="off"

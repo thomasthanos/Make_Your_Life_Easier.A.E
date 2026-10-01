@@ -13,6 +13,7 @@ mod startup;
 mod storage;
 mod tray;
 mod updater;
+mod webview_policy;
 mod window_sizing;
 mod windows_optimization;
 
@@ -39,7 +40,7 @@ fn create_windows(app: &mut tauri::App) -> tauri::Result<()> {
     use tauri::window::Color;
 
     let data_dir = storage::webview_dir().map_err(std::io::Error::other)?;
-    WebviewWindowBuilder::new(
+    let splash = WebviewWindowBuilder::new(
         app,
         "splash",
         WebviewUrl::App("splash.html".into()),
@@ -52,10 +53,12 @@ fn create_windows(app: &mut tauri::App) -> tauri::Result<()> {
     .decorations(false)
     .shadow(true)
     .visible(false)
+    .devtools(cfg!(debug_assertions))
     .background_color(Color(10, 12, 18, 255))
     .data_directory(data_dir.clone())
     .build()?;
-    WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+    webview_policy::harden(&splash)?;
+    let main = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("MYLE")
         .inner_size(1280.0, 720.0)
         .min_inner_size(800.0, 500.0)
@@ -64,9 +67,11 @@ fn create_windows(app: &mut tauri::App) -> tauri::Result<()> {
         .transparent(true)
         .shadow(false)
         .visible(false)
+        .devtools(cfg!(debug_assertions))
         .background_color(Color(0, 0, 0, 0))
         .data_directory(data_dir)
         .build()?;
+    webview_policy::harden(&main)?;
     Ok(())
 }
 

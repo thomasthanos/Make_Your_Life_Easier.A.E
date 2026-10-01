@@ -115,6 +115,7 @@ pub fn create_window(app: &App) -> tauri::Result<()> {
         .always_on_top(true)
         .skip_taskbar(true)
         .focused(false)
+        .devtools(cfg!(debug_assertions))
         .background_color(tauri::window::Color(0, 0, 0, 0));
     if let Ok(dir) = crate::storage::local_dir() {
         // Its own profile: the main window's may be open with other options.
@@ -127,7 +128,8 @@ pub fn create_window(app: &App) -> tauri::Result<()> {
         let bottom = f64::from(work.position.y) / scale + f64::from(work.size.height) / scale;
         builder = builder.position(right - WIDTH - MARGIN, bottom - HEIGHT - MARGIN);
     }
-    builder.build()?;
+    let window = builder.build()?;
+    crate::webview_policy::harden(&window)?;
     Ok(())
 }
 

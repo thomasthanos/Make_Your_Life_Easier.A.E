@@ -18,6 +18,8 @@ mod relocate;
 mod shell;
 mod ui;
 mod webview2;
+#[path = "../../src/webview_policy.rs"]
+mod webview_policy;
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;

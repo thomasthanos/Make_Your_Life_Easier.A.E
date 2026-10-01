@@ -364,7 +364,7 @@ pub fn run(mode: Mode, cli: Cli) -> (i32, AfterExit) {
             } else {
                 format!("{} Setup", product::NAME)
             };
-            WebviewWindowBuilder::new(app, "setup", WebviewUrl::App("installer.html".into()))
+            let window = WebviewWindowBuilder::new(app, "setup", WebviewUrl::App("installer.html".into()))
                 .title(title)
                 .inner_size(720.0, 480.0)
                 .resizable(false)
@@ -373,9 +373,11 @@ pub fn run(mode: Mode, cli: Cli) -> (i32, AfterExit) {
                 .shadow(true)
                 .center()
                 .visible(false)
+                .devtools(cfg!(debug_assertions))
                 .background_color(tauri::window::Color(10, 12, 18, 255))
                 .data_directory(webview_dir.clone())
                 .build()?;
+            crate::webview_policy::harden(&window)?;
             Ok(())
         })
         .on_window_event(|window, event| {
