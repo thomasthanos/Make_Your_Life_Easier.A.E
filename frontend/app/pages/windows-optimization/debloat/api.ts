@@ -34,6 +34,10 @@ export interface AppStatus {
   group: AppGroup;
   /** The Quick setup profile that removes it; null: only when picked. */
   level: Level | null;
+  /** What it is, in a few words. */
+  about: string;
+  /** Why someone might keep it, when there is a reason. */
+  keep: string | null;
   /** Installed packages for this user; empty when it is not installed. */
   packages: string[];
   removedByMyle: boolean;
@@ -163,11 +167,11 @@ function previewApi(): DebloatApi {
     tweak("mouse-acceleration", "Turn off mouse acceleration", "The pointer moves as far as the mouse does.", "system", null, "notApplied"),
     tweak("sticky-keys", "No Sticky Keys prompt", "Pressing Shift five times no longer asks about Sticky Keys.", "system", null, "notApplied"),
   ];
-  const app = (id: string, title: string, group: AppGroup, level: Level | null, installed: boolean, storeId: string | null = null): AppStatus => ({
-    id, title, group, level, packages: installed ? [`Preview.${id}`] : [], removedByMyle: false, storeId,
+  const app = (id: string, title: string, group: AppGroup, level: Level | null, installed: boolean, storeId: string | null = null, about = "An app.", keep: string | null = null): AppStatus => ({
+    id, title, group, level, about, keep, packages: installed ? [`Preview.${id}`] : [], removedByMyle: false, storeId,
   });
   let apps: AppStatus[] = [
-    app("clipchamp", "Clipchamp", "microsoft", "recommended", true, "9P1J8S7CCWWT"),
+    app("clipchamp", "Clipchamp", "microsoft", "recommended", true, "9P1J8S7CCWWT", "Video editor."),
     app("get-started", "Get Started (Tips)", "microsoft", "recommended", true),
     app("office-hub", "Microsoft 365 (Office)", "microsoft", "recommended", true),
     app("solitaire", "Solitaire Collection", "microsoft", "recommended", true),
@@ -176,17 +180,17 @@ function previewApi(): DebloatApi {
     app("dev-home", "Dev Home", "microsoft", "recommended", true),
     app("copilot", "Microsoft Copilot", "microsoft", "recommended", true),
     app("mail-calendar", "Mail & Calendar", "microsoft", "maximum", true),
-    app("calculator", "Calculator", "microsoft", null, true),
+    app("calculator", "Calculator", "microsoft", null, true, null, "Everyday and scientific calculator.", "Most people use it."),
     app("photos", "Photos", "microsoft", null, true),
     app("notepad", "Notepad", "microsoft", null, true),
-    app("snipping-tool", "Snipping Tool", "microsoft", null, true),
+    app("snipping-tool", "Snipping Tool", "microsoft", null, true, null, "Screenshots (Win+Shift+S) and screen recording.", "Screenshots with Win+Shift+S need it."),
     app("phone-link", "Phone Link", "microsoft", null, true),
     app("bing-news", "Bing News", "bing", "recommended", true, "9WZDNCRFHVFW"),
     app("bing-weather", "Bing Weather", "bing", "recommended", true, "9WZDNCRFJ3Q2"),
     app("bing-search", "Bing Search", "bing", "recommended", true),
-    app("xbox-app", "Xbox", "xbox", null, true),
+    app("xbox-app", "Xbox", "xbox", null, true, null, "Xbox games and PC Game Pass.", "Needed for PC Game Pass and many Xbox games."),
     app("xbox-game-bar", "Xbox Game Bar", "xbox", null, true),
-    app("candy-crush", "Candy Crush Saga", "thirdParty", "light", true),
+    app("candy-crush", "Candy Crush Saga", "thirdParty", "light", true, null, "Puzzle game installed as an ad."),
     app("tiktok", "TikTok", "thirdParty", "light", true),
     app("spotify", "Spotify", "thirdParty", null, true),
     app("maps", "Maps", "microsoft", "recommended", false),

@@ -10,6 +10,8 @@
 
   let {
     title,
+    subtitle = "",
+    keep = null,
     summary = "",
     note = null,
     checked,
@@ -24,6 +26,10 @@
     aside,
   }: {
     title: string;
+    /** A few words after the name, on the same line (what an app is). */
+    subtitle?: string;
+    /** Why someone might keep it: a "Keep?" tag, explained on hover and under the line. */
+    keep?: string | null;
     /** What it does. */
     summary?: string;
     /** What to know first: what stops working or works differently. */
@@ -44,7 +50,7 @@
 
   const id = $props.id();
   let open = $state(false);
-  const hint = $derived([summary, note].filter(Boolean).join("\n\n"));
+  const hint = $derived([summary, note ?? keep].filter(Boolean).join("\n\n"));
 </script>
 
 <div class="setting" class:pending class:open>
@@ -63,10 +69,11 @@
         onchange(want);
       }}
     />
-    <span class="title">{title}</span>
+    <span class="title">{title}{#if subtitle}<small>{subtitle}</small>{/if}</span>
   </label>
   <span class="tags">
     {#if pending}<span class="tag pending">Pending</span>{/if}
+    {#if keep}<span class="tag keep" title={keep}>Keep?</span>{/if}
     {#if partial}<span class="tag partial" title="Part of it is in place already.">Partly</span>{/if}
     {#if recommended}<span class="tag star" title="Recommended for most people."><Star size={10} /></span>{/if}
     {#if caution}<span class="tag caution" title="Read what it does before you turn it on."><TriangleAlert size={11} /></span>{/if}
@@ -89,7 +96,7 @@
   {#if hint}
     <div class="about" id="{id}-about" hidden={!open}>
       {#if summary}<p>{summary}</p>{/if}
-      {#if note}<p class="note"><TriangleAlert size={11} />{note}</p>{/if}
+      {#if note ?? keep}<p class="note"><TriangleAlert size={11} />{note ?? keep}</p>{/if}
     </div>
   {/if}
 </div>
@@ -112,11 +119,13 @@
   .main { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 4px 0; cursor: pointer; }
   .main:has(input:disabled) { cursor: default; }
   .title { overflow: hidden; color: var(--text-1); font-size: 12.5px; font-weight: 520; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+  .title small { margin-left: 7px; color: var(--text-3); font-size: 11.5px; font-weight: 400; }
 
   .tags { display: flex; align-items: center; gap: 4px; }
   .tag { display: inline-flex; align-items: center; gap: 3px; height: 18px; padding: 0 5px; border-radius: 5px; font-size: 10px; font-weight: 600; white-space: nowrap; }
   .tag.pending { background: rgb(var(--accent-rgb) / 0.18); color: rgb(var(--accent-soft-rgb)); }
   .tag.partial { background: rgb(245 188 95 / 0.09); color: #efc38a; }
+  .tag.keep { background: rgb(245 188 95 / 0.09); color: #efc38a; cursor: help; }
   .tag.star { padding: 0 4px; color: rgb(var(--accent-soft-rgb)); }
   .tag.caution { padding: 0 4px; color: #efc38a; }
   .tag.restart { padding: 0 4px; color: var(--text-3); }

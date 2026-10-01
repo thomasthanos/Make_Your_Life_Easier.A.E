@@ -650,121 +650,147 @@ pub struct App {
     pub level: Option<Level>,
     /// Its Microsoft Store product id, to install it again.
     pub store_id: Option<&'static str>,
+    /// What it is, in a few words, for someone who does not know.
+    pub about: &'static str,
+    /// Why someone might keep it, when there is a reason.
+    pub keep: Option<&'static str>,
+}
+
+impl App {
+    const fn about(self, about: &'static str) -> App {
+        App { about, ..self }
+    }
+
+    const fn keep(self, keep: &'static str) -> App {
+        App { keep: Some(keep), ..self }
+    }
 }
 
 const fn app(id: &'static str, title: &'static str, name: &'static str, group: AppGroup, level: Option<Level>, store_id: Option<&'static str>) -> App {
-    App { id, title, name: Name::Exact(name), group, level, store_id }
+    App { id, title, name: Name::Exact(name), group, level, store_id, about: "", keep: None }
 }
 
 const fn promo(id: &'static str, title: &'static str, suffix: &'static str, store_id: Option<&'static str>) -> App {
-    App { id, title, name: Name::Suffix(suffix), group: AppGroup::ThirdParty, level: LIGHT, store_id }
+    App { id, title, name: Name::Suffix(suffix), group: AppGroup::ThirdParty, level: LIGHT, store_id, about: "", keep: None }
 }
 
 use AppGroup::{Bing, Microsoft, Xbox};
 
 pub const APPS: &[App] = &[
     // Microsoft, removed by the one-click Debloat.
-    app("clipchamp", "Clipchamp", "Clipchamp.Clipchamp", Microsoft, RECOMMENDED, Some("9P1J8S7CCWWT")),
-    app("cortana", "Cortana", "Microsoft.549981C3F5F10", Microsoft, RECOMMENDED, None),
-    app("dev-home", "Dev Home", "Microsoft.Windows.DevHome", Microsoft, RECOMMENDED, None),
-    app("feedback-hub", "Feedback Hub", "Microsoft.WindowsFeedbackHub", Microsoft, RECOMMENDED, Some("9NBLGGH4R32N")),
-    app("get-started", "Get Started (Tips)", "Microsoft.Getstarted", Microsoft, RECOMMENDED, None),
-    app("office-hub", "Microsoft 365 (Office)", "Microsoft.MicrosoftOfficeHub", Microsoft, RECOMMENDED, Some("9WZDNCRD29V9")),
-    app("solitaire", "Solitaire Collection", "Microsoft.MicrosoftSolitaireCollection", Microsoft, RECOMMENDED, Some("9WZDNCRFHWD2")),
-    app("power-automate", "Power Automate", "Microsoft.PowerAutomateDesktop", Microsoft, RECOMMENDED, None),
-    app("todo", "Microsoft To Do", "Microsoft.Todos", Microsoft, RECOMMENDED, Some("9NBLGGH5R558")),
-    app("news", "Microsoft News", "Microsoft.News", Microsoft, RECOMMENDED, None),
-    app("3d-builder", "3D Builder", "Microsoft.3DBuilder", Microsoft, RECOMMENDED, None),
-    app("3d-viewer", "3D Viewer", "Microsoft.Microsoft3DViewer", Microsoft, RECOMMENDED, None),
-    app("print-3d", "Print 3D", "Microsoft.Print3D", Microsoft, RECOMMENDED, None),
-    app("mixed-reality", "Mixed Reality Portal", "Microsoft.MixedReality.Portal", Microsoft, RECOMMENDED, None),
-    app("skype", "Skype", "Microsoft.SkypeApp", Microsoft, RECOMMENDED, None),
-    app("messaging", "Microsoft Messaging", "Microsoft.Messaging", Microsoft, RECOMMENDED, None),
-    app("one-connect", "Mobile Plans (OneConnect)", "Microsoft.OneConnect", Microsoft, RECOMMENDED, None),
-    app("sway", "Office Sway", "Microsoft.Office.Sway", Microsoft, RECOMMENDED, None),
-    app("journal", "Microsoft Journal", "Microsoft.MicrosoftJournal", Microsoft, RECOMMENDED, None),
-    app("power-bi", "Power BI", "Microsoft.MicrosoftPowerBIForWindows", Microsoft, RECOMMENDED, None),
-    app("movies-tv", "Movies & TV", "Microsoft.ZuneVideo", Microsoft, RECOMMENDED, None),
-    app("maps", "Maps", "Microsoft.WindowsMaps", Microsoft, RECOMMENDED, None),
-    app("family", "Microsoft Family", "MicrosoftCorporationII.MicrosoftFamily", Microsoft, RECOMMENDED, None),
-    app("teams-personal", "Microsoft Teams (personal)", "MicrosoftTeams", Microsoft, RECOMMENDED, None),
-    app("teams", "Microsoft Teams", "MSTeams", Microsoft, OPT_IN, None),
-    app("pc-manager", "PC Manager", "Microsoft.MicrosoftPCManager", Microsoft, RECOMMENDED, None),
-    app("onenote-legacy", "OneNote for Windows 10", "Microsoft.Office.OneNote", Microsoft, RECOMMENDED, None),
-    app("people", "People", "Microsoft.People", Microsoft, RECOMMENDED, None),
-    app("wallet", "Wallet", "Microsoft.Wallet", Microsoft, RECOMMENDED, None),
-    app("speed-test", "Network Speed Test", "Microsoft.NetworkSpeedTest", Microsoft, RECOMMENDED, None),
-    app("copilot", "Microsoft Copilot", "Microsoft.Copilot", Microsoft, RECOMMENDED, Some("9NHT9RB2F4HD")),
+    app("clipchamp", "Clipchamp", "Clipchamp.Clipchamp", Microsoft, RECOMMENDED, Some("9P1J8S7CCWWT")).about("Video editor."),
+    app("cortana", "Cortana", "Microsoft.549981C3F5F10", Microsoft, RECOMMENDED, None).about("The old voice assistant; it no longer does anything."),
+    app("dev-home", "Dev Home", "Microsoft.Windows.DevHome", Microsoft, RECOMMENDED, None).about("Dashboard for programmers; Microsoft is retiring it."),
+    app("feedback-hub", "Feedback Hub", "Microsoft.WindowsFeedbackHub", Microsoft, RECOMMENDED, Some("9NBLGGH4R32N")).about("Sends feedback and bug reports to Microsoft."),
+    app("get-started", "Get Started (Tips)", "Microsoft.Getstarted", Microsoft, RECOMMENDED, None).about("Tips for new Windows users."),
+    app("office-hub", "Microsoft 365 (Office)", "Microsoft.MicrosoftOfficeHub", Microsoft, RECOMMENDED, Some("9WZDNCRD29V9")).about("Shortcut to Microsoft 365; Word and Excel stay if installed."),
+    app("solitaire", "Solitaire Collection", "Microsoft.MicrosoftSolitaireCollection", Microsoft, RECOMMENDED, Some("9WZDNCRFHWD2")).about("Card games, with ads."),
+    app("power-automate", "Power Automate", "Microsoft.PowerAutomateDesktop", Microsoft, RECOMMENDED, None).about("Records and runs automations; for advanced users."),
+    app("todo", "Microsoft To Do", "Microsoft.Todos", Microsoft, RECOMMENDED, Some("9NBLGGH5R558")).about("To-do lists, synced with a Microsoft account.").keep("Keep it if you keep your lists in it."),
+    app("news", "Microsoft News", "Microsoft.News", Microsoft, RECOMMENDED, None).about("News headlines from Microsoft."),
+    app("3d-builder", "3D Builder", "Microsoft.3DBuilder", Microsoft, RECOMMENDED, None).about("Makes 3D models; discontinued."),
+    app("3d-viewer", "3D Viewer", "Microsoft.Microsoft3DViewer", Microsoft, RECOMMENDED, None).about("Views 3D models; discontinued."),
+    app("print-3d", "Print 3D", "Microsoft.Print3D", Microsoft, RECOMMENDED, None).about("Sends models to 3D printers; discontinued."),
+    app("mixed-reality", "Mixed Reality Portal", "Microsoft.MixedReality.Portal", Microsoft, RECOMMENDED, None).about("For Windows Mixed Reality headsets, which are discontinued."),
+    app("skype", "Skype", "Microsoft.SkypeApp", Microsoft, RECOMMENDED, None).about("Calls and chat; Skype has shut down."),
+    app("messaging", "Microsoft Messaging", "Microsoft.Messaging", Microsoft, RECOMMENDED, None).about("Old text messaging app; no longer used."),
+    app("one-connect", "Mobile Plans (OneConnect)", "Microsoft.OneConnect", Microsoft, RECOMMENDED, None).about("Buys mobile data for PCs with a SIM."),
+    app("sway", "Office Sway", "Microsoft.Office.Sway", Microsoft, RECOMMENDED, None).about("Makes web presentations."),
+    app("journal", "Microsoft Journal", "Microsoft.MicrosoftJournal", Microsoft, RECOMMENDED, None).about("Handwritten notes with a pen."),
+    app("power-bi", "Power BI", "Microsoft.MicrosoftPowerBIForWindows", Microsoft, RECOMMENDED, None).about("Business reports and dashboards."),
+    app("movies-tv", "Movies & TV", "Microsoft.ZuneVideo", Microsoft, RECOMMENDED, None).about("Plays and sells videos; Media Player replaces it."),
+    app("maps", "Maps", "Microsoft.WindowsMaps", Microsoft, RECOMMENDED, None).about("Offline maps; Microsoft is retiring it."),
+    app("family", "Microsoft Family", "MicrosoftCorporationII.MicrosoftFamily", Microsoft, RECOMMENDED, None).about("Parental controls for a Microsoft family group.").keep("Keep it if your family group uses parental controls."),
+    app("teams-personal", "Microsoft Teams (personal)", "MicrosoftTeams", Microsoft, RECOMMENDED, None).about("Teams for family and friends (the old chat)."),
+    app("teams", "Microsoft Teams", "MSTeams", Microsoft, OPT_IN, None).about("Teams for work and school.").keep("Keep it if you use Teams for work or school."),
+    app("pc-manager", "PC Manager", "Microsoft.MicrosoftPCManager", Microsoft, RECOMMENDED, None).about("Microsoft's cleanup and booster tool."),
+    app("onenote-legacy", "OneNote for Windows 10", "Microsoft.Office.OneNote", Microsoft, RECOMMENDED, None).about("The old OneNote; the desktop OneNote replaces it."),
+    app("people", "People", "Microsoft.People", Microsoft, RECOMMENDED, None).about("Contacts list; no longer used by Windows."),
+    app("wallet", "Wallet", "Microsoft.Wallet", Microsoft, RECOMMENDED, None).about("Old payment app; no longer used."),
+    app("speed-test", "Network Speed Test", "Microsoft.NetworkSpeedTest", Microsoft, RECOMMENDED, None).about("Tests the internet speed."),
+    app("copilot", "Microsoft Copilot", "Microsoft.Copilot", Microsoft, RECOMMENDED, Some("9NHT9RB2F4HD")).about("Microsoft's AI chat.").keep("Keep it if you use Copilot."),
     // Microsoft, offered but kept unless ticked.
-    app("mail-calendar", "Mail & Calendar", "microsoft.windowscommunicationsapps", Microsoft, MAXIMUM, None),
-    app("outlook", "Outlook (new)", "Microsoft.OutlookForWindows", Microsoft, OPT_IN, Some("9NRX63209R7B")),
-    app("alarms", "Alarms & Clock", "Microsoft.WindowsAlarms", Microsoft, OPT_IN, Some("9WZDNCRFJ3PR")),
-    app("sound-recorder", "Sound Recorder", "Microsoft.WindowsSoundRecorder", Microsoft, OPT_IN, Some("9WZDNCRFHWKN")),
-    app("sticky-notes", "Sticky Notes", "Microsoft.MicrosoftStickyNotes", Microsoft, OPT_IN, Some("9NBLGGH4QGHW")),
-    app("calculator", "Calculator", "Microsoft.WindowsCalculator", Microsoft, OPT_IN, Some("9WZDNCRFHVN5")),
-    app("camera", "Camera", "Microsoft.WindowsCamera", Microsoft, OPT_IN, Some("9WZDNCRFJBBG")),
-    app("photos", "Photos", "Microsoft.Windows.Photos", Microsoft, OPT_IN, Some("9WZDNCRFJBH4")),
-    app("notepad", "Notepad", "Microsoft.WindowsNotepad", Microsoft, OPT_IN, Some("9MSMLRH6LZF3")),
-    app("paint", "Paint", "Microsoft.Paint", Microsoft, OPT_IN, Some("9PCFS5B6T72H")),
-    app("snipping-tool", "Snipping Tool", "Microsoft.ScreenSketch", Microsoft, OPT_IN, Some("9MZ95KL8MR0L")),
-    app("media-player", "Media Player", "Microsoft.ZuneMusic", Microsoft, OPT_IN, Some("9WZDNCRFJ3PT")),
-    app("phone-link", "Phone Link", "Microsoft.YourPhone", Microsoft, OPT_IN, Some("9NMPJ99VJBWV")),
-    app("quick-assist", "Quick Assist", "MicrosoftCorporationII.QuickAssist", Microsoft, OPT_IN, Some("9P7BP5VNWKX5")),
-    app("whiteboard", "Whiteboard", "Microsoft.Whiteboard", Microsoft, MAXIMUM, None),
-    app("widgets", "Widgets (Web Experience)", "MicrosoftWindows.Client.WebExperience", Microsoft, OPT_IN, Some("9MSSGKG348SP")),
+    app("mail-calendar", "Mail & Calendar", "microsoft.windowscommunicationsapps", Microsoft, MAXIMUM, None).about("The old Mail and Calendar; the new Outlook replaces it.").keep("Keep it if you still read your email in it."),
+    app("outlook", "Outlook (new)", "Microsoft.OutlookForWindows", Microsoft, OPT_IN, Some("9NRX63209R7B")).about("Email and calendar.").keep("Keep it if you read your email in it."),
+    app("alarms", "Alarms & Clock", "Microsoft.WindowsAlarms", Microsoft, OPT_IN, Some("9WZDNCRFJ3PR")).about("Alarms, timers and world clock.").keep("Keep it for alarms and timers."),
+    app("sound-recorder", "Sound Recorder", "Microsoft.WindowsSoundRecorder", Microsoft, OPT_IN, Some("9WZDNCRFHWKN")).about("Records audio from the microphone.").keep("Keep it if you record audio."),
+    app("sticky-notes", "Sticky Notes", "Microsoft.MicrosoftStickyNotes", Microsoft, OPT_IN, Some("9NBLGGH4QGHW")).about("Notes on the desktop.").keep("Keep it if you use notes on the desktop."),
+    app("calculator", "Calculator", "Microsoft.WindowsCalculator", Microsoft, OPT_IN, Some("9WZDNCRFHVN5")).about("Everyday and scientific calculator.").keep("Most people use it."),
+    app("camera", "Camera", "Microsoft.WindowsCamera", Microsoft, OPT_IN, Some("9WZDNCRFJBBG")).about("Takes photos and videos with the webcam.").keep("Keep it to use the webcam on its own."),
+    app("photos", "Photos", "Microsoft.Windows.Photos", Microsoft, OPT_IN, Some("9WZDNCRFJBH4")).about("Views and edits pictures.").keep("Pictures open in it unless you use another viewer."),
+    app("notepad", "Notepad", "Microsoft.WindowsNotepad", Microsoft, OPT_IN, Some("9MSMLRH6LZF3")).about("Plain text editor.").keep("Text files open in it unless you use another editor."),
+    app("paint", "Paint", "Microsoft.Paint", Microsoft, OPT_IN, Some("9PCFS5B6T72H")).about("Simple drawing and picture editing.").keep("Keep it for quick drawings and edits."),
+    app("snipping-tool", "Snipping Tool", "Microsoft.ScreenSketch", Microsoft, OPT_IN, Some("9MZ95KL8MR0L")).about("Screenshots (Win+Shift+S) and screen recording.").keep("Screenshots with Win+Shift+S need it."),
+    app("media-player", "Media Player", "Microsoft.ZuneMusic", Microsoft, OPT_IN, Some("9WZDNCRFJ3PT")).about("Plays music and videos.").keep("Music and videos open in it unless you use another player."),
+    app("phone-link", "Phone Link", "Microsoft.YourPhone", Microsoft, OPT_IN, Some("9NMPJ99VJBWV")).about("Your phone's messages, calls and photos on the PC.").keep("Keep it to use your phone from the PC."),
+    app("quick-assist", "Quick Assist", "MicrosoftCorporationII.QuickAssist", Microsoft, OPT_IN, Some("9P7BP5VNWKX5")).about("Lets someone help you over the internet.").keep("Keep it if someone helps you with your PC."),
+    app("whiteboard", "Whiteboard", "Microsoft.Whiteboard", Microsoft, MAXIMUM, None).about("Drawing board for meetings."),
+    app("widgets", "Widgets (Web Experience)", "MicrosoftWindows.Client.WebExperience", Microsoft, OPT_IN, Some("9MSSGKG348SP")).about("The Widgets board: weather, news and more.").keep("The Widgets board (Win+W) needs it."),
     // Bing.
-    app("bing-news", "Bing News", "Microsoft.BingNews", Bing, RECOMMENDED, Some("9WZDNCRFHVFW")),
-    app("bing-weather", "Bing Weather", "Microsoft.BingWeather", Bing, RECOMMENDED, Some("9WZDNCRFJ3Q2")),
-    app("bing-finance", "Bing Finance", "Microsoft.BingFinance", Bing, RECOMMENDED, None),
-    app("bing-sports", "Bing Sports", "Microsoft.BingSports", Bing, RECOMMENDED, None),
-    app("bing-travel", "Bing Travel", "Microsoft.BingTravel", Bing, RECOMMENDED, None),
-    app("bing-food", "Bing Food & Drink", "Microsoft.BingFoodAndDrink", Bing, RECOMMENDED, None),
-    app("bing-health", "Bing Health & Fitness", "Microsoft.BingHealthAndFitness", Bing, RECOMMENDED, None),
-    app("bing-translator", "Bing Translator", "Microsoft.BingTranslator", Bing, RECOMMENDED, None),
-    app("bing-search", "Bing Search", "Microsoft.BingSearch", Bing, RECOMMENDED, None),
+    app("bing-news", "Bing News", "Microsoft.BingNews", Bing, RECOMMENDED, Some("9WZDNCRFHVFW")).about("News from Bing."),
+    app("bing-weather", "Bing Weather", "Microsoft.BingWeather", Bing, RECOMMENDED, Some("9WZDNCRFJ3Q2")).about("Weather forecasts."),
+    app("bing-finance", "Bing Finance", "Microsoft.BingFinance", Bing, RECOMMENDED, None).about("Stock prices; discontinued."),
+    app("bing-sports", "Bing Sports", "Microsoft.BingSports", Bing, RECOMMENDED, None).about("Sports results; discontinued."),
+    app("bing-travel", "Bing Travel", "Microsoft.BingTravel", Bing, RECOMMENDED, None).about("Travel guides; discontinued."),
+    app("bing-food", "Bing Food & Drink", "Microsoft.BingFoodAndDrink", Bing, RECOMMENDED, None).about("Recipes; discontinued."),
+    app("bing-health", "Bing Health & Fitness", "Microsoft.BingHealthAndFitness", Bing, RECOMMENDED, None).about("Fitness tracking; discontinued."),
+    app("bing-translator", "Bing Translator", "Microsoft.BingTranslator", Bing, RECOMMENDED, None).about("Translations from Bing."),
+    app("bing-search", "Bing Search", "Microsoft.BingSearch", Bing, RECOMMENDED, None).about("Bing web search in Start."),
     // Xbox: games may need them, so none is ticked.
-    app("xbox-app", "Xbox", "Microsoft.GamingApp", Xbox, OPT_IN, Some("9MV0B5HZVK9Z")),
-    app("xbox-game-bar", "Xbox Game Bar", "Microsoft.XboxGamingOverlay", Xbox, OPT_IN, Some("9NZKPSTSNW4P")),
-    app("xbox-companion", "Xbox Console Companion", "Microsoft.XboxApp", Xbox, RECOMMENDED, None),
+    app("xbox-app", "Xbox", "Microsoft.GamingApp", Xbox, OPT_IN, Some("9MV0B5HZVK9Z")).about("Xbox games and PC Game Pass.").keep("Needed for PC Game Pass and many Xbox games."),
+    app("xbox-game-bar", "Xbox Game Bar", "Microsoft.XboxGamingOverlay", Xbox, OPT_IN, Some("9NZKPSTSNW4P")).about("Win+G: game overlay, recording and chat.").keep("Some games and the Win+G recording need it."),
+    app("xbox-companion", "Xbox Console Companion", "Microsoft.XboxApp", Xbox, RECOMMENDED, None).about("The old Xbox app; replaced by Xbox."),
     // Third-party apps Windows installs to promote them.
-    promo("candy-crush", "Candy Crush Saga", ".CandyCrushSaga", None),
-    promo("candy-crush-soda", "Candy Crush Soda Saga", ".CandyCrushSodaSaga", None),
-    promo("candy-crush-friends", "Candy Crush Friends", ".CandyCrushFriends", None),
-    promo("bubble-witch", "Bubble Witch 3 Saga", ".BubbleWitch3Saga", None),
-    promo("farmville", "FarmVille 2", ".FarmVille2CountryEscape", None),
-    promo("march-of-empires", "March of Empires", ".MarchofEmpires", None),
-    promo("asphalt", "Asphalt 8", ".Asphalt8Airborne", None),
-    promo("hidden-city", "Hidden City", ".HiddenCityMysteryofShadows", None),
-    promo("royal-revolt", "Royal Revolt", ".RoyalRevolt2", None),
-    promo("disney-kingdoms", "Disney Magic Kingdoms", ".DisneyMagicKingdoms", None),
-    promo("cooking-fever", "Cooking Fever", ".COOKINGFEVER", None),
-    promo("netflix", "Netflix", ".Netflix", None),
-    promo("disney-plus", "Disney+", ".37853FC22B2CE", None),
-    promo("prime-video", "Prime Video", ".PrimeVideo", None),
-    promo("amazon", "Amazon", ".Amazon", None),
-    promo("tiktok", "TikTok", ".TikTok", None),
-    App { id: "instagram", title: "Instagram", name: Name::Contains(".Instagram"), group: AppGroup::ThirdParty, level: LIGHT, store_id: None },
-    promo("facebook", "Facebook", ".Facebook", None),
-    promo("twitter", "Twitter / X", ".Twitter", None),
-    promo("linkedin", "LinkedIn", ".LinkedInforWindows", None),
-    promo("pandora", "Pandora", ".29680B314EFC2", None),
-    promo("tunein", "TuneIn Radio", ".TuneInRadio", None),
-    promo("plex", "Plex", ".Plex", None),
-    promo("iheartradio", "iHeartRadio", ".iHeartRadio", None),
-    promo("shazam", "Shazam", ".Shazam", None),
-    promo("hulu", "Hulu", ".HULUPLUS", None),
-    promo("sling", "Sling TV", ".SlingTV", None),
-    promo("duolingo", "Duolingo", ".Duolingo-LearnLanguagesforFree", None),
-    promo("flipboard", "Flipboard", ".Flipboard", None),
-    promo("photoshop-express", "Adobe Photoshop Express", ".AdobePhotoshopExpress", None),
-    promo("picsart", "PicsArt", ".PicsArt-PhotoStudio", None),
-    promo("sketchbook", "SketchBook", ".AutodeskSketchBook", None),
-    promo("drawboard", "Drawboard PDF", ".DrawboardPDF", None),
-    promo("winzip", "WinZip", ".WinZipUniversal", None),
-    promo("viber", "Viber", ".Viber", None),
-    promo("xing", "XING", ".XING", None),
-    promo("wunderlist", "Wunderlist", ".Wunderlist", None),
-    App { id: "spotify", title: "Spotify", name: Name::Exact("SpotifyAB.SpotifyMusic"), group: AppGroup::ThirdParty, level: OPT_IN, store_id: Some("9NCBCSZSJRSB") },
+    promo("candy-crush", "Candy Crush Saga", ".CandyCrushSaga", None).about("Puzzle game installed as an ad."),
+    promo("candy-crush-soda", "Candy Crush Soda Saga", ".CandyCrushSodaSaga", None).about("Puzzle game installed as an ad."),
+    promo("candy-crush-friends", "Candy Crush Friends", ".CandyCrushFriends", None).about("Puzzle game installed as an ad."),
+    promo("bubble-witch", "Bubble Witch 3 Saga", ".BubbleWitch3Saga", None).about("Puzzle game installed as an ad."),
+    promo("farmville", "FarmVille 2", ".FarmVille2CountryEscape", None).about("Farming game installed as an ad."),
+    promo("march-of-empires", "March of Empires", ".MarchofEmpires", None).about("Strategy game installed as an ad."),
+    promo("asphalt", "Asphalt 8", ".Asphalt8Airborne", None).about("Racing game installed as an ad."),
+    promo("hidden-city", "Hidden City", ".HiddenCityMysteryofShadows", None).about("Hidden-object game installed as an ad."),
+    promo("royal-revolt", "Royal Revolt", ".RoyalRevolt2", None).about("Strategy game installed as an ad."),
+    promo("disney-kingdoms", "Disney Magic Kingdoms", ".DisneyMagicKingdoms", None).about("Park-building game installed as an ad."),
+    promo("cooking-fever", "Cooking Fever", ".COOKINGFEVER", None).about("Cooking game installed as an ad."),
+    promo("netflix", "Netflix", ".Netflix", None).about("Netflix, installed as an ad; the website works too."),
+    promo("disney-plus", "Disney+", ".37853FC22B2CE", None).about("Disney+, installed as an ad; the website works too."),
+    promo("prime-video", "Prime Video", ".PrimeVideo", None).about("Prime Video, installed as an ad; the website works too."),
+    promo("amazon", "Amazon", ".Amazon", None).about("Amazon shopping, installed as an ad."),
+    promo("tiktok", "TikTok", ".TikTok", None).about("TikTok, installed as an ad."),
+    App { id: "instagram", title: "Instagram", name: Name::Contains(".Instagram"), group: AppGroup::ThirdParty, level: LIGHT, store_id: None, about: "Instagram, installed as an ad.", keep: None },
+    promo("facebook", "Facebook", ".Facebook", None).about("Facebook, installed as an ad."),
+    promo("twitter", "Twitter / X", ".Twitter", None).about("X (Twitter), installed as an ad."),
+    promo("linkedin", "LinkedIn", ".LinkedInforWindows", None).about("LinkedIn, installed as an ad."),
+    promo("pandora", "Pandora", ".29680B314EFC2", None).about("Music streaming, installed as an ad."),
+    promo("tunein", "TuneIn Radio", ".TuneInRadio", None).about("Internet radio, installed as an ad."),
+    promo("plex", "Plex", ".Plex", None).about("Media server client, installed as an ad."),
+    promo("iheartradio", "iHeartRadio", ".iHeartRadio", None).about("Internet radio, installed as an ad."),
+    promo("shazam", "Shazam", ".Shazam", None).about("Recognises songs; installed as an ad."),
+    promo("hulu", "Hulu", ".HULUPLUS", None).about("Video streaming, installed as an ad."),
+    promo("sling", "Sling TV", ".SlingTV", None).about("TV streaming, installed as an ad."),
+    promo("duolingo", "Duolingo", ".Duolingo-LearnLanguagesforFree", None).about("Language lessons, installed as an ad."),
+    promo("flipboard", "Flipboard", ".Flipboard", None).about("News magazine, installed as an ad."),
+    promo("photoshop-express", "Adobe Photoshop Express", ".AdobePhotoshopExpress", None).about("Photo editor, installed as an ad."),
+    promo("picsart", "PicsArt", ".PicsArt-PhotoStudio", None).about("Photo editor, installed as an ad."),
+    promo("sketchbook", "SketchBook", ".AutodeskSketchBook", None).about("Drawing app, installed as an ad."),
+    promo("drawboard", "Drawboard PDF", ".DrawboardPDF", None).about("PDF editor, installed as an ad."),
+    promo("winzip", "WinZip", ".WinZipUniversal", None).about("Zip tool, installed as an ad; Windows opens zip files itself."),
+    promo("viber", "Viber", ".Viber", None).about("Chat app, installed as an ad."),
+    promo("xing", "XING", ".XING", None).about("Job network, installed as an ad."),
+    promo("wunderlist", "Wunderlist", ".Wunderlist", None).about("To-do lists; discontinued."),
+    // Added later: retired or promoted apps Windows still ships with.
+    app("paint-3d", "Paint 3D", "Microsoft.MSPaint", Microsoft, RECOMMENDED, None).about("3D drawing; discontinued (Paint stays)."),
+    app("cross-device", "Cross Device Experience Host", "MicrosoftWindows.CrossDevice", Microsoft, OPT_IN, None)
+        .about("Connects a phone to Start and File Explorer.")
+        .keep("Phone Link and the phone panel in Start need it."),
+    app("game-assist", "Game Assist", "Microsoft.Edge.GameAssist", Xbox, MAXIMUM, None).about("Browser overlay for games (Game Bar)."),
+    app("xbox-game-overlay", "Xbox Game Overlay (old)", "Microsoft.XboxGameOverlay", Xbox, OPT_IN, None)
+        .about("Part of the older Game Bar.")
+        .keep("Some games still use it."),
+    App { id: "whatsapp", title: "WhatsApp", name: Name::Suffix(".WhatsAppDesktop"), group: AppGroup::ThirdParty, level: OPT_IN, store_id: Some("9NKSQGP7F2NH"), about: "Chat app.", keep: Some("Keep it if you chat on WhatsApp from the PC.") },
+    App { id: "messenger", title: "Messenger", name: Name::Exact("FACEBOOK.317180B0BB486"), group: AppGroup::ThirdParty, level: LIGHT, store_id: None, about: "Facebook Messenger, installed as an ad.", keep: None },
+    App { id: "dolby-access", title: "Dolby Access", name: Name::Exact("DolbyLaboratories.DolbyAccess"), group: AppGroup::ThirdParty, level: OPT_IN, store_id: Some("9N0866FS04W8"), about: "Dolby Atmos sound settings.", keep: Some("Keep it if your PC uses Dolby Atmos.") },
+    App { id: "spotify", title: "Spotify", name: Name::Exact("SpotifyAB.SpotifyMusic"), group: AppGroup::ThirdParty, level: OPT_IN, store_id: Some("9NCBCSZSJRSB"), about: "Music streaming.", keep: Some("Keep it if you listen to Spotify.") },
 ];
 
 /// Packages that are never removed, whatever the tables above say: Windows
@@ -871,6 +897,20 @@ mod tests {
                     assert!(windows == to || from.contains(windows), "{}: Windows' own start type", tweak.id);
                 }
             }
+        }
+    }
+
+    #[test]
+    fn every_app_says_what_it_is() {
+        for app in APPS {
+            assert!(app.about.ends_with('.') && app.about.len() > 4, "{}: {:?}", app.id, app.about);
+            if let Some(keep) = app.keep {
+                assert!(keep.ends_with('.'), "{}", app.id);
+            }
+        }
+        // What most people use is never removed without a word on why to keep it.
+        for id in ["calculator", "photos", "notepad", "snipping-tool", "xbox-app", "xbox-game-bar", "phone-link"] {
+            assert!(find_app(id).unwrap().keep.is_some(), "{id}");
         }
     }
 

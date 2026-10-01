@@ -55,7 +55,8 @@
             {/if}
             <div class="app-grid" class:many={category.id === "microsoft"}>
               {#each rows as app (app.id)}
-                <SettingRow control="check" title={app.title} checked={debloat.isRemoving(app.id)} disabled={debloat.locked}
+                <SettingRow control="check" title={app.title} subtitle={app.about} keep={app.keep}
+                  checked={debloat.isRemoving(app.id)} disabled={debloat.locked}
                   recommended={inProfile(app.level, "recommended")} onchange={(on) => debloat.setApp(app.id, on)} />
               {/each}
             </div>

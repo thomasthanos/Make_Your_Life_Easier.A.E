@@ -44,6 +44,8 @@ pub struct AppStatus {
     pub title: &'static str,
     pub group: catalog::AppGroup,
     pub level: Option<catalog::Level>,
+    pub about: &'static str,
+    pub keep: Option<&'static str>,
     /// Its packages installed for this user; empty when it is not.
     pub packages: Vec<String>,
     /// Removed by MYLE: it can be installed again from the Store.
@@ -161,6 +163,8 @@ pub fn apps(packages: &[String], store: &Store) -> Vec<AppStatus> {
             title: app.title,
             group: app.group,
             level: app.level,
+            about: app.about,
+            keep: app.keep,
             packages: packages
                 .iter()
                 .filter(|package| app.name.matches(package) && catalog::removable(package).is_some_and(|found| found.id == app.id))
