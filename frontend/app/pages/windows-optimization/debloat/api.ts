@@ -179,12 +179,12 @@ function previewApi(): DebloatApi {
     app("feedback-hub", "Feedback Hub", "microsoft", "recommended", true),
     app("dev-home", "Dev Home", "microsoft", "recommended", true),
     app("copilot", "Microsoft Copilot", "microsoft", "recommended", true),
-    app("mail-calendar", "Mail & Calendar", "microsoft", "maximum", true),
+    app("mail-calendar", "Mail & Calendar", "microsoft", null, true),
     app("calculator", "Calculator", "microsoft", null, true, null, "Everyday and scientific calculator.", "Most people use it."),
     app("photos", "Photos", "microsoft", null, true),
     app("notepad", "Notepad", "microsoft", null, true),
     app("snipping-tool", "Snipping Tool", "microsoft", null, true, null, "Screenshots (Win+Shift+S) and screen recording.", "Screenshots with Win+Shift+S need it."),
-    app("phone-link", "Phone Link", "microsoft", null, true),
+    app("phone-link", "Phone Link", "microsoft", "maximum", true, null, "Your phone's messages, calls and photos on the PC.", "Keep it to use your phone from the PC."),
     app("bing-news", "Bing News", "bing", "recommended", true, "9WZDNCRFHVFW"),
     app("bing-weather", "Bing Weather", "bing", "recommended", true, "9WZDNCRFJ3Q2"),
     app("bing-search", "Bing Search", "bing", "recommended", true),
@@ -192,7 +192,7 @@ function previewApi(): DebloatApi {
     app("xbox-game-bar", "Xbox Game Bar", "xbox", null, true),
     app("candy-crush", "Candy Crush Saga", "thirdParty", "light", true, null, "Puzzle game installed as an ad."),
     app("tiktok", "TikTok", "thirdParty", "light", true),
-    app("spotify", "Spotify", "thirdParty", null, true),
+    app("spotify", "Spotify", "thirdParty", "maximum", true, null, "Music streaming.", "Keep it if you listen to Spotify."),
     app("maps", "Maps", "microsoft", "recommended", false),
   ];
   const run = async (ids: string[], appIds: string[], onEvent: (event: DebloatEvent) => void, undo: boolean) => {

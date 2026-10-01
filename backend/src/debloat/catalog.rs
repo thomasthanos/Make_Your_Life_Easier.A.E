@@ -702,7 +702,7 @@ pub const APPS: &[App] = &[
     app("maps", "Maps", "Microsoft.WindowsMaps", Microsoft, RECOMMENDED, None).about("Offline maps; Microsoft is retiring it."),
     app("family", "Microsoft Family", "MicrosoftCorporationII.MicrosoftFamily", Microsoft, RECOMMENDED, None).about("Parental controls for a Microsoft family group.").keep("Keep it if your family group uses parental controls."),
     app("teams-personal", "Microsoft Teams (personal)", "MicrosoftTeams", Microsoft, RECOMMENDED, None).about("Teams for family and friends (the old chat)."),
-    app("teams", "Microsoft Teams", "MSTeams", Microsoft, OPT_IN, None).about("Teams for work and school.").keep("Keep it if you use Teams for work or school."),
+    app("teams", "Microsoft Teams", "MSTeams", Microsoft, MAXIMUM, None).about("Teams for work and school.").keep("Keep it if you use Teams for work or school."),
     app("pc-manager", "PC Manager", "Microsoft.MicrosoftPCManager", Microsoft, RECOMMENDED, None).about("Microsoft's cleanup and booster tool."),
     app("onenote-legacy", "OneNote for Windows 10", "Microsoft.Office.OneNote", Microsoft, RECOMMENDED, None).about("The old OneNote; the desktop OneNote replaces it."),
     app("people", "People", "Microsoft.People", Microsoft, RECOMMENDED, None).about("Contacts list; no longer used by Windows."),
@@ -710,10 +710,10 @@ pub const APPS: &[App] = &[
     app("speed-test", "Network Speed Test", "Microsoft.NetworkSpeedTest", Microsoft, RECOMMENDED, None).about("Tests the internet speed."),
     app("copilot", "Microsoft Copilot", "Microsoft.Copilot", Microsoft, RECOMMENDED, Some("9NHT9RB2F4HD")).about("Microsoft's AI chat.").keep("Keep it if you use Copilot."),
     // Microsoft, offered but kept unless ticked.
-    app("mail-calendar", "Mail & Calendar", "microsoft.windowscommunicationsapps", Microsoft, MAXIMUM, None).about("The old Mail and Calendar; the new Outlook replaces it.").keep("Keep it if you still read your email in it."),
+    app("mail-calendar", "Mail & Calendar", "microsoft.windowscommunicationsapps", Microsoft, OPT_IN, None).about("The old Mail and Calendar; the new Outlook replaces it.").keep("Keep it if you still read your email in it."),
     app("outlook", "Outlook (new)", "Microsoft.OutlookForWindows", Microsoft, OPT_IN, Some("9NRX63209R7B")).about("Email and calendar.").keep("Keep it if you read your email in it."),
     app("alarms", "Alarms & Clock", "Microsoft.WindowsAlarms", Microsoft, OPT_IN, Some("9WZDNCRFJ3PR")).about("Alarms, timers and world clock.").keep("Keep it for alarms and timers."),
-    app("sound-recorder", "Sound Recorder", "Microsoft.WindowsSoundRecorder", Microsoft, OPT_IN, Some("9WZDNCRFHWKN")).about("Records audio from the microphone.").keep("Keep it if you record audio."),
+    app("sound-recorder", "Sound Recorder", "Microsoft.WindowsSoundRecorder", Microsoft, MAXIMUM, Some("9WZDNCRFHWKN")).about("Records audio from the microphone.").keep("Keep it if you record audio."),
     app("sticky-notes", "Sticky Notes", "Microsoft.MicrosoftStickyNotes", Microsoft, OPT_IN, Some("9NBLGGH4QGHW")).about("Notes on the desktop.").keep("Keep it if you use notes on the desktop."),
     app("calculator", "Calculator", "Microsoft.WindowsCalculator", Microsoft, OPT_IN, Some("9WZDNCRFHVN5")).about("Everyday and scientific calculator.").keep("Most people use it."),
     app("camera", "Camera", "Microsoft.WindowsCamera", Microsoft, OPT_IN, Some("9WZDNCRFJBBG")).about("Takes photos and videos with the webcam.").keep("Keep it to use the webcam on its own."),
@@ -722,7 +722,7 @@ pub const APPS: &[App] = &[
     app("paint", "Paint", "Microsoft.Paint", Microsoft, OPT_IN, Some("9PCFS5B6T72H")).about("Simple drawing and picture editing.").keep("Keep it for quick drawings and edits."),
     app("snipping-tool", "Snipping Tool", "Microsoft.ScreenSketch", Microsoft, OPT_IN, Some("9MZ95KL8MR0L")).about("Screenshots (Win+Shift+S) and screen recording.").keep("Screenshots with Win+Shift+S need it."),
     app("media-player", "Media Player", "Microsoft.ZuneMusic", Microsoft, OPT_IN, Some("9WZDNCRFJ3PT")).about("Plays music and videos.").keep("Music and videos open in it unless you use another player."),
-    app("phone-link", "Phone Link", "Microsoft.YourPhone", Microsoft, OPT_IN, Some("9NMPJ99VJBWV")).about("Your phone's messages, calls and photos on the PC.").keep("Keep it to use your phone from the PC."),
+    app("phone-link", "Phone Link", "Microsoft.YourPhone", Microsoft, MAXIMUM, Some("9NMPJ99VJBWV")).about("Your phone's messages, calls and photos on the PC.").keep("Keep it to use your phone from the PC."),
     app("quick-assist", "Quick Assist", "MicrosoftCorporationII.QuickAssist", Microsoft, OPT_IN, Some("9P7BP5VNWKX5")).about("Lets someone help you over the internet.").keep("Keep it if someone helps you with your PC."),
     app("whiteboard", "Whiteboard", "Microsoft.Whiteboard", Microsoft, MAXIMUM, None).about("Drawing board for meetings."),
     app("widgets", "Widgets (Web Experience)", "MicrosoftWindows.Client.WebExperience", Microsoft, OPT_IN, Some("9MSSGKG348SP")).about("The Widgets board: weather, news and more.").keep("The Widgets board (Win+W) needs it."),
@@ -787,10 +787,10 @@ pub const APPS: &[App] = &[
     app("xbox-game-overlay", "Xbox Game Overlay (old)", "Microsoft.XboxGameOverlay", Xbox, OPT_IN, None)
         .about("Part of the older Game Bar.")
         .keep("Some games still use it."),
-    App { id: "whatsapp", title: "WhatsApp", name: Name::Suffix(".WhatsAppDesktop"), group: AppGroup::ThirdParty, level: OPT_IN, store_id: Some("9NKSQGP7F2NH"), about: "Chat app.", keep: Some("Keep it if you chat on WhatsApp from the PC.") },
+    App { id: "whatsapp", title: "WhatsApp", name: Name::Suffix(".WhatsAppDesktop"), group: AppGroup::ThirdParty, level: MAXIMUM, store_id: Some("9NKSQGP7F2NH"), about: "Chat app.", keep: Some("Keep it if you chat on WhatsApp from the PC.") },
     App { id: "messenger", title: "Messenger", name: Name::Exact("FACEBOOK.317180B0BB486"), group: AppGroup::ThirdParty, level: LIGHT, store_id: None, about: "Facebook Messenger, installed as an ad.", keep: None },
     App { id: "dolby-access", title: "Dolby Access", name: Name::Exact("DolbyLaboratories.DolbyAccess"), group: AppGroup::ThirdParty, level: OPT_IN, store_id: Some("9N0866FS04W8"), about: "Dolby Atmos sound settings.", keep: Some("Keep it if your PC uses Dolby Atmos.") },
-    App { id: "spotify", title: "Spotify", name: Name::Exact("SpotifyAB.SpotifyMusic"), group: AppGroup::ThirdParty, level: OPT_IN, store_id: Some("9NCBCSZSJRSB"), about: "Music streaming.", keep: Some("Keep it if you listen to Spotify.") },
+    App { id: "spotify", title: "Spotify", name: Name::Exact("SpotifyAB.SpotifyMusic"), group: AppGroup::ThirdParty, level: MAXIMUM, store_id: Some("9NCBCSZSJRSB"), about: "Music streaming.", keep: Some("Keep it if you listen to Spotify.") },
 ];
 
 /// Packages that are never removed, whatever the tables above say: Windows
@@ -972,6 +972,11 @@ mod tests {
                 assert_eq!(app.level, None, "{}", app.id);
             }
         }
+        // Maximum removes every promoted app, and the ones the user chose for it.
+        for id in ["phone-link", "sound-recorder", "teams", "spotify", "whatsapp", "netflix", "tiktok"] {
+            assert!(find_app(id).unwrap().level.is_some(), "{id}");
+        }
+        assert_eq!(find_app("mail-calendar").unwrap().level, None);
         let light = TWEAKS.iter().filter(|t| t.level == LIGHT).count();
         assert!(light >= 3, "Light has something to do");
     }

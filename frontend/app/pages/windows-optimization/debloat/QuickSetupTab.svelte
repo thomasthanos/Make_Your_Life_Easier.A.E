@@ -27,7 +27,7 @@
       profile: "maximum",
       name: "Maximum",
       tagline: "The leanest Windows",
-      text: "Recommended, plus location off, taskbar search and Widgets hidden, the classic right-click menu and a few more apps removed.",
+      text: "Recommended, plus location off, taskbar search and Widgets hidden, the classic right-click menu, and every promoted app removed (Spotify, Teams and Phone Link too).",
     },
   ];
   /** Chips shown per group before "+ N more". */
