@@ -11,6 +11,7 @@
   import { account } from "./account/account.svelte";
   import { gameSavesState } from "./pages/game-saves/state.svelte";
   import { passwords, type WindowsTarget } from "./pages/password-manager/state.svelte";
+  import { preloadApp } from "./preload";
   import ContentArea from "./shell/ContentArea.svelte";
   import Sidebar from "./shell/Sidebar.svelte";
   import Titlebar from "./shell/Titlebar.svelte";
@@ -23,6 +24,8 @@
     // Restores the signed-in account and syncs settings with it.
     void account.init();
     if (!isTauri()) return;
+    // Every page's data and pictures, while the splash shows.
+    void preloadApp();
     // The browser extension asked for the vault (to unlock it, or when it
     // started the app), or a scheduled backup's notice asked for Game Saves.
     void invoke<PageId | null>("start_page").then((page) => page && nav.go(page));

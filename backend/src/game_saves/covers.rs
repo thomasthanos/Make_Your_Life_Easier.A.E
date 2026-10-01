@@ -1,8 +1,11 @@
-//! Game covers for the Game Saves list: Steam's portrait art
-//! (`library_600x900.jpg`) for every game with a Steam id in the save
-//! database. Steam's own cache on this PC comes first, so nothing is asked
-//! for a game Steam already shows; else, when the user allows it, Steam's
-//! image server, and what comes back is kept in the local data folder.
+//! Game covers for the Game Saves list: Steam's portrait art for every game
+//! with a Steam id in the save database. Steam's own cache on this PC comes
+//! first, so nothing is asked for a game Steam already shows; else, when the
+//! user allows it, Steam's image server, and what comes back is kept in the
+//! local data folder.
+//!
+//! Older games keep the cover as `library_600x900.jpg`; newer ones as
+//! `<hash>/library_capsule.jpg`, a path only Steam's store service knows.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -20,7 +23,12 @@ const MAX_COVER: usize = 600 * 1024;
 const RETRY_MISSING_AFTER: Duration = Duration::from_secs(7 * 24 * 3600);
 /// Covers asked of Steam at the same time.
 const AT_ONCE: usize = 4;
+/// Where older games keep the cover, and the name newer ones use.
 const COVER: &str = "library_600x900.jpg";
+const NEW_COVER: &str = "library_capsule.jpg";
+/// Games asked about in one request to Steam's store service.
+const PER_REQUEST: usize = 50;
+const IMAGES: &str = "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps";
 
 /// The covers found for `ids` (Steam app ids), as `data:` URLs. With
 /// `online`, the ones not on this PC are fetched from Steam first.
@@ -39,10 +47,12 @@ pub async fn game_saves_covers(ids: Vec<u32>, online: bool) -> Result<HashMap<u3
     };
     if online && !missing.is_empty() {
         let client = crate::download::http_client("MYLE")?;
+        let paths = cover_paths(&client, &missing).await;
         let fetched: Vec<(u32, Option<Vec<u8>>)> = futures_util::stream::iter(missing)
             .map(|id| {
                 let client = client.clone();
-                async move { (id, fetch(&client, id).await) }
+                let path = paths.get(&id).cloned().unwrap_or_else(|| COVER.to_string());
+                async move { (id, fetch(&client, id, &path).await) }
             })
             .buffer_unordered(AT_ONCE)
             .collect()
@@ -55,8 +65,10 @@ pub async fn game_saves_covers(ids: Vec<u32>, online: bool) -> Result<HashMap<u3
                     found.insert(id, data_url(&bytes));
                 }
                 // Not there (or not now): noted, so it is not asked again at once.
+                // (`.missing`, not the first version's `.none`: those were
+                // written before the newer covers could be found.)
                 None => {
-                    let _ = std::fs::write(folder.join(format!("{id}.none")), b"");
+                    let _ = std::fs::write(folder.join(format!("{id}.missing")), b"");
                 }
             }
         }
@@ -70,13 +82,13 @@ fn on_this_pc(ids: &[u32], folder: &Path) -> (HashMap<u32, String>, Vec<u32>) {
     let mut found = HashMap::new();
     let mut missing = Vec::new();
     for &id in ids {
-        let candidates = [
-            steam.as_ref().map(|cache| cache.join(id.to_string()).join(COVER)),
-            Some(folder.join(format!("{id}.jpg"))),
-        ];
-        if let Some(bytes) = candidates.iter().flatten().find_map(|path| read_cover(path)) {
+        let cover = steam
+            .as_ref()
+            .and_then(|cache| steam_cover(cache, id))
+            .or_else(|| read_cover(&folder.join(format!("{id}.jpg"))));
+        if let Some(bytes) = cover {
             found.insert(id, data_url(&bytes));
-        } else if !recently_missing(&folder.join(format!("{id}.none"))) {
+        } else if !recently_missing(&folder.join(format!("{id}.missing"))) {
             missing.push(id);
         }
     }
@@ -93,6 +105,18 @@ fn steam_cache() -> Option<PathBuf> {
         .or_else(|| std::env::var_os("ProgramFiles(x86)").map(|dir| PathBuf::from(dir).join("Steam")))?;
     let cache = steam.join("appcache").join("librarycache");
     cache.is_dir().then_some(cache)
+}
+
+/// A game's cover in Steam's cache: under the old name, or the newer one in
+/// a hashed folder of its own.
+fn steam_cover(cache: &Path, id: u32) -> Option<Vec<u8>> {
+    let folder = cache.join(id.to_string());
+    read_cover(&folder.join(COVER)).or_else(|| {
+        std::fs::read_dir(&folder)
+            .ok()?
+            .flatten()
+            .find_map(|entry| read_cover(&entry.path().join(NEW_COVER)))
+    })
 }
 
 fn read_cover(path: &Path) -> Option<Vec<u8>> {
@@ -113,8 +137,57 @@ fn recently_missing(marker: &Path) -> bool {
         .is_some_and(|age| age < RETRY_MISSING_AFTER)
 }
 
-async fn fetch(client: &reqwest::Client, id: u32) -> Option<Vec<u8>> {
-    let url = format!("https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{id}/{COVER}");
+/// Each game's cover path from Steam's store service (`IStoreBrowseService`,
+/// public, no key), asked for many games per request. A game it does not
+/// answer for is tried under the old name.
+async fn cover_paths(client: &reqwest::Client, ids: &[u32]) -> HashMap<u32, String> {
+    let mut paths = HashMap::new();
+    for chunk in ids.chunks(PER_REQUEST) {
+        let input = serde_json::json!({
+            "ids": chunk.iter().map(|id| serde_json::json!({ "appid": id })).collect::<Vec<_>>(),
+            "context": { "language": "english", "country_code": "US" },
+            "data_request": { "include_assets": true },
+        });
+        let Ok(url) = reqwest::Url::parse_with_params(
+            "https://api.steampowered.com/IStoreBrowseService/GetItems/v1/",
+            &[("input_json", input.to_string())],
+        ) else {
+            continue;
+        };
+        let Ok(response) = client.get(url).timeout(Duration::from_secs(15)).send().await else {
+            continue;
+        };
+        let Ok(body) = response.json::<serde_json::Value>().await else {
+            continue;
+        };
+        paths.extend(parse_cover_paths(&body));
+    }
+    paths
+}
+
+fn parse_cover_paths(body: &serde_json::Value) -> HashMap<u32, String> {
+    let items = body["response"]["store_items"].as_array().cloned().unwrap_or_default();
+    items
+        .iter()
+        .filter_map(|item| {
+            let id = u32::try_from(item["appid"].as_u64()?).ok()?;
+            let path = item["assets"]["library_capsule"].as_str()?;
+            safe_path(path).then(|| (id, path.to_string()))
+        })
+        .collect()
+}
+
+/// A path under the game's own image folder: a hash folder and a file name.
+fn safe_path(path: &str) -> bool {
+    !path.is_empty()
+        && path.len() < 200
+        && !path.starts_with('/')
+        && !path.contains("..")
+        && path.bytes().all(|b| b.is_ascii_alphanumeric() || b"_-./".contains(&b))
+}
+
+async fn fetch(client: &reqwest::Client, id: u32, path: &str) -> Option<Vec<u8>> {
+    let url = format!("{IMAGES}/{id}/{path}");
     let response = client.get(url).timeout(Duration::from_secs(15)).send().await.ok()?;
     if !response.status().is_success() || response.content_length().is_some_and(|n| n as usize > MAX_COVER) {
         return None;
@@ -147,7 +220,7 @@ mod tests {
     fn a_game_without_a_cover_is_not_asked_again_for_a_week() {
         let folder = std::env::temp_dir().join(format!("myle-covers-{}", std::process::id()));
         std::fs::create_dir_all(&folder).unwrap();
-        let marker = folder.join("4000000005.none");
+        let marker = folder.join("4000000005.missing");
         assert!(!recently_missing(&marker));
         std::fs::write(&marker, b"").unwrap();
         assert!(recently_missing(&marker));
@@ -155,18 +228,51 @@ mod tests {
         let (found, missing) = on_this_pc(&[4_000_000_001, 4_000_000_003], &folder);
         assert!(found.is_empty());
         assert_eq!(missing, vec![4_000_000_001, 4_000_000_003]);
-        std::fs::write(folder.join("4000000001.none"), b"").unwrap();
+        std::fs::write(folder.join("4000000001.missing"), b"").unwrap();
         assert_eq!(on_this_pc(&[4_000_000_001, 4_000_000_003], &folder).1, vec![4_000_000_003]);
         let _ = std::fs::remove_dir_all(&folder);
     }
 
-    /// Asks Steam for a real cover: `cargo test --lib covers -- --ignored`.
+    #[test]
+    fn steam_answers_are_read_for_safe_cover_paths_only() {
+        let body = serde_json::json!({ "response": { "store_items": [
+            { "appid": 1245620, "assets": { "library_capsule": "library_600x900.jpg" } },
+            { "appid": 3669870, "assets": { "library_capsule": "7d4b4f430dc4d07e6562eb445456f9615cb52f77/library_capsule.jpg" } },
+            { "appid": 5, "assets": { "library_capsule": "../../evil.jpg" } },
+            { "appid": 6, "assets": { "library_capsule": "https://elsewhere.example/x.jpg" } },
+            { "appid": 7 },
+        ] } });
+        let paths = parse_cover_paths(&body);
+        assert_eq!(paths.len(), 2);
+        assert_eq!(paths[&3669870], "7d4b4f430dc4d07e6562eb445456f9615cb52f77/library_capsule.jpg");
+    }
+
+    #[test]
+    fn newer_covers_are_found_in_steams_hashed_folders() {
+        let cache = std::env::temp_dir().join(format!("myle-steam-cache-{}", std::process::id()));
+        let hashed = cache.join("3669870").join("7d4b4f430dc4d07e6562eb445456f9615cb52f77");
+        std::fs::create_dir_all(&hashed).unwrap();
+        let mut jpeg = vec![0xFF, 0xD8, 0xFF, 0xE0];
+        jpeg.resize(4096, 0);
+        std::fs::write(hashed.join(NEW_COVER), &jpeg).unwrap();
+        assert_eq!(steam_cover(&cache, 3669870), Some(jpeg));
+        assert_eq!(steam_cover(&cache, 1), None);
+        let _ = std::fs::remove_dir_all(&cache);
+    }
+
+    /// Asks Steam for real covers, old and new: `cargo test --lib covers -- --ignored`.
     #[tokio::test]
     #[ignore = "uses the network"]
-    async fn steam_gives_a_cover_by_app_id() {
+    async fn steam_gives_covers_by_app_id() {
         let client = crate::download::http_client("MYLE").unwrap();
-        let cover = fetch(&client, 1245620).await.expect("Elden Ring has a cover");
-        assert!(is_cover(&cover));
-        assert!(fetch(&client, 1).await.is_none(), "no such app");
+        // Elden Ring keeps the old name; Control Resonant and Black Flag
+        // Resynced only have the newer hashed path.
+        let paths = cover_paths(&client, &[1245620, 3669870, 3751950]).await;
+        for id in [1245620, 3669870, 3751950] {
+            let path = paths.get(&id).cloned().unwrap_or_else(|| COVER.to_string());
+            let cover = fetch(&client, id, &path).await;
+            assert!(cover.is_some_and(|cover| is_cover(&cover)), "{id}: {path}");
+        }
+        assert!(fetch(&client, 1, COVER).await.is_none(), "no such app");
     }
 }

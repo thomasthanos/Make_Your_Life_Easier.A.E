@@ -276,6 +276,23 @@ class GameSavesState {
     this.filter = readJson(KEY.filter, this.filter, oneOf("all", "changed", "notBackedUp", "backedUp", "problems"));
   }
 
+  /** For the app's preload: the last saved list and its covers, without
+   *  running the engine, so the page opens on them (and the sidebar badge
+   *  counts changed saves from the start). Opening the page still checks. */
+  async preload() {
+    if (this.scanResult || this.#initialized) return;
+    try {
+      const page = await gameSavesApi.getState();
+      // The page itself got there first: leave it to its own load.
+      if (this.scanResult || this.#initialized) return;
+      this.page = page;
+      if (page.cachedScan && !page.activeOperation) this.#applyScan(page.cachedScan);
+    } catch {
+      return;
+    }
+    await this.loadCovers();
+  }
+
   /** Asks for the covers of the listed games not asked for yet. Quietly:
    *  a game without one keeps its monogram. */
   async loadCovers() {

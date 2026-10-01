@@ -263,3 +263,17 @@ test("covers are asked once per game, and from Steam only when allowed", async (
   await state.loadCovers();
   assert.equal(state.covers[900003], undefined, "a failure leaves the monogram");
 });
+
+test("the preload shows the saved list and its covers without running the engine", async () => {
+  state.scanResult = null;
+  const calls = [];
+  api.scan = async () => { calls.push("scan"); return scan(); };
+  api.getState = async () => clone({ ...state.page, cachedScan: scan({ onThisPc: [entry("p", { steamId: 900010, status: "changedSinceBackup" })] }) });
+  api.covers = async (ids) => { calls.push(["covers", ids]); return { 900010: "data:image/jpeg;base64,AQ==" }; };
+  await state.preload();
+  assert.deepEqual(calls, [["covers", [900010]]], "no scan, only the covers");
+  assert.equal(state.scanResult.onThisPc[0].id, "p");
+  assert.equal(state.covers[900010], "data:image/jpeg;base64,AQ==");
+  await state.preload();
+  assert.equal(calls.length, 1, "once is enough");
+});

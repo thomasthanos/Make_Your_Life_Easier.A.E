@@ -1,29 +1,10 @@
 <script lang="ts">
+  import { CUSTOM_ICONS, iconSources as sourcesOf } from "./icons";
   import { appsState, type AppEntry, type Status } from "./state.svelte";
 
   let { app, status, size = 36 }: { app: AppEntry; status: Status; size?: number } = $props();
 
-  const CUSTOM_ICONS: Record<string, string> = {
-    "Custom.NvidiaApp": "/icons/installapps/NVIDIA-App.svg",
-    "Custom.Optimizer": "/icons/installapps/Optimizer.svg",
-    "Custom.Vencord": "/icons/installapps/Vencord.svg",
-    "Custom.BetterDiscord": "/icons/installapps/BetterDiscord.svg",
-  };
-
-  const iconSources = $derived.by(() => {
-    const raw = app.icon ?? CUSTOM_ICONS[app.id];
-    if (raw) return [raw.startsWith("/icons/installapps/") ? `${raw}?v=9` : raw];
-
-    const domain = (app.iconDomain ?? app.site?.split("/")[0])?.trim().toLowerCase();
-    if (!domain || !/^[a-z0-9.-]+$/.test(domain)) return [];
-
-    const encodedDomain = encodeURIComponent(domain);
-    const encodedUrl = encodeURIComponent(`https://${domain}`);
-    return [
-      `https://a.favicon.im/${encodedDomain}?larger=true&throw-error-on-404=true`,
-      `https://www.google.com/s2/favicons?domain_url=${encodedUrl}&sz=128`,
-    ];
-  });
+  const iconSources = $derived(sourcesOf(app));
 
   let rejectedSources = $state<string[]>([]);
   const src = $derived(iconSources.find((candidate) => !rejectedSources.includes(candidate)) ?? null);
