@@ -8,7 +8,7 @@
   import CategoryCard from "./CategoryCard.svelte";
   import CategoryGrid from "./CategoryGrid.svelte";
   import ChoiceButtons from "./ChoiceButtons.svelte";
-  import OptimizationRow from "./OptimizationRow.svelte";
+  import SettingRow from "./SettingRow.svelte";
   import type { StartAlignment, StartAllAppsView, StartLayout, StartMenuStatus } from "./api";
   import { folderCatalog, pinCatalog, startPresets } from "./catalog";
   import { debloat } from "./state.svelte";
@@ -38,9 +38,7 @@
     { key: "showRecommendations", title: "Tips & app suggestions", summary: "Allow Windows to suggest Store apps and tips." },
     { key: "showAccountNotifications", title: "Account notifications", summary: "Show Microsoft account and OneDrive alerts." },
   ];
-  function setPrivacy(key: PrivacyKey, event: Event & { currentTarget: EventTarget & HTMLInputElement }) {
-    const want = event.currentTarget.checked;
-    event.currentTarget.checked = sm?.[key] ?? false;
+  function setPrivacy(key: PrivacyKey, want: boolean) {
     if (disabled) return;
     if (key === "hideRecommended") void debloat.setHideRecommended(want);
     else void debloat.setStartMenu({ [key]: want });
@@ -58,10 +56,9 @@
 </script>
 
 <div class="optimization-ui">
-  <section class="overview surface">
-    <div class="overview-copy"><h2>Your Start Menu</h2><p>Customize the layout, recommendations and shortcuts. Settings save immediately; pinned apps are applied together.</p></div>
-    <span class="save-note">{#if debloat.startMenuBusy}<LoaderCircle size={14} class="spin" /> Saving…{:else}<ShieldCheck size={14} /> Settings save automatically{/if}</span>
-  </section>
+  <p class="save-note">
+    {#if debloat.startMenuBusy}<LoaderCircle size={13} class="spin" /> Saving…{:else}<ShieldCheck size={13} /> Changes here take effect at once; pinned apps are applied together.{/if}
+  </p>
   {#if !sm}
     <div class="empty-state"><strong>{debloat.error ? "Could not load Start Menu settings" : "Loading Start Menu settings…"}</strong></div>
   {:else}
@@ -95,22 +92,17 @@
         </div>
       </CategoryCard>
       <CategoryCard id="recommendations" title="Recommendations & Privacy" description="Control what Windows shows in Start.">
-        <div class="option-list">
+        <div class="rows">
           {#each privacyOptions as item (item.key)}
-            <OptimizationRow title={item.title} summary={item.summary} inlineActions>
-              {#snippet actions()}
-                <span class="switch-label">{sm[item.key] ? "On" : "Off"}</span>
-                <input type="checkbox" role="switch" class="start-switch" aria-label={item.title} checked={sm[item.key]} {disabled} onchange={(event) => setPrivacy(item.key, event)} />
-              {/snippet}
-            </OptimizationRow>
+            <SettingRow title={item.title} summary={item.summary} checked={sm[item.key]} {disabled} onchange={(want) => setPrivacy(item.key, want)} />
           {/each}
         </div>
       </CategoryCard>
       <CategoryCard id="folders" title="Quick Folders" count={sm.folders.length + " / " + folderCatalog.length + " active"} description="Shortcuts next to the Power button.">
         {#snippet tools()}<ChoiceButtons options={startPresets} {disabled} ariaLabel="Quick folder presets" onchange={setFolderPreset} />{/snippet}
-        <div class="option-list">
+        <div class="grid-rows">
           {#each folderCatalog as folder (folder.id)}
-            <OptimizationRow title={folder.label} selectable checked={sm.folders.includes(folder.id)} {disabled} onselect={(enabled) => setFolder(folder.id, enabled)} />
+            <SettingRow control="check" title={folder.label} checked={sm.folders.includes(folder.id)} {disabled} onchange={(enabled) => setFolder(folder.id, enabled)} />
           {/each}
         </div>
       </CategoryCard>
@@ -118,9 +110,9 @@
         {#snippet tools()}
           <ChoiceButtons options={startPresets} {disabled} ariaLabel="Pinned app presets" onchange={(preset) => debloat.selectPins(preset as "essential" | "all" | "none")} />
         {/snippet}
-        <div class="pin-options">
+        <div class="grid-rows pins">
           {#each pinCatalog as item (item.id)}
-            <OptimizationRow title={item.label} summary={item.sub} selectable checked={debloat.selectedPins.has(item.id)} {disabled} onselect={() => debloat.togglePin(item.id)} />
+            <SettingRow control="check" title={item.label} subtitle={item.sub} checked={debloat.selectedPins.has(item.id)} {disabled} onchange={() => debloat.togglePin(item.id)} />
           {/each}
         </div>
         <ActionBar title={debloat.selectedPins.size + " pinned apps selected"} detail="The selection is kept when you switch tabs. Apply it when you are ready.">
@@ -137,23 +129,21 @@
 
 <style>
   .save-note { display: flex; align-items: center; gap: 7px; color: var(--text-2); font-size: 11.5px; }
-  .control-group + .control-group { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgb(255 255 255 / 0.06); }
+  .control-group + .control-group { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgb(255 255 255 / 0.06); }
+  .control-group { padding: 0 4px; }
   .control-group > strong { color: var(--text-1); font-size: 12.5px; font-weight: 600; }
-  .control-group > p { margin-top: 4px; color: var(--text-2); font-size: 11.5px; line-height: 1.6; }
-  .segmented { display: flex; gap: 7px; margin-top: 12px; }
-  .seg-btn { display: grid; align-content: start; gap: 5px; flex: 1; min-width: 0; padding: 12px 10px; border: 1px solid rgb(255 255 255 / 0.08); border-radius: 8px; background: rgb(255 255 255 / 0.025); text-align: left; }
+  .control-group > p { margin-top: 2px; color: var(--text-2); font-size: 11px; line-height: 1.45; }
+  .segmented { display: flex; gap: 6px; margin-top: 7px; }
+  .seg-btn { display: grid; align-content: start; gap: 2px; flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid rgb(255 255 255 / 0.08); border-radius: 8px; background: rgb(255 255 255 / 0.025); text-align: left; }
   .seg-btn:hover:not(:disabled) { border-color: rgb(var(--accent-rgb) / 0.35); }
   .seg-btn.active { border-color: rgb(var(--accent-rgb) / 0.5); background: rgb(var(--accent-rgb) / 0.13); }
   .seg-btn strong { color: var(--text-1); font-size: 12px; }
-  .seg-btn span { color: var(--text-2); font-size: 10.5px; line-height: 1.5; }
+  .seg-btn span { overflow: hidden; color: var(--text-2); font-size: 10.5px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
   .seg-btn:disabled { opacity: 0.45; }
-  .switch-label { color: var(--text-2); font-size: 11px; }
-  .start-switch { position: relative; appearance: none; flex: none; width: 36px; height: 22px; border: 1px solid rgb(255 255 255 / 0.18); border-radius: 20px; background: rgb(255 255 255 / 0.09); cursor: pointer; }
-  .start-switch::before { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-2); }
-  .start-switch:checked { border-color: var(--accent); background: rgb(var(--accent-rgb) / 0.5); }
-  .start-switch:checked::before { transform: translateX(14px); background: white; }
-  .start-switch:disabled { opacity: 0.45; cursor: default; }
-  .pin-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  @container optimization-list (max-width: 800px) { .pin-options { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @container optimization-list (max-width: 450px) { .pin-options { grid-template-columns: 1fr; } }
+  .rows { display: grid; gap: 1px; }
+  .grid-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 8px; }
+  .grid-rows.pins { margin-bottom: 4px; }
+  @container optimization-list (min-width: 820px) { .grid-rows.pins { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @container optimization-list (min-width: 1150px) { .grid-rows.pins { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @container optimization-list (max-width: 400px) { .grid-rows { grid-template-columns: minmax(0, 1fr); } }
 </style>

@@ -277,7 +277,7 @@
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
-    padding: 18px;
+    padding: 14px;
     box-shadow: var(--elev-1);
     transition: transform var(--dur-med) var(--ease-out), border-color var(--dur-fast), box-shadow var(--dur-med);
   }
@@ -292,7 +292,7 @@
   .tool-icon img { width: 100%; height: 100%; display: block; object-fit: cover; }
   .identity { min-width: 0; }
   .identity h2 { font-size: 16px; }
-  .identity > p { margin-top: 4px; color: var(--text-2); font-size: 11.5px; line-height: 1.48; min-height: 34px; }
+  .identity > p { margin-top: 3px; color: var(--text-2); font-size: 11.5px; line-height: 1.45; }
   .name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1px solid rgb(255 255 255 / 0.07); border-radius: 999px; color: var(--text-3); background: rgb(255 255 255 / 0.035); font-size: 9px; font-weight: 600; letter-spacing: 0.02em; }
   .badge.admin { border-color: rgb(94 176 255 / 0.14); color: rgb(142 199 255 / 0.72); }
@@ -311,9 +311,8 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    min-height: 54px;
-    margin-top: 12px;
-    padding: 10px 11px;
+    margin-top: 8px;
+    padding: 8px 10px;
     border-radius: 10px;
   }
   .info-box strong {
@@ -335,8 +334,8 @@
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
-    margin-top: 15px;
-    padding: 10px 11px;
+    margin-top: 10px;
+    padding: 8px 10px;
   }
   .account.account-conflict { border-color: rgb(237 170 73 / 0.16); }
   .account-icon { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid rgb(81 215 166 / 0.12); border-radius: 10px; background: rgb(66 204 153 / 0.07); color: rgb(99 224 177 / 0.86); }
@@ -384,7 +383,7 @@
     align-items: center;
     gap: 8px;
     margin-top: auto;
-    padding-top: 16px;
+    padding-top: 12px;
   }
   .launch { flex: 1; min-width: 126px; justify-content: center; }
   .github { color: var(--text-2); }
@@ -397,8 +396,8 @@
     grid-template-columns: auto minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 12px;
-    margin-top: 12px;
-    padding: 14px 18px;
+    margin-top: 10px;
+    padding: 10px 14px;
     overflow: hidden;
     box-shadow: var(--elev-1);
     transition: border-color var(--dur-fast), box-shadow var(--dur-med);
