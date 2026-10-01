@@ -319,8 +319,14 @@
   .link-btn:hover { background: var(--hover); color: var(--text-1); }
 
   .split { display: inline-flex; align-items: stretch; }
-  .split-main { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-  .split-arrow { width: 34px; padding: 0; justify-content: center; border-left: 1px solid rgb(0 0 0 / 0.25); border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .split-main, .split-arrow { background: rgb(255 255 255 / 0.05); filter: none; scale: 1; translate: none; }
+  .split-main.primary, .split-arrow.primary { background: var(--accent); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18); }
+  .split:has(> .split-main:not(:disabled)):hover .split-main,
+  .split:has(> .split-main:not(:disabled)):hover .split-arrow { background: rgb(255 255 255 / 0.09); }
+  .split:has(> .split-main:not(:disabled)):hover .split-main.primary,
+  .split:has(> .split-main:not(:disabled)):hover .split-arrow.primary { background: color-mix(in srgb, var(--accent), white 8%); }
+  .split-main { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 0; }
+  .split-arrow { width: 34px; padding: 0; justify-content: center; border-left: 1px solid rgb(255 255 255 / 0.18); border-top-left-radius: 0; border-bottom-left-radius: 0; }
   .split :global(.popover) { display: flex; }
   .all-done { display: inline-flex; align-items: center; gap: 6px; color: #8fd9b6; font-size: 12px; }
 
