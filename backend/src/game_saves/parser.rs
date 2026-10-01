@@ -101,6 +101,9 @@ pub(crate) struct ApiBackup {
 pub(crate) struct ManifestMetadata {
     pub supported_games: u64,
     pub badges: HashMap<String, Vec<String>>,
+    /// Each game's Steam app id, for its cover. Shared: every scan copies
+    /// the metadata, and there are some 50 000.
+    pub steam_ids: std::sync::Arc<HashMap<String, u32>>,
 }
 
 pub(crate) fn parse_api(text: &str) -> Result<ApiOutput, String> {
@@ -120,6 +123,8 @@ pub(crate) fn parse_manifest_metadata(yaml: &str) -> ManifestMetadata {
     let mut supported = false;
     let mut badges = Vec::<String>::new();
     let mut in_cloud = false;
+    let mut in_steam = false;
+    let mut steam_ids = HashMap::<String, u32>::new();
 
     let finish = |title: &mut Option<String>,
                   supported: &mut bool,
@@ -149,6 +154,7 @@ pub(crate) fn parse_manifest_metadata(yaml: &str) -> ManifestMetadata {
             finish(&mut title, &mut supported, &mut badges, &mut result);
             title = Some(yaml_key(&trimmed[..trimmed.len() - 1]));
             in_cloud = false;
+            in_steam = false;
             continue;
         }
         if title.is_none() {
@@ -156,9 +162,18 @@ pub(crate) fn parse_manifest_metadata(yaml: &str) -> ManifestMetadata {
         }
         if indent == 2 {
             in_cloud = trimmed == "cloud:";
+            in_steam = trimmed == "steam:";
             if trimmed == "files:" || trimmed == "registry:" {
                 supported = true;
             }
+            continue;
+        }
+        if in_steam
+            && indent == 4
+            && let Some(id) = trimmed.strip_prefix("id:").and_then(|id| id.trim().parse::<u32>().ok())
+            && let Some(name) = &title
+        {
+            steam_ids.insert(name.clone(), id);
             continue;
         }
         if in_cloud
@@ -178,6 +193,7 @@ pub(crate) fn parse_manifest_metadata(yaml: &str) -> ManifestMetadata {
         }
     }
     finish(&mut title, &mut supported, &mut badges, &mut result);
+    result.steam_ids = std::sync::Arc::new(steam_ids);
     result
 }
 
@@ -343,6 +359,7 @@ fn entry_from(
         has_backup,
         error,
         snapshots,
+        steam_id: metadata.steam_ids.get(title).copied(),
     }
 }
 
@@ -493,6 +510,8 @@ No paths:
     '<winAppData>/Game': {}
   cloud:
     steam: true
+  steam:
+    id: 1245620
 Registry Game:
   registry:
     HKEY_CURRENT_USER/Software/Game: {}
@@ -503,6 +522,10 @@ Registry Game:
         assert_eq!(metadata.supported_games, 2);
         assert_eq!(metadata.badges["Game: One"], vec!["Steam Cloud"]);
         assert_eq!(metadata.badges["Registry Game"], vec!["GOG Cloud"]);
+        // Steam app ids, for the covers; "cloud: steam: true" is not one.
+        assert_eq!(metadata.steam_ids.get("Game: One"), Some(&1245620));
+        assert_eq!(metadata.steam_ids.get("No paths"), Some(&1));
+        assert_eq!(metadata.steam_ids.get("Registry Game"), None);
     }
 
     #[test]

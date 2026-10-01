@@ -38,6 +38,11 @@
     return [...groups].map(([reason, games]) => ({ reason, games }));
   }
 
+  // Each new scan result may list games whose covers are not known yet.
+  $effect(() => {
+    if (state.scanResult) void state.loadCovers();
+  });
+
   const tabs: { id: GameSavesTab; label: string; icon: typeof HardDrive }[] = [
     { id: "pc", label: "On this PC", icon: HardDrive },
     { id: "backup", label: "Your backups", icon: Archive },

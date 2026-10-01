@@ -111,6 +111,11 @@
           <p>Check every game in the database.</p>
           <button class="btn ghost" disabled={gameSaves.locked} onclick={() => { close(); void gameSaves.updateDatabase(); }}><DatabaseZap size={15} /> Update game database</button>
           <p>Download the latest save locations.</p>
+          <label class="menu-toggle">
+            <input type="checkbox" class="switch" role="switch" checked={gameSaves.steamCovers} onchange={(event) => gameSaves.setSteamCovers(event.currentTarget.checked)} />
+            Covers from Steam
+          </label>
+          <p>Games whose cover is not on this PC get it from Steam, which then sees which games you have.</p>
         </div>
       {/snippet}
     </Popover>
@@ -254,6 +259,7 @@
   .more-menu { display: grid; min-width: 255px; padding: 7px; background: var(--bg-2, #1b2030); box-shadow: 0 12px 32px rgb(0 0 0 / .35); }
   .more-menu .btn { justify-content: flex-start; }
   .more-menu p { margin: 0 10px 10px; color: var(--text-3); font-size: 11px; }
+  .menu-toggle { display: flex; align-items: center; gap: 10px; padding: 8px 10px 4px; border-top: 1px solid rgb(255 255 255 / 0.06); color: var(--text-1); font-size: 12.5px; cursor: pointer; }
 
   .search {
     position: relative;

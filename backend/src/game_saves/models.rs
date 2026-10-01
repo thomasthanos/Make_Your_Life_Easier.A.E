@@ -293,6 +293,9 @@ pub struct GameSaveEntry {
     pub has_backup: bool,
     pub error: Option<String>,
     pub snapshots: Vec<GameSaveSnapshot>,
+    /// Its Steam app id in the save database, for its cover.
+    #[serde(default)]
+    pub steam_id: Option<u32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -446,6 +449,7 @@ mod tests {
             has_backup: false,
             error: None,
             snapshots: Vec::new(),
+            steam_id: None,
         }
     }
 

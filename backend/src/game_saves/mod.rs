@@ -1,6 +1,7 @@
 mod atomic;
 mod cloud;
 pub(crate) mod commands;
+pub(crate) mod covers;
 mod detection;
 mod engine;
 mod headless;

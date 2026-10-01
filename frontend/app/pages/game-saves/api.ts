@@ -148,6 +148,8 @@ export interface GameSaveEntry {
   hasBackup: boolean;
   error: string | null;
   snapshots: BackupSnapshot[];
+  /** Its Steam app id in the save database, for its cover. */
+  steamId?: number | null;
 }
 
 export interface GameSavesScan {
@@ -239,4 +241,6 @@ export const gameSavesApi = {
   undoLastRestore: (onEvent: (event: GameSavesEvent) => void) =>
     invoke<GameSavesOperationResult>("game_saves_undo_last_restore", { onEvent: channel(onEvent) }),
   cancel: () => invoke<void>("game_saves_cancel"),
+  /** Steam covers as `data:` URLs, by app id: from this PC, and from Steam when `online`. */
+  covers: (ids: number[], online: boolean) => invoke<Record<string, string>>("game_saves_covers", { ids, online }),
 };

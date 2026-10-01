@@ -380,7 +380,8 @@ pub fn run() {
             game_saves::commands::game_saves_undo_last_restore,
             game_saves::commands::game_saves_sync_export,
             game_saves::commands::game_saves_sync_import,
-            game_saves::commands::game_saves_cancel
+            game_saves::commands::game_saves_cancel,
+            game_saves::covers::game_saves_covers
         ])
         .build(context())
         .expect("error while building the application");

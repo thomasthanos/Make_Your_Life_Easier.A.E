@@ -74,7 +74,11 @@
   />
 
   <div class="identity">
-    <span class="monogram" style:--hue={monogram.hue} aria-hidden="true">{monogram.letters}</span>
+    {#if game.steamId && state.covers[game.steamId]}
+      <img class="cover" src={state.covers[game.steamId]} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+    {:else}
+      <span class="monogram" style:--hue={monogram.hue} aria-hidden="true">{monogram.letters}</span>
+    {/if}
     <span class="title-wrap">
       <span class="title-line">
         <label class="title" title={game.title} for="{uid}-check">{game.title}</label>
@@ -196,14 +200,25 @@
     min-width: 0;
   }
 
+  /* Steam's portrait art; the monogram takes the same place without one. */
+  .cover {
+    width: 34px;
+    height: 51px;
+    flex: none;
+    border-radius: 7px;
+    object-fit: cover;
+    background: rgb(255 255 255 / 0.04);
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08), 0 6px 14px -8px rgb(0 0 0 / 0.8);
+  }
+
   .monogram {
     display: grid;
     place-items: center;
-    width: 38px;
-    height: 38px;
+    width: 34px;
+    height: 51px;
     flex: none;
     border: 1px solid hsl(var(--hue) 70% 70% / 0.18);
-    border-radius: 11px;
+    border-radius: 7px;
     background: linear-gradient(145deg, hsl(var(--hue) 55% 55% / 0.3), hsl(var(--hue) 55% 35% / 0.12));
     color: hsl(var(--hue) 85% 86%);
     font-family: var(--font-display);

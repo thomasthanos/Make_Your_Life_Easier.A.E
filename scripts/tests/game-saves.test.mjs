@@ -246,3 +246,20 @@ test("the filters count their games, and a partly ticked list says so", () => {
   assert.equal(state.allVisibleSelected, true);
   assert.equal(state.someVisibleSelected, false);
 });
+
+test("covers are asked once per game, and from Steam only when allowed", async () => {
+  state.scanResult = scan({ onThisPc: [entry("x", { steamId: 900001 }), entry("y", { steamId: 900002 }), entry("z")], inBackup: [entry("x", { steamId: 900001, hasBackup: true })] });
+  state.covers = {}; state.steamCovers = false;
+  const calls = [];
+  api.covers = async (ids, online) => { calls.push([ids, online]); return online ? { 900002: "data:image/jpeg;base64,Ag==" } : { 900001: "data:image/jpeg;base64,AQ==" }; };
+  await state.loadCovers(); await state.loadCovers();
+  assert.deepEqual(calls, [[[900001, 900002], false]]);
+  assert.equal(state.covers[900001], "data:image/jpeg;base64,AQ==");
+  state.setSteamCovers(true); await settle();
+  assert.deepEqual(calls[1], [[900002], true], "only the one still missing, now from Steam");
+  assert.equal(state.covers[900002], "data:image/jpeg;base64,Ag==");
+  api.covers = async () => { throw new Error("IPC unavailable"); };
+  state.scanResult = scan({ onThisPc: [entry("w", { steamId: 900003 })] });
+  await state.loadCovers();
+  assert.equal(state.covers[900003], undefined, "a failure leaves the monogram");
+});

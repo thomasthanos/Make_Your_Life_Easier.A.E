@@ -56,6 +56,7 @@ const KEY = {
   tab: "myle.gameSaves.tab",
   filter: "myle.gameSaves.filter",
   settingsOpen: "myle.gameSaves.settingsOpen",
+  steamCovers: "myle.gameSaves.steamCovers",
 };
 
 const oneOf = <T extends string>(...values: T[]) => (value: unknown) => values.includes(value as T);
@@ -124,6 +125,12 @@ class GameSavesState {
    *  on the page until dismissed or the next operation. */
   failures = $state<{ kind: "backup" | "restore"; items: GameFailure[] } | null>(null);
   settingsOpen = $state(readFlag(KEY.settingsOpen, false));
+  /** Covers by Steam app id, as `data:` URLs. */
+  covers = $state<Record<number, string>>({});
+  /** Covers missing from this PC may be fetched from Steam (it then learns which games). */
+  steamCovers = $state(readFlag(KEY.steamCovers, true));
+  /** App ids already asked for, with whether Steam was asked too. */
+  #coversAsked = new Map<number, boolean>();
   tab = $state<GameSavesTab>(readJson(KEY.tab, "pc", oneOf("pc", "backup")));
   filter = $state<GameSavesFilter>(
     readJson(KEY.filter, "all", oneOf("all", "changed", "notBackedUp", "backedUp", "problems")),
@@ -267,6 +274,34 @@ class GameSavesState {
   reloadChoices() {
     this.tab = readJson(KEY.tab, this.tab, oneOf("pc", "backup"));
     this.filter = readJson(KEY.filter, this.filter, oneOf("all", "changed", "notBackedUp", "backedUp", "problems"));
+  }
+
+  /** Asks for the covers of the listed games not asked for yet. Quietly:
+   *  a game without one keeps its monogram. */
+  async loadCovers() {
+    const online = this.steamCovers;
+    const ids = [...(this.scanResult?.onThisPc ?? []), ...(this.scanResult?.inBackup ?? [])]
+      .map((game) => game.steamId)
+      .filter((id): id is number => typeof id === "number" && id > 0 && !this.covers[id])
+      .filter((id) => !this.#coversAsked.has(id) || (online && !this.#coversAsked.get(id)));
+    const unique = [...new Set(ids)];
+    if (!unique.length) return;
+    for (const id of unique) this.#coversAsked.set(id, online);
+    try {
+      const found = await gameSavesApi.covers(unique, online);
+      const next = { ...this.covers };
+      for (const [id, url] of Object.entries(found)) next[Number(id)] = url;
+      this.covers = next;
+    } catch {
+      // Covers only decorate; the list works without them.
+      for (const id of unique) this.#coversAsked.delete(id);
+    }
+  }
+
+  setSteamCovers(on: boolean) {
+    this.steamCovers = on;
+    writeFlag(KEY.steamCovers, on);
+    if (on) void this.loadCovers();
   }
 
   toggleSettings() {

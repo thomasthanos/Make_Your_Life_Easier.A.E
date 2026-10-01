@@ -1757,6 +1757,7 @@ mod tests {
                     label: None,
                     is_safety: false,
                 }],
+                steam_id: None,
             }],
             ..Default::default()
         });

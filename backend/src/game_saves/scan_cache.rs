@@ -112,6 +112,7 @@ mod tests {
             has_backup: true,
             error: None,
             snapshots: Vec::new(),
+            steam_id: None,
         }
     }
 
