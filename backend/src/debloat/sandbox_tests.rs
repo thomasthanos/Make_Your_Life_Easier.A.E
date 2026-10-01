@@ -50,7 +50,7 @@ fn look(op: &Op) -> Seen {
             let (short, long) = system::time_formats().unwrap();
             Seen::Clock(short, long)
         }
-        Op::Appx { .. } | Op::RemoveEdge => Seen::Other,
+        Op::Appx { .. } | Op::RemoveEdge | Op::Capability { .. } => Seen::Other,
     }
 }
 
@@ -76,7 +76,7 @@ fn undo(tweak: &'static catalog::Tweak, saved: &[Saved]) {
 fn plain_tweaks(build: u32) -> Vec<&'static catalog::Tweak> {
     TWEAKS
         .iter()
-        .filter(|tweak| tweak.builds.contains(build) && !tweak.ops.iter().any(|op| matches!(op, Op::RemoveEdge | Op::Appx { .. })))
+        .filter(|tweak| tweak.builds.contains(build) && !tweak.ops.iter().any(|op| matches!(op, Op::RemoveEdge | Op::Appx { .. } | Op::Capability { .. })))
         .collect()
 }
 
@@ -167,7 +167,7 @@ fn as_it_is(op: &Op) -> Before {
             let (short, long) = system::time_formats().unwrap();
             Before::Clock { short, long }
         }
-        Op::Appx { .. } | Op::RemoveEdge => unreachable!("not among the plain tweaks"),
+        Op::Appx { .. } | Op::RemoveEdge | Op::Capability { .. } => unreachable!("not among the plain tweaks"),
     }
 }
 
@@ -231,6 +231,38 @@ fn sandbox_edge_goes_and_webview2_stays() {
     assert_eq!(webview.is_dir(), had_webview, "WebView2 stays");
     let allow = system::read(Hive::Machine, r"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdateDev", "AllowUninstall");
     assert_eq!(allow, Value::Absent, "the uninstall permission is taken back");
+}
+
+/// A part of Windows is removed through the helper, seen as gone without
+/// administrator rights, and added back (from Windows Update).
+#[test]
+#[ignore = "changes Windows: Windows Sandbox or a throwaway VM only"]
+fn sandbox_a_windows_feature_goes_and_comes_back() {
+    throwaway_windows();
+    let Some((tweak, package)) = ["math-input", "steps-recorder", "powershell-ise"].iter().find_map(|id| {
+        let tweak = catalog::find(id).unwrap();
+        let Op::Capability { package, .. } = tweak.ops[0] else { unreachable!() };
+        (system::capability_installed(package) == Some(true)).then_some((tweak, package))
+    }) else {
+        println!("None of the test features is installed here: nothing to test.");
+        return;
+    };
+    println!("{}: installed", tweak.id);
+    let started = std::time::Instant::now();
+    let removed = helper::handle(Request::Apply { tweak: tweak.id.into() });
+    println!("removed in {:?}: {:?}", started.elapsed(), removed.errors);
+    assert!(removed.errors.is_empty(), "{:?}", removed.errors);
+    assert_eq!(removed.saved.len(), 1, "the removal is kept for Undo");
+    assert_eq!(removed.saved[0].before, Before::Capability);
+    assert_eq!(system::capability_installed(package), Some(false), "seen as gone, without rights");
+    let packages = system::installed_packages();
+    assert_eq!(detect::tweak_state(tweak, system::windows_info().build, &packages), detect::State::Applied);
+
+    let started = std::time::Instant::now();
+    let back = helper::handle(Request::Undo { tweak: tweak.id.into(), saved: removed.saved });
+    println!("added back in {:?}: {:?}", started.elapsed(), back.errors);
+    assert!(back.errors.is_empty(), "{:?}", back.errors);
+    assert_eq!(system::capability_installed(package), Some(true), "installed again");
 }
 
 #[test]

@@ -155,6 +155,7 @@ fn apply(tweak: &catalog::Tweak) -> Reply {
                 if gone.errors.is_empty() { Ok(None) } else { Err(gone.errors.join(" ")) }
             }
             Op::RemoveEdge => edge::remove().map(|removed| removed.then_some(Before::Edge)),
+            Op::Capability { name, .. } => capability(name, false).map(|changed| changed.then_some(Before::Capability)),
             // The user's own part runs in the app, as the user.
             Op::Reg { hive: Hive::User, .. } | Op::Clock24 => Ok(None),
         };
@@ -181,7 +182,9 @@ fn valid_undo(tweak: &catalog::Tweak, saved: &Saved) -> Option<&'static Op> {
             let created_ok = created.as_deref().is_none_or(|top| system::key_on_path(path, top));
             value_ok && created_ok
         }
-        (Op::Service { .. }, Before::Service { .. }) | (Op::Task { .. }, Before::Task { .. }) => true,
+        (Op::Service { .. }, Before::Service { .. })
+        | (Op::Task { .. }, Before::Task { .. })
+        | (Op::Capability { .. }, Before::Capability) => true,
         _ => false,
     };
     ok.then_some(op)
@@ -199,6 +202,7 @@ fn undo(tweak: &catalog::Tweak, saved: &[Saved]) -> Reply {
             }
             (Op::Service { name, .. }, Before::Service { start }) => system::set_start_type(name, *start),
             (Op::Task { folder, name }, Before::Task { enabled }) => system::set_task_enabled(folder, name, *enabled),
+            (Op::Capability { name, .. }, Before::Capability) => capability(name, true).map(|_| ()),
             _ => continue,
         };
         match result {
@@ -240,6 +244,35 @@ fn run_script(script: &str, timeout: Duration) -> Result<String, String> {
     }
     let output = child.wait_with_output().map_err(|e| e.to_string())?;
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// Removes (or adds back) the parts of Windows whose capability name starts
+/// with `name`, one of the catalog's. Adding back downloads it from Windows
+/// Update. True when something changed.
+fn capability(name: &str, add: bool) -> Result<bool, String> {
+    let (wanted, verb) = if add { ("-ne 'Installed'", "Add") } else { ("-eq 'Installed'", "Remove") };
+    let pattern = crate::apps::process::ps_quote(&format!("{name}*"));
+    let script = format!(
+        r#"$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+try {{
+    $found = @(Get-WindowsCapability -Online | Where-Object {{ $_.Name -like {pattern} -and $_.State {wanted} }})
+    foreach ($item in $found) {{ {verb}-WindowsCapability -Online -Name $item.Name | Out-Null }}
+    "MYLE-DONE:$($found.Count)"
+}} catch {{
+    "MYLE-ERROR:$($_.Exception.Message)"
+}}"#
+    );
+    let output = run_script(&script, Duration::from_secs(15 * 60))?;
+    for line in output.lines().map(str::trim) {
+        if let Some(count) = line.strip_prefix("MYLE-DONE:") {
+            return Ok(count.trim() != "0");
+        }
+        if let Some(error) = line.strip_prefix("MYLE-ERROR:") {
+            return Err(error.trim().to_string());
+        }
+    }
+    Err("Windows did not say whether the feature changed.".into())
 }
 
 fn remove_apps(packages: &[String]) -> Reply {

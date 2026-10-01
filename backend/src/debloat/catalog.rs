@@ -18,6 +18,8 @@ pub enum Category {
     Ai,
     System,
     Apps,
+    /// Parts of Windows itself (Features on Demand), removed whole.
+    Features,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -118,6 +120,11 @@ pub enum Op {
     Clock24,
     /// Microsoft Edge removed (WebView2 stays).
     RemoveEdge,
+    /// A part of Windows (a Feature on Demand) removed: `name` is the start of
+    /// its capability name ("App.StepsRecorder~~~~"), `package` the start of
+    /// its servicing package's, which tells without administrator rights
+    /// whether it is installed.
+    Capability { name: &'static str, package: &'static str },
 }
 
 /// Windows builds a tweak is for: `min` inclusive, `max` exclusive.
@@ -586,6 +593,118 @@ pub const TWEAKS: &[Tweak] = &[
         confirm: None,
         ops: &[user(r"Control Panel\Accessibility\StickyKeys", "Flags", Sz("506"))],
     },
+    Tweak {
+        id: "steps-recorder",
+        title: "Remove Steps Recorder",
+        summary: "Records the steps of a problem as screenshots and text. Microsoft is retiring it.",
+        category: Category::Features,
+        risk: Risk::Safe,
+        builds: ANY,
+        level: MAXIMUM,
+        note: None,
+        restart_explorer: false,
+        reboot: false,
+        confirm: None,
+        ops: &[Op::Capability { name: "App.StepsRecorder~~~~", package: "Microsoft-Windows-StepsRecorder-Package~" }],
+    },
+    Tweak {
+        id: "math-input",
+        title: "Remove Math Input Panel",
+        summary: "Turns handwritten maths into text for documents.",
+        category: Category::Features,
+        risk: Risk::Safe,
+        builds: ANY,
+        level: MAXIMUM,
+        note: None,
+        restart_explorer: false,
+        reboot: false,
+        confirm: None,
+        ops: &[Op::Capability { name: "MathRecognizer~~~~", package: "Microsoft-Windows-TabletPCMath-Package~" }],
+    },
+    Tweak {
+        id: "wordpad",
+        title: "Remove WordPad",
+        summary: "The old rich-text editor, which Microsoft has retired.",
+        category: Category::Features,
+        risk: Risk::Safe,
+        builds: ANY,
+        level: MAXIMUM,
+        note: None,
+        restart_explorer: false,
+        reboot: false,
+        confirm: None,
+        ops: &[Op::Capability { name: "Microsoft.Windows.WordPad~~~~", package: "Microsoft-Windows-WordPad-FoD-Package~" }],
+    },
+    Tweak {
+        id: "xps-viewer",
+        title: "Remove XPS Viewer",
+        summary: "Opens .xps documents, a format few people use.",
+        category: Category::Features,
+        risk: Risk::Safe,
+        builds: ANY,
+        level: MAXIMUM,
+        note: None,
+        restart_explorer: false,
+        reboot: false,
+        confirm: None,
+        ops: &[Op::Capability { name: "XPS.Viewer~~~~", package: "Microsoft-Windows-Xps-Xps-Viewer-Opt-Package~" }],
+    },
+    Tweak {
+        id: "media-player-legacy",
+        title: "Remove Windows Media Player Legacy",
+        summary: "The classic Windows Media Player. The new Media Player stays.",
+        category: Category::Features,
+        risk: Risk::Safe,
+        builds: ANY,
+        level: OPT_IN,
+        note: Some("Some old programs, DVDs and audio CDs play only in it."),
+        restart_explorer: false,
+        reboot: false,
+        confirm: None,
+        ops: &[Op::Capability { name: "Media.WindowsMediaPlayer~~~~", package: "Microsoft-Windows-MediaPlayer-Package~" }],
+    },
+    Tweak {
+        id: "powershell-ise",
+        title: "Remove PowerShell ISE",
+        summary: "The old script editor for PowerShell. PowerShell itself stays.",
+        category: Category::Features,
+        risk: Risk::Safe,
+        builds: ANY,
+        level: OPT_IN,
+        note: None,
+        restart_explorer: false,
+        reboot: false,
+        confirm: None,
+        ops: &[Op::Capability { name: "Microsoft.Windows.PowerShell.ISE~~~~", package: "Microsoft-Windows-PowerShell-ISE-FOD-Package~" }],
+    },
+    Tweak {
+        id: "ie-mode",
+        title: "Remove Internet Explorer mode",
+        summary: "The old engine behind Internet Explorer mode in Edge.",
+        category: Category::Features,
+        risk: Risk::Caution,
+        builds: ANY,
+        level: OPT_IN,
+        note: Some("Old company and government sites that need Internet Explorer mode stop working in Edge."),
+        restart_explorer: false,
+        reboot: false,
+        confirm: None,
+        ops: &[Op::Capability { name: "Browser.InternetExplorer~~~~", package: "Microsoft-Windows-InternetExplorer-Optional-Package~" }],
+    },
+    Tweak {
+        id: "fax-scan",
+        title: "Remove Windows Fax and Scan",
+        summary: "Sends faxes and scans documents from a scanner.",
+        category: Category::Features,
+        risk: Risk::Safe,
+        builds: ANY,
+        level: OPT_IN,
+        note: Some("Keep it if you scan with it."),
+        restart_explorer: false,
+        reboot: false,
+        confirm: None,
+        ops: &[Op::Capability { name: "Print.Fax.Scan~~~~", package: "Microsoft-Windows-Fax-Common-FoD-Package~" }],
+    },
 ];
 
 pub fn find(id: &str) -> Option<&'static Tweak> {
@@ -898,6 +1017,22 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn windows_features_name_only_their_own_capability() {
+        let mut features = 0;
+        for tweak in TWEAKS {
+            for op in tweak.ops {
+                if let Op::Capability { name, package } = op {
+                    features += 1;
+                    assert_eq!(tweak.category, Category::Features, "{}", tweak.id);
+                    assert!(name.ends_with("~~~~") && package.ends_with('~'), "{}", tweak.id);
+                    assert!(name.bytes().chain(package.bytes()).all(|b| b.is_ascii_alphanumeric() || b"~.-".contains(&b)), "{}", tweak.id);
+                }
+            }
+        }
+        assert!(features >= 6);
     }
 
     #[test]

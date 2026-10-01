@@ -166,6 +166,13 @@ function previewApi(): DebloatApi {
     tweak("taskbar-left", "Taskbar icons on the left", "Start and the taskbar icons sit on the left.", "taskbar", null, "notApplied"),
     tweak("mouse-acceleration", "Turn off mouse acceleration", "The pointer moves as far as the mouse does.", "system", null, "notApplied"),
     tweak("sticky-keys", "No Sticky Keys prompt", "Pressing Shift five times no longer asks about Sticky Keys.", "system", null, "notApplied"),
+    tweak("steps-recorder", "Remove Steps Recorder", "Records the steps of a problem as screenshots and text. Microsoft is retiring it.", "features", "maximum", "notApplied"),
+    tweak("math-input", "Remove Math Input Panel", "Turns handwritten maths into text for documents.", "features", "maximum", "applied", { canUndo: true }),
+    tweak("ie-mode", "Remove Internet Explorer mode", "The old engine behind Internet Explorer mode in Edge.", "features", null, "notApplied", {
+      risk: "caution",
+      note: "Old company and government sites that need Internet Explorer mode stop working in Edge.",
+    }),
+    tweak("wordpad", "Remove WordPad", "The old rich-text editor, which Microsoft has retired.", "features", "maximum", "unavailable"),
   ];
   const app = (id: string, title: string, group: AppGroup, level: Level | null, installed: boolean, storeId: string | null = null, about = "An app.", keep: string | null = null): AppStatus => ({
     id, title, group, level, about, keep, packages: installed ? [`Preview.${id}`] : [], removedByMyle: false, storeId,

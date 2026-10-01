@@ -22,6 +22,15 @@
       (view.filter === "chosen" && debloat.isRemoving(app.id)))
   ));
   const removed = $derived((debloat.status?.apps ?? []).filter((app) => app.removedByMyle && !app.packages.length && matches(app.title)));
+  /** Parts of Windows itself: ticked means removed (or to be removed). */
+  const features = $derived(debloat.tweaks.filter((tweak) =>
+    tweak.category === "features" && tweak.state !== "unavailable" &&
+    matches(tweak.title + " " + tweak.summary) &&
+    (view.filter === "all" ||
+      (view.filter === "suggested" && inProfile(tweak.level, "maximum")) ||
+      (view.filter === "chosen" && debloat.isOn(tweak)))
+  ));
+  const featureName = (title: string) => title.replace(/^Remove /, "");
 </script>
 
 <div class="optimization-ui">
@@ -36,7 +45,7 @@
 
   {#if !debloat.status}
     <div class="empty-state"><strong>{debloat.error ? "Could not load the apps" : "Checking installed apps…"}</strong></div>
-  {:else if !shown.length && !removed.length}
+  {:else if !shown.length && !removed.length && !features.length}
     <div class="empty-state">
       <strong>{debloat.installedApps.length ? "No matching apps" : "Nothing to remove"}</strong>
       <span>{debloat.installedApps.length ? "Your choices are kept when you change the search or filter." : "None of the apps on MYLE's list is installed."}</span>
@@ -73,12 +82,31 @@
           </CategoryCard>
         {/if}
       {/each}
+      {#if features.length}
+        <CategoryCard id="features" title="Windows features" wide
+          description="Parts of Windows few people use. One removed here can be added back; that downloads it from Windows Update."
+          count={`${features.filter((tweak) => debloat.isOn(tweak)).length}/${features.length} removed or chosen`}>
+          <div class="app-grid many">
+            {#each features as tweak (tweak.id)}
+              <SettingRow control="check" title={featureName(tweak.title)} summary={tweak.summary} note={tweak.note}
+                checked={debloat.isOn(tweak)} pending={debloat.isPending(tweak)} disabled={debloat.locked}
+                recommended={inProfile(tweak.level, "recommended")} caution={tweak.risk === "caution"}
+                onchange={(on) => debloat.setTweak(tweak, on)}>
+                {#snippet aside()}
+                  {#if tweak.state === "applied" && !debloat.isPending(tweak)}<span class="gone">Removed</span>{/if}
+                {/snippet}
+              </SettingRow>
+            {/each}
+          </div>
+        </CategoryCard>
+      {/if}
     </CategoryGrid>
   {/if}
 </div>
 
 <style>
   .choose { color: var(--text-3); font-size: 11px; }
+  .gone { padding: 0 5px; border-radius: 5px; background: rgb(62 207 142 / 0.08); color: #98dfbd; font-size: 10px; font-weight: 600; line-height: 18px; }
   .hint { display: flex; align-items: center; gap: 6px; margin: 0 0 4px 8px; color: #e6c48f; font-size: 11px; }
   .hint :global(svg) { flex: none; }
   .app-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px 8px; }

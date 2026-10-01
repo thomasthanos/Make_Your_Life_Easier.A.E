@@ -23,6 +23,8 @@ pub enum Before {
     Clock { short: String, long: String },
     /// Edge was installed; Undo installs it again.
     Edge,
+    /// A part of Windows was installed; Undo adds it again.
+    Capability,
 }
 
 /// One operation of a tweak (its index in the tweak's `ops`) and what it

@@ -76,6 +76,7 @@ pub(super) fn op_applied(op: &Op, packages: &[String]) -> Option<bool> {
         }
         Op::Clock24 => system::time_formats().ok().map(|(short, _)| system::is_24h(&short)),
         Op::RemoveEdge => Some(!system::edge_installed()),
+        Op::Capability { package, .. } => system::capability_installed(package).map(|installed| !installed),
     }
 }
 
@@ -119,6 +120,7 @@ pub(super) fn default_before(op: &Op) -> Option<Before> {
             })
         }
         Op::RemoveEdge => Some(Before::Edge),
+        Op::Capability { .. } => Some(Before::Capability),
         Op::Appx { .. } => None,
     }
 }
@@ -128,6 +130,10 @@ pub fn tweak_state(tweak: &Tweak, build: u32, packages: &[String]) -> State {
         return State::Unavailable;
     }
     let states: Vec<bool> = tweak.ops.iter().filter_map(|op| op_applied(op, packages)).collect();
+    // A part of Windows this version does not have at all.
+    if states.is_empty() && tweak.category == catalog::Category::Features {
+        return State::Unavailable;
+    }
     match (states.iter().filter(|&&on| on).count(), states.len()) {
         (_, 0) => State::Applied,
         (on, all) if on == all => State::Applied,
@@ -149,7 +155,11 @@ pub fn tweaks(build: u32, packages: &[String], store: &Store) -> Vec<TweakStatus
             note: tweak.note,
             restart: tweak.reboot,
             confirm: tweak.confirm,
-            state: tweak_state(tweak, build, packages),
+            state: match tweak_state(tweak, build, packages) {
+                // Gone from the servicing store once removed: MYLE knows it did it.
+                State::Unavailable if tweak.category == catalog::Category::Features && store.tweaks.contains_key(tweak.id) => State::Applied,
+                state => state,
+            },
             can_undo: store.tweaks.contains_key(tweak.id),
         })
         .collect()
@@ -250,7 +260,7 @@ mod tests {
                     (Op::Clock24, Before::Clock { short, long }) => {
                         assert!(!system::is_24h(&short) && !system::is_24h(&long), "{}", tweak.id);
                     }
-                    (Op::RemoveEdge, Before::Edge) => {}
+                    (Op::RemoveEdge, Before::Edge) | (Op::Capability { .. }, Before::Capability) => {}
                     _ => panic!("{}: mismatched default_before", tweak.id),
                 }
             }

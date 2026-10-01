@@ -538,6 +538,31 @@ pub fn installed_packages() -> Vec<String> {
     names
 }
 
+/// Whether a part of Windows (a Feature on Demand) is installed, from the
+/// servicing store, which any user may read: `None` when this Windows has
+/// no such package at all. `package` is the start of its package names
+/// ("Microsoft-Windows-StepsRecorder-Package~"); only the neutral ones count
+/// ("...~amd64~~10.0..."), not their language parts.
+pub fn capability_installed(package: &str) -> Option<bool> {
+    /// Installed, or installed once Windows restarts.
+    const INSTALLED: [u32; 3] = [0x60, 0x65, 0x70];
+    let packages = RegKey::predef(HKEY_LOCAL_MACHINE)
+        .open_subkey_with_flags(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages", KEY_READ | KEY_WOW64_64KEY)
+        .ok()?;
+    let mut seen = false;
+    for name in packages.enum_keys().flatten() {
+        if !name.starts_with(package) || !name.contains("~~") {
+            continue;
+        }
+        seen = true;
+        let state = packages.open_subkey_with_flags(&name, KEY_READ).and_then(|key| key.get_value::<u32, _>("CurrentState"));
+        if state.is_ok_and(|state| INSTALLED.contains(&state)) {
+            return Some(true);
+        }
+    }
+    seen.then_some(false)
+}
+
 pub fn program_files_x86() -> PathBuf {
     known_folder(&windows_sys::Win32::UI::Shell::FOLDERID_ProgramFilesX86)
         .unwrap_or_else(|| PathBuf::from(r"C:\Program Files (x86)"))
@@ -659,6 +684,23 @@ fn explorer_running() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Read as the user, and fast enough for the page: the servicing store
+    /// has thousands of packages.
+    #[test]
+    fn parts_of_windows_are_read_without_rights_and_quickly() {
+        let started = std::time::Instant::now();
+        assert_eq!(capability_installed("Microsoft-Windows-NoSuchThing-Package~"), None);
+        for tweak in super::super::catalog::TWEAKS {
+            for op in tweak.ops {
+                if let super::super::catalog::Op::Capability { package, .. } = op {
+                    println!("{:<22} {:?}", tweak.id, capability_installed(package));
+                }
+            }
+        }
+        assert!(started.elapsed() < std::time::Duration::from_secs(3), "{:?}", started.elapsed());
+        println!("{:?}", started.elapsed());
+    }
 
     /// A key of this test's own under HKCU, removed afterwards.
     struct TestKey(String);

@@ -17,6 +17,9 @@
 
   const on = $derived(debloat.pending.on);
   const off = $derived(debloat.pending.off);
+  /** Parts of Windows read better on their own: "Remove" and "Add back". */
+  const isFeature = (tweak: { category: string }) => tweak.category === "features";
+  const featureName = (title: string) => title.replace(/^Remove /, "");
   const apps = $derived(debloat.pendingApps);
   const kept = $derived(
     on.filter((tweak) => !leftOut.has(tweak.id)).length +
@@ -86,22 +89,40 @@
       </header>
 
       <div class="lists">
-        {#if on.length}
+        {#if on.some((tweak) => !isFeature(tweak))}
           <section aria-label="To turn on">
-            <h3>Turn on · {on.length}</h3>
-            {#each on as tweak (tweak.id)}
+            <h3>Turn on · {on.filter((tweak) => !isFeature(tweak)).length}</h3>
+            {#each on.filter((tweak) => !isFeature(tweak)) as tweak (tweak.id)}
               <SettingRow control="check" title={tweak.title} summary={tweak.summary} note={tweak.note}
                 checked={!leftOut.has(tweak.id)} recommended={inProfile(tweak.level, "recommended")}
                 caution={tweak.risk === "caution"} restart={tweak.restart} onchange={(keep) => toggle(tweak.id, keep)} />
             {/each}
           </section>
         {/if}
-        {#if off.length}
+        {#if off.some((tweak) => !isFeature(tweak))}
           <section aria-label="To turn off">
-            <h3>Turn off · {off.length}</h3>
-            {#each off as tweak (tweak.id)}
+            <h3>Turn off · {off.filter((tweak) => !isFeature(tweak)).length}</h3>
+            {#each off.filter((tweak) => !isFeature(tweak)) as tweak (tweak.id)}
               <SettingRow control="check" title={tweak.title}
                 summary={tweak.canUndo ? "What MYLE changed is put back exactly as it was." : "Switched back to the Windows default."}
+                checked={!leftOut.has(tweak.id)} onchange={(keep) => toggle(tweak.id, keep)} />
+            {/each}
+          </section>
+        {/if}
+        {#if on.some(isFeature)}
+          <section aria-label="Windows features to remove">
+            <h3>Remove Windows features · {on.filter(isFeature).length}</h3>
+            {#each on.filter(isFeature) as tweak (tweak.id)}
+              <SettingRow control="check" title={featureName(tweak.title)} summary={tweak.summary} note={tweak.note}
+                checked={!leftOut.has(tweak.id)} caution={tweak.risk === "caution"} onchange={(keep) => toggle(tweak.id, keep)} />
+            {/each}
+          </section>
+        {/if}
+        {#if off.some(isFeature)}
+          <section aria-label="Windows features to add back">
+            <h3>Add back · {off.filter(isFeature).length}</h3>
+            {#each off.filter(isFeature) as tweak (tweak.id)}
+              <SettingRow control="check" title={featureName(tweak.title)} summary="Downloaded from Windows Update: it takes a few minutes."
                 checked={!leftOut.has(tweak.id)} onchange={(keep) => toggle(tweak.id, keep)} />
             {/each}
           </section>
