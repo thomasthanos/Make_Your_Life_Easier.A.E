@@ -16,10 +16,13 @@
   import Wrench from "@lucide/svelte/icons/wrench";
   import BiosRestartDialog from "./BiosRestartDialog.svelte";
   import AppsTab from "./debloat/AppsTab.svelte";
-  import DebloatTab from "./debloat/DebloatTab.svelte";
+  import Progress from "./debloat/Progress.svelte";
+  import QuickSetupTab from "./debloat/QuickSetupTab.svelte";
+  import ReviewBar from "./debloat/ReviewBar.svelte";
+  import ReviewPanel from "./debloat/ReviewPanel.svelte";
+  import SettingsTab from "./debloat/SettingsTab.svelte";
   import StartMenuTab from "./debloat/StartMenuTab.svelte";
   import { debloat, type Tab } from "./debloat/state.svelte";
-  import TweaksTab from "./debloat/TweaksTab.svelte";
   import { windowsOptimizationState as tools } from "./state.svelte";
 
   onMount(() => {
@@ -28,12 +31,19 @@
   });
 
   const tabs: { id: Tab; label: string; icon: typeof Wrench }[] = [
-    { id: "debloat", label: "Debloat", icon: WandSparkles },
-    { id: "tweaks", label: "Tweaks", icon: SlidersHorizontal },
-    { id: "startMenu", label: "Start Menu", icon: LayoutGrid },
+    { id: "quick", label: "Quick setup", icon: WandSparkles },
+    { id: "settings", label: "Settings", icon: SlidersHorizontal },
     { id: "apps", label: "Apps", icon: Package },
+    { id: "startMenu", label: "Start Menu", icon: LayoutGrid },
     { id: "tools", label: "Tools", icon: Wrench },
   ];
+  /** Choices waiting on a tab, shown next to its name. */
+  const waiting = $derived<Partial<Record<Tab, number>>>({
+    settings: debloat.pending.on.length + debloat.pending.off.length,
+    apps: debloat.pendingApps.length,
+  });
+  /** The tabs whose choices the bar below applies. */
+  const choosing = $derived(debloat.tab === "quick" || debloat.tab === "settings" || debloat.tab === "apps");
 
   const state = $derived(tools.snapshot);
   const autoLogon = $derived(state?.autoLogon);
@@ -63,28 +73,24 @@
 
 <div class="page">
   <div class="top">
-    <header>
-      <div class="title">
-        <span class="title-icon"><Gauge size={19} /></span>
-        <h1>Windows Optimization &amp; Debloat</h1>
-      </div>
-      <p>Debloat, tweak and tune Windows with MYLE's own tools. A restore point comes first, and every change can be undone.</p>
-    </header>
-    <span class="mutex"><ShieldCheck size={13} /> One administrator prompt per session</span>
-  </div>
-
-  <div class="tabs" role="tablist" aria-label="Windows Optimization">
-    {#each tabs as tab (tab.id)}
-      <button
-        role="tab"
-        class="tab"
-        class:active={debloat.tab === tab.id}
-        aria-selected={debloat.tab === tab.id}
-        onclick={() => (debloat.tab = tab.id)}
-      >
-        <tab.icon size={14} /> {tab.label}
-      </button>
-    {/each}
+    <div class="title">
+      <span class="title-icon"><Gauge size={17} /></span>
+      <h1>Windows Optimization</h1>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Windows Optimization">
+      {#each tabs as tab (tab.id)}
+        <button
+          role="tab"
+          class="tab"
+          class:active={debloat.tab === tab.id}
+          aria-selected={debloat.tab === tab.id}
+          onclick={() => (debloat.tab = tab.id)}
+        >
+          <tab.icon size={14} /> {tab.label}
+          {#if waiting[tab.id]}<span class="waiting" aria-label="{waiting[tab.id]} chosen">{waiting[tab.id]}</span>{/if}
+        </button>
+      {/each}
+    </div>
   </div>
 
   {#if tools.error}
@@ -97,11 +103,13 @@
     <div class="lock-banner surface"><LoaderCircle size={14} class="spin" /><span>Another app task is running. Optimization tools are temporarily locked.</span></div>
   {/if}
 
+  <Progress />
+
   <div class="panel">
-  {#if debloat.tab === "debloat"}
-    <DebloatTab />
-  {:else if debloat.tab === "tweaks"}
-    <TweaksTab />
+  {#if debloat.tab === "quick"}
+    <QuickSetupTab />
+  {:else if debloat.tab === "settings"}
+    <SettingsTab />
   {:else if debloat.tab === "startMenu"}
     <StartMenuTab />
   {:else if debloat.tab === "apps"}
@@ -232,26 +240,26 @@
   </section>
   {/if}
   </div>
+  {#if choosing}<ReviewBar />{/if}
 </div>
 
 {#if tools.biosDialogOpen}<BiosRestartDialog />{/if}
+{#if debloat.reviewing}<ReviewPanel />{/if}
 
 <style>
   .page { min-width: 0; }
-  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; padding: 4px; width: fit-content; border: 1px solid rgb(255 255 255 / 0.06); border-radius: 12px; background: rgb(0 0 0 / 0.18); }
-  .tab { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px; border-radius: 9px; color: var(--text-2); font-size: 12.5px; font-weight: 560; transition: background var(--dur-fast), color var(--dur-fast); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; border: 1px solid rgb(255 255 255 / 0.06); border-radius: 11px; background: rgb(0 0 0 / 0.18); }
+  .tab { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: 8px; color: var(--text-2); font-size: 12.5px; font-weight: 560; transition: background var(--dur-fast), color var(--dur-fast); }
+  .waiting { display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent-grad); color: #fff; font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .tab:hover { color: var(--text-1); background: var(--hover); }
   .tab.active { color: #fff; background: linear-gradient(145deg, rgb(var(--accent-rgb) / 0.42), rgb(var(--accent-rgb) / 0.2)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1); }
   .tab:focus-visible { outline: 2px solid rgb(var(--accent-rgb) / 0.75); outline-offset: 1px; }
-  .panel { margin-top: 16px; }
-  .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
-  header { min-width: 0; }
+  .panel { container: optimization-page / inline-size; margin-top: 12px; }
+  .top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 20px; }
   .title { display: flex; align-items: center; gap: 10px; }
-  .title-icon { display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid rgb(var(--accent-rgb) / 0.22); border-radius: 10px; background: rgb(121 138 255 / 0.1); color: rgb(176 188 255 / 0.95); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08); }
-  h1 { font-size: 24px; }
-  header > p { margin: 5px 0 0 41px; color: var(--text-2); font-size: 12.5px; }
-  .mutex { display: inline-flex; align-items: center; gap: 6px; flex: none; margin-top: 4px; padding: 5px 9px; border: 1px solid rgb(255 255 255 / 0.07); border-radius: 999px; background: rgb(255 255 255 / 0.035); color: var(--text-3); font-size: 10.5px; }
-  .warning, .error-banner, .lock-banner { display: flex; align-items: center; gap: 9px; margin-top: 18px; padding: 10px 12px; color: rgb(229 218 176 / 0.78); font-size: 11.5px; }
+  .title-icon { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid rgb(var(--accent-rgb) / 0.22); border-radius: 10px; background: rgb(121 138 255 / 0.1); color: rgb(176 188 255 / 0.95); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08); }
+  h1 { font-size: 21px; }
+  .warning, .error-banner, .lock-banner { display: flex; align-items: center; gap: 9px; margin-top: 10px; padding: 10px 12px; color: rgb(229 218 176 / 0.78); font-size: 11.5px; }
   .warning :global(svg) { color: rgb(241 187 84 / 0.9); flex: none; }
   .error-banner { color: rgb(255 170 170 / 0.9); }
   .lock-banner { color: var(--text-2); }
@@ -427,8 +435,6 @@
 
   @media (max-width: 860px) { .cards { grid-template-columns: 1fr; } }
   @media (max-width: 720px) {
-    .top { display: block; }
-    .mutex { margin: 10px 0 0 41px; }
     .card-head { padding-right: 0; }
     .status { position: static; grid-column: 2; justify-self: start; }
     .firmware-action { grid-template-columns: auto minmax(0, 1fr) auto; }

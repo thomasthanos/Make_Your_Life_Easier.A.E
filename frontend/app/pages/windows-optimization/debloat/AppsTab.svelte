@@ -1,42 +1,46 @@
 <script lang="ts">
-  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
+  // The installed apps MYLE can remove, by who made them. Ticking one only
+  // chooses it; the bar below removes the chosen ones, with the rest.
   import Store from "@lucide/svelte/icons/store";
-  import Trash2 from "@lucide/svelte/icons/trash-2";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
-  import ActionBar from "./ActionBar.svelte";
   import CategoryCard from "./CategoryCard.svelte";
   import CategoryGrid from "./CategoryGrid.svelte";
   import ChoiceButtons from "./ChoiceButtons.svelte";
   import ListToolbar from "./ListToolbar.svelte";
-  import OptimizationRow from "./OptimizationRow.svelte";
-  import Progress from "./Progress.svelte";
+  import SettingRow from "./SettingRow.svelte";
   import { appCategories } from "./catalog";
-  import type { SelectionPreset } from "./selection";
+  import { inProfile } from "./selection";
   import { debloat } from "./state.svelte";
+
   const view = $derived(debloat.views.apps);
+  const query = $derived(view.query.trim().toLowerCase());
+  const matches = (title: string) => title.toLowerCase().includes(query);
   const shown = $derived(debloat.installedApps.filter((app) =>
-    app.title.toLowerCase().includes(view.query.trim().toLowerCase()) &&
-    (view.filter === "all" || (view.filter === "recommended" && app.recommended) || (view.filter === "selected" && debloat.isAppChosen(app.id)))
+    matches(app.title) &&
+    (view.filter === "all" ||
+      (view.filter === "suggested" && inProfile(app.level, "recommended")) ||
+      (view.filter === "chosen" && debloat.isRemoving(app.id)))
   ));
-  const removed = $derived((debloat.status?.apps ?? []).filter((app) => app.removedByMyle && !app.packages.length &&
-    app.title.toLowerCase().includes(view.query.trim().toLowerCase())));
-  const chosen = $derived(debloat.chosenApps);
+  const removed = $derived((debloat.status?.apps ?? []).filter((app) => app.removedByMyle && !app.packages.length && matches(app.title)));
 </script>
+
 <div class="optimization-ui">
-  <section class="overview surface">
-    <div class="overview-copy"><h2>Apps to remove</h2><p>Choose apps by category. Removal affects every user of this PC and requires confirmation.</p></div>
-    <ChoiceButtons disabled={debloat.locked || !debloat.status} onchange={(preset) => debloat.selectApps(preset as SelectionPreset)} />
-  </section>
-  <Progress />
   <ListToolbar bind:query={view.query} filter={view.filter}
-    filters={[{ value: "all", label: "All" }, { value: "recommended", label: "Recommended" }, { value: "selected", label: "Selected" }]}
-    onchange={(value) => (view.filter = value)} placeholder="Search installed apps…" />
+    filters={[{ value: "all", label: "All" }, { value: "suggested", label: "Suggested" }, { value: "chosen", label: "Chosen" }]}
+    onchange={(value) => (view.filter = value)} placeholder="Search installed apps…">
+    <span class="choose">Choose</span>
+    <ChoiceButtons options={[{ value: "recommended", label: "Suggested" }, { value: "all", label: "All" }, { value: "none", label: "None" }]}
+      ariaLabel="Choose apps" disabled={debloat.locked || !debloat.status}
+      onchange={(preset) => debloat.selectApps(preset as "recommended" | "all" | "none")} />
+  </ListToolbar>
+
   {#if !debloat.status}
-    <div class="empty-state"><strong>{debloat.error ? "Could not load apps" : "Checking installed apps…"}</strong></div>
+    <div class="empty-state"><strong>{debloat.error ? "Could not load the apps" : "Checking installed apps…"}</strong></div>
   {:else if !shown.length && !removed.length}
-    <div class="empty-state"><strong>{debloat.installedApps.length ? "No matching apps" : "Nothing to remove"}</strong>
-      <span>{debloat.installedApps.length ? "Your selections are kept when you change filters." : "None of the apps on MYLE's list is installed."}</span>
-      {#if debloat.installedApps.length}<button class="btn" onclick={() => ((view.query = ""), (view.filter = "all"))}>Reset filters</button>{/if}
+    <div class="empty-state">
+      <strong>{debloat.installedApps.length ? "No matching apps" : "Nothing to remove"}</strong>
+      <span>{debloat.installedApps.length ? "Your choices are kept when you change the search or filter." : "None of the apps on MYLE's list is installed."}</span>
+      {#if debloat.installedApps.length}<button class="btn" onclick={() => ((view.query = ""), (view.filter = "all"))}>Show all</button>{/if}
     </div>
   {:else}
     <CategoryGrid>
@@ -44,20 +48,24 @@
         {@const rows = shown.filter((app) => app.group === category.id)}
         {@const removedRows = removed.filter((app) => app.group === category.id)}
         {#if rows.length || removedRows.length}
-          <CategoryCard id={category.id} title={category.title} count={rows.filter((app) => debloat.isAppChosen(app.id)).length + " / " + rows.length + " selected"} wide={category.id === "microsoft"}>
-            {#if category.id === "xbox"}<p class="notice"><TriangleAlert size={14} /> Some games need these apps. Check what you use before selecting them.</p>{/if}
-            <div class="app-options" class:microsoft={category.id === "microsoft"}>
+          <CategoryCard id={category.id} title={category.title} wide={category.id === "microsoft"}
+            count={`${rows.filter((app) => debloat.isRemoving(app.id)).length}/${rows.length} chosen`}>
+            {#if category.id === "xbox" && rows.length}
+              <p class="hint"><TriangleAlert size={12} /> Some games need these. Keep them if you play on this PC.</p>
+            {/if}
+            <div class="app-grid" class:many={category.id === "microsoft"}>
               {#each rows as app (app.id)}
-                <OptimizationRow title={app.title} recommended={app.recommended} selectable checked={debloat.isAppChosen(app.id)} disabled={debloat.locked} onselect={(checked) => debloat.setApp(app.id, checked)} />
+                <SettingRow control="check" title={app.title} checked={debloat.isRemoving(app.id)} disabled={debloat.locked}
+                  recommended={inProfile(app.level, "recommended")} onchange={(on) => debloat.setApp(app.id, on)} />
               {/each}
             </div>
             {#if removedRows.length}
-              <h4 class="section-label">Removed by MYLE</h4>
-              <div class="option-list">
+              <div class="removed">
+                <span>Removed by MYLE</span>
                 {#each removedRows as app (app.id)}
-                  <OptimizationRow title={app.title} summary="Install it again from the Microsoft Store.">
-                    {#snippet actions()}<button class="btn" aria-label={"Get " + app.title + " again"} disabled={debloat.locked} onclick={() => debloat.openStore(app)}><Store size={13} /> Get it again</button>{/snippet}
-                  </OptimizationRow>
+                  <button type="button" class="again" disabled={debloat.locked} title="Opens it in the Microsoft Store." onclick={() => debloat.openStore(app)}>
+                    <Store size={12} /> {app.title}
+                  </button>
                 {/each}
               </div>
             {/if}
@@ -66,16 +74,19 @@
       {/each}
     </CategoryGrid>
   {/if}
-  <ActionBar title={chosen.length + " app" + (chosen.length === 1 ? "" : "s") + " selected"} detail="Review and confirm before anything is removed.">
-    <button class="btn danger" disabled={debloat.locked || !chosen.length} onclick={() => debloat.removeApps(chosen)}>
-      {#if debloat.busy}<LoaderCircle size={14} class="spin" /> Working…{:else}<Trash2 size={14} /> Remove selected ({chosen.length}){/if}
-    </button>
-  </ActionBar>
 </div>
 
 <style>
-  .app-options { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .app-options.microsoft { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  @container optimization-list (max-width: 800px) { .app-options.microsoft { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @container optimization-list (max-width: 450px) { .app-options.microsoft { grid-template-columns: minmax(0, 1fr); } }
+  .choose { color: var(--text-3); font-size: 11px; }
+  .hint { display: flex; align-items: center; gap: 6px; margin: 0 0 4px 8px; color: #e6c48f; font-size: 11px; }
+  .hint :global(svg) { flex: none; }
+  .app-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px 8px; }
+  @container optimization-list (min-width: 520px) { .app-grid.many { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @container optimization-list (min-width: 820px) { .app-grid.many { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @container optimization-list (min-width: 1150px) { .app-grid.many { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .removed { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin: 6px 0 0 8px; padding-top: 7px; border-top: 1px solid rgb(255 255 255 / 0.05); }
+  .removed > span { margin-right: 4px; color: var(--text-3); font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .again { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border: 1px solid rgb(255 255 255 / 0.08); border-radius: 7px; color: var(--text-2); font-size: 11.5px; }
+  .again:hover:not(:disabled) { border-color: rgb(var(--accent-rgb) / 0.3); color: var(--text-1); }
+  .again:disabled { opacity: 0.45; }
 </style>

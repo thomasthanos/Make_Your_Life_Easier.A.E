@@ -27,7 +27,10 @@ pub struct TweakStatus {
     pub summary: &'static str,
     pub category: catalog::Category,
     pub risk: catalog::Risk,
-    pub debloat: bool,
+    pub level: Option<catalog::Level>,
+    pub note: Option<&'static str>,
+    /// Complete only after Windows restarts.
+    pub restart: bool,
     pub confirm: Option<&'static str>,
     pub state: State,
     /// MYLE applied it and kept what was there before.
@@ -40,7 +43,7 @@ pub struct AppStatus {
     pub id: &'static str,
     pub title: &'static str,
     pub group: catalog::AppGroup,
-    pub recommended: bool,
+    pub level: Option<catalog::Level>,
     /// Its packages installed for this user; empty when it is not.
     pub packages: Vec<String>,
     /// Removed by MYLE: it can be installed again from the Store.
@@ -140,7 +143,9 @@ pub fn tweaks(build: u32, packages: &[String], store: &Store) -> Vec<TweakStatus
             summary: tweak.summary,
             category: tweak.category,
             risk: tweak.risk,
-            debloat: tweak.debloat,
+            level: tweak.level,
+            note: tweak.note,
+            restart: tweak.reboot,
             confirm: tweak.confirm,
             state: tweak_state(tweak, build, packages),
             can_undo: store.tweaks.contains_key(tweak.id),
@@ -155,7 +160,7 @@ pub fn apps(packages: &[String], store: &Store) -> Vec<AppStatus> {
             id: app.id,
             title: app.title,
             group: app.group,
-            recommended: app.recommended,
+            level: app.level,
             packages: packages
                 .iter()
                 .filter(|package| app.name.matches(package) && catalog::removable(package).is_some_and(|found| found.id == app.id))

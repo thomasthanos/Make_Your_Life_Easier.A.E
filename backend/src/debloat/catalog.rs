@@ -28,6 +28,27 @@ pub enum Risk {
     Caution,
 }
 
+/// The Quick setup profile a tweak or an app first belongs to. A profile
+/// takes in everything up to its own level: Recommended includes Light.
+/// `None` (outside every profile) is for personal taste and for what is
+/// harder to take back: those are only ever done when picked one by one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Level {
+    /// Privacy and ads: nothing looks or works differently.
+    Light,
+    /// What nearly everyone is better off with.
+    Recommended,
+    /// Everything else that makes Windows leaner, with small trade-offs.
+    Maximum,
+}
+
+pub const LIGHT: Option<Level> = Some(Level::Light);
+pub const RECOMMENDED: Option<Level> = Some(Level::Recommended);
+pub const MAXIMUM: Option<Level> = Some(Level::Maximum);
+/// Never part of a profile: only when the user picks it.
+pub const OPT_IN: Option<Level> = None;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Hive {
     /// HKEY_CURRENT_USER: written by the app itself, as the user.
@@ -125,8 +146,11 @@ pub struct Tweak {
     pub category: Category,
     pub risk: Risk,
     pub builds: Builds,
-    /// Part of the one-click Debloat.
-    pub debloat: bool,
+    /// The Quick setup profile it is part of.
+    pub level: Option<Level>,
+    /// What to know before turning it on, in plain words: what stops working
+    /// or works differently. Shown next to the summary.
+    pub note: Option<&'static str>,
     /// Explorer is restarted afterwards so it shows at once.
     pub restart_explorer: bool,
     /// Complete only after the PC restarts.
@@ -166,11 +190,12 @@ pub const TWEAKS: &[Tweak] = &[
     Tweak {
         id: "telemetry",
         title: "Turn off telemetry",
-        summary: "Diagnostic data, advertising ID, tailored experiences, typing and inking data, feedback prompts, and the Connected User Experiences service and tasks.",
+        summary: "Windows sends Microsoft as little about how you use the PC as it allows, keeps no advertising ID and stops asking for feedback.",
         category: Category::Privacy,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: true,
+        level: LIGHT,
+        note: None,
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -206,7 +231,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Apps,
         risk: Risk::Caution,
         builds: ANY,
-        debloat: true,
+        level: OPT_IN,
+        note: Some("Links that open in Edge will ask for another browser. Edge can be installed again with Undo."),
         restart_explorer: false,
         reboot: false,
         confirm: Some("Remove Microsoft Edge? Links that open in Edge by default will ask for another browser. It can be installed again with Undo, or from microsoft.com/edge."),
@@ -219,7 +245,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::System,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: true,
+        level: MAXIMUM,
+        note: Some("Changes the time format of your user account, not only the taskbar."),
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -232,7 +259,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::System,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: true,
+        level: RECOMMENDED,
+        note: Some("Store apps such as Mail update and notify only while they are open."),
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -244,11 +272,12 @@ pub const TWEAKS: &[Tweak] = &[
     Tweak {
         id: "services",
         title: "Set unneeded services to manual",
-        summary: "Maps, Program Compatibility Assistant, Distributed Link Tracking and Storage start only when something needs them; the retail demo and remote registry are turned off. Services you changed yourself are left alone.",
+        summary: "Background services most people never use (Maps, Retail Demo, Remote Registry and a few more) start only when something needs them. Services you set yourself are left alone.",
         category: Category::System,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: true,
+        level: RECOMMENDED,
+        note: Some("Takes full effect after the next restart."),
         restart_explorer: false,
         reboot: true,
         confirm: None,
@@ -268,7 +297,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Ai,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: true,
+        level: RECOMMENDED,
+        note: Some("Copilot, Recall and Click to Do go away until you turn this off again."),
         restart_explorer: true,
         reboot: false,
         confirm: None,
@@ -293,7 +323,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Privacy,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: true,
+        level: MAXIMUM,
+        note: Some("Maps, weather and Find my device can no longer tell where the PC is."),
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -312,7 +343,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Taskbar,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: true,
+        level: MAXIMUM,
+        note: Some("Press the Windows key and type: Start still searches."),
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -325,7 +357,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Taskbar,
         risk: Risk::Safe,
         builds: WIN11_23H2,
-        debloat: true,
+        level: RECOMMENDED,
+        note: None,
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -338,7 +371,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Taskbar,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: true,
+        level: MAXIMUM,
+        note: Some("Win+Tab still opens Task View; the Widgets board stays reachable with Win+W."),
         restart_explorer: true,
         reboot: false,
         confirm: None,
@@ -360,7 +394,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Privacy,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: true,
+        level: RECOMMENDED,
+        note: None,
         restart_explorer: true,
         reboot: false,
         confirm: None,
@@ -378,7 +413,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Explorer,
         risk: Risk::Safe,
         builds: WIN11,
-        debloat: true,
+        level: MAXIMUM,
+        note: None,
         restart_explorer: true,
         reboot: false,
         confirm: None,
@@ -391,7 +427,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Privacy,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: true,
+        level: LIGHT,
+        note: None,
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -417,7 +454,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Privacy,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: false,
+        level: LIGHT,
+        note: Some("Windows stops suggesting recent files and apps based on what you did."),
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -433,7 +471,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::System,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: false,
+        level: LIGHT,
+        note: Some("Updates may download a little slower when several PCs share a network."),
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -446,7 +485,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::System,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: false,
+        level: MAXIMUM,
+        note: Some("Xbox Game Bar can no longer save the last minutes of a game."),
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -462,7 +502,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Explorer,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: false,
+        level: RECOMMENDED,
+        note: None,
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -475,7 +516,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Explorer,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: false,
+        level: OPT_IN,
+        note: Some("System files show too: leave alone what you do not know."),
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -488,7 +530,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::System,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: false,
+        level: OPT_IN,
+        note: None,
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -504,7 +547,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::Taskbar,
         risk: Risk::Safe,
         builds: WIN11,
-        debloat: false,
+        level: OPT_IN,
+        note: None,
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -517,7 +561,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::System,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: false,
+        level: OPT_IN,
+        note: Some("Feels different at first if you are used to acceleration."),
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -534,7 +579,8 @@ pub const TWEAKS: &[Tweak] = &[
         category: Category::System,
         risk: Risk::Safe,
         builds: ANY,
-        debloat: false,
+        level: OPT_IN,
+        note: None,
         restart_explorer: false,
         reboot: false,
         confirm: None,
@@ -600,86 +646,86 @@ pub struct App {
     pub title: &'static str,
     pub name: Name,
     pub group: AppGroup,
-    /// Ticked by "Select recommended" and removed by the one-click Debloat.
-    pub recommended: bool,
+    /// The Quick setup profile that removes it.
+    pub level: Option<Level>,
     /// Its Microsoft Store product id, to install it again.
     pub store_id: Option<&'static str>,
 }
 
-const fn app(id: &'static str, title: &'static str, name: &'static str, group: AppGroup, recommended: bool, store_id: Option<&'static str>) -> App {
-    App { id, title, name: Name::Exact(name), group, recommended, store_id }
+const fn app(id: &'static str, title: &'static str, name: &'static str, group: AppGroup, level: Option<Level>, store_id: Option<&'static str>) -> App {
+    App { id, title, name: Name::Exact(name), group, level, store_id }
 }
 
 const fn promo(id: &'static str, title: &'static str, suffix: &'static str, store_id: Option<&'static str>) -> App {
-    App { id, title, name: Name::Suffix(suffix), group: AppGroup::ThirdParty, recommended: true, store_id }
+    App { id, title, name: Name::Suffix(suffix), group: AppGroup::ThirdParty, level: LIGHT, store_id }
 }
 
 use AppGroup::{Bing, Microsoft, Xbox};
 
 pub const APPS: &[App] = &[
     // Microsoft, removed by the one-click Debloat.
-    app("clipchamp", "Clipchamp", "Clipchamp.Clipchamp", Microsoft, true, Some("9P1J8S7CCWWT")),
-    app("cortana", "Cortana", "Microsoft.549981C3F5F10", Microsoft, true, None),
-    app("dev-home", "Dev Home", "Microsoft.Windows.DevHome", Microsoft, true, None),
-    app("feedback-hub", "Feedback Hub", "Microsoft.WindowsFeedbackHub", Microsoft, true, Some("9NBLGGH4R32N")),
-    app("get-started", "Get Started (Tips)", "Microsoft.Getstarted", Microsoft, true, None),
-    app("office-hub", "Microsoft 365 (Office)", "Microsoft.MicrosoftOfficeHub", Microsoft, true, Some("9WZDNCRD29V9")),
-    app("solitaire", "Solitaire Collection", "Microsoft.MicrosoftSolitaireCollection", Microsoft, true, Some("9WZDNCRFHWD2")),
-    app("power-automate", "Power Automate", "Microsoft.PowerAutomateDesktop", Microsoft, true, None),
-    app("todo", "Microsoft To Do", "Microsoft.Todos", Microsoft, true, Some("9NBLGGH5R558")),
-    app("news", "Microsoft News", "Microsoft.News", Microsoft, true, None),
-    app("3d-builder", "3D Builder", "Microsoft.3DBuilder", Microsoft, true, None),
-    app("3d-viewer", "3D Viewer", "Microsoft.Microsoft3DViewer", Microsoft, true, None),
-    app("print-3d", "Print 3D", "Microsoft.Print3D", Microsoft, true, None),
-    app("mixed-reality", "Mixed Reality Portal", "Microsoft.MixedReality.Portal", Microsoft, true, None),
-    app("skype", "Skype", "Microsoft.SkypeApp", Microsoft, true, None),
-    app("messaging", "Microsoft Messaging", "Microsoft.Messaging", Microsoft, true, None),
-    app("one-connect", "Mobile Plans (OneConnect)", "Microsoft.OneConnect", Microsoft, true, None),
-    app("sway", "Office Sway", "Microsoft.Office.Sway", Microsoft, true, None),
-    app("journal", "Microsoft Journal", "Microsoft.MicrosoftJournal", Microsoft, true, None),
-    app("power-bi", "Power BI", "Microsoft.MicrosoftPowerBIForWindows", Microsoft, true, None),
-    app("movies-tv", "Movies & TV", "Microsoft.ZuneVideo", Microsoft, true, None),
-    app("maps", "Maps", "Microsoft.WindowsMaps", Microsoft, true, None),
-    app("family", "Microsoft Family", "MicrosoftCorporationII.MicrosoftFamily", Microsoft, true, None),
-    app("teams-personal", "Microsoft Teams (personal)", "MicrosoftTeams", Microsoft, true, None),
-    app("teams", "Microsoft Teams", "MSTeams", Microsoft, false, None),
-    app("pc-manager", "PC Manager", "Microsoft.MicrosoftPCManager", Microsoft, true, None),
-    app("onenote-legacy", "OneNote for Windows 10", "Microsoft.Office.OneNote", Microsoft, true, None),
-    app("people", "People", "Microsoft.People", Microsoft, true, None),
-    app("wallet", "Wallet", "Microsoft.Wallet", Microsoft, true, None),
-    app("speed-test", "Network Speed Test", "Microsoft.NetworkSpeedTest", Microsoft, true, None),
-    app("copilot", "Microsoft Copilot", "Microsoft.Copilot", Microsoft, true, Some("9NHT9RB2F4HD")),
+    app("clipchamp", "Clipchamp", "Clipchamp.Clipchamp", Microsoft, RECOMMENDED, Some("9P1J8S7CCWWT")),
+    app("cortana", "Cortana", "Microsoft.549981C3F5F10", Microsoft, RECOMMENDED, None),
+    app("dev-home", "Dev Home", "Microsoft.Windows.DevHome", Microsoft, RECOMMENDED, None),
+    app("feedback-hub", "Feedback Hub", "Microsoft.WindowsFeedbackHub", Microsoft, RECOMMENDED, Some("9NBLGGH4R32N")),
+    app("get-started", "Get Started (Tips)", "Microsoft.Getstarted", Microsoft, RECOMMENDED, None),
+    app("office-hub", "Microsoft 365 (Office)", "Microsoft.MicrosoftOfficeHub", Microsoft, RECOMMENDED, Some("9WZDNCRD29V9")),
+    app("solitaire", "Solitaire Collection", "Microsoft.MicrosoftSolitaireCollection", Microsoft, RECOMMENDED, Some("9WZDNCRFHWD2")),
+    app("power-automate", "Power Automate", "Microsoft.PowerAutomateDesktop", Microsoft, RECOMMENDED, None),
+    app("todo", "Microsoft To Do", "Microsoft.Todos", Microsoft, RECOMMENDED, Some("9NBLGGH5R558")),
+    app("news", "Microsoft News", "Microsoft.News", Microsoft, RECOMMENDED, None),
+    app("3d-builder", "3D Builder", "Microsoft.3DBuilder", Microsoft, RECOMMENDED, None),
+    app("3d-viewer", "3D Viewer", "Microsoft.Microsoft3DViewer", Microsoft, RECOMMENDED, None),
+    app("print-3d", "Print 3D", "Microsoft.Print3D", Microsoft, RECOMMENDED, None),
+    app("mixed-reality", "Mixed Reality Portal", "Microsoft.MixedReality.Portal", Microsoft, RECOMMENDED, None),
+    app("skype", "Skype", "Microsoft.SkypeApp", Microsoft, RECOMMENDED, None),
+    app("messaging", "Microsoft Messaging", "Microsoft.Messaging", Microsoft, RECOMMENDED, None),
+    app("one-connect", "Mobile Plans (OneConnect)", "Microsoft.OneConnect", Microsoft, RECOMMENDED, None),
+    app("sway", "Office Sway", "Microsoft.Office.Sway", Microsoft, RECOMMENDED, None),
+    app("journal", "Microsoft Journal", "Microsoft.MicrosoftJournal", Microsoft, RECOMMENDED, None),
+    app("power-bi", "Power BI", "Microsoft.MicrosoftPowerBIForWindows", Microsoft, RECOMMENDED, None),
+    app("movies-tv", "Movies & TV", "Microsoft.ZuneVideo", Microsoft, RECOMMENDED, None),
+    app("maps", "Maps", "Microsoft.WindowsMaps", Microsoft, RECOMMENDED, None),
+    app("family", "Microsoft Family", "MicrosoftCorporationII.MicrosoftFamily", Microsoft, RECOMMENDED, None),
+    app("teams-personal", "Microsoft Teams (personal)", "MicrosoftTeams", Microsoft, RECOMMENDED, None),
+    app("teams", "Microsoft Teams", "MSTeams", Microsoft, OPT_IN, None),
+    app("pc-manager", "PC Manager", "Microsoft.MicrosoftPCManager", Microsoft, RECOMMENDED, None),
+    app("onenote-legacy", "OneNote for Windows 10", "Microsoft.Office.OneNote", Microsoft, RECOMMENDED, None),
+    app("people", "People", "Microsoft.People", Microsoft, RECOMMENDED, None),
+    app("wallet", "Wallet", "Microsoft.Wallet", Microsoft, RECOMMENDED, None),
+    app("speed-test", "Network Speed Test", "Microsoft.NetworkSpeedTest", Microsoft, RECOMMENDED, None),
+    app("copilot", "Microsoft Copilot", "Microsoft.Copilot", Microsoft, RECOMMENDED, Some("9NHT9RB2F4HD")),
     // Microsoft, offered but kept unless ticked.
-    app("mail-calendar", "Mail & Calendar", "microsoft.windowscommunicationsapps", Microsoft, false, None),
-    app("outlook", "Outlook (new)", "Microsoft.OutlookForWindows", Microsoft, false, Some("9NRX63209R7B")),
-    app("alarms", "Alarms & Clock", "Microsoft.WindowsAlarms", Microsoft, false, Some("9WZDNCRFJ3PR")),
-    app("sound-recorder", "Sound Recorder", "Microsoft.WindowsSoundRecorder", Microsoft, false, Some("9WZDNCRFHWKN")),
-    app("sticky-notes", "Sticky Notes", "Microsoft.MicrosoftStickyNotes", Microsoft, false, Some("9NBLGGH4QGHW")),
-    app("calculator", "Calculator", "Microsoft.WindowsCalculator", Microsoft, false, Some("9WZDNCRFHVN5")),
-    app("camera", "Camera", "Microsoft.WindowsCamera", Microsoft, false, Some("9WZDNCRFJBBG")),
-    app("photos", "Photos", "Microsoft.Windows.Photos", Microsoft, false, Some("9WZDNCRFJBH4")),
-    app("notepad", "Notepad", "Microsoft.WindowsNotepad", Microsoft, false, Some("9MSMLRH6LZF3")),
-    app("paint", "Paint", "Microsoft.Paint", Microsoft, false, Some("9PCFS5B6T72H")),
-    app("snipping-tool", "Snipping Tool", "Microsoft.ScreenSketch", Microsoft, false, Some("9MZ95KL8MR0L")),
-    app("media-player", "Media Player", "Microsoft.ZuneMusic", Microsoft, false, Some("9WZDNCRFJ3PT")),
-    app("phone-link", "Phone Link", "Microsoft.YourPhone", Microsoft, false, Some("9NMPJ99VJBWV")),
-    app("quick-assist", "Quick Assist", "MicrosoftCorporationII.QuickAssist", Microsoft, false, Some("9P7BP5VNWKX5")),
-    app("whiteboard", "Whiteboard", "Microsoft.Whiteboard", Microsoft, false, None),
-    app("widgets", "Widgets (Web Experience)", "MicrosoftWindows.Client.WebExperience", Microsoft, false, Some("9MSSGKG348SP")),
+    app("mail-calendar", "Mail & Calendar", "microsoft.windowscommunicationsapps", Microsoft, MAXIMUM, None),
+    app("outlook", "Outlook (new)", "Microsoft.OutlookForWindows", Microsoft, OPT_IN, Some("9NRX63209R7B")),
+    app("alarms", "Alarms & Clock", "Microsoft.WindowsAlarms", Microsoft, OPT_IN, Some("9WZDNCRFJ3PR")),
+    app("sound-recorder", "Sound Recorder", "Microsoft.WindowsSoundRecorder", Microsoft, OPT_IN, Some("9WZDNCRFHWKN")),
+    app("sticky-notes", "Sticky Notes", "Microsoft.MicrosoftStickyNotes", Microsoft, OPT_IN, Some("9NBLGGH4QGHW")),
+    app("calculator", "Calculator", "Microsoft.WindowsCalculator", Microsoft, OPT_IN, Some("9WZDNCRFHVN5")),
+    app("camera", "Camera", "Microsoft.WindowsCamera", Microsoft, OPT_IN, Some("9WZDNCRFJBBG")),
+    app("photos", "Photos", "Microsoft.Windows.Photos", Microsoft, OPT_IN, Some("9WZDNCRFJBH4")),
+    app("notepad", "Notepad", "Microsoft.WindowsNotepad", Microsoft, OPT_IN, Some("9MSMLRH6LZF3")),
+    app("paint", "Paint", "Microsoft.Paint", Microsoft, OPT_IN, Some("9PCFS5B6T72H")),
+    app("snipping-tool", "Snipping Tool", "Microsoft.ScreenSketch", Microsoft, OPT_IN, Some("9MZ95KL8MR0L")),
+    app("media-player", "Media Player", "Microsoft.ZuneMusic", Microsoft, OPT_IN, Some("9WZDNCRFJ3PT")),
+    app("phone-link", "Phone Link", "Microsoft.YourPhone", Microsoft, OPT_IN, Some("9NMPJ99VJBWV")),
+    app("quick-assist", "Quick Assist", "MicrosoftCorporationII.QuickAssist", Microsoft, OPT_IN, Some("9P7BP5VNWKX5")),
+    app("whiteboard", "Whiteboard", "Microsoft.Whiteboard", Microsoft, MAXIMUM, None),
+    app("widgets", "Widgets (Web Experience)", "MicrosoftWindows.Client.WebExperience", Microsoft, OPT_IN, Some("9MSSGKG348SP")),
     // Bing.
-    app("bing-news", "Bing News", "Microsoft.BingNews", Bing, true, Some("9WZDNCRFHVFW")),
-    app("bing-weather", "Bing Weather", "Microsoft.BingWeather", Bing, true, Some("9WZDNCRFJ3Q2")),
-    app("bing-finance", "Bing Finance", "Microsoft.BingFinance", Bing, true, None),
-    app("bing-sports", "Bing Sports", "Microsoft.BingSports", Bing, true, None),
-    app("bing-travel", "Bing Travel", "Microsoft.BingTravel", Bing, true, None),
-    app("bing-food", "Bing Food & Drink", "Microsoft.BingFoodAndDrink", Bing, true, None),
-    app("bing-health", "Bing Health & Fitness", "Microsoft.BingHealthAndFitness", Bing, true, None),
-    app("bing-translator", "Bing Translator", "Microsoft.BingTranslator", Bing, true, None),
-    app("bing-search", "Bing Search", "Microsoft.BingSearch", Bing, true, None),
+    app("bing-news", "Bing News", "Microsoft.BingNews", Bing, RECOMMENDED, Some("9WZDNCRFHVFW")),
+    app("bing-weather", "Bing Weather", "Microsoft.BingWeather", Bing, RECOMMENDED, Some("9WZDNCRFJ3Q2")),
+    app("bing-finance", "Bing Finance", "Microsoft.BingFinance", Bing, RECOMMENDED, None),
+    app("bing-sports", "Bing Sports", "Microsoft.BingSports", Bing, RECOMMENDED, None),
+    app("bing-travel", "Bing Travel", "Microsoft.BingTravel", Bing, RECOMMENDED, None),
+    app("bing-food", "Bing Food & Drink", "Microsoft.BingFoodAndDrink", Bing, RECOMMENDED, None),
+    app("bing-health", "Bing Health & Fitness", "Microsoft.BingHealthAndFitness", Bing, RECOMMENDED, None),
+    app("bing-translator", "Bing Translator", "Microsoft.BingTranslator", Bing, RECOMMENDED, None),
+    app("bing-search", "Bing Search", "Microsoft.BingSearch", Bing, RECOMMENDED, None),
     // Xbox: games may need them, so none is ticked.
-    app("xbox-app", "Xbox", "Microsoft.GamingApp", Xbox, false, Some("9MV0B5HZVK9Z")),
-    app("xbox-game-bar", "Xbox Game Bar", "Microsoft.XboxGamingOverlay", Xbox, false, Some("9NZKPSTSNW4P")),
-    app("xbox-companion", "Xbox Console Companion", "Microsoft.XboxApp", Xbox, true, None),
+    app("xbox-app", "Xbox", "Microsoft.GamingApp", Xbox, OPT_IN, Some("9MV0B5HZVK9Z")),
+    app("xbox-game-bar", "Xbox Game Bar", "Microsoft.XboxGamingOverlay", Xbox, OPT_IN, Some("9NZKPSTSNW4P")),
+    app("xbox-companion", "Xbox Console Companion", "Microsoft.XboxApp", Xbox, RECOMMENDED, None),
     // Third-party apps Windows installs to promote them.
     promo("candy-crush", "Candy Crush Saga", ".CandyCrushSaga", None),
     promo("candy-crush-soda", "Candy Crush Soda Saga", ".CandyCrushSodaSaga", None),
@@ -697,7 +743,7 @@ pub const APPS: &[App] = &[
     promo("prime-video", "Prime Video", ".PrimeVideo", None),
     promo("amazon", "Amazon", ".Amazon", None),
     promo("tiktok", "TikTok", ".TikTok", None),
-    App { id: "instagram", title: "Instagram", name: Name::Contains(".Instagram"), group: AppGroup::ThirdParty, recommended: true, store_id: None },
+    App { id: "instagram", title: "Instagram", name: Name::Contains(".Instagram"), group: AppGroup::ThirdParty, level: LIGHT, store_id: None },
     promo("facebook", "Facebook", ".Facebook", None),
     promo("twitter", "Twitter / X", ".Twitter", None),
     promo("linkedin", "LinkedIn", ".LinkedInforWindows", None),
@@ -718,7 +764,7 @@ pub const APPS: &[App] = &[
     promo("viber", "Viber", ".Viber", None),
     promo("xing", "XING", ".XING", None),
     promo("wunderlist", "Wunderlist", ".Wunderlist", None),
-    App { id: "spotify", title: "Spotify", name: Name::Exact("SpotifyAB.SpotifyMusic"), group: AppGroup::ThirdParty, recommended: false, store_id: Some("9NCBCSZSJRSB") },
+    App { id: "spotify", title: "Spotify", name: Name::Exact("SpotifyAB.SpotifyMusic"), group: AppGroup::ThirdParty, level: OPT_IN, store_id: Some("9NCBCSZSJRSB") },
 ];
 
 /// Packages that are never removed, whatever the tables above say: Windows
@@ -851,18 +897,42 @@ mod tests {
         assert!(removable("king.com.CandyCrushSodaSaga").is_some_and(|app| app.id == "candy-crush-soda"));
         assert!(removable("4DF9E0F8.Netflix").is_some());
         assert!(removable("Netflix").is_none(), "a bare suffix is not a package");
-        assert!(removable("Microsoft.WindowsCalculator").is_some_and(|app| !app.recommended));
+        assert!(removable("Microsoft.WindowsCalculator").is_some_and(|app| app.level.is_none()));
     }
 
     #[test]
-    fn the_one_click_debloat_is_what_was_asked_for() {
-        let debloat: Vec<&str> = TWEAKS.iter().filter(|t| t.debloat).map(|t| t.id).collect();
+    fn the_maximum_profile_keeps_what_the_one_click_debloat_did() {
+        let maximum: Vec<&str> = TWEAKS.iter().filter(|t| t.level.is_some()).map(|t| t.id).collect();
         for asked in [
-            "telemetry", "edge", "clock-24h", "background-apps", "services", "copilot",
+            "telemetry", "clock-24h", "background-apps", "services", "copilot",
             "location", "taskbar-search", "end-task", "taskview-widgets", "bing", "classic-context-menu",
         ] {
-            assert!(debloat.contains(&asked), "{asked}");
+            assert!(maximum.contains(&asked), "{asked}");
         }
+        // Edge goes only when picked on its own, and asks again then.
+        assert_eq!(find("edge").unwrap().level, None);
         assert!(find("edge").unwrap().confirm.is_some(), "Edge asks again");
+    }
+
+    #[test]
+    fn profiles_build_on_each_other_and_stay_careful() {
+        assert!(Level::Light < Level::Recommended && Level::Recommended < Level::Maximum);
+        for tweak in TWEAKS {
+            // A tweak that asks again, or is marked caution, is never in a profile.
+            if tweak.confirm.is_some() || tweak.risk == Risk::Caution {
+                assert_eq!(tweak.level, None, "{}", tweak.id);
+            }
+            if let Some(note) = tweak.note {
+                assert!(note.ends_with('.') && !note.is_empty(), "{}", tweak.id);
+            }
+        }
+        for app in APPS {
+            // Apps the Xbox games or the Store need are never removed by a profile.
+            if matches!(app.id, "xbox-app" | "xbox-game-bar" | "calculator" | "photos" | "snipping-tool" | "notepad") {
+                assert_eq!(app.level, None, "{}", app.id);
+            }
+        }
+        let light = TWEAKS.iter().filter(|t| t.level == LIGHT).count();
+        assert!(light >= 3, "Light has something to do");
     }
 }

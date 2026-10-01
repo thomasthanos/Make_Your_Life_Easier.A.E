@@ -2,10 +2,12 @@
 // ids of the backend's fixed tables.
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 
-export type Category = "privacy" | "taskbar" | "explorer" | "ai" | "system" | "apps";
+export type Category = "privacy" | "taskbar" | "explorer" | "ai" | "system" | "apps" | "features";
 export type Risk = "safe" | "caution";
 export type TweakState = "applied" | "notApplied" | "partial" | "unavailable";
 export type AppGroup = "microsoft" | "bing" | "xbox" | "thirdParty";
+/** The Quick setup profile something belongs to; each takes in the ones before it. */
+export type Level = "light" | "recommended" | "maximum";
 
 export interface TweakStatus {
   id: string;
@@ -13,8 +15,12 @@ export interface TweakStatus {
   summary: string;
   category: Category;
   risk: Risk;
-  /** Part of the one-click Debloat. */
-  debloat: boolean;
+  /** The Quick setup profile it is part of; null: only when picked on its own. */
+  level: Level | null;
+  /** What to know before turning it on: what stops working or works differently. */
+  note: string | null;
+  /** Complete only after Windows restarts. */
+  restart: boolean;
   /** Asked again on its own before it runs. */
   confirm: string | null;
   state: TweakState;
@@ -26,7 +32,8 @@ export interface AppStatus {
   id: string;
   title: string;
   group: AppGroup;
-  recommended: boolean;
+  /** The Quick setup profile that removes it; null: only when picked. */
+  level: Level | null;
   /** Installed packages for this user; empty when it is not installed. */
   packages: string[];
   removedByMyle: boolean;
@@ -125,59 +132,64 @@ const tauriApi: DebloatApi = {
 /** In a plain browser (`npx vite`): a pretend PC, to work on the page. */
 function previewApi(): DebloatApi {
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-  const tweak = (id: string, title: string, summary: string, category: Category, debloat: boolean, state: TweakState, extra: Partial<TweakStatus> = {}): TweakStatus => ({
-    id, title, summary, category, risk: "safe", debloat, confirm: null, state, canUndo: false, ...extra,
+  const tweak = (id: string, title: string, summary: string, category: Category, level: Level | null, state: TweakState, extra: Partial<TweakStatus> = {}): TweakStatus => ({
+    id, title, summary, category, risk: "safe", level, note: null, restart: false, confirm: null, state, canUndo: false, ...extra,
   });
   let tweaks: TweakStatus[] = [
-    tweak("telemetry", "Turn off telemetry", "Diagnostic data, advertising ID, tailored experiences, typing and inking data, feedback prompts, and the Connected User Experiences service and tasks.", "privacy", true, "partial"),
-    tweak("edge", "Remove Microsoft Edge", "Uninstalls the Edge browser. WebView2, which MYLE and other apps are built on, stays.", "apps", true, "notApplied", { risk: "caution", confirm: "Remove Microsoft Edge? Links that open in Edge by default will ask for another browser." }),
-    tweak("clock-24h", "24-hour clock", "The taskbar clock and every app show the time as 13:45 instead of 1:45 PM.", "system", true, "notApplied"),
-    tweak("background-apps", "Stop Store apps running in the background", "Store apps no longer run, update tiles or use the network while they are closed.", "system", true, "notApplied"),
-    tweak("services", "Set unneeded services to manual", "Maps, Program Compatibility Assistant, Distributed Link Tracking and Storage start only when something needs them.", "system", true, "partial"),
-    tweak("copilot", "Turn off Copilot", "Removes the Copilot app and button, and turns off Recall, Click to Do and the AI features in Notepad.", "ai", true, "notApplied"),
-    tweak("location", "Turn off location tracking", "Apps and Windows can no longer ask where the PC is.", "privacy", true, "notApplied"),
-    tweak("taskbar-search", "Hide search on the taskbar", "Removes the search box or icon; Start still searches when you type.", "taskbar", true, "notApplied"),
-    tweak("end-task", "End Task on right-click", "Right-click an app on the taskbar to close it at once.", "taskbar", true, "applied"),
-    tweak("taskview-widgets", "Hide Task View and Widgets", "Removes the Task View button and the Widgets board from the taskbar.", "taskbar", true, "partial"),
-    tweak("bing", "Remove Bing from search", "Start searches only your PC: no web results, no Bing suggestions.", "privacy", true, "notApplied"),
-    tweak("classic-context-menu", "Classic right-click menu", "The full Windows 10 right-click menu in File Explorer.", "explorer", true, "notApplied"),
-    tweak("suggestions", "Stop suggested apps and ads", "Windows no longer installs promoted apps by itself, nor shows suggestions.", "privacy", true, "partial"),
-    tweak("activity-history", "Turn off activity history", "Windows stops recording which apps and files you use.", "privacy", false, "applied", { canUndo: true }),
-    tweak("delivery-optimization", "No update sharing with other PCs", "Windows Update downloads only from Microsoft.", "system", false, "notApplied"),
-    tweak("game-dvr", "Turn off Game DVR", "No background recording of games by the Xbox Game Bar.", "system", false, "notApplied"),
-    tweak("file-extensions", "Show file extensions", "File Explorer shows .exe, .pdf and the rest.", "explorer", false, "applied"),
-    tweak("hidden-files", "Show hidden files", "File Explorer shows hidden files and folders.", "explorer", false, "notApplied"),
-    tweak("dark-mode", "Dark mode", "Windows and apps use the dark theme.", "system", false, "applied"),
-    tweak("taskbar-left", "Taskbar icons on the left", "Start and the taskbar icons sit on the left.", "taskbar", false, "notApplied"),
-    tweak("mouse-acceleration", "Turn off mouse acceleration", "The pointer moves as far as the mouse does.", "system", false, "notApplied"),
-    tweak("sticky-keys", "No Sticky Keys prompt", "Pressing Shift five times no longer asks about Sticky Keys.", "system", false, "notApplied"),
+    tweak("telemetry", "Turn off telemetry", "Windows sends Microsoft as little about how you use the PC as it allows, keeps no advertising ID and stops asking for feedback.", "privacy", "light", "partial"),
+    tweak("edge", "Remove Microsoft Edge", "Uninstalls the Edge browser. WebView2, which MYLE and other apps are built on, stays.", "apps", null, "notApplied", {
+      risk: "caution",
+      confirm: "Remove Microsoft Edge? Links that open in Edge by default will ask for another browser.",
+      note: "Links that open in Edge will ask for another browser. Edge can be installed again with Undo.",
+    }),
+    tweak("clock-24h", "24-hour clock", "The taskbar clock and every app show the time as 13:45 instead of 1:45 PM.", "system", "maximum", "notApplied", { note: "Changes the time format of your user account, not only the taskbar." }),
+    tweak("background-apps", "Stop Store apps running in the background", "Store apps no longer run, update tiles or use the network while they are closed.", "system", "recommended", "notApplied", { note: "Store apps such as Mail update and notify only while they are open." }),
+    tweak("services", "Set unneeded services to manual", "Background services most people never use (Maps, Retail Demo, Remote Registry and a few more) start only when something needs them.", "system", "recommended", "partial", { restart: true, note: "Takes full effect after the next restart." }),
+    tweak("copilot", "Turn off Copilot", "Removes the Copilot app and button, and turns off Recall, Click to Do and the AI features in Notepad.", "ai", "recommended", "notApplied", { note: "Copilot, Recall and Click to Do go away until you turn this off again." }),
+    tweak("location", "Turn off location tracking", "Apps and Windows can no longer ask where the PC is.", "privacy", "maximum", "notApplied", { note: "Maps, weather and Find my device can no longer tell where the PC is." }),
+    tweak("taskbar-search", "Hide search on the taskbar", "Removes the search box or icon; Start still searches when you type.", "taskbar", "maximum", "notApplied", { note: "Press the Windows key and type: Start still searches." }),
+    tweak("end-task", "End Task on right-click", "Right-click an app on the taskbar to close it at once.", "taskbar", "recommended", "applied"),
+    tweak("taskview-widgets", "Hide Task View and Widgets", "Removes the Task View button and the Widgets board from the taskbar.", "taskbar", "maximum", "partial"),
+    tweak("bing", "Remove Bing from search", "Start searches only your PC: no web results, no Bing suggestions.", "privacy", "recommended", "notApplied"),
+    tweak("classic-context-menu", "Classic right-click menu", "The full Windows 10 right-click menu in File Explorer.", "explorer", "maximum", "notApplied"),
+    tweak("suggestions", "Stop suggested apps and ads", "Windows no longer installs promoted apps by itself, nor shows suggestions.", "privacy", "light", "partial"),
+    tweak("activity-history", "Turn off activity history", "Windows stops recording which apps and files you use.", "privacy", "light", "applied", { canUndo: true }),
+    tweak("delivery-optimization", "No update sharing with other PCs", "Windows Update downloads only from Microsoft.", "system", "light", "notApplied"),
+    tweak("game-dvr", "Turn off Game DVR", "No background recording of games by the Xbox Game Bar.", "system", "maximum", "notApplied"),
+    tweak("file-extensions", "Show file extensions", "File Explorer shows .exe, .pdf and the rest.", "explorer", "recommended", "applied"),
+    tweak("hidden-files", "Show hidden files", "File Explorer shows hidden files and folders.", "explorer", null, "notApplied"),
+    tweak("dark-mode", "Dark mode", "Windows and apps use the dark theme.", "system", null, "applied"),
+    tweak("taskbar-left", "Taskbar icons on the left", "Start and the taskbar icons sit on the left.", "taskbar", null, "notApplied"),
+    tweak("mouse-acceleration", "Turn off mouse acceleration", "The pointer moves as far as the mouse does.", "system", null, "notApplied"),
+    tweak("sticky-keys", "No Sticky Keys prompt", "Pressing Shift five times no longer asks about Sticky Keys.", "system", null, "notApplied"),
   ];
-  const app = (id: string, title: string, group: AppGroup, recommended: boolean, installed: boolean, storeId: string | null = null): AppStatus => ({
-    id, title, group, recommended, packages: installed ? [`Preview.${id}`] : [], removedByMyle: false, storeId,
+  const app = (id: string, title: string, group: AppGroup, level: Level | null, installed: boolean, storeId: string | null = null): AppStatus => ({
+    id, title, group, level, packages: installed ? [`Preview.${id}`] : [], removedByMyle: false, storeId,
   });
   let apps: AppStatus[] = [
-    app("clipchamp", "Clipchamp", "microsoft", true, true, "9P1J8S7CCWWT"),
-    app("get-started", "Get Started (Tips)", "microsoft", true, true),
-    app("office-hub", "Microsoft 365 (Office)", "microsoft", true, true),
-    app("solitaire", "Solitaire Collection", "microsoft", true, true),
-    app("todo", "Microsoft To Do", "microsoft", true, true),
-    app("feedback-hub", "Feedback Hub", "microsoft", true, true),
-    app("dev-home", "Dev Home", "microsoft", true, true),
-    app("copilot", "Microsoft Copilot", "microsoft", true, true),
-    app("calculator", "Calculator", "microsoft", false, true),
-    app("photos", "Photos", "microsoft", false, true),
-    app("notepad", "Notepad", "microsoft", false, true),
-    app("snipping-tool", "Snipping Tool", "microsoft", false, true),
-    app("phone-link", "Phone Link", "microsoft", false, true),
-    app("bing-news", "Bing News", "bing", true, true, "9WZDNCRFHVFW"),
-    app("bing-weather", "Bing Weather", "bing", true, true, "9WZDNCRFJ3Q2"),
-    app("bing-search", "Bing Search", "bing", true, true),
-    app("xbox-app", "Xbox", "xbox", false, true),
-    app("xbox-game-bar", "Xbox Game Bar", "xbox", false, true),
-    app("candy-crush", "Candy Crush Saga", "thirdParty", true, true),
-    app("tiktok", "TikTok", "thirdParty", true, true),
-    app("spotify", "Spotify", "thirdParty", false, true),
-    app("maps", "Maps", "microsoft", true, false),
+    app("clipchamp", "Clipchamp", "microsoft", "recommended", true, "9P1J8S7CCWWT"),
+    app("get-started", "Get Started (Tips)", "microsoft", "recommended", true),
+    app("office-hub", "Microsoft 365 (Office)", "microsoft", "recommended", true),
+    app("solitaire", "Solitaire Collection", "microsoft", "recommended", true),
+    app("todo", "Microsoft To Do", "microsoft", "recommended", true),
+    app("feedback-hub", "Feedback Hub", "microsoft", "recommended", true),
+    app("dev-home", "Dev Home", "microsoft", "recommended", true),
+    app("copilot", "Microsoft Copilot", "microsoft", "recommended", true),
+    app("mail-calendar", "Mail & Calendar", "microsoft", "maximum", true),
+    app("calculator", "Calculator", "microsoft", null, true),
+    app("photos", "Photos", "microsoft", null, true),
+    app("notepad", "Notepad", "microsoft", null, true),
+    app("snipping-tool", "Snipping Tool", "microsoft", null, true),
+    app("phone-link", "Phone Link", "microsoft", null, true),
+    app("bing-news", "Bing News", "bing", "recommended", true, "9WZDNCRFHVFW"),
+    app("bing-weather", "Bing Weather", "bing", "recommended", true, "9WZDNCRFJ3Q2"),
+    app("bing-search", "Bing Search", "bing", "recommended", true),
+    app("xbox-app", "Xbox", "xbox", null, true),
+    app("xbox-game-bar", "Xbox Game Bar", "xbox", null, true),
+    app("candy-crush", "Candy Crush Saga", "thirdParty", "light", true),
+    app("tiktok", "TikTok", "thirdParty", "light", true),
+    app("spotify", "Spotify", "thirdParty", null, true),
+    app("maps", "Maps", "microsoft", "recommended", false),
   ];
   const run = async (ids: string[], appIds: string[], onEvent: (event: DebloatEvent) => void, undo: boolean) => {
     let changed = 0;

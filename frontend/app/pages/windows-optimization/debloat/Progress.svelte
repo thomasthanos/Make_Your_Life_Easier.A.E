@@ -4,13 +4,16 @@
   import CircleX from "@lucide/svelte/icons/circle-x";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import Minus from "@lucide/svelte/icons/minus";
-  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import X from "@lucide/svelte/icons/x";
   import { debloat } from "./state.svelte";
 
   const done = $derived(debloat.steps.filter((step) => step.state !== "running").length);
   // A restart of Explorer may come on top of what was planned.
   const total = $derived(Math.max(debloat.expected, debloat.steps.length));
+  /** After a run, the steps fold away unless something went wrong. */
+  let showSteps = $state(false);
+  const failed = $derived(debloat.steps.some((step) => step.state === "failed"));
+  const listed = $derived(debloat.busy || showSteps || failed);
 </script>
 
 {#if debloat.steps.length}
@@ -32,13 +35,18 @@
         {/if}
       </div>
       {#if !debloat.busy}
-        <button class="icon-btn" title="Hide" aria-label="Hide the progress" onclick={() => ((debloat.steps = []), (debloat.outcome = null))}><X size={15} /></button>
+        <span class="end">
+          {#if !failed}
+            <button type="button" class="steps-btn" aria-expanded={showSteps} onclick={() => (showSteps = !showSteps)}>{showSteps ? "Hide steps" : "Show steps"}</button>
+          {/if}
+          <button class="icon-btn" title="Hide" aria-label="Hide the progress" onclick={() => ((debloat.steps = []), (debloat.outcome = null), (showSteps = false))}><X size={15} /></button>
+        </span>
       {/if}
     </header>
     {#if debloat.busy}
       <div class="track"><span style:width="{total ? (done / total) * 100 : 0}%"></span></div>
     {/if}
-    <ol>
+    <ol hidden={!listed}>
       {#each debloat.steps as step (step.id)}
         <li class={step.state}>
           <span class="mark">
@@ -54,22 +62,25 @@
         </li>
       {/each}
     </ol>
-    {#if debloat.outcome?.reboot && !debloat.busy}
-      <p class="reboot"><RotateCcw size={13} /> Some changes are complete after the next restart of Windows.</p>
-    {/if}
   </section>
 {/if}
 
 <style>
   .progress {
     display: grid;
-    gap: 10px;
-    padding: 14px 16px;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 10px 14px;
   }
+
+  .end { display: flex; align-items: center; gap: 4px; flex: none; }
+  .steps-btn { padding: 3px 8px; border-radius: 6px; color: rgb(var(--accent-soft-rgb)); font-size: 11.5px; font-weight: 550; }
+  .steps-btn:hover { background: var(--hover); color: var(--text-1); }
+  ol[hidden] { display: none; }
 
   header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 12px;
   }
@@ -163,13 +174,5 @@
 
   li.failed .text small {
     color: rgb(255 170 170 / 0.85);
-  }
-
-  .reboot {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    color: rgb(229 218 176 / 0.8);
-    font-size: 11.5px;
   }
 </style>

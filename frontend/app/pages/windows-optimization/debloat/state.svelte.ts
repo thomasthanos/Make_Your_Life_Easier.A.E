@@ -1,58 +1,86 @@
 // The debloater's page state. It lives outside the components so switching
 // tabs or pages keeps the choices and a run's progress.
-import { SvelteSet } from "svelte/reactivity";
+//
+// Nothing changes on the PC while the user chooses: a switch or a profile
+// only records what they want (`desired`, `removing`), and "Review & apply"
+// does it all at once, after a restore point.
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { confirm } from "../../../../lib/confirm.svelte";
 import { operationGate } from "../../../../lib/operation-gate.svelte";
 import { toast } from "../../../../lib/toast.svelte";
 import { debloatApi as api, type AppStatus, type DebloatEvent, type DebloatOutcome, type DebloatStatus, type StartMenuUpdate, type Step, type TweakStatus } from "./api";
 import { pinCatalog } from "./catalog";
-import { appPresetIds, initialSkipped, pendingTweakIds, tweakPresetSkipped, type SelectionPreset } from "./selection";
+import { appPresetIds, fromLegacy, inProfile, isApplied, matchingProfile, pendingOf, prune, withProfile, type Profile } from "./selection";
 
-const SKIPPED_KEY = "myle.debloat.skipped";
-const APPS_KEY = "myle.debloat.apps";
+const PENDING_KEY = "myle.debloat.pending";
+/** Kept by older versions: the apps ticked for the one-click run, and the tweaks left out of it. */
+const LEGACY_APPS_KEY = "myle.debloat.apps";
+const LEGACY_SKIPPED_KEY = "myle.debloat.skipped";
 
 function message(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
-function loadSet(key: string): string[] | null {
+interface SavedChoices {
+  tweaks: Record<string, boolean>;
+  apps: string[];
+}
+
+function loadChoices() {
   try {
-    const raw = localStorage.getItem(key);
-    const value: unknown = raw ? JSON.parse(raw) : null;
-    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : null;
+    const raw = localStorage.getItem(PENDING_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw) as Partial<SavedChoices>;
+      const tweaks = Object.entries(saved.tweaks ?? {}).filter((entry): entry is [string, boolean] => typeof entry[1] === "boolean");
+      const apps = Array.isArray(saved.apps) ? saved.apps.filter((id): id is string => typeof id === "string") : [];
+      return { desired: new Map(tweaks), apps: new Set(apps) };
+    }
+    const legacy = localStorage.getItem(LEGACY_APPS_KEY);
+    const value: unknown = legacy ? JSON.parse(legacy) : null;
+    return fromLegacy(Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : null);
   } catch {
-    return null;
+    return fromLegacy(null);
   }
 }
 
-function saveSet(key: string, set: Set<string>) {
+function saveChoices(desired: ReadonlyMap<string, boolean>, apps: ReadonlySet<string>) {
   try {
-    localStorage.setItem(key, JSON.stringify([...set]));
+    localStorage.setItem(PENDING_KEY, JSON.stringify({ tweaks: Object.fromEntries(desired), apps: [...apps] } satisfies SavedChoices));
+    localStorage.removeItem(LEGACY_APPS_KEY);
+    localStorage.removeItem(LEGACY_SKIPPED_KEY);
   } catch {
     // A preference only.
   }
 }
 
-export type Tab = "debloat" | "tweaks" | "startMenu" | "apps" | "tools";
-const savedSkipped = loadSet(SKIPPED_KEY);
+/** Two runs' outcomes as one. */
+function merged(a: DebloatOutcome, b: DebloatOutcome): DebloatOutcome {
+  return { changed: a.changed + b.changed, failed: [...a.failed, ...b.failed], reboot: a.reboot || b.reboot, needsAdmin: a.needsAdmin || b.needsAdmin };
+}
+
+const nothing: DebloatOutcome = { changed: 0, failed: [], reboot: false, needsAdmin: false };
+
+export type Tab = "quick" | "settings" | "apps" | "startMenu" | "tools";
+const saved = loadChoices();
 
 class DebloatState {
-  tab = $state<Tab>("debloat");
+  tab = $state<Tab>("quick");
   status = $state<DebloatStatus | null>(null);
   loading = $state(false);
   error = $state<string | null>(null);
-  /** Debloat tweaks the user switched off for the one-click run. */
-  skipped = new SvelteSet<string>(savedSkipped ?? []);
-  #tweakDefaultsPending = savedSkipped === null;
+  /** Tweaks to turn on (true) or off (false): only where that differs from now. */
+  readonly desired = new SvelteMap<string, boolean>(saved.desired);
+  /** Installed apps chosen for removal. */
+  readonly removing = new SvelteSet<string>(saved.apps);
   readonly selectedPins = new SvelteSet<string>(pinCatalog.filter((item) => item.essential).map((item) => item.id));
   views = $state({
-    debloat: { query: "", filter: "all" },
-    tweaks: { query: "", filter: "all" },
+    settings: { query: "", filter: "all" },
     apps: { query: "", filter: "all" },
   });
-  /** Apps chosen for removal; `null` until the status tells which are recommended. */
-  #apps: SvelteSet<string> | null = null;
-  appsVersion = $state(0);
+  /** Settings groups the user opened (true) or folded (false); unset follows what is left to do. */
+  opened = $state<Record<string, boolean>>({});
+  /** The review of the pending changes is open. */
+  reviewing = $state(false);
   busy = $state(false);
   startMenuBusy = $state(false);
   /** What the current (or last) run did, step by step. */
@@ -65,38 +93,23 @@ class DebloatState {
 
   readonly locked = $derived(this.busy || this.startMenuBusy || operationGate.lockedFor("windows-optimization"));
 
-  readonly debloatTweaks = $derived((this.status?.tweaks ?? []).filter((tweak) => tweak.debloat && tweak.state !== "unavailable"));
-
-  /** Installed apps chosen for removal. */
-  readonly chosenApps = $derived.by(() => {
-    void this.appsVersion;
-    const chosen = this.#apps;
-    return (this.status?.apps ?? []).filter((app) => app.packages.length > 0 && chosen?.has(app.id));
-  });
-
-  /** The one-click run: the switched-on tweaks not already in place. */
-  readonly plannedTweaks = $derived.by(() => {
-    const ids = new Set(pendingTweakIds(this.debloatTweaks, this.skipped));
-    return this.debloatTweaks.filter((tweak) => ids.has(tweak.id));
-  });
-
+  readonly tweaks = $derived(this.status?.tweaks ?? []);
   readonly installedApps = $derived((this.status?.apps ?? []).filter((app) => app.packages.length > 0));
+  /** What "Review & apply" would do. */
+  readonly pending = $derived(pendingOf(this.tweaks, this.desired));
+  readonly pendingApps = $derived(this.installedApps.filter((app) => this.removing.has(app.id)));
+  readonly pendingCount = $derived(this.pending.on.length + this.pending.off.length + this.pendingApps.length);
+  /** The Quick setup profile the choices are exactly, if any. */
+  readonly profile = $derived(matchingProfile(this.tweaks, this.status?.apps ?? [], this.desired, this.removing));
+  /** Everything MYLE changed and can put back as it was. */
+  readonly undoable = $derived(this.tweaks.filter((tweak) => tweak.canUndo));
 
   async load() {
     this.loading = true;
     try {
       this.status = await api.status();
       this.error = null;
-      if (this.#tweakDefaultsPending) {
-        for (const id of initialSkipped(this.status.tweaks, null)) this.skipped.add(id);
-        saveSet(SKIPPED_KEY, this.skipped);
-        this.#tweakDefaultsPending = false;
-      }
-      if (!this.#apps) {
-        const saved = loadSet(APPS_KEY);
-        this.#apps = new SvelteSet(saved ?? appPresetIds(this.status.apps, "recommended"));
-        this.appsVersion++;
-      }
+      this.#tidy();
     } catch (error) {
       this.error = message(error);
     } finally {
@@ -104,40 +117,82 @@ class DebloatState {
     }
   }
 
-  isAppChosen(id: string) {
-    void this.appsVersion;
-    return this.#apps?.has(id) ?? false;
+  /** Drops the choices that no longer change anything. */
+  #tidy() {
+    if (!this.status) return;
+    const kept = prune(this.status.tweaks, this.status.apps, this.desired, this.removing);
+    this.#replace(kept.desired, kept.apps);
+  }
+
+  #replace(desired: ReadonlyMap<string, boolean>, apps: ReadonlySet<string>) {
+    this.desired.clear();
+    for (const [id, on] of desired) this.desired.set(id, on);
+    this.removing.clear();
+    for (const id of apps) this.removing.add(id);
+    saveChoices(this.desired, this.removing);
+  }
+
+  /** Whether a tweak's switch is on: the choice if there is one, else how it is now. */
+  isOn(tweak: TweakStatus) {
+    return this.desired.get(tweak.id) ?? isApplied(tweak);
+  }
+
+  /** A choice that is not how things are now. */
+  isPending(tweak: TweakStatus) {
+    return this.desired.has(tweak.id) && this.desired.get(tweak.id) !== isApplied(tweak);
+  }
+
+  setTweak(tweak: TweakStatus, on: boolean) {
+    if (this.locked || tweak.state === "unavailable") return;
+    if (on === isApplied(tweak)) this.desired.delete(tweak.id);
+    else this.desired.set(tweak.id, on);
+    saveChoices(this.desired, this.removing);
+  }
+
+  /** Turns on the recommended tweaks of one group, leaving the rest as chosen. */
+  recommend(tweaks: readonly TweakStatus[]) {
+    if (this.locked) return;
+    for (const tweak of tweaks) {
+      if (inProfile(tweak.level, "recommended") && !isApplied(tweak) && tweak.state !== "unavailable") this.desired.set(tweak.id, true);
+    }
+    saveChoices(this.desired, this.removing);
+  }
+
+  chooseProfile(profile: Profile) {
+    if (this.locked || !this.status) return;
+    const next = withProfile(this.status.tweaks, this.status.apps, this.desired, this.removing, profile);
+    this.#replace(next.desired, next.apps);
+  }
+
+  /** Leaves these out of the choices (unticked in the review). */
+  forget(tweakIds: readonly string[], appIds: readonly string[]) {
+    for (const id of tweakIds) this.desired.delete(id);
+    for (const id of appIds) this.removing.delete(id);
+    saveChoices(this.desired, this.removing);
+  }
+
+  clearChoices() {
+    if (this.locked) return;
+    this.#replace(new Map(), new Set());
+    this.reviewing = false;
+  }
+
+  isRemoving(id: string) {
+    return this.removing.has(id);
   }
 
   setApp(id: string, on: boolean) {
-    if (this.locked || !this.#apps || !this.installedApps.some((app) => app.id === id)) return;
-    if (on) this.#apps.add(id);
-    else this.#apps.delete(id);
-    saveSet(APPS_KEY, this.#apps);
-    this.appsVersion++;
+    if (this.locked || !this.installedApps.some((app) => app.id === id)) return;
+    if (on) this.removing.add(id);
+    else this.removing.delete(id);
+    saveChoices(this.desired, this.removing);
   }
 
   selectApps(which: "recommended" | "all" | "none") {
-    if (this.locked || !this.#apps || !this.status) return;
-    this.#apps.clear();
-    for (const id of appPresetIds(this.status.apps, which)) this.#apps.add(id);
-    saveSet(APPS_KEY, this.#apps);
-    this.appsVersion++;
-  }
-
-  setTweak(id: string, on: boolean) {
-    if (this.locked || !this.debloatTweaks.some((tweak) => tweak.id === id && tweak.state !== "applied")) return;
-    if (on) this.skipped.delete(id);
-    else this.skipped.add(id);
-    saveSet(SKIPPED_KEY, this.skipped);
-  }
-
-  selectTweaks(preset: SelectionPreset) {
     if (this.locked || !this.status) return;
-    const next = tweakPresetSkipped(this.status.tweaks, this.skipped, preset);
-    this.skipped.clear();
-    for (const id of next) this.skipped.add(id);
-    saveSet(SKIPPED_KEY, this.skipped);
+    this.removing.clear();
+    for (const id of appPresetIds(this.status.apps, which)) this.removing.add(id);
+    saveChoices(this.desired, this.removing);
   }
 
   togglePin(id: string) {
@@ -200,7 +255,7 @@ class DebloatState {
     this.#onStep({ id: "restore-point", label: "Create a restore point", state: "failed", detail: why });
     return confirm({
       title: "Continue without a restore point?",
-      message: `The restore point could not be created: ${why}\n\nMYLE can still undo its own changes from the Tweaks tab.`,
+      message: `The restore point could not be created: ${why}\n\nMYLE can still undo its own changes from the Settings tab.`,
       confirmLabel: "Continue",
       cancelLabel: "Stop",
     });
@@ -249,38 +304,33 @@ class DebloatState {
     return wanted;
   }
 
-  /** The one-click Debloat. */
-  async debloat() {
-    if (this.locked) return;
-    const apps = this.chosenApps;
-    const tweaks = this.plannedTweaks;
-    if (!tweaks.length && !apps.length) {
-      toast.info("Everything chosen is already done.");
-      return;
-    }
-    const lines = [
-      ...tweaks.map((tweak) => `• ${tweak.title}`),
-      ...(apps.length ? [`• Remove ${apps.length} app${apps.length === 1 ? "" : "s"}: ${apps.map((app) => app.title).join(", ")}`] : []),
-    ];
-    const ok = await confirm({
-      title: "Apply selected changes?",
-      message: `A restore point is created first, then:\n${lines.join("\n")}`,
-      confirmLabel: "Apply selected",
-    });
-    if (!ok) return;
-    const chosen = await this.#confirmEach(tweaks);
-    if (!chosen) return;
-    const ids = chosen.map((tweak) => tweak.id);
+  /** Does every pending change: one restore point, then the tweaks and the
+   *  apps, then the tweaks to turn off. */
+  async applyPending() {
+    if (this.locked || !this.pendingCount) return;
+    const { on, off } = this.pending;
+    const apps = this.pendingApps;
+    this.reviewing = false;
+    const wanted = await this.#confirmEach(on);
+    if (!wanted) return;
+    // Declined one by one (Edge): no longer chosen.
+    for (const tweak of on) if (!wanted.includes(tweak)) this.desired.delete(tweak.id);
+    saveChoices(this.desired, this.removing);
+    const onIds = wanted.map((tweak) => tweak.id);
+    const offIds = off.map((tweak) => tweak.id);
     const appIds = apps.map((app) => app.id);
-    if (!ids.length && !appIds.length) return;
-    await this.#perform(() => api.run(ids, appIds, this.#onEvent), true, ids.length + appIds.length);
-  }
-
-  async apply(tweak: TweakStatus) {
-    if (this.locked || tweak.state === "unavailable") return;
-    const chosen = await this.#confirmEach([tweak]);
-    if (!chosen?.length) return;
-    await this.#perform(() => api.run([tweak.id], [], this.#onEvent), false, 1);
+    if (!onIds.length && !offIds.length && !appIds.length) return;
+    const changesPc = onIds.length > 0 || appIds.length > 0;
+    await this.#perform(
+      async () => {
+        let outcome = nothing;
+        if (changesPc) outcome = merged(outcome, await api.run(onIds, appIds, this.#onEvent));
+        if (offIds.length) outcome = merged(outcome, await api.undo(offIds, this.#onEvent));
+        return outcome;
+      },
+      changesPc,
+      onIds.length + offIds.length + appIds.length,
+    );
   }
 
   async undo(tweaks: TweakStatus[]): Promise<boolean> {
@@ -299,18 +349,6 @@ class DebloatState {
     if (!ok) return false;
     await this.#perform(() => api.undo(tweaks.map((tweak) => tweak.id), this.#onEvent), false, tweaks.length);
     return true;
-  }
-
-  async removeApps(apps: AppStatus[]) {
-    if (this.locked || !apps.length) return;
-    const ok = await confirm({
-      title: `Remove ${apps.length} app${apps.length === 1 ? "" : "s"}?`,
-      message: `For every user of this PC, and for new ones:\n${apps.map((app) => `• ${app.title}`).join("\n")}\n\nApps removed here can be installed again from the Microsoft Store.`,
-      confirmLabel: "Remove",
-      danger: true,
-    });
-    if (!ok) return;
-    await this.#perform(() => api.run([], apps.map((app) => app.id), this.#onEvent), false, apps.length);
   }
 
   async openStore(app: AppStatus) {
