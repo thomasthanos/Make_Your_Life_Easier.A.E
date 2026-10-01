@@ -1,23 +1,31 @@
 <script lang="ts">
   import Archive from "@lucide/svelte/icons/archive";
-  import CheckCheck from "@lucide/svelte/icons/check-check";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import CircleCheck from "@lucide/svelte/icons/circle-check";
   import DatabaseZap from "@lucide/svelte/icons/database-zap";
+  import ListChecks from "@lucide/svelte/icons/list-checks";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
+  import Ellipsis from "@lucide/svelte/icons/ellipsis";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import ScanSearch from "@lucide/svelte/icons/scan-search";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
-  import Select, { type SelectOption } from "../../../lib/components/Select.svelte";
+  import Popover from "../../../lib/components/Popover.svelte";
   import type { OperationStage } from "./api";
   import { formatBytes, gameSavesState as gameSaves, type GameSavesFilter } from "./state.svelte";
 
-  const filterOptions: SelectOption<GameSavesFilter>[] = [
-    { value: "all", label: "All statuses" },
-    { value: "changed", label: "Changed since backup" },
-    { value: "notBackedUp", label: "Not backed up" },
-    { value: "backedUp", label: "Backed up" },
-    { value: "problems", label: "Needs attention" },
+  /** One click each, with how many games it shows; an empty one hides. */
+  const filterOptions: { value: GameSavesFilter; label: string; hint: string }[] = [
+    { value: "all", label: "All", hint: "Every game" },
+    { value: "notBackedUp", label: "First backup needed", hint: "Saves that have no backup yet" },
+    { value: "changed", label: "New progress", hint: "Saves that changed since their last backup" },
+    { value: "backedUp", label: "Backed up", hint: "Saves whose backup is up to date" },
+    { value: "problems", label: "Needs attention", hint: "Saves that could not be read, or need a restore location" },
   ];
+  const shownFilters = $derived(
+    filterOptions.filter((option) => option.value === "all" || option.value === gameSaves.filter || gameSaves.statusCounts[option.value] > 0),
+  );
   const stageLabels: Record<OperationStage, string> = {
     preparing: "Preparing…",
     scanning: "Scanning save locations…",
@@ -39,17 +47,15 @@
 
   // The engine reports nothing while it scans or copies, so show that time
   // passes: seconds so far, and a hint once it gets slow.
-  let startedAt = $state(0);
   let now = $state(0);
   $effect(() => {
     const operation = gameSaves.operation;
     if (!operation) return;
-    startedAt = Date.now();
-    now = startedAt;
+    now = Date.now();
     const timer = setInterval(() => (now = Date.now()), 1000);
     return () => clearInterval(timer);
   });
-  const elapsed = $derived(Math.max(0, Math.round((now - startedAt) / 1000)));
+  const elapsed = $derived(Math.max(0, Math.round((now - (gameSaves.operation?.startedAt ?? now)) / 1000)));
 
   function formatElapsed(seconds: number) {
     return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
@@ -65,6 +71,7 @@
         type="search"
         value={gameSaves.query}
         placeholder="Search games…"
+        aria-label="Search games"
         autocomplete="off"
         spellcheck="false"
         oninput={(event) => gameSaves.setQuery(event.currentTarget.value)}
@@ -74,51 +81,120 @@
       {/if}
     </label>
 
-    <Select
-      value={gameSaves.filter}
-      options={filterOptions}
-      ariaLabel="Status filter"
-      minWidth="172px"
-      onchange={(filter) => gameSaves.setFilter(filter)}
-    />
+    <div class="filters" role="group" aria-label="Show">
+      {#each shownFilters as option (option.value)}
+        <button
+          type="button"
+          class="chip"
+          class:active={gameSaves.filter === option.value}
+          aria-pressed={gameSaves.filter === option.value}
+          title={option.hint}
+          onclick={() => gameSaves.setFilter(option.value)}
+        >
+          {option.label} <span class="count">{gameSaves.statusCounts[option.value]}</span>
+        </button>
+      {/each}
+    </div>
 
     <span class="spacer"></span>
 
-    <button class="btn" disabled={gameSaves.busy} onclick={() => gameSaves.scan()}>
-      <ScanSearch size={15} /> Scan again
+    <button class="btn" disabled={gameSaves.locked || gameSaves.discovering} onclick={() => gameSaves.scanResult ? gameSaves.refresh() : gameSaves.scan()}>
+      <RefreshCw size={15} /> Refresh saves
     </button>
-    <button class="btn" disabled={gameSaves.busy} onclick={() => gameSaves.updateDatabase()}>
-      <DatabaseZap size={15} /> Update database
-    </button>
+    <Popover align="end">
+      {#snippet trigger({ toggle, open })}
+        <button class="btn" aria-label="More Game Saves actions" aria-expanded={open} disabled={gameSaves.locked} onclick={toggle}><Ellipsis size={16} /> More</button>
+      {/snippet}
+      {#snippet children({ close })}
+        <div class="more-menu surface">
+          <button class="btn ghost" disabled={gameSaves.locked} onclick={() => { close(); void gameSaves.scan(); }}><ScanSearch size={15} /> Find new games</button>
+          <p>Check every game in the database.</p>
+          <button class="btn ghost" disabled={gameSaves.locked} onclick={() => { close(); void gameSaves.updateDatabase(); }}><DatabaseZap size={15} /> Update game database</button>
+          <p>Download the latest save locations.</p>
+        </div>
+      {/snippet}
+    </Popover>
   </div>
 
   <div class="action-row">
-    <span class="shown">{gameSaves.visibleGames.length} {gameSaves.visibleGames.length === 1 ? "game" : "games"}</span>
+    <label class="select-all" title={gameSaves.allVisibleSelected ? "Untick every game in the list" : "Tick every game in the list, to back up or restore them together"}>
+      <input
+        type="checkbox"
+        class="check"
+        checked={gameSaves.allVisibleSelected}
+        {@attach (box) => { box.indeterminate = gameSaves.someVisibleSelected; }}
+        disabled={!gameSaves.selectableGames.length || gameSaves.selectionLocked}
+        onchange={(event) => {
+          event.currentTarget.checked = gameSaves.allVisibleSelected;
+          gameSaves.toggleAllVisible();
+        }}
+      />
+      <span>
+        {#if gameSaves.selectedGames.length}
+          <strong>{gameSaves.selectedGames.length} selected</strong> of {gameSaves.visibleGames.length}
+        {:else}
+          Select all {gameSaves.visibleGames.length} {gameSaves.visibleGames.length === 1 ? "game" : "games"}
+        {/if}
+      </span>
+    </label>
+    {#if gameSaves.selectedGames.length}
+      <span class="selection">{formatBytes(gameSaves.selectedBytes)}</span>
+      <button class="link-btn" disabled={gameSaves.selectionLocked} onclick={() => gameSaves.clearSelection()}>Clear</button>
+    {/if}
     {#if gameSaves.discovering}
-      <span class="discovering" title="A full scan for newly installed games. The list is back when it ends, or when you stop it.">
+      <span class="discovering" title="Looking for newly installed games. Your current list stays usable.">
         <LoaderCircle size={12} class="spin" /> Looking for new games…
         <button class="link" onclick={() => gameSaves.stopDiscovery()}>Stop</button>
       </span>
     {:else if gameSaves.operation?.background}
       <span class="discovering"><LoaderCircle size={12} class="spin" /> Checking for changed saves…</span>
     {/if}
-    <button class="btn ghost" disabled={!gameSaves.visibleGames.length || gameSaves.busy} onclick={() => gameSaves.toggleAllVisible()}>
-      <CheckCheck size={14} /> {gameSaves.allVisibleSelected ? "Deselect shown" : "Select all shown"}
-    </button>
-    {#if gameSaves.selectedGames.length}
-      <button class="btn ghost" disabled={gameSaves.busy} onclick={() => gameSaves.clearSelection()}>Clear</button>
-    {/if}
-    <span class="selection" aria-live="polite">
-      {gameSaves.selectedGames.length} selected{gameSaves.selectedGames.length ? ` · ${formatBytes(gameSaves.selectedBytes)}` : ""}
-    </span>
     <span class="spacer"></span>
     {#if gameSaves.tab === "pc"}
-      <button class="btn primary action" disabled={!gameSaves.selectedGames.length || gameSaves.busy} onclick={() => gameSaves.backupSelected()}>
-        <Archive size={15} /> Back up ({gameSaves.selectedGames.length})
-      </button>
+      {#if gameSaves.pendingGames.length}
+        <!-- One click for what needs it; the arrow narrows it down. -->
+        <div class="split" class:secondary={gameSaves.selectedGames.length > 0}>
+          <button
+            class="btn split-main"
+            class:primary={!gameSaves.selectedGames.length}
+            disabled={gameSaves.locked}
+            title="Back up every game that needs its first backup or has new progress"
+            onclick={() => gameSaves.backupPending("both")}
+          >
+            <Archive size={15} /> Back up what's new ({gameSaves.pendingGames.length})
+          </button>
+          <Popover align="end">
+            {#snippet trigger({ toggle, open })}
+              <button class="btn split-arrow" class:primary={!gameSaves.selectedGames.length} aria-label="More ways to back up" aria-expanded={open} disabled={gameSaves.locked} onclick={toggle}>
+                <ChevronDown size={15} />
+              </button>
+            {/snippet}
+            {#snippet children({ close })}
+              <div class="more-menu surface">
+                <button class="btn ghost" disabled={!gameSaves.newGames.length} onclick={() => { close(); void gameSaves.backupPending("new"); }}>
+                  <Archive size={15} /> Only first backups ({gameSaves.newGames.length})
+                </button>
+                <button class="btn ghost" disabled={!gameSaves.changedGames.length} onclick={() => { close(); void gameSaves.backupPending("changed"); }}>
+                  <Archive size={15} /> Only new progress ({gameSaves.changedGames.length})
+                </button>
+                <button class="btn ghost" disabled={gameSaves.selectionLocked} onclick={() => { close(); gameSaves.selectPending(); }}>
+                  <ListChecks size={15} /> Select them, to choose one by one
+                </button>
+              </div>
+            {/snippet}
+          </Popover>
+        </div>
+      {:else if gameSaves.scanResult && !gameSaves.selectedGames.length}
+        <span class="all-done"><CircleCheck size={14} /> Every save is backed up</span>
+      {/if}
+      {#if gameSaves.selectedGames.length}
+        <button class="btn primary action" disabled={gameSaves.locked} onclick={() => gameSaves.backupSelected()}>
+          <Archive size={15} /> Back up selected ({gameSaves.selectedGames.length})
+        </button>
+      {/if}
     {:else}
-      <button class="btn primary action" disabled={!gameSaves.selectedGames.length || gameSaves.busy} onclick={() => gameSaves.openRestorePicker()}>
-        <RotateCcw size={15} /> Restore ({gameSaves.selectedGames.length})
+      <button class="btn primary action" disabled={!gameSaves.selectedGames.length || gameSaves.locked} onclick={() => gameSaves.openRestorePicker()}>
+        <RotateCcw size={15} /> Review restore ({gameSaves.selectedGames.length})
       </button>
     {/if}
   </div>
@@ -157,8 +233,8 @@
   .toolbar {
     display: grid;
     gap: 9px;
-    margin-bottom: 10px;
-    padding: 9px;
+    margin-bottom: 12px;
+    padding: 12px;
     position: sticky;
     top: -18px;
     z-index: 18;
@@ -173,6 +249,11 @@
     flex-wrap: wrap;
     gap: 7px;
   }
+
+  .action-row { padding-top: 10px; border-top: 1px solid rgb(255 255 255 / .055); }
+  .more-menu { display: grid; min-width: 255px; padding: 7px; background: var(--bg-2, #1b2030); box-shadow: 0 12px 32px rgb(0 0 0 / .35); }
+  .more-menu .btn { justify-content: flex-start; }
+  .more-menu p { margin: 0 10px 10px; color: var(--text-3); font-size: 11px; }
 
   .search {
     position: relative;
@@ -211,17 +292,31 @@
     flex: 1;
   }
 
-  .shown,
+  .filters { display: flex; flex-wrap: wrap; gap: 5px; }
+  .filters .chip { height: 30px; padding: 0 11px; font-size: 12px; }
+
+  .select-all { display: inline-flex; align-items: center; gap: 9px; padding: 4px 8px 4px 4px; border-radius: 8px; color: var(--text-2); font-size: 12px; cursor: pointer; }
+  .select-all:hover { background: rgb(255 255 255 / 0.03); }
+  .select-all:has(input:disabled) { cursor: default; opacity: 0.55; }
+  .select-all strong { color: var(--text-1); font-weight: 600; }
+  /* Some ticked, not all: a dash in the box. */
+  .select-all .check:indeterminate { border-color: transparent; background: var(--accent-grad); }
+  .select-all .check:indeterminate::after { content: ""; position: absolute; left: 4px; top: 7px; width: 7px; height: 2px; border-radius: 1px; background: #fff; }
+
   .selection {
     color: var(--text-3);
     font-size: 11.5px;
     font-variant-numeric: tabular-nums;
   }
 
-  .selection {
-    padding-left: 8px;
-    border-left: 1px solid rgb(255 255 255 / 0.07);
-  }
+  .link-btn { padding: 3px 7px; border-radius: 6px; color: rgb(var(--accent-soft-rgb)); font-size: 11.5px; font-weight: 550; }
+  .link-btn:hover { background: var(--hover); color: var(--text-1); }
+
+  .split { display: inline-flex; align-items: stretch; }
+  .split-main { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .split-arrow { width: 34px; padding: 0; justify-content: center; border-left: 1px solid rgb(0 0 0 / 0.25); border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .split :global(.popover) { display: flex; }
+  .all-done { display: inline-flex; align-items: center; gap: 6px; color: #8fd9b6; font-size: 12px; }
 
   .discovering {
     display: inline-flex;
@@ -259,6 +354,8 @@
 
   .operation-text {
     display: flex;
+    flex: 1;
+    flex-wrap: wrap;
     align-items: baseline;
     gap: 8px;
     min-width: 0;
@@ -334,7 +431,7 @@
     pointer-events: none;
   }
 
-  @media (max-width: 720px) {
+  @container (max-width: 720px) {
     .toolbar {
       position: relative;
       top: auto;
@@ -344,8 +441,11 @@
       display: none;
     }
 
-    .operation-text small {
-      display: none;
-    }
+    .operation { flex-wrap: wrap; }
+    .operation-text { flex-direction: column; align-items: flex-start; gap: 3px; }
+    .operation-text small { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+    .action-row .spacer { display: none; }
+    .action { margin-left: auto; }
+    .selection { border: 0; padding-left: 0; }
   }
 </style>

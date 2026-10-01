@@ -2,6 +2,8 @@
   import { onMount } from "svelte";
   import { slide } from "svelte/transition";
   import Archive from "@lucide/svelte/icons/archive";
+  import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import Plus from "@lucide/svelte/icons/plus";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import CloudOff from "@lucide/svelte/icons/cloud-off";
   import Database from "@lucide/svelte/icons/database";
@@ -28,13 +30,17 @@
   /** Games that failed for the same reason share it: said once, not per game. */
   function byReason(items: GameFailure[]) {
     const groups = new Map<string, GameFailure[]>();
-    for (const item of items) groups.set(item.reason, [...(groups.get(item.reason) ?? []), item]);
+    for (const item of items) {
+      const group = groups.get(item.reason);
+      if (group) group.push(item);
+      else groups.set(item.reason, [item]);
+    }
     return [...groups].map(([reason, games]) => ({ reason, games }));
   }
 
   const tabs: { id: GameSavesTab; label: string; icon: typeof HardDrive }[] = [
     { id: "pc", label: "On this PC", icon: HardDrive },
-    { id: "backup", label: "In the backup", icon: Archive },
+    { id: "backup", label: "Your backups", icon: Archive },
   ];
 
   function tabKeydown(event: KeyboardEvent, current: GameSavesTab) {
@@ -52,11 +58,11 @@
   }
 </script>
 
-<div class="page-root">
+<div class="page-root" inert={state.customDialogOpen || state.restoreDialogOpen}>
   <div class="top">
     <PageHeader
       title="Game Saves"
-      subtitle="Find your game saves, keep safe copies, and restore them whenever you need."
+      subtitle="Back up your progress and restore it when you need."
     />
 
     <div class="top-right">
@@ -78,6 +84,20 @@
       </button>
     </div>
   </div>
+
+  {#if state.scanResult && state.page.engineAvailable}
+    <div class="overview surface" aria-label="Backup overview" data-no-tooltip data-no-copy>
+      <div class="overview-item pending">
+        <Archive size={16} /><span><strong>{state.pendingGames.length}</strong> need backup</span>
+      </div>
+      <div class="overview-item protected">
+        <ShieldCheck size={16} /><span>{#if state.scanResult.backupUnreachable}Backups offline{:else}<strong>{state.protectedGames}</strong> up to date{/if}</span>
+      </div>
+      <div class="overview-item location">
+        <FolderOpen size={16} /><span class="folder-path">{state.page.settings.backupFolder ?? "No backup folder selected"}</span><span class="schedule-label">{state.page.settings.schedule === "off" ? "Manual" : state.page.settings.schedule === "daily" ? "Daily" : "Weekly"}</span>
+      </div>
+    </div>
+  {/if}
 
   {#if state.settingsOpen}
     <div transition:slide={{ duration: 190 }}><SettingsPanel /></div>
@@ -104,7 +124,7 @@
           again once the folder is back.
         </p>
       </div>
-      <button class="btn small ghost" disabled={state.busy} onclick={() => state.refresh()}>
+      <button class="btn small ghost" disabled={state.locked} onclick={() => state.refresh()}>
         <RefreshCw size={13} /> Try again
       </button>
     </div>
@@ -114,6 +134,7 @@
     <div class="banner error surface" role="alert">
       <CircleAlert size={18} />
       <span>{state.error}</span>
+      <button class="btn small ghost" disabled={state.locked} onclick={() => state.scanResult ? state.refresh() : state.scan(false)}><RefreshCw size={13} /> Retry scan</button>
     </div>
   {/if}
 
@@ -157,6 +178,7 @@
           role="tab"
           aria-selected={state.tab === tab.id}
           aria-controls={`game-saves-panel-${tab.id}`}
+          disabled={state.selectionLocked}
           tabindex={state.tab === tab.id ? 0 : -1}
           onclick={() => state.setTab(tab.id)}
           onkeydown={(event) => tabKeydown(event, tab.id)}
@@ -184,7 +206,7 @@
           available until {formatDate(state.page.undoRestore.expiresAt)}
         </small>
       </span>
-      <button class="btn" disabled={state.busy} onclick={() => state.undoLastRestore()}>
+      <button class="btn" disabled={state.locked} onclick={() => state.undoLastRestore()}>
         <Undo2 size={14} /> Undo last restore
       </button>
     </div>
@@ -221,6 +243,16 @@
                   ? "Scan again after adding install folders in Backup settings."
                   : "Select games on the On this PC tab and create your first backup."}
             </p>
+            {#if state.query || state.filter !== "all"}
+              <button class="btn" onclick={() => { state.setQuery(""); state.setFilter("all"); }}>Clear filters</button>
+            {:else if state.tab === "pc"}
+              <div class="empty-actions">
+                <button class="btn primary" disabled={state.locked} onclick={() => state.scan()}><RefreshCw size={14} /> Find games</button>
+                <button class="btn" disabled={state.locked} onclick={() => state.openCustomDialog()}><Plus size={14} /> Add a game</button>
+              </div>
+            {:else}
+              <button class="btn primary" disabled={state.locked} onclick={() => state.setTab("pc")}><Gamepad2 size={14} /> Choose games to back up</button>
+            {/if}
           </div>
         {/each}
       </div>
@@ -235,6 +267,18 @@
   .page-root {
     container-type: inline-size;
   }
+
+  .overview { display: grid; grid-template-columns: auto auto minmax(0, 1fr); margin: 0 0 12px; padding: 3px; user-select: none; }
+  .overview-item { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 38px; padding: 7px 16px; color: var(--text-2); font-size: 12px; cursor: default; }
+  .overview-item.location { margin-left: auto; width: 100%; }
+  .overview-item + .overview-item { border-left: 1px solid rgb(255 255 255 / .06); }
+  .overview-item > :global(svg) { color: var(--accent); flex: none; }
+  .protected > :global(svg) { color: #5dd6a4; }
+  .overview-item strong { color: var(--text-1); font-variant-numeric: tabular-nums; }
+  .folder-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: 11px; user-select: none; }
+  .schedule-label { margin-left: auto; padding: 3px 7px; border-radius: 5px; background: rgb(var(--accent-rgb) / .1); color: var(--accent); font-size: 10px; }
+  .top :global(header) { margin-bottom: 14px; }
+  .empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
   .top {
     display: flex;
@@ -561,6 +605,8 @@
   }
 
   @container (max-width: 760px) {
+    .overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .overview-item.location { grid-column: 1 / -1; border-left: 0; border-top: 1px solid rgb(255 255 255 / .06); }
     .top-right {
       width: 100%;
       justify-content: flex-start;
@@ -582,6 +628,8 @@
   }
 
   @container (max-width: 470px) {
+    .overview { grid-template-columns: minmax(0, 1fr); }
+    .overview-item + .overview-item { border-left: 0; border-top: 1px solid rgb(255 255 255 / .06); }
     .metric.database {
       display: none;
     }

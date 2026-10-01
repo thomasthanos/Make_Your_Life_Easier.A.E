@@ -7,7 +7,8 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import X from "@lucide/svelte/icons/x";
   import { portal } from "../../../lib/portal";
-  import { gameSavesState as gs } from "./state.svelte";
+  import { gameSavesState as gs, samePath } from "./state.svelte";
+  import { dialogFocus } from "./dialog-focus";
 
   const editing = gs.editingCustomGame;
   let name = $state(editing?.name ?? "");
@@ -24,7 +25,7 @@
 
   async function addSavePath() {
     const path = await gs.pickFolder("Choose a game save folder");
-    if (path && !paths.includes(path)) paths = [...paths, path];
+    if (path && !paths.some((existing) => samePath(existing, path))) paths = [...paths, path];
   }
 
   async function chooseInstallPath() {
@@ -39,7 +40,7 @@
   function submit(event: SubmitEvent) {
     event.preventDefault();
     const clean = name.trim();
-    if (!clean || !paths.length) return;
+    if (!clean || !paths.length || gs.locked) return;
     void gs.saveCustomGame({
       id: editing?.id ?? "",
       name: clean,
@@ -58,6 +59,8 @@
     aria-labelledby="custom-game-title"
     aria-modal="true"
     role="dialog"
+    tabindex="-1"
+    {@attach dialogFocus}
     transition:scale={{ start: 0.97, duration: 170, easing: cubicOut }}
   >
     <form onsubmit={submit}>
@@ -66,12 +69,12 @@
         <h2 id="custom-game-title">{editing ? "Edit custom game" : "Add a custom game"}</h2>
         <p>Use this for games the database does not detect yet.</p>
       </span>
-      <button class="icon-btn" type="button" aria-label="Close" onclick={() => gs.closeCustomDialog()}><X size={16} /></button>
+      <button class="icon-btn" type="button" aria-label="Close" disabled={gs.locked} onclick={() => gs.closeCustomDialog()}><X size={16} /></button>
     </header>
 
     <label class="field">
       <span>Game name</span>
-      <input bind:this={nameInput} bind:value={name} class="input" maxlength="120" placeholder="Game title" required />
+      <input bind:this={nameInput} bind:value={name} class="input" disabled={gs.locked} maxlength="120" placeholder="Game title" required />
     </label>
 
     <div class="field">
@@ -80,7 +83,7 @@
         {#each paths as path (path)}
           <div class="path">
             <span class="selectable" title={path}>{path}</span>
-            <button type="button" class="icon-btn remove" aria-label={`Remove ${path}`} onclick={() => removePath(path)}>
+            <button type="button" class="icon-btn remove" disabled={gs.locked} aria-label={`Remove ${path}`} onclick={() => removePath(path)}>
               <Trash2 size={14} />
             </button>
           </div>
@@ -88,15 +91,15 @@
           <p class="empty">Choose at least one folder containing save files.</p>
         {/each}
       </div>
-      <button type="button" class="btn add" onclick={addSavePath}><Plus size={14} /> Add save folder</button>
+      <button type="button" class="btn add" disabled={gs.locked} onclick={addSavePath}><Plus size={14} /> {gs.settingsBusy === "folderPicker" ? "Choosing folder…" : "Add save folder"}</button>
     </div>
 
     <div class="field">
       <span>Install folder <small>optional</small></span>
       <div class="path-picker">
         <div class="picked selectable" class:empty={!installPath} title={installPath}>{installPath || "Not selected"}</div>
-        <button type="button" class="btn" onclick={chooseInstallPath}><FolderSearch size={14} /> Choose</button>
-        {#if installPath}<button type="button" class="btn ghost" onclick={() => (installPath = "")}>Clear</button>{/if}
+        <button type="button" class="btn" disabled={gs.locked} onclick={chooseInstallPath}><FolderSearch size={14} /> Choose</button>
+        {#if installPath}<button type="button" class="btn ghost" disabled={gs.locked} onclick={() => (installPath = "")}>Clear</button>{/if}
       </div>
     </div>
 
@@ -105,13 +108,13 @@
         <strong>Automatic backup</strong>
         <small>Include this game in scheduled backups.</small>
       </span>
-      <input class="switch" type="checkbox" bind:checked={autoBackup} />
+      <input class="switch" type="checkbox" disabled={gs.locked} bind:checked={autoBackup} />
     </label>
 
     <footer>
-      <button type="button" class="btn" onclick={() => gs.closeCustomDialog()}>Cancel</button>
-      <button class="btn primary" disabled={!name.trim() || !paths.length || gs.settingsBusy === "customGame"}>
-        {editing ? "Save changes" : "Add game"}
+      <button type="button" class="btn" disabled={gs.locked} onclick={() => gs.closeCustomDialog()}>Cancel</button>
+      <button class="btn primary" disabled={!name.trim() || !paths.length || gs.locked}>
+        {gs.settingsBusy === "customGame" ? "Saving…" : editing ? "Save changes" : "Add game"}
       </button>
     </footer>
     </form>

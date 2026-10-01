@@ -78,7 +78,7 @@
         (gs.page.settings.lastScheduledSuccess === null ||
           gs.page.settings.lastScheduledAttempt > gs.page.settings.lastScheduledSuccess)),
   );
-  const settingsLocked = $derived(!!gs.settingsBusy || gs.busy);
+  const settingsLocked = $derived(gs.locked);
   const scheduleEnabled = $derived(gs.page.settings.schedule !== "off");
   const scheduleSummary = $derived(
     gs.page.settings.schedule === "weekly"

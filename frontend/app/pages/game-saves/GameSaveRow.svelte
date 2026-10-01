@@ -8,7 +8,9 @@
   let { game, tab }: { game: GameSaveEntry; tab: GameSavesTab } = $props();
   const uid = $props.id();
   const selected = $derived(state.isSelected(game));
+  const savingAutoBackup = $derived(state.autoBackupPending.has(game.id));
   const snapshotId = $derived(state.snapshotFor(game));
+  const chosenSnapshot = $derived(game.snapshots.find((snapshot) => snapshot.id === snapshotId));
   const snapshotOptions = $derived<SelectOption<string>[]>(
     game.snapshots.map((snapshot) => ({
       value: snapshot.id,
@@ -50,9 +52,9 @@
   });
 
   const statusInfo: Record<GameSaveStatus, { label: string; tone: string }> = {
-    notBackedUp: { label: "Not backed up", tone: "warning" },
+    notBackedUp: { label: "First backup needed", tone: "warning" },
     backedUp: { label: "Backed up", tone: "success" },
-    changedSinceBackup: { label: "Changed since backup", tone: "changed" },
+    changedSinceBackup: { label: "New progress", tone: "changed" },
     backupOnly: { label: "Backup only", tone: "neutral" },
     needsLocation: { label: "Choose restore location", tone: "warning" },
     unknown: { label: "Unknown", tone: "neutral" },
@@ -66,16 +68,16 @@
     class="check"
     type="checkbox"
     checked={selected}
-    disabled={state.busy}
+    disabled={state.selectionLocked || !state.canSelect(game)}
     aria-label={`Select ${game.title}`}
     onchange={() => state.toggleSelected(game)}
   />
 
-  <label class="identity" for="{uid}-check">
+  <div class="identity">
     <span class="monogram" style:--hue={monogram.hue} aria-hidden="true">{monogram.letters}</span>
     <span class="title-wrap">
       <span class="title-line">
-        <span class="title" title={game.title}>{game.title}</span>
+        <label class="title" title={game.title} for="{uid}-check">{game.title}</label>
         {#each game.platformBadges as badge (badge)}
           <span class="platform">{badge}</span>
         {/each}
@@ -89,19 +91,19 @@
         <span class="error" title={game.error}><TriangleAlert size={13} /> {game.error}</span>
       {/if}
     </span>
-  </label>
+  </div>
 
   <dl class="stats" aria-label={`Save details for ${game.title}`}>
     <div>
       <dt>Size</dt>
-      <dd>{formatBytes(game.totalBytes)} <small>· {game.fileCount.toLocaleString()} {game.fileCount === 1 ? "file" : "files"}</small></dd>
+      <dd>{formatBytes(tab === "backup" ? (chosenSnapshot?.bytes ?? game.totalBytes) : game.totalBytes)} {#if tab === "pc"}<small>· {game.fileCount.toLocaleString()} {game.fileCount === 1 ? "file" : "files"}</small>{/if}</dd>
     </div>
     <div>
       <dt>Last save</dt>
-      <dd title={formatDate(game.lastSaveAt)}>{formatRelative(game.lastSaveAt)}</dd>
+      <dd title={formatDate(game.lastSaveAt)}>{game.hasLocalData ? formatRelative(game.lastSaveAt) : "Not on this PC"}</dd>
     </div>
     <div>
-      <dt>Backup</dt>
+      <dt>Last backup</dt>
       <dd class:never={!game.lastBackupAt} title={formatDate(game.lastBackupAt)}>{formatRelative(game.lastBackupAt)}</dd>
     </div>
   </dl>
@@ -116,7 +118,7 @@
           ariaLabel={`Snapshot for ${game.title}`}
           size="sm"
           minWidth="156px"
-          disabled={state.busy}
+          disabled={state.selectionLocked}
           onchange={(id) => state.setSnapshot(game.id, id)}
         />
       </div>
@@ -125,23 +127,25 @@
     <label
       class="auto"
       class:on={game.autoBackup}
+      class:saving={savingAutoBackup}
       title={game.autoBackup
         ? "Backed up by the schedule. Turn off to back it up only when you choose."
         : "Backed up only when you choose. Turn on to include it in the schedule."}
     >
-      <span class="auto-label">{game.autoBackup ? "Auto" : "Manual"}</span>
+      <span class="auto-label">{game.autoBackup ? "Scheduled" : "Manual"}</span>
       <input
         class="switch"
         type="checkbox"
         checked={game.autoBackup}
-        disabled={state.busy || !game.hasLocalData}
+        disabled={state.selectionLocked || !game.hasLocalData}
+        aria-busy={savingAutoBackup}
         aria-label={`Automatic backup for ${game.title}`}
         onchange={(event) => state.setAutoBackup(game, event.currentTarget.checked)}
       />
     </label>
     <button
       class="icon-btn"
-      disabled={!game.paths.length}
+      disabled={!game.paths.length || !game.hasLocalData}
       title="Open save folder"
       aria-label={`Open save folder for ${game.title}`}
       onclick={() => state.openGameFolder(game)}
@@ -155,14 +159,13 @@
   /* Identity takes what is left; the stats keep the same widths on every
      row, so the columns line up down the list. */
   .card {
-    container-type: inline-size;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto auto;
     grid-template-areas: "check identity stats actions";
     align-items: center;
     gap: 10px 18px;
     min-width: 0;
-    padding: 12px 14px;
+    padding: 16px;
     transition:
       border-color var(--dur-fast),
       background var(--dur-fast);
@@ -191,7 +194,6 @@
     align-items: center;
     gap: 12px;
     min-width: 0;
-    cursor: pointer;
   }
 
   .monogram {
@@ -226,6 +228,7 @@
   }
 
   .title {
+    cursor: pointer;
     min-width: 0;
     overflow: hidden;
     font-size: 14px;
@@ -323,8 +326,8 @@
   .stats {
     grid-area: stats;
     display: grid;
-    grid-template-columns: 124px 132px 132px;
-    gap: 18px;
+    grid-template-columns: 110px 112px 112px;
+    gap: 14px;
     margin: 0;
   }
 
@@ -395,9 +398,11 @@
     color: rgb(var(--accent-soft-rgb) / 0.95);
   }
 
+  .auto.saving { border-color: rgb(var(--accent-rgb) / .4); }
+
   /* Both words take the same room, so the switch does not move. */
   .auto-label {
-    min-width: 44px;
+    min-width: 64px;
     text-align: right;
   }
 
@@ -413,7 +418,7 @@
     pointer-events: none;
   }
 
-  @container (max-width: 900px) {
+  @container (max-width: 1100px) {
     .card {
       grid-template-columns: auto minmax(0, 1fr) auto;
       grid-template-areas:
@@ -424,10 +429,12 @@
     .stats {
       grid-template-columns: repeat(3, minmax(0, 1fr));
       padding-left: 50px;
+      padding-top: 8px;
+      border-top: 1px solid rgb(255 255 255 / .045);
     }
   }
 
-  @container (max-width: 560px) {
+  @container (max-width: 700px) {
     .card {
       grid-template-columns: auto minmax(0, 1fr);
       grid-template-areas:
@@ -439,6 +446,9 @@
     .stats {
       padding-left: 0;
     }
+
+    .title-line { flex-wrap: wrap; }
+    .path { flex-basis: 100%; }
 
     .meta-line {
       flex-wrap: wrap;

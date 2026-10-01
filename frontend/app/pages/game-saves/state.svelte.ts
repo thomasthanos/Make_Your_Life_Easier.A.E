@@ -33,13 +33,14 @@ import {
 
 /** Windows paths, compared as Windows does: case and a trailing slash aside. */
 export function samePath(a: string, b: string) {
-  const normal = (path: string) => path.replace(/[\\/]+$/, "").toLowerCase();
+  const normal = (path: string) => path.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
   return normal(a) === normal(b);
 }
 
 export type GameSavesFilter = "all" | "changed" | "notBackedUp" | "backedUp" | "problems";
 
 interface OperationView {
+  startedAt: number;
   kind: OperationKind;
   stage: OperationStage;
   done: number;
@@ -132,6 +133,10 @@ class GameSavesState {
   operation = $state<OperationView | null>(null);
   cancelling = $state(false);
   settingsBusy = $state<string | null>(null);
+  readonly autoBackupPending = new SvelteSet<string>();
+  #autoBackupDesired = new Map<string, boolean>();
+  #autoBackupConfirmed = new Map<string, boolean>();
+  #autoBackupSave: Promise<void> | null = null;
   customDialogOpen = $state(false);
   editingCustomGame = $state<CustomGame | null>(null);
   restoreDialogOpen = $state(false);
@@ -144,6 +149,7 @@ class GameSavesState {
   #lastRefresh = 0;
   /** Changed saves already announced; null until the first result. */
   #announced: number | null = null;
+  #settingsRevision = 0;
 
   readonly games = $derived(this.tab === "pc" ? (this.scanResult?.onThisPc ?? []) : (this.scanResult?.inBackup ?? []));
 
@@ -155,15 +161,40 @@ class GameSavesState {
     });
   });
 
-  readonly selectedGames = $derived(this.games.filter((game) => this.selected.has(game.id)));
+  canSelect(game: GameSaveEntry): boolean {
+    return this.tab === "pc" ? game.hasLocalData : game.hasBackup && game.snapshots.length > 0;
+  }
+
+  readonly selectableGames = $derived(this.visibleGames.filter((game) => this.canSelect(game)));
+  readonly selectedGames = $derived(this.games.filter((game) => this.selected.has(game.id) && this.canSelect(game)));
   readonly allVisibleSelected = $derived(
-    this.visibleGames.length > 0 && this.visibleGames.every((game) => this.selected.has(game.id)),
+    this.selectableGames.length > 0 && this.selectableGames.every((game) => this.selected.has(game.id)),
   );
-  readonly selectedBytes = $derived(this.selectedGames.reduce((sum, game) => sum + game.totalBytes, 0));
+  /** Some of the listed games are ticked, not all: the box in between. */
+  readonly someVisibleSelected = $derived(
+    !this.allVisibleSelected && this.selectableGames.some((game) => this.selected.has(game.id)),
+  );
+  /** How many games of this tab each status filter shows (the search aside). */
+  readonly statusCounts = $derived.by(() => {
+    const counts: Record<GameSavesFilter, number> = { all: 0, changed: 0, notBackedUp: 0, backedUp: 0, problems: 0 };
+    for (const game of this.games) {
+      for (const filter of Object.keys(counts) as GameSavesFilter[]) {
+        if (matchesStatus(game.status, filter)) counts[filter]++;
+      }
+    }
+    return counts;
+  });
+  readonly selectedBytes = $derived(this.selectedGames.reduce((sum, game) => sum + (this.tab === "backup" ? (game.snapshots.find((snapshot) => snapshot.id === this.snapshotFor(game))?.bytes ?? 0) : game.totalBytes), 0));
   readonly busy = $derived(this.operation !== null);
-  /** The list is being looked at again: it is shown, but cannot be used
-   *  until the result is in (a click would land on a row about to change). */
-  readonly listLocked = $derived(this.busy || this.discovering);
+  readonly locked = $derived(this.busy || !!this.settingsBusy || this.loading);
+  /** A row's automatic-backup preference does not change list contents. */
+  readonly selectionLocked = $derived(this.busy || this.loading || (!!this.settingsBusy && this.settingsBusy !== "autoBackup"));
+  readonly listLocked = $derived(this.busy);
+  readonly pendingGames = $derived((this.scanResult?.onThisPc ?? []).filter((game) => game.hasLocalData && (game.status === "notBackedUp" || game.status === "changedSinceBackup")));
+  readonly protectedGames = $derived((this.scanResult?.onThisPc ?? []).filter((game) => game.status === "backedUp").length);
+  /** Saves never backed up, and saves changed since their last backup. */
+  readonly newGames = $derived(this.pendingGames.filter((game) => game.status === "notBackedUp"));
+  readonly changedGames = $derived(this.pendingGames.filter((game) => game.status === "changedSinceBackup"));
   readonly localGames = $derived(this.scanResult?.stats.localGames ?? 0);
   readonly backupGames = $derived(this.scanResult?.stats.backupGames ?? 0);
   readonly totalBytes = $derived(this.scanResult?.stats.totalBytes ?? 0);
@@ -182,6 +213,7 @@ class GameSavesState {
       this.page = await gameSavesApi.getState();
       if (this.page.activeOperation) {
         this.operation = {
+          startedAt: Date.now(),
           kind: this.page.activeOperation,
           stage: "preparing",
           done: 0,
@@ -243,6 +275,7 @@ class GameSavesState {
   }
 
   setTab(tab: GameSavesTab) {
+    if (this.selectionLocked) return;
     if (this.tab === tab) return;
     this.tab = tab;
     this.selected.clear();
@@ -264,26 +297,37 @@ class GameSavesState {
   }
 
   toggleSelected(game: GameSaveEntry) {
-    if (this.busy) return;
+    if (this.selectionLocked || !this.canSelect(game)) return;
     if (this.selected.has(game.id)) this.selected.delete(game.id);
     else this.selected.add(game.id);
   }
 
   toggleAllVisible() {
-    if (this.busy) return;
+    if (this.selectionLocked) return;
     if (this.allVisibleSelected) {
-      for (const game of this.visibleGames) this.selected.delete(game.id);
+      for (const game of this.selectableGames) this.selected.delete(game.id);
     } else {
-      for (const game of this.visibleGames) this.selected.add(game.id);
+      for (const game of this.selectableGames) this.selected.add(game.id);
     }
   }
 
   clearSelection() {
+    if (this.selectionLocked) return;
     this.selected.clear();
   }
 
-  openRestorePicker() {
-    if (!this.selectedGames.length || this.busy) return;
+  selectPending() {
+    if (this.selectionLocked) return;
+    this.setTab("pc");
+    for (const game of this.pendingGames) this.selected.add(game.id);
+    this.setFilter("all");
+    this.setQuery("");
+  }
+
+  async openRestorePicker() {
+    if (!this.selectedGames.length || this.locked) return;
+    await this.#stopDiscovery();
+    if (!this.selectedGames.length || this.locked) return;
     for (const game of this.selectedGames) {
       if (!this.snapshotChoices[game.id] && game.snapshots[0]) this.snapshotChoices[game.id] = game.snapshots[0].id;
     }
@@ -291,6 +335,7 @@ class GameSavesState {
   }
 
   setSnapshot(gameId: string, snapshotId: string) {
+    if (this.selectionLocked) return;
     this.snapshotChoices[gameId] = snapshotId;
   }
 
@@ -301,17 +346,18 @@ class GameSavesState {
 
   mappingFor(game: GameSaveEntry): PathMapping | undefined {
     return this.page.settings.pathMappings.find(
-      (mapping) => mapping.gameId === game.id && (!game.paths[0] || mapping.source === game.paths[0]),
+      (mapping) => mapping.gameId === game.id && (!game.paths[0] || samePath(mapping.source, game.paths[0])),
     );
   }
 
   openCustomDialog(game: CustomGame | null = null) {
+    if (this.locked) return;
     this.editingCustomGame = game;
     this.customDialogOpen = true;
   }
 
   closeCustomDialog() {
-    if (this.settingsBusy !== "customGame") {
+    if (!this.locked) {
       this.customDialogOpen = false;
       this.editingCustomGame = null;
     }
@@ -319,9 +365,9 @@ class GameSavesState {
 
   /** Full scan of every game in the database ("Scan again"). */
   async scan(announce = true) {
-    if (this.busy || !this.page.engineAvailable) return;
+    if (this.locked || !this.page.engineAvailable) return;
     await this.#stopDiscovery();
-    if (this.busy) return;
+    if (this.locked) return;
     this.beginOperation("scan", "scanning");
     this.error = null;
     try {
@@ -338,20 +384,22 @@ class GameSavesState {
 
   /** Re-checks only the games already found: a couple of seconds. */
   async refresh(quiet = false) {
-    if (this.busy || this.discovering || !this.page.engineAvailable || !this.scanResult) return;
+    if (this.locked || this.discovering || !this.page.engineAvailable || !this.scanResult) return;
     this.#lastRefresh = Date.now();
     this.beginOperation("scan", "scanning");
     if (quiet && this.operation) this.operation.background = true;
+    let discoveryDue = false;
     try {
       const result = await gameSavesApi.scan("quick", this.onEvent);
       this.#applyScan(result);
       if (!quiet) this.#reloadPage();
-      if (result.discoveryDue) void this.discover();
+      discoveryDue = result.discoveryDue;
     } catch (error) {
       if (!quiet) this.fail("Refresh failed", error);
     } finally {
       this.operation = null;
     }
+    if (discoveryDue) void this.discover();
   }
 
   /**
@@ -360,7 +408,7 @@ class GameSavesState {
    */
   discover(): Promise<void> {
     if (this.#discovery) return this.#discovery;
-    if (this.busy || !this.page.engineAvailable) return Promise.resolve();
+    if (this.locked || this.customDialogOpen || this.restoreDialogOpen || !this.page.engineAvailable) return Promise.resolve();
     this.discovering = true;
     this.#discovery = (async () => {
       try {
@@ -435,6 +483,7 @@ class GameSavesState {
         if (!this.scanResult) {
           this.page = page;
           this.#applyScan(page.cachedScan);
+          this.loading = false;
         }
       }
       await this.refresh(true);
@@ -468,16 +517,19 @@ class GameSavesState {
 
   /** A scan can re-detect launcher folders; show the settings it used. */
   #reloadPage() {
+    const revision = this.#settingsRevision;
     void gameSavesApi
       .getState()
-      .then((page) => (this.page = page))
+      .then((page) => {
+        if (revision === this.#settingsRevision && !this.settingsBusy) this.page = page;
+      })
       .catch(() => {});
   }
 
   async updateDatabase() {
-    if (this.busy) return;
+    if (this.locked) return;
     await this.#stopDiscovery();
-    if (this.busy) return;
+    if (this.locked) return;
     this.beginOperation("updateDatabase", "updatingDatabase");
     this.error = null;
     try {
@@ -498,6 +550,20 @@ class GameSavesState {
     await this.backup(this.selectedGames.map((game) => game.id));
   }
 
+  /** Backs up, in one go, the games whose saves were never backed up
+   *  ("new"), changed since their backup ("changed"), or both. */
+  async backupPending(which: "both" | "new" | "changed") {
+    const games = which === "new" ? this.newGames : which === "changed" ? this.changedGames : this.pendingGames;
+    if (!games.length) return;
+    const count = `${games.length} ${games.length === 1 ? "game" : "games"}`;
+    const title = {
+      both: `Back up ${count} with new saves or new progress?`,
+      new: `Make the first backup of ${count}?`,
+      changed: `Back up the new progress of ${count}?`,
+    }[which];
+    await this.backup(games.map((game) => game.id), title);
+  }
+
   async backupChanged() {
     const ids = (this.scanResult?.onThisPc ?? [])
       .filter(
@@ -511,26 +577,26 @@ class GameSavesState {
     await this.backup(ids);
   }
 
-  private async backup(gameIds: string[]) {
-    if (this.busy || !gameIds.length) return;
+  private async backup(gameIds: string[], title?: string) {
+    if (this.locked || !this.page.engineAvailable || !gameIds.length) return;
     if (!this.page.settings.backupFolder) {
       toast.info("Choose a backup folder first.");
       this.settingsOpen = true;
       return;
     }
     const ok = await confirm({
-      title: `Back up ${gameIds.length} ${gameIds.length === 1 ? "game" : "games"}?`,
+      title: title ?? `Back up ${gameIds.length} ${gameIds.length === 1 ? "game" : "games"}?`,
       message: "New and changed save files will be copied to your backup folder. Existing snapshots are kept according to the retention policy.",
       confirmLabel: "Back up now",
     });
-    if (!ok || this.busy) return;
+    if (!ok || this.locked) return;
     await this.#stopDiscovery();
-    if (this.busy) return;
+    if (this.locked) return;
     this.beginOperation("backup", "preparing");
     try {
       const result = await gameSavesApi.backup(gameIds, this.onEvent);
       this.reportResult(result);
-      this.selected.clear();
+      this.keepFailedSelection(gameIds, result);
     } catch (error) {
       this.fail("Backup failed", error);
     } finally {
@@ -540,31 +606,34 @@ class GameSavesState {
   }
 
   async restore(selections: RestoreSelection[]) {
-    if (this.busy || !selections.length) return;
+    if (this.locked || !this.page.engineAvailable || !selections.length) return;
     this.restoreDialogOpen = false;
     const chosen = selections.flatMap((selection) => {
       const game = this.selectedGames.find((item) => item.id === selection.gameId);
       const snapshot = game?.snapshots.find((item) => item.id === selection.snapshotId);
       return game && snapshot ? [{ game, snapshot }] : [];
     });
-    const files = chosen.reduce((sum, item) => sum + item.game.fileCount, 0);
+    if (chosen.length !== selections.length) {
+      toast.error("A selected snapshot is no longer available. Refresh the list and try again.");
+      return;
+    }
     const bytes = chosen.reduce((sum, item) => sum + item.snapshot.bytes, 0);
     const ok = await confirm({
       title: `Restore ${selections.length} ${selections.length === 1 ? "game" : "games"}?`,
       message:
-        `${files.toLocaleString()} ${files === 1 ? "file" : "files"} · ${formatBytes(bytes)}\n\n` +
+        `${chosen.length} ${chosen.length === 1 ? "saved copy" : "saved copies"} · ${formatBytes(bytes)}\n\n` +
         "Close the selected games before continuing. Their current local saves will be replaced by the chosen snapshots. A safety backup is created first and can be undone for 7 days.",
       confirmLabel: "Restore saves",
       danger: true,
     });
-    if (!ok || this.busy) return;
+    if (!ok || this.locked) return;
     await this.#stopDiscovery();
-    if (this.busy) return;
+    if (this.locked) return;
     this.beginOperation("restore", "creatingSafetyBackup");
     try {
       const result = await gameSavesApi.restore(selections, this.onEvent);
       this.reportResult(result);
-      this.selected.clear();
+      this.keepFailedSelection(selections.map((selection) => selection.gameId), result);
     } catch (error) {
       this.fail("Restore failed", error);
     } finally {
@@ -575,7 +644,7 @@ class GameSavesState {
 
   async undoLastRestore() {
     const undo = this.page.undoRestore;
-    if (!undo || this.busy) return;
+    if (!undo || this.locked) return;
     const ok = await confirm({
       title: "Undo the last restore?",
       message:
@@ -584,9 +653,9 @@ class GameSavesState {
       confirmLabel: "Undo restore",
       danger: true,
     });
-    if (!ok || this.busy) return;
+    if (!ok || this.locked) return;
     await this.#stopDiscovery();
-    if (this.busy) return;
+    if (this.locked) return;
     this.beginOperation("restore", "preparing");
     try {
       const result = await gameSavesApi.undoLastRestore(this.onEvent);
@@ -613,19 +682,40 @@ class GameSavesState {
   }
 
   async chooseBackupFolder() {
+    let changed = false;
     await this.setting("backupFolder", async () => {
       const settings = await gameSavesApi.pickBackupFolder();
-      if (settings) this.page.settings = settings;
+      if (settings) changed = this.applyBackupFolder(settings);
     });
+    if (changed) await this.refresh();
+  }
+
+  private applyBackupFolder(settings: GameSavesSettings): boolean {
+    const changed = !samePath(this.page.settings.backupFolder ?? "", settings.backupFolder ?? "");
+    this.page.settings = settings;
+    if (!changed || !this.scanResult) return false;
+    // Old snapshots belong to the old folder. Never offer them for restore
+    // while the new folder is being checked, including when that check fails.
+    this.scanResult.inBackup = [];
+    this.scanResult.stats.backupGames = 0;
+    this.scanResult.backupUnreachable = null;
+    for (const game of this.scanResult.onThisPc) {
+      game.hasBackup = false; game.lastBackupAt = null; game.snapshots = [];
+      if (game.status === "backedUp" || game.status === "changedSinceBackup") game.status = "notBackedUp";
+    }
+    this.snapshotChoices = {};
+    if (this.tab === "backup") this.selected.clear();
+    return true;
   }
 
   /** Backs up into a cloud folder: a detected one, or one the user points to. */
   async useCloudFolder(provider: CloudProvider, folder: DetectedFolder | null) {
     const before = this.page.settings.backupFolder;
+    let changed = false;
     await this.setting("backupFolder", async () => {
       const settings = await gameSavesApi.useCloudFolder(provider, folder?.path ?? null);
       if (!settings) return;
-      this.page.settings = settings;
+      changed = this.applyBackupFolder(settings);
       const name = folder?.label ?? CLOUD_PROVIDERS.find((item) => item.id === provider)?.name ?? provider;
       const moved = !!before && !samePath(before, settings.backupFolder ?? "");
       toast.success(
@@ -633,6 +723,7 @@ class GameSavesState {
           (moved ? ". Earlier backups stay in the previous folder." : ""),
       );
     });
+    if (changed) await this.refresh();
   }
 
   async openBackupFolder() {
@@ -697,18 +788,15 @@ class GameSavesState {
   }
 
   async pickFolder(title: string): Promise<string | null> {
-    try {
-      return await gameSavesApi.pickFolder(title);
-    } catch (error) {
-      toast.error(`Could not choose a folder: ${message(error)}`);
-      return null;
-    }
+    let path: string | null = null;
+    await this.setting("folderPicker", async () => { path = await gameSavesApi.pickFolder(title); });
+    return path;
   }
 
   async chooseRestoreLocation(game: GameSaveEntry) {
-    const target = await this.pickFolder(`Choose where to restore ${game.title}`);
-    if (!target) return;
     await this.setting("pathMapping", async () => {
+      const target = await gameSavesApi.pickFolder(`Choose where to restore ${game.title}`);
+      if (!target) return;
       this.page.settings = await gameSavesApi.setPathMapping({
         gameId: game.id,
         source: game.paths[0] ?? game.id,
@@ -742,17 +830,67 @@ class GameSavesState {
   }
 
   async setAutoBackup(game: GameSaveEntry, enabled: boolean) {
-    if (this.settingsBusy) return;
-    const before = game.autoBackup;
-    game.autoBackup = enabled;
+    if (this.selectionLocked || !game.hasLocalData) return;
+    if (!this.#autoBackupConfirmed.has(game.id)) this.#autoBackupConfirmed.set(game.id, game.autoBackup);
+    this.#autoBackupDesired.set(game.id, enabled);
+    this.autoBackupPending.add(game.id);
+    this.#mirrorAutoBackup(game.id, enabled);
+    if (!this.#autoBackupSave) {
+      this.settingsBusy = "autoBackup";
+      this.#settingsRevision++;
+      this.#autoBackupSave = this.#saveAutoBackup().finally(() => {
+        this.#autoBackupSave = null;
+        this.settingsBusy = null;
+      });
+    }
+    await this.#autoBackupSave;
+  }
+
+  #mirrorAutoBackup(id: string, enabled: boolean) {
+    for (const game of [...(this.scanResult?.onThisPc ?? []), ...(this.scanResult?.inBackup ?? [])]) {
+      if (game.id === id) game.autoBackup = enabled;
+    }
+  }
+
+  async #saveAutoBackup() {
+    let saved = false;
     try {
       await this.#stopDiscovery();
-      this.page.settings = await gameSavesApi.setGameAutoBackup(game.id, enabled);
+      // One writer for every row. Repeated clicks replace the queued value;
+      // an in-flight write finishes before the most recent choice is saved.
+      while (this.#autoBackupDesired.size) {
+        const [id, enabled] = this.#autoBackupDesired.entries().next().value!;
+        this.#autoBackupDesired.delete(id);
+        this.#mirrorAutoBackup(id, enabled);
+        try {
+          const settings = await gameSavesApi.setGameAutoBackup(id, enabled);
+          // Patch only this preference. Replacing the entire settings/scan
+          // snapshot on each click invalidates unrelated UI and cached rows.
+          this.page.settings.autoBackupExcludedGameIds = settings.autoBackupExcludedGameIds;
+          for (const game of this.page.settings.customGames) {
+            const updated = settings.customGames.find((item) => item.id === game.id);
+            if (updated) game.autoBackup = updated.autoBackup;
+          }
+          this.#autoBackupConfirmed.set(id, enabled);
+          saved = true;
+          if (this.#autoBackupDesired.get(id) === enabled) this.#autoBackupDesired.delete(id);
+        } catch (error) {
+          const title = this.scanResult?.onThisPc.find((game) => game.id === id)?.title ?? "this game";
+          toast.error(`Could not update ${title}: ${message(error)}`);
+        }
+        const queued = this.#autoBackupDesired.get(id);
+        this.#mirrorAutoBackup(id, queued ?? this.#autoBackupConfirmed.get(id)!);
+        if (queued === undefined) {
+          this.autoBackupPending.delete(id);
+          this.#autoBackupConfirmed.delete(id);
+        }
+      }
+    } finally {
+      this.autoBackupPending.clear();
+      this.#autoBackupDesired.clear();
+      this.#autoBackupConfirmed.clear();
       if (this.scanResult) this.#updateBadge(this.scanResult);
-      notifyChange("gameSaves");
-    } catch (error) {
-      game.autoBackup = before;
-      toast.error(`Could not update ${game.title}: ${message(error)}`);
+      if (saved) notifyChange("gameSaves");
     }
   }
 
@@ -765,8 +903,9 @@ class GameSavesState {
   }
 
   private async setting(key: string, action: () => Promise<void>) {
-    if (this.settingsBusy || this.busy) return;
+    if (this.locked) return;
     this.settingsBusy = key;
+    this.#settingsRevision++;
     try {
       // Settings cannot change under a running scan; a background one yields.
       await this.#stopDiscovery();
@@ -780,7 +919,7 @@ class GameSavesState {
   }
 
   private beginOperation(kind: OperationKind, stage: OperationStage) {
-    this.operation = { kind, stage, done: 0, total: 0, current: null, note: null };
+    this.operation = { startedAt: Date.now(), kind, stage, done: 0, total: 0, current: null, note: null };
     this.error = null;
     if (kind !== "scan") this.failures = null;
   }
@@ -820,6 +959,17 @@ class GameSavesState {
       items: result.failedGames.map((game) => reasons.get(game) ?? { game, reason: "No reason was given." }),
     };
     toast.error(`${failed} ${failed === 1 ? "game" : "games"} could not be ${result.kind === "backup" ? "backed up" : "restored"}. See the details on the page.`);
+  }
+
+  private keepFailedSelection(ids: string[], result: GameSavesOperationResult) {
+    const failed = new Set(result.failedGames);
+    // IPC returns failure titles, not IDs. Ambiguous duplicate titles stay
+    // selected rather than hiding a failure from the user.
+    const games = this.games;
+    for (const id of ids) {
+      const game = games.find((entry) => entry.id === id);
+      if (game && !failed.has(game.title)) this.selected.delete(id);
+    }
   }
 
   dismissFailures() {
@@ -881,11 +1031,15 @@ function toDate(value: number | string): Date {
   return new Date(typeof value === "number" && value < 10_000_000_000 ? value * 1000 : value);
 }
 
+const dateTimeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+const dayFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
+const relativeFormat = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+
 export function formatDate(value: number | string | null): string {
   if (value === null) return "Never";
   const date = toDate(value);
   if (Number.isNaN(date.getTime())) return "Unknown";
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+  return dateTimeFormat.format(date);
 }
 
 /** "5 minutes ago", "yesterday", "3 days ago"; the day itself after a month. */
@@ -895,10 +1049,10 @@ export function formatRelative(value: number | string | null): string {
   if (Number.isNaN(date.getTime())) return "Unknown";
   const seconds = (Date.now() - date.getTime()) / 1000;
   if (seconds < 0 || seconds >= 30 * 86_400) {
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+    return dayFormat.format(date);
   }
   if (seconds < 60) return "Just now";
-  const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const relative = relativeFormat;
   const text =
     seconds < 3_600
       ? relative.format(-Math.round(seconds / 60), "minute")

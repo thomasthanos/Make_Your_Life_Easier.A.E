@@ -9,6 +9,7 @@
   import X from "@lucide/svelte/icons/x";
   import Select from "../../../lib/components/Select.svelte";
   import { portal } from "../../../lib/portal";
+  import { dialogFocus } from "./dialog-focus";
   import { formatBytes, formatDate, gameSavesState as gs } from "./state.svelte";
 
   let cancelButton = $state<HTMLButtonElement>();
@@ -20,12 +21,13 @@
   const missingLocation = $derived(
     gs.selectedGames.some((game) => game.status === "needsLocation" && !gs.mappingFor(game)),
   );
-  const canRestore = $derived(choices.length === gs.selectedGames.length && !missingLocation);
+  const canRestore = $derived(choices.length > 0 && choices.length === gs.selectedGames.length && !missingLocation);
+  const selectedBytes = $derived(gs.selectedGames.reduce((sum, game) => sum + (game.snapshots.find((snapshot) => snapshot.id === gs.snapshotFor(game))?.bytes ?? 0), 0));
 
   onMount(() => cancelButton?.focus());
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") gs.restoreDialogOpen = false;
+    if (event.key === "Escape" && !gs.locked) gs.restoreDialogOpen = false;
   }
 </script>
 
@@ -37,15 +39,17 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby="snapshot-title"
+    tabindex="-1"
+    {@attach dialogFocus}
     transition:scale={{ start: 0.97, duration: 170, easing: cubicOut }}
   >
     <header>
       <span class="heading-icon"><History size={19} /></span>
       <span class="heading">
-        <h2 id="snapshot-title">Choose restore snapshots</h2>
-        <p>The newest snapshot is selected by default. A safety backup is created before restore.</p>
+        <h2 id="snapshot-title">Get your progress back</h2>
+        <p>Review the saved copies below. Your current saves are kept in a safety backup first.</p>
       </span>
-      <button class="icon-btn" aria-label="Close" onclick={() => (gs.restoreDialogOpen = false)}><X size={16} /></button>
+      <button class="icon-btn" aria-label="Close" disabled={gs.locked} onclick={() => (gs.restoreDialogOpen = false)}><X size={16} /></button>
     </header>
 
     <div class="games">
@@ -68,6 +72,7 @@
                 }))}
                 ariaLabel={`Restore snapshot for ${game.title}`}
                 fullWidth
+                disabled={gs.locked}
                 onchange={(id) => gs.setSnapshot(game.id, id)}
               />
             </div>
@@ -81,11 +86,11 @@
                 <small>Restore location</small>
                 <strong class="selectable" title={mapping?.target ?? ""}>{mapping?.target ?? "Choose a folder on this PC"}</strong>
               </span>
-              <button class="btn small" disabled={gs.settingsBusy === "pathMapping"} onclick={() => gs.chooseRestoreLocation(game)}>
+              <button class="btn small" disabled={gs.locked} onclick={() => gs.chooseRestoreLocation(game)}>
                 <FolderSearch size={14} /> {mapping ? "Change" : "Choose"}
               </button>
               {#if mapping}
-                <button class="icon-btn" title="Clear restore location" aria-label={`Clear restore location for ${game.title}`} onclick={() => gs.removeRestoreLocation(game)}>
+                <button class="icon-btn" disabled={gs.locked} title="Clear restore location" aria-label={`Clear restore location for ${game.title}`} onclick={() => gs.removeRestoreLocation(game)}>
                   <X size={14} />
                 </button>
               {/if}
@@ -97,14 +102,14 @@
 
     <div class="safety">
       <ShieldCheck size={15} />
-      Current local saves are copied to a safety snapshot before any files are replaced.
+      Close these games before restoring. You can undo a completed restore for 7 days.
     </div>
 
     <footer>
-      <span class="summary">{choices.length} of {gs.selectedGames.length} ready</span>
-      <button bind:this={cancelButton} class="btn" onclick={() => (gs.restoreDialogOpen = false)}>Cancel</button>
-      <button class="btn primary" disabled={!canRestore || gs.busy} onclick={() => gs.restore(choices)}>
-        <RotateCcw size={15} /> Restore ({choices.length})
+      <span class="summary" aria-live="polite">{choices.length} {choices.length === 1 ? "game" : "games"} · {formatBytes(selectedBytes)}{missingLocation ? " · Choose a restore folder" : ""}</span>
+      <button bind:this={cancelButton} class="btn" disabled={gs.locked} onclick={() => (gs.restoreDialogOpen = false)}>Cancel</button>
+      <button class="btn primary" disabled={!canRestore || gs.locked} onclick={() => gs.restore(choices)}>
+        <RotateCcw size={15} /> Continue to restore
       </button>
     </footer>
   </div>
