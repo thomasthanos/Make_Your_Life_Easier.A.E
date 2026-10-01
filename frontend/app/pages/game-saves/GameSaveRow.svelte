@@ -100,15 +100,15 @@
   <dl class="stats" aria-label={`Save details for ${game.title}`}>
     <div>
       <dt>Size</dt>
-      <dd>{formatBytes(tab === "backup" ? (chosenSnapshot?.bytes ?? game.totalBytes) : game.totalBytes)} {#if tab === "pc"}<small>· {game.fileCount.toLocaleString()} {game.fileCount === 1 ? "file" : "files"}</small>{/if}</dd>
+      <dd>{formatBytes(tab === "backup" ? (chosenSnapshot?.bytes ?? game.totalBytes) : game.totalBytes)}{#if tab === "pc"}<small> · {game.fileCount.toLocaleString()} {game.fileCount === 1 ? "file" : "files"}</small>{/if}</dd>
     </div>
     <div>
       <dt>Last save</dt>
-      <dd title={formatDate(game.lastSaveAt)}>{game.hasLocalData ? formatRelative(game.lastSaveAt) : "Not on this PC"}</dd>
+      <dd title={formatDate(game.lastSaveAt)}>{#if game.hasLocalData}<small aria-hidden="true">Saved</small> {formatRelative(game.lastSaveAt)}{:else}Not on this PC{/if}</dd>
     </div>
     <div>
       <dt>Last backup</dt>
-      <dd class:never={!game.lastBackupAt} title={formatDate(game.lastBackupAt)}>{formatRelative(game.lastBackupAt)}</dd>
+      <dd class:never={!game.lastBackupAt} title={formatDate(game.lastBackupAt)}>{#if game.lastBackupAt}<small aria-hidden="true">Backed up</small> {formatRelative(game.lastBackupAt)}{:else}Never backed up{/if}</dd>
     </div>
   </dl>
 
@@ -167,9 +167,9 @@
     grid-template-columns: auto minmax(0, 1fr) auto auto;
     grid-template-areas: "check identity stats actions";
     align-items: center;
-    gap: 10px 18px;
+    gap: 6px 14px;
     min-width: 0;
-    padding: 16px;
+    padding: 7px 12px;
     transition:
       border-color var(--dur-fast),
       background var(--dur-fast);
@@ -196,14 +196,14 @@
     grid-area: identity;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     min-width: 0;
   }
 
   /* Steam's portrait art; the monogram takes the same place without one. */
   .cover {
-    width: 34px;
-    height: 51px;
+    width: 28px;
+    height: 42px;
     flex: none;
     border-radius: 7px;
     object-fit: cover;
@@ -214,15 +214,15 @@
   .monogram {
     display: grid;
     place-items: center;
-    width: 34px;
-    height: 51px;
+    width: 28px;
+    height: 42px;
     flex: none;
     border: 1px solid hsl(var(--hue) 70% 70% / 0.18);
-    border-radius: 7px;
+    border-radius: 6px;
     background: linear-gradient(145deg, hsl(var(--hue) 55% 55% / 0.3), hsl(var(--hue) 55% 35% / 0.12));
     color: hsl(var(--hue) 85% 86%);
     font-family: var(--font-display);
-    font-size: 13px;
+    font-size: 11.5px;
     font-weight: 700;
     letter-spacing: 0.02em;
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
@@ -230,7 +230,7 @@
 
   .title-wrap {
     display: grid;
-    gap: 6px;
+    gap: 3px;
     min-width: 0;
   }
 
@@ -246,7 +246,7 @@
     cursor: pointer;
     min-width: 0;
     overflow: hidden;
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 600;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -341,30 +341,30 @@
   .stats {
     grid-area: stats;
     display: grid;
-    grid-template-columns: 110px 112px 112px;
-    gap: 14px;
+    grid-template-columns: 112px 128px 150px;
+    gap: 12px;
     margin: 0;
   }
 
   .stats div {
-    display: grid;
-    gap: 3px;
     min-width: 0;
   }
 
+  /* For screen readers: each value says what it is on screen. */
   dt {
-    color: var(--text-3);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   dd {
     margin: 0;
     overflow: hidden;
     color: var(--text-2);
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
@@ -392,8 +392,8 @@
   .auto {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 4px 4px 10px;
+    gap: 7px;
+    padding: 2px 3px 2px 9px;
     border: 1px solid rgb(255 255 255 / 0.06);
     border-radius: 999px;
     background: rgb(255 255 255 / 0.02);
@@ -417,7 +417,7 @@
 
   /* Both words take the same room, so the switch does not move. */
   .auto-label {
-    min-width: 64px;
+    min-width: 58px;
     text-align: right;
   }
 
@@ -433,7 +433,8 @@
     pointer-events: none;
   }
 
-  @container (max-width: 1100px) {
+  /* Narrower: the values go under the name, on one short line. */
+  @container (max-width: 860px) {
     .card {
       grid-template-columns: auto minmax(0, 1fr) auto;
       grid-template-areas:
@@ -442,14 +443,15 @@
     }
 
     .stats {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      padding-left: 50px;
-      padding-top: 8px;
-      border-top: 1px solid rgb(255 255 255 / .045);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 16px;
+      padding-left: 38px;
     }
   }
 
-  @container (max-width: 700px) {
+  /* Very narrow: the switch and the folder go under the values. */
+  @container (max-width: 480px) {
     .card {
       grid-template-columns: auto minmax(0, 1fr);
       grid-template-areas:
@@ -460,13 +462,6 @@
 
     .stats {
       padding-left: 0;
-    }
-
-    .title-line { flex-wrap: wrap; }
-    .path { flex-basis: 100%; }
-
-    .meta-line {
-      flex-wrap: wrap;
     }
 
     .actions {

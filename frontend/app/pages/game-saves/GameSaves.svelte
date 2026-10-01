@@ -556,7 +556,7 @@
 
   .game-list {
     display: grid;
-    gap: 7px;
+    gap: 5px;
     transition: opacity var(--dur-med) var(--ease-out);
   }
 
