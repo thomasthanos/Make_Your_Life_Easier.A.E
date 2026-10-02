@@ -101,12 +101,34 @@ fn luma(r: u8, g: u8, b: u8) -> u8 {
 /// An image file, through Windows' decoders.
 pub fn grey_from_file(path: &Path) -> Result<Grey, String> {
     use windows::Win32::Foundation::GENERIC_READ;
+    use windows::Win32::Graphics::Imaging::WICDecodeMetadataCacheOnDemand;
+    use windows::core::HSTRING;
+    decode(|factory| unsafe {
+        factory.CreateDecoderFromFilename(&HSTRING::from(path.as_os_str()), None, GENERIC_READ, WICDecodeMetadataCacheOnDemand)
+    })
+}
+
+/// A picture in memory (a screenshot of a browser tab), the same way.
+pub fn grey_from_bytes(bytes: &[u8]) -> Result<Grey, String> {
+    use windows::Win32::Graphics::Imaging::WICDecodeMetadataCacheOnDemand;
+    decode(|factory| unsafe {
+        let stream = factory.CreateStream()?;
+        // `bytes` outlives the stream: both end with this call.
+        stream.InitializeFromMemory(bytes)?;
+        factory.CreateDecoderFromStream(&stream, std::ptr::null(), WICDecodeMetadataCacheOnDemand)
+    })
+}
+
+fn decode(
+    open: impl FnOnce(
+        &windows::Win32::Graphics::Imaging::IWICImagingFactory,
+    ) -> windows::core::Result<windows::Win32::Graphics::Imaging::IWICBitmapDecoder>,
+) -> Result<Grey, String> {
     use windows::Win32::Graphics::Imaging::{
         CLSID_WICImagingFactory, GUID_WICPixelFormat8bppGray, IWICImagingFactory, WICBitmapDitherTypeNone,
-        WICBitmapPaletteTypeCustom, WICDecodeMetadataCacheOnDemand,
+        WICBitmapPaletteTypeCustom,
     };
     use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx};
-    use windows::core::HSTRING;
 
     let unreadable = |_| "That picture could not be read. Use a PNG, JPEG or BMP file.".to_string();
     unsafe {
@@ -114,9 +136,7 @@ pub fn grey_from_file(path: &Path) -> Result<Grey, String> {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         let factory: IWICImagingFactory =
             CoCreateInstance(&CLSID_WICImagingFactory, None, CLSCTX_INPROC_SERVER).map_err(|e| e.to_string())?;
-        let decoder = factory
-            .CreateDecoderFromFilename(&HSTRING::from(path.as_os_str()), None, GENERIC_READ, WICDecodeMetadataCacheOnDemand)
-            .map_err(unreadable)?;
+        let decoder = open(&factory).map_err(unreadable)?;
         let frame = decoder.GetFrame(0).map_err(unreadable)?;
         let grey = factory.CreateFormatConverter().map_err(|e| e.to_string())?;
         grey.Initialize(&frame, &GUID_WICPixelFormat8bppGray, WICBitmapDitherTypeNone, None, 0.0, WICBitmapPaletteTypeCustom)
@@ -213,6 +233,10 @@ mod tests {
         }
         let grey = grey_from_file(&path).unwrap();
         assert_eq!(otpauth_in(&grey).unwrap(), LINK);
+        // The same picture from memory, as a tab's screenshot comes.
+        let bytes = std::fs::read(&path).unwrap();
+        assert_eq!(otpauth_in(&grey_from_bytes(&bytes).unwrap()).unwrap(), LINK);
+        assert!(grey_from_bytes(b"not a picture").is_err());
         let _ = std::fs::remove_file(&path);
         assert!(grey_from_file(&path).is_err());
     }

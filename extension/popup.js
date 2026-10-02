@@ -19,6 +19,7 @@ const reasons = {
   busy: "Too many requests in the last minute. Wait a moment and try again.",
   wrongSite: "That login is saved for another website.",
   notFound: "That login is no longer in your vault.",
+  badKey: "MYLE could not read that 2FA key.",
 };
 
 async function openApp() {
@@ -219,6 +220,66 @@ content.addEventListener("keydown", (event) => {
   else buttons[Math.max(0, Math.min(next, buttons.length - 1))].focus();
 });
 document.getElementById("open").addEventListener("click", openApp);
+
+// --- 2FA from a QR code on the page ---------------------------------------------
+
+async function scanQr() {
+  const [tab] = await ext.tabs.query({ active: true, currentWindow: true });
+  if (!Number.isInteger(tab?.id)) return;
+  searchRow.hidden = true;
+  content.replaceChildren(Object.assign(document.createElement("p"), { className: "note", textContent: "Looking for a QR code…" }));
+  const found = await send({ type: "scanTab", tabId: tab.id });
+  if (!found?.ok || typeof found.link !== "string") {
+    if (found?.error === "noQr") {
+      return state("No 2FA QR code found", "Show the site's QR code on screen, whole and not covered, then try again.");
+    }
+    if (found?.error === "noCapture" || found?.error === "insecure") {
+      return state("This page cannot be read", "2FA QR codes are read only on secure (https) pages.");
+    }
+    return explain(found?.error);
+  }
+  const answer = await send({ type: "tabLogins", tabId: tab.id });
+  if (!answer?.ok) return explain(answer?.error);
+  const info = found.info ?? {};
+  const what = [info.issuer, info.account].filter(Boolean).join(" · ") || "this site";
+  const intro = document.createElement("p");
+  intro.className = "found";
+  intro.append("A 2FA key for ", Object.assign(document.createElement("b"), { textContent: what }), ". Keep it with:");
+  const rows = answer.logins.filter((login) => login.frameId === 0).map((login) => {
+    const item = document.createElement("div");
+    item.className = "login";
+    const text = document.createElement("span");
+    text.className = "text";
+    text.append(
+      Object.assign(document.createElement("b"), { textContent: login.title || login.site || "Login" }),
+      Object.assign(document.createElement("small"), { textContent: (login.username || "No user name") + (login.totp ? " · has a key" : "") }),
+    );
+    const save = document.createElement("button");
+    save.type = "button";
+    save.textContent = "Save";
+    save.addEventListener("click", () => keep(tab.id, login.id, found.link, save));
+    item.append(avatarFor(login), text, save);
+    return item;
+  });
+  const fresh = document.createElement("button");
+  fresh.type = "button";
+  fresh.className = "new-login";
+  fresh.textContent = "Save as a new login";
+  fresh.addEventListener("click", () => keep(tab.id, null, found.link, fresh));
+  content.replaceChildren(intro, ...rows, fresh);
+}
+
+async function keep(tabId, id, link, button) {
+  button.disabled = true;
+  const saved = await send({ type: "saveTotpTab", tabId, id, secret: link });
+  if (saved?.ok) {
+    return state("2FA key saved", "MYLE fills this site's codes from now on: click the code field when it asks.");
+  }
+  button.disabled = false;
+  feedback(reasons[saved?.error] ?? "That key could not be kept. Add it to the login in MYLE instead.");
+}
+
+document.getElementById("scan").addEventListener("click", () => void scanQr().catch(() => state("Could not read this tab", "Reload the page and try again.")));
 
 function retry() {
   content.replaceChildren();

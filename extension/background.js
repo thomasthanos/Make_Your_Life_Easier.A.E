@@ -268,28 +268,34 @@ async function submitted(message, sender) {
   if (!text(message.username, 256) || !text(message.password, 512) || !message.password) return refused;
   const tabId = sender.tab.id;
   const known = await ask({ type: "known", url: sender.url, username: message.username, password: message.password });
-  let offer = known?.ok && !known.known;
-  if (!known?.ok && known?.error === "locked") {
-    // A password MYLE suggested is offered even while the vault is locked:
-    // the user may know no other copy of it.
-    const key = suggestedKey(tabId);
-    const suggested = (await ext.storage.session.get(key))[key];
-    offer = suggested?.password === message.password && Date.now() - suggested.at < KEEP_SUGGESTED &&
-      sameSite(suggested.url, sender.url);
-  }
-  if (offer) {
+  // While the vault is locked nothing can be checked, so it is offered:
+  // saving waits for the unlock, and skips a login the vault already has.
+  const locked = !known?.ok && known?.error === "locked";
+  if ((known?.ok && !known.known) || locked) {
     await ext.storage.session.set({
       [pendingKey(tabId)]: {
         url: sender.url,
         username: message.username,
         password: message.password,
         update: known?.update === true,
+        locked,
         at: Date.now(),
         nonce: crypto.randomUUID(),
       },
     });
   }
   return { ok: true };
+}
+
+/** Waits (two minutes at most) for the user to unlock the vault in MYLE. */
+async function whenUnlocked() {
+  const until = Date.now() + 120_000;
+  while (Date.now() < until) {
+    const status = await ask({ type: "status" });
+    if (status?.ok && status.state === "unlocked") return true;
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  return false;
 }
 
 async function offer(sender) {
@@ -301,7 +307,13 @@ async function offer(sender) {
     found.shownAt = Date.now();
     await ext.storage.session.set({ [pendingKey(sender.tab.id)]: found });
   }
-  return { nonce: found.nonce, username: found.username, update: found.update, site: hostOf(found.url) };
+  return {
+    nonce: found.nonce,
+    username: found.username,
+    update: found.update,
+    locked: found.locked === true,
+    site: hostOf(found.url),
+  };
 }
 
 async function answerOffer(message, sender, save) {
@@ -310,13 +322,49 @@ async function answerOffer(message, sender, save) {
   if (!found?.shownAt || found.nonce !== message.nonce || !sameSite(found.url, sender.url)) {
     return { ok: false, error: "expired" };
   }
+  let answer = { ok: true };
   if (save) {
-    const answer = await ask({ type: "save", url: found.url, username: found.username, password: found.password });
-    // Locked, say: the offer stays, to save once the vault is open.
+    const login = { url: found.url, username: found.username, password: found.password };
+    answer = await ask({ type: "save", ...login });
+    if (answer?.error === "locked") {
+      // MYLE comes forward; the login is saved once the vault is open.
+      void openApp();
+      if (!(await whenUnlocked())) return { ok: false, error: "locked" };
+      const known = await ask({ type: "known", ...login });
+      answer = known?.ok && known.known ? { ok: true, already: true } : await ask({ type: "save", ...login });
+    }
+    // Still not saved: the offer stays, to try again.
     if (!answer?.ok) return answer;
   }
   await ext.storage.session.remove([pendingKey(sender.tab.id), suggestedKey(sender.tab.id)]);
-  return { ok: true };
+  return { ok: true, already: answer.already === true, updated: answer.updated === true };
+}
+
+// --- 2FA keys ---------------------------------------------------------------------
+
+/** The toolbar popup: the 2FA QR code shown in the tab, read by MYLE. */
+async function scanTab(tabId) {
+  if (!Number.isInteger(tabId)) return refused;
+  let tab;
+  try {
+    tab = await ext.tabs.get(tabId);
+  } catch {
+    return { ok: false, error: "pageChanged" };
+  }
+  if (!tab?.active || !allowedUrl(tab.url)) return { ok: false, error: "insecure" };
+  let image;
+  try {
+    image = await ext.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+  } catch {
+    return { ok: false, error: "noCapture" };
+  }
+  return ask({ type: "totpFromImage", image });
+}
+
+/** Keeps a 2FA key for the tab's site: with login `id`, or as a new one. */
+async function saveTotpFor(url, id, secret) {
+  if (!(id === null || text(id, 100)) || !text(secret, 2048) || !secret) return refused;
+  return ask({ type: "saveTotp", url, id, secret });
 }
 
 ext.tabs.onRemoved.addListener((tabId) => {
@@ -386,6 +434,18 @@ async function handle(message, sender) {
         return loginsForTab(message.tabId);
       case "fillTab":
         return fillTab(message.tabId, message.frameId, message.id);
+      case "scanTab":
+        return scanTab(message.tabId);
+      case "saveTotpTab": {
+        let frames;
+        try {
+          frames = await framesFor(message.tabId);
+        } catch {
+          return { ok: false, error: "pageChanged" };
+        }
+        const top = frames?.find((frame) => frame.frameId === 0);
+        return top ? saveTotpFor(top.url, message.id ?? null, message.secret) : { ok: false, error: "pageChanged" };
+      }
       default:
         return refused;
     }
@@ -417,6 +477,9 @@ async function handle(message, sender) {
     case "passkeyGet":
     case "passkeyCreate":
       return passkey(message, sender);
+    case "saveTotp":
+      // A key the page shows, kept at the user's click in MYLE's bar.
+      return (await embeddedIn(sender)) ? refused : saveTotpFor(sender.url, message.id ?? null, message.secret);
     default:
       return { ok: false, error: "unknown" };
   }

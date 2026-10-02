@@ -677,6 +677,41 @@ impl Vault {
         self.put(id, entry)
     }
 
+    /// Gives login `id` the 2FA key `key`, in place of any it has.
+    pub fn set_totp(&mut self, id: &str, key: &super::totp::Totp) -> Result<(), String> {
+        let unlocked = self.unlocked()?;
+        let mut entry = unlocked
+            .entries
+            .get(id)
+            .map(|e| (**e).clone())
+            .ok_or("That entry no longer exists.")?;
+        let mut key = key.clone();
+        key.name_if_unnamed(&entry.title, &entry.username);
+        entry.totp = key.to_link().to_string();
+        entry.updated_at = now();
+        self.put(id, entry)
+    }
+
+    /// A new login that holds only a site's 2FA key.
+    pub fn add_totp_login(&mut self, title: &str, url: &str, key: &super::totp::Totp) -> Result<String, String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = now();
+        let mut key = key.clone();
+        key.name_if_unnamed(title, "");
+        let entry = Entry {
+            title: title.to_string(),
+            username: key.account.clone(),
+            urls: vec![url.to_string()],
+            totp: key.to_link().to_string(),
+            created_at: now,
+            updated_at: now,
+            ..Entry::default()
+        };
+        self.unlocked()?;
+        self.put(&id, entry)?;
+        Ok(id)
+    }
+
     /// The entry's 2FA key.
     pub fn totp(&mut self, id: &str) -> Result<super::totp::Totp, String> {
         let unlocked = self.unlocked()?;
@@ -1354,6 +1389,27 @@ mod tests {
         vault.delete_passkey(&login, "c2").unwrap();
         assert!(vault.delete_passkey(&login, "c2").is_err());
         assert_eq!(vault.passkeys_for("example.com", &[]).unwrap().len(), 1);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn a_2fa_key_from_a_site_joins_its_login_or_makes_one() {
+        use super::super::totp::Totp;
+        let (path, mut vault) = temp_vault();
+        vault.create("master one", KdfParams::cheap_for_tests()).unwrap();
+        let login = vault.save(&input("Example", "p1")).unwrap();
+        let key = Totp::parse("otpauth://totp/Example:me@example.com?secret=HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ").unwrap();
+        vault.set_totp(&login, &key).unwrap();
+        assert_eq!(vault.totp(&login).unwrap().code_at(59), key.code_at(59));
+        assert_eq!(vault.password(&login).unwrap().as_str(), "p1", "nothing else changes");
+
+        // A key alone, for a site with no login yet: named after the site.
+        let bare = Totp::parse("JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP").unwrap();
+        let id = vault.add_totp_login("shop.example.org", "https://shop.example.org", &bare).unwrap();
+        let entry = vault.summaries().unwrap().into_iter().find(|e| e.id == id).unwrap();
+        assert!(entry.has_totp && !entry.has_password);
+        assert_eq!(entry.urls, ["https://shop.example.org"]);
+        assert_eq!(vault.totp(&id).unwrap().issuer, "shop.example.org");
         let _ = std::fs::remove_file(path);
     }
 

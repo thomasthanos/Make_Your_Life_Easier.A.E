@@ -531,6 +531,7 @@
     notFound: "That login is no longer in your vault.",
     notRunning: "MYLE is not running. Open it, then try again.",
     noTotp: "That login has no 2FA key in MYLE any more.",
+    badKey: "MYLE could not read that 2FA key.",
   };
 
   function entryButton(login) {
@@ -1056,7 +1057,15 @@
     if (key === lastSent) return;
     lastSent = key;
     setTimeout(() => lastSent === key && (lastSent = ""), 5000);
-    void send({ type: "submitted", username, password: password.value });
+    const sentFrom = location.href;
+    void send({ type: "submitted", username, password: password.value }).then(() => {
+      // A sign-in that stays on this page (a web app changing its own view):
+      // once the form is gone or the address changed, the offer shows here.
+      if (window !== window.top) return;
+      setTimeout(() => {
+        if (location.href !== sentFrom || !password.isConnected || !visible(password)) void offerSave();
+      }, 1500);
+    });
   }
 
   document.addEventListener(
@@ -1079,16 +1088,20 @@
     true,
   );
 
+  let offerShown = "";
+
   async function offerSave() {
     const pending = await send({ type: "pending" });
-    if (typeof pending?.nonce !== "string") return;
+    if (typeof pending?.nonce !== "string" || offerShown === pending.nonce) return;
+    offerShown = pending.nonce;
     mount(null);
     const title = document.createElement("div");
     title.className = "title";
     title.innerHTML = MARK;
     title.append(pending.update ? "Update the saved password?" : "Save this login?");
     const text = document.createElement("p");
-    text.textContent = `${pending.username || "A login without a user name"} for ${pending.site}, in your MYLE vault.`;
+    text.textContent = `${pending.username || "A login without a user name"} for ${pending.site}, in your MYLE vault.` +
+      (pending.locked ? " Your vault is locked: Save opens MYLE for you to unlock it." : "");
     const row = document.createElement("div");
     row.className = "row";
     const later = document.createElement("button");
@@ -1104,18 +1117,20 @@
     save.addEventListener("click", async (event) => {
       if (save.disabled || !genuine(event, bar, save)) return;
       save.disabled = true;
+      if (pending.locked) text.textContent = "Unlock your vault in MYLE: the login is saved as soon as it opens.";
       const answer = await send({ type: "save", nonce: pending.nonce });
       if (answer?.ok) {
-        text.textContent = "Saved to your vault.";
+        text.textContent = answer.already ? "It was already in your vault." :
+          answer.updated ? "The saved password is updated." : "Saved to your vault.";
         row.remove();
-        setTimeout(() => hide(bar), 1800);
+        setTimeout(() => hide(bar), 2200);
       } else if (answer?.error === "expired") {
         text.textContent = "This offer has expired. Add the login in MYLE instead.";
         row.remove();
       } else {
         save.disabled = false;
         text.textContent = answer?.error === "locked" ?
-          "Your vault is locked. Unlock it in MYLE, then press Save again." :
+          "Your vault is still locked. Unlock it in MYLE, then press Save again." :
           "It could not be saved. Try again, or add it in MYLE.";
       }
     });
@@ -1126,4 +1141,147 @@
 
   // The offer shows once, in the page itself, not in its frames.
   if (window === window.top) void offerSave();
+
+  // --- 2FA keys on a setup page -----------------------------------------------
+  //
+  // A site turning on 2FA shows its key: a QR code, and mostly the key as text
+  // too ("Can't scan it?"). MYLE offers to keep the key with the site's login,
+  // so it fills the codes from then on. A QR code alone is read from the
+  // toolbar popup.
+
+  const SETUP_WORDS = /authenticator|two.?factor|two.?step|2fa|mfa|setup key|secret key|can.?t scan|scan (?:the|this) (?:qr|code)|enter (?:this|the) (?:key|code)|one.?time|totp/i;
+  const offeredKeys = new Set();
+  let keyTimer = 0;
+  let keyScans = 0;
+  let keyOffers = 0;
+
+  /** A 2FA key in `text`: an otpauth:// link, or the key written out. */
+  function keyIn(text) {
+    const link = text.match(/otpauth:\/\/totp\/[^\s"'<>]+/i)?.[0];
+    if (link) return link;
+    const plain = text.trim();
+    if (plain.length < 16 || plain.length > 160) return null;
+    const bare = plain.replace(/[\s-]/g, "").replace(/=+$/, "");
+    if (bare.length < 16 || bare.length > 128 || !/^[A-Z2-7]+$/i.test(bare)) return null;
+    // Letters alone and short: more likely a word or an id than a key; and
+    // keys are written in one case.
+    if (!/[2-7]/.test(bare) && bare.length < 26) return null;
+    if (bare !== bare.toUpperCase() && bare !== bare.toLowerCase()) return null;
+    return plain;
+  }
+
+  function findSetupKey() {
+    if (!SETUP_WORDS.test((document.body?.textContent ?? "").slice(0, 200_000))) return null;
+    for (const link of queryAll(document, 'a[href^="otpauth:" i]')) {
+      const key = keyIn(getAttr(link, "href") ?? "");
+      if (key) return key;
+    }
+    for (const input of queryAll(document, "input, textarea")) {
+      if ((input.readOnly || input.disabled) && visible(input)) {
+        const key = keyIn(input.value);
+        if (key) return key;
+      }
+    }
+    // Written out, maybe a span per group of four.
+    const candidates = queryAll(document, "code, kbd, samp, pre, strong, b, span, p, div, td, li, dd");
+    for (const el of candidates.slice(0, 4000)) {
+      if (el.childElementCount > 16) continue;
+      const text = el.textContent ?? "";
+      if (text.length < 16 || text.length > 160) continue;
+      const key = keyIn(text);
+      if (key && visible(el)) return key;
+    }
+    return null;
+  }
+
+  /** Says how it went, then closes. */
+  function settleKey(text, words) {
+    text.textContent = words;
+    setTimeout(closePrompt, 3200);
+  }
+
+  async function offerKey(secret) {
+    const id = `totp-${++keyOffers}`;
+    const answer = await send({ type: "logins" });
+    if (prompted) return;
+    if (!answer?.ok) {
+      if (answer?.error === "locked") {
+        prompt(id, "Keep this 2FA key in MYLE?", "Your vault is locked. Unlock it in MYLE, then press Try again.", [
+          ["Not now", false, closePrompt],
+          ["Open MYLE", false, () => send({ type: "open" })],
+          ["Try again", true, () => {
+            closePrompt();
+            void offerKey(secret);
+          }],
+        ]);
+      }
+      return;
+    }
+    const logins = answer.logins ?? [];
+    const named = accountsOnPage(logins, null);
+    const exact = logins.filter((login) => login.exact);
+    const choices = (named.length ? named : exact.length ? exact : logins).slice(0, 4);
+    const save = async (login, text) => {
+      text.textContent = "Saving…";
+      const saved = await send({ type: "saveTotp", id: login?.id ?? null, secret });
+      if (prompted !== id) return;
+      if (saved?.ok) {
+        settleKey(text, "Saved. When the site asks for a code, click its field: MYLE fills it.");
+      } else {
+        settleKey(text, problems[saved?.error] ?? "MYLE could not keep that key. Add it to the login in MYLE instead.");
+      }
+    };
+    const why = "MYLE keeps it in your vault and fills this site's 2FA codes for you.";
+    if (choices.length === 1) {
+      const [login] = choices;
+      prompt(id, "Use MYLE for the 2FA codes?",
+        `${why} It goes with ${login.title || siteName} (${login.username || "no user name"})` +
+          (login.totp ? ", in place of the key it has now." : "."), [
+          ["Not now", false, closePrompt],
+          ["Save", true, (button, text) => {
+            button.disabled = true;
+            return save(login, text);
+          }],
+        ]);
+    } else if (choices.length > 1) {
+      const list = document.createElement("div");
+      list.className = "keys";
+      const text = prompt(id, "Use MYLE for the 2FA codes?", `${why} Which login is it for?`, [["Not now", false, closePrompt]], [list]);
+      for (const login of choices) {
+        const title = login.title || login.site || "Login";
+        const button = item(title, login.username || "No user name", avatarFor(login, title), login.totp ? "has a key" : "");
+        button.addEventListener("click", (event) => {
+          if (prompted !== id || button.disabled || !genuine(event, bar, button)) return;
+          for (const other of list.querySelectorAll("button")) other.disabled = true;
+          void save(login, text);
+        });
+        list.append(button);
+      }
+    } else {
+      prompt(id, "Use MYLE for the 2FA codes?", `${why} No login for ${siteName} is in MYLE yet: the key is kept as a new one.`, [
+        ["Not now", false, closePrompt],
+        ["Save", true, (button, text) => {
+          button.disabled = true;
+          return save(null, text);
+        }],
+      ]);
+    }
+  }
+
+  function scanForKey() {
+    clearTimeout(keyTimer);
+    keyTimer = setTimeout(() => {
+      // A page that keeps changing is looked at a limited number of times.
+      if (++keyScans > 80 || prompted || !bar.hidden) return;
+      const key = findSetupKey();
+      if (!key || offeredKeys.has(key)) return;
+      offeredKeys.add(key);
+      void offerKey(key);
+    }, 1000);
+  }
+
+  if (window === window.top) {
+    new MutationObserver(scanForKey).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    scanForKey();
+  }
 })();

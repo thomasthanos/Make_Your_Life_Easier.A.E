@@ -78,8 +78,9 @@ const HOST_KEYS: [(&str, &str, &str); 4] = [
 ];
 /// Refused starts of the host kept in `host.log`, newest last.
 const REFUSALS_KEPT: usize = 10;
-/// A native message larger than this is not ours.
-const MAX_MESSAGE: u32 = 64 * 1024;
+/// A native message larger than this is not ours (a screenshot of a tab,
+/// for its 2FA QR code, is the largest).
+const MAX_MESSAGE: u32 = 8 * 1024 * 1024;
 /// Website icons sent with a site's logins: each small, and all together
 /// well under the browser's 1 MB limit for an answer.
 const MAX_ICON: usize = 48 * 1024;
@@ -584,6 +585,12 @@ enum Request {
     Fill { id: String, url: String },
     /// The login's 2FA code, for the code field the user clicked.
     Totp { id: String, url: String },
+    /// A 2FA key a site showed, kept at the user's click: for login `id`,
+    /// or as a new login of its own.
+    SaveTotp { url: String, id: Option<String>, secret: String },
+    /// The 2FA QR code in a screenshot of the tab (a PNG, base64), from the
+    /// toolbar popup.
+    TotpFromImage { image: String },
     Known { url: String, username: String, password: String },
     Save { url: String, username: String, password: String },
     /// A strong new password, for a sign-up or password-change form.
@@ -704,6 +711,17 @@ fn answer(app: &AppHandle, state: &PasswordsState, request: Request) -> Value {
     if !within_limit {
         return json!({ "ok": false, "error": "busy" });
     }
+    if let Request::TotpFromImage { image } = &request {
+        // Decoded here and given back for the popup to show; kept only when
+        // the user then picks the login for it.
+        return match qr_in_screenshot(image) {
+            Ok(link) => {
+                let info = super::totp::Totp::parse(&link).map(|key| key.info()).ok();
+                json!({ "ok": true, "link": link, "info": info })
+            }
+            Err(error) => json!({ "ok": false, "error": "noQr", "detail": error }),
+        };
+    }
     if let Request::Generate = request {
         // Asked at the user's click on a sign-up form: keep the vault open
         // until the form is sent and the new login can be saved.
@@ -783,6 +801,34 @@ fn answer(app: &AppHandle, state: &PasswordsState, request: Request) -> Value {
             vault.touch();
             Ok(json!({ "ok": true, "username": entry.username, "password": password.as_str() }))
         }
+        Request::SaveTotp { url, id, secret } => {
+            let host = page_host(url).ok_or("insecure")?;
+            let key = super::totp::Totp::parse(secret).map_err(|_| "badKey".to_string())?;
+            let saved = match id {
+                Some(id) => {
+                    let entry = vault
+                        .summaries()?
+                        .into_iter()
+                        .find(|e| e.id == *id)
+                        .ok_or("notFound")?;
+                    // A login of this site; one that has a key already is
+                    // changed only from its own host, as with a password.
+                    let fit = entry.urls.iter().filter_map(|u| fits(u, &host)).max().ok_or("wrongSite")?;
+                    if entry.has_totp && !fit {
+                        return Err("wrongSite".to_string());
+                    }
+                    vault.set_totp(id, &key)?;
+                    json!({ "ok": true, "id": id, "replaced": entry.has_totp })
+                }
+                None => {
+                    let title = host.trim_start_matches("www.");
+                    let id = vault.add_totp_login(title, &format!("https://{host}"), &key)?;
+                    json!({ "ok": true, "id": id, "replaced": false })
+                }
+            };
+            vault.touch();
+            Ok(saved)
+        }
         Request::Totp { id, url } => {
             let host = page_host(url).ok_or("insecure")?;
             let entry = vault
@@ -849,12 +895,14 @@ fn answer(app: &AppHandle, state: &PasswordsState, request: Request) -> Value {
             vault.touch();
             Ok(json!({ "ok": true, "updated": existing.is_some() }))
         }
-        Request::Status | Request::Open | Request::Generate => unreachable!("answered above"),
+        Request::Status | Request::Open | Request::Generate | Request::TotpFromImage { .. } => {
+            unreachable!("answered above")
+        }
         Request::PasskeyList { .. } | Request::PasskeyCreate { .. } | Request::PasskeyGet { .. } => {
             unreachable!("answered by passkey_reply")
         }
     });
-    if matches!(request, Request::Save { .. }) && result.is_ok() {
+    if matches!(request, Request::Save { .. } | Request::SaveTotp { .. }) && result.is_ok() {
         let _ = app.emit(super::CHANGED_EVENT, ());
     }
     result.unwrap_or_else(|error| json!({ "ok": false, "error": error }))
@@ -980,6 +1028,16 @@ async fn verify_user(app: &AppHandle, wanted: &str, site: &str) -> Result<bool, 
         }
         Consent::Unavailable => Ok(false),
     }
+}
+
+/// The otpauth:// link in a tab's screenshot (base64, or a data: URL).
+fn qr_in_screenshot(image: &str) -> Result<String, String> {
+    use base64::Engine;
+    let data = image.split_once("base64,").map_or(image, |(_, data)| data);
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(data.trim())
+        .map_err(|_| "That is not a picture.".to_string())?;
+    super::qr::otpauth_in(&super::qr::grey_from_bytes(&bytes)?)
 }
 
 /// The logins saved with one user name for a page.
