@@ -712,6 +712,23 @@ impl Vault {
         Ok(id)
     }
 
+    /// Links login `id` to the program at `exe` (a full path), in place of
+    /// links to the same file name (by name only, or another copy).
+    pub fn link_program(&mut self, id: &str, exe: &str, name: &str) -> Result<(), String> {
+        let unlocked = self.unlocked()?;
+        let mut entry = unlocked
+            .entries
+            .get(id)
+            .map(|e| (**e).clone())
+            .ok_or("That entry no longer exists.")?;
+        let file = |path: &str| path.rsplit(['\\', '/']).next().unwrap_or(path).trim_matches('"').to_lowercase();
+        let wanted = file(exe);
+        entry.apps.retain(|app| file(&app.exe) != wanted);
+        entry.apps.push(AppLink { exe: exe.to_string(), name: name.to_string() });
+        entry.updated_at = now();
+        self.put(id, entry)
+    }
+
     /// The entry's 2FA key.
     pub fn totp(&mut self, id: &str) -> Result<super::totp::Totp, String> {
         let unlocked = self.unlocked()?;

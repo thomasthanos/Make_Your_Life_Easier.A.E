@@ -564,6 +564,22 @@ pub fn passwords_passkey_delete(
     Ok(())
 }
 
+/// A program's .exe, picked in a dialog, for linking a login to it.
+#[tauri::command]
+pub async fn passwords_pick_program(app: AppHandle) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .set_title("The program this login is for")
+            .add_filter("Programs", &["exe"])
+            .blocking_pick_file()
+            .map(|path| path.into_path().map(|path| path.to_string_lossy().into_owned()).map_err(|e| e.to_string()))
+            .transpose()
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command(async)]
 pub fn passwords_list(state: State<'_, PasswordsState>) -> Result<Vec<Summary>, String> {
     state.with(Vault::summaries)

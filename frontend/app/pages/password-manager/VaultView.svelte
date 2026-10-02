@@ -19,7 +19,6 @@
   import Star from "@lucide/svelte/icons/star";
   import Timer from "@lucide/svelte/icons/timer";
   import Upload from "@lucide/svelte/icons/upload";
-  import X from "@lucide/svelte/icons/x";
   import Popover from "../../../lib/components/Popover.svelte";
   import { toast } from "../../../lib/toast.svelte";
   import { passwordsApi as api } from "./api";
@@ -31,42 +30,17 @@
   import StrengthMeter from "./StrengthMeter.svelte";
   import SyncStatus from "./SyncStatus.svelte";
   import BrowserFilling from "./BrowserFilling.svelte";
+  import WindowsFill from "./WindowsFill.svelte";
   import VaultDialog, { type DialogKind } from "./VaultDialog.svelte";
 
   let dialog = $state<DialogKind | null>(null);
   let browserOpen = $state(false);
-  let windowsHotkey = $state<boolean | null>(null);
+  /** The hotkey for Windows programs; null when taken, undefined until known. */
+  let windowsHotkey = $state<string | null | undefined>(undefined);
 
   onMount(() => {
-    void api.windowsHotkey().then((available) => (windowsHotkey = available)).catch(() => (windowsHotkey = false));
+    void api.windowsHotkey().then((label) => (windowsHotkey = label)).catch(() => (windowsHotkey = null));
   });
-
-  function cleanProgramPath(path: string) {
-    return path.trim().replace(/^"|"$/g, "").replace(/\//g, "\\").toLowerCase();
-  }
-
-  const windowsMatches = $derived.by(() => {
-    if (!p.windowsTarget) return [];
-    const targetPath = cleanProgramPath(p.windowsTarget.path);
-    const targetExe = p.windowsTarget.exe.toLowerCase();
-    return p.entries.flatMap((entry) => {
-      const exact = entry.apps.some((app) => targetPath && cleanProgramPath(app.exe) === targetPath);
-      const legacy = entry.apps.some((app) => {
-        const linked = cleanProgramPath(app.exe);
-        return !/[\\/]/.test(linked) && linked === targetExe;
-      });
-      return exact || legacy ? [{ entry, exact }] : [];
-    });
-  });
-
-  async function fillWindows(id: string, field: "username" | "password") {
-    try {
-      await api.windowsFill(id, field);
-      p.windowsTarget = null;
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
-    }
-  }
 
   const filters: { id: Filter; label: string }[] = [
     { id: "all", label: "All" },
@@ -165,40 +139,10 @@
     </div>
   {/if}
 
-  {#if p.windowsTarget}
-    <div class="windows-fill">
-      <div class="windows-fill-head">
-        <AppWindow size={17} />
-        <span>
-          <strong>Fill in {p.windowsTarget.exe}</strong>
-          <small>Choose a linked login, then the value to type into the field you selected before pressing Ctrl+Shift+L.</small>
-          <code class="windows-fill-path" title={p.windowsTarget.path}>{p.windowsTarget.path}</code>
-        </span>
-        <button class="icon-btn" title="Dismiss" aria-label="Dismiss Windows fill" onclick={() => (p.windowsTarget = null)}><X size={15} /></button>
-      </div>
-      {#each windowsMatches as match (match.entry.id)}
-        <div class="windows-fill-row" class:legacy={!match.exact}>
-          <span class="windows-fill-name">
-            <strong>{match.entry.title}</strong><small>{match.entry.username}</small>
-            {#if !match.exact}<small class="windows-fill-guidance">Linked by file name only. Edit this login and select the full program path to enable filling.</small>{/if}
-          </span>
-          {#if match.exact}
-            <button class="btn small" disabled={!match.entry.username} onclick={() => fillWindows(match.entry.id, "username")}>Fill username</button>
-            <button class="btn small" disabled={!match.entry.hasPassword} onclick={() => fillWindows(match.entry.id, "password")}>Fill password</button>
-          {:else}
-            <button class="btn small" disabled>Fill username</button>
-            <button class="btn small" disabled>Fill password</button>
-            <button class="btn small" onclick={() => (p.panel = { kind: "edit", id: match.entry.id })}>Edit link</button>
-          {/if}
-        </div>
-      {:else}
-        <p class="windows-fill-empty">No login is linked to <code>{p.windowsTarget.exe}</code>. Edit a login and select this program under Windows programs.</p>
-      {/each}
-    </div>
-  {/if}
+  <WindowsFill hotkey={windowsHotkey} />
 
-  {#if windowsHotkey === false}
-    <p class="windows-hotkey-error">Ctrl+Shift+L is unavailable. Another program may already use it.</p>
+  {#if windowsHotkey === null}
+    <p class="windows-hotkey-error">Filling Windows programs is off: other programs hold both Ctrl+Shift+L and Ctrl+Alt+Shift+L.</p>
   {/if}
 
   <div class="filters">
@@ -434,69 +378,10 @@
     color: #ffd08a;
   }
 
-  .windows-fill {
-    display: grid;
-    gap: 8px;
-    padding: 11px 13px;
-    border: 1px solid rgb(var(--accent-rgb) / 0.34);
-    border-radius: 12px;
-    background: rgb(var(--accent-rgb) / 0.09);
-  }
-
-  .windows-fill-head,
-  .windows-fill-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .windows-fill-head > span,
-  .windows-fill-name {
-    display: grid;
-    flex: 1;
-    min-width: 0;
-    gap: 2px;
-  }
-
-  .windows-fill-head strong,
-  .windows-fill-name strong {
-    color: var(--text-1);
-    font-size: 12.5px;
-  }
-
-  .windows-fill-head small,
-  .windows-fill-name small,
-  .windows-fill-empty,
-  .windows-hotkey-error {
-    color: var(--text-3);
-    font-size: 11.5px;
-  }
-
-  .windows-fill-path {
-    overflow: hidden;
-    color: var(--text-2);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .windows-fill-row {
-    padding: 7px 0 0 27px;
-    border-top: 1px solid rgb(255 255 255 / 0.06);
-  }
-
-  .windows-fill-row.legacy {
-    opacity: 0.78;
-  }
-
-  .windows-fill-guidance {
-    color: #ffd08a !important;
-  }
-
-  .windows-fill-empty,
   .windows-hotkey-error {
     margin: 0;
+    color: var(--text-3);
+    font-size: 11.5px;
   }
 
   /* Whatever height is left: a banner above makes it shorter, never the
@@ -872,15 +757,6 @@
 
     .overview-health-items {
       grid-template-columns: 1fr;
-    }
-
-    .windows-fill-row {
-      flex-wrap: wrap;
-      padding-left: 0;
-    }
-
-    .windows-fill-name {
-      flex-basis: 100%;
     }
   }
 

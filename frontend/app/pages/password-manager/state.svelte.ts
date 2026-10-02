@@ -2,7 +2,7 @@
 // switching pages keeps the open entry and the search.
 import { confirm } from "../../../lib/confirm.svelte";
 import { toast } from "../../../lib/toast.svelte";
-import { passwordsApi as api, type EntryInput, type Summary, type SyncResult, type VaultStatus } from "./api";
+import { passwordsApi as api, type EntryInput, type Summary, type SyncResult, type VaultStatus, type AppLink } from "./api";
 
 export type Filter = "all" | "favorites" | "weak" | "reused";
 
@@ -16,7 +16,11 @@ export type SyncView =
   | { kind: "error"; message: string };
 
 /** Where the right-hand panel is. */
-export type Panel = { kind: "none" } | { kind: "view"; id: string } | { kind: "edit"; id: string | null };
+export type Panel =
+  | { kind: "none" }
+  | { kind: "view"; id: string }
+  /** `program`: a new login, linked to the Windows program it is for. */
+  | { kind: "edit"; id: string | null; program?: AppLink };
 
 /** The host an entry's address is known by, written the way the app writes
  *  it (lowercase, no `www.`): the key of its website icon. */
@@ -33,6 +37,8 @@ export function iconHost(url: string): string | null {
 export interface WindowsTarget {
   exe: string;
   path: string;
+  /** It runs as administrator: MYLE cannot type into it. */
+  elevated: boolean;
 }
 
 function message(error: unknown) {

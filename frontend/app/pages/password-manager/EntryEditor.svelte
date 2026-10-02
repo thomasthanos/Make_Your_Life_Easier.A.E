@@ -19,12 +19,14 @@
 
   // Keyed by entry in the parent: a new editor opens for another entry.
   const existing = untrack(() => (id ? p.entry(id) : null));
-  let title = $state(existing?.title ?? "");
+  /** A new login for the Windows program the hotkey was pressed in. */
+  const program = untrack(() => (!id && p.panel.kind === "edit" ? p.panel.program : undefined));
+  let title = $state(existing?.title ?? program?.name ?? "");
   let username = $state(existing?.username ?? "");
   /** `null` until typed or loaded: an unchanged password is not sent back. */
   let password = $state<string | null>(null);
   let urls = $state<string[]>(existing?.urls.length ? [...existing.urls] : [""]);
-  let apps = $state<AppLink[]>(existing ? existing.apps.map((a) => ({ ...a })) : []);
+  let apps = $state<AppLink[]>(existing ? existing.apps.map((a) => ({ ...a })) : program ? [{ ...program }] : []);
   let notes = $state(existing?.notes ?? "");
   let folder = $state(existing?.folder ?? "");
   let favorite = $state(existing?.favorite ?? false);
@@ -130,6 +132,18 @@
     });
     saving = false;
     if (ok) password = null;
+  }
+
+  async function browseProgram() {
+    try {
+      const path = await api.pickProgram();
+      if (path) {
+        newApp = path;
+        addApp();
+      }
+    } catch (error) {
+      p.error = error instanceof Error ? error.message : String(error);
+    }
   }
 
   function cancel() {
@@ -254,7 +268,7 @@
   </div>
 
   <div class="field apps-field">
-    <span>Windows programs <small>Use the full .exe path for Ctrl+Shift+L filling</small></span>
+    <span>Windows programs <small>Its full .exe path: then Ctrl+Shift+L in it fills this login</small></span>
     {#if apps.length}
       <div class="apps">
         {#each apps as app (app.exe)}
@@ -274,6 +288,7 @@
         onkeydown={(e) => e.key === "Enter" && (e.preventDefault(), addApp())}
       />
       <button type="button" class="btn small" disabled={!newApp.trim()} onclick={addApp}>Link</button>
+      <button type="button" class="btn small" onclick={browseProgram}>Browse…</button>
       {#if p.windowsTarget}
         <button type="button" class="btn small" title={p.windowsTarget.path} onclick={() => ((newApp = p.windowsTarget!.path), addApp())}>Use detected program</button>
       {/if}

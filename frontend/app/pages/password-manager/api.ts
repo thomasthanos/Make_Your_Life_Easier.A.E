@@ -58,6 +58,13 @@ export interface PasskeyInfo {
   createdAt: number;
 }
 
+/** A login linked to the program the hotkey was pressed in. */
+export interface WindowsMatch {
+  id: string;
+  /** Linked by the program's path; else by file name only (not enough to fill). */
+  exact: boolean;
+}
+
 /** A passkey's site asks for the master password (no Windows Hello here). */
 export interface VerifyRequest {
   id: number;
@@ -203,8 +210,14 @@ export interface PasswordsApi {
   browserSet(enabled: boolean): Promise<void>;
   openExtensionDir(): Promise<void>;
   onBrowserContact(handler: (contact: BrowserContact) => void): Promise<() => void>;
-  windowsHotkey(): Promise<boolean>;
-  windowsFill(id: string, field: "username" | "password"): Promise<void>;
+  /** The hotkey for filling Windows programs ("Ctrl+Shift+L"), or null when taken. */
+  windowsHotkey(): Promise<string | null>;
+  windowsFill(id: string, field: "username" | "password" | "both"): Promise<void>;
+  windowsMatches(): Promise<WindowsMatch[]>;
+  /** Links a login to the program the hotkey was pressed in. */
+  windowsLink(id: string): Promise<void>;
+  /** A program's .exe, picked in a dialog; null when cancelled. */
+  pickProgram(): Promise<string | null>;
   onChanged(handler: () => void): Promise<() => void>;
   useAccountVault(): Promise<void>;
   onLocked(handler: () => void): Promise<() => void>;
@@ -254,6 +267,9 @@ const tauriApi: PasswordsApi = {
     listen<BrowserContact>("passwords-browser-contact", (event) => handler(event.payload)),
   windowsHotkey: () => invoke("passwords_windows_hotkey_status"),
   windowsFill: (id, field) => invoke("passwords_windows_fill", { id, field }),
+  windowsMatches: () => invoke("passwords_windows_matches"),
+  windowsLink: (id) => invoke("passwords_windows_link", { id }),
+  pickProgram: () => invoke("passwords_pick_program"),
   onChanged: (handler) => listen("passwords-changed", handler),
   useAccountVault: () => invoke("passwords_use_account_vault"),
   onLocked: (handler) => listen("passwords-locked", handler),
@@ -459,8 +475,19 @@ function previewApi(): PasswordsApi {
     async onBrowserContact() {
       return () => {};
     },
-    async windowsHotkey() { return false; },
-    async windowsFill() {},
+    async windowsHotkey() {
+      return "Ctrl+Shift+L";
+    },
+    async windowsFill() {
+      await wait(300);
+    },
+    async windowsMatches() {
+      return new URLSearchParams(location.search).has("windows-linked") ? [{ id: "3", exact: true }, { id: "4", exact: false }] : [];
+    },
+    async windowsLink() {},
+    async pickProgram() {
+      return "C:\\Riot Games\\Riot Client\\RiotClientServices.exe";
+    },
     async onChanged() {
       return () => {};
     },
