@@ -5,7 +5,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
 
-const source = await readFile(new URL("../../extension/content.js", import.meta.url), "utf8");
+// A Windows checkout may have CRLF line endings: read it as LF.
+const source = (await readFile(new URL("../../extension/content.js", import.meta.url), "utf8")).replace(/\r\n/g, "\n");
 
 /** One function of content.js, by name, run on its own. */
 function pick(name) {
