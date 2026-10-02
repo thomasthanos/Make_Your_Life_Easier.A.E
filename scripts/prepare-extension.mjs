@@ -8,6 +8,7 @@ const sharedFiles = [
   "psl.js",
   "background.js",
   "content.js",
+  "passkeys.js",
   "popup.html",
   "popup.css",
   "popup.js",

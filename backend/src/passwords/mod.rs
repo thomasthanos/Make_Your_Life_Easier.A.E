@@ -10,6 +10,7 @@ mod generator;
 mod hello;
 pub mod icons;
 mod import;
+mod passkeys;
 mod qr;
 mod session;
 mod sync;
@@ -41,6 +42,8 @@ const LOCKED_EVENT: &str = "passwords-locked";
 const CHANGED_EVENT: &str = "passwords-changed";
 /// Sent after a background sync, so an open page shows what came in.
 const SYNCED_EVENT: &str = "passwords-synced";
+/// Asks the page for the master password, for a passkey (see `ask_master`).
+const VERIFY_EVENT: &str = "passwords-verify";
 /// How often the vault syncs by itself while the app runs.
 const SYNC_EVERY: Duration = Duration::from_secs(5 * 60);
 
@@ -470,6 +473,95 @@ fn mend_browser_registration(state: &PasswordsState) {
             let _ = browser::ensure_registered();
         });
     }
+}
+
+/// A site that insists on user verification for a passkey, on a PC without
+/// Windows Hello: the master password, typed in MYLE, stands in.
+struct Verifying {
+    id: u64,
+    site: String,
+    reply: tokio::sync::oneshot::Sender<bool>,
+}
+
+static VERIFYING: Mutex<Option<Verifying>> = Mutex::new(None);
+static NEXT_VERIFY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+const VERIFY_WAIT: Duration = Duration::from_secs(120);
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VerifyRequest {
+    id: u64,
+    site: String,
+}
+
+/// Brings MYLE forward to ask for the master password; true once the right
+/// one was typed, false when cancelled or after two minutes.
+pub(crate) async fn ask_master(app: &AppHandle, site: &str) -> bool {
+    let (reply, answer) = tokio::sync::oneshot::channel();
+    let id = NEXT_VERIFY.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    // A newer request replaces an older one, which is refused.
+    *VERIFYING.lock().unwrap_or_else(|p| p.into_inner()) = Some(Verifying { id, site: site.to_string(), reply });
+    browser::open_vault(app);
+    let _ = app.emit(VERIFY_EVENT, VerifyRequest { id, site: site.to_string() });
+    let verified = matches!(tokio::time::timeout(VERIFY_WAIT, answer).await, Ok(Ok(true)));
+    let mut slot = VERIFYING.lock().unwrap_or_else(|p| p.into_inner());
+    if slot.as_ref().is_some_and(|pending| pending.id == id) {
+        *slot = None;
+    }
+    verified
+}
+
+/// The master password asked for, if a passkey waits for it (the page may
+/// open after the request).
+#[tauri::command(async)]
+pub fn passwords_verify_pending() -> Option<VerifyRequest> {
+    VERIFYING
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .as_ref()
+        .map(|pending| VerifyRequest { id: pending.id, site: pending.site.clone() })
+}
+
+/// The page's answer: the master password, or `None` to cancel. A wrong
+/// password is an error and the request stays.
+#[tauri::command]
+pub async fn passwords_verify_answer(
+    state: State<'_, PasswordsState>,
+    id: u64,
+    master: Option<String>,
+) -> Result<(), String> {
+    let take = || {
+        let mut slot = VERIFYING.lock().unwrap_or_else(|p| p.into_inner());
+        if slot.as_ref().is_some_and(|pending| pending.id == id) { slot.take() } else { None }
+    };
+    let Some(master) = master else {
+        if let Some(pending) = take() {
+            let _ = pending.reply.send(false);
+        }
+        return Ok(());
+    };
+    if passwords_verify_pending().is_none_or(|pending| pending.id != id) {
+        return Err("That request has expired. Try the passkey again.".into());
+    }
+    let master = zeroize::Zeroizing::new(master);
+    state.with_blocking(move |vault| vault.verify_master(&master)).await?;
+    if let Some(pending) = take() {
+        let _ = pending.reply.send(true);
+    }
+    Ok(())
+}
+
+/// Removes one passkey from a login.
+#[tauri::command(async)]
+pub fn passwords_passkey_delete(
+    app: AppHandle,
+    state: State<'_, PasswordsState>,
+    id: String,
+    credential_id: String,
+) -> Result<(), String> {
+    state.with(|vault| vault.delete_passkey(&id, &credential_id))?;
+    let _ = app.emit(CHANGED_EVENT, ());
+    Ok(())
 }
 
 #[tauri::command(async)]

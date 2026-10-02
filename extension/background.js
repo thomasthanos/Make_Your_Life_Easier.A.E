@@ -323,6 +323,55 @@ ext.tabs.onRemoved.addListener((tabId) => {
   void ext.storage.session.remove([pendingKey(tabId), suggestedKey(tabId)]);
 });
 
+// --- Passkeys ---------------------------------------------------------------------
+//
+// Only the page itself asks (not a frame inside it), and the app gets the
+// page's address from the browser; what the page sends is only checked for
+// shape here, and judged in the app.
+
+const list = (value) => Array.isArray(value) && value.length <= 64 && value.every((item) => text(item, 1400));
+
+function passkey(message, sender) {
+  if (sender.frameId !== 0) return refused;
+  const rpId = message.rpId ?? null;
+  if (rpId !== null && !text(rpId, 253)) return refused;
+  const verification = text(message.userVerification, 20) ? message.userVerification : "preferred";
+  switch (message.type) {
+    case "passkeyList":
+      return ask({ type: "passkeyList", url: sender.url, rpId, allow: list(message.allow) ? message.allow : [] });
+    case "passkeyGet":
+      if (!text(message.challenge, 1400) || !text(message.credentialId, 1400)) return refused;
+      return ask({
+        type: "passkeyGet",
+        url: sender.url,
+        rpId,
+        challenge: message.challenge,
+        credentialId: message.credentialId,
+        userVerification: verification,
+      });
+    case "passkeyCreate": {
+      const algorithms = Array.isArray(message.algorithms) && message.algorithms.length <= 32 &&
+        message.algorithms.every(Number.isInteger) ? message.algorithms : [];
+      if (!text(message.challenge, 1400) || !text(message.userId, 100) || !list(message.exclude ?? [])) return refused;
+      return ask({
+        type: "passkeyCreate",
+        url: sender.url,
+        rpId,
+        rpName: text(message.rpName, 200) ? message.rpName : "",
+        userId: message.userId,
+        userName: text(message.userName, 256) ? message.userName : "",
+        userDisplayName: text(message.userDisplayName, 256) ? message.userDisplayName : "",
+        challenge: message.challenge,
+        algorithms,
+        exclude: message.exclude ?? [],
+        userVerification: verification,
+      });
+    }
+    default:
+      return refused;
+  }
+}
+
 // --- Requests ---------------------------------------------------------------------
 
 async function handle(message, sender) {
@@ -364,6 +413,10 @@ async function handle(message, sender) {
     case "save":
     case "dismiss":
       return sender.frameId === 0 ? answerOffer(message, sender, message.type === "save") : refused;
+    case "passkeyList":
+    case "passkeyGet":
+    case "passkeyCreate":
+      return passkey(message, sender);
     default:
       return { ok: false, error: "unknown" };
   }

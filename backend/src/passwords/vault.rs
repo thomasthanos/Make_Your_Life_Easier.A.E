@@ -147,6 +147,8 @@ pub struct Entry {
     pub history: Vec<OldPassword>,
     /// The 2FA key as an `otpauth://totp/…` link; empty without one.
     pub totp: String,
+    /// The site's passkeys for this login.
+    pub passkeys: Vec<super::passkeys::Passkey>,
     pub created_at: u64,
     pub updated_at: u64,
     /// What a newer MYLE keeps in an entry: saved back as it was, so an
@@ -176,6 +178,8 @@ pub struct Summary {
     pub history_count: usize,
     /// It has a 2FA key: the page can ask for its codes.
     pub has_totp: bool,
+    /// Its passkeys (never their keys).
+    pub passkeys: Vec<super::passkeys::PasskeyInfo>,
 }
 
 /// A new or changed entry from the page. `password: None` keeps it.
@@ -562,6 +566,7 @@ impl Vault {
                 reused: uses.get(e.password.as_str()).is_some_and(|n| *n > 1),
                 history_count: e.history.len(),
                 has_totp: !e.totp.is_empty(),
+                passkeys: e.passkeys.iter().map(super::passkeys::Passkey::info).collect(),
             })
             .collect())
     }
@@ -582,6 +587,94 @@ impl Vault {
             .get(id)
             .ok_or("That entry no longer exists.")?;
         Ok(entry.username.clone())
+    }
+
+    /// The passkeys for the relying party `rp_id`, only those in `allow`
+    /// (credential ids) when it names any: (entry id, entry title, passkey).
+    pub fn passkeys_for(
+        &mut self,
+        rp_id: &str,
+        allow: &[String],
+    ) -> Result<Vec<(String, String, super::passkeys::Passkey)>, String> {
+        let unlocked = self.unlocked()?;
+        let mut found: Vec<_> = unlocked
+            .entries
+            .iter()
+            .flat_map(|(id, entry)| {
+                entry
+                    .passkeys
+                    .iter()
+                    .filter(|key| key.rp_id == rp_id && (allow.is_empty() || allow.contains(&key.credential_id)))
+                    .map(|key| (id.clone(), entry.title.clone(), key.clone()))
+            })
+            .collect();
+        found.sort_by(|a, b| a.2.user_name.cmp(&b.2.user_name));
+        Ok(found)
+    }
+
+    /// Keeps a new passkey in the login `target`, or in a new login named
+    /// `title` for `url`. A passkey of the same account on the same site goes
+    /// (a site that makes a new one replaces the old). Returns the entry's id.
+    pub fn add_passkey(
+        &mut self,
+        target: Option<&str>,
+        passkey: super::passkeys::Passkey,
+        title: &str,
+        url: &str,
+    ) -> Result<String, String> {
+        let now = now();
+        let unlocked = self.unlocked()?;
+        let replaced: Vec<(String, Entry)> = unlocked
+            .entries
+            .iter()
+            .filter(|(id, entry)| {
+                Some(id.as_str()) != target
+                    && entry.passkeys.iter().any(|k| k.rp_id == passkey.rp_id && k.user_handle == passkey.user_handle)
+            })
+            .map(|(id, entry)| {
+                let mut entry = (**entry).clone();
+                entry.passkeys.retain(|k| !(k.rp_id == passkey.rp_id && k.user_handle == passkey.user_handle));
+                entry.updated_at = now;
+                (id.clone(), entry)
+            })
+            .collect();
+        let existing = target.and_then(|id| unlocked.entries.get(id).map(|e| (id.to_string(), (**e).clone())));
+        let (id, mut entry) = existing.unwrap_or_else(|| {
+            (
+                uuid::Uuid::new_v4().to_string(),
+                Entry {
+                    title: title.trim().to_string(),
+                    username: passkey.user_name.clone(),
+                    urls: vec![url.to_string()],
+                    created_at: now,
+                    ..Entry::default()
+                },
+            )
+        });
+        entry.passkeys.retain(|k| !(k.rp_id == passkey.rp_id && k.user_handle == passkey.user_handle));
+        entry.passkeys.push(passkey);
+        entry.updated_at = now;
+        for (other, changed) in replaced {
+            self.put_unwritten(&other, changed)?;
+        }
+        self.put(&id, entry)?;
+        Ok(id)
+    }
+
+    pub fn delete_passkey(&mut self, id: &str, credential_id: &str) -> Result<(), String> {
+        let unlocked = self.unlocked()?;
+        let mut entry = unlocked
+            .entries
+            .get(id)
+            .map(|e| (**e).clone())
+            .ok_or("That entry no longer exists.")?;
+        let before = entry.passkeys.len();
+        entry.passkeys.retain(|k| k.credential_id != credential_id);
+        if entry.passkeys.len() == before {
+            return Err("That passkey is no longer in the vault.".into());
+        }
+        entry.updated_at = now();
+        self.put(id, entry)
     }
 
     /// The entry's 2FA key.
@@ -1216,6 +1309,51 @@ mod tests {
         vault.save(&rename).unwrap();
         let stored = &vault.unlocked().unwrap().entries[&newer];
         assert_eq!(stored.extra["fromLater"][0]["site"], "example.com");
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn a_passkey_joins_its_login_and_replaces_one_of_the_same_account() {
+        use super::super::passkeys::Passkey;
+        let (path, mut vault) = temp_vault();
+        vault.create("master one", KdfParams::cheap_for_tests()).unwrap();
+        let login = vault.save(&input("Example", "p1")).unwrap();
+        let key = |credential: &str, handle: &str| Passkey {
+            credential_id: credential.into(),
+            rp_id: "example.com".into(),
+            user_handle: handle.into(),
+            user_name: "me@example.com".into(),
+            key: "sealed with the entry".into(),
+            ..Passkey::default()
+        };
+        assert_eq!(vault.add_passkey(Some(&login), key("c1", "h1"), "Example", "https://example.com").unwrap(), login);
+        // The site made a new one for the same account: it replaces the old.
+        vault.add_passkey(Some(&login), key("c2", "h1"), "Example", "https://example.com").unwrap();
+        let found = vault.passkeys_for("example.com", &[]).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].2.credential_id, "c2");
+
+        // Another account with no login yet: a login of its own.
+        let other = vault.add_passkey(None, key("c3", "h2"), "Example", "https://example.com").unwrap();
+        assert_ne!(other, login);
+        assert_eq!(vault.passkeys_for("example.com", &[]).unwrap().len(), 2);
+        assert_eq!(vault.passkeys_for("example.com", &["c3".to_string()]).unwrap().len(), 1, "only those allowed");
+        assert!(vault.passkeys_for("other.com", &[]).unwrap().is_empty());
+
+        // The page sees them, never their keys.
+        let summaries = vault.summaries().unwrap();
+        let shown = summaries.iter().find(|s| s.id == other).unwrap();
+        assert_eq!(shown.username, "me@example.com");
+        assert!(!shown.has_password);
+        assert_eq!(shown.passkeys[0].credential_id, "c3");
+        assert!(!serde_json::to_string(&summaries).unwrap().contains("sealed with the entry"));
+
+        // Kept through locking, and deleted one by one.
+        vault.lock();
+        vault.unlock("master one").unwrap();
+        vault.delete_passkey(&login, "c2").unwrap();
+        assert!(vault.delete_passkey(&login, "c2").is_err());
+        assert_eq!(vault.passkeys_for("example.com", &[]).unwrap().len(), 1);
         let _ = std::fs::remove_file(path);
     }
 

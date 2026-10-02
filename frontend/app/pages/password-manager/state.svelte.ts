@@ -447,6 +447,25 @@ class PasswordsState {
     }
   }
 
+  async removePasskey(id: string, credentialId: string) {
+    const key = this.entry(id)?.passkeys.find((k) => k.credentialId === credentialId);
+    if (!key) return;
+    const ok = await confirm({
+      title: `Delete the passkey for ${key.rpId}?`,
+      message: `${key.userName || "This account"} can no longer sign in to ${key.rpId} with it, on this PC or any PC your account syncs with. Remove it on the site too.`,
+      confirmLabel: "Delete passkey",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.passkeyDelete(id, credentialId);
+      await this.refresh();
+      this.#syncSoon();
+    } catch (error) {
+      toast.error(message(error));
+    }
+  }
+
   async remove(id: string) {
     const e = this.entry(id);
     if (!e) return;

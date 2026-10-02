@@ -6,6 +6,7 @@
   import { passwords as p } from "./state.svelte";
   import UnlockVault from "./UnlockVault.svelte";
   import VaultView from "./VaultView.svelte";
+  import VerifyPasskey from "./VerifyPasskey.svelte";
 
   onMount(() => {
     p.error = null;
@@ -28,6 +29,8 @@
 {:else}
   <VaultView />
 {/if}
+
+<VerifyPasskey />
 
 <style>
   .loading {

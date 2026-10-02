@@ -49,6 +49,8 @@ use winreg::enums::HKEY_CURRENT_USER;
 use zeroize::Zeroizing;
 
 use super::PasswordsState;
+use super::hello::Consent;
+use super::passkeys;
 use super::vault::{EntryInput, Status};
 
 /// The native messaging host's name, as the extension asks for it.
@@ -547,7 +549,13 @@ pub fn serve(app: AppHandle, state: PasswordsState, filling: bool) {
                         if note_contact(&browser) {
                             let _ = app.emit(CONTACT_EVENT, last_contact());
                         }
-                        answer(&app, &state, request)
+                        if request.is_passkey() {
+                            passkey_reply(&app, &state, request)
+                                .await
+                                .unwrap_or_else(|error| json!({ "ok": false, "error": error }))
+                        } else {
+                            answer(&app, &state, request)
+                        }
                     }
                     Err(_) => json!({ "ok": false, "error": "badRequest" }),
                 };
@@ -568,7 +576,7 @@ struct Envelope {
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
 enum Request {
     Status,
     Open,
@@ -580,6 +588,47 @@ enum Request {
     Save { url: String, username: String, password: String },
     /// A strong new password, for a sign-up or password-change form.
     Generate,
+    /// The passkeys a page may use (never their keys): for MYLE's prompt.
+    PasskeyList {
+        url: String,
+        rp_id: Option<String>,
+        #[serde(default)]
+        allow: Vec<String>,
+    },
+    /// A new passkey, for the page's `navigator.credentials.create()`.
+    PasskeyCreate {
+        url: String,
+        rp_id: Option<String>,
+        #[serde(default)]
+        rp_name: String,
+        user_id: String,
+        #[serde(default)]
+        user_name: String,
+        #[serde(default)]
+        user_display_name: String,
+        challenge: String,
+        #[serde(default)]
+        algorithms: Vec<i64>,
+        #[serde(default)]
+        exclude: Vec<String>,
+        #[serde(default)]
+        user_verification: String,
+    },
+    /// Signing in with a passkey, for the page's `navigator.credentials.get()`.
+    PasskeyGet {
+        url: String,
+        rp_id: Option<String>,
+        challenge: String,
+        credential_id: String,
+        #[serde(default)]
+        user_verification: String,
+    },
+}
+
+impl Request {
+    fn is_passkey(&self) -> bool {
+        matches!(self, Self::PasskeyList { .. } | Self::PasskeyCreate { .. } | Self::PasskeyGet { .. })
+    }
 }
 
 #[derive(Serialize)]
@@ -801,11 +850,136 @@ fn answer(app: &AppHandle, state: &PasswordsState, request: Request) -> Value {
             Ok(json!({ "ok": true, "updated": existing.is_some() }))
         }
         Request::Status | Request::Open | Request::Generate => unreachable!("answered above"),
+        Request::PasskeyList { .. } | Request::PasskeyCreate { .. } | Request::PasskeyGet { .. } => {
+            unreachable!("answered by passkey_reply")
+        }
     });
     if matches!(request, Request::Save { .. }) && result.is_ok() {
         let _ = app.emit(super::CHANGED_EVENT, ());
     }
     result.unwrap_or_else(|error| json!({ "ok": false, "error": error }))
+}
+
+/// Passkeys. Using one may ask the user to confirm with Windows Hello, so
+/// the vault is not held while that prompt shows.
+async fn passkey_reply(app: &AppHandle, state: &PasswordsState, request: Request) -> Result<Value, String> {
+    let (enabled, status) = state.with_quiet(|vault| Ok((vault.prefs().browser_filling, vault.status())))?;
+    if !enabled {
+        return Err("disabled".into());
+    }
+    let within_limit = match request {
+        Request::PasskeyList { .. } => allow(&LOOKUPS, LOOKUPS_PER_MINUTE),
+        _ => allow(&SENSITIVE, SENSITIVE_PER_MINUTE),
+    };
+    if !within_limit {
+        return Err("busy".into());
+    }
+    if status != Status::Unlocked {
+        return Err(if status == Status::New { "noVault" } else { "locked" }.into());
+    }
+    match request {
+        Request::PasskeyList { url, rp_id, allow } => {
+            let host = page_host(&url).ok_or("insecure")?;
+            let rp_id = passkeys::rp_id_for(&host, rp_id.as_deref())?;
+            if allow.len() > 64 {
+                return Err("badRequest".into());
+            }
+            let found = state.with_quiet(|vault| vault.passkeys_for(&rp_id, &allow))?;
+            let list: Vec<Value> = found
+                .iter()
+                .map(|(_, title, key)| {
+                    json!({
+                        "credentialId": key.credential_id,
+                        "userName": key.user_name,
+                        "userDisplayName": key.user_display_name,
+                        "title": title,
+                    })
+                })
+                .collect();
+            Ok(json!({ "ok": true, "rpId": rp_id, "passkeys": list }))
+        }
+        Request::PasskeyCreate {
+            url,
+            rp_id,
+            rp_name,
+            user_id,
+            user_name,
+            user_display_name,
+            challenge,
+            algorithms,
+            exclude,
+            user_verification,
+        } => {
+            let host = page_host(&url).ok_or("insecure")?;
+            let origin = passkeys::origin_of(&url).ok_or("insecure")?;
+            let rp_id = passkeys::rp_id_for(&host, rp_id.as_deref())?;
+            if !algorithms.is_empty() && !algorithms.contains(&passkeys::ES256) {
+                return Err("notSupported".into());
+            }
+            if exclude.len() > 64 {
+                return Err("badRequest".into());
+            }
+            // The vault already holds a passkey the site lists as taken.
+            if !exclude.is_empty() && !state.with_quiet(|vault| vault.passkeys_for(&rp_id, &exclude))?.is_empty() {
+                return Err("excluded".into());
+            }
+            let verified = verify_user(app, &user_verification, &rp_id).await?;
+            let user = passkeys::User { handle: user_id, name: user_name, display_name: user_display_name };
+            let (passkey, credential) =
+                passkeys::create(&rp_id, &rp_name, &user, &challenge, &origin, verified, super::vault::now())?;
+            let title = if rp_name.trim().is_empty() { rp_id.clone() } else { rp_name.trim().to_string() };
+            state.with_quiet(|vault| {
+                // The login of that account on this site, if there is one.
+                let same = same_login(vault, &host, &passkey.user_name)?;
+                let target = same.exact.or_else(|| same.same_site.first().cloned());
+                vault.add_passkey(target.as_deref(), passkey, &title, &format!("https://{rp_id}"))?;
+                vault.touch();
+                Ok(())
+            })?;
+            let _ = app.emit(super::CHANGED_EVENT, ());
+            Ok(json!({ "ok": true, "credential": credential }))
+        }
+        Request::PasskeyGet { url, rp_id, challenge, credential_id, user_verification } => {
+            let host = page_host(&url).ok_or("insecure")?;
+            let origin = passkeys::origin_of(&url).ok_or("insecure")?;
+            let rp_id = passkeys::rp_id_for(&host, rp_id.as_deref())?;
+            let passkey = state
+                .with_quiet(|vault| vault.passkeys_for(&rp_id, std::slice::from_ref(&credential_id)))?
+                .into_iter()
+                .map(|(_, _, key)| key)
+                .next()
+                .ok_or("notFound")?;
+            let verified = verify_user(app, &user_verification, &rp_id).await?;
+            let credential = passkeys::sign_in(&passkey, &challenge, &origin, verified)?;
+            let _ = state.with_quiet(|vault| {
+                vault.touch();
+                Ok(())
+            });
+            Ok(json!({ "ok": true, "credential": credential }))
+        }
+        _ => Err("badRequest".into()),
+    }
+}
+
+/// Whether the user confirmed it is them, when the site asks for that
+/// ("preferred" unless it says otherwise): Windows Hello. Without Windows
+/// Hello, a site that insists gets the master password asked in MYLE.
+async fn verify_user(app: &AppHandle, wanted: &str, site: &str) -> Result<bool, String> {
+    if wanted == "discouraged" {
+        return Ok(false);
+    }
+    let message = format!("Use your passkey for {site}");
+    let consent = tauri::async_runtime::spawn_blocking(move || super::hello::verify(&message))
+        .await
+        .map_err(|e| e.to_string())?;
+    match consent {
+        Consent::Verified => Ok(true),
+        Consent::Refused => Err("notVerified".into()),
+        Consent::Unavailable if wanted == "required" => {
+            if super::ask_master(app, site).await { Ok(true) } else { Err("notVerified".into()) }
+        }
+        Consent::Unavailable => Ok(false),
+    }
 }
 
 /// The logins saved with one user name for a page.
@@ -984,6 +1158,29 @@ mod tests {
         assert_eq!(envelope.browser, "Edge");
         assert!(matches!(envelope.request, Request::Status));
         assert!(serde_json::from_value::<Envelope>(json!({ "type": "status" })).is_err(), "a bare request is refused");
+    }
+
+    #[test]
+    fn passkey_requests_are_read_with_the_extensions_names() {
+        let create: Request = serde_json::from_value(json!({
+            "type": "passkeyCreate", "url": "https://example.com/", "rpId": "example.com", "rpName": "Example",
+            "userId": "dXNlcg", "userName": "me", "userDisplayName": "Me", "challenge": "Y2hhbGxlbmdl",
+            "algorithms": [-7, -257], "exclude": [], "userVerification": "preferred"
+        }))
+        .unwrap();
+        assert!(create.is_passkey());
+        assert!(matches!(
+            create,
+            Request::PasskeyCreate { ref rp_id, ref user_verification, ref user_display_name, .. }
+                if rp_id.as_deref() == Some("example.com") && user_verification == "preferred" && user_display_name == "Me"
+        ));
+        let get: Request = serde_json::from_value(json!({
+            "type": "passkeyGet", "url": "https://example.com/", "challenge": "Y2g", "credentialId": "abc"
+        }))
+        .unwrap();
+        assert!(matches!(get, Request::PasskeyGet { rp_id: None, ref credential_id, .. } if credential_id == "abc"));
+        let fill: Request = serde_json::from_value(json!({ "type": "fill", "id": "1", "url": "https://x.com" })).unwrap();
+        assert!(!fill.is_passkey());
     }
 
     #[test]

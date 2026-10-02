@@ -88,6 +88,50 @@ fn status_error(status: KeyCredentialStatus) -> String {
     }
 }
 
+/// What came of asking the user to confirm it is them.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Consent {
+    Verified,
+    /// Cancelled, or not them.
+    Refused,
+    /// No PIN, fingerprint or face set up on this PC.
+    Unavailable,
+}
+
+/// Asks Windows Hello (PIN, fingerprint or face) to confirm it is the user,
+/// over the window in front (the browser, for a passkey).
+pub fn verify(message: &str) -> Consent {
+    use windows::Security::Credentials::UI::{
+        UserConsentVerificationResult, UserConsentVerifier, UserConsentVerifierAvailability,
+    };
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::System::WinRT::IUserConsentVerifierInterop;
+    use windows_future::IAsyncOperation;
+
+    let available = UserConsentVerifier::CheckAvailabilityAsync().and_then(|op| op.get());
+    if available != Ok(UserConsentVerifierAvailability::Available) {
+        return Consent::Unavailable;
+    }
+    let message = HSTRING::from(message);
+    let front = unsafe { windows_sys::Win32::UI::WindowsAndMessaging::GetForegroundWindow() };
+    // Owned by the window in front, the prompt shows over it; else on its own.
+    let operation = windows::core::factory::<UserConsentVerifier, IUserConsentVerifierInterop>()
+        .and_then(|interop| unsafe {
+            interop.RequestVerificationForWindowAsync::<IAsyncOperation<UserConsentVerificationResult>>(HWND(front), &message)
+        })
+        .or_else(|_| UserConsentVerifier::RequestVerificationAsync(&message));
+    let Ok(operation) = operation else { return Consent::Unavailable };
+    focus_prompt();
+    match operation.get() {
+        Ok(UserConsentVerificationResult::Verified) => Consent::Verified,
+        Ok(UserConsentVerificationResult::DeviceNotPresent | UserConsentVerificationResult::NotConfiguredForUser | UserConsentVerificationResult::DisabledByPolicy) => {
+            Consent::Unavailable
+        }
+        Ok(_) => Consent::Refused,
+        Err(_) => Consent::Unavailable,
+    }
+}
+
 /// Has the Windows Hello key sign `data` (the user confirms first).
 fn sign(credential: &KeyCredential, data: &[u8]) -> Result<Zeroizing<Vec<u8>>, String> {
     let buffer = CryptographicBuffer::CreateFromByteArray(data).map_err(|e| e.to_string())?;

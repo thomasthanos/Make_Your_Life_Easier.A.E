@@ -214,6 +214,7 @@
     open: '<path d="M14 4h6v6"/><path d="m20 4-8.5 8.5"/><path d="M18 14.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4.5"/>',
     sparkle: '<path d="M12 3.5 13.9 9 19.5 11 13.9 13 12 18.5 10.1 13 4.5 11 10.1 9z"/><path d="M19 3v4M17 5h4"/>',
     more: '<path d="m6 9 6 6 6-6"/>',
+    key: '<circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.7-8.7"/><path d="m17 6 2.5 2.5"/><path d="m14.5 8.5 2.5 2.5"/>',
   };
   const glyph = (name) =>
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" ` +
@@ -273,7 +274,10 @@
     .bar button:hover { background: rgba(255,255,255,.12); }
     .bar button:focus-visible { box-shadow: 0 0 0 2px rgba(132,142,222,.6); }
     .bar button.primary { background: #848ede; color: #fff; font-weight: 600; }
-    .bar button:disabled { opacity: .6; cursor: default; }`;
+    .bar button:disabled { opacity: .6; cursor: default; }
+    .bar .keys { display: grid; gap: 4px; margin: -4px 0 12px; }
+    .bar .keys .item { padding: 7px 8px; background: rgba(255,255,255,.04); color: inherit; font-weight: 400; }
+    .bar .keys .item:hover { background: rgba(132,142,222,.16); }`;
 
   // A random tag name: a page cannot define it before the menu is made.
   const host = document.createElement(`myle-${crypto.getRandomValues(new Uint32Array(2)).join("-")}`);
@@ -651,9 +655,9 @@
   async function showFor(field) {
     anchor = field;
     const fresh = newPasswordFields(field);
-    const answer = await send({ type: "logins" });
+    const [answer, passkeys] = await Promise.all([send({ type: "logins" }), passkeyChoices()]);
     if (anchor !== field || !field.isConnected) return;
-    const items = [];
+    const items = [...passkeys];
     if (answer?.ok) {
       const logins = answer.logins ?? [];
       // A new password only while the vault is open, so it can be saved.
@@ -693,7 +697,7 @@
         "To fill it, use the MYLE button in the browser's toolbar."));
     } else if (answer?.error === "busy") {
       items.push(note(problems.busy));
-    } else {
+    } else if (!items.length) {
       return hidePanel();
     }
     render(field, items);
@@ -788,6 +792,232 @@
         fill(message, null) : { applied: false, error: "pageChanged" });
     }
   });
+
+  // --- Passkeys --------------------------------------------------------------
+  //
+  // The site's navigator.credentials calls come from passkeys.js, in the
+  // page's world. The user decides here, in MYLE's own prompt; the app answers
+  // for the address the browser reports, never one the page names.
+
+  const FROM_PAGE = "myle-passkeys/page";
+  const TO_PAGE = "myle-passkeys/extension";
+  /** A sign-in form's standing request for a passkey picked from the menu. */
+  let waitingPasskey = null;
+  /** The request MYLE's prompt is for. */
+  let prompted = null;
+
+  const answerPage = (id, answer) => window.postMessage({ source: TO_PAGE, id, ...answer }, location.origin);
+
+  const passkeyErrors = {
+    notVerified: ["NotAllowedError", "Windows Hello did not confirm it is you."],
+    excluded: ["InvalidStateError", "This account already has a passkey in MYLE."],
+    rpMismatch: ["SecurityError", "This page may not use that site's passkeys."],
+    notFound: ["NotAllowedError", "That passkey is no longer in your vault."],
+    locked: ["NotAllowedError", "Your vault locked meanwhile. Unlock it in MYLE and try again."],
+  };
+
+  function refuse(id, error) {
+    const [name, message] = passkeyErrors[error] ?? ["NotAllowedError", "The operation either timed out or was not allowed."];
+    answerPage(id, { result: "error", name, message });
+  }
+
+  function closePrompt() {
+    prompted = null;
+    hide(bar);
+  }
+
+  /** MYLE's prompt: a title, a line, what goes between, then the buttons
+   *  ([label, primary, run]). Returns the line, to say what happens. */
+  function prompt(id, title, line, buttons, between = []) {
+    prompted = id;
+    mount(null);
+    const head = document.createElement("div");
+    head.className = "title";
+    head.innerHTML = MARK;
+    head.append(title);
+    const text = document.createElement("p");
+    text.textContent = line;
+    const row = document.createElement("div");
+    row.className = "row";
+    for (const [label, primary, run] of buttons) {
+      const button = document.createElement("button");
+      button.textContent = label;
+      if (primary) button.className = "primary";
+      button.addEventListener("click", (event) => {
+        if (prompted !== id || button.disabled || !genuine(event, bar, button)) return;
+        void run(button, text);
+      });
+      row.append(button);
+    }
+    bar.replaceChildren(head, text, ...between, row);
+    show(bar);
+    return text;
+  }
+
+  const anotherDevice = (id) => ["Another device", false, () => {
+    closePrompt();
+    answerPage(id, { result: "native" });
+  }];
+  const cancel = (id) => ["Cancel", false, () => {
+    closePrompt();
+    refuse(id, "cancelled");
+  }];
+
+  /** Says what went wrong for a moment; the page hears it at once. */
+  function failed(id, text, error) {
+    refuse(id, error);
+    text.textContent = passkeyErrors[error]?.[1] ?? problems[error] ?? "MYLE could not do that just now.";
+    setTimeout(() => prompted === id && closePrompt(), 2600);
+  }
+
+  /** Whether MYLE takes part for this site; else the browser's own passkeys. */
+  async function passkeysHere(id, options, retry) {
+    const listed = await send({ type: "passkeyList", rpId: options.rpId, allow: options.allow ?? [] });
+    if (prompted !== id) return null;
+    if (listed?.ok && Array.isArray(listed.passkeys)) return listed;
+    if (listed?.error === "locked") {
+      prompt(id, "Your MYLE vault is locked", "Unlock it in MYLE, then press Try again, to use the passkeys saved there.", [
+        anotherDevice(id),
+        ["Open MYLE", false, () => send({ type: "open" })],
+        ["Try again", true, () => retry()],
+      ]);
+    } else {
+      prompted = null;
+      if (listed?.error === "rpMismatch") refuse(id, "rpMismatch");
+      else answerPage(id, { result: "native" });
+    }
+    return null;
+  }
+
+  const busyLine = "If Windows Hello asks, confirm it is you.";
+
+  async function offerNewPasskey(id, options) {
+    const listed = await passkeysHere(id, options, () => offerNewPasskey(id, options));
+    if (!listed) return;
+    const who = options.userName || options.userDisplayName || "your account";
+    prompt(id, `Save a passkey for ${listed.rpId}?`,
+      `For ${who}, in your MYLE vault: it signs you in on every PC where you use MYLE.`, [
+        cancel(id),
+        anotherDevice(id),
+        ["Save in MYLE", true, async (button, text) => {
+          button.disabled = true;
+          text.textContent = `Saving… ${busyLine}`;
+          const answer = await send({
+            type: "passkeyCreate",
+            rpId: options.rpId,
+            rpName: options.rpName,
+            userId: options.userId,
+            userName: options.userName,
+            userDisplayName: options.userDisplayName,
+            challenge: options.challenge,
+            algorithms: options.algorithms,
+            exclude: options.exclude,
+            userVerification: options.userVerification,
+          });
+          if (prompted !== id) return;
+          if (answer?.ok && answer.credential) {
+            closePrompt();
+            answerPage(id, { result: "credential", credential: answer.credential });
+          } else if (answer?.error === "notSupported") {
+            // The site takes no key MYLE makes: the browser's own then.
+            closePrompt();
+            answerPage(id, { result: "native" });
+          } else {
+            failed(id, text, answer?.error);
+          }
+        }],
+      ]);
+  }
+
+  const usePasskey = (options, credentialId) => send({
+    type: "passkeyGet",
+    rpId: options.rpId,
+    challenge: options.challenge,
+    credentialId,
+    userVerification: options.userVerification,
+  });
+
+  async function offerSignIn(id, options) {
+    const listed = await passkeysHere(id, options, () => offerSignIn(id, options));
+    if (!listed) return;
+    if (!listed.passkeys.length) {
+      prompted = null;
+      return answerPage(id, { result: "native" });
+    }
+    const keys = document.createElement("div");
+    keys.className = "keys";
+    const text = prompt(id, `Sign in to ${listed.rpId}`, "With a passkey saved in MYLE:", [cancel(id), anotherDevice(id)], [keys]);
+    for (const key of listed.passkeys.slice(0, 6)) {
+      const button = item(key.userName || key.userDisplayName || "Passkey", key.title || listed.rpId, glyphAvatar("key"));
+      button.addEventListener("click", async (event) => {
+        if (prompted !== id || button.disabled || !genuine(event, bar, button)) return;
+        for (const other of keys.querySelectorAll("button")) other.disabled = true;
+        text.textContent = `Signing in… ${busyLine}`;
+        const answer = await usePasskey(options, key.credentialId);
+        if (prompted !== id) return;
+        if (answer?.ok && answer.credential) {
+          closePrompt();
+          answerPage(id, { result: "credential", credential: answer.credential });
+        } else {
+          failed(id, text, answer?.error);
+        }
+      });
+      keys.append(button);
+    }
+  }
+
+  /** For the menu on a sign-in field: the passkeys a waiting sign-in form
+   *  (mediation: "conditional") can use. */
+  async function passkeyChoices() {
+    const waiting = waitingPasskey;
+    if (!waiting) return [];
+    const listed = await send({ type: "passkeyList", rpId: waiting.options.rpId, allow: waiting.options.allow ?? [] });
+    if (!listed?.ok || !Array.isArray(listed.passkeys) || waitingPasskey !== waiting) return [];
+    return listed.passkeys.slice(0, 4).map((key) => {
+      const button = item(key.userName || key.userDisplayName || "Passkey", `Passkey · ${listed.rpId}`, glyphAvatar("key"));
+      button.addEventListener("click", async (event) => {
+        if (!genuine(event, panel, button)) return;
+        const field = anchor;
+        hidePanel();
+        if (waitingPasskey !== waiting) return showNote(field, "The sign-in form changed. Click the field again.");
+        const answer = await usePasskey(waiting.options, key.credentialId);
+        if (answer?.ok && answer.credential && waitingPasskey === waiting) {
+          waitingPasskey = null;
+          answerPage(waiting.id, { result: "credential", credential: answer.credential });
+        } else {
+          showNote(field, passkeyErrors[answer?.error]?.[1] ?? problems[answer?.error] ?? "MYLE could not sign in with that passkey.");
+        }
+      });
+      return button;
+    });
+  }
+
+  if (window === window.top) {
+    addEventListener("message", (event) => {
+      if (event.source !== window || event.data?.source !== FROM_PAGE) return;
+      const { id, kind, options } = event.data;
+      if (typeof id !== "string" || id.length > 80) return;
+      if (kind === "abort") {
+        if (waitingPasskey?.id === id) waitingPasskey = null;
+        if (prompted === id) closePrompt();
+        return;
+      }
+      if (!options || typeof options !== "object") return answerPage(id, { result: "native" });
+      if (kind === "conditional") {
+        waitingPasskey = { id, options };
+        return;
+      }
+      // A newer request takes the place of the one on screen.
+      if (prompted) refuse(prompted, "cancelled");
+      prompted = id;
+      if (kind === "create") void offerNewPasskey(id, options);
+      else if (kind === "get") void offerSignIn(id, options);
+      else {
+        prompted = null;
+        answerPage(id, { result: "native" });
+      }
+    });
+  }
 
   // --- Offering to save -------------------------------------------------------
 

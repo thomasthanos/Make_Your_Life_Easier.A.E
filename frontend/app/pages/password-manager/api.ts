@@ -44,6 +44,24 @@ export interface Summary {
   historyCount: number;
   /** It has a 2FA key: its codes can be shown. */
   hasTotp: boolean;
+  /** Its passkeys (never their keys). */
+  passkeys: PasskeyInfo[];
+}
+
+/** A passkey a login holds, as the page sees it. */
+export interface PasskeyInfo {
+  credentialId: string;
+  /** The site it signs in to. */
+  rpId: string;
+  userName: string;
+  userDisplayName: string;
+  createdAt: number;
+}
+
+/** A passkey's site asks for the master password (no Windows Hello here). */
+export interface VerifyRequest {
+  id: number;
+  site: string;
 }
 
 /** A 2FA code, and how long it still holds. */
@@ -161,6 +179,12 @@ export interface PasswordsApi {
   totpScanClipboard(): Promise<string>;
   /** The same from a picture the user picks; null when they cancel. */
   totpScanFile(): Promise<string | null>;
+  passkeyDelete(id: string, credentialId: string): Promise<void>;
+  /** A passkey waiting for the master password, if any. */
+  verifyPending(): Promise<VerifyRequest | null>;
+  /** The master password for it, or null to refuse. */
+  verifyAnswer(id: number, master: string | null): Promise<void>;
+  onVerify(handler: (request: VerifyRequest) => void): Promise<() => void>;
   copyText(text: string): Promise<void>;
   save(entry: EntryInput): Promise<string>;
   remove(id: string): Promise<void>;
@@ -206,6 +230,10 @@ const tauriApi: PasswordsApi = {
   totpCheck: (text) => invoke("passwords_totp_check", { text }),
   totpScanClipboard: () => invoke("passwords_totp_scan_clipboard"),
   totpScanFile: () => invoke("passwords_totp_scan_file"),
+  passkeyDelete: (id, credentialId) => invoke("passwords_passkey_delete", { id, credentialId }),
+  verifyPending: () => invoke("passwords_verify_pending"),
+  verifyAnswer: (id, master) => invoke("passwords_verify_answer", { id, master }),
+  onVerify: (handler) => listen<VerifyRequest>("passwords-verify", (event) => handler(event.payload)),
   copyText: (text) => invoke("passwords_copy_text", { text }),
   save: (entry) => invoke("passwords_save", { entry }),
   remove: (id) => invoke("passwords_delete", { id }),
@@ -263,16 +291,16 @@ function previewApi(): PasswordsApi {
     ["10", "hunter2"],
   ]);
   let items: Summary[] = [
-    { id: "1", title: "GitHub", username: "thomas@example.com", urls: ["https://github.com/login"], apps: [], notes: "", favorite: true, folder: "Work", updatedAt: now - 3600, hasPassword: true, strength: "strong", reused: false, historyCount: 2, hasTotp: true },
-    { id: "2", title: "Old forum", username: "tommy", urls: ["https://forum.example.org"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 40, hasPassword: true, strength: "weak", reused: true, historyCount: 0, hasTotp: false },
-    { id: "3", title: "Riot Games", username: "tommy_gg", urls: ["https://account.riotgames.com"], apps: [{ exe: "riotclientux.exe", name: "Riot Client" }], notes: "", favorite: true, folder: "Games", updatedAt: now - 86400 * 3, hasPassword: true, strength: "weak", reused: true, historyCount: 1, hasTotp: false },
-    { id: "4", title: "Steam", username: "thomas_steam", urls: ["https://store.steampowered.com"], apps: [{ exe: "steam.exe", name: "Steam" }], notes: "Steam Guard on phone", favorite: false, folder: "Games", updatedAt: now - 86400 * 10, hasPassword: true, strength: "strong", reused: false, historyCount: 0, hasTotp: false },
-    { id: "5", title: "netflix.com", username: "family@example.com", urls: ["https://www.netflix.com/login"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 2, hasPassword: true, strength: "fair", reused: false, historyCount: 0, hasTotp: false },
-    { id: "6", title: "Discord", username: "thomas#0001", urls: ["https://discord.com/login"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 5, hasPassword: true, strength: "strong", reused: false, historyCount: 0, hasTotp: false },
-    { id: "7", title: "Google", username: "thomas@gmail.example", urls: ["https://accounts.google.com"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 8, hasPassword: true, strength: "strong", reused: false, historyCount: 0, hasTotp: false },
-    { id: "8", title: "Spotify", username: "thomas", urls: ["https://spotify.com"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 20, hasPassword: true, strength: "fair", reused: false, historyCount: 0, hasTotp: false },
-    { id: "9", title: "192.168.1.1", username: "admin", urls: ["http://192.168.1.1"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 60, hasPassword: true, strength: "weak", reused: false, historyCount: 0, hasTotp: false },
-    { id: "10", title: "account.cosmote.gr", username: "6900000000", urls: ["https://account.cosmote.gr"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 12, hasPassword: true, strength: "fair", reused: true, historyCount: 0, hasTotp: false },
+    { id: "1", title: "GitHub", username: "thomas@example.com", urls: ["https://github.com/login"], apps: [], notes: "", favorite: true, folder: "Work", updatedAt: now - 3600, hasPassword: true, strength: "strong", reused: false, historyCount: 2, hasTotp: true, passkeys: [{ credentialId: "pk1", rpId: "github.com", userName: "thomas", userDisplayName: "Thomas", createdAt: now - 86400 * 4 }] },
+    { id: "2", title: "Old forum", username: "tommy", urls: ["https://forum.example.org"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 40, hasPassword: true, strength: "weak", reused: true, historyCount: 0, hasTotp: false, passkeys: [] },
+    { id: "3", title: "Riot Games", username: "tommy_gg", urls: ["https://account.riotgames.com"], apps: [{ exe: "riotclientux.exe", name: "Riot Client" }], notes: "", favorite: true, folder: "Games", updatedAt: now - 86400 * 3, hasPassword: true, strength: "weak", reused: true, historyCount: 1, hasTotp: false, passkeys: [] },
+    { id: "4", title: "Steam", username: "thomas_steam", urls: ["https://store.steampowered.com"], apps: [{ exe: "steam.exe", name: "Steam" }], notes: "Steam Guard on phone", favorite: false, folder: "Games", updatedAt: now - 86400 * 10, hasPassword: true, strength: "strong", reused: false, historyCount: 0, hasTotp: false, passkeys: [] },
+    { id: "5", title: "netflix.com", username: "family@example.com", urls: ["https://www.netflix.com/login"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 2, hasPassword: true, strength: "fair", reused: false, historyCount: 0, hasTotp: false, passkeys: [] },
+    { id: "6", title: "Discord", username: "thomas#0001", urls: ["https://discord.com/login"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 5, hasPassword: true, strength: "strong", reused: false, historyCount: 0, hasTotp: false, passkeys: [] },
+    { id: "7", title: "Google", username: "thomas@gmail.example", urls: ["https://accounts.google.com"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 8, hasPassword: true, strength: "strong", reused: false, historyCount: 0, hasTotp: false, passkeys: [] },
+    { id: "8", title: "Spotify", username: "thomas", urls: ["https://spotify.com"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 20, hasPassword: true, strength: "fair", reused: false, historyCount: 0, hasTotp: false, passkeys: [] },
+    { id: "9", title: "192.168.1.1", username: "admin", urls: ["http://192.168.1.1"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 60, hasPassword: true, strength: "weak", reused: false, historyCount: 0, hasTotp: false, passkeys: [] },
+    { id: "10", title: "account.cosmote.gr", username: "6900000000", urls: ["https://account.cosmote.gr"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 12, hasPassword: true, strength: "fair", reused: true, historyCount: 0, hasTotp: false, passkeys: [] },
   ];
   const wait = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
   const rate = (p: string): Strength => (!p ? "none" : p.length < 10 ? "weak" : p.length < 16 ? "fair" : "strong");
@@ -340,6 +368,19 @@ function previewApi(): PasswordsApi {
     async totpScanFile() {
       return null;
     },
+    async passkeyDelete(id, credentialId) {
+      items = items.map((i) => (i.id === id ? { ...i, passkeys: i.passkeys.filter((k) => k.credentialId !== credentialId) } : i));
+    },
+    async verifyPending() {
+      return new URLSearchParams(location.search).has("verify") ? { id: 1, site: "github.com" } : null;
+    },
+    async verifyAnswer(_id, master) {
+      await wait(300);
+      if (master !== null && master !== "preview") throw new Error("Wrong master password. (Type “preview” here.)");
+    },
+    async onVerify() {
+      return () => {};
+    },
     async copyText() {},
     async save(entry) {
       const id = entry.id ?? String(Date.now());
@@ -356,6 +397,7 @@ function previewApi(): PasswordsApi {
         reused: false,
         historyCount: 0,
         hasTotp: totp === undefined ? !!before?.hasTotp : !!totp,
+        passkeys: before?.passkeys ?? [],
       };
       items = entry.id ? items.map((i) => (i.id === id ? summary : i)) : [...items, summary];
       return id;

@@ -9,6 +9,7 @@
   import Star from "@lucide/svelte/icons/star";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
+  import UserKey from "@lucide/svelte/icons/user-key";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { onDestroy } from "svelte";
   import { passwordsApi as api, type OldPassword } from "./api";
@@ -123,6 +124,21 @@
         </div>
       {/if}
     </dl>
+
+    {#if entry.passkeys.length}
+      <section class="passkeys" aria-label="Passkeys">
+        <h3><UserKey size={13} /> Passkeys</h3>
+        {#each entry.passkeys as key (key.credentialId)}
+          <div class="passkey">
+            <span class="passkey-text">
+              <strong>{key.userName || key.userDisplayName || "Passkey"}</strong>
+              <small>{key.rpId} · saved {when(key.createdAt)}</small>
+            </span>
+            <button class="icon-btn" title="Delete passkey" aria-label="Delete the passkey for {key.rpId}" onclick={() => p.removePasskey(id, key.credentialId)}><Trash2 size={14} /></button>
+          </div>
+        {/each}
+      </section>
+    {/if}
 
     {#if entry.historyCount}
       <button class="history-toggle" onclick={toggleHistory}>
@@ -312,6 +328,55 @@
     padding: 2px 8px;
     border-radius: 999px;
     background: rgb(var(--accent-rgb) / 0.12);
+    font-size: 11.5px;
+  }
+
+  .passkeys {
+    display: grid;
+    gap: 4px;
+  }
+
+  .passkeys h3 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 2px;
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .passkey {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 4px 4px 4px 12px;
+    border: 1px solid rgb(255 255 255 / 0.06);
+    border-radius: 10px;
+    background: rgb(0 0 0 / 0.14);
+  }
+
+  .passkey-text {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .passkey-text strong,
+  .passkey-text small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .passkey-text strong {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .passkey-text small {
+    color: var(--text-3);
     font-size: 11.5px;
   }
 
