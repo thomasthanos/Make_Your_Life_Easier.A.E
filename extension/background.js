@@ -240,6 +240,9 @@ async function fillTab(tabId, frameId, id) {
 // password, and "save" works only with the nonce of an offer it was shown.
 
 const pendingKey = (tabId) => `pending:${tabId}`;
+/** Sent logins still being checked with the app, by tab: a fast next page
+ *  waits for them before it asks for an offer. */
+const checking = new Map();
 const suggestedKey = (tabId) => `suggested:${tabId}`;
 
 async function readPending(tabId) {
@@ -299,6 +302,7 @@ async function whenUnlocked() {
 }
 
 async function offer(sender) {
+  await checking.get(sender.tab.id)?.catch(() => {});
   const found = await readPending(sender.tab.id);
   // An identity provider can redirect through another site before returning
   // to the sign-in site: the offer waits for a page of that site.
@@ -467,7 +471,13 @@ async function handle(message, sender) {
     case "submitted":
       // A form sent to the app: ask whether the login is new, and if so offer
       // to save it on the next page (the form usually navigates).
-      return (await embeddedIn(sender)) ? { ok: true } : submitted(message, sender);
+      if (await embeddedIn(sender)) return { ok: true };
+      {
+        const work = submitted(message, sender);
+        checking.set(sender.tab.id, work);
+        void work.finally(() => checking.get(sender.tab.id) === work && checking.delete(sender.tab.id));
+        return work;
+      }
     case "pending":
       return sender.frameId === 0 ? offer(sender) : null;
     case "save":
