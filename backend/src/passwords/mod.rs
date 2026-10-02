@@ -10,8 +10,10 @@ mod generator;
 mod hello;
 pub mod icons;
 mod import;
+mod qr;
 mod session;
 mod sync;
+mod totp;
 mod vault;
 pub mod windows_fill;
 
@@ -499,9 +501,57 @@ pub fn passwords_copy(
     let text = state.with(|vault| match field.as_str() {
         "password" => Ok(vault.password(&id)?),
         "username" => Ok(zeroize::Zeroizing::new(vault.username(&id)?)),
+        "totp" => Ok(zeroize::Zeroizing::new(vault.totp(&id)?.now().code)),
         _ => Err("Unknown field.".into()),
     })?;
     clipboard::copy_secret(&text)
+}
+
+/// The entry's 2FA code now; the page asks again when it runs out. Showing
+/// it does not keep the vault open: only the user's clicks do.
+#[tauri::command(async)]
+pub fn passwords_totp(state: State<'_, PasswordsState>, id: String) -> Result<totp::Code, String> {
+    state.with_quiet(|vault| Ok(vault.totp(&id)?.now()))
+}
+
+/// Whose key it is and how its codes are made, for the editor to show
+/// before saving; never the key.
+#[tauri::command(async)]
+pub fn passwords_totp_check(text: String) -> Result<totp::Info, String> {
+    Ok(totp::Totp::parse(&zeroize::Zeroizing::new(text))?.info())
+}
+
+/// The 2FA link in a QR code snipped or copied to the clipboard.
+#[tauri::command]
+pub async fn passwords_totp_scan_clipboard() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let picture = clipboard::read_image()?.ok_or(
+            "There is no picture on the clipboard. Snip the QR code with Win+Shift+S, then try again.",
+        )?;
+        qr::otpauth_in(&picture)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The 2FA link in a QR code saved as a picture; `None` when the user
+/// closed the dialog.
+#[tauri::command]
+pub async fn passwords_totp_scan_file(app: AppHandle) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let picked = app
+            .dialog()
+            .file()
+            .set_title("A picture of the QR code")
+            .add_filter("Pictures", &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tif", "tiff"])
+            .blocking_pick_file()
+            .map(|path| path.into_path().map_err(|e| e.to_string()))
+            .transpose()?;
+        let Some(path) = picked else { return Ok(None) };
+        qr::otpauth_in(&qr::grey_from_file(&path)?).map(Some)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Copies text the page already has (a generated password), the same way.

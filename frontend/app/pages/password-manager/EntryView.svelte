@@ -15,6 +15,7 @@
   import Favicon from "./Favicon.svelte";
   import { iconHost, passwords as p } from "./state.svelte";
   import StrengthMeter from "./StrengthMeter.svelte";
+  import TotpCode from "./TotpCode.svelte";
 
   let { id }: { id: string } = $props();
 
@@ -96,6 +97,9 @@
           <dt></dt>
           <dd><StrengthMeter strength={entry.strength} /></dd>
         </div>
+      {/if}
+      {#if entry.hasTotp}
+        <TotpCode {id} />
       {/if}
       {#each entry.urls as url (url)}
         <div class="row">

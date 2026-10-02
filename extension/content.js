@@ -97,6 +97,45 @@
     return fields.includes(field) ? { fields, marked: false } : none;
   }
 
+  // A 2FA code field: the site says so, or its name says so, or it is a row
+  // of one-digit boxes.
+  const CODE_WORDS = /one.?time|otp|2fa|mfa|two.?factor|authenticator|verification.?code|security.?code|auth.?code|passcode/i;
+
+  /** The row of one-character boxes a code is split into, around `field`. */
+  function codeBoxes(field) {
+    if (field.maxLength !== 1) return [];
+    let scope = field.parentElement;
+    for (let depth = 0; scope && depth < 3; depth++, scope = scope.parentElement) {
+      const boxes = queryAll(scope, "input").filter((el) => el.maxLength === 1 && usable(el));
+      if (boxes.length > 8) return [];
+      if (boxes.length >= 4) return boxes;
+    }
+    return [];
+  }
+
+  function isCodeField(field) {
+    if (!(field instanceof HTMLInputElement) || !usable(field)) return false;
+    if (marked(field, "one-time-code")) return true;
+    if (!["text", "tel", "number"].includes(field.type)) return false;
+    if (codeBoxes(field).length) return true;
+    const hint = `${field.name} ${field.id} ${field.placeholder} ${getAttr(field, "aria-label") ?? ""}`;
+    if (CODE_WORDS.test(hint)) return true;
+    const numeric = field.inputMode === "numeric" || field.type !== "text" || /\\d|0-9/.test(getAttr(field, "pattern") ?? "");
+    return numeric && field.maxLength >= 6 && field.maxLength <= 8 && /code|pin/i.test(hint);
+  }
+
+  /** Types a 2FA code into its field, or digit by digit into its boxes. */
+  function fillCode(field, code) {
+    const boxes = codeBoxes(field);
+    if (boxes.length >= code.length) {
+      boxes.slice(0, code.length).forEach((box, i) => setValue(box, code[i]));
+      return true;
+    }
+    if (!usable(field)) return false;
+    setValue(field, code);
+    return true;
+  }
+
   /** A form that would send what is typed in it over plain http. */
   function insecureForm(field) {
     const form = field?.form;
@@ -487,6 +526,7 @@
     wrongSite: "That login is saved for another website.",
     notFound: "That login is no longer in your vault.",
     notRunning: "MYLE is not running. Open it, then try again.",
+    noTotp: "That login has no 2FA key in MYLE any more.",
   };
 
   function entryButton(login) {
@@ -508,6 +548,41 @@
       }
     });
     return button;
+  }
+
+  function codeButton(login) {
+    const title = login.title || login.site || "Login";
+    const button = item(title, `2FA code · ${login.username || "No user name"}`, avatarFor(login, title),
+      login.exact ? "" : login.site);
+    button.addEventListener("click", async (event) => {
+      if (!genuine(event, panel, button)) return;
+      const field = anchor;
+      hidePanel();
+      const answer = await send({ type: "totp", id: login.id });
+      if (!answer?.ok || typeof answer.code !== "string" || !/^\d{6,8}$/.test(answer.code)) {
+        return showNote(field, problems[answer?.error] ?? "MYLE could not make the code just now.");
+      }
+      if (!fillCode(field, answer.code)) showNote(field, "The code field changed. Click it again and retry.");
+    });
+    return button;
+  }
+
+  /** On a 2FA code field: the codes of this site's logins that have a key.
+   *  Nothing at all when none has (the code may come by SMS or email). */
+  async function showCodesFor(field) {
+    anchor = field;
+    const answer = await send({ type: "logins" });
+    if (anchor !== field || !field.isConnected) return;
+    if (!answer?.ok) {
+      return answer?.error === "locked" ? render(field, [openButton("Unlock your vault in MYLE for the 2FA code", "lock")]) :
+        hidePanel();
+    }
+    const withCodes = (answer.logins ?? []).filter((login) => login.totp === true);
+    if (!withCodes.length) return hidePanel();
+    // The account the page already names comes first.
+    const named = accountsOnPage(withCodes, field);
+    const ordered = [...named, ...withCodes.filter((login) => !named.includes(login))];
+    render(field, ordered.slice(0, 6).map(codeButton));
   }
 
   function suggestButton(fields) {
@@ -635,6 +710,8 @@
       if (field && isLoginField(field)) {
         // Clicked again while the menu shows only a note: look again.
         if (anchor !== field || panel.hidden || !panel.querySelector(".item")) void showFor(field);
+      } else if (field && isCodeField(field)) {
+        if (anchor !== field || panel.hidden || !panel.querySelector(".item")) void showCodesFor(field);
       } else {
         hidePanel();
       }

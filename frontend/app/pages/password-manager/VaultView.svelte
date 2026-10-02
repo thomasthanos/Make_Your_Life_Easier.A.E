@@ -12,6 +12,7 @@
   import Lock from "@lucide/svelte/icons/lock";
   import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
+  import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import ShieldAlert from "@lucide/svelte/icons/shield-alert";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import Star from "@lucide/svelte/icons/star";
@@ -233,6 +234,7 @@
             </span>
             <span class="marks">
               {#if entry.apps.length}<span title="Linked to a Windows program"><AppWindow size={13} /></span>{/if}
+              {#if entry.hasTotp}<span title="Has 2FA codes"><ShieldCheck size={13} /></span>{/if}
               {#if entry.favorite}<span class="fav" title="Favorite"><Star size={13} /></span>{/if}
               {#if entry.hasPassword}<StrengthMeter strength={entry.strength} compact />{/if}
             </span>

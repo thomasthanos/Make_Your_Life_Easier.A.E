@@ -145,8 +145,15 @@ pub struct Entry {
     pub favorite: bool,
     pub folder: String,
     pub history: Vec<OldPassword>,
+    /// The 2FA key as an `otpauth://totp/…` link; empty without one.
+    pub totp: String,
     pub created_at: u64,
     pub updated_at: u64,
+    /// What a newer MYLE keeps in an entry: saved back as it was, so an
+    /// edit here never drops it.
+    #[serde(flatten)]
+    #[zeroize(skip)]
+    pub extra: BTreeMap<String, serde_json::Value>,
 }
 
 /// What the page lists: everything but the password and its history.
@@ -167,6 +174,8 @@ pub struct Summary {
     /// Other entries use the same password.
     pub reused: bool,
     pub history_count: usize,
+    /// It has a 2FA key: the page can ask for its codes.
+    pub has_totp: bool,
 }
 
 /// A new or changed entry from the page. `password: None` keeps it.
@@ -190,6 +199,10 @@ pub struct EntryInput {
     pub favorite: bool,
     #[serde(default)]
     pub folder: String,
+    /// The 2FA key or its `otpauth://` link: `None` keeps the saved one,
+    /// empty removes it.
+    #[serde(default)]
+    pub totp: Option<String>,
 }
 
 struct Unlocked {
@@ -548,6 +561,7 @@ impl Vault {
                 strength: super::generator::strength(&e.password),
                 reused: uses.get(e.password.as_str()).is_some_and(|n| *n > 1),
                 history_count: e.history.len(),
+                has_totp: !e.totp.is_empty(),
             })
             .collect())
     }
@@ -568,6 +582,19 @@ impl Vault {
             .get(id)
             .ok_or("That entry no longer exists.")?;
         Ok(entry.username.clone())
+    }
+
+    /// The entry's 2FA key.
+    pub fn totp(&mut self, id: &str) -> Result<super::totp::Totp, String> {
+        let unlocked = self.unlocked()?;
+        let entry = unlocked
+            .entries
+            .get(id)
+            .ok_or("That entry no longer exists.")?;
+        if entry.totp.is_empty() {
+            return Err("This login has no 2FA key.".into());
+        }
+        super::totp::Totp::parse(&entry.totp)
     }
 
     pub fn history(&mut self, id: &str) -> Result<Vec<OldPassword>, String> {
@@ -616,6 +643,15 @@ impl Vault {
         }
         entry.title = title.to_string();
         entry.username = input.username.trim().to_string();
+        if let Some(totp) = &input.totp {
+            entry.totp = if totp.trim().is_empty() {
+                String::new()
+            } else {
+                let mut key = super::totp::Totp::parse(totp)?;
+                key.name_if_unnamed(&entry.title, &entry.username);
+                key.to_link().to_string()
+            };
+        }
         entry.urls = clean_list(&input.urls);
         entry.apps = input.apps.clone();
         entry.notes = input.notes.clone();
@@ -1110,6 +1146,7 @@ mod tests {
             notes: String::new(),
             favorite: false,
             folder: String::new(),
+            totp: None,
         }
     }
 
@@ -1137,6 +1174,48 @@ mod tests {
         let mut again = Vault::open(path.clone()).unwrap();
         assert!(!again.apply_filling_default().unwrap());
         assert!(!again.prefs().browser_filling);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn a_2fa_key_is_kept_changed_or_removed_and_newer_fields_survive_an_edit() {
+        let (path, mut vault) = temp_vault();
+        vault.create("master one", KdfParams::cheap_for_tests()).unwrap();
+        let mut with_key = input("GitHub", "p1");
+        with_key.totp = Some("HXDM VJEC JJWS RB3H WIZR 4IFU GFTM XBOZ".into());
+        let id = vault.save(&with_key).unwrap();
+        let key = vault.totp(&id).unwrap();
+        assert_eq!((key.issuer.as_str(), key.account.as_str()), ("GitHub", "me@example.com"), "named after the login");
+        assert!(vault.summaries().unwrap()[0].has_totp);
+
+        // An edit that leaves the key alone keeps it.
+        let mut edit = input("GitHub", "p2");
+        edit.id = Some(id.clone());
+        vault.save(&edit).unwrap();
+        assert_eq!(vault.totp(&id).unwrap(), key);
+        // A key that is not one is refused, and nothing changes.
+        edit.totp = Some("not a key".into());
+        assert!(vault.save(&edit).is_err());
+        assert_eq!(vault.totp(&id).unwrap(), key);
+        // Emptied: removed.
+        edit.totp = Some(String::new());
+        vault.save(&edit).unwrap();
+        assert!(vault.totp(&id).is_err());
+        assert!(!vault.summaries().unwrap()[0].has_totp);
+
+        // A field from a newer MYLE comes through an edit here unchanged.
+        let mut entry: Entry = serde_json::from_value(serde_json::json!({
+            "title": "Newer", "password": "x", "fromLater": [{ "site": "example.com" }]
+        }))
+        .unwrap();
+        assert!(entry.extra.contains_key("fromLater"));
+        vault.add_all(vec![std::mem::take(&mut entry)]).unwrap();
+        let newer = vault.summaries().unwrap().into_iter().find(|s| s.title == "Newer").unwrap().id;
+        let mut rename = input("Newer, renamed", "x");
+        rename.id = Some(newer.clone());
+        vault.save(&rename).unwrap();
+        let stored = &vault.unlocked().unwrap().entries[&newer];
+        assert_eq!(stored.extra["fromLater"][0]["site"], "example.com");
         let _ = std::fs::remove_file(path);
     }
 
@@ -1215,6 +1294,7 @@ mod tests {
             history: Vec::new(),
             created_at: 0,
             updated_at: 0,
+            ..Entry::default()
         };
         // The same login again, twice in the file, and one really new.
         let file = vec![imported("Mail", "p1"), imported("Bank", "p2"), imported("Bank", "p2")];

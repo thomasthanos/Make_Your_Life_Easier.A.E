@@ -7,12 +7,13 @@ use std::time::Duration;
 
 use windows_sys::Win32::Foundation::GlobalFree;
 use windows_sys::Win32::System::DataExchange::{
-    CloseClipboard, EmptyClipboard, GetClipboardSequenceNumber, OpenClipboard,
+    CloseClipboard, EmptyClipboard, GetClipboardData, GetClipboardSequenceNumber, OpenClipboard,
     RegisterClipboardFormatW, SetClipboardData,
 };
-use windows_sys::Win32::System::Memory::{GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalUnlock};
+use windows_sys::Win32::System::Memory::{GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalSize, GlobalUnlock};
 
 const CF_UNICODETEXT: u32 = 13;
+const CF_DIB: u32 = 8;
 pub const CLEAR_AFTER: Duration = Duration::from_secs(30);
 
 fn wide(text: &str) -> Vec<u16> {
@@ -82,6 +83,22 @@ pub fn copy_secret(text: &str) -> Result<(), String> {
         clear_if_unchanged(sequence);
     });
     Ok(())
+}
+
+/// The picture on the clipboard (a snip, a copied image), if there is one.
+pub fn read_image() -> Result<Option<super::qr::Grey>, String> {
+    open()?;
+    let dib = unsafe {
+        let handle = GetClipboardData(CF_DIB);
+        let data = if handle.is_null() { std::ptr::null() } else { GlobalLock(handle).cast::<u8>().cast_const() };
+        let copy = (!data.is_null()).then(|| std::slice::from_raw_parts(data, GlobalSize(handle)).to_vec());
+        if !data.is_null() {
+            GlobalUnlock(handle);
+        }
+        CloseClipboard();
+        copy
+    };
+    Ok(dib.and_then(|dib| super::qr::grey_from_dib(&dib)))
 }
 
 /// Empties the clipboard only if nothing has been copied since `sequence`.

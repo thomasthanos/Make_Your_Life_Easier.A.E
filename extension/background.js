@@ -347,12 +347,13 @@ async function handle(message, sender) {
       return openApp();
     case "logins":
     case "fill":
+    case "totp":
     case "generate": {
       const top = await embeddedIn(sender);
       if (top) return { ok: false, error: "embedded", site: hostOf(sender.url), top };
       if (message.type === "logins") return ask({ type: "logins", url: sender.url });
       if (message.type === "generate") return suggest(sender);
-      return text(message.id, 100) ? ask({ type: "fill", id: message.id, url: sender.url }) : refused;
+      return text(message.id, 100) ? ask({ type: message.type, id: message.id, url: sender.url }) : refused;
     }
     case "submitted":
       // A form sent to the app: ask whether the login is new, and if so offer

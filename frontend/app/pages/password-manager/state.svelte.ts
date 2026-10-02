@@ -395,11 +395,15 @@ class PasswordsState {
     }
   }
 
-  async copy(id: string, field: "password" | "username") {
+  async copy(id: string, field: "password" | "username" | "totp") {
     try {
       await api.copy(id, field);
       toast.success(
-        field === "password" ? "Password copied. The clipboard clears in 30 seconds." : "User name copied.",
+        field === "password"
+          ? "Password copied. The clipboard clears in 30 seconds."
+          : field === "totp"
+            ? "2FA code copied. The clipboard clears in 30 seconds."
+            : "User name copied.",
       );
     } catch (error) {
       toast.error(message(error));

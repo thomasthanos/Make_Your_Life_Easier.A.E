@@ -1,13 +1,16 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
+  import ClipboardPaste from "@lucide/svelte/icons/clipboard-paste";
   import Eye from "@lucide/svelte/icons/eye";
   import EyeOff from "@lucide/svelte/icons/eye-off";
+  import ImageUp from "@lucide/svelte/icons/image-up";
   import Plus from "@lucide/svelte/icons/plus";
+  import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import Star from "@lucide/svelte/icons/star";
   import X from "@lucide/svelte/icons/x";
   import Popover from "../../../lib/components/Popover.svelte";
-  import { passwordsApi as api, type AppLink, type Strength } from "./api";
+  import { passwordsApi as api, type AppLink, type Strength, type TotpInfo } from "./api";
   import Generator from "./Generator.svelte";
   import { passwords as p } from "./state.svelte";
   import StrengthMeter from "./StrengthMeter.svelte";
@@ -31,6 +34,16 @@
   let newApp = $state("");
   let saving = $state(false);
   let titleInput = $state<HTMLInputElement>();
+  /** A new 2FA key or link, typed or scanned; empty keeps the saved one. */
+  let totpText = $state("");
+  /** The saved key is to go when this is saved. */
+  let totpRemoved = $state(false);
+  /** Shows the key's field: there is none yet, or the user replaces it. */
+  let totpEditing = $state(!existing?.hasTotp);
+  let totpInfo = $state<TotpInfo | null>(null);
+  let totpError = $state<string | null>(null);
+  let scanning = $state(false);
+  let checkTimer: ReturnType<typeof setTimeout> | undefined;
 
   onMount(async () => {
     titleInput?.focus();
@@ -61,9 +74,47 @@
     newApp = "";
   }
 
+  /** Checks a typed or scanned key with the app (which never sends it back). */
+  function checkTotp(text: string, now = false) {
+    clearTimeout(checkTimer);
+    totpInfo = null;
+    totpError = null;
+    if (!text.trim()) return;
+    checkTimer = setTimeout(
+      async () => {
+        try {
+          const info = await api.totpCheck(text);
+          if (text === totpText) totpInfo = info;
+        } catch (error) {
+          if (text === totpText) totpError = error instanceof Error ? error.message : String(error);
+        }
+      },
+      now ? 0 : 350,
+    );
+  }
+
+  async function scan(from: "clipboard" | "file") {
+    scanning = true;
+    try {
+      const link = from === "clipboard" ? await api.totpScanClipboard() : await api.totpScanFile();
+      if (link) {
+        totpText = link;
+        totpRemoved = false;
+        checkTotp(link, true);
+      }
+    } catch (error) {
+      totpInfo = null;
+      totpError = error instanceof Error ? error.message : String(error);
+    } finally {
+      scanning = false;
+    }
+  }
+
+  const totpBlocks = $derived(!!totpText.trim() && !totpInfo);
+
   async function submit(event: SubmitEvent) {
     event.preventDefault();
-    if (!title.trim() || saving) return;
+    if (!title.trim() || saving || totpBlocks) return;
     saving = true;
     const ok = await p.save({
       id: id ?? undefined,
@@ -75,6 +126,7 @@
       notes,
       folder,
       favorite,
+      totp: totpText.trim() ? totpText.trim() : totpRemoved ? "" : undefined,
     });
     saving = false;
     if (ok) password = null;
@@ -144,6 +196,50 @@
     <StrengthMeter {strength} />
   </div>
 
+  <div class="field totp">
+    <span>2FA codes <small>The key the site gives when you turn on an authenticator app</small></span>
+    {#if !totpEditing}
+      <div class="totp-set">
+        {#if totpRemoved}
+          <span class="muted">Removed when you save.</span>
+          <button type="button" class="link-btn" onclick={() => (totpRemoved = false)}>Undo</button>
+        {:else}
+          <ShieldCheck size={14} />
+          <span>Set up: MYLE shows its codes.</span>
+          <button type="button" class="link-btn" onclick={() => (totpEditing = true)}>Replace</button>
+          <button type="button" class="link-btn danger" onclick={() => (totpRemoved = true)}>Remove</button>
+        {/if}
+      </div>
+    {:else}
+      <div class="row">
+        <input
+          class="input mono"
+          bind:value={totpText}
+          oninput={() => checkTotp(totpText)}
+          placeholder="Key or otpauth:// link"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="button" class="icon-btn" title="Read a QR code you snipped or copied (Win+Shift+S)" aria-label="Paste a QR code" disabled={scanning} onclick={() => scan("clipboard")}><ClipboardPaste size={15} /></button>
+        <button type="button" class="icon-btn" title="Read a QR code from a picture" aria-label="Open a QR code picture" disabled={scanning} onclick={() => scan("file")}><ImageUp size={15} /></button>
+        {#if existing?.hasTotp}
+          <button type="button" class="link-btn" onclick={() => ((totpEditing = false), (totpText = ""), checkTotp(""))}>Keep</button>
+        {/if}
+      </div>
+      {#if totpError}
+        <p class="totp-note bad">{totpError}</p>
+      {:else if totpInfo}
+        <p class="totp-note good">
+          <ShieldCheck size={12} />
+          Codes{totpInfo.issuer || totpInfo.account ? ` for ${[totpInfo.issuer, totpInfo.account].filter(Boolean).join(" · ")}` : ""}:
+          {totpInfo.digits} digits every {totpInfo.period} s
+        </p>
+      {:else if !totpText}
+        <p class="totp-note">Paste the key, or snip the QR code (Win+Shift+S) and press <ClipboardPaste size={11} />.</p>
+      {/if}
+    {/if}
+  </div>
+
   <div class="field sites">
     <span>Websites</span>
     {#each urls as _, i (i)}
@@ -200,7 +296,7 @@
 
   <footer>
     <button type="button" class="btn ghost" onclick={cancel}>Cancel</button>
-    <button type="submit" class="btn primary" disabled={!title.trim() || saving}>{id ? "Save" : "Add to vault"}</button>
+    <button type="submit" class="btn primary" disabled={!title.trim() || saving || totpBlocks}>{id ? "Save" : "Add to vault"}</button>
   </footer>
 </form>
 
@@ -229,7 +325,7 @@
         "name folder"
         "user password"
         "sites apps"
-        "notes notes";
+        "totp notes";
       column-gap: 16px;
     }
 
@@ -240,6 +336,7 @@
     .sites { grid-area: sites; }
     .apps-field { grid-area: apps; }
     .notes-field { grid-area: notes; }
+    .totp { grid-area: totp; }
   }
 
   header {
@@ -349,6 +446,59 @@
   .app-chip button:hover {
     background: var(--hover);
     color: var(--text-1);
+  }
+
+  .totp-set {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 12px;
+    border: 1px solid rgb(74 222 128 / 0.22);
+    border-radius: 10px;
+    background: rgb(74 222 128 / 0.06);
+    color: #86efac;
+    font-size: 12.5px;
+  }
+
+  .totp-set span {
+    flex: 1;
+    color: var(--text-2);
+  }
+
+  .totp-set .muted {
+    color: var(--text-3);
+  }
+
+  .link-btn {
+    color: #b9c2ff;
+    font-size: 12px;
+  }
+
+  .link-btn:hover {
+    text-decoration: underline;
+  }
+
+  .link-btn.danger {
+    color: #ff9d9d;
+  }
+
+  .totp-note {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0;
+    color: var(--text-3);
+    font-size: 11.5px;
+    line-height: 1.35;
+  }
+
+  .totp-note.good {
+    color: #86efac;
+  }
+
+  .totp-note.bad {
+    color: #ffb6a8;
   }
 
   .notes {

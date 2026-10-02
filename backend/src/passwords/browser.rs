@@ -574,6 +574,8 @@ enum Request {
     Open,
     Logins { url: String },
     Fill { id: String, url: String },
+    /// The login's 2FA code, for the code field the user clicked.
+    Totp { id: String, url: String },
     Known { url: String, username: String, password: String },
     Save { url: String, username: String, password: String },
     /// A strong new password, for a sign-up or password-change form.
@@ -592,6 +594,8 @@ struct Login {
     /// The website's icon from the vault's cache (a `data:` URL), if known.
     #[serde(skip_serializing_if = "Option::is_none")]
     icon: Option<String>,
+    /// It has a 2FA key: its code can be filled in.
+    totp: bool,
 }
 
 /// The page's host, if it is one we fill: https, or http on this PC.
@@ -693,6 +697,7 @@ fn answer(app: &AppHandle, state: &PasswordsState, request: Request) -> Value {
                         username: entry.username,
                         exact,
                         icon: None,
+                        totp: entry.has_totp,
                     })
                 })
                 .collect();
@@ -729,6 +734,21 @@ fn answer(app: &AppHandle, state: &PasswordsState, request: Request) -> Value {
             vault.touch();
             Ok(json!({ "ok": true, "username": entry.username, "password": password.as_str() }))
         }
+        Request::Totp { id, url } => {
+            let host = page_host(url).ok_or("insecure")?;
+            let entry = vault
+                .summaries()?
+                .into_iter()
+                .find(|e| e.id == *id)
+                .ok_or("notFound")?;
+            // The same rule as a password: only on the site it is saved for.
+            if !entry.urls.iter().any(|u| fits(u, &host).is_some()) {
+                return Err("wrongSite".to_string());
+            }
+            let code = vault.totp(id).map_err(|_| "noTotp".to_string())?.now();
+            vault.touch();
+            Ok(json!({ "ok": true, "code": code.code, "remaining": code.remaining }))
+        }
         Request::Known { url, username, password } => {
             let host = page_host(url).ok_or("insecure")?;
             let same = same_login(vault, &host, username)?;
@@ -760,6 +780,7 @@ fn answer(app: &AppHandle, state: &PasswordsState, request: Request) -> Value {
                         notes: e.notes,
                         favorite: e.favorite,
                         folder: e.folder,
+                        totp: None,
                     }
                 }
                 None => EntryInput {
@@ -772,6 +793,7 @@ fn answer(app: &AppHandle, state: &PasswordsState, request: Request) -> Value {
                     notes: String::new(),
                     favorite: false,
                     folder: String::new(),
+                    totp: None,
                 },
             };
             vault.save(&input)?;

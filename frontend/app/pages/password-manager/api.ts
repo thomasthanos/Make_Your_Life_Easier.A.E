@@ -42,6 +42,25 @@ export interface Summary {
   strength: Strength;
   reused: boolean;
   historyCount: number;
+  /** It has a 2FA key: its codes can be shown. */
+  hasTotp: boolean;
+}
+
+/** A 2FA code, and how long it still holds. */
+export interface TotpCode {
+  code: string;
+  period: number;
+  /** Seconds until the next code. */
+  remaining: number;
+}
+
+/** What a 2FA key says about itself (never the key). */
+export interface TotpInfo {
+  issuer: string;
+  account: string;
+  digits: number;
+  period: number;
+  algorithm: string;
 }
 
 export interface OldPassword {
@@ -60,6 +79,8 @@ export interface EntryInput {
   notes: string;
   favorite: boolean;
   folder: string;
+  /** The 2FA key or its otpauth:// link; leave out to keep it, "" removes it. */
+  totp?: string;
 }
 
 export interface GeneratorOptions {
@@ -133,7 +154,13 @@ export interface PasswordsApi {
   list(): Promise<Summary[]>;
   reveal(id: string): Promise<string>;
   history(id: string): Promise<OldPassword[]>;
-  copy(id: string, field: "password" | "username"): Promise<void>;
+  copy(id: string, field: "password" | "username" | "totp"): Promise<void>;
+  totp(id: string): Promise<TotpCode>;
+  totpCheck(text: string): Promise<TotpInfo>;
+  /** The otpauth:// link in a QR code on the clipboard. */
+  totpScanClipboard(): Promise<string>;
+  /** The same from a picture the user picks; null when they cancel. */
+  totpScanFile(): Promise<string | null>;
   copyText(text: string): Promise<void>;
   save(entry: EntryInput): Promise<string>;
   remove(id: string): Promise<void>;
@@ -175,6 +202,10 @@ const tauriApi: PasswordsApi = {
   reveal: (id) => invoke("passwords_reveal", { id }),
   history: (id) => invoke("passwords_history", { id }),
   copy: (id, field) => invoke("passwords_copy", { id, field }),
+  totp: (id) => invoke("passwords_totp", { id }),
+  totpCheck: (text) => invoke("passwords_totp_check", { text }),
+  totpScanClipboard: () => invoke("passwords_totp_scan_clipboard"),
+  totpScanFile: () => invoke("passwords_totp_scan_file"),
   copyText: (text) => invoke("passwords_copy_text", { text }),
   save: (entry) => invoke("passwords_save", { entry }),
   remove: (id) => invoke("passwords_delete", { id }),
@@ -232,16 +263,16 @@ function previewApi(): PasswordsApi {
     ["10", "hunter2"],
   ]);
   let items: Summary[] = [
-    { id: "1", title: "GitHub", username: "thomas@example.com", urls: ["https://github.com/login"], apps: [], notes: "", favorite: true, folder: "Work", updatedAt: now - 3600, hasPassword: true, strength: "strong", reused: false, historyCount: 2 },
-    { id: "2", title: "Old forum", username: "tommy", urls: ["https://forum.example.org"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 40, hasPassword: true, strength: "weak", reused: true, historyCount: 0 },
-    { id: "3", title: "Riot Games", username: "tommy_gg", urls: ["https://account.riotgames.com"], apps: [{ exe: "riotclientux.exe", name: "Riot Client" }], notes: "", favorite: true, folder: "Games", updatedAt: now - 86400 * 3, hasPassword: true, strength: "weak", reused: true, historyCount: 1 },
-    { id: "4", title: "Steam", username: "thomas_steam", urls: ["https://store.steampowered.com"], apps: [{ exe: "steam.exe", name: "Steam" }], notes: "Steam Guard on phone", favorite: false, folder: "Games", updatedAt: now - 86400 * 10, hasPassword: true, strength: "strong", reused: false, historyCount: 0 },
-    { id: "5", title: "netflix.com", username: "family@example.com", urls: ["https://www.netflix.com/login"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 2, hasPassword: true, strength: "fair", reused: false, historyCount: 0 },
-    { id: "6", title: "Discord", username: "thomas#0001", urls: ["https://discord.com/login"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 5, hasPassword: true, strength: "strong", reused: false, historyCount: 0 },
-    { id: "7", title: "Google", username: "thomas@gmail.example", urls: ["https://accounts.google.com"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 8, hasPassword: true, strength: "strong", reused: false, historyCount: 0 },
-    { id: "8", title: "Spotify", username: "thomas", urls: ["https://spotify.com"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 20, hasPassword: true, strength: "fair", reused: false, historyCount: 0 },
-    { id: "9", title: "192.168.1.1", username: "admin", urls: ["http://192.168.1.1"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 60, hasPassword: true, strength: "weak", reused: false, historyCount: 0 },
-    { id: "10", title: "account.cosmote.gr", username: "6900000000", urls: ["https://account.cosmote.gr"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 12, hasPassword: true, strength: "fair", reused: true, historyCount: 0 },
+    { id: "1", title: "GitHub", username: "thomas@example.com", urls: ["https://github.com/login"], apps: [], notes: "", favorite: true, folder: "Work", updatedAt: now - 3600, hasPassword: true, strength: "strong", reused: false, historyCount: 2, hasTotp: true },
+    { id: "2", title: "Old forum", username: "tommy", urls: ["https://forum.example.org"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 40, hasPassword: true, strength: "weak", reused: true, historyCount: 0, hasTotp: false },
+    { id: "3", title: "Riot Games", username: "tommy_gg", urls: ["https://account.riotgames.com"], apps: [{ exe: "riotclientux.exe", name: "Riot Client" }], notes: "", favorite: true, folder: "Games", updatedAt: now - 86400 * 3, hasPassword: true, strength: "weak", reused: true, historyCount: 1, hasTotp: false },
+    { id: "4", title: "Steam", username: "thomas_steam", urls: ["https://store.steampowered.com"], apps: [{ exe: "steam.exe", name: "Steam" }], notes: "Steam Guard on phone", favorite: false, folder: "Games", updatedAt: now - 86400 * 10, hasPassword: true, strength: "strong", reused: false, historyCount: 0, hasTotp: false },
+    { id: "5", title: "netflix.com", username: "family@example.com", urls: ["https://www.netflix.com/login"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 2, hasPassword: true, strength: "fair", reused: false, historyCount: 0, hasTotp: false },
+    { id: "6", title: "Discord", username: "thomas#0001", urls: ["https://discord.com/login"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 5, hasPassword: true, strength: "strong", reused: false, historyCount: 0, hasTotp: false },
+    { id: "7", title: "Google", username: "thomas@gmail.example", urls: ["https://accounts.google.com"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 8, hasPassword: true, strength: "strong", reused: false, historyCount: 0, hasTotp: false },
+    { id: "8", title: "Spotify", username: "thomas", urls: ["https://spotify.com"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 20, hasPassword: true, strength: "fair", reused: false, historyCount: 0, hasTotp: false },
+    { id: "9", title: "192.168.1.1", username: "admin", urls: ["http://192.168.1.1"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 60, hasPassword: true, strength: "weak", reused: false, historyCount: 0, hasTotp: false },
+    { id: "10", title: "account.cosmote.gr", username: "6900000000", urls: ["https://account.cosmote.gr"], apps: [], notes: "", favorite: false, folder: "", updatedAt: now - 86400 * 12, hasPassword: true, strength: "fair", reused: true, historyCount: 0, hasTotp: false },
   ];
   const wait = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
   const rate = (p: string): Strength => (!p ? "none" : p.length < 10 ? "weak" : p.length < 16 ? "fair" : "strong");
@@ -290,19 +321,41 @@ function previewApi(): PasswordsApi {
       return id === "1" ? [{ password: "old-github-pass", changedAt: now - 86400 * 90 }] : [];
     },
     async copy() {},
+    async totp() {
+      // A stand-in that changes like a real one.
+      const now = Math.floor(Date.now() / 1000);
+      const step = Math.floor(now / 30);
+      return { code: String((step * 7919) % 1_000_000).padStart(6, "0"), period: 30, remaining: 30 - (now % 30) };
+    },
+    async totpCheck(text) {
+      if (!/^otpauth:\/\/totp\//i.test(text.trim()) && !/^[a-z2-7\s=-]{16,}$/i.test(text.trim())) {
+        throw new Error("That is not a 2FA key: use the key the site shows (letters A–Z and digits 2–7) or its otpauth:// link.");
+      }
+      return { issuer: "", account: "", digits: 6, period: 30, algorithm: "SHA1" };
+    },
+    async totpScanClipboard() {
+      await wait(300);
+      return "otpauth://totp/GitHub:thomas?secret=HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ&issuer=GitHub";
+    },
+    async totpScanFile() {
+      return null;
+    },
     async copyText() {},
     async save(entry) {
       const id = entry.id ?? String(Date.now());
       if (entry.password !== undefined) passwords.set(id, entry.password);
       const password = passwords.get(id) ?? "";
+      const { totp, ...fields } = entry;
+      const before = items.find((i) => i.id === id);
       const summary: Summary = {
-        ...entry,
+        ...fields,
         id,
         updatedAt: Math.floor(Date.now() / 1000),
         hasPassword: !!password,
         strength: rate(password),
         reused: false,
         historyCount: 0,
+        hasTotp: totp === undefined ? !!before?.hasTotp : !!totp,
       };
       items = entry.id ? items.map((i) => (i.id === id ? summary : i)) : [...items, summary];
       return id;

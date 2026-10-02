@@ -49,3 +49,15 @@ test("wildcard and exception rules are followed", async () => {
   assert.equal(siteOf("shop.city.kawasaki.jp"), "city.kawasaki.jp");
   assert.equal(siteOf("xn--80ak6aa92e.xn--p1ai"), "xn--80ak6aa92e.xn--p1ai");
 });
+
+test("why the browser could not reach MYLE is told apart", async () => {
+  const { hostProblem } = await background();
+  // Chromium's messages, then Firefox's.
+  assert.equal(hostProblem("Specified native messaging host not found."), "hostMissing");
+  assert.equal(hostProblem("Access to the specified native messaging host is forbidden."), "hostForbidden");
+  assert.equal(hostProblem("Native host has exited."), "hostExited");
+  assert.equal(hostProblem("Error when communicating with the native messaging host."), "hostExited");
+  assert.equal(hostProblem("No such native application com.thomasthanos.myle"), "hostMissing");
+  assert.equal(hostProblem("An unexpected error occurred"), "hostExited");
+  assert.equal(hostProblem("Something new"), "noHost");
+});
