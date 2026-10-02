@@ -316,11 +316,15 @@
 {/if}
 
 <style>
-  /* Laid out by its own width, not the window's: the sidebar takes a share. */
+  /* Laid out by its own width, not the window's: the sidebar takes a share.
+     It fills the page's height; the list and the entry scroll inside it. */
   .vault {
-    display: grid;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
     gap: 14px;
     min-width: 0;
+    min-height: 0;
     container: vault / inline-size;
   }
 
@@ -491,12 +495,14 @@
     margin: 0;
   }
 
+  /* Whatever height is left: a banner above makes it shorter, never the
+     page longer. */
   .split {
     display: grid;
+    flex: 1 1 auto;
     grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
     gap: 14px;
-    height: clamp(420px, calc(100dvh - 290px), 1600px);
-    min-height: 0;
+    min-height: 300px;
   }
 
   @container vault (min-width: 1100px) {
@@ -886,6 +892,69 @@
 
     .text small {
       font-size: 12.3px;
+    }
+  }
+
+  /* A 1080p screen (and anything short): tighter bars and rows, so more
+     logins show and nothing but the list scrolls. */
+  @media (max-height: 1000px) {
+    .vault,
+    .split {
+      gap: 10px;
+    }
+
+    .search,
+    .toolbar > :global(.btn) {
+      height: 36px;
+    }
+
+    .more {
+      width: 36px;
+      height: 36px;
+    }
+
+    .list-head {
+      min-height: 50px;
+      padding: 8px 16px;
+    }
+
+    .list-scroll {
+      padding: 6px;
+    }
+
+    .item {
+      min-height: 50px;
+      padding: 6px 10px;
+    }
+
+    .panel-scroll {
+      padding: 18px clamp(16px, 2.2vw, 32px);
+    }
+  }
+
+  @media (max-height: 820px) {
+    .search,
+    .toolbar > :global(.btn) {
+      height: 34px;
+    }
+
+    .more {
+      width: 34px;
+      height: 34px;
+    }
+
+    .list-head {
+      min-height: 44px;
+      padding: 6px 14px;
+    }
+
+    .item {
+      min-height: 46px;
+      padding: 5px 10px;
+    }
+
+    .panel-scroll {
+      padding: 14px 20px;
     }
   }
 </style>

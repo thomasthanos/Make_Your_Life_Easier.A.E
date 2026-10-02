@@ -26,6 +26,9 @@ export interface PageDef {
   component: Component;
   /** Pin to the bottom group of the sidebar. */
   bottom?: boolean;
+  /** Fills the window's height and scrolls inside itself (a list beside
+   *  its details), instead of the whole page scrolling. */
+  fill?: boolean;
 }
 
 const defs = [
@@ -36,7 +39,7 @@ const defs = [
   { id: "windows-optimization", label: "Windows Optimization",  icon: IconWindowsOpt,    component: WindowsOptimization },
   { id: "system-cleaner",       label: "System Cleaner",        icon: IconSystemCleaner, component: SystemCleaner },
   { id: "system-maintenance",   label: "System Maintenance",    icon: IconSystemMaint,   component: SystemMaintenance },
-  { id: "password-manager",     label: "Password Manager",      icon: IconPasswords,     component: PasswordManager },
+  { id: "password-manager",     label: "Password Manager",      icon: IconPasswords,     component: PasswordManager, fill: true },
   { id: "settings",             label: "Settings",              icon: IconSettings,      component: Settings, bottom: true },
 ] as const satisfies readonly PageDef[];
 

@@ -379,4 +379,27 @@
       font-size: 14px;
     }
   }
+
+  /* A 1080p screen (and anything short): tighter, so it all shows at once. */
+  @media (max-height: 1000px) {
+    .view {
+      gap: 12px;
+    }
+
+    header :global(.favicon) {
+      --size: 42px !important;
+    }
+
+    h2 {
+      font-size: 18px;
+    }
+
+    .row {
+      min-height: 36px;
+    }
+
+    footer {
+      padding-top: 6px;
+    }
+  }
 </style>

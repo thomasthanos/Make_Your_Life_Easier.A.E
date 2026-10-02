@@ -5,7 +5,8 @@
   import { settings } from "../../lib/settings.svelte";
   import { pages } from "../pages/registry";
 
-  const Page = $derived(pages.find((p) => p.id === nav.current)!.component);
+  const def = $derived(pages.find((p) => p.id === nav.current)!);
+  const Page = $derived(def.component);
   // A short slide-in; none at all in the lighter mode or with reduced motion,
   // so a slow machine spends its first frames on the page, not the animation.
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -29,9 +30,9 @@
 </script>
 
 <main class="content glass">
-  <div class="scroller" bind:this={scroller} onscroll={onScroll}>
+  <div class="scroller" class:fill={def.fill} bind:this={scroller} onscroll={onScroll}>
     {#key nav.current}
-      <div class="page" in:fly={{ y: 8, duration: enter, easing: cubicOut }}>
+      <div class="page" class:fill={def.fill} in:fly={{ y: 8, duration: enter, easing: cubicOut }}>
         <Page />
       </div>
     {/key}
@@ -54,6 +55,25 @@
     padding: 28px 32px;
     border-radius: inherit;
     contain: strict;
+  }
+
+  /* A page that fills the height: its own parts scroll; the page scrolls
+     only when the window is too short for them. */
+  .page.fill {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 480px;
+  }
+
+  @media (max-height: 860px) {
+    .scroller.fill {
+      padding-block: 18px;
+    }
+
+    .page.fill > :global(header) {
+      margin-bottom: 14px;
+    }
   }
 
   /* Keep the scrollbar clear of the panel's rounded top and bottom edges. */

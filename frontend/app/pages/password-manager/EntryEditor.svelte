@@ -99,17 +99,18 @@
     >
   </header>
 
-  <label class="field">
+  <div class="grid">
+  <label class="field name">
     <span>Name</span>
     <input class="input" bind:value={title} bind:this={titleInput} placeholder="GitHub, Steam, Bank…" required />
   </label>
 
-  <label class="field">
+  <label class="field user">
     <span>Email or user name</span>
     <input class="input" bind:value={username} autocomplete="off" spellcheck="false" />
   </label>
 
-  <div class="field">
+  <div class="field password">
     <span>Password</span>
     <div class="password-row">
       <input
@@ -143,7 +144,7 @@
     <StrengthMeter {strength} />
   </div>
 
-  <div class="field">
+  <div class="field sites">
     <span>Websites</span>
     {#each urls as _, i (i)}
       <div class="row">
@@ -156,7 +157,7 @@
     <button type="button" class="add" onclick={() => (urls = [...urls, ""])}><Plus size={13} /> Another website</button>
   </div>
 
-  <div class="field">
+  <div class="field apps-field">
     <span>Windows programs <small>Use the full .exe path for Ctrl+Shift+L filling</small></span>
     {#if apps.length}
       <div class="apps">
@@ -183,20 +184,19 @@
     </div>
   </div>
 
-  <div class="two">
-    <label class="field">
-      <span>Folder</span>
-      <input class="input" bind:value={folder} list="password-folders" placeholder="None" />
-      <datalist id="password-folders">
-        {#each p.folders as name (name)}<option value={name}></option>{/each}
-      </datalist>
-    </label>
-  </div>
+  <label class="field folder">
+    <span>Folder</span>
+    <input class="input" bind:value={folder} list="password-folders" placeholder="None" />
+    <datalist id="password-folders">
+      {#each p.folders as name (name)}<option value={name}></option>{/each}
+    </datalist>
+  </label>
 
-  <label class="field">
+  <label class="field notes-field">
     <span>Notes</span>
     <textarea class="input notes" bind:value={notes} rows="3"></textarea>
   </label>
+  </div>
 
   <footer>
     <button type="button" class="btn ghost" onclick={cancel}>Cancel</button>
@@ -205,12 +205,41 @@
 </form>
 
 <style>
-  /* The same readable width as the entry it edits. */
+  /* The same readable width as the entry it edits; two columns when the
+     panel is wide enough, so the whole form shows at 1080p. */
   .editor {
     display: grid;
     gap: 14px;
     width: min(100%, 760px);
     margin: 0 auto;
+    container: editor / inline-size;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+
+  @container editor (min-width: 600px) {
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-areas:
+        "name folder"
+        "user password"
+        "sites apps"
+        "notes notes";
+      column-gap: 16px;
+    }
+
+    .name { grid-area: name; }
+    .folder { grid-area: folder; }
+    .user { grid-area: user; }
+    .password { grid-area: password; }
+    .sites { grid-area: sites; }
+    .apps-field { grid-area: apps; }
+    .notes-field { grid-area: notes; }
   }
 
   header {
@@ -329,10 +358,34 @@
     line-height: 1.45;
   }
 
+  /* Save stays in sight while the form scrolls. */
   footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    padding-top: 4px;
+    margin: 0 -10px -6px;
+    padding: 10px 10px 6px;
+    border-top: 1px solid rgb(255 255 255 / 0.06);
+    background: linear-gradient(180deg, rgb(19 23 34 / 0.86), rgb(16 20 30 / 0.96));
+    border-radius: 0 0 12px 12px;
+  }
+
+  @media (max-height: 1000px) {
+    .editor,
+    .grid {
+      gap: 10px;
+    }
+
+    .field {
+      gap: 4px;
+    }
+
+    .notes {
+      min-height: 58px;
+      height: 58px;
+    }
   }
 </style>
