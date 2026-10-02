@@ -2410,7 +2410,7 @@ dependencies = [
 
 [[package]]
 name = "make-your-life-easier"
-version = "9.1.1"
+version = "9.2.0"
 dependencies = [
  "argon2",
  "base64 0.22.1",
