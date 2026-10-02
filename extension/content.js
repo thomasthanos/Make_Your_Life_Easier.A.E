@@ -605,8 +605,14 @@
       items.push(openButton("Create your vault in MYLE", "lock"));
     } else if (answer?.error === "notRunning") {
       items.push(openButton("Open MYLE to fill in", "open"));
-    } else if (answer?.error === "noHost" || answer?.error === "disabled") {
-      items.push(note("Turn on Browser filling in MYLE: Password Manager → ⋯ → Browser filling."));
+    } else if (answer?.error === "disabled") {
+      items.push(note("Browser filling is off in MYLE. Turn it on: Password Manager → ⋯ → Browser filling."));
+    } else if (answer?.error === "hostMissing") {
+      items.push(note("This browser cannot reach MYLE yet. Open MYLE once: it connects your browsers by itself."));
+    } else if (answer?.error === "hostForbidden") {
+      items.push(note("MYLE does not know this copy of the extension. Load the one from MYLE: Password Manager → ⋯ → Browser filling."));
+    } else if (answer?.error === "hostExited" || answer?.error === "noHost") {
+      items.push(note("MYLE could not answer this browser. Make sure MYLE is installed and up to date."));
     } else if (answer?.error === "embedded") {
       items.push(note(`This sign-in form comes from ${answer.site}, inside ${answer.top}. ` +
         "To fill it, use the MYLE button in the browser's toolbar."));

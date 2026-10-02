@@ -89,11 +89,25 @@ export interface HelloStatus {
   enabled: boolean;
 }
 
+/** A browser's request through the extension (no address, only which browser). */
+export interface BrowserContact {
+  browser: string;
+  /** Seconds since 1970. */
+  at: number;
+}
+
 export interface BrowserSetup {
   enabled: boolean;
   /** The extension's folder, for "Load unpacked". */
   extensionDir: string | null;
+  /** Why a browser would not find MYLE, if one would not. */
   registrationError: string | null;
+  lastContact: BrowserContact | null;
+  /** The last start MYLE turned away: another browser, say. */
+  lastRefusal: { program: string; reason: string; at: number } | null;
+  vault: VaultStatus;
+  /** Seconds since 1970, as the app counts them. */
+  now: number;
 }
 
 export interface ImportPreview {
@@ -137,6 +151,7 @@ export interface PasswordsApi {
   browserGet(): Promise<BrowserSetup>;
   browserSet(enabled: boolean): Promise<void>;
   openExtensionDir(): Promise<void>;
+  onBrowserContact(handler: (contact: BrowserContact) => void): Promise<() => void>;
   windowsHotkey(): Promise<boolean>;
   windowsFill(id: string, field: "username" | "password"): Promise<void>;
   onChanged(handler: () => void): Promise<() => void>;
@@ -176,6 +191,8 @@ const tauriApi: PasswordsApi = {
   browserGet: () => invoke("passwords_browser_get"),
   browserSet: (enabled) => invoke("passwords_browser_set", { enabled }),
   openExtensionDir: () => invoke("passwords_open_extension_dir"),
+  onBrowserContact: (handler) =>
+    listen<BrowserContact>("passwords-browser-contact", (event) => handler(event.payload)),
   windowsHotkey: () => invoke("passwords_windows_hotkey_status"),
   windowsFill: (id, field) => invoke("passwords_windows_fill", { id, field }),
   onChanged: (handler) => listen("passwords-changed", handler),
@@ -188,6 +205,7 @@ const tauriApi: PasswordsApi = {
 function previewApi(): PasswordsApi {
   let status: VaultStatus = new URLSearchParams(location.search).has("new-vault") ? "new" : "locked";
   let websiteIcons = true;
+  let browserFilling = true;
   // Stand-ins for fetched icons: a coloured mark per site.
   const mark = (color: string, text: string) =>
     `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="${color}"/><text x="16" y="22" font-family="Segoe UI,sans-serif" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">${text}</text></svg>`)}`;
@@ -327,10 +345,25 @@ function previewApi(): PasswordsApi {
       status = "unlocked";
     },
     async browserGet() {
-      return { enabled: false, extensionDir: "C:\\Users\\You\\AppData\\Local\\ThomasThanos\\MakeYourLifeEasier\\extension", registrationError: null };
+      const seconds = Math.floor(Date.now() / 1000);
+      const connected = new URLSearchParams(location.search).has("browser-connected");
+      return {
+        enabled: browserFilling,
+        extensionDir: "C:\\Users\\You\\AppData\\Local\\ThomasThanos\\MakeYourLifeEasier\\extension",
+        registrationError: null,
+        lastContact: connected ? { browser: "Edge", at: seconds - 95 } : null,
+        lastRefusal: null,
+        vault: status,
+        now: seconds,
+      };
     },
-    async browserSet() {},
+    async browserSet(enabled) {
+      browserFilling = enabled;
+    },
     async openExtensionDir() {},
+    async onBrowserContact() {
+      return () => {};
+    },
     async windowsHotkey() { return false; },
     async windowsFill() {},
     async onChanged() {

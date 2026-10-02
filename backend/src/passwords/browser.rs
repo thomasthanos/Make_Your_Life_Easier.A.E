@@ -59,15 +59,23 @@ pub const HOST_NAME: &str = "com.thomasthanos.myle";
 pub const CHROME_EXTENSION_IDS: [&str; 2] = ["mifjffbnaeeljjfboiglbcoaokgdilca", "gaelkhdpkgnffkfmaaklknijinjmmopo"];
 /// Its id in Firefox (`browser_specific_settings.gecko.id`).
 pub const FIREFOX_EXTENSION_ID: &str = "myle-passwords@thomast.uk";
-/// Browsers the host may be started by (their program file names).
-const BROWSERS: [&str; 4] = ["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe"];
-/// Where each browser looks for native messaging hosts.
-const HOST_KEYS: [(&str, &str); 4] = [
-    (r"Software\Google\Chrome\NativeMessagingHosts", "chrome.json"),
-    (r"Software\Microsoft\Edge\NativeMessagingHosts", "chrome.json"),
-    (r"Software\BraveSoftware\Brave-Browser\NativeMessagingHosts", "chrome.json"),
-    (r"Software\Mozilla\NativeMessagingHosts", "firefox.json"),
+/// Browsers the host may be started by: program file name, and what to call it.
+const BROWSERS: [(&str, &str); 4] = [
+    ("chrome.exe", "Chrome"),
+    ("msedge.exe", "Edge"),
+    ("firefox.exe", "Firefox"),
+    ("brave.exe", "Brave"),
 ];
+/// Where each browser looks for native messaging hosts, the manifest it
+/// reads, and the browser.
+const HOST_KEYS: [(&str, &str, &str); 4] = [
+    (r"Software\Google\Chrome\NativeMessagingHosts", "chrome.json", "Chrome"),
+    (r"Software\Microsoft\Edge\NativeMessagingHosts", "chrome.json", "Edge"),
+    (r"Software\BraveSoftware\Brave-Browser\NativeMessagingHosts", "chrome.json", "Brave"),
+    (r"Software\Mozilla\NativeMessagingHosts", "firefox.json", "Firefox"),
+];
+/// Refused starts of the host kept in `host.log`, newest last.
+const REFUSALS_KEPT: usize = 10;
 /// A native message larger than this is not ours.
 const MAX_MESSAGE: u32 = 64 * 1024;
 /// Website icons sent with a site's logins: each small, and all together
@@ -105,51 +113,194 @@ fn manifest_dir() -> Result<PathBuf, String> {
     Ok(crate::storage::local_dir()?.join("native-messaging"))
 }
 
-/// Tells Chrome, Edge, Brave and Firefox where the host is. Written again
-/// on every start, so it follows the program if it moves.
+/// What the browsers are told about the host: a registry key per browser,
+/// pointing at a manifest that names this program.
+struct Hosts {
+    /// Put before every registry key: empty, except in tests.
+    root: String,
+    dir: PathBuf,
+    exe: PathBuf,
+}
+
+impl Hosts {
+    fn here() -> Result<Self, String> {
+        Ok(Self {
+            root: String::new(),
+            dir: manifest_dir()?,
+            exe: std::env::current_exe().map_err(|e| e.to_string())?,
+        })
+    }
+
+    fn key(&self, browsers: &str) -> String {
+        format!(r"{}{browsers}\{HOST_NAME}", self.root)
+    }
+
+    /// Each manifest's file name and text.
+    fn manifests(&self) -> Result<[(&'static str, String); 2], String> {
+        let description = "MYLE: fills in logins from your password vault";
+        let chrome = json!({
+            "name": HOST_NAME,
+            "description": description,
+            "path": self.exe,
+            "type": "stdio",
+            "allowed_origins": CHROME_EXTENSION_IDS.map(|id| format!("chrome-extension://{id}/")),
+        });
+        let firefox = json!({
+            "name": HOST_NAME,
+            "description": description,
+            "path": self.exe,
+            "type": "stdio",
+            "allowed_extensions": [FIREFOX_EXTENSION_ID],
+        });
+        let text = |manifest: &Value| serde_json::to_string_pretty(manifest).map_err(|e| e.to_string());
+        Ok([("chrome.json", text(&chrome)?), ("firefox.json", text(&firefox)?)])
+    }
+
+    fn write(&self) -> Result<(), String> {
+        std::fs::create_dir_all(&self.dir).map_err(|e| e.to_string())?;
+        for (name, text) in self.manifests()? {
+            std::fs::write(self.dir.join(name), text).map_err(|e| e.to_string())?;
+        }
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        for (key, file, _) in HOST_KEYS {
+            let (host, _) = hkcu.create_subkey(self.key(key)).map_err(|e| e.to_string())?;
+            host.set_value("", &self.dir.join(file).to_string_lossy().into_owned())
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
+    /// Why a browser would not start this program as the host, if one would not.
+    fn check(&self) -> Result<(), String> {
+        let manifests = self.manifests()?;
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        for (key, file, browser) in HOST_KEYS {
+            let registered: String = hkcu
+                .open_subkey(self.key(key))
+                .and_then(|host| host.get_value(""))
+                .map_err(|_| format!("{browser} has not been told where MYLE is."))?;
+            let manifest = self.dir.join(file);
+            if !registered.eq_ignore_ascii_case(&manifest.to_string_lossy()) {
+                return Err(format!("{browser} looks for MYLE in another place."));
+            }
+            let expected = manifests.iter().find(|(name, _)| *name == file).map(|(_, text)| text);
+            match std::fs::read_to_string(&manifest) {
+                Ok(text) if Some(&text) == expected => {}
+                Ok(_) => return Err(format!("{browser} would start another copy of MYLE.")),
+                Err(_) => return Err(format!("The note that tells {browser} where MYLE is, is missing.")),
+            }
+        }
+        Ok(())
+    }
+
+    fn remove(&self) {
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        for (key, _, _) in HOST_KEYS {
+            let _ = hkcu.delete_subkey_all(self.key(key));
+        }
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+/// Tells Chrome, Edge, Brave and Firefox where the host is, unless they
+/// already know: checked on every start, unlock and look at the setup, so a
+/// moved program or a deleted manifest mends itself.
+pub fn ensure_registered() -> Result<(), String> {
+    let hosts = Hosts::here()?;
+    if hosts.check().is_ok() {
+        return Ok(());
+    }
+    hosts.write()?;
+    hosts.check()
+}
+
+/// Writes the registration again, whatever is there now.
 pub fn register_hosts() -> Result<(), String> {
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let dir = manifest_dir()?;
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let description = "MYLE: fills in logins from your password vault";
-    let chrome = json!({
-        "name": HOST_NAME,
-        "description": description,
-        "path": exe,
-        "type": "stdio",
-        "allowed_origins": CHROME_EXTENSION_IDS.map(|id| format!("chrome-extension://{id}/")),
-    });
-    let firefox = json!({
-        "name": HOST_NAME,
-        "description": description,
-        "path": exe,
-        "type": "stdio",
-        "allowed_extensions": [FIREFOX_EXTENSION_ID],
-    });
-    for (name, manifest) in [("chrome.json", &chrome), ("firefox.json", &firefox)] {
-        let text = serde_json::to_string_pretty(manifest).map_err(|e| e.to_string())?;
-        std::fs::write(dir.join(name), text).map_err(|e| e.to_string())?;
-    }
-    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    for (key, file) in HOST_KEYS {
-        let (host, _) = hkcu
-            .create_subkey(format!(r"{key}\{HOST_NAME}"))
-            .map_err(|e| e.to_string())?;
-        host.set_value("", &dir.join(file).to_string_lossy().into_owned())
-            .map_err(|e| e.to_string())?;
-    }
-    Ok(())
+    let hosts = Hosts::here()?;
+    hosts.write()?;
+    hosts.check()
 }
 
 /// Browser filling switched off: the browsers forget the host.
 pub fn unregister_hosts() {
-    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    for (key, _) in HOST_KEYS {
-        let _ = hkcu.delete_subkey_all(format!(r"{key}\{HOST_NAME}"));
+    if let Ok(hosts) = Hosts::here() {
+        hosts.remove();
     }
-    if let Ok(dir) = manifest_dir() {
-        let _ = std::fs::remove_dir_all(dir);
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostics: which browser last asked, and whom the host turned away. No
+// addresses or logins, only the browser and when.
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Contact {
+    pub browser: String,
+    /// Seconds since 1970.
+    pub at: u64,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Refusal {
+    /// The program that started the host (`vivaldi.exe`), if known.
+    pub program: String,
+    pub reason: String,
+    pub at: u64,
+}
+
+/// Sent to the page when a browser asks for the first time in a while.
+pub const CONTACT_EVENT: &str = "passwords-browser-contact";
+static LAST_CONTACT: Mutex<Option<Contact>> = Mutex::new(None);
+
+/// Notes a request from `browser`; true for the first in a minute (kept on
+/// disk too, so the setup still knows after a restart).
+fn note_contact(browser: &str) -> bool {
+    let now = super::vault::now();
+    let mut last = LAST_CONTACT.lock().unwrap_or_else(|p| p.into_inner());
+    let recent = last
+        .as_ref()
+        .is_some_and(|c| c.browser == browser && now.saturating_sub(c.at) < 60);
+    let contact = Contact { browser: browser.to_string(), at: now };
+    *last = Some(contact.clone());
+    if !recent && let Ok(dir) = manifest_dir() {
+        let _ = std::fs::write(dir.join("contact.json"), serde_json::to_vec(&contact).unwrap_or_default());
     }
+    !recent
+}
+
+pub fn last_contact() -> Option<Contact> {
+    if let Some(contact) = LAST_CONTACT.lock().unwrap_or_else(|p| p.into_inner()).clone() {
+        return Some(contact);
+    }
+    let text = std::fs::read(manifest_dir().ok()?.join("contact.json")).ok()?;
+    serde_json::from_slice(&text).ok()
+}
+
+/// Called by the host when it turns a start away.
+fn note_refusal(program: &str, reason: &str) {
+    let Ok(dir) = manifest_dir() else { return };
+    let path = dir.join("host.log");
+    let old = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut lines: Vec<String> = old.lines().map(str::to_string).collect();
+    lines.push(format!("{}\t{program}\t{reason}", super::vault::now()));
+    let keep = lines.len().saturating_sub(REFUSALS_KEPT);
+    let _ = std::fs::write(&path, lines[keep..].join("\n"));
+}
+
+pub fn last_refusal() -> Option<Refusal> {
+    let text = std::fs::read_to_string(manifest_dir().ok()?.join("host.log")).ok()?;
+    parse_refusal(text.lines().last()?)
+}
+
+fn parse_refusal(line: &str) -> Option<Refusal> {
+    let mut parts = line.splitn(3, '\t');
+    let at = parts.next()?.parse().ok()?;
+    Some(Refusal {
+        program: parts.next()?.to_string(),
+        reason: parts.next()?.to_string(),
+        at,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -237,13 +388,30 @@ pub fn run_native_host() -> Option<i32> {
     if !asked {
         return None;
     }
-    if !started_by_our_extension(&args) || !ancestors().iter().any(|name| BROWSERS.contains(&name.as_str())) {
+    let chain = ancestors();
+    let browser = chain.iter().find_map(|name| browser_name(name));
+    let starter = chain.iter().find(|name| *name != "cmd.exe").map_or("unknown", String::as_str);
+    if !started_by_our_extension(&args) {
+        note_refusal(starter, "another extension");
         return Some(3);
     }
-    Some(match host_loop() {
+    let Some(browser) = browser else {
+        note_refusal(starter, "not a supported browser");
+        return Some(3);
+    };
+    Some(match host_loop(browser) {
         Ok(()) => 0,
         Err(_) => 2,
     })
+}
+
+/// What to call a browser, from its program file name; `None` for any
+/// other program.
+fn browser_name(program: &str) -> Option<&'static str> {
+    BROWSERS
+        .iter()
+        .find(|(file, _)| program.eq_ignore_ascii_case(file))
+        .map(|(_, name)| *name)
 }
 
 /// Chrome and Edge pass the extension's origin, sometimes without the
@@ -281,8 +449,9 @@ fn write_message(output: &mut impl Write, value: &Value) -> std::io::Result<()> 
     output.flush()
 }
 
-/// Passes each message from the browser to the app and back.
-fn host_loop() -> std::io::Result<()> {
+/// Passes each message from the browser to the app and back, saying which
+/// browser it came from.
+fn host_loop(browser: &str) -> std::io::Result<()> {
     let mut input = std::io::stdin().lock();
     let mut output = std::io::stdout().lock();
     while let Some(message) = read_message(&mut input)? {
@@ -293,7 +462,8 @@ fn host_loop() -> std::io::Result<()> {
                 .is_ok();
             json!({ "ok": started })
         } else {
-            ask_app(&message).unwrap_or_else(|| json!({ "ok": false, "error": "notRunning" }))
+            ask_app(&json!({ "browser": browser, "request": message }))
+                .unwrap_or_else(|| json!({ "ok": false, "error": "notRunning" }))
         };
         write_message(&mut output, &reply)?;
     }
@@ -330,8 +500,8 @@ fn ask_app(message: &Value) -> Option<Value> {
 // ---------------------------------------------------------------------------
 // The app's side
 
-/// Answers the host while the app runs.
-pub fn serve(app: AppHandle, state: PasswordsState) {
+/// Answers the host while the app runs. `filling`: browser filling is on.
+pub fn serve(app: AppHandle, state: PasswordsState, filling: bool) {
     tauri::async_runtime::spawn(async move {
         let name = pipe_name();
         let Ok(mut server) = ServerOptions::new()
@@ -342,6 +512,15 @@ pub fn serve(app: AppHandle, state: PasswordsState) {
             // Another copy of the app already answers.
             return;
         };
+        // This copy answers: the browsers start this program as the host (or,
+        // with filling off, forget an old registration).
+        tauri::async_runtime::spawn_blocking(move || {
+            if filling {
+                let _ = ensure_registered();
+            } else {
+                unregister_hosts();
+            }
+        });
         loop {
             if server.connect().await.is_err() {
                 continue;
@@ -363,8 +542,13 @@ pub fn serve(app: AppHandle, state: PasswordsState) {
                 if client.read_line(&mut line).await.unwrap_or(0) == 0 {
                     return;
                 }
-                let reply = match serde_json::from_str::<Request>(line.trim()) {
-                    Ok(request) => answer(&app, &state, request),
+                let reply = match serde_json::from_str::<Envelope>(line.trim()) {
+                    Ok(Envelope { browser, request }) => {
+                        if note_contact(&browser) {
+                            let _ = app.emit(CONTACT_EVENT, last_contact());
+                        }
+                        answer(&app, &state, request)
+                    }
                     Err(_) => json!({ "ok": false, "error": "badRequest" }),
                 };
                 let mut out = Zeroizing::new(reply.to_string());
@@ -374,6 +558,13 @@ pub fn serve(app: AppHandle, state: PasswordsState) {
             });
         }
     });
+}
+
+/// What the host passes on: the browser's request, and which browser.
+#[derive(Deserialize)]
+struct Envelope {
+    browser: String,
+    request: Request,
 }
 
 #[derive(Deserialize)]
@@ -727,6 +918,50 @@ mod tests {
         assert!(!started_by_our_extension(&args(&["chrome-extension://abcdefghijklmnopabcdefghijklmnop/"])));
         assert!(!started_by_our_extension(&args(&["chrome-extension://mifjffbnaeeljjfboiglbcoaokgdilca/x"])));
         assert!(!started_by_our_extension(&args(&[r"C:\x\firefox.json", "evil@example.com"])));
+    }
+
+    #[test]
+    fn a_registration_that_lost_its_manifest_or_points_elsewhere_is_found() {
+        let id = std::process::id();
+        let root = format!(r"Software\MYLE-tests-{id}");
+        let dir = std::env::temp_dir().join(format!("myle-hosts-{id}"));
+        let hosts = Hosts { root: format!(r"{root}\"), dir: dir.clone(), exe: PathBuf::from(r"C:\Apps\MYLE\MYLE.exe") };
+        assert!(hosts.check().unwrap_err().contains("not been told"), "nothing yet");
+        hosts.write().unwrap();
+        hosts.check().unwrap();
+
+        // What this PC had: the browsers' keys, but the manifests gone.
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(hosts.check().unwrap_err().contains("missing"));
+        hosts.write().unwrap();
+        hosts.check().unwrap();
+
+        // The program moved (or another copy registered): written again.
+        let moved = Hosts { root: hosts.root.clone(), dir: dir.clone(), exe: PathBuf::from(r"D:\MYLE\MYLE.exe") };
+        assert!(moved.check().unwrap_err().contains("another copy"));
+        moved.write().unwrap();
+        moved.check().unwrap();
+
+        moved.remove();
+        assert!(!dir.exists());
+        assert!(moved.check().is_err());
+        let _ = RegKey::predef(HKEY_CURRENT_USER).delete_subkey_all(&root);
+    }
+
+    #[test]
+    fn the_host_names_the_browser_and_notes_whom_it_turned_away() {
+        assert_eq!(browser_name("msedge.exe"), Some("Edge"));
+        assert_eq!(browser_name("Chrome.exe"), Some("Chrome"));
+        assert_eq!(browser_name("vivaldi.exe"), None);
+        assert_eq!(
+            parse_refusal("1700000000\tvivaldi.exe\tnot a supported browser"),
+            Some(Refusal { program: "vivaldi.exe".into(), reason: "not a supported browser".into(), at: 1_700_000_000 })
+        );
+        assert_eq!(parse_refusal("garbage"), None);
+        let envelope: Envelope = serde_json::from_value(json!({ "browser": "Edge", "request": { "type": "status" } })).unwrap();
+        assert_eq!(envelope.browser, "Edge");
+        assert!(matches!(envelope.request, Request::Status));
+        assert!(serde_json::from_value::<Envelope>(json!({ "type": "status" })).is_err(), "a bare request is refused");
     }
 
     #[test]

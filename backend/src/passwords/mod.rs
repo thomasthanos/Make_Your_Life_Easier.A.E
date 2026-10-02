@@ -214,12 +214,14 @@ pub async fn passwords_create(
     master: String,
 ) -> Result<String, String> {
     check_master(&master)?;
-    state
+    let code = state
         .with_blocking(move |vault| {
             let code = vault.create(&master, KdfParams::new())?;
             Ok(code.to_string())
         })
-        .await
+        .await?;
+    mend_browser_registration(&state);
+    Ok(code)
 }
 
 #[tauri::command]
@@ -229,7 +231,9 @@ pub async fn passwords_unlock(
 ) -> Result<(), String> {
     state
         .with_blocking(move |vault| vault.unlock(&master))
-        .await
+        .await?;
+    mend_browser_registration(&state);
+    Ok(())
 }
 
 #[tauri::command]
@@ -241,7 +245,9 @@ pub async fn passwords_recover(
     check_master(&master)?;
     state
         .with_blocking(move |vault| vault.recover(&code, &master, KdfParams::new()))
-        .await
+        .await?;
+    mend_browser_registration(&state);
+    Ok(())
 }
 
 #[tauri::command]
@@ -318,7 +324,9 @@ pub async fn passwords_hello_unlock(state: State<'_, PasswordsState>) -> Result<
     let key = tauri::async_runtime::spawn_blocking(move || hello::unlock(&vault_id))
         .await
         .map_err(|e| e.to_string())??;
-    state.with(|vault| vault.unlock_with_key(key))
+    state.with(|vault| vault.unlock_with_key(key))?;
+    mend_browser_registration(&state);
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -361,7 +369,15 @@ pub struct BrowserSetup {
     enabled: bool,
     /// The extension's folder, for "Load unpacked".
     extension_dir: Option<String>,
+    /// Why a browser would not find MYLE, if one would not.
     registration_error: Option<String>,
+    /// The browser that asked last, and when.
+    last_contact: Option<browser::Contact>,
+    /// The last start of the host it turned away (another browser, say).
+    last_refusal: Option<browser::Refusal>,
+    vault: Status,
+    /// Seconds since 1970, to tell how long ago those were.
+    now: u64,
 }
 
 fn extension_dir(app: &AppHandle) -> Option<PathBuf> {
@@ -387,16 +403,18 @@ fn extension_dir(app: &AppHandle) -> Option<PathBuf> {
 
 #[tauri::command(async)]
 pub fn passwords_browser_get(app: AppHandle, state: State<'_, PasswordsState>) -> Result<BrowserSetup, String> {
-    let enabled = state.with(|vault| Ok(vault.prefs().browser_filling))?;
-    let registration_error = if enabled {
-        // Repair a missing or stale registration (for example after moving
-        // the installed app) and surface errors in the setup dialog.
-        browser::register_hosts().err()
-    } else { None };
+    let (enabled, status) = state.with(|vault| Ok((vault.prefs().browser_filling, vault.status())))?;
+    // Mends a missing or stale registration (the program moved, a manifest
+    // was deleted) and says what is still wrong.
+    let registration_error = if enabled { browser::ensure_registered().err() } else { None };
     Ok(BrowserSetup {
         enabled,
         extension_dir: extension_dir(&app).map(|d| d.to_string_lossy().into_owned()),
         registration_error,
+        last_contact: browser::last_contact(),
+        last_refusal: browser::last_refusal(),
+        vault: status,
+        now: vault::now(),
     })
 }
 
@@ -436,13 +454,20 @@ pub fn passwords_open_extension_dir(app: AppHandle) -> Result<(), String> {
 /// Starts answering the browser extension, and keeps the browsers pointed
 /// at this program while filling is on.
 pub fn serve_browser(app: AppHandle, state: PasswordsState) {
+    // On by default now: a vault made before that gets it once.
+    let _ = state.with_quiet(|vault| vault.apply_filling_default());
     let enabled = state.with_quiet(|vault| Ok(vault.prefs().browser_filling)).unwrap_or(false);
-    if enabled {
+    browser::serve(app, state, enabled);
+}
+
+/// After an unlock: makes sure the browsers can still reach this program
+/// (a manifest deleted meanwhile, say), off the caller's thread.
+fn mend_browser_registration(state: &PasswordsState) {
+    if state.with_quiet(|vault| Ok(vault.prefs().browser_filling)).unwrap_or(false) {
         std::thread::spawn(|| {
-            let _ = browser::register_hosts();
+            let _ = browser::ensure_registered();
         });
     }
-    browser::serve(app, state);
 }
 
 #[tauri::command(async)]

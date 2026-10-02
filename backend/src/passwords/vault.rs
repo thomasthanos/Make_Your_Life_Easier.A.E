@@ -48,9 +48,13 @@ pub fn now() -> u64 {
 pub struct Prefs {
     /// Minutes without use before the vault locks itself; 0 never.
     pub auto_lock_minutes: u32,
-    /// The browser extension may fill in and save logins.
-    #[serde(default)]
+    /// The browser extension may fill in and save logins (on by default).
+    #[serde(default = "shown")]
     pub browser_filling: bool,
+    /// Browser filling was turned on once for a vault made before it was on
+    /// by default; from then on the user's choice stands.
+    #[serde(default)]
+    pub filling_default_applied: bool,
     /// The list shows each website's icon, fetched from the website.
     #[serde(default = "shown")]
     pub website_icons: bool,
@@ -64,7 +68,8 @@ impl Default for Prefs {
     fn default() -> Self {
         Self {
             auto_lock_minutes: 5,
-            browser_filling: false,
+            browser_filling: true,
+            filling_default_applied: true,
             website_icons: true,
         }
     }
@@ -284,6 +289,21 @@ impl Vault {
         let file = self.file.as_mut().ok_or("There is no vault yet.")?;
         file.prefs = prefs;
         self.write()
+    }
+
+    /// Browser filling is on by default: a vault made before that has it
+    /// turned on once. True when it was turned on now.
+    pub fn apply_filling_default(&mut self) -> Result<bool, String> {
+        let Some(file) = self.file.as_mut() else {
+            return Ok(false);
+        };
+        if file.prefs.filling_default_applied {
+            return Ok(false);
+        }
+        file.prefs.filling_default_applied = true;
+        file.prefs.browser_filling = true;
+        self.write()?;
+        Ok(true)
     }
 
     /// A new, empty vault under `master`. Returns the recovery code, which
@@ -1091,6 +1111,33 @@ mod tests {
             favorite: false,
             folder: String::new(),
         }
+    }
+
+    #[test]
+    fn browser_filling_is_on_by_default_and_turned_on_once_for_older_vaults() {
+        let (path, mut vault) = temp_vault();
+        assert!(vault.prefs().browser_filling, "on before there is a vault");
+        vault.create("master one", KdfParams::cheap_for_tests()).unwrap();
+        assert!(vault.prefs().browser_filling);
+        assert!(!vault.apply_filling_default().unwrap(), "a new vault needs nothing");
+
+        // A vault from before: filling off, and no sign it was ever turned on.
+        let mut text: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        text["prefs"] = serde_json::json!({ "autoLockMinutes": 5, "browserFilling": false, "websiteIcons": true });
+        std::fs::write(&path, serde_json::to_vec(&text).unwrap()).unwrap();
+        let mut older = Vault::open(path.clone()).unwrap();
+        assert!(!older.prefs().browser_filling);
+        assert!(older.apply_filling_default().unwrap());
+        assert!(Vault::open(path.clone()).unwrap().prefs().browser_filling, "saved");
+
+        // Turned off afterwards: it stays off.
+        let mut prefs = older.prefs();
+        prefs.browser_filling = false;
+        older.set_prefs(prefs).unwrap();
+        let mut again = Vault::open(path.clone()).unwrap();
+        assert!(!again.apply_filling_default().unwrap());
+        assert!(!again.prefs().browser_filling);
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]

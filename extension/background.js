@@ -21,12 +21,23 @@ const WAIT_FOR_CLICK = 3 * 60_000;
 /** A password suggested in a sign-up form, until that form is sent. */
 const KEEP_SUGGESTED = 30 * 60_000;
 
+/** Why the browser could not reach MYLE, from the browser's own message. */
+function hostProblem(detail) {
+  // MYLE never registered with this browser, or the note it left is gone.
+  if (/not found|no such native application/i.test(detail)) return "hostMissing";
+  // This copy of the extension has an id MYLE does not know.
+  if (/forbidden/i.test(detail)) return "hostForbidden";
+  // MYLE started but turned the browser away, or stopped.
+  if (/exited|communicating|unexpected/i.test(detail)) return "hostExited";
+  return "noHost";
+}
+
 async function ask(message) {
   try {
     return await ext.runtime.sendNativeMessage(HOST, message);
   } catch (error) {
-    // The app is not installed, or browser filling is off in it.
-    return { ok: false, error: "noHost", detail: String(error?.message ?? error) };
+    const detail = String(error?.message ?? error);
+    return { ok: false, error: hostProblem(detail), detail };
   }
 }
 

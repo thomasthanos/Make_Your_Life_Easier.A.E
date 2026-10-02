@@ -27,7 +27,7 @@ async function openApp() {
 }
 
 /** A message in place of the list, with a button when there is something to do. */
-function state(title, text, action) {
+function state(title, text, action, run = openApp) {
   const box = document.createElement("div");
   box.className = "state";
   const heading = document.createElement("b");
@@ -40,7 +40,7 @@ function state(title, text, action) {
     button.type = "button";
     button.className = "primary";
     button.textContent = action;
-    button.addEventListener("click", openApp);
+    button.addEventListener("click", run);
     box.append(button);
   }
   searchRow.hidden = true;
@@ -56,9 +56,18 @@ function explain(error) {
       return state("No vault yet", "Create your password vault in MYLE first.", "Open MYLE");
     case "notRunning":
       return state("MYLE is not running", "Open it to fill in your logins.", "Open MYLE");
-    case "noHost":
     case "disabled":
-      return state("Browser filling is off", "Turn it on in MYLE: Password Manager → ⋯ → Browser filling.");
+      return state("Browser filling is off", "Turn it on in MYLE: Password Manager → ⋯ → Browser filling.", "Open MYLE");
+    case "hostMissing":
+      return state("This browser cannot reach MYLE yet",
+        "Open MYLE once: it connects your browsers by itself. Still nothing? Password Manager → ⋯ → Browser filling shows what is missing.",
+        "Try again", retry);
+    case "hostForbidden":
+      return state("MYLE does not know this copy",
+        "Load the extension from the folder MYLE shows in Password Manager → ⋯ → Browser filling.", "Try again", retry);
+    case "hostExited":
+    case "noHost":
+      return state("MYLE could not answer", "Make sure MYLE is installed and up to date, then try again.", "Try again", retry);
     case "insecure":
       return state("Not a secure page", "Logins are filled only on https pages.");
     case "busy":
@@ -211,4 +220,9 @@ content.addEventListener("keydown", (event) => {
 });
 document.getElementById("open").addEventListener("click", openApp);
 
-void load().catch(() => state("Could not read this tab", "Reload the page and try again."));
+function retry() {
+  content.replaceChildren();
+  void load().catch(() => state("Could not read this tab", "Reload the page and try again."));
+}
+
+retry();
